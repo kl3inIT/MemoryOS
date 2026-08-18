@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: memoryos-api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
