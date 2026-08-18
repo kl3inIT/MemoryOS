@@ -12,7 +12,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
+                "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
+                "memoryos.identity.audience=memoryos-api",
+                "memoryos.identity.bindings[0].issuer=https://issuer.example.test",
+                "memoryos.identity.bindings[0].subject=smoke-subject",
+                "memoryos.identity.bindings[0].actor-id=00000000-0000-0000-0000-000000000001"
+        })
 class ApiApplicationSmokeTest {
 
     @Test
@@ -21,16 +30,17 @@ class ApiApplicationSmokeTest {
 
     @Test
     void healthEndpointIsAvailable(@LocalServerPort int port) throws Exception {
-        var client = HttpClient.newBuilder()
+        try (var client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
-                .build();
-        var request = HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + port + "/actuator/health"))
-                .timeout(Duration.ofSeconds(5))
-                .build();
-        var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                .build()) {
+            var request = HttpRequest.newBuilder(
+                            URI.create("http://127.0.0.1:" + port + "/actuator/health"))
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-        assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("\"status\":\"UP\""));
+            assertEquals(200, response.statusCode());
+            assertTrue(response.body().contains("\"status\":\"UP\""));
+        }
     }
 }

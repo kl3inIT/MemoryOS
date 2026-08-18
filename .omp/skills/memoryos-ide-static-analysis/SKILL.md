@@ -9,7 +9,7 @@ Gate 1 for this repository: every created or edited IDE-supported file receives 
 
 ## Primary path: JetBrains MCP
 
-Use JetBrains MCP when the `mcp__jetbrains_*` tools are mounted.
+For Java, Spring, Kotlin DSL, Gradle, YAML, properties, and XML diagnostics, JetBrains MCP is the primary tool whenever its server is available. Run JetBrains inspection before consulting LSP diagnostics; do not downgrade to LSP merely because native JetBrains tool routes are absent when the configured JetBrains MCP endpoint is healthy.
 
 1. Resolve the absolute repository root from the current working directory and pass it as `projectPath` on every JetBrains call. Never hard-code another developer's checkout path.
 2. Read the mounted tool schema before its first use, for example `xd://mcp__jetbrains_get_file_problems`. The mounted plugin schema is authoritative.
@@ -36,13 +36,13 @@ Parallelize independent per-file inspections. Never inspect only a representativ
 - `get_file_problems`: required per-file semantic inspection.
 - `get_project_modules`: confirm IntelliJ imported `core`, `api`, and `worker` as the expected Gradle modules.
 - `get_project_dependencies`: inspect the IDE-resolved dependency graph.
-- `search_symbol` and `get_symbol_info`: understand Java/Kotlin symbols when LSP is unavailable.
-- `rename_refactoring`: project-wide semantic rename only when LSP rename is unavailable.
+- `search_symbol`, `get_symbol_info`, `find_usages`, and `get_symbol_definition`: primary Java/Spring code intelligence when JetBrains MCP provides the operation.
+- `rename_refactoring`: primary Java/Kotlin project-wide semantic rename when available.
 - `reformat_file`: IDE formatting after substantive edits when project formatting is configured.
 - `build_project`: IDE-aware compilation after Gradle sync.
 - `get_run_configurations` and `execute_run_configuration`: use existing focused application or test configurations.
 
-Check `xd://lsp` first. When an LSP is configured, use it for definitions, references, hover, code actions, and cross-file renames; JetBrains MCP remains the inspection and IDE-build gate.
+For Java and Spring, run `get_file_problems` first and treat its framework-aware diagnostics as authoritative over LSP diagnostics. LSP remains available for a symbol operation that JetBrains MCP does not expose or cannot complete, and must still be used where the harness requires an available language server for references or refactors. Never use LSP diagnostics as a substitute for the required JetBrains per-file inspection.
 
 ## Compile floor
 

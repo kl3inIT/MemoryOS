@@ -49,23 +49,23 @@ gradlew.bat clean check --no-daemon
 4. Open a non-draft PR with scope, verification, risks, and the Linear identifier.
 5. Record PR number, base SHA, head SHA, changed paths, and required checks.
 
-## 4. CI and CodeRabbit convergence
+## 4. CI and one CodeRabbit review pass
 
-Set bounds before watching: at most three pushed fix rounds, two latest-head CI reruns without a code fix, 60 polls per head, and 600 seconds for one watch. A timed-out watch is evidence of a pending reviewer, not permission to report success or loop forever.
+Request and inspect CodeRabbit exactly once per pull request. Set bounds before watching: one manual review request at most, one complete CodeRabbit evidence collection, one 600-second review watch, at most three pushed fix rounds, and two latest-head CI reruns without a code fix. A timed-out watch is evidence of a pending reviewer, not permission to poll again or loop forever.
 
-### Collect complete evidence
+### Collect complete evidence once
 
-Inspect checks, summaries, reviews, normal comments, inline comments, and unresolved review threads for the current `headRefOid`:
+After CodeRabbit completes, inspect its summaries, submitted reviews, normal comments, inline comments, and unresolved review threads once. Record the reviewed `headRefOid` and every finding:
 
 ```text
 gh pr view <pr> --json headRefOid,baseRefOid,mergeable,reviewDecision,statusCheckRollup,reviews,comments
 gh api repos/<owner>/MemoryOS/pulls/<pr>/comments --paginate
-gh api graphql -f owner=<owner> -f name=MemoryOS -F number=<pr> -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved isOutdated comments(first:100){nodes{author{login}body path line url}}}}}}}'
+gh api graphql -f owner=<owner> -f name=MemoryOS -F number=<pr> -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{id isResolved isOutdated comments(first:100){nodes{id author{login}body path line url}}}}}}}'
 ```
 
-Use `gh pr checks <pr> --watch --interval 10` or `gh run watch <run> --exit-status` with the bounded tool timeout. Inspect a red run with `gh run view <run> --log-failed`.
+Use `gh pr checks <pr> --watch --interval 10` or `gh run watch <run> --exit-status` with the bounded tool timeout. Inspect a red CI run with `gh run view <run> --log-failed`.
 
-For repositories where CodeRabbit requires manual review, request `@coderabbitai full review`. A bot acknowledgement proves the command was accepted, not that analysis completed.
+For repositories where CodeRabbit requires manual review, request `@coderabbitai full review` once. A bot acknowledgement proves the command was accepted, not that analysis completed. Never request, poll, or collect a second CodeRabbit review after this pass, including after a fix push.
 
 ### Classify every finding
 
@@ -85,26 +85,26 @@ False-positive rules:
 - Give a specific reasoned reply. `Not applicable` without evidence is unresolved.
 - Resolve a review thread only after the evidence is posted and the latest head still supports it.
 
-After any push, restart convergence against the new `headRefOid`. Repeated concern without new evidence, two no-progress rounds, or exhausted bounds stops the merge and escalates the exact remaining state.
+After a fix push, rerun latest-head CI and resolve the findings captured in the single review pass with concrete fix or rebuttal evidence. Do not re-request, re-poll, or re-read CodeRabbit. A failed fix, repeated concern already present in the captured findings, two no-progress rounds, or exhausted bounds stops the merge and escalates the exact remaining state.
 
 ### CodeRabbit rate-limit fallback
 
 A CodeRabbit fair-usage, rate-limit, or silent-review fallback is allowed only when all conditions hold:
 
 1. The user has authorized merge-when-green for this scope.
-2. CodeRabbit explicitly reports a quota/rate limit, or the bounded watch expires without producing review output.
+2. CodeRabbit explicitly reports a quota/rate limit, or the single bounded watch expires without producing review output.
 3. Every required CI check is green for the current head.
-4. Direct inspection shows no actionable review summary, inline comment, submitted review, or unresolved review thread for the current head.
+4. The one permitted evidence collection found no actionable review summary, inline comment, submitted review, or unresolved review thread.
 5. The PR is mergeable and fresh against `origin/main`.
 6. The fallback condition and inspected evidence are recorded on the PR or linked Linear issue.
 
-A pending CodeRabbit check by itself is not enough. Existing findings must still be classified and resolved; the fallback covers missing reviewer output, not ignored feedback.
+A pending CodeRabbit check by itself is not enough. Findings captured during the single pass must still be classified and resolved; the fallback covers missing reviewer output, not ignored feedback.
 
 ## 5. Guarded merge
 
-1. Fetch `origin/main` immediately before merge. If it advanced, merge it into the branch, rerun affected local gates, push, and repeat latest-head CI/review convergence.
-2. Re-read the PR head SHA, mergeability, required checks, reviews, inline comments, and unresolved threads.
-3. Confirm every actionable finding is fixed, answered with evidence, or covered by the documented rate-limit fallback.
+1. Fetch `origin/main` immediately before merge. If it advanced, merge it into the branch, rerun affected local gates, push, and rerun latest-head CI without requesting or inspecting CodeRabbit again.
+2. Re-read the PR head SHA, mergeability, and required CI checks. Use the findings and thread identifiers captured in the single CodeRabbit review pass; do not collect review evidence again.
+3. Confirm every captured actionable finding is fixed, answered with evidence, or covered by the documented rate-limit fallback.
 4. When the active user directive says merge when green, that is merge authorization for this scope. Otherwise obtain explicit approval.
 5. Merge only the reviewed head:
 
@@ -131,7 +131,7 @@ gh pr merge <pr> --merge --delete-branch --match-head-commit "$reviewed_head_sha
 - [ ] Local static, behavioral, and terminating Gradle gates passed.
 - [ ] Remote PR head equals the verified local head.
 - [ ] Required CI is green for the latest head.
-- [ ] Every CodeRabbit finding was classified with evidence.
+- [ ] The single CodeRabbit review pass was captured and every finding was classified with evidence.
 - [ ] Any rate-limit fallback satisfies all six conditions and is recorded.
 - [ ] Base freshness and exact-head merge guard passed.
 - [ ] Merge commit contains the reviewed head and exact merge-SHA CI passed.
