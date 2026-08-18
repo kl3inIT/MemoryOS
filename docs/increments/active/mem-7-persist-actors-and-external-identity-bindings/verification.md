@@ -6,9 +6,9 @@ Date: 2026-08-18
 
 | Check | Scenario | Observed result |
 | --- | --- | --- |
-| Focused persistence and HTTP contracts | `gradlew.bat :core:test --tests io.memoryos.identity.persistence.JdbcExternalIdentityStoreTest :api:test --tests io.memoryos.api.security.JwtAuthenticationIntegrationTest --no-daemon` | `BUILD SUCCESSFUL`; repository constraints and database-backed JWT flow passed after provisioning code removal |
-| JetBrains static analysis | `api/build.gradle.kts`, JWT integration test, JDBC resolver, JDBC resolver test; warnings included | Initial SQL-datasource warnings were addressed with a test-only inspection suppression and a constant-parameter warning was removed; reinspection returned zero findings for all changed IDE-supported files |
-| Repository gate | `gradlew.bat clean check --no-daemon` | `BUILD SUCCESSFUL`; 17 actionable tasks, 15 executed and 2 from cache |
+| Focused persistence and HTTP contracts | `gradlew.bat :core:test --tests io.memoryos.identity.persistence.JdbcExternalIdentityResolverTest :api:test --tests io.memoryos.api.security.JwtAuthenticationIntegrationTest --no-daemon` | `BUILD SUCCESSFUL`; production lookup and all test seed/update/delete operations use Spring `JdbcClient` |
+| JetBrains static analysis | Resolver, repository test, API security composition, JWT integration test, core Gradle file, and version catalog; warnings included | Zero findings across all six changed IDE-supported files |
+| Repository gate | `gradlew.bat clean check --no-daemon` | `BUILD SUCCESSFUL`; 17 actionable tasks, 13 executed and 4 from cache |
 | Runtime surface removal | `gradlew.bat :api:tasks --all --no-daemon` | Only standard Spring Boot application tasks remain; no identity provisioning task is exposed |
 | Documentation links | Parsed every repository Markdown relative link | 18 Markdown files and 43 relative links checked; zero broken links; `CLAUDE.md` imports `@AGENTS.md` |
 

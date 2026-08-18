@@ -2,12 +2,12 @@
 
 | Requirement | Durable verification |
 | --- | --- |
-| Same subject at different issuers resolves independently | `JdbcExternalIdentityStoreTest.resolvesSameSubjectSeparatelyForEachIssuer` |
-| Lookup is exact and case-sensitive | `JdbcExternalIdentityStoreTest.doesNotResolveUnknownOrDifferentlyCasedIdentity` |
-| One exact identity cannot bind to two actors | `JdbcExternalIdentityStoreTest.exactIdentityCanOnlyBelongToOneActor` |
-| Binding requires an existing actor | `JdbcExternalIdentityStoreTest.bindingRequiresExistingActor` |
-| One actor may own multiple identities | `JdbcExternalIdentityStoreTest.oneActorCanOwnMultipleExternalIdentities` |
-| Actor deletion is restricted while bindings exist | `JdbcExternalIdentityStoreTest.actorWithBindingCannotBeDeleted` |
+| Same subject at different issuers resolves independently | `JdbcExternalIdentityResolverTest.resolvesSameSubjectSeparatelyForEachIssuer` |
+| Lookup is exact and case-sensitive | `JdbcExternalIdentityResolverTest.doesNotResolveUnknownOrDifferentlyCasedIdentity` |
+| One exact identity cannot bind to two actors | `JdbcExternalIdentityResolverTest.exactIdentityCanOnlyBelongToOneActor` |
+| Binding requires an existing actor | `JdbcExternalIdentityResolverTest.bindingRequiresExistingActor` |
+| One actor may own multiple identities | `JdbcExternalIdentityResolverTest.oneActorCanOwnMultipleExternalIdentities` |
+| Actor deletion is restricted while bindings exist | `JdbcExternalIdentityResolverTest.actorWithBindingCannotBeDeleted` |
 | Missing/malformed token and invalid signature fail | `JwtAuthenticationIntegrationTest` rejection cases |
 | Wrong issuer or audience fails | `JwtAuthenticationIntegrationTest.rejectsWrongIssuer` and `rejectsWrongAudience` |
 | Expired or not-yet-valid token fails | `JwtAuthenticationIntegrationTest` timestamp rejection cases |

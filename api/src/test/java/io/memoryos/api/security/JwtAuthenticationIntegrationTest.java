@@ -20,19 +20,18 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -70,30 +69,25 @@ class JwtAuthenticationIntegrationTest {
     }
 
     @Autowired
-    private DataSource dataSource;
+    private JdbcClient jdbcClient;
 
     @BeforeEach
-    void seedBoundIdentity() throws SQLException {
-        try (var connection = dataSource.getConnection()) {
-            connection.setAutoCommit(false);
-            try (var clearBindings = connection.createStatement();
-                    var insertActor = connection.prepareStatement("INSERT INTO actors (id) VALUES (?)");
-                    var insertBinding = connection.prepareStatement(
-                            "INSERT INTO external_identity_bindings (issuer, subject, actor_id) VALUES (?, ?, ?)")) {
-                clearBindings.executeUpdate("DELETE FROM external_identity_bindings");
-                clearBindings.executeUpdate("DELETE FROM actors");
-                insertActor.setObject(1, UUID.fromString(ACTOR_ID));
-                insertActor.executeUpdate();
-                insertBinding.setString(1, ISSUER);
-                insertBinding.setString(2, BOUND_SUBJECT);
-                insertBinding.setObject(3, UUID.fromString(ACTOR_ID));
-                insertBinding.executeUpdate();
-                connection.commit();
-            } catch (SQLException exception) {
-                connection.rollback();
-                throw exception;
-            }
-        }
+    void seedBoundIdentity() {
+        jdbcClient.sql("DELETE FROM external_identity_bindings").update();
+        jdbcClient.sql("DELETE FROM actors").update();
+        jdbcClient
+                .sql("INSERT INTO actors (id) VALUES (:actorId)")
+                .param("actorId", UUID.fromString(ACTOR_ID))
+                .update();
+        jdbcClient
+                .sql("""
+                        INSERT INTO external_identity_bindings (issuer, subject, actor_id)
+                        VALUES (:issuer, :subject, :actorId)
+                        """)
+                .param("issuer", ISSUER)
+                .param("subject", BOUND_SUBJECT)
+                .param("actorId", UUID.fromString(ACTOR_ID))
+                .update();
     }
 
     @AfterAll

@@ -45,7 +45,7 @@ A successful request is authenticated with the internal actor principal. `GET /a
 
 ## Persistence contract
 
-`JdbcExternalIdentityStore` is the capability-owned read adapter. It performs an exact parameterized lookup and returns `Optional.empty()` when no binding exists. SQL failures become an `IllegalStateException` with the original `SQLException` as cause.
+`JdbcExternalIdentityResolver` is the capability-owned read adapter. It uses Spring `JdbcClient` for an exact named-parameter lookup and returns `Optional.empty()` when no binding exists. SQL failures use Spring's unchecked `DataAccessException` hierarchy.
 
 Flyway owns the schema under `core/src/main/resources/db/migration/`. Applied migrations are immutable.
 

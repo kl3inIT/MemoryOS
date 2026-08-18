@@ -15,6 +15,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 - Keep this file a map, not an encyclopedia. Put each fact in one canonical document and link to it.
 - Classify knowledge before writing: current implementation in `ARCHITECTURE.md` or `docs/specs/`; product intent in `docs/vision.md`; cross-cutting engineering policy in `docs/conventions.md` or `docs/guidelines/`; change-local reasoning in the active increment.
+- Treat `core` as capability implementation, not a framework-free domain layer. Capability code may use Spring, `JdbcClient`, transactions, or JPA when they reduce real complexity; forbid dependency inversion violations and speculative layers, not framework use.
 - Start non-trivial work with an increment directory containing `design.md` and `plan.md`. Update both as scope changes.
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
 - After verification, consolidate durable facts into architecture/spec/test/guideline documents in the same change. Keep the increment under `active/` until the pull request merges; then move it to `completed/` and reconcile the roadmap.

@@ -8,7 +8,7 @@ MemoryOS is a controlled Spring Modulith monolith built as three flat Gradle mod
 
 | Module | Runtime role | Dependency rule |
 | --- | --- | --- |
-| `core` | Capability model, public contracts, capability-owned persistence | Must not depend on a deployable |
+| `core` | Complete capability implementations: contracts, behavior, transactions, and capability-owned persistence | Must not depend on a deployable |
 | `api` | Spring Boot HTTP composition root | Depends on `core` |
 | `worker` | Spring Boot background-processing composition root | Depends on `core` |
 
@@ -17,6 +17,8 @@ MemoryOS is a controlled Spring Modulith monolith built as three flat Gradle mod
 ## Capability boundaries
 
 `core` contains seven Spring Modulith modules: `identity`, `authorization`, `knowledge`, `ingestion`, `retrieval`, `assistant`, and `audit`. A capability root package is its public API. Capability-owned persistence lives beneath that capability and cannot be imported by another capability.
+
+`core` is not a framework-free domain layer. A capability may use Spring, `JdbcClient`, transactions, or JPA inside its boundary. The architecture forbids dependencies on deployables, cross-capability persistence access, and speculative duplicate layers; it does not forbid framework code in `core`.
 
 The enforced dependency graph is defined by [ADR 0001](docs/decisions/0001-controlled-modular-monolith.md) and verified by Spring Modulith and ArchUnit tests.
 
@@ -52,7 +54,7 @@ Flyway migration `V1__create_identity_tables.sql` owns two PostgreSQL tables:
 - `actors`: internal UUID identity.
 - `external_identity_bindings`: exact `(issuer, subject)` primary key referencing `actors.id` with `ON DELETE RESTRICT`.
 
-`JdbcExternalIdentityStore` implements `ExternalIdentityResolver` with one exact lookup. Case normalization, email/username matching, implicit actor creation, and silent rebinding are not implemented.
+`JdbcExternalIdentityResolver` implements `ExternalIdentityResolver` with Spring `JdbcClient` and one exact lookup. Case normalization, email/username matching, implicit actor creation, and silent rebinding are not implemented.
 
 API startup requires datasource and OIDC configuration and runs Flyway validation/migration. The shared PostgreSQL port is loopback-only; local access uses an SSH tunnel. Operational details are in [the development runtime runbook](docs/runbooks/development-runtime.md).
 

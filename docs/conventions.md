@@ -8,14 +8,14 @@ These conventions apply across MemoryOS. Capability-specific behavior belongs in
 - Do not add interfaces, adapters, configuration modes, or deployment units without a current caller and owned lifecycle.
 - Use a clean cutover: migrate every caller and remove obsolete code, configuration, comments, and tests in the same change.
 - Keep capability boundaries from [ARCHITECTURE.md](../ARCHITECTURE.md). A new dependency edge requires an architecture decision and boundary-test update.
-- Put framework composition in `api` or `worker`; keep capability contracts and owned persistence in `core`.
+- `core` owns complete capability implementations, including Spring services, transactions, and persistence. `api` and `worker` are deployable composition roots; neither defines capability-owned business or persistence behavior.
 
 ## Java and Gradle
 
 - Target JDK 25 and use the checked-in Gradle wrapper.
 - Prefer immutable value types and constructor validation at public boundaries.
 - Preserve exact security identifiers. Do not normalize issuer, subject, actor ID, email, or username unless a capability contract explicitly requires it.
-- Use direct JDBC when the operations are few and transaction semantics are clearer than an ORM lifecycle. Introduce Spring Data or JPA only under demonstrated pressure.
+- Prefer Spring `JdbcClient` for explicit SQL and Spring-managed transaction/error semantics. Use JPA when entity lifecycle or relationships provide concrete value; never create parallel domain/entity/repository/mapper layers by default.
 - Centralize dependency versions in `gradle/libs.versions.toml`.
 
 ## Data and security
