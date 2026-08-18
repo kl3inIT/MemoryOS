@@ -24,13 +24,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "SqlWithoutWhere"})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class JwtAuthenticationIntegrationTest {
 
@@ -55,9 +60,34 @@ class JwtAuthenticationIntegrationTest {
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> "http://127.0.0.1:" + JWK_SERVER.getAddress().getPort() + "/jwks");
         registry.add("memoryos.identity.audience", () -> AUDIENCE);
-        registry.add("memoryos.identity.bindings[0].issuer", () -> ISSUER);
-        registry.add("memoryos.identity.bindings[0].subject", () -> BOUND_SUBJECT);
-        registry.add("memoryos.identity.bindings[0].actor-id", () -> ACTOR_ID);
+        registry.add(
+                "spring.datasource.url",
+                () -> "jdbc:h2:mem:jwt-auth;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
+                        + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
+        registry.add("spring.datasource.username", () -> "sa");
+        registry.add("spring.datasource.password", () -> "");
+    }
+
+    @Autowired
+    private JdbcClient jdbcClient;
+
+    @BeforeEach
+    void seedBoundIdentity() {
+        jdbcClient.sql("DELETE FROM external_identity_bindings").update();
+        jdbcClient.sql("DELETE FROM actors").update();
+        jdbcClient
+                .sql("INSERT INTO actors (id) VALUES (:actorId)")
+                .param("actorId", UUID.fromString(ACTOR_ID))
+                .update();
+        jdbcClient
+                .sql("""
+                        INSERT INTO external_identity_bindings (issuer, subject, actor_id)
+                        VALUES (:issuer, :subject, :actorId)
+                        """)
+                .param("issuer", ISSUER)
+                .param("subject", BOUND_SUBJECT)
+                .param("actorId", UUID.fromString(ACTOR_ID))
+                .update();
     }
 
     @AfterAll

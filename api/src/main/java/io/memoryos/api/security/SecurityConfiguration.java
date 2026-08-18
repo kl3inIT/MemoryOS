@@ -1,6 +1,7 @@
 package io.memoryos.api.security;
 
 import io.memoryos.identity.ExternalIdentityResolver;
+import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
 import java.net.URI;
 import java.util.Objects;
 import org.jspecify.annotations.NullMarked;
@@ -8,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -29,8 +31,8 @@ import org.springframework.security.web.SecurityFilterChain;
 class SecurityConfiguration {
 
     @Bean
-    ExternalIdentityResolver externalIdentityResolver(MemoryOsIdentityProperties properties) {
-        return new ConfiguredExternalIdentityResolver(properties);
+    ExternalIdentityResolver externalIdentityResolver(JdbcClient jdbcClient) {
+        return new JdbcExternalIdentityResolver(jdbcClient);
     }
 
     @Bean
