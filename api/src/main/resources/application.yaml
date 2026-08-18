@@ -1,9 +1,23 @@
 spring:
   application:
     name: memoryos-api
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${MEMORYOS_IDENTITY_ISSUER}
+          jwk-set-uri: ${MEMORYOS_IDENTITY_JWK_SET_URI}
 
 management:
   endpoints:
     web:
       exposure:
         include: health
+
+memoryos:
+  identity:
+    audience: ${MEMORYOS_IDENTITY_AUDIENCE}
+    bindings:
+      - issuer: ${MEMORYOS_IDENTITY_BINDING_ISSUER}
+        subject: ${MEMORYOS_IDENTITY_BINDING_SUBJECT}
+        actor-id: ${MEMORYOS_IDENTITY_BINDING_ACTOR_ID}

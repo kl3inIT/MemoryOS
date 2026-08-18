@@ -8,8 +8,10 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
 
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.security.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

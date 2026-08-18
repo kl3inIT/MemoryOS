@@ -33,13 +33,49 @@ Linux or macOS:
 
 The `check` task compiles all modules, runs Spring Modulith verification, enforces ArchUnit dependency rules, and runs application context smoke tests.
 
-## Run the API
+## Chạy API
+
+API là OAuth2 Resource Server và fail-fast nếu thiếu identity configuration. Không lưu các giá trị binding hoặc credential trong repository.
 
 ```powershell
+$env:MEMORYOS_IDENTITY_ISSUER = "https://auth.kl3in.tech/realms/memoryos"
+$env:MEMORYOS_IDENTITY_JWK_SET_URI = "https://auth.kl3in.tech/realms/memoryos/protocol/openid-connect/certs"
+$env:MEMORYOS_IDENTITY_AUDIENCE = "memoryos-api"
+$env:MEMORYOS_IDENTITY_BINDING_ISSUER = $env:MEMORYOS_IDENTITY_ISSUER
+$env:MEMORYOS_IDENTITY_BINDING_SUBJECT = "<oidc-subject>"
+$env:MEMORYOS_IDENTITY_BINDING_ACTOR_ID = "<internal-actor-uuid>"
+
 .\gradlew.bat :api:bootRun
 ```
 
-Health check: `GET http://localhost:8080/actuator/health`
+Endpoints:
+
+| Endpoint | Access | Kết quả |
+| --- | --- | --- |
+| `GET /actuator/health` | Public | Trạng thái API |
+| `GET /api/identity/me` | Bearer JWT | Chỉ trả `{"actorId":"<uuid>"}` |
+
+API kiểm tra JWT signature, exact issuer, audience `memoryos-api`, `exp`, `nbf` và nonblank `sub`. Sau đó exact `(issuer, subject)` được resolve thành `ActorId`; token hợp lệ nhưng chưa có binding vẫn trả `401`.
+
+## Shared Keycloak
+
+- Realm: `memoryos`
+- Issuer: `https://auth.kl3in.tech/realms/memoryos`
+- JWKS: `https://auth.kl3in.tech/realms/memoryos/protocol/openid-connect/certs`
+- Public client: `memoryos-integration`
+- Flow: Authorization Code + PKCE S256
+- Redirect URIs: `http://127.0.0.1:8765/callback` và `http://localhost:8765/callback`
+
+Desired state nằm trong `infrastructure/keycloak/`. Chạy `configure-memoryos-realm.sh` bằng `kcadm.sh` với tài khoản có `realm-management/realm-admin` trong realm `memoryos`. Truyền admin password từ runtime secret hoặc interactive environment; không đưa password vào command history, Git, Linear hoặc log.
+
+Ứng dụng không dùng tài khoản quản trị Keycloak. Real-login verification phải tạo normal user tạm, chạy Authorization Code + PKCE, gọi `/api/identity/me`, rồi xóa user.
+
+Troubleshooting:
+
+1. Startup thất bại vì thiếu biến môi trường là fail-fast đúng thiết kế.
+2. `401` với token thật: kiểm tra `iss`, `aud`, thời gian token, `sub` và binding; không in raw token.
+3. Không đổi identity bằng email hoặc username. Binding luôn dùng exact `(issuer, subject)`.
+4. Không sửa realm `orgmemory`; khi tạo realm mới, Keycloak chỉ được phép tự thêm client `memoryos-realm` vào `master`.
 
 ## Run the worker
 
