@@ -1,6 +1,12 @@
 spring:
   application:
     name: memoryos-api
+  datasource:
+    url: ${MEMORYOS_DATABASE_URL}
+    username: ${MEMORYOS_DATABASE_USERNAME}
+    password: ${MEMORYOS_DATABASE_PASSWORD}
+  flyway:
+    enabled: true
   security:
     oauth2:
       resourceserver:
@@ -17,7 +23,3 @@ management:
 memoryos:
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
-    bindings:
-      - issuer: ${MEMORYOS_IDENTITY_BINDING_ISSUER}
-        subject: ${MEMORYOS_IDENTITY_BINDING_SUBJECT}
-        actor-id: ${MEMORYOS_IDENTITY_BINDING_ACTOR_ID}

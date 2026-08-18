@@ -35,18 +35,20 @@ The `check` task compiles all modules, runs Spring Modulith verification, enforc
 
 ## Chạy API
 
-API là OAuth2 Resource Server và fail-fast nếu thiếu identity configuration. Không lưu các giá trị binding hoặc credential trong repository.
+API là OAuth2 Resource Server và fail-fast nếu thiếu identity hoặc database configuration. Actor và exact external-identity binding được lưu trong PostgreSQL; repository không lưu credential hay giá trị binding.
 
 ```powershell
 $env:MEMORYOS_IDENTITY_ISSUER = "https://auth.kl3in.tech/realms/memoryos"
 $env:MEMORYOS_IDENTITY_JWK_SET_URI = "https://auth.kl3in.tech/realms/memoryos/protocol/openid-connect/certs"
 $env:MEMORYOS_IDENTITY_AUDIENCE = "memoryos-api"
-$env:MEMORYOS_IDENTITY_BINDING_ISSUER = $env:MEMORYOS_IDENTITY_ISSUER
-$env:MEMORYOS_IDENTITY_BINDING_SUBJECT = "<oidc-subject>"
-$env:MEMORYOS_IDENTITY_BINDING_ACTOR_ID = "<internal-actor-uuid>"
+$env:MEMORYOS_DATABASE_URL = "jdbc:postgresql://127.0.0.1:15555/memoryos"
+$env:MEMORYOS_DATABASE_USERNAME = "memoryos_app"
+$env:MEMORYOS_DATABASE_PASSWORD = "<load from managed runtime secret>"
 
 .\gradlew.bat :api:bootRun
 ```
+
+PostgreSQL trên shared server chỉ bind loopback. Khi vận hành từ máy local, mở SSH tunnel tới server port `5555` trước khi dùng URL local ở trên; không public database port.
 
 Endpoints:
 
@@ -56,6 +58,22 @@ Endpoints:
 | `GET /api/identity/me` | Bearer JWT | Chỉ trả `{"actorId":"<uuid>"}` |
 
 API kiểm tra JWT signature, exact issuer, audience `memoryos-api`, `exp`, `nbf` và nonblank `sub`. Sau đó exact `(issuer, subject)` được resolve thành `ActorId`; token hợp lệ nhưng chưa có binding vẫn trả `401`.
+
+### Provision actor và identity binding
+
+Lấy exact `sub` từ token của normal OIDC user mà không log raw token, sau đó chạy command operator-only:
+
+```powershell
+.\gradlew.bat :api:provisionIdentityBinding --args="--memoryos.identity.provision.issuer=https://auth.kl3in.tech/realms/memoryos --memoryos.identity.provision.subject=<oidc-subject> --memoryos.identity.provision.actor-id=<internal-actor-uuid>"
+```
+
+Command dùng cùng ba biến `MEMORYOS_DATABASE_*`, chạy Flyway trước khi ghi dữ liệu và có các invariant:
+
+1. Actor chưa tồn tại được tạo với UUID đã chọn.
+2. Exact `(issuer, subject)` chưa tồn tại được bind vào actor.
+3. Chạy lại cùng binding trả `unchanged`; không tạo duplicate.
+4. Binding đã thuộc actor khác làm command fail và rollback; không tự rebind.
+5. Xóa actor đang có binding bị foreign key `ON DELETE RESTRICT` chặn.
 
 ## Shared Keycloak
 
@@ -79,6 +97,20 @@ Troubleshooting:
 3. Không đổi identity bằng email hoặc username. Binding luôn dùng exact `(issuer, subject)`.
 4. Không sửa realm ứng dụng `orgmemory`. Khi operator tạo realm `memoryos` lần đầu, Keycloak tự thêm client quản trị built-in `memoryos-realm` vào `master`; provisioner không truy cập hoặc sửa `master`.
 
+## Persistence operations
+
+- Shared PostgreSQL deployment: `/apps/postgres/docker-compose.yml`.
+- MemoryOS database/user: `memoryos` / `memoryos_app`.
+- Runtime password location: `/apps/memoryos/secrets/postgres-password`; không ghi giá trị secret vào Git, Linear, log hoặc command history.
+- Flyway migrations thuộc `core/src/main/resources/db/migration/`. Migration đã apply là immutable; thay đổi schema bằng migration version mới, không sửa checksum cũ.
+- Trước migration có thao tác phá hủy, tạo và kiểm tra backup của database `memoryos`. Shared PostgreSQL data nằm trong external volume do `/apps/postgres` quản lý; không recreate hoặc rename volume trong runbook MemoryOS.
+- Khi provision conflict, đọc exact `(issuer, subject, actor_id)`, xác minh ownership và backup trước. Không sửa theo email/username/domain và không xóa binding để “thử lại”. Rebind là thao tác recovery có phê duyệt, thực hiện trong một transaction rồi kiểm tra `/api/identity/me`.
+- Sau restore, chạy API hoặc provisioning command để Flyway validate schema history, kiểm tra actor/binding counts, rồi thực hiện Authorization Code + PKCE smoke test bằng normal user tạm.
+
+## Production-first persistence
+
+Dữ liệu có lifecycle hoặc phải tồn tại qua restart/deploy mặc định dùng deployable PostgreSQL, versioned migration, database-enforced uniqueness/foreign keys, transaction, backup và recovery trong cùng issue. In-memory/H2 chỉ dùng cho test cô lập hoặc experiment được ghi rõ; không được thay thế persistence production chỉ để giảm scope của feature.
+
 ## Run the worker
 
 ```powershell
@@ -89,4 +121,4 @@ The foundation worker starts without a scheduler or job processor and exits clea
 
 ## Scope
 
-This foundation has no database, OpenFGA client, model provider, connector, MCP server, GraphRAG engine, or production deployment configuration. See [ADR 0001](docs/decisions/0001-controlled-modular-monolith.md) for the architecture decision.
+This foundation has no OpenFGA client, model provider, connector, MCP server, GraphRAG engine, or production application deployment configuration. PostgreSQL persistence is deployable through runtime configuration and the shared-server database runbook above. See [ADR 0001](docs/decisions/0001-controlled-modular-monolith.md) for the architecture decision.

@@ -18,9 +18,9 @@ import org.springframework.boot.test.web.server.LocalServerPort;
                 "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
                 "memoryos.identity.audience=memoryos-api",
-                "memoryos.identity.bindings[0].issuer=https://issuer.example.test",
-                "memoryos.identity.bindings[0].subject=smoke-subject",
-                "memoryos.identity.bindings[0].actor-id=00000000-0000-0000-0000-000000000001"
+                "spring.datasource.url=jdbc:h2:mem:api-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+                "spring.datasource.username=sa",
+                "spring.datasource.password="
         })
 class ApiApplicationSmokeTest {
 

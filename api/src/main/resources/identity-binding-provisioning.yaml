@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    url: ${MEMORYOS_DATABASE_URL}
+    username: ${MEMORYOS_DATABASE_USERNAME}
+    password: ${MEMORYOS_DATABASE_PASSWORD}
+  flyway:
+    enabled: true

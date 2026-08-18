@@ -1,8 +1,10 @@
 package io.memoryos.api.security;
 
 import io.memoryos.identity.ExternalIdentityResolver;
+import io.memoryos.identity.persistence.JdbcExternalIdentityStore;
 import java.net.URI;
 import java.util.Objects;
+import javax.sql.DataSource;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -29,8 +31,8 @@ import org.springframework.security.web.SecurityFilterChain;
 class SecurityConfiguration {
 
     @Bean
-    ExternalIdentityResolver externalIdentityResolver(MemoryOsIdentityProperties properties) {
-        return new ConfiguredExternalIdentityResolver(properties);
+    JdbcExternalIdentityStore externalIdentityStore(DataSource dataSource) {
+        return new JdbcExternalIdentityStore(dataSource);
     }
 
     @Bean

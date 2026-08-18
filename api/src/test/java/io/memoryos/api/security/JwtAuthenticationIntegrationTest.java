@@ -13,6 +13,9 @@ import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
+import io.memoryos.identity.ActorId;
+import io.memoryos.identity.ExternalIdentity;
+import io.memoryos.identity.ExternalIdentityBindingProvisioner;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -24,8 +27,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -55,9 +61,22 @@ class JwtAuthenticationIntegrationTest {
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> "http://127.0.0.1:" + JWK_SERVER.getAddress().getPort() + "/jwks");
         registry.add("memoryos.identity.audience", () -> AUDIENCE);
-        registry.add("memoryos.identity.bindings[0].issuer", () -> ISSUER);
-        registry.add("memoryos.identity.bindings[0].subject", () -> BOUND_SUBJECT);
-        registry.add("memoryos.identity.bindings[0].actor-id", () -> ACTOR_ID);
+        registry.add(
+                "spring.datasource.url",
+                () -> "jdbc:h2:mem:jwt-auth;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
+                        + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
+        registry.add("spring.datasource.username", () -> "sa");
+        registry.add("spring.datasource.password", () -> "");
+    }
+
+    @Autowired
+    private ExternalIdentityBindingProvisioner identityProvisioner;
+
+    @BeforeEach
+    void provisionBoundIdentity() {
+        identityProvisioner.provision(
+                new ExternalIdentity(ISSUER, BOUND_SUBJECT),
+                new ActorId(UUID.fromString(ACTOR_ID)));
     }
 
     @AfterAll
