@@ -24,10 +24,3 @@ dependencies {
 springBoot {
     mainClass = "io.memoryos.api.MemoryOsApiApplication"
 }
-
-tasks.register<JavaExec>("provisionIdentityBinding") {
-    group = "application"
-    description = "Provision one actor and external identity binding"
-    classpath = sourceSets["main"].runtimeClasspath
-    mainClass = "io.memoryos.api.identity.IdentityBindingProvisioningCommand"
-}

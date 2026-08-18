@@ -1,0 +1,33 @@
+# Engineering conventions
+
+These conventions apply across MemoryOS. Capability-specific behavior belongs in `docs/specs/`; change-local reasoning belongs in the active increment.
+
+## Change design
+
+- Prefer the smallest complete production path over scaffolding for a hypothetical future path.
+- Do not add interfaces, adapters, configuration modes, or deployment units without a current caller and owned lifecycle.
+- Use a clean cutover: migrate every caller and remove obsolete code, configuration, comments, and tests in the same change.
+- Keep capability boundaries from [ARCHITECTURE.md](../ARCHITECTURE.md). A new dependency edge requires an architecture decision and boundary-test update.
+- Put framework composition in `api` or `worker`; keep capability contracts and owned persistence in `core`.
+
+## Java and Gradle
+
+- Target JDK 25 and use the checked-in Gradle wrapper.
+- Prefer immutable value types and constructor validation at public boundaries.
+- Preserve exact security identifiers. Do not normalize issuer, subject, actor ID, email, or username unless a capability contract explicitly requires it.
+- Use direct JDBC when the operations are few and transaction semantics are clearer than an ORM lifecycle. Introduce Spring Data or JPA only under demonstrated pressure.
+- Centralize dependency versions in `gradle/libs.versions.toml`.
+
+## Data and security
+
+- Follow [production-first persistence](guidelines/persistence.md).
+- Fail closed on missing configuration, invalid credentials, unknown bindings, and ownership conflicts.
+- Never write passwords, tokens, private keys, raw authorization codes, or secret values to Git, docs, Linear, logs, or command history. Record only the managed secret location and retrieval method.
+- Administrative or ownership-changing behavior requires authorization and audit design; do not expose an unauthenticated convenience endpoint or one-shot application mode.
+
+## Documentation
+
+- One canonical home per fact; use links rather than copies.
+- `ARCHITECTURE.md` states what exists. `docs/vision.md` states intended outcomes. ADRs state accepted rationale. Guidelines state reusable policy. Specs state capability contracts. Increment documents state change-local design and progress.
+- Update documents in the same change that makes them true.
+- Do not mark an increment completed or move it from `active/` until verification passes and the pull request is merged.

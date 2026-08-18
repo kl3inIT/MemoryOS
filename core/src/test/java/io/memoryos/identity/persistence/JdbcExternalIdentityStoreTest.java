@@ -7,8 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
-import io.memoryos.identity.ExternalIdentityBindingConflictException;
-import io.memoryos.identity.ExternalIdentityBindingProvisioner.ProvisioningResult;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -38,76 +36,85 @@ class JdbcExternalIdentityStoreTest {
     }
 
     @Test
-    void resolvesSameSubjectSeparatelyForEachIssuer() {
+    void resolvesSameSubjectSeparatelyForEachIssuer() throws SQLException {
         var identityA = new ExternalIdentity("https://issuer-a.example", "same-subject");
         var identityB = new ExternalIdentity("https://issuer-b.example", "same-subject");
 
-        store.provision(identityA, ACTOR_A);
-        store.provision(identityB, ACTOR_B);
+        persistBinding(identityA, ACTOR_A);
+        persistBinding(identityB, ACTOR_B);
 
         assertEquals(ACTOR_A, store.resolve(identityA).orElseThrow());
         assertEquals(ACTOR_B, store.resolve(identityB).orElseThrow());
     }
 
     @Test
-    void doesNotResolveUnknownOrDifferentlyCasedIdentity() {
-        store.provision(new ExternalIdentity("https://issuer.example", "Subject"), ACTOR_A);
+    void doesNotResolveUnknownOrDifferentlyCasedIdentity() throws SQLException {
+        persistBinding(new ExternalIdentity("https://issuer.example", "Subject"), ACTOR_A);
 
         assertTrue(store.resolve(new ExternalIdentity("https://issuer.example", "unknown")).isEmpty());
         assertTrue(store.resolve(new ExternalIdentity("https://issuer.example", "subject")).isEmpty());
     }
 
     @Test
-    void provisioningSameBindingTwiceIsIdempotent() throws SQLException {
+    void exactIdentityCanOnlyBelongToOneActor() throws SQLException {
         var identity = new ExternalIdentity("https://issuer.example", "subject");
+        persistBinding(identity, ACTOR_A);
+        insertActor(ACTOR_B);
 
-        assertEquals(ProvisioningResult.CREATED, store.provision(identity, ACTOR_A));
-        assertEquals(ProvisioningResult.UNCHANGED, store.provision(identity, ACTOR_A));
-        assertEquals(1, countRows("actors"));
-        assertEquals(1, countRows("external_identity_bindings"));
-    }
-
-    @Test
-    void rebindingIdentityFailsAndRollsBackNewActor() throws SQLException {
-        var identity = new ExternalIdentity("https://issuer.example", "subject");
-        store.provision(identity, ACTOR_A);
-
-        assertThrows(
-                ExternalIdentityBindingConflictException.class,
-                () -> store.provision(identity, ACTOR_B));
-
+        assertThrows(SQLException.class, () -> insertBinding(identity, ACTOR_B));
         assertEquals(ACTOR_A, store.resolve(identity).orElseThrow());
-        assertEquals(1, countRows("actors"));
-        assertEquals(1, countRows("external_identity_bindings"));
     }
 
     @Test
-    void oneActorCanOwnMultipleExternalIdentities() {
+    void bindingRequiresExistingActor() {
+        var identity = new ExternalIdentity("https://issuer.example", "subject");
+
+        assertThrows(SQLException.class, () -> insertBinding(identity, ACTOR_A));
+    }
+
+    @Test
+    void oneActorCanOwnMultipleExternalIdentities() throws SQLException {
         var identityA = new ExternalIdentity("https://issuer-a.example", "subject-a");
         var identityB = new ExternalIdentity("https://issuer-b.example", "subject-b");
 
-        store.provision(identityA, ACTOR_A);
-        store.provision(identityB, ACTOR_A);
+        persistBinding(identityA, ACTOR_A);
+        persistBinding(identityB, ACTOR_A);
 
         assertEquals(ACTOR_A, store.resolve(identityA).orElseThrow());
         assertEquals(ACTOR_A, store.resolve(identityB).orElseThrow());
     }
 
     @Test
-    void actorWithBindingCannotBeDeleted() {
+    void actorWithBindingCannotBeDeleted() throws SQLException {
         var identity = new ExternalIdentity("https://issuer.example", "subject");
-        store.provision(identity, ACTOR_A);
+        persistBinding(identity, ACTOR_A);
 
         assertThrows(SQLException.class, this::deleteActorA);
         assertEquals(ACTOR_A, store.resolve(identity).orElseThrow());
     }
 
-    private int countRows(String table) throws SQLException {
+    private void persistBinding(ExternalIdentity identity, ActorId actorId) throws SQLException {
+        insertActor(actorId);
+        insertBinding(identity, actorId);
+    }
+
+    private void insertActor(ActorId actorId) throws SQLException {
         try (var connection = dataSource.getConnection();
-                var statement = connection.createStatement();
-                var result = statement.executeQuery("SELECT COUNT(*) FROM " + table)) {
-            result.next();
-            return result.getInt(1);
+                var statement = connection.prepareStatement(
+                        "INSERT INTO actors (id) VALUES (?) ON CONFLICT DO NOTHING")) {
+            statement.setObject(1, actorId.value());
+            statement.executeUpdate();
+        }
+    }
+
+    private void insertBinding(ExternalIdentity identity, ActorId actorId) throws SQLException {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(
+                        "INSERT INTO external_identity_bindings (issuer, subject, actor_id) VALUES (?, ?, ?)")) {
+            statement.setString(1, identity.issuer());
+            statement.setString(2, identity.subject());
+            statement.setObject(3, actorId.value());
+            statement.executeUpdate();
         }
     }
 
