@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: memoryos-worker
+  main:
+    web-application-type: none

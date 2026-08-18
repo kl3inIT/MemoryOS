@@ -1,0 +1,7 @@
+.gradle/
+**/build/
+.tmp/
+.idea/
+*.iml
+out/
+.omp/mcp.json
