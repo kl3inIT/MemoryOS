@@ -39,7 +39,7 @@ class SecurityConfiguration {
             @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
             MemoryOsIdentityProperties properties) {
         requireUri(issuerUri, "issuer-uri");
-        requireUri(jwkSetUri, "jwk-set-uri");
+        requireJwkSetUri(jwkSetUri);
 
         var decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
         OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
@@ -67,13 +67,28 @@ class SecurityConfiguration {
         return http.build();
     }
 
-    private static void requireUri(String value, String field) {
+    private static URI requireUri(String value, String field) {
         Objects.requireNonNull(value, field + " must not be null");
         if (value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");
         }
-        if (!URI.create(value).isAbsolute()) {
+        var uri = URI.create(value);
+        if (!uri.isAbsolute()) {
             throw new IllegalArgumentException(field + " must be an absolute URI");
+        }
+        return uri;
+    }
+
+    private static void requireJwkSetUri(String value) {
+        var uri = requireUri(value, "jwk-set-uri");
+        var scheme = uri.getScheme();
+        var host = uri.getHost();
+        var https = "https".equalsIgnoreCase(scheme) && host != null;
+        var loopbackHttp = "http".equalsIgnoreCase(scheme)
+                && ("127.0.0.1".equals(host) || "[::1]".equals(host) || "::1".equals(host));
+        if (!https && !loopbackHttp) {
+            throw new IllegalArgumentException(
+                    "jwk-set-uri must use HTTPS or HTTP with a literal loopback host");
         }
     }
 
