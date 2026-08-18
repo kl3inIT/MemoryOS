@@ -28,14 +28,15 @@ The production read path exercised by that scenario is unchanged. The temporary 
 
 ## CodeRabbit review disposition
 
-One full CodeRabbit pass reviewed commit `976a160` and produced two actionable findings:
+The original PR #3 review produced two actionable findings:
 
 - Missing explicit SSH tunnel mapping: valid; fixed in commit `2859088` with `15555:127.0.0.1:5555` and `ExitOnForwardFailure=yes`.
-- Repository-wide Gradle dependency locking/verification: not applied in MEM-7. It is a cross-repository supply-chain policy change, not an identity-persistence defect, and the suggestion depended on the provisioning task that was removed. Enabling it partially in this increment would create unrelated generated metadata and maintenance scope.
+- Repository-wide Gradle dependency locking/verification: not applied in MEM-7. It is a cross-repository supply-chain policy change, not an identity-persistence defect, and the suggestion depended on the provisioning task that was removed.
 
-No second CodeRabbit review was requested. Later code changes were covered by focused tests, zero-finding JetBrains inspection, and the clean repository gate recorded above. CodeRabbit now excludes `docs/**`; root operational documents remain reviewable.
+PR #4 replaced PR #3 so exact final head `08063a011c1f01418577cb3474893c4e2087523b` could receive a fresh bounded review pass. CodeRabbit explicitly reported `Review limit reached` and produced no submitted review, inline comment, or unresolved thread. The rate-limit fallback was recorded on PR #4 before merge: the user authorized merge when green, exact-head CI passed, the PR was fresh and mergeable, and no finding was ignored.
 
-## Remaining delivery work
+## Delivery evidence
 
-- Merge only after required CI is green and the exact reviewed/verified head requirement is satisfied.
-- After merge, move the increment directory to `docs/increments/completed/` and reconcile the roadmap.
+- PR #4 merged exact head `08063a011c1f01418577cb3474893c4e2087523b` through merge commit `f3e632ff8fd1412dbab8dbc40f3cd5a61ed2b360`.
+- GitHub main CI run `32130033026` passed on the exact merge SHA.
+- Deployment proof is not applicable; this repository has no production deployment path in scope for MEM-7.

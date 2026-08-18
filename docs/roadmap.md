@@ -8,12 +8,11 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | --- | --- | --- |
 | MEM-5 | Controlled Spring Modulith foundation with separate API and worker deployables | [ADR 0001](decisions/0001-controlled-modular-monolith.md) |
 | MEM-6 | Dedicated `memoryos` realm and PKCE client on shared Keycloak | [Runtime runbook](runbooks/development-runtime.md) |
+| MEM-7 | PostgreSQL-backed actors and exact external-identity resolution | [Design](increments/completed/mem-7-persist-actors-and-external-identity-bindings/design.md) · [Verification](increments/completed/mem-7-persist-actors-and-external-identity-bindings/verification.md) · [PR #4](https://github.com/kl3inIT/MemoryOS/pull/4) |
 
 ## Active
 
-| Increment | State | Repository record | External tracker |
-| --- | --- | --- | --- |
-| MEM-7 | In progress; pull request open | [Design](increments/active/mem-7-persist-actors-and-external-identity-bindings/design.md) · [Plan](increments/active/mem-7-persist-actors-and-external-identity-bindings/plan.md) | [Linear](https://linear.app/memory-os/issue/MEM-7/persist-actors-and-external-identity-bindings) · [PR #3](https://github.com/kl3inIT/MemoryOS/pull/3) |
+No active increments.
 
 ## Candidate increments
 

@@ -25,7 +25,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increment
 
-- [MEM-7 — persist actors and external identity bindings](docs/increments/active/mem-7-persist-actors-and-external-identity-bindings/design.md)
+No active increment. See the [roadmap](docs/roadmap.md) before starting new work.
 
 ## Canonical references
 

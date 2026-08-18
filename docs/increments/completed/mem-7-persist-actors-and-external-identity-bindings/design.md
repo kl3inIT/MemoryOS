@@ -1,8 +1,8 @@
 # MEM-7: Persist actors and external identity bindings
 
-- State: In progress
+- State: Delivered
 - Linear: [MEM-7](https://linear.app/memory-os/issue/MEM-7/persist-actors-and-external-identity-bindings)
-- Pull request: [#3](https://github.com/kl3inIT/MemoryOS/pull/3)
+- Pull request: [#4](https://github.com/kl3inIT/MemoryOS/pull/4)
 
 ## Problem
 
