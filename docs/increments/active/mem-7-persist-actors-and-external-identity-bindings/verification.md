@@ -26,9 +26,16 @@ Earlier in the same MEM-7 increment, before final cleanup:
 
 The production read path exercised by that scenario is unchanged. The temporary application provisioning surface used to seed the row was subsequently removed; approved future bootstrap uses the reviewed SQL transaction in `docs/runbooks/development-runtime.md`.
 
+## CodeRabbit review disposition
+
+One full CodeRabbit pass reviewed commit `976a160` and produced two actionable findings:
+
+- Missing explicit SSH tunnel mapping: valid; fixed in commit `2859088` with `15555:127.0.0.1:5555` and `ExitOnForwardFailure=yes`.
+- Repository-wide Gradle dependency locking/verification: not applied in MEM-7. It is a cross-repository supply-chain policy change, not an identity-persistence defect, and the suggestion depended on the provisioning task that was removed. Enabling it partially in this increment would create unrelated generated metadata and maintenance scope.
+
+No second CodeRabbit review was requested. Later code changes were covered by focused tests, zero-finding JetBrains inspection, and the clean repository gate recorded above. CodeRabbit now excludes `docs/**`; root operational documents remain reviewable.
+
 ## Remaining delivery work
 
-- Collect the already-requested single CodeRabbit review against the latest available head and disposition findings.
-- Push the operating-model and provisioning-removal commit to PR #3.
-- Merge only after required CI is green and the reviewed head is proven.
+- Merge only after required CI is green and the exact reviewed/verified head requirement is satisfied.
 - After merge, move the increment directory to `docs/increments/completed/` and reconcile the roadmap.

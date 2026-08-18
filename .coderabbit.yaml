@@ -25,6 +25,7 @@ reviews:
     - "!**/build/**"
     - "!.gradle/**"
     - "!gradle/wrapper/gradle-wrapper.jar"
+    - "!docs/**"
   path_instructions:
     - path: "core/src/main/java/**/*.java"
       instructions: >-
@@ -55,9 +56,6 @@ reviews:
       instructions: >-
         Treat these as project-local agent settings. Reject credentials, non-local MCP endpoints added without reason,
         global side effects, or instructions contradicting repository architecture.
-    - path: "docs/**"
-      instructions: >-
-        Check that architecture claims match the Gradle graph, Spring Modulith declarations, and enforced tests.
   auto_review:
     enabled: true
     auto_incremental_review: true

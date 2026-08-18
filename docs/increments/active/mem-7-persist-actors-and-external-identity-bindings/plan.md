@@ -13,7 +13,7 @@
 - [x] Temporary users, rows, callbacks, tunnels, and local secret files are cleaned up.
 - [x] No speculative provisioning profile, command, task, or write abstraction remains.
 - [x] Latest branch passes repository-wide verification after the operating-model and provisioning-removal changes.
-- [ ] Pull-request review findings are resolved or dispositioned.
+- [x] Pull-request review findings are resolved or dispositioned.
 - [ ] Pull request is merged.
 - [ ] After merge, the increment record is moved to `completed/` and the roadmap is reconciled.
 
