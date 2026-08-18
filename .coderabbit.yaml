@@ -25,7 +25,9 @@ reviews:
     - "!**/build/**"
     - "!.gradle/**"
     - "!gradle/wrapper/gradle-wrapper.jar"
-    - "!docs/**"
+    - "!**/*.md"
+    - "!gradlew"
+    - "!gradlew.bat"
   path_instructions:
     - path: "core/src/main/java/**/*.java"
       instructions: >-
