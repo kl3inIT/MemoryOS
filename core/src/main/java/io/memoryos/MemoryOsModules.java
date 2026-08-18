@@ -1,7 +1,7 @@
 package io.memoryos;
 
-import org.springframework.modulith.Modulith;
+import org.springframework.modulith.Modulithic;
 
-@Modulith(systemName = "MemoryOS")
+@Modulithic(systemName = "MemoryOS")
 public class MemoryOsModules {
 }
