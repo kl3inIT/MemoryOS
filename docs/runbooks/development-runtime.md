@@ -24,6 +24,10 @@ $env:MEMORYOS_DATABASE_PASSWORD = "<load from managed runtime secret>"
 
 Shared PostgreSQL binds only to server loopback port `5555`. Establish an SSH local forward to `127.0.0.1:15555` before using the URL above. Do not publish the database port.
 
+```powershell
+ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5555 <operator>@<shared-postgres-host>
+```
+
 | Endpoint | Access | Expected result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health |
