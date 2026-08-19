@@ -11,6 +11,7 @@
 | Missing, malformed, invalid-signature, wrong-issuer, wrong-audience, expired, future, or missing-subject bearer tokens fail | `JwtAuthenticationIntegrationTest` |
 | Unknown exact bearer binding fails | `JwtAuthenticationIntegrationTest.rejectsUnknownExternalIdentity` |
 | Bound bearer identity returns only `ActorId` | `JwtAuthenticationIntegrationTest.returnsOnlyActorIdForBoundIdentity` |
+| Anonymous current-identity probes return `401` without creating a JDBC session or emitting a session cookie | `BrowserAuthenticationIntegrationTest.rejectsAnonymousIdentityWithoutCreatingASession` |
 | Initial Organization transaction creates or reuses one stable actor binding | `JdbcInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
 | Browser callback replaces provider identity with `ActorId` and stores no provider token marker | `BrowserAuthenticationIntegrationTest.authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession` |
 | Authenticated browser session reads the same `ActorId` from `/api/identity/me` | `BrowserAuthenticationIntegrationTest.authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession` |

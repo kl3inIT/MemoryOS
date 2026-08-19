@@ -6,9 +6,9 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? "github" : "list",
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: "http://127.0.0.1:8080",
+    baseURL: "http://127.0.0.1:4173",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
@@ -20,9 +20,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev",
-    reuseExistingServer: !process.env.CI,
+    command: "pnpm dev:e2e",
+    reuseExistingServer: false,
     timeout: 120_000,
-    url: "http://127.0.0.1:8080",
+    url: "http://127.0.0.1:4173",
   },
 });

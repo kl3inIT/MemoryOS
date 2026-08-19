@@ -6,7 +6,9 @@
   "scripts": {
     "generate:api": "pnpm dlx --package @hey-api/openapi-ts@0.99.0 --package typescript@6.0.3 openapi-ts",
     "check:api": "node scripts/assert-generated-stable.mjs src/lib/hey-api -- pnpm generate:api",
+    "check:ci": "node scripts/assert-playwright-image.ts",
     "dev": "pnpm generate:api && vite",
+    "dev:e2e": "pnpm generate:api && node scripts/start-e2e-server.ts",
     "typecheck": "tsc -b",
     "build": "vite build && tsc -b",
     "check:routes": "node scripts/assert-generated-stable.mjs src/routeTree.gen.ts -- pnpm build",
@@ -17,7 +19,7 @@
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
     "preview": "vite preview",
-    "check": "pnpm check:api && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm check:routes"
+    "check": "pnpm check:api && pnpm check:ci && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm check:routes"
   },
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",

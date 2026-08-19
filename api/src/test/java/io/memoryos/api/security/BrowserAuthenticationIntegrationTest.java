@@ -108,6 +108,21 @@ class BrowserAuthenticationIntegrationTest {
     }
 
     @Test
+    void rejectsAnonymousIdentityWithoutCreatingASession() throws Exception {
+        long sessionCount = count("spring_session");
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var client = client(cookies)) {
+            var response = client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(401, response.statusCode());
+            assertTrue(response.headers().allValues("set-cookie").isEmpty());
+            assertTrue(cookies.getCookieStore().getCookies().isEmpty());
+            assertEquals(sessionCount, count("spring_session"));
+        }
+    }
+
+    @Test
     void authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
         UUID ownerActorId = jdbcClient.sql("""

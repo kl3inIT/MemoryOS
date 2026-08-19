@@ -1,4 +1,3 @@
-import { createServer } from "node:http";
 import { expect, test } from "@playwright/test";
 
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
@@ -22,41 +21,9 @@ test("offers the backend OAuth2 flow when no session exists", async ({ page }) =
 });
 
 test("retains the OAuth session across the local HTTP callback", async ({ page }) => {
-  let callbackCookie = "";
-  const backend = createServer((request, response) => {
-    if (request.url === "/oauth2/authorization/memoryos") {
-      response.writeHead(302, {
-        location: "/login/oauth2/code/memoryos?code=test&state=test",
-        "set-cookie": "SESSION=oauth-state; Path=/; Secure; HttpOnly; SameSite=Lax",
-      });
-      response.end();
-      return;
-    }
+  await page.goto("/oauth2/authorization/memoryos");
 
-    if (request.url?.startsWith("/login/oauth2/code/memoryos")) {
-      callbackCookie = request.headers.cookie ?? "";
-      response.writeHead(200, { "content-type": "text/plain" });
-      response.end("callback received");
-      return;
-    }
-
-    response.writeHead(404);
-    response.end();
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    backend.once("error", reject);
-    backend.listen(18080, "127.0.0.1", resolve);
-  });
-
-  try {
-    await page.goto("/oauth2/authorization/memoryos");
-    expect(callbackCookie).toContain("SESSION=oauth-state");
-  } finally {
-    await new Promise<void>((resolve, reject) => {
-      backend.close((error) => (error ? reject(error) : resolve()));
-    });
-  }
+  await expect(page.locator("body")).toContainText("SESSION=oauth-state");
 });
 
 test("renders the stable actor returned by an authenticated session", async ({ page }) => {
