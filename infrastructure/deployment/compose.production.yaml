@@ -1,0 +1,61 @@
+name: memoryos
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+services:
+  api:
+    <<: *service-defaults
+    image: ${MEMORYOS_API_IMAGE:?Set MEMORYOS_API_IMAGE}
+    container_name: memoryos-api
+    env_file:
+      - ${MEMORYOS_ENV_FILE:-../../.env}
+    ports:
+      - 127.0.0.1:${MEMORYOS_API_HOST_PORT:-18080}:8080
+    networks:
+      shared-infra:
+        aliases:
+          - memoryos-api
+      proxy:
+        aliases:
+          - memoryos-api
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q -O - http://127.0.0.1:8080/actuator/health
+          | grep -q '"status":"UP"'
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    stop_grace_period: 45s
+    cpu_shares: 512
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 768m
+        reservations:
+          memory: 384m
+
+networks:
+  shared-infra:
+    name: ${MEMORYOS_SHARED_INFRA_NETWORK:-shared-infra}
+    external: true
+  proxy:
+    name: ${MEMORYOS_PROXY_NETWORK:-proxy-network}
+    external: true

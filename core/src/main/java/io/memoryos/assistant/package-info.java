@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Assistant",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"retrieval", "audit"}
+        allowedDependencies = {"retrieval"}
 )
 package io.memoryos.assistant;
 

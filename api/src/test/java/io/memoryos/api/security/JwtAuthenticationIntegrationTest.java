@@ -13,6 +13,7 @@ import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,13 +41,13 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class JwtAuthenticationIntegrationTest {
 
-    private static final String ISSUER = "https://issuer.example.test";
     private static final String AUDIENCE = "memoryos-api";
     private static final String BOUND_SUBJECT = "bound-subject";
     private static final String ACTOR_ID = "00000000-0000-0000-0000-000000000001";
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final RSAKey WRONG_KEY = rsaKey();
     private static final HttpServer JWK_SERVER = startJwkServer();
+    private static final String ISSUER = issuer(JWK_SERVER);
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
@@ -66,6 +68,22 @@ class JwtAuthenticationIntegrationTest {
                         + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
+        registry.add("spring.security.oauth2.client.registration.memoryos.client-secret", () -> "client-secret");
+        registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> ISSUER);
+        registry.add("spring.security.oauth2.client.provider.memoryos.authorization-uri",
+                () -> ISSUER + "/authorize");
+        registry.add("spring.security.oauth2.client.provider.memoryos.token-uri", () -> ISSUER + "/token");
+        registry.add("spring.security.oauth2.client.provider.memoryos.jwk-set-uri",
+                () -> "http://127.0.0.1:" + JWK_SERVER.getAddress().getPort() + "/jwks");
+        registry.add("spring.security.oauth2.client.provider.memoryos.user-info-uri",
+                () -> ISSUER + "/userinfo");
+        registry.add("spring.security.oauth2.client.provider.memoryos.user-name-attribute", () -> "sub");
+        registry.add("memoryos.initial-organization.owner-subject", () -> "startup-owner");
+        registry.add("memoryos.initial-organization.slug", () -> "test");
+        registry.add("memoryos.initial-organization.display-name", () -> "Test");
+        registry.add("memoryos.initial-organization.default-workspace-slug", () -> "default");
+        registry.add("memoryos.initial-organization.default-workspace-display-name", () -> "Default");
+        registry.add("memoryos.initial-organization.change-reference", () -> "TEST-JWT-BOOTSTRAP");
     }
 
     @Autowired
@@ -73,8 +91,12 @@ class JwtAuthenticationIntegrationTest {
 
     @BeforeEach
     void seedBoundIdentity() {
-        jdbcClient.sql("DELETE FROM external_identity_bindings").update();
-        jdbcClient.sql("DELETE FROM actors").update();
+        jdbcClient.sql("DELETE FROM external_identity_bindings WHERE actor_id = :actorId")
+                .param("actorId", UUID.fromString(ACTOR_ID))
+                .update();
+        jdbcClient.sql("DELETE FROM actors WHERE id = :actorId")
+                .param("actorId", UUID.fromString(ACTOR_ID))
+                .update();
         jdbcClient
                 .sql("INSERT INTO actors (id) VALUES (:actorId)")
                 .param("actorId", UUID.fromString(ACTOR_ID))
@@ -246,13 +268,23 @@ class JwtAuthenticationIntegrationTest {
     private static HttpServer startJwkServer() {
         try {
             var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
-            server.createContext("/jwks", exchange -> {
-                var body = new JWKSet(SIGNING_KEY.toPublicJWK()).toString().getBytes(UTF_8);
-                exchange.getResponseHeaders().add("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, body.length);
-                try (var responseBody = exchange.getResponseBody()) {
-                    responseBody.write(body);
-                }
+            server.createContext("/jwks", exchange -> sendJson(
+                    exchange,
+                    new JWKSet(SIGNING_KEY.toPublicJWK()).toString()
+            ));
+            server.createContext("/.well-known/openid-configuration", exchange -> {
+                String issuer = issuer(server);
+                sendJson(exchange, """
+                        {
+                          "issuer": "%s",
+                          "authorization_endpoint": "%s/authorize",
+                          "token_endpoint": "%s/token",
+                          "jwks_uri": "%s/jwks",
+                          "userinfo_endpoint": "%s/userinfo",
+                          "subject_types_supported": ["public"],
+                          "id_token_signing_alg_values_supported": ["RS256"]
+                        }
+                        """.formatted(issuer, issuer, issuer, issuer, issuer));
             });
             server.start();
             return server;
@@ -260,4 +292,18 @@ class JwtAuthenticationIntegrationTest {
             throw new IllegalStateException("Could not start test JWK server", exception);
         }
     }
+
+    private static String issuer(HttpServer server) {
+        return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    private static void sendJson(com.sun.net.httpserver.HttpExchange exchange, String json) throws IOException {
+        byte[] body = json.getBytes(UTF_8);
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, body.length);
+        try (var responseBody = exchange.getResponseBody()) {
+            responseBody.write(body);
+        }
+    }
+
 }

@@ -2,15 +2,21 @@
 set -eu
 
 TARGET_REALM=memoryos
-CLIENT_ID=memoryos-integration
-MAPPER_NAME=memoryos-api-audience
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 
 : "${KEYCLOAK_URL:?KEYCLOAK_URL is required}"
 : "${KEYCLOAK_ADMIN_USERNAME:?KEYCLOAK_ADMIN_USERNAME is required}"
-: "${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}"
+: "${KC_CLI_PASSWORD:?KC_CLI_PASSWORD is required}"
+: "${MEMORYOS_INITIAL_OWNER_USERNAME:?MEMORYOS_INITIAL_OWNER_USERNAME is required}"
+: "${MEMORYOS_BROWSER_CLIENT_SECRET:?MEMORYOS_BROWSER_CLIENT_SECRET is required}"
 
+
+command -v jq >/dev/null 2>&1 || {
+    echo "jq is required" >&2
+    exit 1
+}
+umask 077
 
 CONFIG_FILE=$(mktemp)
 cleanup() {
@@ -55,48 +61,111 @@ find_mapper_uuid() {
     --config "$CONFIG_FILE" \
     --server "$KEYCLOAK_URL" \
     --realm "$TARGET_REALM" \
-    --user "$KEYCLOAK_ADMIN_USERNAME" \
-    --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null
+    --user "$KEYCLOAK_ADMIN_USERNAME" >/dev/null
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
 
-CLIENT_UUID=$(find_client_uuid)
-
-if [ -z "$CLIENT_UUID" ]; then
-    "$KCADM" create clients \
+find_initial_owner_uuid() {
+    rows=$("$KCADM" get users \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
-        -f "$SCRIPT_DIR/memoryos-client.json" >/dev/null
-    CLIENT_UUID=$(find_client_uuid)
-    if [ -z "$CLIENT_UUID" ]; then
-        echo "client creation did not converge" >&2
+        -q exact=true \
+        -q "username=$MEMORYOS_INITIAL_OWNER_USERNAME" \
+        --fields id,username)
+    matches=$(printf '%s\n' "$rows" |
+        jq -c '[.[] | select(.username == env.MEMORYOS_INITIAL_OWNER_USERNAME)]')
+    count=$(printf '%s\n' "$matches" | jq -r 'length')
+    if [ "$count" -gt 1 ]; then
+        echo "duplicate initial owner username: $MEMORYOS_INITIAL_OWNER_USERNAME" >&2
         exit 1
     fi
-    echo "client=$CLIENT_ID action=created"
-else
+    printf '%s\n' "$matches" | jq -r '.[0].id // empty'
+}
+
+provision_initial_owner() {
+    INITIAL_OWNER_UUID=$(find_initial_owner_uuid)
+    if [ -n "$INITIAL_OWNER_UUID" ]; then
+        echo "user=$MEMORYOS_INITIAL_OWNER_USERNAME subject=$INITIAL_OWNER_UUID action=existing"
+        return
+    fi
+
+    : "${MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD:?MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD is required when creating the initial owner}"
+    jq -cn '{
+        username: env.MEMORYOS_INITIAL_OWNER_USERNAME,
+        enabled: true,
+        credentials: [{
+            type: "password",
+            value: env.MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD,
+            temporary: true
+        }]
+    }' |
+        "$KCADM" create users \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f - >/dev/null
+
+    INITIAL_OWNER_UUID=$(find_initial_owner_uuid)
+    if [ -z "$INITIAL_OWNER_UUID" ]; then
+        echo "initial owner creation did not converge" >&2
+        exit 1
+    fi
+    echo "user=$MEMORYOS_INITIAL_OWNER_USERNAME subject=$INITIAL_OWNER_UUID action=created"
+}
+
+upsert_client() {
+    CLIENT_ID=$1
+    CLIENT_FILE=$2
+    CLIENT_UUID=$(find_client_uuid)
+
+    if [ -z "$CLIENT_UUID" ]; then
+        "$KCADM" create clients \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f "$SCRIPT_DIR/$CLIENT_FILE" >/dev/null
+        CLIENT_UUID=$(find_client_uuid)
+        if [ -z "$CLIENT_UUID" ]; then
+            echo "client creation did not converge" >&2
+            exit 1
+        fi
+        echo "client=$CLIENT_ID action=created"
+    else
+        "$KCADM" update "clients/$CLIENT_UUID" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f "$SCRIPT_DIR/$CLIENT_FILE" >/dev/null
+        echo "client=$CLIENT_ID action=updated"
+    fi
+}
+
+upsert_mapper() {
+    MAPPER_NAME=$1
+    MAPPER_FILE=$2
+    MAPPER_UUID=$(find_mapper_uuid)
+
+    if [ -z "$MAPPER_UUID" ]; then
+        "$KCADM" create "clients/$CLIENT_UUID/protocol-mappers/models" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
+        echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=created"
+    else
+        "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
+        echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=updated"
+    fi
+}
+
+provision_initial_owner
+upsert_client memoryos-integration memoryos-client.json
+
+upsert_mapper memoryos-api-audience memoryos-audience-mapper.json
+
+upsert_client memoryos-web memoryos-browser-client.json
+jq -cn '{secret: env.MEMORYOS_BROWSER_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
-        -f "$SCRIPT_DIR/memoryos-client.json" >/dev/null
-    echo "client=$CLIENT_ID action=updated"
-fi
-
-MAPPER_UUID=$(find_mapper_uuid)
-
-if [ -z "$MAPPER_UUID" ]; then
-    "$KCADM" create "clients/$CLIENT_UUID/protocol-mappers/models" \
-        --config "$CONFIG_FILE" \
-        -r "$TARGET_REALM" \
-        -f "$SCRIPT_DIR/memoryos-audience-mapper.json" >/dev/null
-    echo "mapper=$MAPPER_NAME action=created"
-else
-    "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
-        --config "$CONFIG_FILE" \
-        -r "$TARGET_REALM" \
-        -s "name=$MAPPER_NAME" \
-        -s protocol=openid-connect \
-        -s protocolMapper=oidc-audience-mapper \
-        -s consentRequired=false \
-        -s 'config={"included.custom.audience":"memoryos-api","access.token.claim":"true","id.token.claim":"false","introspection.token.claim":"true"}' >/dev/null
-    echo "mapper=$MAPPER_NAME action=updated"
-fi
+        -f - >/dev/null
+echo "client=memoryos-web secret=updated"

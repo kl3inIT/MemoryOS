@@ -1,8 +1,8 @@
 @ApplicationModule(
-        displayName = "Audit",
+        displayName = "Organization",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {}
+        allowedDependencies = {"identity"}
 )
-package io.memoryos.audit;
+package io.memoryos.organization;
 
 import org.springframework.modulith.ApplicationModule;

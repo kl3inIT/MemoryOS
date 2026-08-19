@@ -13,6 +13,33 @@ spring:
         jwt:
           issuer-uri: ${MEMORYOS_IDENTITY_ISSUER}
           jwk-set-uri: ${MEMORYOS_IDENTITY_JWK_SET_URI}
+      client:
+        registration:
+          memoryos:
+            provider: memoryos
+            client-id: ${MEMORYOS_BROWSER_CLIENT_ID:memoryos-web}
+            client-secret: ${MEMORYOS_BROWSER_CLIENT_SECRET}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid
+        provider:
+          memoryos:
+            issuer-uri: ${MEMORYOS_IDENTITY_ISSUER}
+  session:
+    jdbc:
+      initialize-schema: never
+      table-name: spring_session
+
+server:
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: ${MEMORYOS_SESSION_TIMEOUT:30m}
+      cookie:
+        http-only: true
+        secure: ${MEMORYOS_SESSION_COOKIE_SECURE:true}
+        same-site: lax
 
 management:
   endpoints:
@@ -23,3 +50,12 @@ management:
 memoryos:
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
+  browser:
+    registration-id: memoryos
+  initial-organization:
+    owner-subject: ${MEMORYOS_INITIAL_OWNER_SUBJECT}
+    slug: ${MEMORYOS_ORGANIZATION_SLUG}
+    display-name: ${MEMORYOS_ORGANIZATION_DISPLAY_NAME}
+    default-workspace-slug: ${MEMORYOS_DEFAULT_WORKSPACE_SLUG}
+    default-workspace-display-name: ${MEMORYOS_DEFAULT_WORKSPACE_DISPLAY_NAME}
+    change-reference: ${MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE}

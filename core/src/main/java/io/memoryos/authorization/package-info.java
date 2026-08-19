@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Authorization",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"identity", "audit"}
+        allowedDependencies = {"identity"}
 )
 package io.memoryos.authorization;
 
