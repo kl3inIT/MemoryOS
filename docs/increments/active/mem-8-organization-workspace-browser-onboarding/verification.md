@@ -1,6 +1,6 @@
 # MEM-8 verification
 
-Status: local implementation, repository verification, and shared Keycloak/runtime-configuration preparation complete. Shared PostgreSQL API/bootstrap/browser evidence, pull request CI, and review remain required before merge.
+Status: local and shared-runtime implementation evidence complete for exact bootstrap, initial-owner browser login, `ActorId`-only JDBC session persistence, and restart replay. A live unprovisioned-user denial, pull request latest-head CI, and review remain required before merge.
 
 ## Automated evidence
 
@@ -57,25 +57,40 @@ Command:
 
 The first gate exposed two non-browser test contexts that still disabled OIDC discovery with a blank issuer. Their local test providers were corrected to publish standards-shaped discovery metadata. The affected API contexts then passed in 32 seconds.
 
-Observed final run 2026-08-19: `BUILD SUCCESSFUL` in 21 seconds; 17 actionable tasks, 9 executed, 7 from cache, and 1 up to date. This included all capability, HTTP integration, Spring Modulith, ArchUnit, and composition-root smoke tests.
+Observed final implementation run 2026-08-19: `BUILD SUCCESSFUL` in 21 seconds; 17 actionable tasks, 9 executed, 7 from cache, and 1 up to date. This included all capability, HTTP integration, Spring Modulith, ArchUnit, and composition-root smoke tests. After shared-runtime verification and evidence consolidation, the same `clean check` gate passed again in 11 seconds with 17 actionable tasks, 7 executed, 9 from cache, and 1 up to date.
 
-## Shared environment preparation
+## Shared production deployment
 
-Observed 2026-08-19 on `zm`: reused the live `memoryos` realm, resolved existing local owner `admin` to stable subject `0bbc3040-9a06-46ec-b4b0-c546199e3e00`, and confirmed that the supplied user authenticates but cannot administer realm users. The live Keycloak deployment's existing bootstrap operator was consumed internally without exposing its credential. Confidential client `memoryos-web` was created with Standard Flow only, localhost callbacks, mandatory S256 PKCE, and a generated managed secret. `/apps/memoryos/.env` now contains the API-only runtime configuration with mode `600`; operator and owner passwords are absent. Shared database `memoryos`, role `memoryos_app`, and the existing mode-`600` database secret were reused.
+Observed 2026-08-19 on `zm`: built commit `54893747a459e7ce082ce4fd1348967b590bb707` as `memoryos-api:sha-54893747a459e7ce082ce4fd1348967b590bb707` with image ID `sha256:37262bd304d7c2fc95f8e5daab41ad84ed0890c2e39df0e4832ba1fd9fdefa60`. The installed Compose descriptor has SHA-256 `13ebf41195a70558876b298a5de78371c6cbb1a4d58accb4f82f0bf4f90c0666`, matching the reviewed repository file.
 
-## Pending runtime evidence
+The deployed container is healthy on `shared-infra` and `proxy-network`, publishes only server-loopback port `18080`, runs as `1654:1654` with a read-only root filesystem, drops all capabilities, enables `no-new-privileges`, and is bounded to one CPU and 768 MiB memory. `GET /actuator/health` returned `{"groups":["liveness","readiness"],"status":"UP"}`.
 
-On shared infrastructure:
+Flyway applied both migrations to shared PostgreSQL. First startup produced exactly one Organization, Workspace, Organization membership, Workspace membership, actor, and external identity binding. The published identifiers were:
 
-1. start the API against shared PostgreSQL with the exact deployment configuration;
-2. prove first startup creates one aggregate and a second identical startup replays it;
-3. complete browser login and observe the expected `ActorId` at `/`;
-4. prove an unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`; and
-5. record secret-safe database evidence for aggregate cardinality and session state.
+- Organization `bd7e443f-c6dc-4f08-b1d5-e36f5e21b6c7`;
+- default Workspace `01553cbb-1bba-4b64-adf0-3ee1209804f8`;
+- actor `2c04758d-6715-4ad2-ad83-1212c9716e8e`; and
+- exact Keycloak subject `0bbc3040-9a06-46ec-b4b0-c546199e3e00`.
+
+The Organization is `ACTIVE`, the actor has active Organization `OWNER` and Workspace `ADMIN` memberships, and the singleton bootstrap-state row publishes the same Organization ID.
+
+## Shared browser and session evidence
+
+Observed 2026-08-19 through an SSH loopback forward: opening `/oauth2/authorization/memoryos` redirected to the live Keycloak realm with `code_challenge_method=S256`. The configured initial owner completed Authorization Code login and returned to `/`, which responded with `{"actorId":"2c04758d-6715-4ad2-ad83-1212c9716e8e"}`.
+
+The browser received one `SESSION` cookie with `HttpOnly`, `Secure`, and `SameSite=Lax`. Shared PostgreSQL held one 1,800-second session whose principal name was the same actor ID and whose only attribute was `SPRING_SECURITY_CONTEXT`. Secret-safe byte inspection found `ActorSessionAuthenticationToken` and no `OAuth2AuthenticationToken`, `OAuth2AuthorizedClient`, or `OidcUser` marker.
+
+## Shared restart replay
+
+Observed 2026-08-19: restarted the exact deployed container and waited for Compose health. Flyway reported the schema current with no migration required. Aggregate cardinalities remained one and every Organization, Workspace, actor, and subject identifier remained unchanged. The pre-restart browser session remained authenticated and `/` returned the same actor ID, proving JDBC session continuity across process restart.
+
+## Remaining runtime evidence
+
+The shared realm has no unprovisioned test identity. The initial owner authenticates but receives `403 Forbidden` for realm-user administration; the available master bootstrap account can read the realm but receives `401 Unauthorized` when creating a realm user. No permission or database bypass was introduced. The exact `ACCESS_NOT_PROVISIONED` callback, invalidated partial session, and zero provider-state persistence remain covered by `BrowserAuthenticationIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession`; a live denial still requires a separately provisioned test identity or authorized Keycloak operator.
 
 ## Pending external evidence
 
-- Shared PostgreSQL API/bootstrap/browser flow listed above.
+- Live unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
 - Pull request latest-head CI and review evidence.
 
 Do not mark MEM-8 delivered or move this directory to `completed/` before those gates and merge.

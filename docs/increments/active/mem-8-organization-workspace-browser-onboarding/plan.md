@@ -34,8 +34,8 @@
 - [x] Add a layered, immutable, non-root API container image.
 - [x] Add a read-only, health-checked, resource-bounded Compose service on existing shared networks.
 - [x] Honor trusted reverse-proxy origin headers for OAuth2 callback generation.
-- [ ] Build and deploy the exact feature-head image on `zm`.
-- [ ] Exercise shared PostgreSQL bootstrap, replay, and browser session through the deployed container.
+- [x] Build and deploy the exact feature-head image on `zm`.
+- [x] Exercise shared PostgreSQL bootstrap, replay, and browser session through the deployed container.
 
 ## Verification gates
 
@@ -43,7 +43,7 @@
 - [x] Real API browser Authorization Code + PKCE integration test.
 - [x] IDE inspection of every changed Java, Kotlin DSL, YAML, properties, and XML file.
 - [x] Container image build and Compose configuration validation.
-- [ ] Shared Keycloak/PostgreSQL initial-owner browser flow.
+- [x] Shared Keycloak/PostgreSQL initial-owner browser flow.
 - [x] `clean check` on the checked-in Gradle wrapper.
 - [ ] Pull request CI and review.
 
