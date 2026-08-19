@@ -12,10 +12,7 @@
   "directAccessGrantsEnabled": false,
   "serviceAccountsEnabled": false,
   "frontchannelLogout": true,
-  "redirectUris": [
-    "http://127.0.0.1:8080/login/oauth2/code/memoryos",
-    "http://localhost:8080/login/oauth2/code/memoryos"
-  ],
+  "redirectUris": [],
   "webOrigins": [],
   "attributes": {
     "pkce.code.challenge.method": "S256"

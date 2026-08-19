@@ -10,6 +10,20 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${KC_CLI_PASSWORD:?KC_CLI_PASSWORD is required}"
 : "${MEMORYOS_INITIAL_OWNER_USERNAME:?MEMORYOS_INITIAL_OWNER_USERNAME is required}"
 : "${MEMORYOS_BROWSER_CLIENT_SECRET:?MEMORYOS_BROWSER_CLIENT_SECRET is required}"
+: "${MEMORYOS_BROWSER_REDIRECT_URI:?MEMORYOS_BROWSER_REDIRECT_URI is required}"
+
+case "$MEMORYOS_BROWSER_REDIRECT_URI" in
+    *'*'*)
+        echo "MEMORYOS_BROWSER_REDIRECT_URI must not contain a wildcard" >&2
+        exit 1
+        ;;
+    https://*/login/oauth2/code/memoryos | http://127.0.0.1:*/login/oauth2/code/memoryos | http://localhost:*/login/oauth2/code/memoryos)
+        ;;
+    *)
+        echo "MEMORYOS_BROWSER_REDIRECT_URI must be an exact HTTPS callback or loopback development callback" >&2
+        exit 1
+        ;;
+esac
 
 
 command -v jq >/dev/null 2>&1 || {
@@ -19,8 +33,9 @@ command -v jq >/dev/null 2>&1 || {
 umask 077
 
 CONFIG_FILE=$(mktemp)
+BROWSER_CLIENT_FILE=$(mktemp)
 cleanup() {
-    rm -f "$CONFIG_FILE"
+    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -121,7 +136,7 @@ upsert_client() {
         "$KCADM" create clients \
             --config "$CONFIG_FILE" \
             -r "$TARGET_REALM" \
-            -f "$SCRIPT_DIR/$CLIENT_FILE" >/dev/null
+            -f "$CLIENT_FILE" >/dev/null
         CLIENT_UUID=$(find_client_uuid)
         if [ -z "$CLIENT_UUID" ]; then
             echo "client creation did not converge" >&2
@@ -132,7 +147,7 @@ upsert_client() {
         "$KCADM" update "clients/$CLIENT_UUID" \
             --config "$CONFIG_FILE" \
             -r "$TARGET_REALM" \
-            -f "$SCRIPT_DIR/$CLIENT_FILE" >/dev/null
+            -f "$CLIENT_FILE" >/dev/null
         echo "client=$CLIENT_ID action=updated"
     fi
 }
@@ -157,12 +172,16 @@ upsert_mapper() {
     fi
 }
 
+jq --arg redirectUri "$MEMORYOS_BROWSER_REDIRECT_URI" \
+    '.redirectUris = [$redirectUri]' \
+    "$SCRIPT_DIR/memoryos-browser-client.json" >"$BROWSER_CLIENT_FILE"
+
 provision_initial_owner
-upsert_client memoryos-integration memoryos-client.json
+upsert_client memoryos-integration "$SCRIPT_DIR/memoryos-client.json"
 
 upsert_mapper memoryos-api-audience memoryos-audience-mapper.json
 
-upsert_client memoryos-web memoryos-browser-client.json
+upsert_client memoryos-web "$BROWSER_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_BROWSER_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
         --config "$CONFIG_FILE" \

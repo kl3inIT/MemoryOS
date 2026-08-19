@@ -4,15 +4,15 @@ Status: local and shared-runtime implementation evidence complete for exact boot
 
 ## Automated evidence
 
-### Focused bootstrap and compilation
+### Focused bootstrap and PostgreSQL concurrency
 
 Command:
 
 ```powershell
-.\gradlew.bat :core:test --tests io.memoryos.organization.persistence.JdbcInitialOrganizationBootstrapperTest :api:compileTestJava --no-daemon
+.\gradlew.bat :core:test --tests io.memoryos.organization.persistence.JdbcInitialOrganizationBootstrapperTest --tests io.memoryos.organization.persistence.PostgresInitialOrganizationBootstrapperConcurrencyTest --no-daemon
 ```
 
-Observed 2026-08-19: `BUILD SUCCESSFUL` in 22 seconds. This exercised exact aggregate creation/replay, singleton concurrency, drift rejection, identity rollback, and active-membership resolution; API test sources compiled against the narrowed contract.
+Observed 2026-08-19 after review remediation: `BUILD SUCCESSFUL` in 19 seconds for `JdbcInitialOrganizationBootstrapperTest` and `PostgresInitialOrganizationBootstrapperConcurrencyTest`. The H2 concurrency scenario now invokes the bootstrap through a real Spring transaction proxy. The pinned PostgreSQL 17 Testcontainer independently proved that two concurrent transactions serialize on the singleton row, publish exactly one aggregate, return one `created` and one `replayed` result, and leave the database at exact singleton cardinalities. The suite also exercised exact aggregate creation/replay, drift rejection, identity rollback, and active-membership resolution.
 
 ### Browser HTTP integration
 
@@ -37,7 +37,7 @@ The test starts the real API HTTP composition with an isolated database and loca
 
 ### Keycloak reconciliation smoke
 
-Observed 2026-08-19: `sh -n infrastructure/keycloak/configure-memoryos-realm.sh` passed. A disposable `kcadm` double then exercised the complete script twice. The first pass created the named user with a temporary credential supplied through stdin, reported its stable subject, created both clients, and updated the confidential secret through stdin. The second pass omitted the temporary-password variable, reused the same subject without resetting its credential, and reconciled the existing clients. Captured output contained no password or client secret.
+Observed 2026-08-19: `sh -n infrastructure/keycloak/configure-memoryos-realm.sh` passed. A disposable `kcadm` double then exercised the complete script twice. The first pass created the named user with a temporary credential supplied through stdin, reported its stable subject, created both clients, and updated the confidential secret through stdin. The second pass omitted the temporary-password variable, reused the same subject without resetting its credential, and reconciled the existing clients. Captured output contained no password or client secret. Review remediation removed the checked-in wildcard redirect, required one deployment-supplied exact callback URI, rendered it into the disposable desired-state JSON, and rejected a wildcard URI; a Linux smoke run proved the exact allowlist and rejection paths.
 
 ### Container packaging
 
@@ -45,7 +45,7 @@ Observed 2026-08-19: `docker compose ... config` rendered the production service
 
 ### IDE semantic inspection
 
-JetBrains `get_file_problems` inspected every remaining changed Java, Kotlin DSL, and YAML file with warnings enabled, including the production Compose descriptor and forwarded callback test. The review removed an unused exception, simplified an impossible null branch, made the concurrency-test executor structurally closeable, and removed one redundant forwarded-port test header. Final reinspection returned no errors or warnings.
+JetBrains `get_file_problems` inspected every remaining changed Java, Kotlin DSL, and YAML file with warnings enabled, including the production Compose descriptor and forwarded callback test. The first review removed an unused exception, simplified an impossible null branch, made the concurrency-test executor structurally closeable, and removed one redundant forwarded-port test header. Review-remediation inspection also covered both bootstrap tests, the Gradle DSL/catalog, the browser-client JSON, and the Keycloak reconciliation script. Final reinspection returned no errors or warnings.
 
 ### Repository gate
 
@@ -57,7 +57,7 @@ Command:
 
 The first gate exposed two non-browser test contexts that still disabled OIDC discovery with a blank issuer. Their local test providers were corrected to publish standards-shaped discovery metadata. The affected API contexts then passed in 32 seconds.
 
-Observed final implementation run 2026-08-19: `BUILD SUCCESSFUL` in 21 seconds; 17 actionable tasks, 9 executed, 7 from cache, and 1 up to date. This included all capability, HTTP integration, Spring Modulith, ArchUnit, and composition-root smoke tests. After shared-runtime verification and evidence consolidation, the same `clean check` gate passed again in 11 seconds with 17 actionable tasks, 7 executed, 9 from cache, and 1 up to date.
+Observed final implementation run 2026-08-19: `BUILD SUCCESSFUL` in 21 seconds; 17 actionable tasks, 9 executed, 7 from cache, and 1 up to date. This included all capability, HTTP integration, Spring Modulith, ArchUnit, and composition-root smoke tests. After shared-runtime verification and evidence consolidation, the same `clean check` gate passed again in 11 seconds with 17 actionable tasks, 7 executed, 9 from cache, and 1 up to date. After review remediation added real Spring proxy coverage, deterministic PostgreSQL row-lock observation, and exact Keycloak redirect reconciliation, the final `clean check` passed in 19 seconds with 17 actionable tasks, 9 executed and 8 from cache.
 
 ## Shared production deployment
 

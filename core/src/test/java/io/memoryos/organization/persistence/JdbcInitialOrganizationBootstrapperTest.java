@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.identity.ExternalIdentity;
+import io.memoryos.identity.ExternalIdentityRegistrar;
 import io.memoryos.identity.IdentityPersistence;
 import io.memoryos.organization.InitialOrganizationBootstrapRequest;
 import io.memoryos.organization.InitialOrganizationBootstrapper;
@@ -24,18 +25,20 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class JdbcInitialOrganizationBootstrapperTest {
 
     private JdbcClient jdbcClient;
-    private TransactionTemplate transactions;
     private Connection keepAlive;
     private InitialOrganizationBootstrapper bootstrapper;
 
@@ -56,10 +59,18 @@ class JdbcInitialOrganizationBootstrapperTest {
         ).populate(keepAlive);
 
         jdbcClient = JdbcClient.create(dataSource);
-        transactions = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+        var transactionManager = new DataSourceTransactionManager(dataSource);
         var resolver = IdentityPersistence.resolver(jdbcClient);
-        var registrar = IdentityPersistence.registrar(jdbcClient, resolver);
-        bootstrapper = OrganizationPersistence.initialBootstrapper(jdbcClient, resolver, registrar);
+        var registrar = transactionalProxy(
+                IdentityPersistence.registrar(jdbcClient, resolver),
+                ExternalIdentityRegistrar.class,
+                transactionManager
+        );
+        bootstrapper = transactionalProxy(
+                OrganizationPersistence.initialBootstrapper(jdbcClient, resolver, registrar),
+                InitialOrganizationBootstrapper.class,
+                transactionManager
+        );
     }
 
     @AfterEach
@@ -71,8 +82,8 @@ class JdbcInitialOrganizationBootstrapperTest {
     void createsTheExactInitialAggregateAndReplaysTheSameConfiguration() {
         var request = request();
 
-        var created = transactions.execute(_ -> bootstrapper.bootstrap(request));
-        var existing = transactions.execute(_ -> bootstrapper.bootstrap(request));
+        var created = bootstrapper.bootstrap(request);
+        var existing = bootstrapper.bootstrap(request);
 
         assertTrue(created.created());
         assertFalse(existing.created());
@@ -102,12 +113,12 @@ class JdbcInitialOrganizationBootstrapperTest {
             var first = executor.submit(() -> {
                 ready.countDown();
                 assertTrue(start.await(5, SECONDS));
-                return transactions.execute(_ -> bootstrapper.bootstrap(request()));
+                return bootstrapper.bootstrap(request());
             });
             var second = executor.submit(() -> {
                 ready.countDown();
                 assertTrue(start.await(5, SECONDS));
-                return transactions.execute(_ -> bootstrapper.bootstrap(request()));
+                return bootstrapper.bootstrap(request());
             });
             assertTrue(ready.await(5, SECONDS));
             start.countDown();
@@ -126,7 +137,7 @@ class JdbcInitialOrganizationBootstrapperTest {
 
     @Test
     void resolvesOnlyActiveOrganizationMemberships() {
-        var initial = transactions.execute(_ -> bootstrapper.bootstrap(request()));
+        var initial = bootstrapper.bootstrap(request());
         var accessResolver = OrganizationPersistence.accessResolver(jdbcClient);
 
         assertTrue(accessResolver.hasActiveOrganization(initial.ownerActorId()));
@@ -157,7 +168,7 @@ class JdbcInitialOrganizationBootstrapperTest {
 
     @Test
     void rejectsConfigurationDriftWithoutChangingTheExistingAggregate() {
-        transactions.executeWithoutResult(_ -> bootstrapper.bootstrap(request()));
+        bootstrapper.bootstrap(request());
         var changed = new InitialOrganizationBootstrapRequest(
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "tasco-owner"),
                 "tasco",
@@ -167,10 +178,7 @@ class JdbcInitialOrganizationBootstrapperTest {
                 "DEPLOY-2026-08-19"
         );
 
-        assertThrows(
-                OrganizationBootstrapConflictException.class,
-                () -> transactions.executeWithoutResult(_ -> bootstrapper.bootstrap(changed))
-        );
+        assertThrows(OrganizationBootstrapConflictException.class, () -> bootstrapper.bootstrap(changed));
 
         assertEquals("Tasco", scalar("SELECT display_name FROM organizations"));
         assertEquals(1L, count("organizations"));
@@ -187,10 +195,7 @@ class JdbcInitialOrganizationBootstrapperTest {
                 "DEPLOY-2026-08-19"
         );
 
-        assertThrows(
-                DataIntegrityViolationException.class,
-                () -> transactions.executeWithoutResult(_ -> bootstrapper.bootstrap(invalid))
-        );
+        assertThrows(DataIntegrityViolationException.class, () -> bootstrapper.bootstrap(invalid));
 
         assertEquals(0L, count("actors"));
         assertEquals(0L, count("external_identity_bindings"));
@@ -204,6 +209,21 @@ class JdbcInitialOrganizationBootstrapperTest {
                         """)
                 .query(Long.class)
                 .single());
+    }
+
+    private static <T> T transactionalProxy(
+            T target,
+            Class<T> contract,
+            PlatformTransactionManager transactionManager
+    ) {
+        var interceptor = new TransactionInterceptor();
+        interceptor.setTransactionManager(transactionManager);
+        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
+        var proxyFactory = new ProxyFactory();
+        proxyFactory.setTarget(target);
+        proxyFactory.setInterfaces(contract);
+        proxyFactory.addAdvice(interceptor);
+        return contract.cast(proxyFactory.getProxy());
     }
 
     private static InitialOrganizationBootstrapRequest request() {

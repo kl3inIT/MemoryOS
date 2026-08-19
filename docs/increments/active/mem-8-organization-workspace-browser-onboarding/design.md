@@ -57,7 +57,7 @@ The browser security chain always exists in production. The OAuth2 authorization
 
 The production proof uses one immutable, commit-labelled `memoryos-api` image built as a layered Spring Boot JAR. The runtime is non-root, read-only apart from bounded `/tmp`, capability-free, protected by `no-new-privileges`, health-checked, log-rotated, resource-bounded, and attached only to the existing `shared-infra` and `proxy-network` Docker networks. A loopback-only host port supports operator health checks and the browser-verification tunnel without publishing plaintext traffic.
 
-The API trusts framework-processed forwarding headers so OAuth2 callback generation uses the HTTPS origin supplied by the reverse proxy. The browser client redirect allowlist must contain the exact verification or production origin; wildcard redirects remain forbidden.
+The API trusts framework-processed forwarding headers so OAuth2 callback generation uses the HTTPS origin supplied by the reverse proxy. Keycloak reconciliation receives the deployment's one exact callback URI and writes it as the browser client's complete redirect allowlist; wildcard redirects are rejected.
 
 ## Evidence boundary
 

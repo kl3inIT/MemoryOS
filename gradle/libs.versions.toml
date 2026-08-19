@@ -26,6 +26,8 @@ spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-star
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
 postgresql = { module = "org.postgresql:postgresql" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 h2 = { module = "com.h2database:h2" }
 
 [plugins]

@@ -20,9 +20,10 @@ KC_CLI_PASSWORD
 MEMORYOS_INITIAL_OWNER_USERNAME
 MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD # required only when the user does not exist
 MEMORYOS_BROWSER_CLIENT_SECRET
+MEMORYOS_BROWSER_REDIRECT_URI # one exact HTTPS callback, or one loopback callback for local verification
 ```
 
-Run the script from a controlled operator shell with `jq` available. Its account needs only user/client management permissions required by the script; do not grant the application or initial owner those Keycloak permissions. Keycloak reads the operator password from its documented `KC_CLI_PASSWORD` environment variable. User creation and browser-secret updates are JSON-encoded from environment values and sent to `kcadm` over standard input, so passwords and secrets do not appear in command arguments or output. The initial password is temporary and must be replaced by the owner at first login; replay never resets an existing user's password. The mode-restricted temporary token configuration is removed on exit.
+Run the script from a controlled operator shell with `jq` available. Its account needs only user/client management permissions required by the script; do not grant the application or initial owner those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to the one exact deployment callback, for example `https://memoryos.example.com/login/oauth2/code/memoryos`; wildcards and non-loopback HTTP origins are rejected. Use `http://localhost:8080/login/oauth2/code/memoryos` only for local verification. Keycloak reads the operator password from its documented `KC_CLI_PASSWORD` environment variable. User creation, exact redirect configuration, and browser-secret updates are JSON-encoded from environment values and sent to `kcadm` over standard input, so passwords and secrets do not appear in command arguments or output. The initial password is temporary and must be replaced by the owner at first login; replay never resets an existing user's password. The mode-restricted temporary token configuration and generated browser-client document are removed on exit.
 
 Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
 

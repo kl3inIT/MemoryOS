@@ -43,4 +43,4 @@ No generic account-linking endpoint, administrative binding endpoint, provisioni
 
 ## Runtime configuration
 
-The API requires the OIDC issuer/JWKS/audience, confidential browser client secret, datasource credentials, and initial Organization values listed in the [development runtime runbook](../runbooks/development-runtime.md). Missing or invalid values fail startup. Plain HTTP JWKS is accepted only for literal loopback test hosts; production uses HTTPS. Session cookies default to `HttpOnly`, `Secure`, and `SameSite=Lax`.
+The API requires the OIDC issuer/JWKS/audience, confidential browser client secret, datasource credentials, and initial Organization values listed in the [development runtime runbook](../runbooks/development-runtime.md). Keycloak reconciliation also requires one exact absolute HTTP(S) browser callback URI and rejects wildcard redirect values. Missing or invalid values fail startup or reconciliation. Plain HTTP JWKS is accepted only for literal loopback test hosts; production uses HTTPS. Session cookies default to `HttpOnly`, `Secure`, and `SameSite=Lax`.

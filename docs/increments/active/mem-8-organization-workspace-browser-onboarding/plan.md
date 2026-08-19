@@ -41,6 +41,8 @@
 
 - [x] Focused bootstrap persistence and concurrency test.
 - [x] Real API browser Authorization Code + PKCE integration test.
+- [x] Spring transaction-proxy concurrency coverage on H2 and a pinned PostgreSQL 17 Testcontainer.
+- [x] Exact deployment-supplied Keycloak browser callback allowlist with wildcard rejection.
 - [x] IDE inspection of every changed Java, Kotlin DSL, YAML, properties, and XML file.
 - [x] Container image build and Compose configuration validation.
 - [x] Shared Keycloak/PostgreSQL initial-owner browser flow.
