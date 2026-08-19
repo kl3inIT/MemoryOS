@@ -45,17 +45,6 @@ updates:
     labels:
       - dependencies
 
-  - package-ecosystem: docker
-    directory: /worker
-    schedule:
-      interval: weekly
-      day: monday
-      time: "09:30"
-      timezone: Asia/Ho_Chi_Minh
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-
   - package-ecosystem: github-actions
     directory: /
     schedule:
