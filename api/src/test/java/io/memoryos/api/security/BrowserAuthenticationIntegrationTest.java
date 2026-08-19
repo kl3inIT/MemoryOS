@@ -149,6 +149,12 @@ class BrowserAuthenticationIntegrationTest {
             var authenticated = client.send(request("/"), HttpResponse.BodyHandlers.ofString());
             assertEquals(200, authenticated.statusCode());
             assertTrue(authenticated.body().contains(ownerActorId.toString()));
+            var currentIdentity = client.send(
+                    request("/api/identity/me"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, currentIdentity.statusCode());
+            assertTrue(currentIdentity.body().contains(ownerActorId.toString()));
             assertEquals(1L, count("organizations"));
             assertEquals(1L, count("workspaces"));
             assertEquals(1L, count("organization_memberships"));
