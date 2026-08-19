@@ -2,39 +2,110 @@
 
 ## Prerequisites
 
-- JDK 25.
-- Checked-in Gradle wrapper.
-- Access to the shared Keycloak and PostgreSQL hosts when running the real integration flow.
-- Secrets retrieved from their managed locations, never copied into repository files or command history.
+- JDK 25 and the checked-in Gradle wrapper.
+- Access to the target Keycloak realm and PostgreSQL database.
+- Secrets loaded from managed storage into process environment only; never copy values into Git, docs, Linear, logs, or command history.
+- A deployment-managed username for the initial owner. The reconciliation script creates that local Keycloak user with a one-time temporary password when absent and reports its stable Keycloak user ID as the OIDC subject. The user receives no Keycloak administrative role; MemoryOS grants Organization authority from the reported subject.
+
+## Reconcile Keycloak owner and clients
+
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, retains public client `memoryos-integration`, reconciles confidential client `memoryos-web`, enforces Authorization Code with S256 PKCE, and sets the deployment-managed browser client secret.
+
+Required operator environment:
+
+```text
+KEYCLOAK_URL
+KEYCLOAK_ADMIN_USERNAME
+KC_CLI_PASSWORD
+MEMORYOS_INITIAL_OWNER_USERNAME
+MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD # required only when the user does not exist
+MEMORYOS_BROWSER_CLIENT_SECRET
+MEMORYOS_BROWSER_REDIRECT_URI # one exact HTTPS callback, or one loopback callback for local verification
+```
+
+Run the script from a controlled operator shell with `jq` available. Its account needs only user/client management permissions required by the script; do not grant the application or initial owner those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to the one exact deployment callback, for example `https://memoryos.example.com/login/oauth2/code/memoryos`; wildcards and non-loopback HTTP origins are rejected. Use `http://localhost:8080/login/oauth2/code/memoryos` only for local verification. Keycloak reads the operator password from its documented `KC_CLI_PASSWORD` environment variable. User creation, exact redirect configuration, and browser-secret updates are JSON-encoded from environment values and sent to `kcadm` over standard input, so passwords and secrets do not appear in command arguments or output. The initial password is temporary and must be replaced by the owner at first login; replay never resets an existing user's password. The mode-restricted temporary token configuration and generated browser-client document are removed on exit.
+
+Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
 
 ## Run the API
 
-Set runtime configuration in the process environment:
+Set runtime configuration:
 
 ```powershell
 $env:MEMORYOS_IDENTITY_ISSUER = "https://auth.kl3in.tech/realms/memoryos"
 $env:MEMORYOS_IDENTITY_JWK_SET_URI = "https://auth.kl3in.tech/realms/memoryos/protocol/openid-connect/certs"
 $env:MEMORYOS_IDENTITY_AUDIENCE = "memoryos-api"
+
+$env:MEMORYOS_BROWSER_CLIENT_ID = "memoryos-web"
+$env:MEMORYOS_BROWSER_CLIENT_SECRET = "<load from managed runtime secret>"
+
 $env:MEMORYOS_DATABASE_URL = "jdbc:postgresql://127.0.0.1:15555/memoryos"
 $env:MEMORYOS_DATABASE_USERNAME = "memoryos_app"
 $env:MEMORYOS_DATABASE_PASSWORD = "<load from managed runtime secret>"
 
+$env:MEMORYOS_INITIAL_OWNER_SUBJECT = "<stable Keycloak user ID>"
+$env:MEMORYOS_ORGANIZATION_SLUG = "tasco"
+$env:MEMORYOS_ORGANIZATION_DISPLAY_NAME = "Tasco"
+$env:MEMORYOS_DEFAULT_WORKSPACE_SLUG = "default"
+$env:MEMORYOS_DEFAULT_WORKSPACE_DISPLAY_NAME = "Tasco Default Workspace"
+$env:MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE = "<approved deployment/change reference>"
+
+$env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
+
 .\gradlew.bat :api:bootRun
 ```
 
-Shared PostgreSQL binds only to server loopback port `5555`. Establish an SSH local forward to `127.0.0.1:15555` before using the URL above. Do not publish the database port.
+Production HTTPS keeps `MEMORYOS_SESSION_COOKIE_SECURE` unset so it defaults to `true`.
+
+## Run the production API container
+
+Build one immutable image from the reviewed commit and tag it with the full source SHA:
+
+```text
+docker build --build-arg VCS_REF=<40-character-commit> --build-arg BUILD_DATE=<UTC-timestamp> --tag memoryos-api:sha-<40-character-commit> .
+```
+
+Keep the complete API environment in a mode-`0600` file outside Git. It must contain the variables listed above, use `jdbc:postgresql://shared-postgres:5432/memoryos`, and keep `MEMORYOS_SESSION_COOKIE_SECURE=true`. It must not contain a Keycloak operator credential or owner password.
+
+```text
+MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
+MEMORYOS_ENV_FILE=/apps/memoryos/.env \
+docker compose -f infrastructure/deployment/compose.production.yaml config
+
+MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
+MEMORYOS_ENV_FILE=/apps/memoryos/.env \
+docker compose -f infrastructure/deployment/compose.production.yaml up -d --wait
+```
+
+The Compose service joins the existing `shared-infra` and `proxy-network` networks, publishes only loopback port `18080`, runs as a non-root user with a read-only filesystem, and bounds logs, CPU, memory, and temporary storage. Public browser traffic must terminate HTTPS at the reverse proxy; framework-processed forwarding headers determine the exact OAuth2 callback origin.
+
+Shared PostgreSQL binds only to server loopback port `5555`. Establish an SSH local forward before using the URL above; do not publish the database port:
 
 ```powershell
 ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5555 <operator>@<shared-postgres-host>
 ```
 
+## Startup contract
+
+Flyway creates identity, Organization, membership, singleton bootstrap-state, and JDBC-session tables. API startup then transactionally creates or verifies:
+
+- the exact `(MEMORYOS_IDENTITY_ISSUER, MEMORYOS_INITIAL_OWNER_SUBJECT)` actor binding;
+- one Organization and one default Workspace;
+- Organization `OWNER` and Workspace `ADMIN` memberships; and
+- the deployment change reference.
+
+The singleton database row serializes concurrent replicas. Restart with identical configuration reuses the aggregate. Changed subject, names, slugs, reference, statuses, cardinality, or memberships fails startup rather than mutating authority. Repair requires an explicitly reviewed persistence recovery; never bypass drift with a temporary profile or convenience endpoint.
+
+## Runtime checks
+
 | Endpoint | Access | Expected result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health |
-| `GET /api/identity/me` | Bearer JWT with stored binding | `{"actorId":"<uuid>"}` |
-| `GET /api/identity/me` | Missing/invalid token or unknown binding | `401` |
+| `GET /api/identity/me` | Bound bearer JWT | `{"actorId":"<uuid>"}` |
+| `GET /` | Initial owner after Keycloak login | `{"actorId":"<uuid>"}` |
+| `GET /access-not-provisioned` | Public failure state | `403` with `ACCESS_NOT_PROVISIONED` |
 
-Startup failure for missing OIDC or datasource configuration is expected fail-fast behavior.
+Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keycloak request contains `code_challenge_method=S256`. After callback, confirm the session cookie changes, `/` returns the bootstrapped actor ID, and an unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
 
 ## Run the worker
 
@@ -42,39 +113,7 @@ Startup failure for missing OIDC or datasource configuration is expected fail-fa
 .\gradlew.bat :worker:bootRun
 ```
 
-The foundation worker exits cleanly because no durable job loop exists yet.
-
-## Shared Keycloak
-
-- Realm: `memoryos`.
-- Issuer: `https://auth.kl3in.tech/realms/memoryos`.
-- JWKS: `https://auth.kl3in.tech/realms/memoryos/protocol/openid-connect/certs`.
-- Public client: `memoryos-integration`.
-- Flow: Authorization Code + PKCE S256.
-- Redirect URIs: `http://127.0.0.1:8765/callback` and `http://localhost:8765/callback`.
-
-The realm is an operator-created prerequisite. `infrastructure/keycloak/` reconciles only the client and audience mapper. Run its script with a service account limited to `realm-management/view-realm` and `realm-management/manage-clients`; do not grant `realm-admin`. The application never receives Keycloak administrator credentials.
-
-Real-login verification uses a normal temporary user, calls `/api/identity/me`, and removes the user and temporary database rows afterward.
-
-## Bootstrap an identity binding before account linking exists
-
-MemoryOS currently has no account-linking or administrative write API. Do not add a one-shot application profile or unauthenticated endpoint to bridge that gap. When bootstrap is explicitly approved, an authorized database operator may execute one reviewed transaction using the exact token `iss`, exact token `sub`, and chosen internal UUID:
-
-```sql
-BEGIN;
-INSERT INTO actors (id)
-VALUES ('<internal-actor-uuid>')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO external_identity_bindings (issuer, subject, actor_id)
-VALUES ('<exact-issuer>', '<exact-subject>', '<internal-actor-uuid>');
-COMMIT;
-```
-
-The binding insert intentionally has no conflict suppression: an existing external identity aborts rather than silently rebinding. Before execution, verify values without logging the raw token. After execution, query the exact key and call `/api/identity/me`. For any rebind or destructive change, follow [persistence recovery policy](../guidelines/persistence.md).
-
-This transaction is bootstrap/recovery, not the product flow. A future runtime account-linking increment must authenticate both sides, authorize the change, transact the write, and audit it.
+The foundation worker exits cleanly because no durable job loop exists.
 
 ## Repository verification
 

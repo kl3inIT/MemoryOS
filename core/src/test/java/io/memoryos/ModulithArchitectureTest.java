@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.modulith.core.ApplicationModules;
 
@@ -12,12 +13,12 @@ class ModulithArchitectureTest {
 
     private static final Set<String> CAPABILITIES = Set.of(
             "identity",
+            "organization",
             "authorization",
             "knowledge",
             "ingestion",
             "retrieval",
-            "assistant",
-            "audit"
+            "assistant"
     );
 
     private final ApplicationModules modules = ApplicationModules.of(MemoryOsModules.class);

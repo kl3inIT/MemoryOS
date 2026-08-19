@@ -25,7 +25,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increment
 
-No active increment. See the [roadmap](docs/roadmap.md) before starting new work.
+Active: [MEM-8 — Initial Organization owner browser session](docs/increments/active/mem-8-organization-workspace-browser-onboarding/design.md). Keep design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
 ## Canonical references
 
@@ -37,3 +37,5 @@ No active increment. See the [roadmap](docs/roadmap.md) before starting new work
 - [Persistence policy](docs/guidelines/persistence.md)
 - [Identity contract](docs/specs/identity.md)
 - [Identity verification matrix](docs/tests/identity.md)
+- [Organization contract](docs/specs/organization.md)
+- [Organization verification matrix](docs/tests/organization.md)

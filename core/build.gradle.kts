@@ -12,5 +12,8 @@ dependencies {
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.archunit.junit5)
     testImplementation(libs.h2)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testRuntimeOnly(libs.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

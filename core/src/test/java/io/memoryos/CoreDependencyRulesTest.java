@@ -5,19 +5,21 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
+
 import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 
 class CoreDependencyRulesTest {
 
     private static final Set<String> CAPABILITIES = Set.of(
             "identity",
+            "organization",
             "authorization",
             "knowledge",
             "ingestion",
             "retrieval",
-            "assistant",
-            "audit"
+            "assistant"
     );
 
     private final JavaClasses coreClasses = new ClassFileImporter().importPackages("io.memoryos");

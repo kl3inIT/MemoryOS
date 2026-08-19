@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Retrieval",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"authorization", "knowledge", "audit"}
+        allowedDependencies = {"authorization", "knowledge"}
 )
 package io.memoryos.retrieval;
 

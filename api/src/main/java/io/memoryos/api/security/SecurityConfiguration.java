@@ -1,15 +1,16 @@
 package io.memoryos.api.security;
 
 import io.memoryos.identity.ExternalIdentityResolver;
-import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
+
 import java.net.URI;
 import java.util.Objects;
+
 import org.jspecify.annotations.NullMarked;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -30,10 +31,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableConfigurationProperties(MemoryOsIdentityProperties.class)
 class SecurityConfiguration {
 
-    @Bean
-    ExternalIdentityResolver externalIdentityResolver(JdbcClient jdbcClient) {
-        return new JdbcExternalIdentityResolver(jdbcClient);
-    }
 
     @Bean
     JwtDecoder jwtDecoder(
@@ -53,16 +50,16 @@ class SecurityConfiguration {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(
+    @Order(1)
+    SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http,
             JwtDecoder jwtDecoder,
             ExternalIdentityResolver identityResolver) {
+        http.securityMatcher("/api/**");
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .decoder(jwtDecoder)
                         .jwtAuthenticationConverter(new JwtToActorAuthenticationConverter(identityResolver))));

@@ -1,0 +1,20 @@
+{
+  "clientId": "memoryos-web",
+  "name": "MemoryOS Browser",
+  "description": "Confidential Authorization Code client for MemoryOS browser sessions",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "publicClient": false,
+  "clientAuthenticatorType": "client-secret",
+  "bearerOnly": false,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "frontchannelLogout": true,
+  "redirectUris": [],
+  "webOrigins": [],
+  "attributes": {
+    "pkce.code.challenge.method": "S256"
+  }
+}

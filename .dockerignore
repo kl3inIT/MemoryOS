@@ -1,0 +1,55 @@
+# Version-control and agent metadata
+.git
+.github
+.omp
+.claude
+.mcp.json
+
+# IDE and local tooling
+.idea
+.vscode
+.settings
+.classpath
+.project
+.factorypath
+*.iml
+*.ipr
+*.iws
+
+# Build outputs and caches
+.gradle
+**/.gradle
+**/build
+**/bin
+out
+.tmp
+
+# Runtime output and machine-local configuration
+*.log
+.env
+.env.*
+**/.env
+**/.env.*
+secrets
+**/secrets
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Sources not needed by the API image
+ARCHITECTURE.md
+AGENTS.md
+README.md
+docs
+infrastructure
+
+# OS/editor residue
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.swo
