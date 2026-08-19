@@ -47,6 +47,6 @@
 - [x] Container image build and Compose configuration validation.
 - [x] Shared Keycloak/PostgreSQL initial-owner browser flow.
 - [x] `clean check` on the checked-in Gradle wrapper.
-- [ ] Pull request CI and review.
+- [x] Pull request latest-head CI, review remediation, guarded merge, and exact merge-SHA verification.
 
-Keep this increment under `active/` until the pull request merges. Then move it to `completed/`, reconcile `docs/roadmap.md`, and record final verification evidence.
+Keep this increment under `active/` until the remaining live denial gate is observed. Then move it to `completed/`, reconcile `docs/roadmap.md`, and record final delivery evidence.

@@ -1,6 +1,6 @@
 # MEM-8 verification
 
-Status: local and shared-runtime implementation evidence complete for exact bootstrap, initial-owner browser login, `ActorId`-only JDBC session persistence, and restart replay. A live unprovisioned-user denial, pull request latest-head CI, and review remain required before merge.
+Status: local, shared-runtime, latest-head CI, review-remediation, and merge evidence are complete for exact bootstrap, initial-owner browser login, `ActorId`-only JDBC session persistence, and restart replay. A live unprovisioned-user denial remains required before delivery.
 
 ## Automated evidence
 
@@ -59,6 +59,10 @@ The first gate exposed two non-browser test contexts that still disabled OIDC di
 
 Observed final implementation run 2026-08-19: `BUILD SUCCESSFUL` in 21 seconds; 17 actionable tasks, 9 executed, 7 from cache, and 1 up to date. This included all capability, HTTP integration, Spring Modulith, ArchUnit, and composition-root smoke tests. After shared-runtime verification and evidence consolidation, the same `clean check` gate passed again in 11 seconds with 17 actionable tasks, 7 executed, 9 from cache, and 1 up to date. After review remediation added real Spring proxy coverage, deterministic PostgreSQL row-lock observation, and exact Keycloak redirect reconciliation, the final `clean check` passed in 19 seconds with 17 actionable tasks, 9 executed and 8 from cache.
 
+### Pull request review and merge
+
+Observed 2026-08-19: PR [#6](https://github.com/kl3inIT/MemoryOS/pull/6) ran latest-head CI against `4536ec5bcd9a3ece8d9f51fea3029799ab8ceb4d`; `check` passed in 58 seconds. CodeRabbit raised three actionable findings. Commit `4536ec5bcd9a3ece8d9f51fea3029799ab8ceb4d` corrected all three, added evidence, received finding-specific replies, and left zero unresolved non-outdated review threads. A requested full re-review was unavailable because CodeRabbit reported its included review rate limit with 31 minutes remaining. The bounded fallback recorded a green local `clean check`, green exact-head CI, zero unresolved findings, a fresh `origin/main` ancestor, and `MERGEABLE` state. The exact reviewed head was squash-merged as `b825e962effd2d7b3d194b9980d32c954f90c428`; local `main` and `origin/main` both resolved to that merge SHA.
+
 ## Shared production deployment
 
 Observed 2026-08-19 on `zm`: built commit `54893747a459e7ce082ce4fd1348967b590bb707` as `memoryos-api:sha-54893747a459e7ce082ce4fd1348967b590bb707` with image ID `sha256:37262bd304d7c2fc95f8e5daab41ad84ed0890c2e39df0e4832ba1fd9fdefa60`. The installed Compose descriptor has SHA-256 `13ebf41195a70558876b298a5de78371c6cbb1a4d58accb4f82f0bf4f90c0666`, matching the reviewed repository file.
@@ -88,9 +92,8 @@ Observed 2026-08-19: restarted the exact deployed container and waited for Compo
 
 The shared realm has no unprovisioned test identity. The initial owner authenticates but receives `403 Forbidden` for realm-user administration; the available master bootstrap account can read the realm but receives `401 Unauthorized` when creating a realm user. No permission or database bypass was introduced. The exact `ACCESS_NOT_PROVISIONED` callback, invalidated partial session, and zero provider-state persistence remain covered by `BrowserAuthenticationIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession`; a live denial still requires a separately provisioned test identity or authorized Keycloak operator.
 
-## Pending external evidence
+## Remaining delivery gate
 
-- Live unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
-- Pull request latest-head CI and review evidence.
+- A live unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
 
-Do not mark MEM-8 delivered or move this directory to `completed/` before those gates and merge.
+Keep MEM-8 active until that runtime gate is observed. PR #6 is merged and its implementation/review evidence is complete; move this directory to `completed/` and reconcile the roadmap only after the remaining gate closes.
