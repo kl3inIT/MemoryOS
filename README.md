@@ -16,7 +16,8 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
-- Docker with the Compose plugin for the production API container.
+- Node.js 24 with Corepack; `web/package.json` pins pnpm.
+- Docker with the Compose plugin for production API and web containers.
 
 ## Modules and capabilities
 
@@ -42,21 +43,31 @@ Linux or macOS:
 ./gradlew clean check --no-daemon
 ```
 
-The gate compiles all modules, runs capability and HTTP integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests.
+Frontend:
 
-The production image is built from [`Dockerfile`](Dockerfile); [`infrastructure/deployment/compose.production.yaml`](infrastructure/deployment/compose.production.yaml) runs the exact image on existing shared networks. Deployment commands and required configuration are in the runtime runbook.
+```powershell
+corepack enable
+cd web
+pnpm install --frozen-lockfile
+pnpm check
+pnpm test:e2e
+```
+
+The Gradle gate compiles all server modules, runs capability and HTTP integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests. The frontend gate regenerates the OpenAPI client, rejects generated drift, lints without product-source warnings, checks formatting and TypeScript, runs focused tests, and creates the production bundle; Playwright exercises the observable browser states.
+
+The API image is built from [`Dockerfile`](Dockerfile); the browser image is built from [`web/Dockerfile`](web/Dockerfile). [`infrastructure/deployment/compose.production.yaml`](infrastructure/deployment/compose.production.yaml) runs both exact images on existing shared networks. Deployment commands and required configuration are in the runtime runbook.
 
 ## Current runtime behavior
 
-API startup runs Flyway, transactionally bootstraps or verifies the configured initial Organization owner, and fails on configuration or aggregate drift. The API supports stateless bearer authentication under `/api/**` and confidential OAuth2 Authorization Code + PKCE browser login backed by Spring Session JDBC.
+API startup runs Flyway, transactionally bootstraps or verifies the configured initial Organization owner, and fails on configuration or aggregate drift. Remaining `/api/**` routes use stateless bearer authentication. The exact current-identity endpoint also accepts an existing confidential OAuth2 Authorization Code + PKCE browser session backed by Spring Session JDBC.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health |
-| `GET /api/identity/me` | Valid JWT with exact stored `(issuer, subject)` binding | `{"actorId":"<uuid>"}` |
-| `GET /api/identity/me` | Missing/invalid token or unknown binding | `401` |
-| `GET /` | Bound browser identity with active Organization membership | `{"actorId":"<uuid>"}` |
-| `GET /access-not-provisioned` | Public failure state | `403` with `ACCESS_NOT_PROVISIONED` |
+| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | `{"actorId":"<uuid>"}` |
+| `GET /api/identity/me` | Missing/invalid authentication or unknown binding | `401` |
+| `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
+| `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
 
 The [identity contract](docs/specs/identity.md), [organization contract](docs/specs/organization.md), and [runtime runbook](docs/runbooks/development-runtime.md) define the write boundary and operational procedure.
 

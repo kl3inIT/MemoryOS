@@ -14,6 +14,8 @@ MemoryOS is a controlled Spring Modulith monolith with three flat Gradle modules
 
 `api` and `worker` are separate deployables. The worker currently starts and exits because no durable job processor exists.
 
+`web/` is a separate production deployable built with Vite, React, TanStack Router, TanStack Query, Tailwind CSS, and generated Hey API clients. It is not a Gradle module or a reusable package. The Nginx runtime serves immutable assets and owns the browser origin; Spring remains the API, OAuth2, session, and authorization runtime.
+
 ## Capability boundaries
 
 `core` contains seven closed Spring Modulith modules: `identity`, `organization`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. A capability root package is its public API. Capability-owned persistence stays beneath that capability and cannot be imported by another capability.
@@ -33,21 +35,22 @@ API startup requires datasource, OIDC, confidential browser-client, and initial 
 
 ## Authentication
 
-The API composes two ordered security chains:
+The API composes three ordered security chains:
 
-1. `/api/**`: stateless OAuth2 Resource Server bearer authentication.
-2. Browser routes: OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
+1. Exact `GET /api/identity/me`: an existing JDBC-backed browser session or a bound bearer identity.
+2. Remaining `/api/**`: stateless OAuth2 Resource Server bearer authentication.
+3. Browser routes: OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
 
-Both paths validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Browser login additionally requires an active membership in an active Organization; otherwise it invalidates the partial session and redirects to `ACCESS_NOT_PROVISIONED`.
+Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Browser login additionally requires an active membership in an active Organization; otherwise it invalidates the partial session and redirects to `ACCESS_NOT_PROVISIONED`. Bearer authentication remains request-scoped; only the exact current-identity endpoint reads an existing browser session, and no other API route gains session authentication.
 
 On successful browser login, Spring Security session-fixation protection rotates the session ID. The callback replaces `OAuth2AuthenticationToken` with `ActorSessionAuthenticationToken`, explicitly saves a security context whose serializable principal contains only `ActorId`, and uses a discarding authorized-client repository. Provider access, refresh, and raw ID-token state is not retained in Spring Session.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | Health status |
-| `GET /api/identity/me` | Valid bound bearer identity | `{"actorId":"<uuid>"}` |
-| `GET /` | Valid bound browser identity with active Organization membership | `{"actorId":"<uuid>"}` |
-| `GET /access-not-provisioned` | Public failure state | `403` with `ACCESS_NOT_PROVISIONED` |
+| `GET /api/identity/me` | Valid bound bearer identity or authenticated browser session | `{"actorId":"<uuid>"}` |
+| `GET /` | Browser origin | Static application; session state is resolved through `/api/identity/me` |
+| `GET /access-not-provisioned` | Browser origin | Public accessible denial state |
 
 ## External identity provider
 
@@ -55,8 +58,8 @@ Keycloak is the browser credential store and OIDC provider. The reconciliation s
 
 ## Deployment
 
-The API ships as one commit-labelled, layered Spring Boot container. Its Compose service runs non-root with a read-only filesystem, bounded temporary storage, dropped capabilities, `no-new-privileges`, rotating logs, health checks, graceful shutdown, and CPU/memory limits. It joins the existing `shared-infra` network for PostgreSQL and `proxy-network` for HTTPS ingress; plaintext host access is loopback-only. Framework-processed forwarding headers preserve the external HTTPS origin used to construct the OAuth2 callback.
+The API and web application ship as separate commit-labelled containers. The API image is layered Spring Boot; the web image builds immutable Vite assets and serves them through unprivileged Nginx. Both services run non-root with read-only filesystems, bounded temporary storage, dropped capabilities, `no-new-privileges`, rotating logs, health checks, graceful shutdown, and CPU/memory limits. Only `memoryos-web` joins the external proxy network; it proxies backend-owned `/api`, `/oauth2`, `/login`, `/logout`, and `/actuator/health` paths to `memoryos-api` on `shared-infra`, while all public traffic stays on one HTTPS origin. Loopback ports remain available for controlled host diagnostics. Forwarded host and scheme preserve the external HTTPS callback origin.
 
 ## Deferred components
 
-No invitation flow, member administration, Organization/Workspace switcher, broker policy, audit history, OpenFGA client, connector, MCP server, GraphRAG engine, public deployment automation, account-linking endpoint, or background-processing loop exists. Invitation onboarding is tracked by MEM-12. Add every deferred component only through a capability-owned vertical slice with a verified production path.
+No invitation flow, member administration, Organization/Workspace switcher, broker policy, audit history, OpenFGA client, connector, MCP server, GraphRAG engine, public deployment automation, account-linking endpoint, durable memory screen, chat UI, or background-processing loop exists. Invitation onboarding is tracked by MEM-12. Add every deferred component only through a capability-owned vertical slice with a verified production path.
