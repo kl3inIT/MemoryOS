@@ -29,3 +29,37 @@ jobs:
 
       - name: Build and verify
         run: ./gradlew clean check --no-daemon
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm 11.22.0
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.22.0
+
+      - name: Install frontend dependencies
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Verify frontend
+        run: pnpm --dir web check
+
+      - name: Install Chromium
+        run: pnpm --dir web exec playwright install --with-deps chromium
+
+      - name: Exercise browser states
+        run: pnpm --dir web test:e2e
+
+      - name: Build production frontend image
+        run: docker build --file web/Dockerfile --tag memoryos-web:ci .

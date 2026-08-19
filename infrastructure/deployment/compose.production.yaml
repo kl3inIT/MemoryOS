@@ -14,6 +14,45 @@ x-service-defaults: &service-defaults
       max-file: "5"
 
 services:
+  web:
+    <<: *service-defaults
+    image: ${MEMORYOS_WEB_IMAGE:?Set MEMORYOS_WEB_IMAGE}
+    container_name: memoryos-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${MEMORYOS_WEB_HOST_PORT:-18081}:8080
+    networks:
+      shared-infra:
+        aliases:
+          - memoryos-web
+      proxy:
+        aliases:
+          - memoryos-web
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q -O - http://127.0.0.1:8080/actuator/health
+          | grep -q '"status":"UP"'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    stop_grace_period: 15s
+    cpu_shares: 128
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128m
+        reservations:
+          memory: 32m
+
   api:
     <<: *service-defaults
     image: ${MEMORYOS_API_IMAGE:?Set MEMORYOS_API_IMAGE}
@@ -24,9 +63,6 @@ services:
       - 127.0.0.1:${MEMORYOS_API_HOST_PORT:-18080}:8080
     networks:
       shared-infra:
-        aliases:
-          - memoryos-api
-      proxy:
         aliases:
           - memoryos-api
     healthcheck:
