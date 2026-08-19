@@ -32,7 +32,10 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --user 1001
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -55,11 +58,25 @@ jobs:
       - name: Verify frontend
         run: pnpm --dir web check
 
-      - name: Install Chromium
-        run: pnpm --dir web exec playwright install --with-deps chromium
-
       - name: Exercise browser states
         run: pnpm --dir web test:e2e
+
+      - name: Upload browser report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 14
+
+  frontend-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Build production frontend image
         run: docker build --file web/Dockerfile --tag memoryos-web:ci .

@@ -97,6 +97,8 @@ The production web image is a multi-stage build that emits immutable static asse
 
 The existing external reverse proxy sends the complete MemoryOS HTTPS origin to `memoryos-web`. Its Nginx runtime serves the SPA and proxies backend-owned paths to `memoryos-api` on `shared-infra`. Local Vite development proxies the same paths, preserves the browser host and forwarded scheme, and removes only the production `Secure` cookie attribute at its loopback-only HTTP boundary so the OAuth state session survives the callback. Production never performs this rewrite. CORS is not introduced.
 
+Frontend quality and browser checks run inside the exact `mcr.microsoft.com/playwright:v1.62.1-noble` image matching the pinned test package. Browser binaries and Linux libraries therefore come from one immutable image instead of an `apt` transaction on every runner. The production web image builds in a separate parallel Ubuntu job so Docker validation remains independent of the browser container. Playwright reports are retained for both failures and successful runs.
+
 ## Boundaries retained from production references
 
 - OrgMemory: Vite/React/TanStack/Hey API composition, feature boundaries, generated-client drift gate, browser tests, and static Nginx deployment.

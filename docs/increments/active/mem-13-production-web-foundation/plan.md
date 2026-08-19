@@ -25,7 +25,7 @@
 - [x] Configure SPA fallback while excluding backend-owned paths.
 - [x] Add the hardened web service to production Compose.
 - [x] Document external reverse-proxy routing and local Vite proxy behavior.
-- [x] Add Node/pnpm setup and independent frontend gates to CI.
+- [x] Add pinned Playwright-container frontend gates, retained browser reports, and an independent parallel production-image build to CI.
 
 ## Slice 4: Runtime verification
 
