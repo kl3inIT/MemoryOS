@@ -1,6 +1,6 @@
 # MEM-13 verification
 
-Date: 2026-08-19
+Date: 2026-08-20
 
 ## Repository gates
 
@@ -12,6 +12,12 @@ Date: 2026-08-19
 - `BrowserAuthenticationIntegrationTest` passed after adding the anonymous-probe regression: `GET /api/identity/me` returns `401` without a `Set-Cookie` header and without inserting a `spring_session` row.
 - `pnpm outdated` returned no entries after installation of the pinned package set.
 - IntelliJ inspections with warnings enabled reported no problems in every changed Java, TypeScript, TSX, YAML, JSON, Nginx, CSS, and package-manifest file.
+
+## Merge evidence
+
+- [PR #8](https://github.com/kl3inIT/MemoryOS/pull/8) merged exact reviewed head `cb9f1f300073178c72fc4babcd29006001225aa8` as merge commit `e2b77eab29e484298d6dec1014df03dfd2255a2a`.
+- Exact-head CI run [32278907982](https://github.com/kl3inIT/MemoryOS/actions/runs/32278907982) passed `check`, `frontend`, and `frontend-image`; exact-merge CI run [32324667077](https://github.com/kl3inIT/MemoryOS/actions/runs/32324667077) passed the same three jobs.
+- CodeRabbit reported `Review limit reached` and `Review rate limited`. The bounded fallback collection found no submitted review, inline comment, or unresolved thread. Independent exact-head review verified the seven captured concerns as resolved and identified one inactive `/worker` Dependabot Docker job; commit `cb9f1f300073178c72fc4babcd29006001225aa8` removed it before merge.
 
 ## Browser evidence
 
@@ -39,5 +45,6 @@ The real Vite application was exercised in Chromium at `1440 × 900` and `390 ×
 - A hashed asset returned `Cache-Control: public, max-age=31536000, immutable`.
 - `/api/identity/me` and `/actuator/health` reached an API smoke process through Nginx rather than SPA fallback. The upstream observed `X-Forwarded-Host: memory.example` and `X-Forwarded-Proto: https`.
 - A current `memoryos-web` image was exercised on an isolated Docker network against an API container returning `v1`; that API container was removed and replaced under the same `memoryos-api` network alias, and the unchanged Nginx container immediately returned `v2`, proving request-time Docker DNS re-resolution.
-- The live verification API was rebuilt from the current worktree and deployed as `memoryos-api:worktree-56d7f250c3a4-20260819`; Compose recreated it healthy. This tag is verification evidence, not a release tag: the final release still requires a reviewed commit and matching immutable SHA tag.
+- The live verification API was rebuilt from the pre-merge worktree and deployed as `memoryos-api:worktree-56d7f250c3a4-20260819`; Compose recreated it healthy and the authenticated browser smoke passed against it.
+- Clean `main` at merge commit `e2b77eab29e484298d6dec1014df03dfd2255a2a` built matching `memoryos-api:sha-e2b77eab29e484298d6dec1014df03dfd2255a2a` and `memoryos-web:sha-e2b77eab29e484298d6dec1014df03dfd2255a2a` images from the pinned Dockerfiles.
 - `/access-not-provisioned` used SPA fallback and returned the application shell.
