@@ -1,0 +1,50 @@
+openapi: 3.1.1
+info:
+  title: MemoryOS browser API
+  version: 1.0.0
+  description: The same-origin contract consumed by the MemoryOS browser application.
+servers:
+  - url: /
+    description: Same-origin MemoryOS runtime
+paths:
+  /api/identity/me:
+    get:
+      operationId: getCurrentIdentity
+      summary: Return the authenticated MemoryOS actor
+      description: >-
+        Accepts either an existing MemoryOS browser session or a valid bound bearer identity
+        and returns only the stable internal ActorId.
+      security:
+        - browserSession: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The authenticated actor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentIdentity'
+        '401':
+          description: No accepted authentication is present
+components:
+  securitySchemes:
+    browserSession:
+      type: apiKey
+      in: cookie
+      name: SESSION
+      description: HttpOnly JDBC-backed Spring Security session cookie.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CurrentIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        - actorId
+      properties:
+        actorId:
+          type: string
+          format: uuid
+          description: Stable internal MemoryOS actor identifier.

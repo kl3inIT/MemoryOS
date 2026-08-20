@@ -51,6 +51,24 @@ class SecurityConfiguration {
 
     @Bean
     @Order(1)
+    SecurityFilterChain currentIdentitySecurityFilterChain(
+            HttpSecurity http,
+            JwtDecoder jwtDecoder,
+            ExternalIdentityResolver identityResolver) {
+        http.securityMatcher("/api/identity/me");
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .requestCache(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
+                        .decoder(jwtDecoder)
+                        .jwtAuthenticationConverter(new JwtToActorAuthenticationConverter(identityResolver))));
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http,
             JwtDecoder jwtDecoder,

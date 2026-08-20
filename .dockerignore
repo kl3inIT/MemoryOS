@@ -23,6 +23,11 @@
 **/bin
 out
 .tmp
+**/node_modules
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
 
 # Runtime output and machine-local configuration
 *.log
@@ -39,7 +44,7 @@ secrets
 *.jks
 *.keystore
 
-# Sources not needed by the API image
+# Sources not needed by production images
 ARCHITECTURE.md
 AGENTS.md
 README.md

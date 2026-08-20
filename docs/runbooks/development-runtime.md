@@ -3,6 +3,8 @@
 ## Prerequisites
 
 - JDK 25 and the checked-in Gradle wrapper.
+- Node.js 24 with Corepack for the `web/` application.
+- Docker with the Compose plugin for production image and topology checks.
 - Access to the target Keycloak realm and PostgreSQL database.
 - Secrets loaded from managed storage into process environment only; never copy values into Git, docs, Linear, logs, or command history.
 - A deployment-managed username for the initial owner. The reconciliation script creates that local Keycloak user with a one-time temporary password when absent and reports its stable Keycloak user ID as the OIDC subject. The user receives no Keycloak administrative role; MemoryOS grants Organization authority from the reported subject.
@@ -57,27 +59,45 @@ $env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
 
 Production HTTPS keeps `MEMORYOS_SESSION_COOKIE_SECURE` unset so it defaults to `true`.
 
-## Run the production API container
+## Run the web application
 
-Build one immutable image from the reviewed commit and tag it with the full source SHA:
+With the API on loopback port `18080`:
+
+```powershell
+corepack enable
+cd web
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to `MEMORYOS_API_URL`, which defaults to `http://127.0.0.1:18080`. Open the exact loopback origin registered in Keycloak so the generated callback uses the same host. The loopback-only development proxy removes the production `Secure` attribute from response cookies because local verification uses HTTP; it preserves every other cookie attribute. Production Nginx never performs this rewrite.
+
+## Run the production containers
+
+Build immutable API and web images from the same reviewed commit and tag both with the full source SHA:
 
 ```text
 docker build --build-arg VCS_REF=<40-character-commit> --build-arg BUILD_DATE=<UTC-timestamp> --tag memoryos-api:sha-<40-character-commit> .
+docker build --file web/Dockerfile --build-arg VCS_REF=<40-character-commit> --build-arg BUILD_DATE=<UTC-timestamp> --tag memoryos-web:sha-<40-character-commit> .
 ```
 
 Keep the complete API environment in a mode-`0600` file outside Git. It must contain the variables listed above, use `jdbc:postgresql://shared-postgres:5432/memoryos`, and keep `MEMORYOS_SESSION_COOKIE_SECURE=true`. It must not contain a Keycloak operator credential or owner password.
 
 ```text
 MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
+MEMORYOS_WEB_IMAGE=memoryos-web:sha-<40-character-commit> \
 MEMORYOS_ENV_FILE=/apps/memoryos/.env \
 docker compose -f infrastructure/deployment/compose.production.yaml config
 
 MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
+MEMORYOS_WEB_IMAGE=memoryos-web:sha-<40-character-commit> \
 MEMORYOS_ENV_FILE=/apps/memoryos/.env \
 docker compose -f infrastructure/deployment/compose.production.yaml up -d --wait
 ```
 
-The Compose service joins the existing `shared-infra` and `proxy-network` networks, publishes only loopback port `18080`, runs as a non-root user with a read-only filesystem, and bounds logs, CPU, memory, and temporary storage. Public browser traffic must terminate HTTPS at the reverse proxy; framework-processed forwarding headers determine the exact OAuth2 callback origin.
+Both services join `shared-infra`; only `memoryos-web` joins `proxy-network`. Configure the external reverse proxy to send the complete MemoryOS HTTPS origin to `memoryos-web:8080`. Nginx serves the SPA and proxies backend-owned `/api`, `/oauth2`, `/login`, `/logout`, and `/actuator/health` paths to `memoryos-api:8080`; do not configure CORS or split the browser across origins. Host ports `18080` and `18081` are loopback-only diagnostics.
+
+Both containers run non-root with read-only filesystems, bounded temporary storage, dropped capabilities, `no-new-privileges`, rotating logs, health checks, and CPU/memory limits. Forwarded host and scheme determine the exact OAuth2 callback origin.
 
 Shared PostgreSQL binds only to server loopback port `5555`. Establish an SSH local forward before using the URL above; do not publish the database port:
 
@@ -100,12 +120,13 @@ The singleton database row serializes concurrent replicas. Restart with identica
 
 | Endpoint | Access | Expected result |
 | --- | --- | --- |
-| `GET /actuator/health` | Public | API health |
-| `GET /api/identity/me` | Bound bearer JWT | `{"actorId":"<uuid>"}` |
-| `GET /` | Initial owner after Keycloak login | `{"actorId":"<uuid>"}` |
-| `GET /access-not-provisioned` | Public failure state | `403` with `ACCESS_NOT_PROVISIONED` |
+| `GET /actuator/health` | Public | API health through the web gateway |
+| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | `{"actorId":"<uuid>"}` |
+| `GET /` | No browser session | Sign-in state with `/oauth2/authorization/memoryos` action |
+| `GET /` | Initial owner after Keycloak login | Authenticated owner shell containing the stable actor ID |
+| `GET /access-not-provisioned` | Public browser route | Accessible `ACCESS_NOT_PROVISIONED` explanation |
 
-Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keycloak request contains `code_challenge_method=S256`. After callback, confirm the session cookie changes, `/` returns the bootstrapped actor ID, and an unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
+Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keycloak request contains `code_challenge_method=S256`. After callback, confirm the session cookie changes, `/api/identity/me` returns the bootstrapped actor ID, refresh retains the authenticated shell, and an unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
 
 ## Run the worker
 
@@ -119,6 +140,9 @@ The foundation worker exits cleanly because no durable job loop exists.
 
 ```powershell
 .\gradlew.bat clean check --no-daemon
+cd web
+pnpm check
+pnpm test:e2e
 ```
 
-The gate compiles all modules, runs capability and integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests.
+The Gradle gate compiles all server modules, runs capability and integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests. The frontend gate verifies generated-client and route-tree freshness, lint, formatting, TypeScript, unit behavior, and the production bundle; Playwright exercises signed-out, authenticated, and unprovisioned browser states against its own loopback Vite and backend processes, so a separately running development server is not reused.

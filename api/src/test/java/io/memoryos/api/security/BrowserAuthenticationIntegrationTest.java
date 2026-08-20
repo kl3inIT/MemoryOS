@@ -108,6 +108,21 @@ class BrowserAuthenticationIntegrationTest {
     }
 
     @Test
+    void rejectsAnonymousIdentityWithoutCreatingASession() throws Exception {
+        long sessionCount = count("spring_session");
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var client = client(cookies)) {
+            var response = client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(401, response.statusCode());
+            assertTrue(response.headers().allValues("set-cookie").isEmpty());
+            assertTrue(cookies.getCookieStore().getCookies().isEmpty());
+            assertEquals(sessionCount, count("spring_session"));
+        }
+    }
+
+    @Test
     void authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
         UUID ownerActorId = jdbcClient.sql("""
@@ -149,6 +164,12 @@ class BrowserAuthenticationIntegrationTest {
             var authenticated = client.send(request("/"), HttpResponse.BodyHandlers.ofString());
             assertEquals(200, authenticated.statusCode());
             assertTrue(authenticated.body().contains(ownerActorId.toString()));
+            var currentIdentity = client.send(
+                    request("/api/identity/me"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, currentIdentity.statusCode());
+            assertTrue(currentIdentity.body().contains(ownerActorId.toString()));
             assertEquals(1L, count("organizations"));
             assertEquals(1L, count("workspaces"));
             assertEquals(1L, count("organization_memberships"));

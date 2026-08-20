@@ -17,7 +17,7 @@ import org.springframework.security.web.SecurityFilterChain;
 class BrowserSecurityConfiguration {
 
     @Bean
-    @Order(2)
+    @Order(3)
     SecurityFilterChain browserSecurityFilterChain(
             HttpSecurity http,
             ClientRegistrationRepository clientRegistrations,

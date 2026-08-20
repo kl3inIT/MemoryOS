@@ -15,6 +15,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-8](https://linear.app/memory-os/issue/MEM-8/deliver-initial-organization-owner-browser-session) | Deployment-configured singleton Organization bootstrap and initial-owner Authorization Code + PKCE browser session, with active-membership admission and `ActorId`-only JDBC persistence | [Design](increments/active/mem-8-organization-workspace-browser-onboarding/design.md) · [Plan](increments/active/mem-8-organization-workspace-browser-onboarding/plan.md) · [Verification](increments/active/mem-8-organization-workspace-browser-onboarding/verification.md) |
+| [MEM-13](https://linear.app/memory-os/issue/MEM-13/establish-the-production-web-foundation-and-authenticated-owner-shell) | Production Vite/React web foundation and authenticated owner shell over the Spring-owned browser session | [Design](increments/active/mem-13-production-web-foundation/design.md) · [Plan](increments/active/mem-13-production-web-foundation/plan.md) · [Verification](increments/active/mem-13-production-web-foundation/verification.md) |
 
 ## Candidate increments
 

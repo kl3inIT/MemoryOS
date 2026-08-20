@@ -1,0 +1,116 @@
+import { CircleAlert, RefreshCw } from "lucide-react";
+import { Brand } from "@/components/brand";
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export function SignInScreen() {
+  return (
+    <main className="grid min-h-svh place-items-center bg-background px-6 py-12 text-foreground">
+      <section className="w-full max-w-sm" aria-labelledby="sign-in-heading">
+        <div className="flex justify-center">
+          <Brand />
+        </div>
+
+        <h1
+          id="sign-in-heading"
+          className="mt-10 text-center text-2xl font-semibold tracking-[-0.035em]"
+        >
+          Sign in to MemoryOS
+        </h1>
+
+        <Button asChild size="lg" className="mt-8 h-11 w-full rounded-lg px-4 text-sm shadow-none">
+          <a href="/oauth2/authorization/memoryos">Continue with company account</a>
+        </Button>
+      </section>
+    </main>
+  );
+}
+
+export function AccessNotProvisionedScreen() {
+  return (
+    <main className="flex min-h-svh flex-col bg-background text-foreground">
+      <header className="flex h-14 items-center justify-between border-b border-border px-5 sm:px-8">
+        <Brand />
+        <span className="text-xs text-muted-foreground">Access restricted</span>
+      </header>
+
+      <div className="grid flex-1 place-items-center px-6 py-12">
+        <Empty className="max-w-md">
+          <EmptyHeader>
+            <EmptyMedia variant="icon" className="bg-muted text-foreground">
+              <CircleAlert />
+            </EmptyMedia>
+            <EmptyTitle
+              role="heading"
+              aria-level={1}
+              className="text-2xl font-semibold tracking-[-0.03em]"
+            >
+              This workspace doesn’t know you yet.
+            </EmptyTitle>
+            <EmptyDescription className="max-w-sm text-sm leading-6">
+              Your identity was verified, but it has not been invited into this MemoryOS workspace.
+              Ask the workspace owner for access, or continue with another account.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button asChild size="lg" className="h-11 rounded-lg px-5 shadow-none">
+              <a href="/oauth2/authorization/memoryos">Try another account</a>
+            </Button>
+          </EmptyContent>
+        </Empty>
+      </div>
+    </main>
+  );
+}
+
+export function SessionErrorScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
+      <Empty className="max-w-md">
+        <EmptyHeader>
+          <EmptyMedia variant="icon" className="bg-muted text-foreground">
+            <RefreshCw />
+          </EmptyMedia>
+          <EmptyTitle
+            role="heading"
+            aria-level={1}
+            className="text-2xl font-semibold tracking-[-0.03em]"
+          >
+            We couldn’t confirm your session.
+          </EmptyTitle>
+          <EmptyDescription>
+            Your workspace is unchanged. Check the MemoryOS service and try again.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" onClick={onRetry}>
+            Try again
+          </Button>
+        </EmptyContent>
+      </Empty>
+    </main>
+  );
+}
+
+export function SessionLoadingScreen() {
+  return (
+    <main
+      className="flex min-h-svh items-center justify-center bg-background p-6"
+      aria-label="Opening your workspace"
+    >
+      <div className="flex w-56 flex-col items-center gap-5">
+        <Brand compact />
+        <Skeleton className="h-px w-full rounded-none" />
+        <p className="text-xs font-medium text-muted-foreground">Opening your workspace</p>
+      </div>
+    </main>
+  );
+}
