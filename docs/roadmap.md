@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-19.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-20.
 
 ## Delivered
 
@@ -9,13 +9,13 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | MEM-5 | Controlled Spring Modulith foundation with separate API and worker deployables | [ADR 0001](decisions/0001-controlled-modular-monolith.md) |
 | MEM-6 | Dedicated `memoryos` realm and public PKCE client on shared Keycloak | [Runtime runbook](runbooks/development-runtime.md) |
 | MEM-7 | PostgreSQL-backed actors and exact external-identity resolution | [Design](increments/completed/mem-7-persist-actors-and-external-identity-bindings/design.md) · [Verification](increments/completed/mem-7-persist-actors-and-external-identity-bindings/verification.md) · [PR #4](https://github.com/kl3inIT/MemoryOS/pull/4) |
+| MEM-13 | Production Vite/React web foundation and authenticated owner shell over the Spring-owned browser session | [Design](increments/completed/mem-13-production-web-foundation/design.md) · [Verification](increments/completed/mem-13-production-web-foundation/verification.md) · [PR #8](https://github.com/kl3inIT/MemoryOS/pull/8) |
 
 ## Active
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-8](https://linear.app/memory-os/issue/MEM-8/deliver-initial-organization-owner-browser-session) | Deployment-configured singleton Organization bootstrap and initial-owner Authorization Code + PKCE browser session, with active-membership admission and `ActorId`-only JDBC persistence | [Design](increments/active/mem-8-organization-workspace-browser-onboarding/design.md) · [Plan](increments/active/mem-8-organization-workspace-browser-onboarding/plan.md) · [Verification](increments/active/mem-8-organization-workspace-browser-onboarding/verification.md) |
-| [MEM-13](https://linear.app/memory-os/issue/MEM-13/establish-the-production-web-foundation-and-authenticated-owner-shell) | Production Vite/React web foundation and authenticated owner shell over the Spring-owned browser session | [Design](increments/active/mem-13-production-web-foundation/design.md) · [Plan](increments/active/mem-13-production-web-foundation/plan.md) · [Verification](increments/active/mem-13-production-web-foundation/verification.md) |
 
 ## Candidate increments
 

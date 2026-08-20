@@ -26,7 +26,6 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [MEM-8 — Initial Organization owner browser session](docs/increments/active/mem-8-organization-workspace-browser-onboarding/design.md)
-- [MEM-13 — Production web foundation and authenticated owner shell](docs/increments/active/mem-13-production-web-foundation/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 

@@ -42,4 +42,4 @@
 
 - [x] Update architecture, identity contract, verification matrix, runtime runbook, and roadmap.
 - [x] Record commands and observed evidence in `verification.md`.
-- [x] Keep this increment under `active/` until its pull request merges.
+- [x] Move the increment from `active/` to `completed/` after PR #8 merges.
