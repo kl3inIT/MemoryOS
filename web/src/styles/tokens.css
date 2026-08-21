@@ -1,0 +1,151 @@
+:root {
+  color-scheme: light;
+
+  /* Monochrome primitive palette. Product components consume semantic roles below. */
+  --neutral-00: oklch(1 0 0);
+  --neutral-25: oklch(0.985 0.003 260);
+  --neutral-50: oklch(0.97 0.003 260);
+  --neutral-100: oklch(0.922 0.004 260);
+  --neutral-200: oklch(0.87 0.006 260);
+  --neutral-400: oklch(0.63 0.01 260);
+  --neutral-500: oklch(0.556 0.01 260);
+  --neutral-700: oklch(0.371 0.01 260);
+  --neutral-800: oklch(0.269 0.008 260);
+  --neutral-900: oklch(0.205 0.006 260);
+  --neutral-950: oklch(0.145 0.004 260);
+
+  /* Semantic surfaces and content. */
+  --surface-canvas: var(--neutral-25);
+  --surface-base: var(--neutral-00);
+  --surface-raised: var(--neutral-00);
+  --surface-subtle: var(--neutral-50);
+  --surface-sunken: var(--neutral-100);
+  --surface-overlay: var(--neutral-00);
+
+  --content-primary: var(--neutral-950);
+  --content-secondary: var(--neutral-700);
+  --content-muted: var(--neutral-500);
+  --content-disabled: var(--neutral-400);
+  --content-inverse: var(--neutral-00);
+
+  --border-subtle: var(--neutral-100);
+  --border-default: var(--neutral-200);
+  --border-strong: var(--neutral-400);
+
+  /* Interaction roles remain monochrome; status color is reserved for real outcomes. */
+  --action-primary: var(--neutral-900);
+  --action-primary-hover: var(--neutral-800);
+  --action-primary-active: var(--neutral-950);
+  --action-primary-foreground: var(--neutral-00);
+  --action-secondary: var(--neutral-50);
+  --action-secondary-hover: var(--neutral-100);
+  --action-secondary-active: var(--neutral-200);
+  --action-secondary-foreground: var(--neutral-900);
+  --action-ghost-hover: var(--neutral-50);
+  --action-ghost-active: var(--neutral-100);
+  --focus-ring: var(--neutral-400);
+
+  --status-danger-strong: oklch(0.577 0.245 27.325);
+  --status-danger-surface: oklch(0.97 0.025 27.325);
+  --status-danger-content: oklch(0.47 0.18 27.325);
+  --status-success-surface: oklch(0.97 0.03 155);
+  --status-success-content: oklch(0.43 0.13 155);
+  --status-warning-surface: oklch(0.975 0.04 85);
+  --status-warning-content: oklch(0.47 0.12 70);
+  --status-info-surface: var(--neutral-50);
+  --status-info-content: var(--neutral-700);
+
+  --elevation-1: 0 1px 2px oklch(0.16 0.01 260 / 0.05);
+  --elevation-2: 0 1px 2px oklch(0.16 0.01 260 / 0.06), 0 8px 24px oklch(0.16 0.01 260 / 0.07);
+  --radius: 0.625rem;
+
+  /* Shared application-layout measurements. */
+  --page-width-narrow: 42rem;
+  --page-width-standard: 56rem;
+  --page-width-wide: 80rem;
+  --page-gutter: 2rem;
+  --page-gutter-compact: 1.25rem;
+  --sidebar-width: 15rem;
+  --sidebar-width-collapsed: 4rem;
+
+  /* shadcn compatibility aliases. */
+  --background: var(--surface-base);
+  --foreground: var(--content-primary);
+  --card: var(--surface-raised);
+  --card-foreground: var(--content-primary);
+  --popover: var(--surface-overlay);
+  --popover-foreground: var(--content-primary);
+  --primary: var(--action-primary);
+  --primary-foreground: var(--action-primary-foreground);
+  --secondary: var(--action-secondary);
+  --secondary-foreground: var(--action-secondary-foreground);
+  --muted: var(--surface-subtle);
+  --muted-foreground: var(--content-muted);
+  --accent: var(--action-ghost-hover);
+  --accent-foreground: var(--content-primary);
+  --destructive: var(--status-danger-strong);
+  --border: var(--border-subtle);
+  --input: var(--border-default);
+  --ring: var(--focus-ring);
+
+  --chart-1: var(--neutral-200);
+  --chart-2: var(--neutral-500);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: var(--neutral-700);
+  --chart-5: var(--neutral-800);
+
+  --sidebar: var(--surface-canvas);
+  --sidebar-foreground: var(--content-primary);
+  --sidebar-primary: var(--action-primary);
+  --sidebar-primary-foreground: var(--action-primary-foreground);
+  --sidebar-accent: var(--action-ghost-hover);
+  --sidebar-accent-foreground: var(--content-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--focus-ring);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --surface-canvas: oklch(0.125 0.009 260);
+  --surface-base: oklch(0.145 0.008 260);
+  --surface-raised: oklch(0.205 0.008 260);
+  --surface-subtle: oklch(0.269 0.008 260);
+  --surface-sunken: oklch(0.12 0.008 260);
+  --surface-overlay: oklch(0.105 0.006 260);
+
+  --content-primary: oklch(0.985 0.003 260);
+  --content-secondary: oklch(0.82 0.008 260);
+  --content-muted: oklch(0.708 0.01 260);
+  --content-disabled: oklch(0.5 0.01 260);
+  --content-inverse: var(--neutral-900);
+
+  --border-subtle: oklch(1 0 0 / 10%);
+  --border-default: oklch(1 0 0 / 15%);
+  --border-strong: oklch(1 0 0 / 24%);
+
+  --action-primary: oklch(0.922 0.006 260);
+  --action-primary-hover: oklch(0.985 0.003 260);
+  --action-primary-active: oklch(0.84 0.008 260);
+  --action-primary-foreground: var(--neutral-900);
+  --action-secondary: oklch(1 0 0 / 9%);
+  --action-secondary-hover: oklch(1 0 0 / 14%);
+  --action-secondary-active: oklch(1 0 0 / 20%);
+  --action-secondary-foreground: oklch(0.94 0.006 260);
+  --action-ghost-hover: oklch(1 0 0 / 8%);
+  --action-ghost-active: oklch(1 0 0 / 14%);
+  --focus-ring: var(--neutral-500);
+
+  --status-danger-strong: oklch(0.704 0.191 22.216);
+  --status-danger-surface: oklch(0.28 0.07 25);
+  --status-danger-content: oklch(0.8 0.11 25);
+  --status-success-surface: oklch(0.25 0.055 155);
+  --status-success-content: oklch(0.79 0.11 155);
+  --status-warning-surface: oklch(0.27 0.055 75);
+  --status-warning-content: oklch(0.82 0.12 80);
+  --status-info-surface: var(--surface-subtle);
+  --status-info-content: var(--content-secondary);
+
+  --elevation-1: 0 1px 2px oklch(0 0 0 / 0.24);
+  --elevation-2: 0 1px 2px oklch(0 0 0 / 0.22), 0 12px 32px oklch(0 0 0 / 0.28);
+}

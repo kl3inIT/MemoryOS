@@ -123,10 +123,10 @@ The singleton database row serializes concurrent replicas. Restart with identica
 | `GET /actuator/health` | Public | API health through the web gateway |
 | `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | `{"actorId":"<uuid>"}` |
 | `GET /` | No browser session | Sign-in state with `/oauth2/authorization/memoryos` action |
-| `GET /` | Initial owner after Keycloak login | Authenticated owner shell containing the stable actor ID |
+| `GET /` | Initial owner after Keycloak login | Authenticated `New Session` application shell |
 | `GET /access-not-provisioned` | Public browser route | Accessible `ACCESS_NOT_PROVISIONED` explanation |
 
-Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keycloak request contains `code_challenge_method=S256`. After callback, confirm the session cookie changes, `/api/identity/me` returns the bootstrapped actor ID, refresh retains the authenticated shell, and an unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
+Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keycloak request contains `code_challenge_method=S256`. After callback, confirm the session cookie changes, `/api/identity/me` returns the bootstrapped actor ID, refresh retains the authenticated shell, and an unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`. The browser shell does not display the raw actor UUID.
 
 ## Run the worker
 

@@ -16,6 +16,10 @@ MemoryOS is a controlled Spring Modulith monolith with three flat Gradle modules
 
 `web/` is a separate production deployable built with Vite, React, TanStack Router, TanStack Query, Tailwind CSS, and generated Hey API clients. It is not a Gradle module or a reusable package. The Nginx runtime serves immutable assets and owns the browser origin; Spring remains the API, OAuth2, session, and authorization runtime.
 
+The authenticated root route uses a responsive OrgMemory/Onyx-aligned application shell. Desktop provides a 15rem sidebar that folds to a 4rem rail; the folded logo is the expand control and swaps to the sidebar icon on hover or focus. Mobile uses an accessible modal drawer. `New Session` is the selected shell surface, `/admin` provides the separate administration shell, and the account popover exposes only real appearance and admin actions. These are browser-shell surfaces only: no assistant execution, source operation, notification, help, or logout capability is inferred from them.
+
+The web design system remains local to the single application. `styles/tokens.css` owns the monochrome primitives and semantic roles, `styles/theme.css` maps those roles and the Hanken Grotesk type scale into Tailwind v4, and `styles/base.css` owns global element behavior. Product components consume semantic roles and typography presets rather than raw palette or font-size values. Shared `SidebarTab`, `SidebarSection`, and `MenuItem` primitives own navigation/menu interaction. No reusable design-system package, Storybook surface, Style Dictionary pipeline, cross-platform token output, or migration component tree exists without a second consumer.
+
 ## Capability boundaries
 
 `core` contains seven closed Spring Modulith modules: `identity`, `organization`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. A capability root package is its public API. Capability-owned persistence stays beneath that capability and cannot be imported by another capability.

@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-20.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-21.
 
 ## Delivered
 
@@ -16,6 +16,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-8](https://linear.app/memory-os/issue/MEM-8/deliver-initial-organization-owner-browser-session) | Deployment-configured singleton Organization bootstrap and initial-owner Authorization Code + PKCE browser session, with active-membership admission and `ActorId`-only JDBC persistence | [Design](increments/active/mem-8-organization-workspace-browser-onboarding/design.md) · [Plan](increments/active/mem-8-organization-workspace-browser-onboarding/plan.md) · [Verification](increments/active/mem-8-organization-workspace-browser-onboarding/verification.md) |
+| [MEM-14](https://linear.app/memory-os/issue/MEM-14/align-the-authenticated-owner-shell-with-orgmemory) | Align the authenticated owner experience with the proven OrgMemory responsive application-shell composition while retaining the MEM-13 session boundary | [Design](increments/active/mem-14-orgmemory-owner-shell/design.md) · [Plan](increments/active/mem-14-orgmemory-owner-shell/plan.md) · [Verification](increments/active/mem-14-orgmemory-owner-shell/verification.md) |
 
 ## Candidate increments
 
