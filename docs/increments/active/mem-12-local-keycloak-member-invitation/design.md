@@ -1,0 +1,128 @@
+# MEM-12 design: production member invitation
+
+## Outcome
+
+An authenticated Organization owner can onboard one member through a complete invitation lifecycle. The owner creates an invitation for one email, shares a one-time link, observes its status, and can revoke or rotate it. The recipient opens the link, authenticates with local Keycloak, and joins the existing Organization and default Workspace when the verified email matches.
+
+This is a production vertical slice, not a temporary onboarding mode. Storage, authorization, recovery, concurrency, browser session handling, deployment configuration, and live runtime verification belong to the same increment.
+
+## Product flow
+
+### Owner
+
+1. Open `Admin Panel` → `People`.
+2. Select `Invite member` and enter one email.
+3. Receive a clear copy/share action for the plaintext invitation URL.
+4. See invitation status as `PENDING`, `ACCEPTED`, `EXPIRED`, or `REVOKED`.
+5. Revoke a pending invitation or rotate a lost link. Rotation returns a replacement secret once and permanently invalidates the previous link.
+
+### Recipient
+
+1. Open an invitation landing page that identifies the MemoryOS workspace.
+2. Continue to the local Keycloak Authorization Code + S256 PKCE flow.
+3. Sign in or create a local account when the realm permits self-registration.
+4. Return to MemoryOS with an exact issuer/subject and verified email.
+5. Join automatically and land on `New Session`.
+
+Technical state such as digests, nonces, locks, and provider-token disposal is never presented as a user step.
+
+## Reference boundary
+
+Onyx Enterprise is an interaction reference for the People page, invitation modal, pending status, loading, errors, and optional email delivery. MemoryOS does not copy Onyx's email-allowlist identity model, tenant switching, billing, or inactive tenant mappings.
+
+MemoryOS retains its existing ownership model:
+
+- identity owns stable `ActorId` and exact `(issuer, subject)` bindings;
+- organization owns invitations and Organization/Workspace memberships;
+- Spring Security owns the OAuth2 continuation and JDBC-backed browser session;
+- Keycloak owns credentials, authentication, and verified-email claims.
+
+## Invitation lifecycle
+
+The capability stores one invitation row with lifecycle facts and no plaintext secret. The intended state transitions are:
+
+```text
+PENDING -> ACCEPTED
+PENDING -> REVOKED
+PENDING + expires_at <= now -> EXPIRED response
+PENDING -> PENDING with a new digest on rotation
+```
+
+`EXPIRED` is derived from a pending row and its durable expiry rather than requiring a background job. One partial unique constraint permits at most one pending invitation for a normalized email in one Organization.
+
+Each invitation records:
+
+- invitation ID and Organization ID;
+- normalized email;
+- SHA-256 digest of a 256-bit URL-safe random secret;
+- creator `ActorId` and creation time;
+- expiry and current secret version;
+- accepted actor/time or revoking actor/time when settled;
+- the default Workspace grant implied by the Organization at issue time.
+
+The plaintext secret exists only in the create or rotate response and the recipient's intake request. It is never logged, persisted, listed, or reconstructed.
+
+## Owner authorization
+
+Issue, revoke, and rotate require the current `ActorId` to hold active Organization `OWNER` membership in an active Organization. The service derives Organization and default Workspace context from durable authority; clients do not submit an Organization role or Workspace selection.
+
+An existing active member, an external identity already bound to another actor, or a conflicting pending invitation fails explicitly. No endpoint widens authority through email alone.
+
+## Invitation intake
+
+Opening `/invite/{secret}` hashes the secret, resolves exactly one available invitation, and rejects missing, expired, revoked, or consumed values before authority is created. A successful intake stores only redacted continuation state in the JDBC session:
+
+- invitation ID;
+- Organization ID;
+- random nonce;
+- continuation expiry.
+
+The response uses `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, then redirects into the existing OAuth2 authorization endpoint. The raw secret is not retained in the session.
+
+## OAuth2 callback and acceptance
+
+The browser callback keeps the existing bound-member path unchanged. An unbound identity may be provisioned only when a valid invitation continuation exists.
+
+Acceptance requires:
+
+- exact configured issuer and nonblank subject;
+- a verified email claim;
+- normalized email equal to the invitation email;
+- matching, unexpired continuation and nonce;
+- invitation still pending and unexpired under a row lock;
+- no conflicting binding or memberships.
+
+One transaction creates or resolves the Actor as permitted, inserts the exact external identity binding, grants Organization `MEMBER`, grants default-Workspace `MEMBER`, and conditionally accepts the invitation. Concurrent or replayed callbacks leave exactly one accepted result.
+
+After commit, the callback rotates the HTTP session ID, replaces the provider principal with the existing `ActorId`-only application principal, saves the security context explicitly, and removes provider authorized-client state. Failure invalidates the partial session.
+
+## Recovery and operational behavior
+
+- Revocation conditionally settles only a pending invitation.
+- Rotation conditionally replaces only a pending, unexpired digest and invalidates every previous link.
+- Listing exposes lifecycle metadata, never plaintext secrets or digests.
+- Copy/share is the complete delivery path. No speculative email provider abstraction is added; configured email delivery may be added only with a concrete provider and observable failure contract.
+- Keycloak administrator credentials never enter MemoryOS. The deployment-owned realm configuration must provide the sign-in/account-creation experience used by the recipient flow.
+- Rate limits must work across API replicas or be enforced by the production gateway; an in-memory-only limiter is not acceptable.
+
+## Failure outcomes
+
+- unauthorized owner action → `403`;
+- missing, expired, revoked, consumed, or superseded secret → `INVITATION_NOT_AVAILABLE`;
+- unverified email → `INVITATION_EMAIL_NOT_VERIFIED`;
+- mismatched email → `INVITATION_EMAIL_MISMATCH`;
+- missing or mismatched continuation → `INVITATION_CONTINUATION_MISMATCH`;
+- existing identity or membership conflict → explicit conflict with no authority change;
+- ordinary unknown login without invitation → existing `ACCESS_NOT_PROVISIONED` flow.
+
+Recipient pages use plain-language recovery actions rather than exposing these internal codes as the primary message.
+
+## Explicit exclusions
+
+- multi-Organization switching or owner transfer;
+- role or Workspace pickers;
+- billing, seat metering, and trial quotas;
+- bulk invitation;
+- SCIM, group provisioning, and domain-based JIT access;
+- inactive tenant mappings or a second authority model;
+- a generic audit capability. Invitation lifecycle columns remain capability-owned evidence.

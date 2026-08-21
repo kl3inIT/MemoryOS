@@ -15,15 +15,16 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 ## Active
 
-No increment is currently active.
+| Increment | Outcome | Evidence |
+| --- | --- | --- |
+| [MEM-12](https://linear.app/memory-os/issue/MEM-12/onboard-one-member-by-local-keycloak-invitation) | Production owner-to-member invitation lifecycle through local Keycloak, with copy/share recovery, fixed memberships, and atomic acceptance | [Design](increments/active/mem-12-local-keycloak-member-invitation/design.md) · [Plan](increments/active/mem-12-local-keycloak-member-invitation/plan.md) |
 
 ## Candidate increments
 
 These are sequencing signals, not commitments or approved designs.
 
-1. [MEM-12](https://linear.app/memory-os/issue/MEM-12/onboard-one-member-by-local-keycloak-invitation) — onboard one Organization/default-Workspace member through a single-use local-Keycloak invitation.
-2. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-workspace-owned-google-drive-connections) — authorize Workspace-owned Google Drive connections.
-3. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-workspace-scoped-google-docs-with-source-acls) — ingest Workspace-scoped Google Docs with source ACL evidence.
-4. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
+1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-workspace-owned-google-drive-connections) — authorize Workspace-owned Google Drive connections.
+2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-workspace-scoped-google-docs-with-source-acls) — ingest Workspace-scoped Google Docs with source ACL evidence.
+3. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
 
 Create or link an issue and add an active increment record before implementation begins.
