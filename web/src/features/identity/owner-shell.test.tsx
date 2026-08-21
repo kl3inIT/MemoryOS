@@ -7,6 +7,7 @@ import { OwnerShell } from "./owner-shell";
 afterEach(() => {
   window.localStorage.clear();
   document.documentElement.classList.remove("dark");
+  document.documentElement.style.removeProperty("color-scheme");
 });
 
 describe("OwnerShell", () => {
