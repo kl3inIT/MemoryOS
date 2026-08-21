@@ -41,7 +41,7 @@ Flyway owns the schema under `core/src/main/resources/db/migration/`. Applied mi
 
 ## Binding lifecycle boundary
 
-No generic account-linking endpoint, administrative binding endpoint, provisioning CLI, invitation flow, or unauthenticated write surface exists. The only production binding write is the deployment-configured initial Organization transaction defined by the [organization contract](organization.md). Any broader write flow must satisfy [ADR 0002](../decisions/0002-no-speculative-operational-surfaces.md).
+No generic account-linking endpoint, administrative binding endpoint, provisioning CLI, or unauthenticated identity write surface exists. The initial Organization transaction and the closed `invitation` capability are the only production binding writers. Invitation acceptance may invoke `ExternalIdentityRegistrar` only inside its authorized acceptance transaction; ordinary authentication never creates an actor.
 
 ## Runtime configuration
 

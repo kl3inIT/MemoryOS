@@ -1,4 +1,5 @@
 package io.memoryos.api.security;
+import io.memoryos.api.invitation.InvitationSessionState;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,6 +14,7 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 final class BrowserAuthenticationFailureHandler implements AuthenticationFailureHandler {
 
     private static final String ACCESS_NOT_PROVISIONED_DESTINATION = "/access-not-provisioned";
+    private static final String INVITATION_FAILURE_DESTINATION = "/invitation?reason=authentication-failed";
 
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
@@ -24,9 +26,15 @@ final class BrowserAuthenticationFailureHandler implements AuthenticationFailure
     ) throws IOException {
         SecurityContextHolder.clearContext();
         var session = request.getSession(false);
+        boolean invitationFlow = session != null
+                && session.getAttribute(InvitationSessionState.ATTRIBUTE) instanceof InvitationSessionState;
         if (session != null) {
             session.invalidate();
         }
-        redirectStrategy.sendRedirect(request, response, ACCESS_NOT_PROVISIONED_DESTINATION);
+        redirectStrategy.sendRedirect(
+                request,
+                response,
+                invitationFlow ? INVITATION_FAILURE_DESTINATION : ACCESS_NOT_PROVISIONED_DESTINATION
+        );
     }
 }

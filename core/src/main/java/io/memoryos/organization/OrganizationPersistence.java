@@ -4,7 +4,7 @@ import io.memoryos.identity.ExternalIdentityRegistrar;
 import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.organization.persistence.JdbcInitialOrganizationBootstrapper;
 import io.memoryos.organization.persistence.JdbcOrganizationAccessResolver;
-
+import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisioner;
 import java.util.Objects;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -16,6 +16,12 @@ public final class OrganizationPersistence {
 
     public static OrganizationAccessResolver accessResolver(JdbcClient jdbcClient) {
         return new JdbcOrganizationAccessResolver(
+                Objects.requireNonNull(jdbcClient, "jdbcClient must not be null")
+        );
+    }
+
+    public static OrganizationMembershipProvisioner membershipProvisioner(JdbcClient jdbcClient) {
+        return new JdbcOrganizationMembershipProvisioner(
                 Objects.requireNonNull(jdbcClient, "jdbcClient must not be null")
         );
     }

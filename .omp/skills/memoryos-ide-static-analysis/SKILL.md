@@ -76,7 +76,8 @@ Static verification must preserve these repository invariants:
 
 - Gradle modules remain flat: `core`, `api`, and `worker`.
 - `core` never depends on `api` or `worker`.
-- The seven Spring Modulith capabilities remain `identity`, `organization`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`; audit returns only with an evidence consumer under ADR 0003.
+- The eight Spring Modulith capabilities remain `identity`, `organization`, `invitation`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`; audit returns only with an evidence consumer under ADR 0003.
+- `invitation` depends only on public `identity` and `organization` APIs. It owns invitation persistence and never imports Organization persistence or writes membership tables directly.
 - Capability-owned persistence stays under that capability's `persistence` package and is not imported by another capability.
 - Provider integration packaging is not decided by MEM-5; do not add speculative provider rules.
 - API and worker remain thin composition roots.

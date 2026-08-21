@@ -7,6 +7,7 @@ import io.memoryos.identity.IdentityPersistence;
 import io.memoryos.organization.InitialOrganizationBootstrapRequest;
 import io.memoryos.organization.InitialOrganizationBootstrapper;
 import io.memoryos.organization.OrganizationAccessResolver;
+import io.memoryos.organization.OrganizationMembershipProvisioner;
 import io.memoryos.organization.OrganizationPersistence;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +37,11 @@ class OrganizationCapabilityConfiguration {
     @Bean
     OrganizationAccessResolver organizationAccessResolver(JdbcClient jdbcClient) {
         return OrganizationPersistence.accessResolver(jdbcClient);
+    }
+
+    @Bean
+    OrganizationMembershipProvisioner organizationMembershipProvisioner(JdbcClient jdbcClient) {
+        return OrganizationPersistence.membershipProvisioner(jdbcClient);
     }
 
     @Bean

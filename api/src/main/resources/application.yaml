@@ -52,6 +52,8 @@ memoryos:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
   browser:
     registration-id: memoryos
+  invitation:
+    time-to-live: ${MEMORYOS_INVITATION_TTL:72h}
   initial-organization:
     owner-subject: ${MEMORYOS_INITIAL_OWNER_SUBJECT}
     slug: ${MEMORYOS_ORGANIZATION_SLUG}

@@ -30,12 +30,15 @@ Technical state such as digests, nonces, locks, and provider-token disposal is n
 
 Onyx Enterprise is an interaction reference for the People page, invitation modal, pending status, loading, errors, and optional email delivery. MemoryOS does not copy Onyx's email-allowlist identity model, tenant switching, billing, or inactive tenant mappings.
 
-MemoryOS retains its existing ownership model:
+MemoryOS adds `invitation` as a top-level closed Spring Modulith capability from the first implementation commit:
 
 - identity owns stable `ActorId` and exact `(issuer, subject)` bindings;
-- organization owns invitations and Organization/Workspace memberships;
+- organization owns Organizations, Workspaces, and memberships, and exposes only a narrow invitation-authority/membership port;
+- invitation owns invitation lifecycle, secret handling, persistence, intake, and acceptance orchestration;
 - Spring Security owns the OAuth2 continuation and JDBC-backed browser session;
 - Keycloak owns credentials, authentication, and verified-email claims.
+
+Dependency direction is `invitation -> identity` and `invitation -> organization`. Identity and organization never depend on invitation. Invitation persistence cannot write Organization membership tables directly; it invokes the Organization-owned mandatory-transaction port so binding, membership grants, and invitation consumption still commit atomically.
 
 ## Invitation lifecycle
 
@@ -64,7 +67,7 @@ The plaintext secret exists only in the create or rotate response and the recipi
 
 ## Schema strategy for this stage
 
-MEM-12 is expected to be a genuinely additive schema change: add one Organization-owned invitation table and its indexes/constraints in the next small Flyway migration. Do not introduce expand/contract phases, dual reads or writes, compatibility columns, or a backfill framework for disposable development data.
+MEM-12 is expected to be a genuinely additive schema change: add one Invitation-owned table and its indexes/constraints in the next small Flyway migration. Do not introduce expand/contract phases, dual reads or writes, compatibility columns, or a backfill framework for disposable development data.
 
 If implementation reveals that an existing identity, membership, or session shape prevents the clean invitation model, stop and choose the final schema directly. At this project stage, an approved destructive reset is preferable to permanent compatibility code: verify a backup, recreate the MemoryOS database or affected schema, rerun Flyway and the initial-owner bootstrap, then reinsert only the minimal test data required for verification.
 

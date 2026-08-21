@@ -6,6 +6,7 @@ import {
   PanelLeftOpen,
   Plug,
   Settings2,
+  Users,
   X,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -18,15 +19,18 @@ import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { cn } from "@/lib/utils";
 
 export type AppShellArea = "app" | "admin";
+export type AdminPage = "sources" | "people";
 
 type AppShellProps = {
   area?: AppShellArea;
+  adminPage?: AdminPage;
   pageTitle: string;
   children: ReactNode;
 };
 
 type SidebarContentsProps = {
   area: AppShellArea;
+  adminPage?: AdminPage;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
   onNavigate?: () => void;
@@ -35,6 +39,7 @@ type SidebarContentsProps = {
 
 function SidebarContents({
   area,
+  adminPage = "sources",
   collapsed = false,
   onCollapseToggle,
   onNavigate,
@@ -120,17 +125,30 @@ function SidebarContents({
             New Session
           </SidebarTab>
         ) : (
-          <SidebarSection title="Knowledge" collapsed={collapsed}>
-            <SidebarTab
-              href="/admin"
-              icon={<Plug className="size-4" />}
-              selected
-              collapsed={collapsed}
-              onClick={onNavigate}
-            >
-              Sources
-            </SidebarTab>
-          </SidebarSection>
+          <div className="space-y-5">
+            <SidebarSection title="Organization" collapsed={collapsed}>
+              <SidebarTab
+                href="/admin/people"
+                icon={<Users className="size-4" />}
+                selected={adminPage === "people"}
+                collapsed={collapsed}
+                onClick={onNavigate}
+              >
+                People
+              </SidebarTab>
+            </SidebarSection>
+            <SidebarSection title="Knowledge" collapsed={collapsed}>
+              <SidebarTab
+                href="/admin"
+                icon={<Plug className="size-4" />}
+                selected={adminPage === "sources"}
+                collapsed={collapsed}
+                onClick={onNavigate}
+              >
+                Sources
+              </SidebarTab>
+            </SidebarSection>
+          </div>
         )}
       </nav>
 
@@ -154,7 +172,12 @@ function SidebarContents({
   );
 }
 
-export function AppShell({ area = "app", pageTitle, children }: AppShellProps) {
+export function AppShell({
+  area = "app",
+  adminPage = "sources",
+  pageTitle,
+  children,
+}: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -175,6 +198,7 @@ export function AppShell({ area = "app", pageTitle, children }: AppShellProps) {
       >
         <SidebarContents
           area={area}
+          adminPage={adminPage}
           collapsed={collapsed}
           onCollapseToggle={() => setCollapsed((current) => !current)}
         />
@@ -197,7 +221,7 @@ export function AppShell({ area = "app", pageTitle, children }: AppShellProps) {
             <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
             <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none">
               <Dialog.Title className="sr-only">MemoryOS navigation</Dialog.Title>
-              <SidebarContents area={area} mobile />
+              <SidebarContents area={area} adminPage={adminPage} mobile />
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

@@ -14,6 +14,7 @@ class ModulithArchitectureTest {
     private static final Set<String> CAPABILITIES = Set.of(
             "identity",
             "organization",
+            "invitation",
             "authorization",
             "knowledge",
             "ingestion",

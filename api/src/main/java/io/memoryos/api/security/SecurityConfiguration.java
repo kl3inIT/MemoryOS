@@ -55,12 +55,14 @@ class SecurityConfiguration {
             HttpSecurity http,
             JwtDecoder jwtDecoder,
             ExternalIdentityResolver identityResolver) {
-        http.securityMatcher("/api/identity/me");
+        http.securityMatcher("/api/identity/me", "/api/invitations", "/api/invitations/**");
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/invitations/current").permitAll()
+                        .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .decoder(jwtDecoder)
                         .jwtAuthenticationConverter(new JwtToActorAuthenticationConverter(identityResolver))));

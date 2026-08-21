@@ -22,18 +22,19 @@ The web design system remains local to the single application. `styles/tokens.cs
 
 ## Capability boundaries
 
-`core` contains seven closed Spring Modulith modules: `identity`, `organization`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. A capability root package is its public API. Capability-owned persistence stays beneath that capability and cannot be imported by another capability.
+`core` contains eight closed Spring Modulith modules: `identity`, `organization`, `invitation`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. A capability root package is its public API. Capability-owned persistence stays beneath that capability and cannot be imported by another capability.
 
-`organization` depends only on `identity`. The remaining dependency graph is enforced by Spring Modulith and ArchUnit tests. `core` may use Spring, `JdbcClient`, transactions, or JPA inside a capability boundary; it is not a framework-free domain layer.
+`organization` depends only on `identity`. `invitation` depends only on the public APIs of `identity` and `organization`; it owns invitation lifecycle/persistence and coordinates their mandatory transaction ports without importing either capability's persistence. The remaining dependency graph is enforced by Spring Modulith and ArchUnit tests. `core` may use Spring, `JdbcClient`, transactions, or JPA inside a capability boundary; it is not a framework-free domain layer.
 
 Audit is intentionally absent until a real evidence consumer defines attribution, transaction, retention, access, and export semantics. See [ADR 0003](docs/decisions/0003-defer-audit-until-evidence-consumer.md).
 
 ## Persistence and startup
 
-Flyway owns two migrations:
+Flyway owns three migrations:
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
 - `V2__create_initial_organization_and_sessions.sql`: Organizations, Workspaces, scoped memberships, singleton bootstrap state, and Spring Session JDBC tables.
+- `V3__create_organization_invitations.sql`: Invitation-owned digest-only lifecycle rows scoped by Organization/default Workspace.
 
 API startup requires datasource, OIDC, confidential browser-client, and initial Organization configuration. After migration, an `ApplicationRunner` invokes the transactional initial bootstrap. A migration-created singleton row is locked with `SELECT ... FOR UPDATE`; the transaction resolves or creates the exact owner binding, inserts one Organization and default Workspace, grants Organization `OWNER` and Workspace `ADMIN`, and publishes the Organization ID. Concurrent replicas serialize on that row. Identical configuration replays; drift or incomplete state fails startup.
 
@@ -41,11 +42,11 @@ API startup requires datasource, OIDC, confidential browser-client, and initial 
 
 The API composes three ordered security chains:
 
-1. Exact `GET /api/identity/me`: an existing JDBC-backed browser session or a bound bearer identity.
+1. Browser application API (`/api/identity/me` and `/api/invitations/**`): existing JDBC-backed browser sessions or bound bearer identities; the redacted current-invitation lookup is public but reads only an existing session.
 2. Remaining `/api/**`: stateless OAuth2 Resource Server bearer authentication.
-3. Browser routes: OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
+3. Browser routes: invitation intake/continuation plus OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
 
-Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Browser login additionally requires an active membership in an active Organization; otherwise it invalidates the partial session and redirects to `ACCESS_NOT_PROVISIONED`. Bearer authentication remains request-scoped; only the exact current-identity endpoint reads an existing browser session, and no other API route gains session authentication.
+Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Ordinary browser login additionally requires active Organization authority and otherwise redirects to `ACCESS_NOT_PROVISIONED`. A valid invitation continuation is the only alternate browser path: the Invitation transaction binds the exact identity, grants fixed Organization/default-Workspace `MEMBER`, and consumes the invitation before the same `ActorId`-only session is saved. Failure invalidates the partial session. Remaining API routes stay stateless and bearer-only.
 
 On successful browser login, Spring Security session-fixation protection rotates the session ID. The callback replaces `OAuth2AuthenticationToken` with `ActorSessionAuthenticationToken`, explicitly saves a security context whose serializable principal contains only `ActorId`, and uses a discarding authorized-client repository. Provider access, refresh, and raw ID-token state is not retained in Spring Session.
 
@@ -55,6 +56,8 @@ On successful browser login, Spring Security session-fixation protection rotates
 | `GET /api/identity/me` | Valid bound bearer identity or authenticated browser session | `{"actorId":"<uuid>"}` |
 | `GET /` | Browser origin | Static application; session state is resolved through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Public accessible denial state |
+| `GET /invite/{secret}` | Public capability link | Digest lookup, redacted JDBC continuation, then invitation landing |
+| `/api/invitations/**` | Active Organization owner, except redacted current continuation | Create/list/rotate/revoke lifecycle and recipient landing context |
 
 ## External identity provider
 
