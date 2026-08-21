@@ -62,6 +62,14 @@ Each invitation records:
 
 The plaintext secret exists only in the create or rotate response and the recipient's intake request. It is never logged, persisted, listed, or reconstructed.
 
+## Schema strategy for this stage
+
+MEM-12 is expected to be a genuinely additive schema change: add one Organization-owned invitation table and its indexes/constraints in the next small Flyway migration. Do not introduce expand/contract phases, dual reads or writes, compatibility columns, or a backfill framework for disposable development data.
+
+If implementation reveals that an existing identity, membership, or session shape prevents the clean invitation model, stop and choose the final schema directly. At this project stage, an approved destructive reset is preferable to permanent compatibility code: verify a backup, recreate the MemoryOS database or affected schema, rerun Flyway and the initial-owner bootstrap, then reinsert only the minimal test data required for verification.
+
+Existing applied migration files are not silently edited against a retained database. Any baseline squash must be an explicit coordinated reset of repository migrations and every MemoryOS database that recorded their checksums.
+
 ## Owner authorization
 
 Issue, revoke, and rotate require the current `ActorId` to hold active Organization `OWNER` membership in an active Organization. The service derives Organization and default Workspace context from durable authority; clients do not submit an Organization role or Workspace selection.

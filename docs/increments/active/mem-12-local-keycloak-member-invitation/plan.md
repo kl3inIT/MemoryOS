@@ -4,7 +4,8 @@
 
 - [ ] Reconcile the identity and organization capability specs with the approved invitation lifecycle and failure outcomes.
 - [ ] Add the invitation verification matrix before implementation so expiry, rotation, revocation, conflict, and concurrency behavior remain explicit.
-- [ ] Add a Flyway migration for invitation lifecycle facts, digest uniqueness, foreign keys, and one pending invitation per normalized email and Organization.
+- [ ] Add the smallest next Flyway migration for the invitation table, digest uniqueness, foreign keys, and one pending invitation per normalized email and Organization.
+- [ ] Avoid expand/contract compatibility and data-preserving backfill machinery. If an existing schema blocks the clean model, verify a backup, recreate the disposable MemoryOS database or affected schema, rerun Flyway/bootstrap, and reinsert only minimal verification data.
 - [ ] Implement Organization-owned invitation types and JDBC persistence without introducing a second membership or tenant-mapping model.
 
 ## Owner lifecycle

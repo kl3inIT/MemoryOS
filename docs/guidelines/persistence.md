@@ -11,8 +11,19 @@ A temporary runtime profile, command, or endpoint is not an acceptable substitut
 ## Schema ownership
 
 - Capability-owned migrations live with the owning capability's resources. The current identity migration is `core/src/main/resources/db/migration/V1__create_identity_tables.sql`.
-- Applied Flyway migrations are immutable. Evolve schema with a new version; never edit an applied checksum.
+- Applied Flyway migrations are immutable against any retained database. An explicitly approved early-project baseline reset may replace them only together with recreating every MemoryOS database that recorded those checksums; never create checksum drift against a live schema history.
 - Uniqueness, referential integrity, and deletion behavior belong in database constraints when the database is the final concurrency authority.
+
+## Early-project schema evolution
+
+Until MemoryOS holds external durable user data or a release milestone explicitly closes this policy:
+
+- Optimize for the clean target schema, not backward-compatible rollout machinery. Do not add expand/contract phases, dual reads or writes, shadow columns, compatibility views, backfill frameworks, or deprecated aliases solely to preserve disposable development data.
+- A genuinely additive capability uses the next small migration. MEM-12 adding an invitation table does not justify rebuilding unrelated identity or membership tables.
+- If an existing shape blocks the clean model, prefer one approved destructive reset over permanent compatibility code: create and verify a backup, recreate the MemoryOS database or affected schema, run Flyway from the selected baseline, rerun the real bootstrap, and reinsert only the minimal data still needed.
+- Data preservation is not an acceptance gate during this stage. Backup exists for rollback and evidence, not to force a complex in-place transformation.
+- A baseline squash/reset is a coordinated repository-and-database operation. Never edit historical migration checksums while retaining a database that has applied them.
+- Revisit this policy before onboarding external users or declaring durable customer data. From that point, migration and recovery plans must preserve committed data.
 
 ## Operations
 
