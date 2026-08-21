@@ -10,13 +10,13 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | MEM-6 | Dedicated `memoryos` realm and public PKCE client on shared Keycloak | [Runtime runbook](runbooks/development-runtime.md) |
 | MEM-7 | PostgreSQL-backed actors and exact external-identity resolution | [Design](increments/completed/mem-7-persist-actors-and-external-identity-bindings/design.md) · [Verification](increments/completed/mem-7-persist-actors-and-external-identity-bindings/verification.md) · [PR #4](https://github.com/kl3inIT/MemoryOS/pull/4) |
 | MEM-13 | Production Vite/React web foundation and authenticated owner shell over the Spring-owned browser session | [Design](increments/completed/mem-13-production-web-foundation/design.md) · [Verification](increments/completed/mem-13-production-web-foundation/verification.md) · [PR #8](https://github.com/kl3inIT/MemoryOS/pull/8) |
+| MEM-14 | Responsive authenticated `New Session` and administration shells aligned with the OrgMemory/Onyx interaction contract | [Design](increments/completed/mem-14-orgmemory-owner-shell/design.md) · [Verification](increments/completed/mem-14-orgmemory-owner-shell/verification.md) · [PR #11](https://github.com/kl3inIT/MemoryOS/pull/11) |
 
 ## Active
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-8](https://linear.app/memory-os/issue/MEM-8/deliver-initial-organization-owner-browser-session) | Deployment-configured singleton Organization bootstrap and initial-owner Authorization Code + PKCE browser session, with active-membership admission and `ActorId`-only JDBC persistence | [Design](increments/active/mem-8-organization-workspace-browser-onboarding/design.md) · [Plan](increments/active/mem-8-organization-workspace-browser-onboarding/plan.md) · [Verification](increments/active/mem-8-organization-workspace-browser-onboarding/verification.md) |
-| [MEM-14](https://linear.app/memory-os/issue/MEM-14/align-the-authenticated-owner-shell-with-orgmemory) | Align the authenticated owner experience with the proven OrgMemory responsive application-shell composition while retaining the MEM-13 session boundary | [Design](increments/active/mem-14-orgmemory-owner-shell/design.md) · [Plan](increments/active/mem-14-orgmemory-owner-shell/plan.md) · [Verification](increments/active/mem-14-orgmemory-owner-shell/verification.md) |
 
 ## Candidate increments
 
