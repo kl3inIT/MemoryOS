@@ -1,0 +1,6 @@
+# Keep repository text deterministic across operating systems.
+* text=auto eol=lf
+
+# Windows launchers remain native in Windows checkouts.
+*.bat text eol=crlf
+*.cmd text eol=crlf
