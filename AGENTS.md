@@ -25,7 +25,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
-- [MEM-8 — Initial Organization owner browser session](docs/increments/active/mem-8-organization-workspace-browser-onboarding/design.md)
+No increment is currently active.
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 

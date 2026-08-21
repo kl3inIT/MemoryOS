@@ -49,4 +49,4 @@
 - [x] `clean check` on the checked-in Gradle wrapper.
 - [x] Pull request latest-head CI, review remediation, guarded merge, and exact merge-SHA verification.
 
-Keep this increment under `active/` until the remaining live denial gate is observed. Then move it to `completed/`, reconcile `docs/roadmap.md`, and record final delivery evidence.
+Completed on 2026-08-21 after the shared runtime denied an authenticated, unbound Keycloak identity with `ACCESS_NOT_PROVISIONED`, invalidated the partial application session, and persisted no provider state.

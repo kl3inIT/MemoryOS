@@ -1,6 +1,6 @@
 # MEM-8 verification
 
-Status: local, shared-runtime, latest-head CI, review-remediation, and merge evidence are complete for exact bootstrap, initial-owner browser login, `ActorId`-only JDBC session persistence, and restart replay. A live unprovisioned-user denial remains required before delivery.
+Status: delivery complete. Local, shared-runtime, latest-head CI, review-remediation, merge, exact bootstrap, initial-owner browser login, `ActorId`-only JDBC session persistence, restart replay, and live unprovisioned-user denial evidence are complete.
 
 ## Automated evidence
 
@@ -88,12 +88,16 @@ The browser received one `SESSION` cookie with `HttpOnly`, `Secure`, and `SameSi
 
 Observed 2026-08-19: restarted the exact deployed container and waited for Compose health. Flyway reported the schema current with no migration required. Aggregate cardinalities remained one and every Organization, Workspace, actor, and subject identifier remained unchanged. The pre-restart browser session remained authenticated and `/` returned the same actor ID, proving JDBC session continuity across process restart.
 
-## Remaining runtime evidence
+## Live unprovisioned-user denial
 
-The shared realm has no unprovisioned test identity. The initial owner authenticates but receives `403 Forbidden` for realm-user administration; the available master bootstrap account can read the realm but receives `401 Unauthorized` when creating a realm user. No permission or database bypass was introduced. The exact `ACCESS_NOT_PROVISIONED` callback, invalidated partial session, and zero provider-state persistence remain covered by `BrowserAuthenticationIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession`; a live denial still requires a separately provisioned test identity or authorized Keycloak operator.
+Observed 2026-08-21 through the real shared Keycloak realm and deployed MemoryOS API. The managed Keycloak bootstrap administrator was authenticated only on the container-local admin endpoint; this avoided the public-proxy authorization failure without granting realm-management authority to MemoryOS or the initial owner. It created one nonpersonal, temporary test identity with no MemoryOS binding or Organization membership.
 
-## Remaining delivery gate
+Chromium opened `http://localhost:8080/oauth2/authorization/memoryos` through the SSH-forwarded deployed API. The authorization request used client `memoryos-web`, the exact loopback callback, and `code_challenge_method=S256`. After Keycloak authenticated the test identity, MemoryOS redirected to `/access-not-provisioned` and rendered `This workspace doesn’t know you yet.` with the explicit explanation that the verified identity had not been invited.
 
-- A live unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`.
+The browser retained only Keycloak-domain cookies and no localhost `SESSION` cookie. A subsequent `/api/identity/me` request returned `401`. Shared PostgreSQL reported `binding_count=0`, `principal_session_count=0`, `subject_attribute_count=0`, and `provider_marker_count=0` for the test subject and the serialized `OAuth2AuthenticationToken`, `OAuth2AuthorizedClient`, and `OidcUser` markers.
 
-Keep MEM-8 active until that runtime gate is observed. PR #6 is merged and its implementation/review evidence is complete; move this directory to `completed/` and reconcile the roadmap only after the remaining gate closes.
+The test identity and its ephemeral credential files were deleted after verification. No application authorization, database row, runtime permission, or durable test account was introduced to close the gate.
+
+## Delivery completion
+
+All MEM-8 verification gates are complete. PR #6 remains the implementation merge; this closure records the final live denial evidence required to classify the increment as delivered.
