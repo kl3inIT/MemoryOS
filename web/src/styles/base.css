@@ -1,0 +1,13 @@
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    @apply min-w-80 bg-background text-foreground antialiased;
+  }
+}

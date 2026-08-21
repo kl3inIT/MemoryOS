@@ -4,11 +4,12 @@ import {
   SessionLoadingScreen,
   SignInScreen,
 } from "@/features/identity/auth-states";
+import { AdminShell } from "@/features/identity/admin-shell";
 import { OwnerShell } from "@/features/identity/owner-shell";
 import { isUnauthenticated } from "@/lib/api";
 import { getCurrentIdentityOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 
-export function IdentityGate() {
+export function IdentityGate({ surface = "assistant" }: { surface?: "assistant" | "admin" }) {
   const identity = useQuery({
     ...getCurrentIdentityOptions(),
     retry: false,
@@ -26,5 +27,5 @@ export function IdentityGate() {
     return <SessionErrorScreen onRetry={() => void identity.refetch()} />;
   }
 
-  return <OwnerShell actorId={identity.data.actorId} />;
+  return surface === "admin" ? <AdminShell /> : <OwnerShell />;
 }

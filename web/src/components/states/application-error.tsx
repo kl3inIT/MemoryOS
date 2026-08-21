@@ -44,7 +44,7 @@ export function ApplicationError({
           <EmptyTitle className="text-2xl font-semibold tracking-[-0.03em]">{title}</EmptyTitle>
           <EmptyDescription>{description}</EmptyDescription>
           {details && (
-            <p className="max-w-md break-words font-mono text-xs text-neutral-500">{details}</p>
+            <p className="max-w-md break-words font-mono text-xs text-content-muted">{details}</p>
           )}
         </EmptyHeader>
         {onRetry && (
