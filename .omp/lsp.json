@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/lsp/lsp-schema.json",
+  "servers": {
+    "typescript-native": {
+      "command": "node",
+      "args": [
+        "web/node_modules/typescript/bin/tsc",
+        "--lsp",
+        "--stdio"
+      ],
+      "fileTypes": [
+        ".ts",
+        ".tsx",
+        ".mts",
+        ".cts",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs"
+      ],
+      "rootMarkers": [
+        "settings.gradle.kts"
+      ],
+      "warmupTimeoutMs": 120000
+    }
+  },
+  "idleTimeoutMs": 300000
+}

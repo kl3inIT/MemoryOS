@@ -9,5 +9,6 @@ out/
 **/.project
 **/.settings/
 .omp/mcp.json
+web/.playwright-cli/
 .env
 secrets/

@@ -1,0 +1,31 @@
+{
+  "adapters": {
+    "kotlin-debug-adapter": {
+      "command": "kotlin-debug-adapter",
+      "args": [],
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fileTypes": [
+        ".java",
+        ".kt",
+        ".kts"
+      ],
+      "rootMarkers": [
+        "settings.gradle.kts",
+        "build.gradle.kts"
+      ],
+      "launchDefaults": {
+        "request": "launch",
+        "mainClass": "io.memoryos.api.MemoryOsApiApplication",
+        "projectRoot": "."
+      },
+      "attachDefaults": {
+        "request": "attach",
+        "projectRoot": ".",
+        "hostName": "127.0.0.1"
+      }
+    }
+  }
+}
