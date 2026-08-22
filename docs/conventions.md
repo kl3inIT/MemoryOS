@@ -18,6 +18,13 @@ These conventions apply across MemoryOS. Capability-specific behavior belongs in
 - Prefer Spring `JdbcClient` for explicit SQL and Spring-managed transaction/error semantics. Use JPA when entity lifecycle or relationships provide concrete value; never create parallel domain/entity/repository/mapper layers by default.
 - Centralize dependency versions in `gradle/libs.versions.toml`.
 
+## API errors
+
+- Expected capability failures use capability-prefixed stable codes through root-package typed `BusinessException` subclasses; HTTP types never enter core.
+- REST failures use RFC 9457 `application/problem+json`. Clients branch on status or `code`, never on `title`, `detail`, or diagnostic exception messages.
+- Spring Boot owns built-in MVC Problem Details. Custom advice handles only `BusinessException`; never add a global `Exception` catch.
+- Browser redirect responses and Spring Security filter failures retain their surface-specific contracts.
+
 ## Data and security
 
 - Follow [production-first persistence](guidelines/persistence.md).

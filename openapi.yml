@@ -47,9 +47,9 @@ paths:
         '403':
           description: The actor is not an active Organization owner
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/InvitationError'
+                $ref: '#/components/schemas/ApiProblem'
     post:
       operationId: createInvitation
       summary: Create one Organization member invitation
@@ -74,19 +74,23 @@ paths:
         '400':
           description: Invalid email
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/InvitationError'
+                $ref: '#/components/schemas/ApiProblem'
         '401':
           description: No accepted authentication is present
         '403':
           description: The actor is not an active Organization owner or the same-origin header is missing
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiProblem'
         '409':
           description: A conflicting pending invitation already exists
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/InvitationError'
+                $ref: '#/components/schemas/ApiProblem'
   /api/invitations/{invitationId}:
     delete:
       operationId: revokeInvitation
@@ -104,12 +108,16 @@ paths:
           description: No accepted authentication is present
         '403':
           description: The actor is not an active Organization owner or the same-origin header is missing
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiProblem'
         '410':
           description: Invitation is no longer pending and available
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/InvitationError'
+                $ref: '#/components/schemas/ApiProblem'
   /api/invitations/{invitationId}/rotate:
     post:
       operationId: rotateInvitation
@@ -131,12 +139,16 @@ paths:
           description: No accepted authentication is present
         '403':
           description: The actor is not an active Organization owner or the same-origin header is missing
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiProblem'
         '410':
           description: Invitation is no longer pending and available
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/InvitationError'
+                $ref: '#/components/schemas/ApiProblem'
   /api/invitations/current:
     get:
       operationId: getCurrentInvitation
@@ -152,9 +164,9 @@ paths:
         '410':
           description: No available invitation continuation exists
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/InvitationError'
+                $ref: '#/components/schemas/ApiProblem'
 components:
   securitySchemes:
     browserSession:
@@ -278,14 +290,31 @@ components:
         continueUrl:
           type: string
           pattern: '^/invite/continue'
-    InvitationError:
+    ApiProblem:
       type: object
       additionalProperties: false
       required:
-        - code
-        - message
+        - title
+        - status
+        - detail
+        - instance
       properties:
+        type:
+          type: string
+          format: uri
+          description: Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
         code:
           type: string
-        message:
-          type: string
+          pattern: '^[A-Z][A-Z0-9_]*$'
+          description: Stable capability-prefixed code; present only for expected capability failures.

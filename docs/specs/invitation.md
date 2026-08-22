@@ -56,6 +56,12 @@ One transaction calls the Identity-owned mandatory binding-and-lock port, calls 
 
 After commit, the browser flow rotates the session ID and persists only the existing `ActorId` application principal. Provider access tokens, refresh tokens, raw ID tokens, and authorized-client state are discarded. Every failed partial flow invalidates its session.
 
+## Failure contract
+
+Invitation exposes expected REST failures through capability-prefixed codes: `INVITATION_NOT_OWNER`, `INVITATION_INVALID_EMAIL`, `INVITATION_CONFLICT`, `INVITATION_NOT_AVAILABLE`, `INVITATION_EMAIL_NOT_VERIFIED`, `INVITATION_EMAIL_MISMATCH`, and `INVITATION_IDENTITY_CONFLICT`. Each code carries one semantic failure category and safe English fallback message. The API renders these as RFC 9457 Problem Details and never exposes the diagnostic `InvitationException` message.
+
+Browser intake and OAuth flows continue to catch `InvitationException` directly and translate selected reasons to redirect recovery states.
+
 ## Product surface
 
 The owner uses `Admin Panel` → `People` to create, list, rotate, and revoke invitations. Create and rotate expose an immediate copy/share link. Recipient surfaces identify the workspace, lead into local Keycloak sign-in/account creation, and provide plain-language recovery for unavailable, unverified, or mismatched invitations.

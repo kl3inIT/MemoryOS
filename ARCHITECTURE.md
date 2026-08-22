@@ -61,6 +61,12 @@ On successful browser login, Spring Security session-fixation protection rotates
 | `GET /invite/{secret}` | Public capability link | Digest lookup, redacted JDBC continuation, then invitation landing |
 | `/api/invitations/**` | Active Organization owner, except redacted current continuation | Create/list/rotate/revoke lifecycle and recipient landing context |
 
+## API error contract
+
+Spring Boot MVC Problem Details is enabled for framework exceptions. Expected capability failures are carried by typed subclasses of the root-package abstract `BusinessException`, which snapshots a capability-prefixed code, semantic category, and safe fallback message while keeping typed reasons in the capability. Root placement keeps the shared vocabulary outside the eight Spring Modulith capability modules. `ApiExceptionHandler` handles `BusinessException` only for `@RestController` types, maps semantic failure category to HTTP status/title once, and returns RFC 9457 `application/problem+json` with a derived `urn:memoryos:failure:*` type. Diagnostic exception messages are never exposed.
+
+Browser redirect controllers continue to consume typed exceptions directly, `ACCESS_NOT_PROVISIONED` remains a browser destination response, and Spring Security filter-chain failures remain outside MVC advice. Unexpected exceptions are not caught by the global handler.
+
 ## External identity provider
 
 Keycloak is the browser credential store and OIDC provider. The reconciliation script creates or reuses the named local initial owner without assigning Keycloak administration roles, retains public PKCE client `memoryos-integration`, and adds confidential `memoryos-web` with Authorization Code and mandatory S256 PKCE. Operator and one-time user passwords plus the browser client secret are read from managed environment values and sent through documented environment/stdin channels, not command arguments or output. The API receives only the browser client secret and stable owner subject; it never receives Keycloak administrator credentials or user passwords.

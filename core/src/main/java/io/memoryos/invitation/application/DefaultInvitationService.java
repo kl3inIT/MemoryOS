@@ -110,11 +110,7 @@ public class DefaultInvitationService implements InvitationService {
                     expiresAt
             ), "create invitation");
         } catch (DataIntegrityViolationException exception) {
-            throw failure(
-                    InvitationFailureReason.INVITATION_CONFLICT,
-                    "an open invitation already exists for this email",
-                    exception
-            );
+            throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, "an open invitation already exists for this email", exception);
         }
 
         return new IssuedInvitation(
@@ -157,11 +153,7 @@ public class DefaultInvitationService implements InvitationService {
                     "rotate invitation"
             );
         } catch (DataIntegrityViolationException exception) {
-            throw failure(
-                    InvitationFailureReason.INVITATION_CONFLICT,
-                    "could not rotate invitation",
-                    exception
-            );
+            throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, "could not rotate invitation", exception);
         }
 
         return new IssuedInvitation(view(invitation, expiresAt), plaintextSecret);
@@ -207,10 +199,7 @@ public class DefaultInvitationService implements InvitationService {
         Objects.requireNonNull(acceptance.organizationId(), "organizationId must not be null");
         Objects.requireNonNull(acceptance.externalIdentity(), "externalIdentity must not be null");
         if (!acceptance.emailVerified()) {
-            throw failure(
-                    InvitationFailureReason.EMAIL_NOT_VERIFIED,
-                    "invitation email is not verified"
-            );
+            throw new InvitationException(InvitationFailureReason.EMAIL_NOT_VERIFIED, "invitation email is not verified");
         }
 
         String normalizedEmail = normalizeEmail(acceptance.email());
@@ -218,10 +207,7 @@ public class DefaultInvitationService implements InvitationService {
         requireAvailable(invitation);
         InvitationTarget target = activeTarget(invitation);
         if (!invitation.email().equals(normalizedEmail)) {
-            throw failure(
-                    InvitationFailureReason.EMAIL_MISMATCH,
-                    "authenticated email does not match invitation"
-            );
+            throw new InvitationException(InvitationFailureReason.EMAIL_MISMATCH, "authenticated email does not match invitation");
         }
 
 
@@ -241,21 +227,14 @@ public class DefaultInvitationService implements InvitationService {
             );
             return actorId;
         } catch (DataIntegrityViolationException exception) {
-            throw failure(
-                    InvitationFailureReason.IDENTITY_CONFLICT,
-                    "invitation identity or membership conflicts with existing authority",
-                    exception
-            );
+            throw new InvitationException(InvitationFailureReason.IDENTITY_CONFLICT, "invitation identity or membership conflicts with existing authority", exception);
         }
     }
 
     private InvitationAuthority ownerContext(ActorId actorId) {
         Objects.requireNonNull(actorId, "actorId must not be null");
         return membershipProvisioner.findInvitationAuthority(actorId)
-                .orElseThrow(() -> failure(
-                        InvitationFailureReason.NOT_OWNER,
-                        "an active Organization owner is required"
-                ));
+                .orElseThrow(() -> new InvitationException(InvitationFailureReason.NOT_OWNER, "an active Organization owner is required"));
     }
 
     private InvitationRow pendingOwnedInvitation(ActorId ownerActorId, UUID invitationId) {
@@ -323,11 +302,11 @@ public class DefaultInvitationService implements InvitationService {
 
     private static String normalizeEmail(String email) {
         if (email == null) {
-            throw failure(InvitationFailureReason.INVALID_EMAIL, "email is required");
+            throw new InvitationException(InvitationFailureReason.INVALID_EMAIL, "email is required");
         }
         String normalized = email.strip().toLowerCase(Locale.ROOT);
         if (normalized.length() > 254 || !EMAIL.matcher(normalized).matches()) {
-            throw failure(InvitationFailureReason.INVALID_EMAIL, "email is invalid");
+            throw new InvitationException(InvitationFailureReason.INVALID_EMAIL, "email is invalid");
         }
         return normalized;
     }
@@ -357,41 +336,16 @@ public class DefaultInvitationService implements InvitationService {
 
     private static void requireOne(int updated, String operation) {
         if (updated != 1) {
-            throw failure(
-                    InvitationFailureReason.INVITATION_CONFLICT,
-                    operation + " affected " + updated + " rows"
-            );
+            throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, operation + " affected " + updated + " rows");
         }
     }
 
     private static InvitationException notAvailable() {
-        return failure(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
-                "invitation is not available"
-        );
+        return new InvitationException(InvitationFailureReason.INVITATION_NOT_AVAILABLE, "invitation is not available");
     }
 
     private static InvitationException identityConflict() {
-        return failure(
-                InvitationFailureReason.IDENTITY_CONFLICT,
-                "identity already has Organization authority"
-        );
+        return new InvitationException(InvitationFailureReason.IDENTITY_CONFLICT, "identity already has Organization authority");
     }
 
-    private static InvitationException failure(
-            InvitationFailureReason reason,
-            String message
-    ) {
-        return new InvitationException(reason, message);
-    }
-
-    private static InvitationException failure(
-            InvitationFailureReason reason,
-            String message,
-            Throwable cause
-    ) {
-        var exception = new InvitationException(reason, message);
-        exception.initCause(cause);
-        return exception;
-    }
 }
