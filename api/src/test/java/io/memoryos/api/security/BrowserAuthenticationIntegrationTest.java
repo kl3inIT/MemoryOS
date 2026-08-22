@@ -199,6 +199,59 @@ class BrowserAuthenticationIntegrationTest {
     }
 
     @Test
+    void returnsProblemDetailsForBusinessAndFrameworkFailures() throws Exception {
+        AUTHENTICATING_SUBJECT.set("initial-owner");
+        AUTHENTICATING_EMAIL.set("owner@example.test");
+        AUTHENTICATING_EMAIL_VERIFIED.set(true);
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var client = client(cookies)) {
+            assertEquals(
+                    baseUri().resolve("/").toString(),
+                    completeOAuth(client, "/oauth2/authorization/memoryos")
+                            .headers().firstValue("location").orElseThrow()
+            );
+
+            var businessFailure = client.send(
+                    invitationMutation("{\"email\":\"not-an-email\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(400, businessFailure.statusCode());
+            assertEquals(
+                    "application/problem+json",
+                    businessFailure.headers().firstValue("content-type").orElseThrow()
+            );
+            assertEquals(
+                    "urn:memoryos:failure:invitation-invalid-email",
+                    jsonString(businessFailure.body(), "type")
+            );
+            assertEquals("Validation failed", jsonString(businessFailure.body(), "title"));
+            assertEquals("Enter a valid email address.", jsonString(businessFailure.body(), "detail"));
+            assertEquals("/api/invitations", jsonString(businessFailure.body(), "instance"));
+            assertEquals("INVITATION_INVALID_EMAIL", jsonString(businessFailure.body(), "code"));
+            assertTrue(businessFailure.body().contains("\"status\":400"));
+
+            var frameworkFailure = client.send(
+                    invitationMutation("{"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(400, frameworkFailure.statusCode());
+            assertEquals(
+                    "application/problem+json",
+                    frameworkFailure.headers().firstValue("content-type").orElseThrow()
+            );
+            assertFalse(frameworkFailure.body().contains("\"type\""));
+            assertEquals("Bad Request", jsonString(frameworkFailure.body(), "title"));
+            assertEquals("Failed to read request", jsonString(frameworkFailure.body(), "detail"));
+            assertEquals("/api/invitations", jsonString(frameworkFailure.body(), "instance"));
+            assertTrue(frameworkFailure.body().contains("\"status\":400"));
+            assertFalse(frameworkFailure.body().contains("\"code\""));
+        } finally {
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+    @Test
     void derivesTheOAuthCallbackFromTheForwardedHttpsOrigin() throws Exception {
         var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
         var request = HttpRequest.newBuilder(baseUri().resolve("/oauth2/authorization/memoryos"))

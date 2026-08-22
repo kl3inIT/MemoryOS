@@ -42,9 +42,19 @@ export type CurrentInvitation = {
     continueUrl: string;
 };
 
-export type InvitationError = {
-    code: string;
-    message: string;
+export type ApiProblem = {
+    /**
+     * Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
+     */
+    type?: string;
+    title: string;
+    status: number;
+    detail: string;
+    instance: string;
+    /**
+     * Stable capability-prefixed code; present only for expected capability failures.
+     */
+    code?: string;
 };
 
 export type InvitationId = string;
@@ -92,7 +102,7 @@ export type ListInvitationsErrors = {
     /**
      * The actor is not an active Organization owner
      */
-    403: InvitationError;
+    403: ApiProblem;
 };
 
 export type ListInvitationsError = ListInvitationsErrors[keyof ListInvitationsErrors];
@@ -123,7 +133,7 @@ export type CreateInvitationErrors = {
     /**
      * Invalid email
      */
-    400: InvitationError;
+    400: ApiProblem;
     /**
      * No accepted authentication is present
      */
@@ -131,11 +141,11 @@ export type CreateInvitationErrors = {
     /**
      * The actor is not an active Organization owner or the same-origin header is missing
      */
-    403: unknown;
+    403: ApiProblem;
     /**
      * A conflicting pending invitation already exists
      */
-    409: InvitationError;
+    409: ApiProblem;
 };
 
 export type CreateInvitationError = CreateInvitationErrors[keyof CreateInvitationErrors];
@@ -172,11 +182,11 @@ export type RevokeInvitationErrors = {
     /**
      * The actor is not an active Organization owner or the same-origin header is missing
      */
-    403: unknown;
+    403: ApiProblem;
     /**
      * Invitation is no longer pending and available
      */
-    410: InvitationError;
+    410: ApiProblem;
 };
 
 export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
@@ -213,11 +223,11 @@ export type RotateInvitationErrors = {
     /**
      * The actor is not an active Organization owner or the same-origin header is missing
      */
-    403: unknown;
+    403: ApiProblem;
     /**
      * Invitation is no longer pending and available
      */
-    410: InvitationError;
+    410: ApiProblem;
 };
 
 export type RotateInvitationError = RotateInvitationErrors[keyof RotateInvitationErrors];
@@ -242,7 +252,7 @@ export type GetCurrentInvitationErrors = {
     /**
      * No available invitation continuation exists
      */
-    410: InvitationError;
+    410: ApiProblem;
 };
 
 export type GetCurrentInvitationError = GetCurrentInvitationErrors[keyof GetCurrentInvitationErrors];
