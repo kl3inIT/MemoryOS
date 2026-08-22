@@ -33,3 +33,9 @@ Date: 2026-08-22
 ## Remaining delivery boundary
 
 MEM-18 is stacked on the unmerged MEM-16 head because generated Problem Detail metadata depends on that contract. Its pull request targets the MEM-16 branch and can be retargeted to `main` after PR #14 merges.
+
+## Pull-request evidence
+
+- PR #15 targets the MEM-16 feature branch intentionally and carries only the MEM-18 delta.
+- Latest-head CI run `32563070515` passed backend, frontend, and production frontend-image jobs for implementation head `4b3d1986afdfa3fbf879d5ec3e920945485901ac`.
+- The single requested CodeRabbit review was rate limited. The bounded evidence collection found no submitted review, inline comment, or unresolved review thread. No merge fallback was used.

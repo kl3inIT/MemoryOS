@@ -32,4 +32,4 @@
 - [x] Inspect every changed Java, Kotlin DSL, and YAML file with JetBrains warnings enabled, then compile affected modules.
 - [x] Run the focused live contract test in compare mode.
 - [x] Run `gradlew.bat clean check --no-daemon`, `pnpm check`, and the changed browser/runtime smoke path.
-- [ ] Review, commit, push, and open a stacked PR against the MEM-16 branch; attach it to MEM-18 and move Linear to review.
+- [x] Review, commit, push, and open a stacked PR against the MEM-16 branch; attach it to MEM-18 and move Linear to review.
