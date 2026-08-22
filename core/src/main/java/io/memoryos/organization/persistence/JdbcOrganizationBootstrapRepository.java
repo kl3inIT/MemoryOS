@@ -91,12 +91,6 @@ public class JdbcOrganizationBootstrapRepository {
             WHERE organization.id = :organizationId
             """;
 
-    private static final String COUNT_WORKSPACES =
-            "SELECT COUNT(*) FROM workspaces WHERE organization_id = :organizationId";
-    private static final String COUNT_ORGANIZATION_MEMBERSHIPS =
-            "SELECT COUNT(*) FROM organization_memberships WHERE organization_id = :organizationId";
-    private static final String COUNT_WORKSPACE_MEMBERSHIPS =
-            "SELECT COUNT(*) FROM workspace_memberships WHERE organization_id = :organizationId";
 
     private final JdbcClient jdbcClient;
 
@@ -189,22 +183,4 @@ public class JdbcOrganizationBootstrapRepository {
                 .optional();
     }
 
-    public long countWorkspaces(UUID organizationId) {
-        return count(COUNT_WORKSPACES, organizationId);
-    }
-
-    public long countOrganizationMemberships(UUID organizationId) {
-        return count(COUNT_ORGANIZATION_MEMBERSHIPS, organizationId);
-    }
-
-    public long countWorkspaceMemberships(UUID organizationId) {
-        return count(COUNT_WORKSPACE_MEMBERSHIPS, organizationId);
-    }
-
-    private long count(String sql, UUID organizationId) {
-        return jdbcClient.sql(sql)
-                .param("organizationId", organizationId)
-                .query(Long.class)
-                .single();
-    }
 }

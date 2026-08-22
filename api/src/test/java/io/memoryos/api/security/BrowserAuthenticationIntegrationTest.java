@@ -320,6 +320,34 @@ class BrowserAuthenticationIntegrationTest {
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, current.statusCode());
+            assertEquals("no-store", current.headers().firstValue("cache-control").orElseThrow());
+
+            var invalidIntake = memberClient.send(
+                    request("/invite/not-a-valid-secret"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(303, invalidIntake.statusCode());
+            assertEquals(
+                    "/invitation?reason=not-available",
+                    invalidIntake.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals(
+                    410,
+                    memberClient.send(
+                            request("/api/invitations/current"),
+                            HttpResponse.BodyHandlers.ofString()
+                    ).statusCode()
+            );
+
+            assertEquals(
+                    303,
+                    memberClient.send(request(invitationUrl), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+            current = memberClient.send(
+                    request("/api/invitations/current"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, current.statusCode());
             assertEquals("Tasco", jsonString(current.body(), "organizationDisplayName"));
 
             AUTHENTICATING_SUBJECT.set(memberSubject);
@@ -359,11 +387,11 @@ class BrowserAuthenticationIntegrationTest {
                     .single());
 
             assertPersistedSessionsContainNoProviderOrInvitationState();
-            deleteInvitedMember(memberSubject, memberEmail, memberActorId);
         } finally {
             AUTHENTICATING_SUBJECT.set("initial-owner");
             AUTHENTICATING_EMAIL.set("owner@example.test");
             AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(memberSubject, memberEmail);
             jdbcClient.sql("DELETE FROM spring_session").update();
         }
     }
@@ -524,26 +552,36 @@ class BrowserAuthenticationIntegrationTest {
         }
     }
 
-    private void deleteInvitedMember(String subject, String email, UUID actorId) {
+    private void deleteInvitedMember(String subject, String email) {
         jdbcClient.sql("DELETE FROM organization_invitations WHERE normalized_email = :email")
                 .param("email", email)
                 .update();
-        jdbcClient.sql("DELETE FROM workspace_memberships WHERE actor_id = :actorId")
-                .param("actorId", actorId)
-                .update();
-        jdbcClient.sql("DELETE FROM organization_memberships WHERE actor_id = :actorId")
-                .param("actorId", actorId)
-                .update();
         jdbcClient.sql("""
-                        DELETE FROM external_identity_bindings
+                        SELECT actor_id FROM external_identity_bindings
                         WHERE issuer = :issuer AND subject = :subject
                         """)
                 .param("issuer", ISSUER)
                 .param("subject", subject)
-                .update();
-        jdbcClient.sql("DELETE FROM actors WHERE id = :actorId")
-                .param("actorId", actorId)
-                .update();
+                .query(UUID.class)
+                .optional()
+                .ifPresent(actorId -> {
+                    jdbcClient.sql("DELETE FROM workspace_memberships WHERE actor_id = :actorId")
+                            .param("actorId", actorId)
+                            .update();
+                    jdbcClient.sql("DELETE FROM organization_memberships WHERE actor_id = :actorId")
+                            .param("actorId", actorId)
+                            .update();
+                    jdbcClient.sql("""
+                                    DELETE FROM external_identity_bindings
+                                    WHERE issuer = :issuer AND subject = :subject
+                                    """)
+                            .param("issuer", ISSUER)
+                            .param("subject", subject)
+                            .update();
+                    jdbcClient.sql("DELETE FROM actors WHERE id = :actorId")
+                            .param("actorId", actorId)
+                            .update();
+                });
     }
 
     private static String jsonString(String body, String field) {

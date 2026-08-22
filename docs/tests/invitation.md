@@ -11,8 +11,9 @@
 | Unverified or mismatched email creates no identity or membership | `DefaultInvitationServiceTest.rejectsUnverifiedOrMismatchedEmailWithoutIdentityWrites` |
 | Existing authority conflicts fail without mutation | `DefaultInvitationServiceTest.rejectsAnIdentityThatAlreadyHasOrganizationAuthority` |
 | Binding, fixed memberships, and acceptance commit atomically | `DefaultInvitationServiceTest.acceptsVerifiedMatchingIdentityAndCreatesFixedMembershipsAtomically` |
-| Concurrent callback acceptance produces one member and one accepted invitation | `DefaultInvitationServiceTest.concurrentAcceptanceProducesOneMemberAndOneAcceptedInvitation` and `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
-| Intake persists no plaintext secret and uses no-store/no-referrer headers | `BrowserAuthenticationIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
+| Concurrent replay of one invitation produces one member and one accepted invitation | `DefaultInvitationServiceTest.concurrentAcceptanceProducesOneMemberAndOneAcceptedInvitation` and `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
+| Concurrent invitations for one bound identity serialize on its Actor row and grant one authority | `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
+| Intake/current responses do not cache continuation metadata, and failed intake removes prior state | `BrowserAuthenticationIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
 | Invitation callback uses Authorization Code + S256 PKCE and stores only `ActorId` | `BrowserAuthenticationIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
 | Mismatched invitation email invalidates the partial session and writes no identity | `BrowserAuthenticationIntegrationTest.rejectsMismatchedInvitationEmailAndInvalidatesThePartialSession` |
 | Owner People page supports create, copy/share, and lifecycle presentation | `identity-shell.spec.ts` — `creates a production invitation from the People administration page` |

@@ -35,7 +35,7 @@ The exact current-identity endpoint accepts either a bound bearer identity or an
 
 ## Persistence
 
-`JdbcExternalIdentityResolver` is the capability-owned read adapter. `JdbcExternalIdentityRegistrar` is the capability-owned write adapter exposed to authorized transactions. Registration creates an actor and exact binding atomically or returns the actor already bound to that exact identity. SQL failures use Spring's unchecked `DataAccessException` hierarchy.
+`JdbcExternalIdentityResolver` is the capability-owned read adapter. `JdbcExternalIdentityRegistrar` is the capability-owned write adapter exposed to authorized transactions. Registration creates an actor and exact binding atomically or returns the actor already bound to that exact identity. Invitation acceptance uses the locked registration operation, which holds the stable Actor row until the surrounding transaction completes so concurrent membership grants for one identity serialize. SQL failures use Spring's unchecked `DataAccessException` hierarchy.
 
 Flyway owns the schema under `core/src/main/resources/db/migration/`. Applied migrations are immutable.
 

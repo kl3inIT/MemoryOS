@@ -2,7 +2,6 @@ package io.memoryos.invitation.application;
 
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentityRegistrar;
-import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationContinuation;
 import io.memoryos.invitation.InvitationException;
@@ -46,7 +45,6 @@ public class DefaultInvitationService implements InvitationService {
     private static final int SECRET_BYTES = 32;
 
     private final JdbcInvitationRepository invitationRepository;
-    private final ExternalIdentityResolver identityResolver;
     private final ExternalIdentityRegistrar identityRegistrar;
     private final OrganizationMembershipProvisioner membershipProvisioner;
     private final Clock clock;
@@ -56,14 +54,12 @@ public class DefaultInvitationService implements InvitationService {
     @Autowired
     public DefaultInvitationService(
             JdbcInvitationRepository invitationRepository,
-            ExternalIdentityResolver identityResolver,
             ExternalIdentityRegistrar identityRegistrar,
             OrganizationMembershipProvisioner membershipProvisioner,
             @Value("${memoryos.invitation.time-to-live:PT72H}") Duration timeToLive
     ) {
         this(
                 invitationRepository,
-                identityResolver,
                 identityRegistrar,
                 membershipProvisioner,
                 Clock.systemUTC(),
@@ -73,7 +69,6 @@ public class DefaultInvitationService implements InvitationService {
 
     DefaultInvitationService(
             JdbcInvitationRepository invitationRepository,
-            ExternalIdentityResolver identityResolver,
             ExternalIdentityRegistrar identityRegistrar,
             OrganizationMembershipProvisioner membershipProvisioner,
             Clock clock,
@@ -83,7 +78,6 @@ public class DefaultInvitationService implements InvitationService {
                 invitationRepository,
                 "invitationRepository must not be null"
         );
-        this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
         this.identityRegistrar = Objects.requireNonNull(identityRegistrar, "identityRegistrar must not be null");
         this.membershipProvisioner = Objects.requireNonNull(
                 membershipProvisioner,
@@ -230,13 +224,9 @@ public class DefaultInvitationService implements InvitationService {
             );
         }
 
-        ActorId existingActor = identityResolver.resolve(acceptance.externalIdentity()).orElse(null);
-        if (existingActor != null && membershipProvisioner.hasAnyMembership(existingActor)) {
-            throw identityConflict();
-        }
 
         try {
-            ActorId actorId = identityRegistrar.resolveOrCreate(acceptance.externalIdentity());
+            ActorId actorId = identityRegistrar.resolveOrCreateLocked(acceptance.externalIdentity());
             if (membershipProvisioner.hasAnyMembership(actorId)) {
                 throw identityConflict();
             }

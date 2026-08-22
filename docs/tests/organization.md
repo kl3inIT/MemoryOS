@@ -4,6 +4,7 @@
 | --- | --- |
 | First startup creates one exact actor, Organization, default Workspace, and owner/admin memberships | `DefaultInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
 | Identical startup configuration reuses the published aggregate | `DefaultInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
+| Identical startup configuration replays after Invitation adds valid member authority | `DefaultInvitationServiceTest.replaysBootstrapAfterInvitationAddsAMember` |
 | Concurrent startup creates one aggregate and one caller observes replay through the Spring transaction proxy | `DefaultInitialOrganizationBootstrapperTest.serializesConcurrentStartupAndCreatesOneAggregate` on H2 and `PostgresInitialOrganizationBootstrapperConcurrencyTest.concurrentBootstrapSerializesOnTheSingletonRowAndPublishesOneAggregate` on PostgreSQL |
 | Configuration drift fails without mutation | `DefaultInitialOrganizationBootstrapperTest.rejectsConfigurationDriftWithoutChangingTheExistingAggregate` |
 | Failed aggregate creation rolls back the new actor and binding | `DefaultInitialOrganizationBootstrapperTest.rollsBackTheIdentityBindingWhenAggregateCreationFails` |

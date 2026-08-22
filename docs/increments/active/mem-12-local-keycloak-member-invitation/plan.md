@@ -44,5 +44,6 @@
 - [x] Exercise the real Spring browser chain with Authorization Code + S256 PKCE, JDBC session continuation, verified-email match/mismatch, and provider-state absence.
 - [x] Exercise owner and recipient flows in Chromium at desktop and mobile widths, including recovery states and reload behavior.
 - [x] Run `gradlew.bat clean check --no-daemon`, `pnpm check`, and the browser contract suite.
+- [x] Remediate the captured CodeRabbit pass: session cache/state isolation, bootstrap replay after member grants, Actor-row serialization across invitations, indexed digest lookup, deterministic cleanup/locking tests, clipboard recovery, precise CSRF evidence, and redacted split gateway controls. Track pagination separately as MEM-15.
 - [ ] Deploy the exact reviewed head, execute the complete owner-to-recipient flow against shared Keycloak and PostgreSQL, and record secret-safe database/session evidence.
 - [ ] Complete the guarded PR loop, exact merge-SHA CI, Linear evidence, increment closure, and checkout cleanup.

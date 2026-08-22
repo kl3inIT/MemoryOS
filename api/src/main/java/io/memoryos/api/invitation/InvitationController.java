@@ -9,11 +9,13 @@ import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.IssuedInvitation;
 import io.memoryos.organization.OrganizationId;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -81,7 +83,11 @@ final class InvitationController {
     }
 
     @GetMapping("/current")
-    CurrentInvitationResponse current(HttpServletRequest request) {
+    CurrentInvitationResponse current(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         var session = request.getSession(false);
         var state = session == null
                 ? null

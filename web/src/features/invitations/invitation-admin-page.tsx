@@ -95,10 +95,14 @@ export function InvitationAdminPage() {
 
   async function copyLink() {
     if (!issued) return;
-    await navigator.clipboard.writeText(
-      new URL(issued.invitationUrl, window.location.origin).toString(),
-    );
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(
+        new URL(issued.invitationUrl, window.location.origin).toString(),
+      );
+      setCopied(true);
+    } catch {
+      setFormError("The invitation link could not be copied. Copy it from the field.");
+    }
   }
 
   const rows = invitations.data ?? [];

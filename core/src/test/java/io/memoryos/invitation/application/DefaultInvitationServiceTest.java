@@ -27,11 +27,8 @@ import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisione
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -43,6 +40,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
@@ -60,6 +58,7 @@ class DefaultInvitationServiceTest {
     private Connection keepAlive;
     private MutableClock clock;
     private InvitationService invitations;
+    private InitialOrganizationBootstrapper bootstrapper;
     private ActorId ownerActorId;
 
     @BeforeEach
@@ -88,19 +87,12 @@ class DefaultInvitationServiceTest {
                 transactionManager
         );
         var bootstrapRepository = new JdbcOrganizationBootstrapRepository(jdbcClient);
-        InitialOrganizationBootstrapper bootstrapper = transactionalProxy(
+        bootstrapper = transactionalProxy(
                 new DefaultInitialOrganizationBootstrapper(bootstrapRepository, resolver, registrar),
                 InitialOrganizationBootstrapper.class,
                 transactionManager
         );
-        ownerActorId = bootstrapper.bootstrap(new InitialOrganizationBootstrapRequest(
-                new ExternalIdentity(ISSUER, "initial-owner"),
-                "tasco",
-                "Tasco",
-                "default",
-                "Tasco Default Workspace",
-                "TEST-MEM-12"
-        )).ownerActorId();
+        ownerActorId = bootstrapper.bootstrap(bootstrapRequest()).ownerActorId();
         var membershipProvisioner = transactionalProxy(
                 new JdbcOrganizationMembershipProvisioner(jdbcClient),
                 OrganizationMembershipProvisioner.class,
@@ -110,7 +102,6 @@ class DefaultInvitationServiceTest {
         invitations = transactionalProxy(
                 new DefaultInvitationService(
                         new JdbcInvitationRepository(jdbcClient),
-                        resolver,
                         registrar,
                         membershipProvisioner,
                         clock,
@@ -253,6 +244,26 @@ class DefaultInvitationServiceTest {
     }
 
     @Test
+    void replaysBootstrapAfterInvitationAddsAMember() {
+        var issued = invitations.issue(ownerActorId, "member@example.com");
+        var continuation = invitations.intake(issued.plaintextSecret());
+        invitations.accept(new InvitationAcceptance(
+                continuation.invitationId(),
+                continuation.organizationId(),
+                new ExternalIdentity(ISSUER, "replay-member"),
+                "member@example.com",
+                true
+        ));
+
+        var replay = bootstrapper.bootstrap(bootstrapRequest());
+
+        assertFalse(replay.created());
+        assertEquals(ownerActorId, replay.ownerActorId());
+        assertEquals(2L, count("organization_memberships"));
+        assertEquals(2L, count("workspace_memberships"));
+    }
+
+    @Test
     void rejectsUnverifiedOrMismatchedEmailWithoutIdentityWrites() {
         var issued = invitations.issue(ownerActorId, "member@example.com");
         var continuation = invitations.intake(issued.plaintextSecret());
@@ -338,6 +349,8 @@ class DefaultInvitationServiceTest {
                             && invitationException.reason()
                             == InvitationFailureReason.INVITATION_NOT_AVAILABLE) {
                         unavailable++;
+                    } else if (exception.getCause() instanceof CannotAcquireLockException) {
+                        unavailable++;
                     } else {
                         throw exception;
                     }
@@ -375,8 +388,21 @@ class DefaultInvitationServiceTest {
         return jdbcClient.sql("SELECT COUNT(*) FROM " + table).query(Long.class).single();
     }
 
+    private static InitialOrganizationBootstrapRequest bootstrapRequest() {
+        return new InitialOrganizationBootstrapRequest(
+                new ExternalIdentity(ISSUER, "initial-owner"),
+                "tasco",
+                "Tasco",
+                "default",
+                "Tasco Default Workspace",
+                "TEST-MEM-12"
+        );
+    }
+
     private String scalar(String column) {
-        return jdbcClient.sql("SELECT " + column + " FROM organization_invitations ORDER BY created_at DESC")
+        return jdbcClient.sql(
+                        "SELECT " + column + " FROM organization_invitations ORDER BY created_at DESC LIMIT 1"
+                )
                 .query(String.class)
                 .single();
     }
@@ -406,31 +432,4 @@ class DefaultInvitationServiceTest {
         return contract.cast(proxyFactory.getProxy());
     }
 
-    private static final class MutableClock extends Clock {
-
-        private Instant instant;
-
-        private MutableClock(Instant instant) {
-            this.instant = instant;
-        }
-
-        private void advance(Duration duration) {
-            instant = instant.plus(duration);
-        }
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneOffset.UTC;
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return instant;
-        }
-    }
 }

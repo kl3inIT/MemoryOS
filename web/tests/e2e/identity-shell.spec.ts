@@ -127,7 +127,8 @@ test("recovers from an unavailable identity endpoint without treating it as sign
 test("creates a production invitation from the People administration page", async ({ page }) => {
   const expiresAt = "2026-08-24T10:00:00Z";
   const invitations: Array<Record<string, unknown>> = [];
-  let mutationHeader: string | undefined;
+  let createMutationHeader: string | undefined;
+  let deleteMutationHeader: string | undefined;
 
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -138,7 +139,7 @@ test("creates a production invitation from the People administration page", asyn
   });
   await page.route("**/api/invitations", async (route) => {
     if (route.request().method() === "POST") {
-      mutationHeader = route.request().headers()["x-memoryos-csrf"];
+      createMutationHeader = route.request().headers()["x-memoryos-csrf"];
       const invitation = {
         id: "75c4e810-e1f2-45cb-9480-8e713a934bca",
         email: "member@example.com",
@@ -167,7 +168,6 @@ test("creates a production invitation from the People administration page", asyn
     });
   });
   await page.route("**/api/invitations/**", async (route) => {
-    mutationHeader = route.request().headers()["x-memoryos-csrf"];
     const invitation = invitations[0];
     if (!invitation) {
       await route.fulfill({ status: 404 });
@@ -185,6 +185,7 @@ test("creates a production invitation from the People administration page", asyn
       return;
     }
     if (route.request().method() === "DELETE") {
+      deleteMutationHeader = route.request().headers()["x-memoryos-csrf"];
       invitation.status = "REVOKED";
       invitation.revokedAt = "2026-08-21T11:00:00Z";
       await route.fulfill({ status: 204 });
@@ -207,7 +208,12 @@ test("creates a production invitation from the People administration page", asyn
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/one-time-secret$/,
   );
-  expect(mutationHeader).toBe("1");
+  expect(createMutationHeader).toBe("1");
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = () => Promise.reject(new Error("clipboard denied"));
+  });
+  await page.getByRole("button", { name: "Copy" }).click();
+  await expect(page.getByText("The invitation link could not be copied.")).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByText("member@example.com")).toBeVisible();
   await expect(page.getByText("Pending", { exact: true })).toBeVisible();
@@ -219,7 +225,7 @@ test("creates a production invitation from the People administration page", asyn
   await page.getByRole("button", { name: "Revoke" }).click();
   await expect(page.getByText("Revoked", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Rotate link" })).toHaveCount(0);
-  expect(mutationHeader).toBe("1");
+  expect(deleteMutationHeader).toBe("1");
 });
 
 test("shows the recipient invitation landing and recovery states", async ({ page }) => {

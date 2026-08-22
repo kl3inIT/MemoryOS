@@ -90,12 +90,6 @@ public class DefaultInitialOrganizationBootstrapper implements InitialOrganizati
         InitialOrganizationRow existing = bootstrapRepository.findInitialOrganization(initialOrganizationId)
                 .orElseThrow(() -> conflict("published initial organization aggregate is incomplete"));
 
-        if (bootstrapRepository.countOrganizations() != 1
-                || bootstrapRepository.countWorkspaces(initialOrganizationId) != 1
-                || bootstrapRepository.countOrganizationMemberships(initialOrganizationId) != 1
-                || bootstrapRepository.countWorkspaceMemberships(initialOrganizationId) != 1) {
-            throw conflict("published initial organization aggregate contains unexpected rows");
-        }
         if (!"ACTIVE".equals(existing.organizationStatus())
                 || !"ACTIVE".equals(existing.workspaceStatus())
                 || !request.organizationSlug().equals(existing.organizationSlug())

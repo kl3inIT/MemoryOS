@@ -40,7 +40,7 @@ The invitation row records Organization/default-Workspace scope, normalized emai
 
 `GET /invite/{secret}` hashes and locks the matching invitation. Missing, expired, revoked, consumed, or superseded secrets return the not-available flow. A valid intake stores only redacted continuation state in the JDBC-backed browser session and redirects to the invitation landing surface.
 
-The continuation contains only invitation ID, Organization ID, and expiry. It never contains the plaintext secret or a parallel invitation nonce; Spring Security owns OAuth2 state and OIDC nonce correlation. Intake responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+The continuation contains only invitation ID, Organization ID, and expiry. It never contains the plaintext secret or a parallel invitation nonce; Spring Security owns OAuth2 state and OIDC nonce correlation. Intake and current-continuation responses use `Cache-Control: no-store`; intake also uses `Referrer-Policy: no-referrer`. Failed intake removes any prior continuation from the browser session.
 
 ## Acceptance transaction
 
@@ -52,7 +52,7 @@ An unbound browser identity may be provisioned only from a valid invitation cont
 - invitation still pending and unexpired under a row lock;
 - no conflicting existing membership or identity ownership.
 
-One transaction calls the Identity-owned mandatory binding port, calls the Organization-owned mandatory membership port, and conditionally accepts the Invitation-owned row. Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation consumption commit or roll back together. Concurrent or replayed callbacks leave exactly one accepted result.
+One transaction calls the Identity-owned mandatory binding-and-lock port, calls the Organization-owned mandatory membership port, and conditionally accepts the Invitation-owned row. Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation consumption commit or roll back together. The Invitation row lock rejects replay of one invitation; the stable Actor row lock serializes different invitations that target the same external identity.
 
 After commit, the browser flow rotates the session ID and persists only the existing `ActorId` application principal. Provider access tokens, refresh tokens, raw ID tokens, and authorized-client state are discarded. Every failed partial flow invalidates its session.
 

@@ -12,13 +12,13 @@ Date: 2026-08-21
 - Flattened public contract enums and records into top-level types. Invitation and initial Organization bootstrap now keep transactional orchestration in `application` and JDBC SQL/row mapping in `persistence`; Identity's existing adapters remain persistence-only.
 - Expanded the same-origin OpenAPI contract and regenerated the TypeScript client.
 - Added the responsive `Admin Panel` → `People` experience, one-email dialog, copy/share result, durable lifecycle rows, rotate/revoke recovery, recipient landing, and plain-language failure states.
-- Added production Nginx proxying, no-store/no-referrer invitation headers, gateway rate limiting for invitation intake and mutations, and a dedicated `/invite/` location with access logging disabled so capability secrets never enter gateway request logs.
+- Added production Nginx proxying, no-store/no-referrer invitation headers, separate gateway rate limits for intake and mutations, and a dedicated `/invite/` access log that emits only a static redacted path while retaining status telemetry.
 
 ## Persistence and concurrency evidence
 
 `DefaultInvitationServiceTest` passes the production Flyway SQL in H2 PostgreSQL mode through real Spring transaction proxies. It verifies owner authorization, normalization, digest-only storage, duplicate pending rejection, rotation, revocation, expiry/reissue, verified matching acceptance, mismatch/unverified rollback, existing-authority conflict, and concurrent one-winner acceptance.
 
-`PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` passes against digest-pinned PostgreSQL 17. It observes the second transaction waiting on the invitation row while the first holds the lock, then proves one accepted invitation, one new Actor/binding, and exactly one pair of fixed `MEMBER` memberships. This test exposed and corrected PostgreSQL JDBC's inability to infer `Instant` parameter types; production timestamp writes now use UTC `OffsetDateTime`.
+`PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` passes against digest-pinned PostgreSQL 17. It proves one-invitation replay serialization, then drives two different invitations for one pre-bound identity and observes the second transaction waiting on the stable Actor row until the first membership grant commits. Exactly one invitation accepts that Actor, one remains pending, and exactly one fixed membership pair exists. The test also proves PostgreSQL uses `uq_organization_invitations_secret_digest` for digest lookup after the schema uses `VARCHAR(64)`.
 
 ## Browser and session evidence
 

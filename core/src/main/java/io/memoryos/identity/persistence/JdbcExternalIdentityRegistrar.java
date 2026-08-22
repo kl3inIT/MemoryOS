@@ -27,6 +27,13 @@ public class JdbcExternalIdentityRegistrar implements ExternalIdentityRegistrar 
             VALUES (:issuer, :subject, :actorId)
             """;
 
+    private static final String LOCK_ACTOR = """
+            SELECT id
+            FROM actors
+            WHERE id = :actorId
+            FOR UPDATE
+            """;
+
     private final JdbcClient jdbcClient;
     private final ExternalIdentityResolver identityResolver;
 
@@ -40,6 +47,17 @@ public class JdbcExternalIdentityRegistrar implements ExternalIdentityRegistrar 
     public ActorId resolveOrCreate(ExternalIdentity identity) {
         Objects.requireNonNull(identity, "identity must not be null");
         return identityResolver.resolve(identity).orElseGet(() -> create(identity));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ActorId resolveOrCreateLocked(ExternalIdentity identity) {
+        ActorId actorId = resolveOrCreate(identity);
+        jdbcClient.sql(LOCK_ACTOR)
+                .param("actorId", actorId.value())
+                .query(UUID.class)
+                .single();
+        return actorId;
     }
 
     private ActorId create(ExternalIdentity identity) {

@@ -8,6 +8,7 @@
 | Binding requires an existing actor | `JdbcExternalIdentityResolverTest.bindingRequiresExistingActor` |
 | One actor may own multiple identities | `JdbcExternalIdentityResolverTest.oneActorCanOwnMultipleExternalIdentities` |
 | Bound actor deletion is restricted | `JdbcExternalIdentityResolverTest.actorWithBindingCannotBeDeleted` |
+| Locked registration serializes concurrent membership grants for one bound identity | `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
 | Missing, malformed, invalid-signature, wrong-issuer, wrong-audience, expired, future, or missing-subject bearer tokens fail | `JwtAuthenticationIntegrationTest` |
 | Unknown exact bearer binding fails | `JwtAuthenticationIntegrationTest.rejectsUnknownExternalIdentity` |
 | Bound bearer identity returns only `ActorId` | `JwtAuthenticationIntegrationTest.returnsOnlyActorIdForBoundIdentity` |

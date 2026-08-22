@@ -45,6 +45,10 @@ final class InvitationIntakeController {
             request.getSession(true).setAttribute(InvitationSessionState.ATTRIBUTE, state);
             redirect(response, LANDING_PATH);
         } catch (InvitationException exception) {
+            var session = request.getSession(false);
+            if (session != null) {
+                session.removeAttribute(InvitationSessionState.ATTRIBUTE);
+            }
             redirect(response, LANDING_PATH + "?reason=not-available");
         }
     }

@@ -28,7 +28,7 @@ API startup always invokes `InitialOrganizationBootstrapper` after Flyway migrat
 5. grants Organization `OWNER` and Workspace `ADMIN`; and
 6. publishes the Organization ID in the singleton state row.
 
-A concurrent replica waits on the singleton row, then verifies the published aggregate. The same configuration returns the existing IDs with `created=false`. Any configuration, identity, cardinality, status, or membership drift fails startup with `OrganizationBootstrapConflictException`. Partial writes roll back.
+A concurrent replica waits on the singleton row, then verifies the published aggregate. The same configuration returns the existing IDs with `created=false`. Configuration, owner identity, published default-Workspace, status, or initial owner/admin authority drift fails startup with `OrganizationBootstrapConflictException`; additional valid Organizations, Workspaces, and memberships created after bootstrap do not. Partial writes roll back.
 
 Before first API startup, the deployment operator runs the Keycloak reconciliation script with a managed username and one-time temporary password. The script creates or reuses the local user, assigns no Keycloak administration role, and reports its stable subject for API deployment configuration. MemoryOS never receives Keycloak administrator credentials and never stores the user's password.
 
