@@ -246,6 +246,28 @@ class BrowserAuthenticationIntegrationTest {
             assertEquals("/api/invitations", jsonString(frameworkFailure.body(), "instance"));
             assertTrue(frameworkFailure.body().contains("\"status\":400"));
             assertFalse(frameworkFailure.body().contains("\"code\""));
+
+            var sameOriginFailure = client.send(
+                    HttpRequest.newBuilder(baseUri().resolve("/api/invitations"))
+                            .timeout(Duration.ofSeconds(10))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString("{\"email\":\"member@example.test\"}"))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(403, sameOriginFailure.statusCode());
+            assertEquals(
+                    "application/problem+json",
+                    sameOriginFailure.headers().firstValue("content-type").orElseThrow()
+            );
+            assertEquals("Forbidden", jsonString(sameOriginFailure.body(), "title"));
+            assertEquals(
+                    "same-origin browser request required",
+                    jsonString(sameOriginFailure.body(), "detail")
+            );
+            assertEquals("/api/invitations", jsonString(sameOriginFailure.body(), "instance"));
+            assertTrue(sameOriginFailure.body().contains("\"status\":403"));
+            assertFalse(sameOriginFailure.body().contains("\"code\""));
         } finally {
             jdbcClient.sql("DELETE FROM spring_session").update();
         }

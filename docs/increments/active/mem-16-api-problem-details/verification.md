@@ -4,7 +4,7 @@ Date: 2026-08-22
 
 ## Implemented contract
 
-- Added root-package `FailureCategory` and abstract `BusinessException` without changing the eight closed Spring Modulith modules.
+- Added root-package `FailureCategory` and abstract `BusinessException` without changing the eight closed Spring Modulith modules. Construction rejects blank or nonconforming codes before they can violate OpenAPI or break URN creation.
 - `InvitationFailureReason` owns capability-prefixed codes, semantic categories, and safe English fallback messages; `InvitationException` retains its typed reason while copying public response fields into the base exception.
 - Enabled Spring Boot 4 MVC Problem Details for built-in framework exceptions.
 - Replaced the Invitation-scoped advice with one REST-only `ApiExceptionHandler` that handles `BusinessException`, maps category once, and renders RFC 9457 responses with derived `urn:memoryos:failure:*` type and `code` extension.
@@ -27,6 +27,7 @@ Date: 2026-08-22
 - invalid Invitation email returns `400 application/problem+json`;
 - body contains `INVITATION_INVALID_EMAIL`, `urn:memoryos:failure:invitation-invalid-email`, safe detail, and request instance;
 - malformed JSON returns Boot-native `400 application/problem+json` with safe framework detail and no capability code;
+- missing same-origin mutation header returns Boot-native `403 application/problem+json` with the published generic fields and no capability code;
 - existing browser, redirect, session, and security scenarios remain green.
 
 ## Static and repository gates
