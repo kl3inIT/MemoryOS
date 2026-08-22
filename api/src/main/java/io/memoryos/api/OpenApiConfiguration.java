@@ -69,7 +69,7 @@ class OpenApiConfiguration {
         schema.addProperty("detail", new StringSchema().description("Safe human-readable fallback detail."));
         schema.addProperty(
                 "instance",
-                new StringSchema().format("uri").description("Request path that produced the problem.")
+                new StringSchema().format("uri-reference").description("Request path that produced the problem.")
         );
         schema.addProperty(
                 "code",

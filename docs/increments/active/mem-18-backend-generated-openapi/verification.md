@@ -32,10 +32,10 @@ Date: 2026-08-22
 
 ## Remaining delivery boundary
 
-MEM-18 is stacked on the unmerged MEM-16 head because generated Problem Detail metadata depends on that contract. Its pull request targets the MEM-16 branch and can be retargeted to `main` after PR #14 merges.
+PR #14 merged before MEM-18. GitHub auto-closed stacked PR #15 when its deleted MEM-16 base branch disappeared, so replacement PR #16 targets `main` from the same synchronized MEM-18 branch.
 
 ## Pull-request evidence
 
-- PR #15 targets the MEM-16 feature branch intentionally and carries only the MEM-18 delta.
-- Implementation-head CI run `32563070515` passed backend, frontend, and production frontend-image jobs for `4b3d1986afdfa3fbf879d5ec3e920945485901ac`.
-- The single requested CodeRabbit review was rate limited. The bounded evidence collection found no submitted review, inline comment, or unresolved review thread. No merge fallback was used.
+- PR #15 carried the original implementation delta and implementation-head CI run `32563070515` passed backend, frontend, and production frontend-image jobs.
+- Replacement PR #16 head CI run `32563615988` passed the same three jobs after merging exact `main`; the merge changed no MEM-18 file content.
+- The single PR #16 CodeRabbit pass found one valid schema defect: RFC 9457 `instance` emits an absolute-path URI-reference such as `/api/invitations`, not an absolute URI. The source schema now declares `uri-reference`, the generated snapshot was refreshed, and the live contract test pins that format.

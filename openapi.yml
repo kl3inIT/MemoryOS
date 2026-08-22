@@ -332,7 +332,7 @@ components:
           description: Safe human-readable fallback detail.
         instance:
           type: string
-          format: uri
+          format: uri-reference
           description: Request path that produced the problem.
         code:
           type: string

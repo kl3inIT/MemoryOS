@@ -82,6 +82,16 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        assertEquals(
+                "uri-reference",
+                actual.path("components")
+                        .path("schemas")
+                        .path("ApiProblem")
+                        .path("properties")
+                        .path("instance")
+                        .path("format")
+                        .textValue()
+        );
 
         Path contract = repositoryRoot().resolve("openapi.yml");
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
