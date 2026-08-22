@@ -41,3 +41,9 @@ Date: 2026-08-22
 ## Deferred
 
 MessageSource i18n remains absent until MemoryOS owns a locale contract, frontend translation system, translation catalog, and `Accept-Language` verification matrix. Stable codes and safe fallback messages allow that addition without changing exception or client contracts.
+
+## Merge evidence
+
+- PR #14 reviewed head `fb347d997a3532d70d655fa4604936382e8583e6` merged as `e74174b51e1ee4dc40f92ee630451fc3c8f35383`.
+- Exact merge-SHA CI run `32563451013` passed backend, frontend, and production frontend-image jobs.
+- Both captured CodeRabbit findings were fixed or rebutted with evidence and their threads were resolved before merge.
