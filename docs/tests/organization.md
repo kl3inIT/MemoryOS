@@ -2,12 +2,13 @@
 
 | Requirement | Durable verification |
 | --- | --- |
-| First startup creates one exact actor, Organization, default Workspace, and owner/admin memberships | `JdbcInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
-| Identical startup configuration reuses the published aggregate | `JdbcInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
-| Concurrent startup creates one aggregate and one caller observes replay through the Spring transaction proxy | `JdbcInitialOrganizationBootstrapperTest.serializesConcurrentStartupAndCreatesOneAggregate` on H2 and `PostgresInitialOrganizationBootstrapperConcurrencyTest.concurrentBootstrapSerializesOnTheSingletonRowAndPublishesOneAggregate` on PostgreSQL |
-| Configuration drift fails without mutation | `JdbcInitialOrganizationBootstrapperTest.rejectsConfigurationDriftWithoutChangingTheExistingAggregate` |
-| Failed aggregate creation rolls back the new actor and binding | `JdbcInitialOrganizationBootstrapperTest.rollsBackTheIdentityBindingWhenAggregateCreationFails` |
-| Browser admission requires active Organization authority | `JdbcInitialOrganizationBootstrapperTest.resolvesOnlyActiveOrganizationMemberships` and `BrowserAuthenticationIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession` |
+| First startup creates one exact actor, Organization, default Workspace, and owner/admin memberships | `DefaultInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
+| Identical startup configuration reuses the published aggregate | `DefaultInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
+| Identical startup configuration replays after Invitation adds valid member authority | `DefaultInvitationServiceTest.replaysBootstrapAfterInvitationAddsAMember` |
+| Concurrent startup creates one aggregate and one caller observes replay through the Spring transaction proxy | `DefaultInitialOrganizationBootstrapperTest.serializesConcurrentStartupAndCreatesOneAggregate` on H2 and `PostgresInitialOrganizationBootstrapperConcurrencyTest.concurrentBootstrapSerializesOnTheSingletonRowAndPublishesOneAggregate` on PostgreSQL |
+| Configuration drift fails without mutation | `DefaultInitialOrganizationBootstrapperTest.rejectsConfigurationDriftWithoutChangingTheExistingAggregate` |
+| Failed aggregate creation rolls back the new actor and binding | `DefaultInitialOrganizationBootstrapperTest.rollsBackTheIdentityBindingWhenAggregateCreationFails` |
+| Browser admission requires active Organization authority | `DefaultInitialOrganizationBootstrapperTest.resolvesOnlyActiveOrganizationMemberships` and `BrowserAuthenticationIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession` |
 | Initial owner completes Authorization Code + PKCE login and receives an `ActorId`-only JDBC session | `BrowserAuthenticationIntegrationTest.authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession` |
 | Bearer identity behavior remains compatible | `JwtAuthenticationIntegrationTest` |
 

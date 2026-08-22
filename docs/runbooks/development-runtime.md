@@ -27,7 +27,7 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, retains public client `memoryos-integration`, reconciles confidential client `memoryos-web`, enforces Authorization Code with S256 PKCE, and sets the deployment-managed browser client secret.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, verifies its deployment-managed email, enables email-as-username self-registration with required email verification, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential client `memoryos-web`, enforces Authorization Code with S256 PKCE, and sets the deployment-managed browser client secret.
 
 Required operator environment:
 
@@ -36,12 +36,22 @@ KEYCLOAK_URL
 KEYCLOAK_ADMIN_USERNAME
 KC_CLI_PASSWORD
 MEMORYOS_INITIAL_OWNER_USERNAME
+MEMORYOS_INITIAL_OWNER_EMAIL
 MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD # required only when the user does not exist
 MEMORYOS_BROWSER_CLIENT_SECRET
 MEMORYOS_BROWSER_REDIRECT_URI # one exact HTTPS callback, or one loopback callback for local verification
+MEMORYOS_KEYCLOAK_SMTP_HOST
+MEMORYOS_KEYCLOAK_SMTP_PORT # defaults to 587
+MEMORYOS_KEYCLOAK_SMTP_FROM
+MEMORYOS_KEYCLOAK_SMTP_FROM_DISPLAY_NAME # defaults to MemoryOS
+MEMORYOS_KEYCLOAK_SMTP_AUTH # defaults to true
+MEMORYOS_KEYCLOAK_SMTP_USERNAME # required when auth is true
+MEMORYOS_KEYCLOAK_SMTP_PASSWORD # required when auth is true
+MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
+MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 ```
 
-Run the script from a controlled operator shell with `jq` available. Its account needs only user/client management permissions required by the script; do not grant the application or initial owner those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to the one exact deployment callback, for example `https://memoryos.example.com/login/oauth2/code/memoryos`; wildcards and non-loopback HTTP origins are rejected. Use `http://localhost:8080/login/oauth2/code/memoryos` only for local verification. Keycloak reads the operator password from its documented `KC_CLI_PASSWORD` environment variable. User creation, exact redirect configuration, and browser-secret updates are JSON-encoded from environment values and sent to `kcadm` over standard input, so passwords and secrets do not appear in command arguments or output. The initial password is temporary and must be replaced by the owner at first login; replay never resets an existing user's password. The mode-restricted temporary token configuration and generated browser-client document are removed on exit.
+Run the script from a controlled operator shell with `jq` available. Its account needs realm, user, and client management permissions required by the script; do not grant the application, owner, or invited members those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback; wildcards and non-loopback HTTP origins are rejected. SMTP credentials remain managed operator values. Keycloak receives them in a partial realm update over stdin and sends recipient verification email itself; MemoryOS does not call the Admin API, hold SMTP credentials, or send account-verification mail. The script reads operator and SMTP passwords from environment and never prints them.
 
 Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
 

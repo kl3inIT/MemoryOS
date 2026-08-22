@@ -9,9 +9,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+@Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcExternalIdentityRegistrar implements ExternalIdentityRegistrar {
 
@@ -23,6 +25,13 @@ public class JdbcExternalIdentityRegistrar implements ExternalIdentityRegistrar 
     private static final String INSERT_BINDING = """
             INSERT INTO external_identity_bindings (issuer, subject, actor_id)
             VALUES (:issuer, :subject, :actorId)
+            """;
+
+    private static final String LOCK_ACTOR = """
+            SELECT id
+            FROM actors
+            WHERE id = :actorId
+            FOR UPDATE
             """;
 
     private final JdbcClient jdbcClient;
@@ -38,6 +47,17 @@ public class JdbcExternalIdentityRegistrar implements ExternalIdentityRegistrar 
     public ActorId resolveOrCreate(ExternalIdentity identity) {
         Objects.requireNonNull(identity, "identity must not be null");
         return identityResolver.resolve(identity).orElseGet(() -> create(identity));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ActorId resolveOrCreateLocked(ExternalIdentity identity) {
+        ActorId actorId = resolveOrCreate(identity);
+        jdbcClient.sql(LOCK_ACTOR)
+                .param("actorId", actorId.value())
+                .query(UUID.class)
+                .single();
+        return actorId;
     }
 
     private ActorId create(ExternalIdentity identity) {

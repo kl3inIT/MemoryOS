@@ -11,6 +11,49 @@ export type CurrentIdentity = {
     actorId: string;
 };
 
+export type CreateInvitationRequest = {
+    email: string;
+};
+
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+
+export type Invitation = {
+    id: string;
+    email: string;
+    status: InvitationStatus;
+    createdAt: string;
+    expiresAt: string;
+    acceptedActorId?: string | null;
+    acceptedAt?: string | null;
+    revokedAt?: string | null;
+};
+
+export type IssuedInvitation = {
+    invitation: Invitation;
+    /**
+     * Relative same-origin capability URL returned only from create or rotate.
+     */
+    invitationUrl: string;
+};
+
+export type CurrentInvitation = {
+    organizationDisplayName: string;
+    expiresAt: string;
+    continueUrl: string;
+};
+
+export type InvitationError = {
+    code: string;
+    message: string;
+};
+
+export type InvitationId = string;
+
+/**
+ * Same-origin non-simple request guard for browser-session mutations.
+ */
+export type BrowserMutationHeader = '1';
+
 export type GetCurrentIdentityData = {
     body?: never;
     path?: never;
@@ -33,3 +76,182 @@ export type GetCurrentIdentityResponses = {
 };
 
 export type GetCurrentIdentityResponse = GetCurrentIdentityResponses[keyof GetCurrentIdentityResponses];
+
+export type ListInvitationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/invitations';
+};
+
+export type ListInvitationsErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active Organization owner
+     */
+    403: InvitationError;
+};
+
+export type ListInvitationsError = ListInvitationsErrors[keyof ListInvitationsErrors];
+
+export type ListInvitationsResponses = {
+    /**
+     * Invitation lifecycle records without plaintext secrets
+     */
+    200: Array<Invitation>;
+};
+
+export type ListInvitationsResponse = ListInvitationsResponses[keyof ListInvitationsResponses];
+
+export type CreateInvitationData = {
+    body: CreateInvitationRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/invitations';
+};
+
+export type CreateInvitationErrors = {
+    /**
+     * Invalid email
+     */
+    400: InvitationError;
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active Organization owner or the same-origin header is missing
+     */
+    403: unknown;
+    /**
+     * A conflicting pending invitation already exists
+     */
+    409: InvitationError;
+};
+
+export type CreateInvitationError = CreateInvitationErrors[keyof CreateInvitationErrors];
+
+export type CreateInvitationResponses = {
+    /**
+     * Invitation created; the invitation URL is returned only in this response
+     */
+    201: IssuedInvitation;
+};
+
+export type CreateInvitationResponse = CreateInvitationResponses[keyof CreateInvitationResponses];
+
+export type RevokeInvitationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        invitationId: string;
+    };
+    query?: never;
+    url: '/api/invitations/{invitationId}';
+};
+
+export type RevokeInvitationErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active Organization owner or the same-origin header is missing
+     */
+    403: unknown;
+    /**
+     * Invitation is no longer pending and available
+     */
+    410: InvitationError;
+};
+
+export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
+
+export type RevokeInvitationResponses = {
+    /**
+     * Invitation revoked
+     */
+    204: void;
+};
+
+export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
+
+export type RotateInvitationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        invitationId: string;
+    };
+    query?: never;
+    url: '/api/invitations/{invitationId}/rotate';
+};
+
+export type RotateInvitationErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active Organization owner or the same-origin header is missing
+     */
+    403: unknown;
+    /**
+     * Invitation is no longer pending and available
+     */
+    410: InvitationError;
+};
+
+export type RotateInvitationError = RotateInvitationErrors[keyof RotateInvitationErrors];
+
+export type RotateInvitationResponses = {
+    /**
+     * Invitation rotated; the replacement URL is returned only in this response
+     */
+    200: IssuedInvitation;
+};
+
+export type RotateInvitationResponse = RotateInvitationResponses[keyof RotateInvitationResponses];
+
+export type GetCurrentInvitationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/invitations/current';
+};
+
+export type GetCurrentInvitationErrors = {
+    /**
+     * No available invitation continuation exists
+     */
+    410: InvitationError;
+};
+
+export type GetCurrentInvitationError = GetCurrentInvitationErrors[keyof GetCurrentInvitationErrors];
+
+export type GetCurrentInvitationResponses = {
+    /**
+     * Active invitation continuation
+     */
+    200: CurrentInvitation;
+};
+
+export type GetCurrentInvitationResponse = GetCurrentInvitationResponses[keyof GetCurrentInvitationResponses];

@@ -1,6 +1,7 @@
 package io.memoryos.api.security;
 
 import io.memoryos.identity.ExternalIdentityResolver;
+import io.memoryos.invitation.InvitationService;
 import io.memoryos.organization.OrganizationAccessResolver;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -23,6 +24,7 @@ class BrowserSecurityConfiguration {
             ClientRegistrationRepository clientRegistrations,
             ExternalIdentityResolver identityResolver,
             OrganizationAccessResolver organizationAccessResolver,
+            InvitationService invitationService,
             MemoryOsBrowserProperties browserProperties
     ) {
         var clientRegistration = clientRegistrations.findByRegistrationId(browserProperties.registrationId());
@@ -39,6 +41,7 @@ class BrowserSecurityConfiguration {
                                 "/actuator/health",
                                 "/actuator/health/**",
                                 "/access-not-provisioned",
+                                "/invite/**",
                                 "/oauth2/authorization/**",
                                 "/login/oauth2/code/**"
                         ).permitAll()
@@ -48,7 +51,8 @@ class BrowserSecurityConfiguration {
                         .authorizedClientRepository(new DiscardingOAuth2AuthorizedClientRepository())
                         .successHandler(new ActorSessionAuthenticationSuccessHandler(
                                 identityResolver,
-                                organizationAccessResolver
+                                organizationAccessResolver,
+                                invitationService
                         ))
                         .failureHandler(new BrowserAuthenticationFailureHandler()))
                 .logout(logout -> logout

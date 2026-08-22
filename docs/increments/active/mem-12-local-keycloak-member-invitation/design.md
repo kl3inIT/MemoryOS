@@ -20,22 +20,25 @@ This is a production vertical slice, not a temporary onboarding mode. Storage, a
 
 1. Open an invitation landing page that identifies the MemoryOS workspace.
 2. Continue to the local Keycloak Authorization Code + S256 PKCE flow.
-3. Sign in or create a local account when the realm permits self-registration.
+3. Sign in or create a local email-as-username account, then complete Keycloak email verification.
 4. Return to MemoryOS with an exact issuer/subject and verified email.
 5. Join automatically and land on `New Session`.
 
-Technical state such as digests, nonces, locks, and provider-token disposal is never presented as a user step.
+Technical state such as digests, locks, and provider-token disposal is never presented as a user step.
 
 ## Reference boundary
 
 Onyx Enterprise is an interaction reference for the People page, invitation modal, pending status, loading, errors, and optional email delivery. MemoryOS does not copy Onyx's email-allowlist identity model, tenant switching, billing, or inactive tenant mappings.
 
-MemoryOS retains its existing ownership model:
+MemoryOS adds `invitation` as a top-level closed Spring Modulith capability from the first implementation commit:
 
 - identity owns stable `ActorId` and exact `(issuer, subject)` bindings;
-- organization owns invitations and Organization/Workspace memberships;
+- organization owns Organizations, Workspaces, and memberships, and exposes only a narrow invitation-authority/membership port;
+- invitation owns invitation lifecycle, secret handling, persistence, intake, and acceptance orchestration;
 - Spring Security owns the OAuth2 continuation and JDBC-backed browser session;
 - Keycloak owns credentials, authentication, and verified-email claims.
+
+Dependency direction is `invitation -> identity` and `invitation -> organization`. Identity and organization never depend on invitation. Invitation persistence cannot write Organization membership tables directly; it invokes the Organization-owned mandatory-transaction port so binding, membership grants, and invitation consumption still commit atomically.
 
 ## Invitation lifecycle
 
@@ -56,7 +59,7 @@ Each invitation records:
 - normalized email;
 - SHA-256 digest of a 256-bit URL-safe random secret;
 - creator `ActorId` and creation time;
-- expiry and current secret version;
+- expiry;
 - accepted actor/time or revoking actor/time when settled;
 - the default Workspace grant implied by the Organization at issue time.
 
@@ -64,7 +67,7 @@ The plaintext secret exists only in the create or rotate response and the recipi
 
 ## Schema strategy for this stage
 
-MEM-12 is expected to be a genuinely additive schema change: add one Organization-owned invitation table and its indexes/constraints in the next small Flyway migration. Do not introduce expand/contract phases, dual reads or writes, compatibility columns, or a backfill framework for disposable development data.
+MEM-12 is expected to be a genuinely additive schema change: add one Invitation-owned table and its indexes/constraints in the next small Flyway migration. Do not introduce expand/contract phases, dual reads or writes, compatibility columns, or a backfill framework for disposable development data.
 
 If implementation reveals that an existing identity, membership, or session shape prevents the clean invitation model, stop and choose the final schema directly. At this project stage, an approved destructive reset is preferable to permanent compatibility code: verify a backup, recreate the MemoryOS database or affected schema, rerun Flyway and the initial-owner bootstrap, then reinsert only the minimal test data required for verification.
 
@@ -78,12 +81,7 @@ An existing active member, an external identity already bound to another actor, 
 
 ## Invitation intake
 
-Opening `/invite/{secret}` hashes the secret, resolves exactly one available invitation, and rejects missing, expired, revoked, or consumed values before authority is created. A successful intake stores only redacted continuation state in the JDBC session:
-
-- invitation ID;
-- Organization ID;
-- random nonce;
-- continuation expiry.
+Opening `/invite/{secret}` hashes the secret, resolves exactly one available invitation, and rejects missing, expired, revoked, or consumed values before authority is created. A successful intake stores only invitation ID, Organization ID, and continuation expiry in the JDBC session. Spring Security owns OAuth2 state and OIDC nonce correlation; Invitation does not create a parallel nonce.
 
 The response uses `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, then redirects into the existing OAuth2 authorization endpoint. The raw secret is not retained in the session.
 
@@ -96,7 +94,7 @@ Acceptance requires:
 - exact configured issuer and nonblank subject;
 - a verified email claim;
 - normalized email equal to the invitation email;
-- matching, unexpired continuation and nonce;
+- matching, unexpired continuation;
 - invitation still pending and unexpired under a row lock;
 - no conflicting binding or memberships.
 
@@ -110,7 +108,7 @@ After commit, the callback rotates the HTTP session ID, replaces the provider pr
 - Rotation conditionally replaces only a pending, unexpired digest and invalidates every previous link.
 - Listing exposes lifecycle metadata, never plaintext secrets or digests.
 - Copy/share is the complete delivery path. No speculative email provider abstraction is added; configured email delivery may be added only with a concrete provider and observable failure contract.
-- Keycloak administrator credentials never enter MemoryOS. The deployment-owned realm configuration must provide the sign-in/account-creation experience used by the recipient flow.
+- Keycloak administrator and SMTP credentials never enter MemoryOS. The deployment-owned reconciliation script uses `kcadm` to enable self-registration, require verified email, and configure SMTP from managed environment values. At runtime, Spring Security performs the standard OAuth2 authorization-code/token exchange; MemoryOS has no Keycloak Admin SDK, custom Admin REST client, or SMTP client.
 - Rate limits must work across API replicas or be enforced by the production gateway; an in-memory-only limiter is not acceptable.
 
 ## Failure outcomes

@@ -28,7 +28,7 @@ API startup always invokes `InitialOrganizationBootstrapper` after Flyway migrat
 5. grants Organization `OWNER` and Workspace `ADMIN`; and
 6. publishes the Organization ID in the singleton state row.
 
-A concurrent replica waits on the singleton row, then verifies the published aggregate. The same configuration returns the existing IDs with `created=false`. Any configuration, identity, cardinality, status, or membership drift fails startup with `OrganizationBootstrapConflictException`. Partial writes roll back.
+A concurrent replica waits on the singleton row, then verifies the published aggregate. The same configuration returns the existing IDs with `created=false`. Configuration, owner identity, published default-Workspace, status, or initial owner/admin authority drift fails startup with `OrganizationBootstrapConflictException`; additional valid Organizations, Workspaces, and memberships created after bootstrap do not. Partial writes roll back.
 
 Before first API startup, the deployment operator runs the Keycloak reconciliation script with a managed username and one-time temporary password. The script creates or reuses the local user, assigns no Keycloak administration role, and reports its stable subject for API deployment configuration. MemoryOS never receives Keycloak administrator credentials and never stores the user's password.
 
@@ -38,6 +38,10 @@ After OIDC callback validation, browser login resolves exact `(issuer, subject)`
 
 The persisted Spring Security principal contains only `ActorId`. Provider access, refresh, and raw ID-token state is discarded.
 
+## Invitation membership port
+
+Organization exposes one narrow port for Invitation: resolve an active owner and default Workspace, verify the target remains active, detect any existing actor memberships, and grant fixed Organization/default-Workspace `MEMBER` memberships. The grant method requires an existing transaction so Invitation can coordinate identity binding and its own lifecycle row atomically without importing Organization persistence.
+
 ## Exclusions
 
-The capability does not implement invitations, member administration, Organization or Workspace switching, self-service Organization creation, broker-specific policy, SCIM, IdP-group provisioning, domain-based JIT access, source ACLs, or audit history. Invitation onboarding is tracked by MEM-12. Evidence policy follows [ADR 0003](../decisions/0003-defer-audit-until-evidence-consumer.md).
+The capability does not own invitation lifecycle, member administration UI, Organization or Workspace switching, self-service Organization creation, broker-specific policy, SCIM, IdP-group provisioning, domain-based JIT access, source ACLs, or audit history. The top-level `invitation` capability may depend on Organization only through the public invitation-authority/membership port; Organization never depends on Invitation. Evidence policy follows [ADR 0003](../decisions/0003-defer-audit-until-evidence-consumer.md).

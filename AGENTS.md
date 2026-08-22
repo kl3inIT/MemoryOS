@@ -41,3 +41,5 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Identity verification matrix](docs/tests/identity.md)
 - [Organization contract](docs/specs/organization.md)
 - [Organization verification matrix](docs/tests/organization.md)
+- [Invitation contract](docs/specs/invitation.md)
+- [Invitation verification matrix](docs/tests/invitation.md)

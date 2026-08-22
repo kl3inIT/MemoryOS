@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.api.invitation.InvitationSessionState;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -54,18 +55,28 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+@SuppressWarnings({
+        "SqlResolve",
+        "SqlNoDataSourceInspection",
+        "HttpHeaderInspection",
+        "SqlWithoutWhere"
+})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BrowserAuthenticationIntegrationTest {
 
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final Map<String, AuthorizationGrant> AUTHORIZATION_GRANTS = new ConcurrentHashMap<>();
     private static final AtomicReference<String> AUTHENTICATING_SUBJECT = new AtomicReference<>("initial-owner");
+    private static final AtomicReference<String> AUTHENTICATING_EMAIL =
+            new AtomicReference<>("owner@example.com");
+    private static final AtomicReference<Boolean> AUTHENTICATING_EMAIL_VERIFIED =
+            new AtomicReference<>(true);
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
     private static final String ISSUER = "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final String CLIENT_ID = "memoryos-web";
     private static final String PROVIDER_ID_TOKEN_MARKER = "provider-id-token-marker";
     private static final String PROVIDER_ACCESS_TOKEN = "provider-access-token";
+    private static final String BROWSER_MUTATION_HEADER = "X-MemoryOS-CSRF";
 
     @LocalServerPort
     private int port;
@@ -267,6 +278,209 @@ class BrowserAuthenticationIntegrationTest {
         }
     }
 
+    @Test
+    void acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession() throws Exception {
+        String memberSubject = "invited-member-" + UUID.randomUUID();
+        String memberEmail = memberSubject + "@example.test";
+        String invitationUrl;
+        var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var ownerClient = client(ownerCookies)) {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            assertEquals(
+                    baseUri().resolve("/").toString(),
+                    completeOAuth(ownerClient, "/oauth2/authorization/memoryos")
+                            .headers().firstValue("location").orElseThrow()
+            );
+
+            var create = ownerClient.send(
+                    invitationMutation("""
+                            {"email":"%s"}
+                            """.formatted(memberEmail)),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(201, create.statusCode());
+            invitationUrl = jsonString(create.body(), "invitationUrl");
+            assertTrue(invitationUrl.startsWith("/invite/"));
+            assertFalse(databaseContains(invitationUrl.substring("/invite/".length())));
+        }
+
+        var memberCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var memberClient = client(memberCookies)) {
+            var intake = memberClient.send(request(invitationUrl), HttpResponse.BodyHandlers.ofString());
+            assertEquals(303, intake.statusCode());
+            assertEquals("/invitation", intake.headers().firstValue("location").orElseThrow());
+            assertEquals("no-store", intake.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-referrer", intake.headers().firstValue("referrer-policy").orElseThrow());
+
+            var current = memberClient.send(
+                    request("/api/invitations/current"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, current.statusCode());
+            assertEquals("no-store", current.headers().firstValue("cache-control").orElseThrow());
+
+            var invalidIntake = memberClient.send(
+                    request("/invite/not-a-valid-secret"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(303, invalidIntake.statusCode());
+            assertEquals(
+                    "/invitation?reason=not-available",
+                    invalidIntake.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals(
+                    410,
+                    memberClient.send(
+                            request("/api/invitations/current"),
+                            HttpResponse.BodyHandlers.ofString()
+                    ).statusCode()
+            );
+
+            assertEquals(
+                    303,
+                    memberClient.send(request(invitationUrl), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+            current = memberClient.send(
+                    request("/api/invitations/current"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, current.statusCode());
+            assertEquals("Tasco", jsonString(current.body(), "organizationDisplayName"));
+
+            AUTHENTICATING_SUBJECT.set(memberSubject);
+            AUTHENTICATING_EMAIL.set(memberEmail);
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            var continueResponse = memberClient.send(
+                    request(jsonString(current.body(), "continueUrl")),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(303, continueResponse.statusCode());
+            var callback = completeOAuth(
+                    memberClient,
+                    continueResponse.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals(302, callback.statusCode());
+            assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
+
+            var identity = memberClient.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, identity.statusCode());
+            UUID memberActorId = jdbcClient.sql("""
+                            SELECT actor_id FROM external_identity_bindings
+                            WHERE issuer = :issuer AND subject = :subject
+                            """)
+                    .param("issuer", ISSUER)
+                    .param("subject", memberSubject)
+                    .query(UUID.class)
+                    .single();
+            assertTrue(identity.body().contains(memberActorId.toString()));
+            assertEquals("MEMBER", membershipRole("organization_memberships", memberActorId));
+            assertEquals("MEMBER", membershipRole("workspace_memberships", memberActorId));
+            assertEquals("ACCEPTED", jdbcClient.sql("""
+                            SELECT status FROM organization_invitations
+                            WHERE normalized_email = :email
+                            """)
+                    .param("email", memberEmail)
+                    .query(String.class)
+                    .single());
+
+            assertPersistedSessionsContainNoProviderOrInvitationState();
+        } finally {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(memberSubject, memberEmail);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+    @Test
+    void rejectsMismatchedInvitationEmailAndInvalidatesThePartialSession() throws Exception {
+        String memberSubject = "mismatched-member-" + UUID.randomUUID();
+        String invitedEmail = memberSubject + "@example.test";
+        String invitationUrl;
+        var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var ownerClient = client(ownerCookies)) {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            assertEquals(
+                    baseUri().resolve("/").toString(),
+                    completeOAuth(ownerClient, "/oauth2/authorization/memoryos")
+                            .headers().firstValue("location").orElseThrow()
+            );
+            var create = ownerClient.send(
+                    invitationMutation("""
+                            {"email":"%s"}
+                            """.formatted(invitedEmail)),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(201, create.statusCode());
+            invitationUrl = jsonString(create.body(), "invitationUrl");
+        }
+
+        var memberCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var memberClient = client(memberCookies)) {
+            assertEquals(
+                    303,
+                    memberClient.send(request(invitationUrl), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+            var current = memberClient.send(
+                    request("/api/invitations/current"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, current.statusCode());
+
+            AUTHENTICATING_SUBJECT.set(memberSubject);
+            AUTHENTICATING_EMAIL.set("someone-else@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            var continueResponse = memberClient.send(
+                    request(jsonString(current.body(), "continueUrl")),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var callback = completeOAuth(
+                    memberClient,
+                    continueResponse.headers().firstValue("location").orElseThrow()
+            );
+
+            assertEquals(302, callback.statusCode());
+            assertEquals(
+                    baseUri().resolve("/invitation?reason=email-mismatch").toString(),
+                    callback.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals(
+                    401,
+                    memberClient.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+            assertEquals(0L, jdbcClient.sql("""
+                            SELECT COUNT(*) FROM external_identity_bindings
+                            WHERE issuer = :issuer AND subject = :subject
+                            """)
+                    .param("issuer", ISSUER)
+                    .param("subject", memberSubject)
+                    .query(Long.class)
+                    .single());
+            assertEquals("PENDING", jdbcClient.sql("""
+                            SELECT status FROM organization_invitations
+                            WHERE normalized_email = :email
+                            """)
+                    .param("email", invitedEmail)
+                    .query(String.class)
+                    .single());
+        } finally {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            jdbcClient.sql("DELETE FROM organization_invitations WHERE normalized_email = :email")
+                    .param("email", invitedEmail)
+                    .update();
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
     private HttpClient client(CookieManager cookies) {
         return HttpClient.newBuilder()
                 .cookieHandler(cookies)
@@ -280,6 +494,104 @@ class BrowserAuthenticationIntegrationTest {
                 .timeout(Duration.ofSeconds(10))
                 .GET()
                 .build();
+    }
+
+    private HttpRequest invitationMutation(String body) {
+        return HttpRequest.newBuilder(baseUri().resolve("/api/invitations"))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json")
+                .header(BROWSER_MUTATION_HEADER, "1")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+    }
+
+    private HttpResponse<String> completeOAuth(HttpClient client, String startPath) throws Exception {
+        var authorization = client.send(request(startPath), HttpResponse.BodyHandlers.ofString());
+        assertEquals(302, authorization.statusCode());
+        URI providerAuthorization = URI.create(authorization.headers().firstValue("location").orElseThrow());
+        var providerResponse = client.send(
+                HttpRequest.newBuilder(providerAuthorization).GET().build(),
+                HttpResponse.BodyHandlers.ofString()
+        );
+        assertEquals(302, providerResponse.statusCode());
+        return client.send(
+                HttpRequest.newBuilder(URI.create(providerResponse.headers().firstValue("location").orElseThrow()))
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString()
+        );
+    }
+
+    private String membershipRole(String table, UUID actorId) {
+        return jdbcClient.sql("SELECT role FROM " + table + " WHERE actor_id = :actorId")
+                .param("actorId", actorId)
+                .query(String.class)
+                .single();
+    }
+
+    private boolean databaseContains(String value) {
+        return jdbcClient.sql("""
+                        SELECT COUNT(*) FROM organization_invitations
+                        WHERE secret_digest = :value OR normalized_email = :value
+                        """)
+                .param("value", value)
+                .query(Long.class)
+                .single() != 0;
+    }
+
+    private void assertPersistedSessionsContainNoProviderOrInvitationState() {
+        List<byte[]> attributes = jdbcClient.sql("SELECT attribute_bytes FROM spring_session_attributes")
+                .query(byte[].class)
+                .list();
+        assertFalse(attributes.isEmpty());
+        for (byte[] attribute : attributes) {
+            String serialized = new String(attribute, ISO_8859_1);
+            assertFalse(serialized.contains(PROVIDER_ID_TOKEN_MARKER));
+            assertFalse(serialized.contains(PROVIDER_ACCESS_TOKEN));
+            assertFalse(serialized.contains(InvitationSessionState.class.getName()));
+        }
+    }
+
+    private void deleteInvitedMember(String subject, String email) {
+        jdbcClient.sql("DELETE FROM organization_invitations WHERE normalized_email = :email")
+                .param("email", email)
+                .update();
+        jdbcClient.sql("""
+                        SELECT actor_id FROM external_identity_bindings
+                        WHERE issuer = :issuer AND subject = :subject
+                        """)
+                .param("issuer", ISSUER)
+                .param("subject", subject)
+                .query(UUID.class)
+                .optional()
+                .ifPresent(actorId -> {
+                    jdbcClient.sql("DELETE FROM workspace_memberships WHERE actor_id = :actorId")
+                            .param("actorId", actorId)
+                            .update();
+                    jdbcClient.sql("DELETE FROM organization_memberships WHERE actor_id = :actorId")
+                            .param("actorId", actorId)
+                            .update();
+                    jdbcClient.sql("""
+                                    DELETE FROM external_identity_bindings
+                                    WHERE issuer = :issuer AND subject = :subject
+                                    """)
+                            .param("issuer", ISSUER)
+                            .param("subject", subject)
+                            .update();
+                    jdbcClient.sql("DELETE FROM actors WHERE id = :actorId")
+                            .param("actorId", actorId)
+                            .update();
+                });
+    }
+
+    private static String jsonString(String body, String field) {
+        var matcher = java.util.regex.Pattern
+                .compile("\"" + java.util.regex.Pattern.quote(field) + "\"\\s*:\\s*\"([^\"]+)\"")
+                .matcher(body);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("missing JSON field " + field + " in " + body);
+        }
+        return matcher.group(1);
     }
 
     private URI baseUri() {
@@ -320,7 +632,7 @@ class BrowserAuthenticationIntegrationTest {
                 "subject_types_supported":["public"],"id_token_signing_alg_values_supported":["RS256"],\
                 "scopes_supported":["openid"],"code_challenge_methods_supported":["S256"],\
                 "token_endpoint_auth_methods_supported":["client_secret_basic"],\
-                "claims_supported":["iss","sub","aud","exp","iat"]}
+                "claims_supported":["iss","sub","aud","exp","iat","email","email_verified"]}
                 """.formatted(issuer, issuer, issuer, issuer));
     }
 
@@ -330,6 +642,8 @@ class BrowserAuthenticationIntegrationTest {
         AUTHORIZATION_GRANTS.put(code, new AuthorizationGrant(
                 parameters.get("nonce"),
                 AUTHENTICATING_SUBJECT.get(),
+                AUTHENTICATING_EMAIL.get(),
+                AUTHENTICATING_EMAIL_VERIFIED.get(),
                 parameters.get("code_challenge")
         ));
         String separator = parameters.get("redirect_uri").contains("?") ? "&" : "?";
@@ -354,6 +668,8 @@ class BrowserAuthenticationIntegrationTest {
                 .issuer(ISSUER)
                 .subject(grant.subject())
                 .audience(CLIENT_ID)
+                .claim("email", grant.email())
+                .claim("email_verified", grant.emailVerified())
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(now.plusSeconds(300)))
                 .claim("nonce", grant.nonce())
@@ -429,6 +745,12 @@ class BrowserAuthenticationIntegrationTest {
         }
     }
 
-    private record AuthorizationGrant(String nonce, String subject, String codeChallenge) {
+    private record AuthorizationGrant(
+            String nonce,
+            String subject,
+            String email,
+            boolean emailVerified,
+            String codeChallenge
+    ) {
     }
 }

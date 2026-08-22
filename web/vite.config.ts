@@ -43,6 +43,7 @@ export default defineConfig({
     proxy: {
       "/api": { ...apiProxy },
       "/actuator": { ...apiProxy },
+      "/invite": { ...apiProxy },
       "/login/oauth2": { ...apiProxy },
       "/logout": { ...apiProxy },
       "/oauth2": { ...apiProxy },

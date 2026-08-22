@@ -123,3 +123,133 @@ test("recovers from an unavailable identity endpoint without treating it as sign
   await page.getByRole("button", { name: /try again/i }).click();
   await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
 });
+
+test("creates a production invitation from the People administration page", async ({ page }) => {
+  const expiresAt = "2026-08-24T10:00:00Z";
+  const invitations: Array<Record<string, unknown>> = [];
+  let createMutationHeader: string | undefined;
+  let deleteMutationHeader: string | undefined;
+
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ actorId: ACTOR_ID }),
+    });
+  });
+  await page.route("**/api/invitations", async (route) => {
+    if (route.request().method() === "POST") {
+      createMutationHeader = route.request().headers()["x-memoryos-csrf"];
+      const invitation = {
+        id: "75c4e810-e1f2-45cb-9480-8e713a934bca",
+        email: "member@example.com",
+        status: "PENDING",
+        createdAt: "2026-08-21T10:00:00Z",
+        expiresAt,
+        acceptedActorId: null,
+        acceptedAt: null,
+        revokedAt: null,
+      };
+      invitations.push(invitation);
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          invitation,
+          invitationUrl: "/invite/one-time-secret",
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(invitations),
+    });
+  });
+  await page.route("**/api/invitations/**", async (route) => {
+    const invitation = invitations[0];
+    if (!invitation) {
+      await route.fulfill({ status: 404 });
+      return;
+    }
+    if (route.request().method() === "POST" && route.request().url().endsWith("/rotate")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          invitation,
+          invitationUrl: "/invite/rotated-secret",
+        }),
+      });
+      return;
+    }
+    if (route.request().method() === "DELETE") {
+      deleteMutationHeader = route.request().headers()["x-memoryos-csrf"];
+      invitation.status = "REVOKED";
+      invitation.revokedAt = "2026-08-21T11:00:00Z";
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await route.fulfill({ status: 405 });
+  });
+
+  await page.goto("/admin/people");
+  await expect(page.getByRole("link", { name: "People", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Invite member" }).click();
+  await page.getByRole("textbox", { name: "Email address" }).fill("member@example.com");
+  await page.getByRole("button", { name: "Create invitation" }).click();
+
+  await expect(page.getByRole("heading", { name: "Invitation link ready" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
+    /\/invite\/one-time-secret$/,
+  );
+  expect(createMutationHeader).toBe("1");
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = () => Promise.reject(new Error("clipboard denied"));
+  });
+  await page.getByRole("button", { name: "Copy" }).click();
+  await expect(page.getByText("The invitation link could not be copied.")).toBeVisible();
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText("member@example.com")).toBeVisible();
+  await expect(page.getByText("Pending", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Rotate link" }).click();
+  await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
+    /\/invite\/rotated-secret$/,
+  );
+  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByText("Revoked", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Rotate link" })).toHaveCount(0);
+  expect(deleteMutationHeader).toBe("1");
+});
+
+test("shows the recipient invitation landing and recovery states", async ({ page }) => {
+  await page.route("**/api/invitations/current", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        organizationDisplayName: "Tasco",
+        expiresAt: "2026-08-24T10:00:00Z",
+        continueUrl: "/invite/continue",
+      }),
+    });
+  });
+
+  await page.goto("/invitation");
+  await expect(page.getByRole("heading", { name: "Join Tasco" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continue to sign in" })).toHaveAttribute(
+    "href",
+    "/invite/continue",
+  );
+  await expect(page.getByText(/does not grant admin permissions/i)).toBeVisible();
+
+  await page.goto("/invitation?reason=email-mismatch");
+  await expect(page.getByRole("heading", { name: "Use the invited email" })).toBeVisible();
+  await expect(page.getByText(/verified email does not match/i)).toBeVisible();
+});

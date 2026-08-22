@@ -9,8 +9,59 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${KEYCLOAK_ADMIN_USERNAME:?KEYCLOAK_ADMIN_USERNAME is required}"
 : "${KC_CLI_PASSWORD:?KC_CLI_PASSWORD is required}"
 : "${MEMORYOS_INITIAL_OWNER_USERNAME:?MEMORYOS_INITIAL_OWNER_USERNAME is required}"
+: "${MEMORYOS_INITIAL_OWNER_EMAIL:?MEMORYOS_INITIAL_OWNER_EMAIL is required}"
 : "${MEMORYOS_BROWSER_CLIENT_SECRET:?MEMORYOS_BROWSER_CLIENT_SECRET is required}"
 : "${MEMORYOS_BROWSER_REDIRECT_URI:?MEMORYOS_BROWSER_REDIRECT_URI is required}"
+: "${MEMORYOS_KEYCLOAK_SMTP_HOST:?MEMORYOS_KEYCLOAK_SMTP_HOST is required}"
+: "${MEMORYOS_KEYCLOAK_SMTP_FROM:?MEMORYOS_KEYCLOAK_SMTP_FROM is required}"
+MEMORYOS_KEYCLOAK_SMTP_PORT=${MEMORYOS_KEYCLOAK_SMTP_PORT:-587}
+MEMORYOS_KEYCLOAK_SMTP_AUTH=${MEMORYOS_KEYCLOAK_SMTP_AUTH:-true}
+MEMORYOS_KEYCLOAK_SMTP_STARTTLS=${MEMORYOS_KEYCLOAK_SMTP_STARTTLS:-true}
+MEMORYOS_KEYCLOAK_SMTP_SSL=${MEMORYOS_KEYCLOAK_SMTP_SSL:-false}
+MEMORYOS_KEYCLOAK_SMTP_FROM_DISPLAY_NAME=${MEMORYOS_KEYCLOAK_SMTP_FROM_DISPLAY_NAME:-MemoryOS}
+MEMORYOS_KEYCLOAK_SMTP_REPLY_TO=${MEMORYOS_KEYCLOAK_SMTP_REPLY_TO:-$MEMORYOS_KEYCLOAK_SMTP_FROM}
+MEMORYOS_KEYCLOAK_SMTP_ENVELOPE_FROM=${MEMORYOS_KEYCLOAK_SMTP_ENVELOPE_FROM:-$MEMORYOS_KEYCLOAK_SMTP_FROM}
+
+case "$MEMORYOS_KEYCLOAK_SMTP_AUTH" in
+    true)
+        : "${MEMORYOS_KEYCLOAK_SMTP_USERNAME:?MEMORYOS_KEYCLOAK_SMTP_USERNAME is required when SMTP auth is enabled}"
+        : "${MEMORYOS_KEYCLOAK_SMTP_PASSWORD:?MEMORYOS_KEYCLOAK_SMTP_PASSWORD is required when SMTP auth is enabled}"
+        ;;
+    false)
+        ;;
+    *)
+        echo "MEMORYOS_KEYCLOAK_SMTP_AUTH must be true or false" >&2
+        exit 1
+        ;;
+esac
+
+case "$MEMORYOS_KEYCLOAK_SMTP_STARTTLS:$MEMORYOS_KEYCLOAK_SMTP_SSL" in
+    true:false | false:true)
+        ;;
+    *)
+        echo "exactly one of MEMORYOS_KEYCLOAK_SMTP_STARTTLS or MEMORYOS_KEYCLOAK_SMTP_SSL must be true" >&2
+        exit 1
+        ;;
+esac
+
+case "$MEMORYOS_KEYCLOAK_SMTP_PORT" in
+    '' | *[!0-9]*)
+        echo "MEMORYOS_KEYCLOAK_SMTP_PORT must be numeric" >&2
+        exit 1
+        ;;
+esac
+
+export MEMORYOS_KEYCLOAK_SMTP_HOST
+export MEMORYOS_KEYCLOAK_SMTP_FROM
+export MEMORYOS_KEYCLOAK_SMTP_USERNAME
+export MEMORYOS_KEYCLOAK_SMTP_PASSWORD
+export MEMORYOS_KEYCLOAK_SMTP_PORT
+export MEMORYOS_KEYCLOAK_SMTP_AUTH
+export MEMORYOS_KEYCLOAK_SMTP_STARTTLS
+export MEMORYOS_KEYCLOAK_SMTP_SSL
+export MEMORYOS_KEYCLOAK_SMTP_FROM_DISPLAY_NAME
+export MEMORYOS_KEYCLOAK_SMTP_REPLY_TO
+export MEMORYOS_KEYCLOAK_SMTP_ENVELOPE_FROM
 
 case "$MEMORYOS_BROWSER_REDIRECT_URI" in
     *'*'*)
@@ -80,6 +131,37 @@ find_mapper_uuid() {
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
 
+configure_self_registration() {
+    jq -cn '{
+        registrationAllowed: true,
+        registrationEmailAsUsername: true,
+        loginWithEmailAllowed: true,
+        duplicateEmailsAllowed: false,
+        verifyEmail: true,
+        smtpServer: ({
+            host: env.MEMORYOS_KEYCLOAK_SMTP_HOST,
+            port: env.MEMORYOS_KEYCLOAK_SMTP_PORT,
+            from: env.MEMORYOS_KEYCLOAK_SMTP_FROM,
+            fromDisplayName: env.MEMORYOS_KEYCLOAK_SMTP_FROM_DISPLAY_NAME,
+            replyTo: env.MEMORYOS_KEYCLOAK_SMTP_REPLY_TO,
+            envelopeFrom: env.MEMORYOS_KEYCLOAK_SMTP_ENVELOPE_FROM,
+            auth: env.MEMORYOS_KEYCLOAK_SMTP_AUTH,
+            ssl: env.MEMORYOS_KEYCLOAK_SMTP_SSL,
+            starttls: env.MEMORYOS_KEYCLOAK_SMTP_STARTTLS
+        } + if env.MEMORYOS_KEYCLOAK_SMTP_AUTH == "true" then {
+            authType: "basic",
+            user: env.MEMORYOS_KEYCLOAK_SMTP_USERNAME,
+            password: env.MEMORYOS_KEYCLOAK_SMTP_PASSWORD
+        } else {} end)
+    }' |
+        "$KCADM" update "realms/$TARGET_REALM" \
+            --config "$CONFIG_FILE" \
+            -f - >/dev/null
+    echo "realm=$TARGET_REALM self-registration=enabled email-verification=required smtp=updated"
+}
+
+configure_self_registration
+
 find_initial_owner_uuid() {
     rows=$("$KCADM" get users \
         --config "$CONFIG_FILE" \
@@ -99,32 +181,43 @@ find_initial_owner_uuid() {
 
 provision_initial_owner() {
     INITIAL_OWNER_UUID=$(find_initial_owner_uuid)
-    if [ -n "$INITIAL_OWNER_UUID" ]; then
-        echo "user=$MEMORYOS_INITIAL_OWNER_USERNAME subject=$INITIAL_OWNER_UUID action=existing"
-        return
+    action=existing
+    if [ -z "$INITIAL_OWNER_UUID" ]; then
+        : "${MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD:?MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD is required when creating the initial owner}"
+        jq -cn '{
+            username: env.MEMORYOS_INITIAL_OWNER_USERNAME,
+            email: env.MEMORYOS_INITIAL_OWNER_EMAIL,
+            emailVerified: true,
+            enabled: true,
+            credentials: [{
+                type: "password",
+                value: env.MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD,
+                temporary: true
+            }]
+        }' |
+            "$KCADM" create users \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f - >/dev/null
+
+        INITIAL_OWNER_UUID=$(find_initial_owner_uuid)
+        if [ -z "$INITIAL_OWNER_UUID" ]; then
+            echo "initial owner creation did not converge" >&2
+            exit 1
+        fi
+        action=created
     fi
 
-    : "${MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD:?MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD is required when creating the initial owner}"
     jq -cn '{
-        username: env.MEMORYOS_INITIAL_OWNER_USERNAME,
-        enabled: true,
-        credentials: [{
-            type: "password",
-            value: env.MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD,
-            temporary: true
-        }]
+        email: env.MEMORYOS_INITIAL_OWNER_EMAIL,
+        emailVerified: true,
+        enabled: true
     }' |
-        "$KCADM" create users \
+        "$KCADM" update "users/$INITIAL_OWNER_UUID" \
             --config "$CONFIG_FILE" \
             -r "$TARGET_REALM" \
             -f - >/dev/null
-
-    INITIAL_OWNER_UUID=$(find_initial_owner_uuid)
-    if [ -z "$INITIAL_OWNER_UUID" ]; then
-        echo "initial owner creation did not converge" >&2
-        exit 1
-    fi
-    echo "user=$MEMORYOS_INITIAL_OWNER_USERNAME subject=$INITIAL_OWNER_UUID action=created"
+    echo "user=$MEMORYOS_INITIAL_OWNER_USERNAME subject=$INITIAL_OWNER_UUID action=$action profile=verified"
 }
 
 upsert_client() {

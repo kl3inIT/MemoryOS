@@ -1,4 +1,4 @@
-package io.memoryos.organization.persistence;
+package io.memoryos.organization.application;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,11 +9,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
-import io.memoryos.identity.IdentityPersistence;
+import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
+import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
 import io.memoryos.organization.InitialOrganizationBootstrapRequest;
 import io.memoryos.organization.InitialOrganizationBootstrapper;
 import io.memoryos.organization.OrganizationBootstrapConflictException;
-import io.memoryos.organization.OrganizationPersistence;
+import io.memoryos.organization.persistence.JdbcOrganizationAccessResolver;
+import io.memoryos.organization.persistence.JdbcOrganizationBootstrapRepository;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -36,7 +38,7 @@ import org.springframework.transaction.annotation.AnnotationTransactionAttribute
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-class JdbcInitialOrganizationBootstrapperTest {
+class DefaultInitialOrganizationBootstrapperTest {
 
     private JdbcClient jdbcClient;
     private Connection keepAlive;
@@ -60,14 +62,18 @@ class JdbcInitialOrganizationBootstrapperTest {
 
         jdbcClient = JdbcClient.create(dataSource);
         var transactionManager = new DataSourceTransactionManager(dataSource);
-        var resolver = IdentityPersistence.resolver(jdbcClient);
+        var resolver = new JdbcExternalIdentityResolver(jdbcClient);
         var registrar = transactionalProxy(
-                IdentityPersistence.registrar(jdbcClient, resolver),
+                new JdbcExternalIdentityRegistrar(jdbcClient, resolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
         bootstrapper = transactionalProxy(
-                OrganizationPersistence.initialBootstrapper(jdbcClient, resolver, registrar),
+                new DefaultInitialOrganizationBootstrapper(
+                        new JdbcOrganizationBootstrapRepository(jdbcClient),
+                        resolver,
+                        registrar
+                ),
                 InitialOrganizationBootstrapper.class,
                 transactionManager
         );
@@ -138,7 +144,7 @@ class JdbcInitialOrganizationBootstrapperTest {
     @Test
     void resolvesOnlyActiveOrganizationMemberships() {
         var initial = bootstrapper.bootstrap(request());
-        var accessResolver = OrganizationPersistence.accessResolver(jdbcClient);
+        var accessResolver = new JdbcOrganizationAccessResolver(jdbcClient);
 
         assertTrue(accessResolver.hasActiveOrganization(initial.ownerActorId()));
 

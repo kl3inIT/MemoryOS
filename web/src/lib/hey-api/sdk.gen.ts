@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses } from './types.gen';
+import type { CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -32,3 +32,64 @@ export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options
     url: '/api/identity/me',
     ...options
 });
+
+/**
+ * List the current owner's Organization invitations
+ */
+export const listInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListInvitationsData, ThrowOnError>): RequestResult<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/invitations',
+    ...options
+});
+
+/**
+ * Create one Organization member invitation
+ */
+export const createInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateInvitationData, ThrowOnError>): RequestResult<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError> => (options.client ?? client).post<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/invitations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke a pending invitation
+ */
+export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/invitations/{invitationId}',
+    ...options
+});
+
+/**
+ * Replace the secret of a pending invitation
+ */
+export const rotateInvitation = <ThrowOnError extends boolean = false>(options: Options<RotateInvitationData, ThrowOnError>): RequestResult<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError> => (options.client ?? client).post<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/invitations/{invitationId}/rotate',
+    ...options
+});
+
+/**
+ * Return the redacted invitation landing context from the browser session
+ */
+export const getCurrentInvitation = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentInvitationData, ThrowOnError>): RequestResult<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError>({ url: '/api/invitations/current', ...options });

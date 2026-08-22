@@ -3,13 +3,17 @@ package io.memoryos.identity.persistence;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityResolver;
+
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+@Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-public final class JdbcExternalIdentityResolver implements ExternalIdentityResolver {
+public class JdbcExternalIdentityResolver implements ExternalIdentityResolver {
 
     private static final String SELECT_ACTOR = """
             SELECT actor_id
