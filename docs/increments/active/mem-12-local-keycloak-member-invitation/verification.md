@@ -58,6 +58,20 @@ The mismatch scenario proves an email mismatch redirects to the recipient recove
 - Dummy operator, browser-client, and SMTP passwords were absent from script output. The captured secret-bearing payload and temporary double were deleted after assertions.
 - Keycloak sends verification mail through its configured SMTP provider. MemoryOS runtime uses Spring Security's standard OAuth2 client for authorization-code/token exchange and contains no Keycloak Admin SDK, custom Admin REST client, or SMTP credentials.
 
+## Shared existing-user runtime evidence
+
+On 2026-08-22, source head `a2a70736f5f47467b36dc50bdcb466dd5e2eb3cb` ran locally against the shared PostgreSQL 18.4 database and public `memoryos` Keycloak realm through an SSH tunnel. Flyway applied `V3__create_organization_invitations.sql`; startup initially rejected a stale local deployment change reference, then replayed successfully after local runtime metadata was synchronized with the deployed server configuration. `/actuator/health` returned `UP`.
+
+The real browser flow then proved:
+
+- the existing verified initial owner authenticated through Authorization Code + S256 PKCE;
+- the owner created an invitation and rotated it, invalidating the first capability secret;
+- a temporary verified local Keycloak recipient completed its required profile, consumed the rotated invitation, and landed authenticated on `New Session`;
+- persistence checks returned true for accepted digest-only Invitation state, exact issuer binding, active Organization `MEMBER`, active default-Workspace `MEMBER`, active Actor session, and absence of an Invitation session attribute;
+- the temporary Keycloak user, invitation, memberships, binding, Actor, and session were deleted after evidence capture; the API, Vite server, and SSH tunnel were stopped.
+
+The invited member also exposed a separate shell defect: owner labeling and administration navigation remain visible even though owner-only APIs correctly deny the member. [MEM-19](https://linear.app/memory-os/issue/MEM-19/hide-owner-only-administration-from-invited-members) tracks that UI/authority-context cutover.
+
 ## Remaining shared-runtime gate
 
 The shared `memoryos` Keycloak realm currently reports:
@@ -71,4 +85,4 @@ smtpConfigured=false
 
 The repository desired state for self-registration and verified email is complete. Applying it to the shared realm still requires concrete managed SMTP host/from/username/password values. Until those values are supplied, the implemented invitation flow is fully usable only for an existing verified local Keycloak account, and the no-operator account-creation happy path cannot be claimed. No fake provider or unverified-registration bypass was added.
 
-The exact reviewed-head deployment, shared owner-to-recipient browser flow, pull request review, merge-SHA CI, and increment closure remain open.
+PR #13 reviewed head `b95a2c1c1876c8c389c534a8d15da8f3c43d46b3` merged as `1318008496091c8a8afad474a4dd519bff530cb5`; exact merge-SHA CI run `32556578404` passed. Only the no-operator self-registration/email-verification path and final increment closure remain open.
