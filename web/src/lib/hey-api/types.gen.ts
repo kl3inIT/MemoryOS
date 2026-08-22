@@ -21,7 +21,6 @@ export type Invitation = {
     id: string;
     email: string;
     status: InvitationStatus;
-    secretVersion: number;
     createdAt: string;
     expiresAt: string;
     acceptedActorId?: string | null;

@@ -4,6 +4,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 
 import java.util.Set;
@@ -23,7 +24,9 @@ class CoreDependencyRulesTest {
             "assistant"
     );
 
-    private final JavaClasses coreClasses = new ClassFileImporter().importPackages("io.memoryos");
+    private final JavaClasses coreClasses = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("io.memoryos");
 
     @Test
     void persistencePackagesAreVisibleOnlyToTheirOwningCapability() {

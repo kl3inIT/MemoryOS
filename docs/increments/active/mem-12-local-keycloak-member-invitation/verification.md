@@ -8,13 +8,15 @@ Date: 2026-08-21
 - Added an Organization-owned public membership provisioner. Invitation never imports Organization persistence or writes membership tables directly.
 - Added `V3__create_organization_invitations.sql` with digest-only secrets, lifecycle constraints, Organization/default-Workspace foreign keys, unique digest, and one open email key per Organization.
 - Implemented owner create/list/rotate/revoke, recipient intake/resume, exact verified-email acceptance, atomic Actor binding/fixed memberships/consumption, session-state cleanup, and typed failure outcomes.
+- Registered identity, organization, and invitation implementations through component scanning; removed static persistence factories, forwarding API beans, the redundant invitation nonce, and unused secret-version state. Worker scanning is limited to its deployable package so it does not instantiate API-only JDBC capabilities.
+- Flattened public contract enums and records into top-level types. Invitation and initial Organization bootstrap now keep transactional orchestration in `application` and JDBC SQL/row mapping in `persistence`; Identity's existing adapters remain persistence-only.
 - Expanded the same-origin OpenAPI contract and regenerated the TypeScript client.
 - Added the responsive `Admin Panel` → `People` experience, one-email dialog, copy/share result, durable lifecycle rows, rotate/revoke recovery, recipient landing, and plain-language failure states.
 - Added production Nginx proxying, no-store/no-referrer invitation headers, gateway rate limiting for invitation intake and mutations, and a dedicated `/invite/` location with access logging disabled so capability secrets never enter gateway request logs.
 
 ## Persistence and concurrency evidence
 
-`JdbcOrganizationInvitationServiceTest` passes the production Flyway SQL in H2 PostgreSQL mode through real Spring transaction proxies. It verifies owner authorization, normalization, digest-only storage, duplicate pending rejection, rotation, revocation, expiry/reissue, verified matching acceptance, mismatch/unverified rollback, existing-authority conflict, and concurrent one-winner acceptance.
+`DefaultInvitationServiceTest` passes the production Flyway SQL in H2 PostgreSQL mode through real Spring transaction proxies. It verifies owner authorization, normalization, digest-only storage, duplicate pending rejection, rotation, revocation, expiry/reissue, verified matching acceptance, mismatch/unverified rollback, existing-authority conflict, and concurrent one-winner acceptance.
 
 `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` passes against digest-pinned PostgreSQL 17. It observes the second transaction waiting on the invitation row while the first holds the lock, then proves one accepted invitation, one new Actor/binding, and exactly one pair of fixed `MEMBER` memberships. This test exposed and corrected PostgreSQL JDBC's inability to infer `Instant` parameter types; production timestamp writes now use UTC `OffsetDateTime`.
 
@@ -44,8 +46,9 @@ The mismatch scenario proves an email mismatch redirects to the recipient recove
 
 ## Static and repository gates
 
-- JetBrains inspections with warnings enabled are clean for every changed Java and YAML file after remediation of duplicated lifecycle code, redundant catch/parameters, record-pattern use, PostgreSQL timestamp binding, and test diagnostics.
-- `ModulithArchitectureTest` and `CoreDependencyRulesTest` pass with the new capability and persistence ownership.
+- JetBrains inspections with warnings enabled report no errors. The only remaining weak warnings are IntelliJ's header-name registry rejecting the standard `Referrer-Policy` header and the intentional custom `X-MemoryOS-CSRF` header; both values are exercised by browser integration tests.
+- Focused core architecture, Invitation, Organization, API startup/browser-authentication, and worker startup tests pass. Worker explicitly excludes JDBC datasource auto-configuration because the shared core starter is present but no worker persistence runtime path exists.
+- `ModulithArchitectureTest` and `CoreDependencyRulesTest` pass with the application/persistence package boundaries.
 - `gradlew.bat clean check --no-daemon` passes the repository-wide gate.
 
 ## Keycloak desired-state evidence

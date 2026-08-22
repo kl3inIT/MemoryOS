@@ -2,16 +2,16 @@
 
 | Requirement | Durable verification |
 | --- | --- |
-| Only an active Organization owner can issue, list, rotate, or revoke | `JdbcOrganizationInvitationServiceTest.requiresAnActiveOwnerAndValidEmail` and invitation API integration tests |
-| Email is normalized and only one pending invitation exists per Organization/email | `JdbcOrganizationInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` and `rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
-| Plaintext secret is returned once and only its digest persists | `JdbcOrganizationInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` |
-| Rotation invalidates the prior secret and increments its version | `JdbcOrganizationInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
-| Revocation prevents intake | `JdbcOrganizationInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
-| Expiry is durable and permits a later replacement invitation | `JdbcOrganizationInvitationServiceTest.expiresPendingInvitationAndAllowsAReplacementForTheSameEmail` |
-| Unverified or mismatched email creates no identity or membership | `JdbcOrganizationInvitationServiceTest.rejectsUnverifiedOrMismatchedEmailWithoutIdentityWrites` |
-| Existing authority conflicts fail without mutation | `JdbcOrganizationInvitationServiceTest.rejectsAnIdentityThatAlreadyHasOrganizationAuthority` |
-| Binding, fixed memberships, and acceptance commit atomically | `JdbcOrganizationInvitationServiceTest.acceptsVerifiedMatchingIdentityAndCreatesFixedMembershipsAtomically` |
-| Concurrent callback acceptance produces one member and one accepted invitation | `JdbcOrganizationInvitationServiceTest.concurrentAcceptanceProducesOneMemberAndOneAcceptedInvitation` and `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
+| Only an active Organization owner can issue, list, rotate, or revoke | `DefaultInvitationServiceTest.requiresAnActiveOwnerAndValidEmail` and invitation API integration tests |
+| Email is normalized and only one pending invitation exists per Organization/email | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` and `rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
+| Plaintext secret is returned once and only its digest persists | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` |
+| Rotation replaces the digest and invalidates the prior secret | `DefaultInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
+| Revocation prevents intake | `DefaultInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
+| Expiry is durable and permits a later replacement invitation | `DefaultInvitationServiceTest.expiresPendingInvitationAndAllowsAReplacementForTheSameEmail` |
+| Unverified or mismatched email creates no identity or membership | `DefaultInvitationServiceTest.rejectsUnverifiedOrMismatchedEmailWithoutIdentityWrites` |
+| Existing authority conflicts fail without mutation | `DefaultInvitationServiceTest.rejectsAnIdentityThatAlreadyHasOrganizationAuthority` |
+| Binding, fixed memberships, and acceptance commit atomically | `DefaultInvitationServiceTest.acceptsVerifiedMatchingIdentityAndCreatesFixedMembershipsAtomically` |
+| Concurrent callback acceptance produces one member and one accepted invitation | `DefaultInvitationServiceTest.concurrentAcceptanceProducesOneMemberAndOneAcceptedInvitation` and `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
 | Intake persists no plaintext secret and uses no-store/no-referrer headers | `BrowserAuthenticationIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
 | Invitation callback uses Authorization Code + S256 PKCE and stores only `ActorId` | `BrowserAuthenticationIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
 | Mismatched invitation email invalidates the partial session and writes no identity | `BrowserAuthenticationIntegrationTest.rejectsMismatchedInvitationEmailAndInvalidatesThePartialSession` |

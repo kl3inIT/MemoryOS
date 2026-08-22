@@ -24,7 +24,7 @@ This is a production vertical slice, not a temporary onboarding mode. Storage, a
 4. Return to MemoryOS with an exact issuer/subject and verified email.
 5. Join automatically and land on `New Session`.
 
-Technical state such as digests, nonces, locks, and provider-token disposal is never presented as a user step.
+Technical state such as digests, locks, and provider-token disposal is never presented as a user step.
 
 ## Reference boundary
 
@@ -59,7 +59,7 @@ Each invitation records:
 - normalized email;
 - SHA-256 digest of a 256-bit URL-safe random secret;
 - creator `ActorId` and creation time;
-- expiry and current secret version;
+- expiry;
 - accepted actor/time or revoking actor/time when settled;
 - the default Workspace grant implied by the Organization at issue time.
 
@@ -81,12 +81,7 @@ An existing active member, an external identity already bound to another actor, 
 
 ## Invitation intake
 
-Opening `/invite/{secret}` hashes the secret, resolves exactly one available invitation, and rejects missing, expired, revoked, or consumed values before authority is created. A successful intake stores only redacted continuation state in the JDBC session:
-
-- invitation ID;
-- Organization ID;
-- random nonce;
-- continuation expiry.
+Opening `/invite/{secret}` hashes the secret, resolves exactly one available invitation, and rejects missing, expired, revoked, or consumed values before authority is created. A successful intake stores only invitation ID, Organization ID, and continuation expiry in the JDBC session. Spring Security owns OAuth2 state and OIDC nonce correlation; Invitation does not create a parallel nonce.
 
 The response uses `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, then redirects into the existing OAuth2 authorization endpoint. The raw secret is not retained in the session.
 
@@ -99,7 +94,7 @@ Acceptance requires:
 - exact configured issuer and nonblank subject;
 - a verified email claim;
 - normalized email equal to the invitation email;
-- matching, unexpired continuation and nonce;
+- matching, unexpired continuation;
 - invitation still pending and unexpired under a row lock;
 - no conflicting binding or memberships.
 

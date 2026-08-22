@@ -6,9 +6,11 @@ import io.memoryos.organization.OrganizationAccessResolver;
 import java.util.Objects;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
 
+@Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-public final class JdbcOrganizationAccessResolver implements OrganizationAccessResolver {
+public class JdbcOrganizationAccessResolver implements OrganizationAccessResolver {
 
     private static final String COUNT_ACTIVE_ORGANIZATIONS = """
             SELECT COUNT(*)

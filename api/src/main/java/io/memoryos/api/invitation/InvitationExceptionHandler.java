@@ -1,6 +1,7 @@
 package io.memoryos.api.invitation;
 
-import io.memoryos.invitation.OrganizationInvitationException;
+import io.memoryos.invitation.InvitationException;
+import io.memoryos.invitation.InvitationFailureReason;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,14 +11,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes = InvitationController.class)
 final class InvitationExceptionHandler {
 
-    @ExceptionHandler(OrganizationInvitationException.class)
-    ResponseEntity<InvitationErrorResponse> invitationFailure(OrganizationInvitationException exception) {
+    @ExceptionHandler(InvitationException.class)
+    ResponseEntity<InvitationErrorResponse> invitationFailure(InvitationException exception) {
         return ResponseEntity
                 .status(status(exception.reason()))
                 .body(new InvitationErrorResponse(exception.reason().name(), message(exception.reason())));
     }
 
-    private static HttpStatus status(OrganizationInvitationException.Reason reason) {
+    private static HttpStatus status(InvitationFailureReason reason) {
         return switch (reason) {
             case NOT_OWNER, EMAIL_NOT_VERIFIED, EMAIL_MISMATCH -> HttpStatus.FORBIDDEN;
             case INVALID_EMAIL -> HttpStatus.BAD_REQUEST;
@@ -26,7 +27,7 @@ final class InvitationExceptionHandler {
         };
     }
 
-    private static String message(OrganizationInvitationException.Reason reason) {
+    private static String message(InvitationFailureReason reason) {
         return switch (reason) {
             case NOT_OWNER -> "An active Organization owner is required.";
             case INVALID_EMAIL -> "Enter a valid email address.";

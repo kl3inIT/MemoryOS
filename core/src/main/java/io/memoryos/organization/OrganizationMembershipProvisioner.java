@@ -21,17 +21,4 @@ public interface OrganizationMembershipProvisioner {
             ActorId actorId
     );
 
-    record InvitationAuthority(
-            OrganizationId organizationId,
-            WorkspaceId defaultWorkspaceId,
-            String organizationDisplayName
-    ) {
-    }
-
-    record InvitationTarget(
-            OrganizationId organizationId,
-            WorkspaceId defaultWorkspaceId,
-            String organizationDisplayName
-    ) {
-    }
 }

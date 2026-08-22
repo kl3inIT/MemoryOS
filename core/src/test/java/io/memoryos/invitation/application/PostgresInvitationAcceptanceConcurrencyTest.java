@@ -1,4 +1,4 @@
-package io.memoryos.invitation.persistence;
+package io.memoryos.invitation.application;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -10,18 +10,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
-import io.memoryos.identity.IdentityPersistence;
-import io.memoryos.invitation.InvitationPersistence;
-import io.memoryos.invitation.OrganizationInvitationException;
-import io.memoryos.invitation.OrganizationInvitationService;
+import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
+import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
+import io.memoryos.invitation.InvitationAcceptance;
+import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.persistence.JdbcInvitationRepository;
+import io.memoryos.invitation.InvitationException;
+import io.memoryos.invitation.InvitationService;
 import io.memoryos.organization.InitialOrganizationBootstrapRequest;
 import io.memoryos.organization.InitialOrganizationBootstrapper;
+import io.memoryos.organization.InvitationAuthority;
+import io.memoryos.organization.InvitationTarget;
 import io.memoryos.organization.OrganizationId;
 import io.memoryos.organization.OrganizationMembershipProvisioner;
-import io.memoryos.organization.OrganizationPersistence;
+import io.memoryos.organization.application.DefaultInitialOrganizationBootstrapper;
+import io.memoryos.organization.persistence.JdbcOrganizationBootstrapRepository;
+import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisioner;
 import io.memoryos.organization.WorkspaceId;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -78,19 +84,20 @@ class PostgresInvitationAcceptanceConcurrencyTest {
 
         var jdbcClient = JdbcClient.create(dataSource);
         var transactionManager = new DataSourceTransactionManager(dataSource);
-        var resolver = IdentityPersistence.resolver(jdbcClient);
+        var resolver = new JdbcExternalIdentityResolver(jdbcClient);
         var registrar = transactionalProxy(
-                IdentityPersistence.registrar(jdbcClient, resolver),
+                new JdbcExternalIdentityRegistrar(jdbcClient, resolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
         var normalProvisioner = transactionalProxy(
-                OrganizationPersistence.membershipProvisioner(jdbcClient),
+                new JdbcOrganizationMembershipProvisioner(jdbcClient),
                 OrganizationMembershipProvisioner.class,
                 transactionManager
         );
+        var bootstrapRepository = new JdbcOrganizationBootstrapRepository(jdbcClient);
         InitialOrganizationBootstrapper bootstrapper = transactionalProxy(
-                OrganizationPersistence.initialBootstrapper(jdbcClient, resolver, registrar),
+                new DefaultInitialOrganizationBootstrapper(bootstrapRepository, resolver, registrar),
                 InitialOrganizationBootstrapper.class,
                 transactionManager
         );
@@ -111,49 +118,47 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 releaseFirstGrant
         );
         Clock clock = Clock.fixed(Instant.parse("2026-08-21T10:00:00Z"), ZoneOffset.UTC);
+        var invitationRepository = new JdbcInvitationRepository(jdbcClient);
         var issuer = transactionalProxy(
-                InvitationPersistence.invitationService(
-                        jdbcClient,
+                new DefaultInvitationService(
+                        invitationRepository,
                         resolver,
                         registrar,
                         normalProvisioner,
                         clock,
-                        Duration.ofHours(72),
-                        new SecureRandom()
+                        Duration.ofHours(72)
                 ),
-                OrganizationInvitationService.class,
+                InvitationService.class,
                 transactionManager
         );
         var firstService = transactionalProxy(
-                InvitationPersistence.invitationService(
-                        jdbcClient,
+                new DefaultInvitationService(
+                        invitationRepository,
                         resolver,
                         registrar,
                         blockingProvisioner,
                         clock,
-                        Duration.ofHours(72),
-                        new SecureRandom()
+                        Duration.ofHours(72)
                 ),
-                OrganizationInvitationService.class,
+                InvitationService.class,
                 transactionManager
         );
         var secondService = transactionalProxy(
-                InvitationPersistence.invitationService(
-                        jdbcClient,
+                new DefaultInvitationService(
+                        invitationRepository,
                         resolver,
                         registrar,
                         normalProvisioner,
                         clock,
-                        Duration.ofHours(72),
-                        new SecureRandom()
+                        Duration.ofHours(72)
                 ),
-                OrganizationInvitationService.class,
+                InvitationService.class,
                 transactionManager
         );
 
         var issued = issuer.issue(owner, "member@example.com");
         var continuation = issuer.intake(issued.plaintextSecret());
-        var acceptance = new OrganizationInvitationService.InvitationAcceptance(
+        var acceptance = new InvitationAcceptance(
                 continuation.invitationId(),
                 continuation.organizationId(),
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "member"),
@@ -176,11 +181,11 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                     throw new AssertionError("second acceptance unexpectedly succeeded");
                 } catch (ExecutionException exception) {
                     var invitationException = assertInstanceOf(
-                            OrganizationInvitationException.class,
+                            InvitationException.class,
                             exception.getCause()
                     );
                     assertEquals(
-                            OrganizationInvitationException.Reason.INVITATION_NOT_AVAILABLE,
+                            InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                             invitationException.reason()
                     );
                 }

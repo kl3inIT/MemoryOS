@@ -5,7 +5,6 @@ CREATE TABLE organization_invitations (
     normalized_email VARCHAR(254) NOT NULL,
     open_email_key VARCHAR(254),
     secret_digest CHAR(64) NOT NULL,
-    secret_version INTEGER NOT NULL,
     status VARCHAR(16) NOT NULL,
     created_by_actor_id UUID NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -25,7 +24,6 @@ CREATE TABLE organization_invitations (
         FOREIGN KEY (accepted_by_actor_id) REFERENCES actors (id) ON DELETE RESTRICT,
     CONSTRAINT fk_organization_invitations_revoking_actor
         FOREIGN KEY (revoked_by_actor_id) REFERENCES actors (id) ON DELETE RESTRICT,
-    CONSTRAINT ck_organization_invitations_secret_version CHECK (secret_version >= 1),
     CONSTRAINT ck_organization_invitations_status CHECK (
         status IN ('PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED')
     ),

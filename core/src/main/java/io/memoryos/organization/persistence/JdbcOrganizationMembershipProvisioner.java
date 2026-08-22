@@ -1,6 +1,8 @@
 package io.memoryos.organization.persistence;
 
 import io.memoryos.identity.ActorId;
+import io.memoryos.organization.InvitationAuthority;
+import io.memoryos.organization.InvitationTarget;
 import io.memoryos.organization.OrganizationId;
 import io.memoryos.organization.OrganizationMembershipProvisioner;
 import io.memoryos.organization.WorkspaceId;
@@ -11,9 +13,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+@Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcOrganizationMembershipProvisioner implements OrganizationMembershipProvisioner {
 

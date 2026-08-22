@@ -1,4 +1,4 @@
-package io.memoryos.invitation.persistence;
+package io.memoryos.invitation.application;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -10,16 +10,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
-import io.memoryos.identity.IdentityPersistence;
-import io.memoryos.invitation.InvitationPersistence;
-import io.memoryos.invitation.OrganizationInvitationException;
-import io.memoryos.invitation.OrganizationInvitationService;
+import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
+import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
+import io.memoryos.invitation.InvitationAcceptance;
+import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.InvitationStatus;
+import io.memoryos.invitation.persistence.JdbcInvitationRepository;
+import io.memoryos.invitation.InvitationException;
+import io.memoryos.invitation.InvitationService;
 import io.memoryos.organization.InitialOrganizationBootstrapRequest;
 import io.memoryos.organization.InitialOrganizationBootstrapper;
 import io.memoryos.organization.OrganizationMembershipProvisioner;
-import io.memoryos.organization.OrganizationPersistence;
+import io.memoryos.organization.application.DefaultInitialOrganizationBootstrapper;
+import io.memoryos.organization.persistence.JdbcOrganizationBootstrapRepository;
+import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisioner;
 
-import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -46,7 +51,7 @@ import org.springframework.transaction.annotation.AnnotationTransactionAttribute
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-class JdbcOrganizationInvitationServiceTest {
+class DefaultInvitationServiceTest {
 
     private static final String ISSUER = "https://keycloak.example/realms/memoryos";
     private static final Instant START = Instant.parse("2026-08-21T10:00:00Z");
@@ -54,7 +59,7 @@ class JdbcOrganizationInvitationServiceTest {
     private JdbcClient jdbcClient;
     private Connection keepAlive;
     private MutableClock clock;
-    private OrganizationInvitationService invitations;
+    private InvitationService invitations;
     private ActorId ownerActorId;
 
     @BeforeEach
@@ -76,14 +81,15 @@ class JdbcOrganizationInvitationServiceTest {
 
         jdbcClient = JdbcClient.create(dataSource);
         PlatformTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
-        var resolver = IdentityPersistence.resolver(jdbcClient);
+        var resolver = new JdbcExternalIdentityResolver(jdbcClient);
         var registrar = transactionalProxy(
-                IdentityPersistence.registrar(jdbcClient, resolver),
+                new JdbcExternalIdentityRegistrar(jdbcClient, resolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
+        var bootstrapRepository = new JdbcOrganizationBootstrapRepository(jdbcClient);
         InitialOrganizationBootstrapper bootstrapper = transactionalProxy(
-                OrganizationPersistence.initialBootstrapper(jdbcClient, resolver, registrar),
+                new DefaultInitialOrganizationBootstrapper(bootstrapRepository, resolver, registrar),
                 InitialOrganizationBootstrapper.class,
                 transactionManager
         );
@@ -96,22 +102,21 @@ class JdbcOrganizationInvitationServiceTest {
                 "TEST-MEM-12"
         )).ownerActorId();
         var membershipProvisioner = transactionalProxy(
-                OrganizationPersistence.membershipProvisioner(jdbcClient),
+                new JdbcOrganizationMembershipProvisioner(jdbcClient),
                 OrganizationMembershipProvisioner.class,
                 transactionManager
         );
         clock = new MutableClock(START);
         invitations = transactionalProxy(
-                InvitationPersistence.invitationService(
-                        jdbcClient,
+                new DefaultInvitationService(
+                        new JdbcInvitationRepository(jdbcClient),
                         resolver,
                         registrar,
                         membershipProvisioner,
                         clock,
-                        Duration.ofHours(72),
-                        new SecureRandom()
+                        Duration.ofHours(72)
                 ),
-                OrganizationInvitationService.class,
+                InvitationService.class,
                 transactionManager
         );
     }
@@ -126,7 +131,7 @@ class JdbcOrganizationInvitationServiceTest {
         var issued = invitations.issue(ownerActorId, "  Member@Example.COM ");
 
         assertEquals("member@example.com", issued.invitation().email());
-        assertEquals(OrganizationInvitationService.Status.PENDING, issued.invitation().status());
+        assertEquals(InvitationStatus.PENDING, issued.invitation().status());
         assertEquals(43, issued.plaintextSecret().length());
         assertEquals(START.plus(Duration.ofHours(72)), issued.invitation().expiresAt());
         assertEquals(issued.invitation(), invitations.list(ownerActorId).getFirst());
@@ -143,16 +148,16 @@ class JdbcOrganizationInvitationServiceTest {
                 .update();
 
         var notOwner = assertThrows(
-                OrganizationInvitationException.class,
+                InvitationException.class,
                 () -> invitations.issue(unrelatedActor, "member@example.com")
         );
         var invalidEmail = assertThrows(
-                OrganizationInvitationException.class,
+                InvitationException.class,
                 () -> invitations.issue(ownerActorId, "not-an-email")
         );
 
-        assertEquals(OrganizationInvitationException.Reason.NOT_OWNER, notOwner.reason());
-        assertEquals(OrganizationInvitationException.Reason.INVALID_EMAIL, invalidEmail.reason());
+        assertEquals(InvitationFailureReason.NOT_OWNER, notOwner.reason());
+        assertEquals(InvitationFailureReason.INVALID_EMAIL, invalidEmail.reason());
         assertEquals(0L, count("organization_invitations"));
     }
 
@@ -160,29 +165,28 @@ class JdbcOrganizationInvitationServiceTest {
     void rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets() {
         var original = invitations.issue(ownerActorId, "member@example.com");
         var duplicate = assertThrows(
-                OrganizationInvitationException.class,
+                InvitationException.class,
                 () -> invitations.issue(ownerActorId, "MEMBER@example.com")
         );
-        assertEquals(OrganizationInvitationException.Reason.INVITATION_CONFLICT, duplicate.reason());
+        assertEquals(InvitationFailureReason.INVITATION_CONFLICT, duplicate.reason());
 
         var rotated = invitations.rotate(ownerActorId, original.invitation().id());
-        assertEquals(2, rotated.invitation().secretVersion());
         assertNotEquals(original.plaintextSecret(), rotated.plaintextSecret());
         assertEquals(
-                OrganizationInvitationException.Reason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                 assertThrows(
-                        OrganizationInvitationException.class,
+                        InvitationException.class,
                         () -> invitations.intake(original.plaintextSecret())
                 ).reason()
         );
         assertEquals(rotated.invitation().id(), invitations.intake(rotated.plaintextSecret()).invitationId());
 
         invitations.revoke(ownerActorId, rotated.invitation().id());
-        assertEquals(OrganizationInvitationService.Status.REVOKED, invitations.list(ownerActorId).getFirst().status());
+        assertEquals(InvitationStatus.REVOKED, invitations.list(ownerActorId).getFirst().status());
         assertEquals(
-                OrganizationInvitationException.Reason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                 assertThrows(
-                        OrganizationInvitationException.class,
+                        InvitationException.class,
                         () -> invitations.intake(rotated.plaintextSecret())
                 ).reason()
         );
@@ -193,11 +197,11 @@ class JdbcOrganizationInvitationServiceTest {
         var expired = invitations.issue(ownerActorId, "member@example.com");
         clock.advance(Duration.ofHours(73));
 
-        assertEquals(OrganizationInvitationService.Status.EXPIRED, invitations.list(ownerActorId).getFirst().status());
+        assertEquals(InvitationStatus.EXPIRED, invitations.list(ownerActorId).getFirst().status());
         assertEquals(
-                OrganizationInvitationException.Reason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                 assertThrows(
-                        OrganizationInvitationException.class,
+                        InvitationException.class,
                         () -> invitations.intake(expired.plaintextSecret())
                 ).reason()
         );
@@ -213,7 +217,7 @@ class JdbcOrganizationInvitationServiceTest {
         var continuation = invitations.intake(issued.plaintextSecret());
         var identity = new ExternalIdentity(ISSUER, "member-subject");
 
-        ActorId member = invitations.accept(new OrganizationInvitationService.InvitationAcceptance(
+        ActorId member = invitations.accept(new InvitationAcceptance(
                 continuation.invitationId(),
                 continuation.organizationId(),
                 identity,
@@ -231,13 +235,13 @@ class JdbcOrganizationInvitationServiceTest {
         assertEquals("MEMBER", membershipRole("organization_memberships", member));
         assertEquals("MEMBER", membershipRole("workspace_memberships", member));
         var accepted = invitations.list(ownerActorId).getFirst();
-        assertEquals(OrganizationInvitationService.Status.ACCEPTED, accepted.status());
+        assertEquals(InvitationStatus.ACCEPTED, accepted.status());
         assertEquals(member, accepted.acceptedActorId());
         assertEquals(
-                OrganizationInvitationException.Reason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                 assertThrows(
-                        OrganizationInvitationException.class,
-                        () -> invitations.accept(new OrganizationInvitationService.InvitationAcceptance(
+                        InvitationException.class,
+                        () -> invitations.accept(new InvitationAcceptance(
                                 continuation.invitationId(),
                                 continuation.organizationId(),
                                 identity,
@@ -255,8 +259,8 @@ class JdbcOrganizationInvitationServiceTest {
         var identity = new ExternalIdentity(ISSUER, "member-subject");
 
         var unverified = assertThrows(
-                OrganizationInvitationException.class,
-                () -> invitations.accept(new OrganizationInvitationService.InvitationAcceptance(
+                InvitationException.class,
+                () -> invitations.accept(new InvitationAcceptance(
                         continuation.invitationId(),
                         continuation.organizationId(),
                         identity,
@@ -265,8 +269,8 @@ class JdbcOrganizationInvitationServiceTest {
                 ))
         );
         var mismatch = assertThrows(
-                OrganizationInvitationException.class,
-                () -> invitations.accept(new OrganizationInvitationService.InvitationAcceptance(
+                InvitationException.class,
+                () -> invitations.accept(new InvitationAcceptance(
                         continuation.invitationId(),
                         continuation.organizationId(),
                         identity,
@@ -275,11 +279,11 @@ class JdbcOrganizationInvitationServiceTest {
                 ))
         );
 
-        assertEquals(OrganizationInvitationException.Reason.EMAIL_NOT_VERIFIED, unverified.reason());
-        assertEquals(OrganizationInvitationException.Reason.EMAIL_MISMATCH, mismatch.reason());
+        assertEquals(InvitationFailureReason.EMAIL_NOT_VERIFIED, unverified.reason());
+        assertEquals(InvitationFailureReason.EMAIL_MISMATCH, mismatch.reason());
         assertEquals(1L, count("actors"));
         assertEquals(1L, count("external_identity_bindings"));
-        assertEquals(OrganizationInvitationService.Status.PENDING, invitations.list(ownerActorId).getFirst().status());
+        assertEquals(InvitationStatus.PENDING, invitations.list(ownerActorId).getFirst().status());
     }
 
     @Test
@@ -288,8 +292,8 @@ class JdbcOrganizationInvitationServiceTest {
         var continuation = invitations.intake(issued.plaintextSecret());
 
         var conflict = assertThrows(
-                OrganizationInvitationException.class,
-                () -> invitations.accept(new OrganizationInvitationService.InvitationAcceptance(
+                InvitationException.class,
+                () -> invitations.accept(new InvitationAcceptance(
                         continuation.invitationId(),
                         continuation.organizationId(),
                         new ExternalIdentity(ISSUER, "initial-owner"),
@@ -298,7 +302,7 @@ class JdbcOrganizationInvitationServiceTest {
                 ))
         );
 
-        assertEquals(OrganizationInvitationException.Reason.IDENTITY_CONFLICT, conflict.reason());
+        assertEquals(InvitationFailureReason.IDENTITY_CONFLICT, conflict.reason());
         assertEquals(1L, count("organization_memberships"));
         assertEquals(1L, count("workspace_memberships"));
     }
@@ -307,7 +311,7 @@ class JdbcOrganizationInvitationServiceTest {
     void concurrentAcceptanceProducesOneMemberAndOneAcceptedInvitation() throws Exception {
         var issued = invitations.issue(ownerActorId, "member@example.com");
         var continuation = invitations.intake(issued.plaintextSecret());
-        var acceptance = new OrganizationInvitationService.InvitationAcceptance(
+        var acceptance = new InvitationAcceptance(
                 continuation.invitationId(),
                 continuation.organizationId(),
                 new ExternalIdentity(ISSUER, "concurrent-member"),
@@ -330,9 +334,9 @@ class JdbcOrganizationInvitationServiceTest {
                     future.get(5, SECONDS);
                     successes++;
                 } catch (ExecutionException exception) {
-                    if (exception.getCause() instanceof OrganizationInvitationException invitationException
+                    if (exception.getCause() instanceof InvitationException invitationException
                             && invitationException.reason()
-                            == OrganizationInvitationException.Reason.INVITATION_NOT_AVAILABLE) {
+                            == InvitationFailureReason.INVITATION_NOT_AVAILABLE) {
                         unavailable++;
                     } else {
                         throw exception;
@@ -351,7 +355,7 @@ class JdbcOrganizationInvitationServiceTest {
     }
 
     private ActorId acceptAfterSignal(
-            OrganizationInvitationService.InvitationAcceptance acceptance,
+            InvitationAcceptance acceptance,
             CountDownLatch ready,
             CountDownLatch start
     ) throws InterruptedException {

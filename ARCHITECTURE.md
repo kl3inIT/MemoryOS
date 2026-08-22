@@ -22,9 +22,11 @@ The web design system remains local to the single application. `styles/tokens.cs
 
 ## Capability boundaries
 
-`core` contains eight closed Spring Modulith modules: `identity`, `organization`, `invitation`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. A capability root package is its public API. Capability-owned persistence stays beneath that capability and cannot be imported by another capability.
+`core` contains eight closed Spring Modulith modules: `identity`, `organization`, `invitation`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. A capability root package is its public API. Public enums and records are top-level types. Transactional orchestration lives in `application`; SQL, row mapping, and conditional storage operations live in `persistence`. Capability-owned implementation packages cannot be imported by another capability.
 
 `organization` depends only on `identity`. `invitation` depends only on the public APIs of `identity` and `organization`; it owns invitation lifecycle/persistence and coordinates their mandatory transaction ports without importing either capability's persistence. The remaining dependency graph is enforced by Spring Modulith and ArchUnit tests. `core` may use Spring, `JdbcClient`, transactions, or JPA inside a capability boundary; it is not a framework-free domain layer.
+
+`api` scans `io.memoryos`, so capability implementations in `core` register themselves with Spring stereotypes; deployable configuration defines only infrastructure, security, properties, and startup runners. `worker` scans only `io.memoryos.worker` and excludes datasource auto-configuration until it owns a persistence-backed background runtime path, preventing the shared core JDBC starter from requiring unused worker datasource configuration. Static persistence factories and forwarding `@Bean` methods are intentionally absent.
 
 Audit is intentionally absent until a real evidence consumer defines attribution, transaction, retention, access, and export semantics. See [ADR 0003](docs/decisions/0003-defer-audit-until-evidence-consumer.md).
 
@@ -69,4 +71,4 @@ The API and web application ship as separate commit-labelled containers. The API
 
 ## Deferred components
 
-No invitation flow, member administration, Organization/Workspace switcher, broker policy, audit history, OpenFGA client, connector, MCP server, GraphRAG engine, public deployment automation, account-linking endpoint, durable memory screen, chat UI, or background-processing loop exists. Invitation onboarding is tracked by MEM-12. Add every deferred component only through a capability-owned vertical slice with a verified production path.
+No Organization/Workspace switcher, broker policy, audit history, OpenFGA client, connector, MCP server, GraphRAG engine, public deployment automation, account-linking endpoint, durable memory screen, chat UI, or background-processing loop exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.

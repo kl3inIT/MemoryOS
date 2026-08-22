@@ -1,4 +1,4 @@
-package io.memoryos.organization.persistence;
+package io.memoryos.organization.application;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -9,10 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
 import io.memoryos.identity.ExternalIdentityResolver;
-import io.memoryos.identity.IdentityPersistence;
+import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
+import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
 import io.memoryos.organization.InitialOrganizationBootstrapRequest;
 import io.memoryos.organization.InitialOrganizationBootstrapper;
-import io.memoryos.organization.OrganizationPersistence;
+import io.memoryos.organization.persistence.JdbcOrganizationBootstrapRepository;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -63,7 +64,7 @@ class PostgresInitialOrganizationBootstrapperConcurrencyTest {
 
         var jdbcClient = JdbcClient.create(dataSource);
         var transactionManager = new DataSourceTransactionManager(dataSource);
-        var resolver = IdentityPersistence.resolver(jdbcClient);
+        var resolver = new JdbcExternalIdentityResolver(jdbcClient);
         var firstResolverEntered = new CountDownLatch(1);
         var releaseFirstResolver = new CountDownLatch(1);
         ExternalIdentityResolver blockingResolver = identity -> {
@@ -80,22 +81,31 @@ class PostgresInitialOrganizationBootstrapperConcurrencyTest {
             return actorId;
         };
         var firstRegistrar = transactionalProxy(
-                IdentityPersistence.registrar(jdbcClient, blockingResolver),
+                new JdbcExternalIdentityRegistrar(jdbcClient, blockingResolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
         var secondRegistrar = transactionalProxy(
-                IdentityPersistence.registrar(jdbcClient, resolver),
+                new JdbcExternalIdentityRegistrar(jdbcClient, resolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
+        var bootstrapRepository = new JdbcOrganizationBootstrapRepository(jdbcClient);
         var firstBootstrapper = transactionalProxy(
-                OrganizationPersistence.initialBootstrapper(jdbcClient, blockingResolver, firstRegistrar),
+                new DefaultInitialOrganizationBootstrapper(
+                        bootstrapRepository,
+                        blockingResolver,
+                        firstRegistrar
+                ),
                 InitialOrganizationBootstrapper.class,
                 transactionManager
         );
         var secondBootstrapper = transactionalProxy(
-                OrganizationPersistence.initialBootstrapper(jdbcClient, resolver, secondRegistrar),
+                new DefaultInitialOrganizationBootstrapper(
+                        bootstrapRepository,
+                        resolver,
+                        secondRegistrar
+                ),
                 InitialOrganizationBootstrapper.class,
                 transactionManager
         );

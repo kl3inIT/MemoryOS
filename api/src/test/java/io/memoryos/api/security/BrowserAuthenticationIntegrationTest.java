@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.api.invitation.InvitationSessionState;
-import io.memoryos.api.invitation.InvitationHttpHeaders;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -77,6 +76,7 @@ class BrowserAuthenticationIntegrationTest {
     private static final String CLIENT_ID = "memoryos-web";
     private static final String PROVIDER_ID_TOKEN_MARKER = "provider-id-token-marker";
     private static final String PROVIDER_ACCESS_TOKEN = "provider-access-token";
+    private static final String BROWSER_MUTATION_HEADER = "X-MemoryOS-CSRF";
 
     @LocalServerPort
     private int port;
@@ -472,7 +472,7 @@ class BrowserAuthenticationIntegrationTest {
         return HttpRequest.newBuilder(baseUri().resolve("/api/invitations"))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
-                .header(InvitationHttpHeaders.BROWSER_MUTATION, "1")
+                .header(BROWSER_MUTATION_HEADER, "1")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
     }

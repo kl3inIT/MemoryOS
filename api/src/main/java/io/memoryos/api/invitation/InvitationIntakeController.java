@@ -1,33 +1,30 @@
 package io.memoryos.api.invitation;
 
-import io.memoryos.invitation.OrganizationInvitationException;
-import io.memoryos.invitation.OrganizationInvitationService;
+import io.memoryos.invitation.InvitationException;
+import io.memoryos.invitation.InvitationService;
 import io.memoryos.organization.OrganizationId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 final class InvitationIntakeController {
 
-    private static final int NONCE_BYTES = 24;
     private static final String LANDING_PATH = "/invitation";
     private static final String OAUTH_PATH = "/oauth2/authorization/memoryos";
+    //noinspection HttpHeaderName
+    private static final String REFERRER_POLICY = "Referrer-Policy";
 
-    private final OrganizationInvitationService invitations;
-    private final SecureRandom secureRandom = new SecureRandom();
+    private final InvitationService invitations;
 
-    InvitationIntakeController(OrganizationInvitationService invitations) {
+    InvitationIntakeController(InvitationService invitations) {
         this.invitations = invitations;
     }
 
@@ -43,19 +40,17 @@ final class InvitationIntakeController {
             var state = new InvitationSessionState(
                     continuation.invitationId(),
                     continuation.organizationId().value(),
-                    continuation.expiresAt(),
-                    nonce()
+                    continuation.expiresAt()
             );
             request.getSession(true).setAttribute(InvitationSessionState.ATTRIBUTE, state);
             redirect(response, LANDING_PATH);
-        } catch (OrganizationInvitationException exception) {
+        } catch (InvitationException exception) {
             redirect(response, LANDING_PATH + "?reason=not-available");
         }
     }
 
     @GetMapping("/invite/continue")
     void continueInvitation(
-            @RequestParam String nonce,
             HttpServletRequest request,
             HttpServletResponse response
     ) {
@@ -67,10 +62,8 @@ final class InvitationIntakeController {
         if (!(state instanceof InvitationSessionState(
                 var invitationId,
                 var organizationId,
-                var expiresAt,
-                var expectedNonce
+                var expiresAt
         ))
-                || !expectedNonce.equals(nonce)
                 || !expiresAt.isAfter(Instant.now())) {
             redirect(response, LANDING_PATH + "?reason=not-available");
             return;
@@ -78,21 +71,16 @@ final class InvitationIntakeController {
         try {
             invitations.resume(invitationId, new OrganizationId(organizationId));
             redirect(response, OAUTH_PATH);
-        } catch (OrganizationInvitationException exception) {
+        } catch (InvitationException exception) {
             session.removeAttribute(InvitationSessionState.ATTRIBUTE);
             redirect(response, LANDING_PATH + "?reason=not-available");
         }
     }
 
-    private String nonce() {
-        byte[] bytes = new byte[NONCE_BYTES];
-        secureRandom.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
 
     private static void noSecretCaching(HttpServletResponse response) {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        response.setHeader(InvitationHttpHeaders.REFERRER_POLICY, "no-referrer");
+        response.setHeader(REFERRER_POLICY, "no-referrer");
     }
 
     private static void redirect(HttpServletResponse response, String location) {

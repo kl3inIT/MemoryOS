@@ -217,7 +217,6 @@ components:
         - id
         - email
         - status
-        - secretVersion
         - createdAt
         - expiresAt
       properties:
@@ -229,9 +228,6 @@ components:
           format: email
         status:
           $ref: '#/components/schemas/InvitationStatus'
-        secretVersion:
-          type: integer
-          minimum: 1
         createdAt:
           type: string
           format: date-time

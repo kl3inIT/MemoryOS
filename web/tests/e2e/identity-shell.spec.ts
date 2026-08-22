@@ -143,7 +143,6 @@ test("creates a production invitation from the People administration page", asyn
         id: "75c4e810-e1f2-45cb-9480-8e713a934bca",
         email: "member@example.com",
         status: "PENDING",
-        secretVersion: 1,
         createdAt: "2026-08-21T10:00:00Z",
         expiresAt,
         acceptedActorId: null,
@@ -175,7 +174,6 @@ test("creates a production invitation from the People administration page", asyn
       return;
     }
     if (route.request().method() === "POST" && route.request().url().endsWith("/rotate")) {
-      invitation.secretVersion = 2;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -232,7 +230,7 @@ test("shows the recipient invitation landing and recovery states", async ({ page
       body: JSON.stringify({
         organizationDisplayName: "Tasco",
         expiresAt: "2026-08-24T10:00:00Z",
-        continueUrl: "/invite/continue?nonce=recipient-state",
+        continueUrl: "/invite/continue",
       }),
     });
   });
@@ -241,7 +239,7 @@ test("shows the recipient invitation landing and recovery states", async ({ page
   await expect(page.getByRole("heading", { name: "Join Tasco" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Continue to sign in" })).toHaveAttribute(
     "href",
-    "/invite/continue?nonce=recipient-state",
+    "/invite/continue",
   );
   await expect(page.getByText(/does not grant admin permissions/i)).toBeVisible();
 

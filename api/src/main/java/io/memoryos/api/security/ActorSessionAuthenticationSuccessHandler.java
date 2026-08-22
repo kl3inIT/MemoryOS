@@ -5,8 +5,10 @@ import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.identity.IdentityContext;
 import io.memoryos.api.invitation.InvitationSessionState;
-import io.memoryos.invitation.OrganizationInvitationException;
-import io.memoryos.invitation.OrganizationInvitationService;
+import io.memoryos.invitation.InvitationAcceptance;
+import io.memoryos.invitation.InvitationException;
+import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.InvitationService;
 import io.memoryos.organization.OrganizationId;
 import io.memoryos.organization.OrganizationAccessResolver;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,14 +36,14 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
 
     private final ExternalIdentityResolver identityResolver;
     private final OrganizationAccessResolver organizationAccessResolver;
-    private final OrganizationInvitationService invitationService;
+    private final InvitationService invitationService;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
     ActorSessionAuthenticationSuccessHandler(
             ExternalIdentityResolver identityResolver,
             OrganizationAccessResolver organizationAccessResolver,
-            OrganizationInvitationService invitationService
+            InvitationService invitationService
     ) {
         this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
         this.organizationAccessResolver = Objects.requireNonNull(
@@ -109,14 +111,14 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
         }
 
         try {
-            return invitationService.accept(new OrganizationInvitationService.InvitationAcceptance(
+            return invitationService.accept(new InvitationAcceptance(
                     invitationState.invitationId(),
                     new OrganizationId(invitationState.organizationId()),
                     externalIdentity,
                     oidcUser.getClaimAsString("email"),
                     Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
             ));
-        } catch (OrganizationInvitationException exception) {
+        } catch (InvitationException exception) {
             rejectInvitation(request, response, reason(exception.reason()));
             return null;
         }
@@ -144,11 +146,12 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
         }
     }
 
-    private static String reason(OrganizationInvitationException.Reason reason) {
+    private static String reason(InvitationFailureReason reason) {
         return switch (reason) {
             case EMAIL_NOT_VERIFIED -> "email-not-verified";
             case EMAIL_MISMATCH -> "email-mismatch";
-            default -> "not-available";
+            case NOT_OWNER, INVALID_EMAIL, INVITATION_CONFLICT,
+                 INVITATION_NOT_AVAILABLE, IDENTITY_CONFLICT -> "not-available";
         };
     }
 }

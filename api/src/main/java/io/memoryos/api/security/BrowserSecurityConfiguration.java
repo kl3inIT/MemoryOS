@@ -1,7 +1,7 @@
 package io.memoryos.api.security;
 
 import io.memoryos.identity.ExternalIdentityResolver;
-import io.memoryos.invitation.OrganizationInvitationService;
+import io.memoryos.invitation.InvitationService;
 import io.memoryos.organization.OrganizationAccessResolver;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -24,7 +24,7 @@ class BrowserSecurityConfiguration {
             ClientRegistrationRepository clientRegistrations,
             ExternalIdentityResolver identityResolver,
             OrganizationAccessResolver organizationAccessResolver,
-            OrganizationInvitationService invitationService,
+            InvitationService invitationService,
             MemoryOsBrowserProperties browserProperties
     ) {
         var clientRegistration = clientRegistrations.findByRegistrationId(browserProperties.registrationId());

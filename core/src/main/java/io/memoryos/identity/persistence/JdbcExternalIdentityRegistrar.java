@@ -9,9 +9,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+@Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcExternalIdentityRegistrar implements ExternalIdentityRegistrar {
 

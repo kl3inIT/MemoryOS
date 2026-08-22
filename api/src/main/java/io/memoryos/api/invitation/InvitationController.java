@@ -1,8 +1,12 @@
 package io.memoryos.api.invitation;
 
 import io.memoryos.identity.IdentityContext;
-import io.memoryos.invitation.OrganizationInvitationException;
-import io.memoryos.invitation.OrganizationInvitationService;
+import io.memoryos.invitation.InvitationException;
+import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.InvitationService;
+import io.memoryos.invitation.InvitationStatus;
+import io.memoryos.invitation.InvitationView;
+import io.memoryos.invitation.IssuedInvitation;
 import io.memoryos.organization.OrganizationId;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -27,12 +31,12 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/invitations")
 final class InvitationController {
 
-    static final String BROWSER_REQUEST_HEADER = InvitationHttpHeaders.BROWSER_MUTATION;
+    static final String BROWSER_REQUEST_HEADER = "X-MemoryOS-CSRF";
     static final String BROWSER_REQUEST_VALUE = "1";
 
-    private final OrganizationInvitationService invitations;
+    private final InvitationService invitations;
 
-    InvitationController(OrganizationInvitationService invitations) {
+    InvitationController(InvitationService invitations) {
         this.invitations = invitations;
     }
 
@@ -93,16 +97,16 @@ final class InvitationController {
             return new CurrentInvitationResponse(
                     continuation.organizationDisplayName(),
                     continuation.expiresAt(),
-                    "/invite/continue?nonce=" + invitationState.nonce()
+                    "/invite/continue"
             );
-        } catch (OrganizationInvitationException exception) {
+        } catch (InvitationException exception) {
             session.removeAttribute(InvitationSessionState.ATTRIBUTE);
             throw exception;
         }
     }
 
     private static IssuedInvitationResponse issued(
-            OrganizationInvitationService.IssuedInvitation invitation
+            IssuedInvitation invitation
     ) {
         return new IssuedInvitationResponse(
                 response(invitation.invitation()),
@@ -110,12 +114,11 @@ final class InvitationController {
         );
     }
 
-    private static InvitationResponse response(OrganizationInvitationService.InvitationView invitation) {
+    private static InvitationResponse response(InvitationView invitation) {
         return new InvitationResponse(
                 invitation.id(),
                 invitation.email(),
                 invitation.status(),
-                invitation.secretVersion(),
                 invitation.createdAt(),
                 invitation.expiresAt(),
                 invitation.acceptedActorId() == null ? null : invitation.acceptedActorId().value(),
@@ -130,9 +133,9 @@ final class InvitationController {
         }
     }
 
-    private static OrganizationInvitationException unavailable() {
-        return new OrganizationInvitationException(
-                OrganizationInvitationException.Reason.INVITATION_NOT_AVAILABLE,
+    private static InvitationException unavailable() {
+        return new InvitationException(
+                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                 "invitation continuation is not available"
         );
     }
@@ -143,8 +146,7 @@ final class InvitationController {
     record InvitationResponse(
             UUID id,
             String email,
-            OrganizationInvitationService.Status status,
-            int secretVersion,
+            InvitationStatus status,
             Instant createdAt,
             Instant expiresAt,
             UUID acceptedActorId,

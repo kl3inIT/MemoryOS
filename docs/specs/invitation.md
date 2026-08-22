@@ -34,13 +34,13 @@ Plaintext secrets are absent from list responses, logs, JDBC sessions, exception
 
 Stored states are `PENDING`, `ACCEPTED`, `EXPIRED`, and `REVOKED`. Expiry is settled from durable `expires_at` without a background runtime mode. A database constraint permits at most one pending invitation for one normalized email in one Organization while preserving settled lifecycle evidence.
 
-The invitation row records Organization/default-Workspace scope, normalized email, secret digest/version, creator, expiry, and accepted or revoked lifecycle facts. Foreign keys prevent cross-Organization Workspace grants and reference stable actors for creator/consumer evidence.
+The invitation row records Organization/default-Workspace scope, normalized email, secret digest, creator, expiry, and accepted or revoked lifecycle facts. Foreign keys prevent cross-Organization Workspace grants and reference stable actors for creator/consumer evidence.
 
 ## Intake continuation
 
 `GET /invite/{secret}` hashes and locks the matching invitation. Missing, expired, revoked, consumed, or superseded secrets return the not-available flow. A valid intake stores only redacted continuation state in the JDBC-backed browser session and redirects to the invitation landing surface.
 
-The continuation contains invitation ID, Organization ID, expiry, and correlation state. It never contains the plaintext secret. Intake responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+The continuation contains only invitation ID, Organization ID, and expiry. It never contains the plaintext secret or a parallel invitation nonce; Spring Security owns OAuth2 state and OIDC nonce correlation. Intake responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
 
 ## Acceptance transaction
 

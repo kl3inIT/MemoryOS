@@ -9,6 +9,7 @@
 - [x] Add `invitation` as a top-level closed Spring Modulith capability with allowed dependencies on `identity` and `organization`; update Modulith/ArchUnit completeness and persistence-ownership rules.
 - [x] Expose a narrow Organization-owned invitation authority/membership port; Invitation must not import Organization persistence or write membership tables directly.
 - [x] Implement Invitation-owned lifecycle types and JDBC persistence without introducing a second membership or tenant-mapping model.
+- [x] Register capability-owned services and repositories through component scanning; remove static persistence factories and forwarding deployable beans.
 
 ## Owner lifecycle
 
@@ -22,7 +23,7 @@
 
 - [x] Add invitation intake with digest lookup, expiry/revocation/consumption checks, no-store/no-referrer headers, and redacted JDBC session continuation.
 - [x] Extend the browser OAuth2 success path so an unbound identity is provisioned only from a valid invitation continuation.
-- [x] Require exact issuer/subject, verified matching email, matching nonce, and locked pending invitation before acceptance.
+- [x] Require exact issuer/subject, verified matching email, an unexpired continuation, and a locked pending invitation before acceptance; rely on Spring Security for OAuth2 state and OIDC nonce correlation.
 - [x] Commit Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation acceptance in one transaction.
 - [x] Rotate the session ID, persist the `ActorId`-only principal, discard provider state, and invalidate every failed partial session.
 - [x] Reconcile Keycloak realm desired state and deployment prerequisites for self-registration, verified email, and SMTP without giving MemoryOS administrator credentials.
