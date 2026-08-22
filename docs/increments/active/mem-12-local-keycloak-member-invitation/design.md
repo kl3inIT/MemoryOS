@@ -20,7 +20,7 @@ This is a production vertical slice, not a temporary onboarding mode. Storage, a
 
 1. Open an invitation landing page that identifies the MemoryOS workspace.
 2. Continue to the local Keycloak Authorization Code + S256 PKCE flow.
-3. Sign in or create a local account when the realm permits self-registration.
+3. Sign in or create a local email-as-username account, then complete Keycloak email verification.
 4. Return to MemoryOS with an exact issuer/subject and verified email.
 5. Join automatically and land on `New Session`.
 
@@ -113,7 +113,7 @@ After commit, the callback rotates the HTTP session ID, replaces the provider pr
 - Rotation conditionally replaces only a pending, unexpired digest and invalidates every previous link.
 - Listing exposes lifecycle metadata, never plaintext secrets or digests.
 - Copy/share is the complete delivery path. No speculative email provider abstraction is added; configured email delivery may be added only with a concrete provider and observable failure contract.
-- Keycloak administrator credentials never enter MemoryOS. The deployment-owned realm configuration must provide the sign-in/account-creation experience used by the recipient flow.
+- Keycloak administrator and SMTP credentials never enter MemoryOS. The deployment-owned reconciliation script uses `kcadm` to enable self-registration, require verified email, and configure SMTP from managed environment values. At runtime, Spring Security performs the standard OAuth2 authorization-code/token exchange; MemoryOS has no Keycloak Admin SDK, custom Admin REST client, or SMTP client.
 - Rate limits must work across API replicas or be enforced by the production gateway; an in-memory-only limiter is not acceptable.
 
 ## Failure outcomes

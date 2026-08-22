@@ -48,6 +48,13 @@ The mismatch scenario proves an email mismatch redirects to the recipient recove
 - `ModulithArchitectureTest` and `CoreDependencyRulesTest` pass with the new capability and persistence ownership.
 - `gradlew.bat clean check --no-daemon` passes the repository-wide gate.
 
+## Keycloak desired-state evidence
+
+- `sh -n infrastructure/keycloak/configure-memoryos-realm.sh` passes.
+- A disposable Linux `kcadm` double exercised the complete existing-user reconciliation path. It verified `registrationAllowed`, email-as-username, login-with-email, duplicate-email rejection, required email verification, authenticated STARTTLS SMTP, and the verified initial-owner profile payload.
+- Dummy operator, browser-client, and SMTP passwords were absent from script output. The captured secret-bearing payload and temporary double were deleted after assertions.
+- Keycloak sends verification mail through its configured SMTP provider. MemoryOS runtime uses Spring Security's standard OAuth2 client for authorization-code/token exchange and contains no Keycloak Admin SDK, custom Admin REST client, or SMTP credentials.
+
 ## Remaining shared-runtime gate
 
 The shared `memoryos` Keycloak realm currently reports:
@@ -59,6 +66,6 @@ verifyEmail=false
 smtpConfigured=false
 ```
 
-The implemented invitation flow works for an existing verified local Keycloak account. A no-operator account-creation happy path cannot be claimed until a concrete SMTP configuration and verified-email self-registration policy are supplied to the shared realm. MemoryOS does not receive Keycloak administrator credentials, and no fake email provider or unverified-registration bypass was added.
+The repository desired state for self-registration and verified email is complete. Applying it to the shared realm still requires concrete managed SMTP host/from/username/password values. Until those values are supplied, the implemented invitation flow is fully usable only for an existing verified local Keycloak account, and the no-operator account-creation happy path cannot be claimed. No fake provider or unverified-registration bypass was added.
 
 The exact reviewed-head deployment, shared owner-to-recipient browser flow, pull request review, merge-SHA CI, and increment closure remain open.

@@ -5,6 +5,7 @@ import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.organization.persistence.JdbcInitialOrganizationBootstrapper;
 import io.memoryos.organization.persistence.JdbcOrganizationAccessResolver;
 import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisioner;
+
 import java.util.Objects;
 
 import org.springframework.jdbc.core.simple.JdbcClient;

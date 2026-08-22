@@ -20,8 +20,8 @@ public interface OrganizationInvitationService {
     void revoke(ActorId ownerActorId, UUID invitationId);
 
     InvitationContinuation intake(String plaintextSecret);
-    InvitationContinuation resume(UUID invitationId, OrganizationId organizationId);
 
+    InvitationContinuation resume(UUID invitationId, OrganizationId organizationId);
 
     ActorId accept(InvitationAcceptance acceptance);
 

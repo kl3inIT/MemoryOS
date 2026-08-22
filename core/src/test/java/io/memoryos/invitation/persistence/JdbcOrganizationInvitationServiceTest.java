@@ -18,6 +18,7 @@ import io.memoryos.organization.InitialOrganizationBootstrapRequest;
 import io.memoryos.organization.InitialOrganizationBootstrapper;
 import io.memoryos.organization.OrganizationMembershipProvisioner;
 import io.memoryos.organization.OrganizationPersistence;
+
 import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.SQLException;

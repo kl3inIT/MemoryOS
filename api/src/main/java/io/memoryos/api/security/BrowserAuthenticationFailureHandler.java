@@ -1,9 +1,12 @@
 package io.memoryos.api.security;
+
 import io.memoryos.api.invitation.InvitationSessionState;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
+
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.AuthenticationException;

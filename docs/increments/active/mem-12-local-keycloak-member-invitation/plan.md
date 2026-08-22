@@ -25,7 +25,7 @@
 - [x] Require exact issuer/subject, verified matching email, matching nonce, and locked pending invitation before acceptance.
 - [x] Commit Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation acceptance in one transaction.
 - [x] Rotate the session ID, persist the `ActorId`-only principal, discard provider state, and invalidate every failed partial session.
-- [ ] Reconcile Keycloak realm desired state and deployment prerequisites for the recipient sign-in/account-creation experience without giving MemoryOS administrator credentials.
+- [x] Reconcile Keycloak realm desired state and deployment prerequisites for self-registration, verified email, and SMTP without giving MemoryOS administrator credentials.
 
 ## Product experience
 
