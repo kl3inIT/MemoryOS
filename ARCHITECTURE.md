@@ -67,6 +67,12 @@ Spring Boot MVC Problem Details is enabled for framework exceptions. Expected ca
 
 Browser redirect controllers continue to consume typed exceptions directly, `ACCESS_NOT_PROVISIONED` remains a browser destination response, and Spring Security filter-chain failures remain outside MVC advice. Unexpected exceptions are not caught by the global handler.
 
+## Published API contract
+
+The committed root `openapi.yml` is a generated snapshot of the live `/api/**` Spring MVC surface and is the sole input to the committed Hey API client under `web/src/lib/hey-api`. Spring controller annotations and Spring-visible request/response types own operation IDs, status/media metadata, security requirements, and schema constraints; the YAML file is not edited as an independent contract.
+
+Springdoc's WebMVC API starter is present without Swagger UI. API-doc endpoints are disabled in normal runtime configuration and enabled only by `OpenApiContractTest`, which starts the real API context, retrieves the grouped browser document through MockMvc, verifies the exact public path set, and compares it semantically with `openapi.yml`. The Gradle gate rejects backend/snapshot drift; the frontend `check:api` gate rejects snapshot/client drift.
+
 ## External identity provider
 
 Keycloak is the browser credential store and OIDC provider. The reconciliation script creates or reuses the named local initial owner without assigning Keycloak administration roles, retains public PKCE client `memoryos-integration`, and adds confidential `memoryos-web` with Authorization Code and mandatory S256 PKCE. Operator and one-time user passwords plus the browser client secret are read from managed environment values and sent through documented environment/stdin channels, not command arguments or output. The API receives only the browser client secret and stable owner subject; it never receives Keycloak administrator credentials or user passwords.

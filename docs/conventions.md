@@ -25,6 +25,13 @@ These conventions apply across MemoryOS. Capability-specific behavior belongs in
 - Spring Boot owns built-in MVC Problem Details. Custom advice handles only `BusinessException`; never add a global `Exception` catch.
 - Browser redirect responses and Spring Security filter failures retain their surface-specific contracts.
 
+## Published API contracts
+
+- Spring MVC controllers, request/response types, and backend-owned OpenAPI annotations are the source of the browser API contract.
+- `openapi.yml` is generated from the live application context and committed only as the deterministic Hey API input; never maintain paths or schemas independently in that file.
+- Normal and production runtime configuration must keep springdoc API-doc endpoints disabled. Contract generation belongs to the full-context test boundary, not a temporary runtime profile or production startup task.
+- Every API change refreshes `openapi.yml` and the committed Hey API client in the same change. Backend tests reject contract drift; frontend checks reject generated-client drift.
+
 ## Data and security
 
 - Follow [production-first persistence](guidelines/persistence.md).

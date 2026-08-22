@@ -18,6 +18,7 @@
 | Mismatched invitation email invalidates the partial session and writes no identity | `BrowserAuthenticationIntegrationTest.rejectsMismatchedInvitationEmailAndInvalidatesThePartialSession` |
 | Expected Invitation REST failures use `application/problem+json` with safe RFC 9457 fields, namespaced code, and derived URN type | `BrowserAuthenticationIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
 | Built-in malformed-request failures use Boot-native Problem Details without a capability code | `BrowserAuthenticationIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
+| The committed browser API snapshot is generated from the live Invitation operations, schemas, security metadata, and Problem Detail responses | `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
 | Owner People page supports create, copy/share, and lifecycle presentation | `identity-shell.spec.ts` — `creates a production invitation from the People administration page` |
 | Recipient landing and failure recovery are responsive and accessible | `identity-shell.spec.ts` — `shows the recipient invitation landing and recovery states` plus shared-runtime browser evidence |
 

@@ -3,6 +3,8 @@ package io.memoryos.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.net.URI;
 
@@ -18,10 +20,13 @@ import java.time.Duration;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -40,10 +45,14 @@ import org.springframework.test.context.DynamicPropertySource;
                 "spring.datasource.username=sa",
                 "spring.datasource.password="
         })
+@AutoConfigureMockMvc(addFilters = false)
 class ApiApplicationSmokeTest {
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
@@ -73,6 +82,12 @@ class ApiApplicationSmokeTest {
             assertEquals(200, response.statusCode());
             assertTrue(response.body().contains("\"status\":\"UP\""));
         }
+    }
+
+    @Test
+    void apiDocumentationEndpointIsDisabledByDefault() throws Exception {
+        mockMvc.perform(get("/v3/api-docs/browser"))
+                .andExpect(status().isNotFound());
     }
 
     private static HttpServer startIdentityServer() {

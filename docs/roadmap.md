@@ -19,6 +19,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | --- | --- | --- |
 | [MEM-12](https://linear.app/memory-os/issue/MEM-12/onboard-one-member-by-local-keycloak-invitation) | Production owner-to-member invitation lifecycle through local Keycloak, with copy/share recovery, fixed memberships, and atomic acceptance | [Design](increments/active/mem-12-local-keycloak-member-invitation/design.md) · [Plan](increments/active/mem-12-local-keycloak-member-invitation/plan.md) · [Verification](increments/active/mem-12-local-keycloak-member-invitation/verification.md) |
 | [MEM-16](https://linear.app/memory-os/issue/MEM-16/adopt-rfc-9457-api-error-contract) | Spring Boot 4-native RFC 9457 contract for framework errors and expected capability failures | [Design](increments/active/mem-16-api-problem-details/design.md) · [Plan](increments/active/mem-16-api-problem-details/plan.md) · [Verification](increments/active/mem-16-api-problem-details/verification.md) |
+| [MEM-18](https://linear.app/memory-os/issue/MEM-18/generate-the-openapi-contract-from-the-live-api) | Deterministic committed OpenAPI snapshot generated from the live Spring MVC browser API, with backend and Hey API drift gates | [Design](increments/active/mem-18-backend-generated-openapi/design.md) · [Plan](increments/active/mem-18-backend-generated-openapi/plan.md) · [Verification](increments/active/mem-18-backend-generated-openapi/verification.md) |
 
 ## Candidate increments
 

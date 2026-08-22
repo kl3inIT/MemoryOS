@@ -19,21 +19,6 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
- * Return the authenticated MemoryOS actor
- *
- * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns only the stable internal ActorId.
- */
-export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentIdentityData, ThrowOnError>): RequestResult<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
-    url: '/api/identity/me',
-    ...options
-});
-
-/**
  * List the current owner's Organization invitations
  */
 export const listInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListInvitationsData, ThrowOnError>): RequestResult<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError>({
@@ -64,19 +49,6 @@ export const createInvitation = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
- * Revoke a pending invitation
- */
-export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
-    url: '/api/invitations/{invitationId}',
-    ...options
-});
-
-/**
  * Replace the secret of a pending invitation
  */
 export const rotateInvitation = <ThrowOnError extends boolean = false>(options: Options<RotateInvitationData, ThrowOnError>): RequestResult<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError> => (options.client ?? client).post<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError>({
@@ -93,3 +65,31 @@ export const rotateInvitation = <ThrowOnError extends boolean = false>(options: 
  * Return the redacted invitation landing context from the browser session
  */
 export const getCurrentInvitation = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentInvitationData, ThrowOnError>): RequestResult<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError>({ url: '/api/invitations/current', ...options });
+
+/**
+ * Return the authenticated MemoryOS actor
+ *
+ * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns only the stable internal ActorId.
+ */
+export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentIdentityData, ThrowOnError>): RequestResult<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/identity/me',
+    ...options
+});
+
+/**
+ * Revoke a pending invitation
+ */
+export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/invitations/{invitationId}',
+    ...options
+});
