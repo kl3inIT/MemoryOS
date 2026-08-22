@@ -37,5 +37,5 @@ MEM-18 is stacked on the unmerged MEM-16 head because generated Problem Detail m
 ## Pull-request evidence
 
 - PR #15 targets the MEM-16 feature branch intentionally and carries only the MEM-18 delta.
-- Latest-head CI run `32563070515` passed backend, frontend, and production frontend-image jobs for implementation head `4b3d1986afdfa3fbf879d5ec3e920945485901ac`.
+- Implementation-head CI run `32563070515` passed backend, frontend, and production frontend-image jobs for `4b3d1986afdfa3fbf879d5ec3e920945485901ac`.
 - The single requested CodeRabbit review was rate limited. The bounded evidence collection found no submitted review, inline comment, or unresolved review thread. No merge fallback was used.
