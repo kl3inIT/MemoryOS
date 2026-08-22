@@ -1,0 +1,82 @@
+package io.memoryos.api;
+
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.servers.Server;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.ObjectSchema;
+import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
+import java.util.List;
+import org.springdoc.core.models.GroupedOpenApi;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration(proxyBeanMethods = false)
+@OpenAPIDefinition(
+        info = @Info(
+                title = "MemoryOS browser API",
+                version = "1.0.0",
+                description = "The same-origin contract consumed by the MemoryOS browser application."
+        ),
+        servers = @Server(url = "/", description = "Same-origin MemoryOS runtime")
+)
+@SecurityScheme(
+        name = "browserSession",
+        type = SecuritySchemeType.APIKEY,
+        in = SecuritySchemeIn.COOKIE,
+        paramName = "SESSION",
+        description = "HttpOnly JDBC-backed Spring Security session cookie."
+)
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT"
+)
+class OpenApiConfiguration {
+
+    @Bean
+    GroupedOpenApi browserOpenApi() {
+        return GroupedOpenApi.builder()
+                .group("browser")
+                .pathsToMatch("/api/**")
+                .addOpenApiCustomizer(openApi -> {
+                    if (openApi.getComponents() == null) {
+                        openApi.setComponents(new Components());
+                    }
+                    openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
+                })
+                .build();
+    }
+
+    private static Schema<?> apiProblemSchema() {
+        ObjectSchema schema = new ObjectSchema();
+        schema.setAdditionalProperties(false);
+        schema.setRequired(List.of("title", "status", "detail", "instance"));
+        schema.addProperty(
+                "type",
+                new StringSchema()
+                        .format("uri")
+                        .description("Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.")
+        );
+        schema.addProperty("title", new StringSchema().description("Short human-readable problem category."));
+        schema.addProperty("status", new IntegerSchema().format("int32").description("HTTP status code."));
+        schema.addProperty("detail", new StringSchema().description("Safe human-readable fallback detail."));
+        schema.addProperty(
+                "instance",
+                new StringSchema().format("uri").description("Request path that produced the problem.")
+        );
+        schema.addProperty(
+                "code",
+                new StringSchema()
+                        .pattern("^[A-Z][A-Z0-9_]*$")
+                        .description("Stable capability-prefixed code; present only for expected capability failures.")
+        );
+        return schema;
+    }
+}

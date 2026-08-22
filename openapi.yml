@@ -1,236 +1,235 @@
-openapi: 3.1.1
+openapi: 3.1.0
 info:
   title: MemoryOS browser API
-  version: 1.0.0
   description: The same-origin contract consumed by the MemoryOS browser application.
+  version: 1.0.0
 servers:
-  - url: /
-    description: Same-origin MemoryOS runtime
+- url: /
+  description: Same-origin MemoryOS runtime
 paths:
-  /api/identity/me:
-    get:
-      operationId: getCurrentIdentity
-      summary: Return the authenticated MemoryOS actor
-      description: >-
-        Accepts either an existing MemoryOS browser session or a valid bound bearer identity
-        and returns only the stable internal ActorId.
-      security:
-        - browserSession: []
-        - bearerAuth: []
-      responses:
-        '200':
-          description: The authenticated actor
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CurrentIdentity'
-        '401':
-          description: No accepted authentication is present
   /api/invitations:
     get:
-      operationId: listInvitations
+      tags:
+      - invitation-controller
       summary: List the current owner's Organization invitations
-      security:
-        - browserSession: []
-        - bearerAuth: []
+      operationId: listInvitations
       responses:
-        '200':
+        "200":
           description: Invitation lifecycle records without plaintext secrets
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Invitation'
-        '401':
+                  $ref: "#/components/schemas/Invitation"
+        "401":
           description: No accepted authentication is present
-        '403':
+        "403":
           description: The actor is not an active Organization owner
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ApiProblem'
-    post:
-      operationId: createInvitation
-      summary: Create one Organization member invitation
+                $ref: "#/components/schemas/ApiProblem"
       security:
-        - browserSession: []
-        - bearerAuth: []
+      - browserSession: []
+      - bearerAuth: []
+    post:
+      tags:
+      - invitation-controller
+      summary: Create one Organization member invitation
+      operationId: createInvitation
       parameters:
-        - $ref: '#/components/parameters/BrowserMutationHeader'
-      requestBody:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
         required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateInvitationRequest'
+              $ref: "#/components/schemas/CreateInvitationRequest"
+        required: true
       responses:
-        '201':
-          description: Invitation created; the invitation URL is returned only in this response
+        "201":
+          description: Invitation created; the invitation URL is returned only in
+            this response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IssuedInvitation'
-        '400':
+                $ref: "#/components/schemas/IssuedInvitation"
+        "400":
           description: Invalid email
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ApiProblem'
-        '401':
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
           description: No accepted authentication is present
-        '403':
-          description: The actor is not an active Organization owner or the same-origin header is missing
+        "403":
+          description: The actor is not an active Organization owner or the same-origin
+            header is missing
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ApiProblem'
-        '409':
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
           description: A conflicting pending invitation already exists
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ApiProblem'
-  /api/invitations/{invitationId}:
-    delete:
-      operationId: revokeInvitation
-      summary: Revoke a pending invitation
+                $ref: "#/components/schemas/ApiProblem"
       security:
-        - browserSession: []
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/InvitationId'
-        - $ref: '#/components/parameters/BrowserMutationHeader'
-      responses:
-        '204':
-          description: Invitation revoked
-        '401':
-          description: No accepted authentication is present
-        '403':
-          description: The actor is not an active Organization owner or the same-origin header is missing
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ApiProblem'
-        '410':
-          description: Invitation is no longer pending and available
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ApiProblem'
+      - browserSession: []
+      - bearerAuth: []
   /api/invitations/{invitationId}/rotate:
     post:
-      operationId: rotateInvitation
+      tags:
+      - invitation-controller
       summary: Replace the secret of a pending invitation
-      security:
-        - browserSession: []
-        - bearerAuth: []
+      operationId: rotateInvitation
       parameters:
-        - $ref: '#/components/parameters/InvitationId'
-        - $ref: '#/components/parameters/BrowserMutationHeader'
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: invitationId
+        in: path
+        description: Invitation identifier.
+        required: true
+        schema:
+          type: string
+          format: uuid
       responses:
-        '200':
-          description: Invitation rotated; the replacement URL is returned only in this response
+        "200":
+          description: Invitation rotated; the replacement URL is returned only in
+            this response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IssuedInvitation'
-        '401':
+                $ref: "#/components/schemas/IssuedInvitation"
+        "401":
           description: No accepted authentication is present
-        '403':
-          description: The actor is not an active Organization owner or the same-origin header is missing
+        "403":
+          description: The actor is not an active Organization owner or the same-origin
+            header is missing
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ApiProblem'
-        '410':
+                $ref: "#/components/schemas/ApiProblem"
+        "410":
           description: Invitation is no longer pending and available
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ApiProblem'
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
   /api/invitations/current:
     get:
-      operationId: getCurrentInvitation
+      tags:
+      - invitation-controller
       summary: Return the redacted invitation landing context from the browser session
-      security: []
+      operationId: getCurrentInvitation
       responses:
-        '200':
+        "200":
           description: Active invitation continuation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CurrentInvitation'
-        '410':
+                $ref: "#/components/schemas/CurrentInvitation"
+        "410":
           description: No available invitation continuation exists
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ApiProblem'
-components:
-  securitySchemes:
-    browserSession:
-      type: apiKey
-      in: cookie
-      name: SESSION
-      description: HttpOnly JDBC-backed Spring Security session cookie.
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  parameters:
-    InvitationId:
-      name: invitationId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    BrowserMutationHeader:
-      name: X-MemoryOS-CSRF
-      in: header
-      required: true
-      description: Same-origin non-simple request guard for browser-session mutations.
-      schema:
-        type: string
-        const: '1'
-  schemas:
-    CurrentIdentity:
-      type: object
-      additionalProperties: false
-      required:
-        - actorId
-      properties:
-        actorId:
+                $ref: "#/components/schemas/ApiProblem"
+  /api/identity/me:
+    get:
+      tags:
+      - identity-controller
+      summary: Return the authenticated MemoryOS actor
+      description: Accepts either an existing MemoryOS browser session or a valid
+        bound bearer identity and returns only the stable internal ActorId.
+      operationId: getCurrentIdentity
+      responses:
+        "200":
+          description: The authenticated actor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentIdentity"
+        "401":
+          description: No accepted authentication is present
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/invitations/{invitationId}:
+    delete:
+      tags:
+      - invitation-controller
+      summary: Revoke a pending invitation
+      operationId: revokeInvitation
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: invitationId
+        in: path
+        description: Invitation identifier.
+        required: true
+        schema:
           type: string
           format: uuid
-          description: Stable internal MemoryOS actor identifier.
+      responses:
+        "204":
+          description: Invitation revoked
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: The actor is not an active Organization owner or the same-origin
+            header is missing
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "410":
+          description: Invitation is no longer pending and available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+components:
+  schemas:
     CreateInvitationRequest:
       type: object
       additionalProperties: false
-      required:
-        - email
       properties:
         email:
           type: string
           format: email
           maxLength: 254
-    InvitationStatus:
-      type: string
-      enum:
-        - PENDING
-        - ACCEPTED
-        - EXPIRED
-        - REVOKED
+      required:
+      - email
     Invitation:
       type: object
       additionalProperties: false
-      required:
-        - id
-        - email
-        - status
-        - createdAt
-        - expiresAt
       properties:
         id:
           type: string
@@ -239,7 +238,12 @@ components:
           type: string
           format: email
         status:
-          $ref: '#/components/schemas/InvitationStatus'
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - EXPIRED
+          - REVOKED
         createdAt:
           type: string
           format: date-time
@@ -248,39 +252,42 @@ components:
           format: date-time
         acceptedActorId:
           type:
-            - string
-            - 'null'
+          - string
+          - "null"
           format: uuid
         acceptedAt:
           type:
-            - string
-            - 'null'
+          - string
+          - "null"
           format: date-time
         revokedAt:
           type:
-            - string
-            - 'null'
+          - string
+          - "null"
           format: date-time
+      required:
+      - createdAt
+      - email
+      - expiresAt
+      - id
+      - status
     IssuedInvitation:
       type: object
       additionalProperties: false
-      required:
-        - invitation
-        - invitationUrl
       properties:
         invitation:
-          $ref: '#/components/schemas/Invitation'
+          $ref: "#/components/schemas/Invitation"
         invitationUrl:
           type: string
-          pattern: '^/invite/'
-          description: Relative same-origin capability URL returned only from create or rotate.
+          description: Relative same-origin capability URL returned only from create
+            or rotate.
+          pattern: ^/invite/
+      required:
+      - invitation
+      - invitationUrl
     CurrentInvitation:
       type: object
       additionalProperties: false
-      required:
-        - organizationDisplayName
-        - expiresAt
-        - continueUrl
       properties:
         organizationDisplayName:
           type: string
@@ -289,32 +296,61 @@ components:
           format: date-time
         continueUrl:
           type: string
-          pattern: '^/invite/continue'
+          pattern: ^/invite/continue
+      required:
+      - continueUrl
+      - expiresAt
+      - organizationDisplayName
+    CurrentIdentity:
+      type: object
+      additionalProperties: false
+      properties:
+        actorId:
+          type: string
+          format: uuid
+          description: Stable internal MemoryOS actor identifier.
+      required:
+      - actorId
     ApiProblem:
       type: object
       additionalProperties: false
-      required:
-        - title
-        - status
-        - detail
-        - instance
       properties:
         type:
           type: string
           format: uri
-          description: Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
+          description: Stable problem type for capability failures; omitted means
+            RFC 9457 `about:blank`.
         title:
           type: string
+          description: Short human-readable problem category.
         status:
           type: integer
-          minimum: 400
-          maximum: 599
+          format: int32
+          description: HTTP status code.
         detail:
           type: string
+          description: Safe human-readable fallback detail.
         instance:
           type: string
-          format: uri-reference
+          format: uri
+          description: Request path that produced the problem.
         code:
           type: string
-          pattern: '^[A-Z][A-Z0-9_]*$'
-          description: Stable capability-prefixed code; present only for expected capability failures.
+          description: Stable capability-prefixed code; present only for expected
+            capability failures.
+          pattern: "^[A-Z][A-Z0-9_]*$"
+      required:
+      - detail
+      - instance
+      - status
+      - title
+  securitySchemes:
+    browserSession:
+      type: apiKey
+      description: HttpOnly JDBC-backed Spring Security session cookie.
+      name: SESSION
+      in: cookie
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

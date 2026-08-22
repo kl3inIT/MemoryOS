@@ -16,6 +16,7 @@
 | Initial Organization transaction creates or reuses one stable actor binding | `DefaultInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
 | Browser callback replaces provider identity with `ActorId` and stores no provider token marker | `BrowserAuthenticationIntegrationTest.authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession` |
 | Authenticated browser session reads the same `ActorId` from `/api/identity/me` | `BrowserAuthenticationIntegrationTest.authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession` |
+| The committed browser API snapshot describes the live current-identity operation and excludes non-API routes | `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
 | Bound browser identity without active Organization authority gains no session | `BrowserAuthenticationIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession` |
 | Signed-out browser state starts the backend-owned OAuth2 flow | `identity-shell.spec.ts` — `offers the backend OAuth2 flow when no session exists` |
 | Authenticated shell renders the stable actor and survives reload | `identity-shell.spec.ts` — `renders the stable actor returned by an authenticated session` |

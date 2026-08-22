@@ -8,6 +8,7 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.springdoc.webmvc)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
     implementation(libs.spring.boot.starter.oauth2.client)
     implementation(libs.spring.boot.starter.jdbc)
@@ -21,6 +22,14 @@ dependencies {
     testImplementation(libs.spring.security.test)
     testRuntimeOnly(libs.h2)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.named<Test>("test") {
+    inputs.file(rootProject.file("openapi.yml"))
+    inputs.property(
+        "memoryosOpenApiWrite",
+        providers.environmentVariable("MEMORYOS_OPENAPI_WRITE").orElse("false"),
+    )
 }
 
 springBoot {

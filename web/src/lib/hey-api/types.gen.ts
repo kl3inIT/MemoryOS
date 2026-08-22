@@ -4,23 +4,14 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type CurrentIdentity = {
-    /**
-     * Stable internal MemoryOS actor identifier.
-     */
-    actorId: string;
-};
-
 export type CreateInvitationRequest = {
     email: string;
 };
 
-export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
-
 export type Invitation = {
     id: string;
     email: string;
-    status: InvitationStatus;
+    status: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
     createdAt: string;
     expiresAt: string;
     acceptedActorId?: string | null;
@@ -42,50 +33,39 @@ export type CurrentInvitation = {
     continueUrl: string;
 };
 
+export type CurrentIdentity = {
+    /**
+     * Stable internal MemoryOS actor identifier.
+     */
+    actorId: string;
+};
+
 export type ApiProblem = {
     /**
      * Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
      */
     type?: string;
+    /**
+     * Short human-readable problem category.
+     */
     title: string;
+    /**
+     * HTTP status code.
+     */
     status: number;
+    /**
+     * Safe human-readable fallback detail.
+     */
     detail: string;
+    /**
+     * Request path that produced the problem.
+     */
     instance: string;
     /**
      * Stable capability-prefixed code; present only for expected capability failures.
      */
     code?: string;
 };
-
-export type InvitationId = string;
-
-/**
- * Same-origin non-simple request guard for browser-session mutations.
- */
-export type BrowserMutationHeader = '1';
-
-export type GetCurrentIdentityData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/identity/me';
-};
-
-export type GetCurrentIdentityErrors = {
-    /**
-     * No accepted authentication is present
-     */
-    401: unknown;
-};
-
-export type GetCurrentIdentityResponses = {
-    /**
-     * The authenticated actor
-     */
-    200: CurrentIdentity;
-};
-
-export type GetCurrentIdentityResponse = GetCurrentIdentityResponses[keyof GetCurrentIdentityResponses];
 
 export type ListInvitationsData = {
     body?: never;
@@ -159,47 +139,6 @@ export type CreateInvitationResponses = {
 
 export type CreateInvitationResponse = CreateInvitationResponses[keyof CreateInvitationResponses];
 
-export type RevokeInvitationData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        invitationId: string;
-    };
-    query?: never;
-    url: '/api/invitations/{invitationId}';
-};
-
-export type RevokeInvitationErrors = {
-    /**
-     * No accepted authentication is present
-     */
-    401: unknown;
-    /**
-     * The actor is not an active Organization owner or the same-origin header is missing
-     */
-    403: ApiProblem;
-    /**
-     * Invitation is no longer pending and available
-     */
-    410: ApiProblem;
-};
-
-export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
-
-export type RevokeInvitationResponses = {
-    /**
-     * Invitation revoked
-     */
-    204: void;
-};
-
-export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
-
 export type RotateInvitationData = {
     body?: never;
     headers: {
@@ -209,6 +148,9 @@ export type RotateInvitationData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
+        /**
+         * Invitation identifier.
+         */
         invitationId: string;
     };
     query?: never;
@@ -265,3 +207,70 @@ export type GetCurrentInvitationResponses = {
 };
 
 export type GetCurrentInvitationResponse = GetCurrentInvitationResponses[keyof GetCurrentInvitationResponses];
+
+export type GetCurrentIdentityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/identity/me';
+};
+
+export type GetCurrentIdentityErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+};
+
+export type GetCurrentIdentityResponses = {
+    /**
+     * The authenticated actor
+     */
+    200: CurrentIdentity;
+};
+
+export type GetCurrentIdentityResponse = GetCurrentIdentityResponses[keyof GetCurrentIdentityResponses];
+
+export type RevokeInvitationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        /**
+         * Invitation identifier.
+         */
+        invitationId: string;
+    };
+    query?: never;
+    url: '/api/invitations/{invitationId}';
+};
+
+export type RevokeInvitationErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active Organization owner or the same-origin header is missing
+     */
+    403: ApiProblem;
+    /**
+     * Invitation is no longer pending and available
+     */
+    410: ApiProblem;
+};
+
+export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
+
+export type RevokeInvitationResponses = {
+    /**
+     * Invitation revoked
+     */
+    204: void;
+};
+
+export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];

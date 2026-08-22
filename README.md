@@ -55,6 +55,22 @@ pnpm test:e2e
 
 The Gradle gate compiles all server modules, runs capability and HTTP integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests. The frontend gate regenerates the OpenAPI client, rejects generated drift, lints without product-source warnings, checks formatting and TypeScript, runs focused tests, and creates the production bundle; Playwright exercises the observable browser states.
 
+## Refresh the generated API contract
+
+Spring controllers and Spring-visible request/response metadata own the browser API contract. The committed `openapi.yml` is generated from a full API test context and the web client is generated from that snapshot.
+
+Windows:
+
+```powershell
+$env:MEMORYOS_OPENAPI_WRITE = "true"
+.\gradlew.bat :api:test --tests "*OpenApiContractTest*"
+Remove-Item Env:MEMORYOS_OPENAPI_WRITE
+cd web
+pnpm generate:api
+```
+
+Run the OpenAPI contract test again without the write flag, then run `pnpm check`. Normal runtime configuration does not expose springdoc API-doc endpoints.
+
 The API image is built from [`Dockerfile`](Dockerfile); the browser image is built from [`web/Dockerfile`](web/Dockerfile). [`infrastructure/deployment/compose.production.yaml`](infrastructure/deployment/compose.production.yaml) runs both exact images on existing shared networks. Deployment commands and required configuration are in the runtime runbook.
 
 ## Current runtime behavior

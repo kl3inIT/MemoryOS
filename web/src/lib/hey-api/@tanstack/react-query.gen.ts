@@ -39,26 +39,6 @@ const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions
     return [params];
 };
 
-export const getCurrentIdentityQueryKey = (options?: Options<GetCurrentIdentityData>) => createQueryKey('getCurrentIdentity', options);
-
-/**
- * Return the authenticated MemoryOS actor
- *
- * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns only the stable internal ActorId.
- */
-export const getCurrentIdentityOptions = (options?: Options<GetCurrentIdentityData>) => queryOptions<GetCurrentIdentityResponse, DefaultError, GetCurrentIdentityResponse, ReturnType<typeof getCurrentIdentityQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getCurrentIdentity({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getCurrentIdentityQueryKey(options)
-});
-
 export const listInvitationsQueryKey = (options?: Options<ListInvitationsData>) => createQueryKey('listInvitations', options);
 
 /**
@@ -84,23 +64,6 @@ export const createInvitationMutation = (options?: Partial<Options<CreateInvitat
     const mutationOptions: UseMutationOptions<CreateInvitationResponse, CreateInvitationError, Options<CreateInvitationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createInvitation({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Revoke a pending invitation
- */
-export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitationData>>): UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> => {
-    const mutationOptions: UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await revokeInvitation({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -145,3 +108,40 @@ export const getCurrentInvitationOptions = (options?: Options<GetCurrentInvitati
     },
     queryKey: getCurrentInvitationQueryKey(options)
 });
+
+export const getCurrentIdentityQueryKey = (options?: Options<GetCurrentIdentityData>) => createQueryKey('getCurrentIdentity', options);
+
+/**
+ * Return the authenticated MemoryOS actor
+ *
+ * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns only the stable internal ActorId.
+ */
+export const getCurrentIdentityOptions = (options?: Options<GetCurrentIdentityData>) => queryOptions<GetCurrentIdentityResponse, DefaultError, GetCurrentIdentityResponse, ReturnType<typeof getCurrentIdentityQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getCurrentIdentity({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getCurrentIdentityQueryKey(options)
+});
+
+/**
+ * Revoke a pending invitation
+ */
+export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitationData>>): UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> => {
+    const mutationOptions: UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeInvitation({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
