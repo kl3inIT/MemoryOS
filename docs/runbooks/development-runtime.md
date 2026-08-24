@@ -9,6 +9,43 @@
 - Secrets loaded from managed storage into process environment only; never copy values into Git, docs, Linear, logs, or command history.
 - A deployment-managed username for the initial owner. The reconciliation script creates that local Keycloak user with a one-time temporary password when absent and reports its stable Keycloak user ID as the OIDC subject. The user receives no Keycloak administrative role; MemoryOS grants Organization authority from the reported subject.
 
+## Environment boundaries
+
+Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. `SPRING_PROFILES_ACTIVE=development` selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, and claims are not expanded into logs.
+
+Start a local API without exporting secret values:
+
+```text
+infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :api:bootRun --no-daemon
+```
+
+Infisical `staging` is the only server environment. It has its own shared copy of every required MemoryOS key, `SPRING_PROFILES_ACTIVE=staging`, and `MEMORYOS_SESSION_COOKIE_SECURE=true`. The staging Spring profile keeps root and Spring Security logging at INFO, enables DEBUG for MemoryOS, Spring Web, JDBC statements, and transactions, and leaves parameter-value TRACE logging disabled. Keycloak keeps root INFO while enabling DEBUG for event and service categories. There is no production server and the Infisical `prod` environment remains empty.
+
+The server bootstrap file is outside Git with mode `0600` and contains only `INFISICAL_DOMAIN`, `INFISICAL_PROJECT_ID`, `INFISICAL_ENVIRONMENT=staging`, `INFISICAL_CLIENT_ID`, and `INFISICAL_CLIENT_SECRET`. The API entrypoint exchanges those Universal Auth credentials for a 15-minute access token, unsets the client credentials, injects the selected environment, and drops permanently to UID/GID 1654 before Java starts. The staging identity has project `viewer` access only. The current self-hosted Infisical plan rejects trusted-IP restrictions, so compensate with the narrow role, a 90-day client-secret TTL, lockout, owner-only server storage, and scheduled rotation.
+
+### Infisical application key audit
+
+| Key | Secret | Runtime effect and environment rule |
+| --- | --- | --- |
+| `MEMORYOS_DATABASE_URL` | No | JDBC target. By current policy, both `dev` and `staging` use the staging MemoryOS database; only the API/web processes are local in `dev`. |
+| `MEMORYOS_DATABASE_USERNAME` | No | Login role for the MemoryOS database. It must remain `memoryos_app`, never the PostgreSQL platform administrator. |
+| `MEMORYOS_DATABASE_PASSWORD` | Yes | Password for `memoryos_app`. Staging cutover updates both Infisical staging and the target role atomically. |
+| `MEMORYOS_IDENTITY_ISSUER` | No | Required JWT/OIDC issuer and exact `(issuer, subject)` identity-binding namespace. Changing it breaks existing bindings. |
+| `MEMORYOS_IDENTITY_JWK_SET_URI` | No | Explicit signing-key endpoint for resource-server JWT verification; issuer validation still uses `MEMORYOS_IDENTITY_ISSUER`. |
+| `MEMORYOS_IDENTITY_AUDIENCE` | No | Required API audience claim; rejects a valid Keycloak token minted for another client/resource. |
+| `MEMORYOS_BROWSER_CLIENT_ID` | No | Confidential OAuth2 browser client registration name, currently `memoryos-web`. |
+| `MEMORYOS_BROWSER_CLIENT_SECRET` | Yes | OAuth2 authorization-code/token-exchange credential for `memoryos-web`; never a browser/Vite variable. |
+| `MEMORYOS_INITIAL_OWNER_SUBJECT` | Sensitive identifier | Stable Keycloak user UUID used to bind or verify the first Organization owner. It is not a username and must not change when names/email change. |
+| `MEMORYOS_ORGANIZATION_SLUG` | No | DNS-style slug for the one published initial Organization; startup rejects drift after bootstrap. |
+| `MEMORYOS_ORGANIZATION_DISPLAY_NAME` | No | Display name for that Organization; startup rejects drift after bootstrap. |
+| `MEMORYOS_DEFAULT_WORKSPACE_SLUG` | No | DNS-style slug for its initial default Workspace; startup rejects drift after bootstrap. |
+| `MEMORYOS_DEFAULT_WORKSPACE_DISPLAY_NAME` | No | Display name for that Workspace; startup rejects drift after bootstrap. |
+| `MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Organization and compared on every bootstrap. `MEM-8-initial-owner` means MEM-8 authorized the original aggregate; it is not a per-deploy release label and must not be changed casually. |
+| `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
+| `SPRING_PROFILES_ACTIVE` | No | `development` in Infisical `dev`; `staging` on the server. Selects logging policy only, not alternate business behavior. |
+
+`MEMORYOS_INVITATION_TTL` and `MEMORYOS_SESSION_TIMEOUT` are optional: the checked-in defaults are `72h` and `30m`. Keep them out of Infisical until an environment has an approved reason to override those contracts.
+
 ## OMP code intelligence and debugging
 
 Start OMP from the repository root so it loads `.omp/lsp.json`, `.omp/dap.json`, the project skills, and the JetBrains MCP endpoint.
@@ -98,7 +135,9 @@ pnpm dev
 
 Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to `MEMORYOS_API_URL`, which defaults to `http://127.0.0.1:18080`. Open the exact loopback origin registered in Keycloak so the generated callback uses the same host. The loopback-only development proxy removes the production `Secure` attribute from response cookies because local verification uses HTTP; it preserves every other cookie attribute. Production Nginx never performs this rewrite.
 
-## Run the production containers
+## Run the hardened staging stack
+
+MemoryOS Compose owns PostgreSQL, shared Keycloak, API, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume. The Keycloak database contains both products' runtime realm data, but this repository provisions only the `memoryos` realm.
 
 Build immutable API and web images from the same reviewed commit and tag both with the full source SHA:
 
@@ -107,29 +146,29 @@ docker build --build-arg VCS_REF=<40-character-commit> --build-arg BUILD_DATE=<U
 docker build --file web/Dockerfile --build-arg VCS_REF=<40-character-commit> --build-arg BUILD_DATE=<UTC-timestamp> --tag memoryos-web:sha-<40-character-commit> .
 ```
 
-Keep the complete API environment in a mode-`0600` file outside Git. It must contain the variables listed above, use `jdbc:postgresql://shared-postgres:5432/memoryos`, and keep `MEMORYOS_SESSION_COOKIE_SECURE=true`. It must not contain a Keycloak operator credential or owner password.
+Validate and start:
 
 ```text
-MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
-MEMORYOS_WEB_IMAGE=memoryos-web:sha-<40-character-commit> \
-MEMORYOS_ENV_FILE=/apps/memoryos/.env \
-docker compose -f infrastructure/deployment/compose.production.yaml config
+docker compose \
+  --env-file /apps/memoryos/.env.staging \
+  -f infrastructure/deployment/compose.production.yaml \
+  config --quiet
 
-MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
-MEMORYOS_WEB_IMAGE=memoryos-web:sha-<40-character-commit> \
-MEMORYOS_ENV_FILE=/apps/memoryos/.env \
-docker compose -f infrastructure/deployment/compose.production.yaml up -d --wait
+docker compose \
+  --env-file /apps/memoryos/.env.staging \
+  -f infrastructure/deployment/compose.production.yaml \
+  up -d --wait
 ```
 
-Both services join `shared-infra`; only `memoryos-web` joins `proxy-network`. Configure the external reverse proxy to send the complete MemoryOS HTTPS origin to `memoryos-web:8080`. Nginx serves the SPA and proxies backend-owned `/api`, `/oauth2`, `/login`, `/logout`, and `/actuator/health` paths to `memoryos-api:8080`; do not configure CORS or split the browser across origins. Host ports `18080` and `18081` are loopback-only diagnostics.
+Only `memoryos-web` and shared Keycloak join the external proxy network. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`. Shared Keycloak keeps `orgmemory-keycloak`, `memoryos-keycloak`, and `keycloak` aliases while public issuers remain under `https://auth.kl3in.tech`.
 
-Both containers run non-root with read-only filesystems, bounded temporary storage, dropped capabilities, `no-new-privileges`, rotating logs, health checks, and CPU/memory limits. Forwarded host and scheme determine the exact OAuth2 callback origin.
-
-Shared PostgreSQL binds only to server loopback port `5555`. Establish an SSH local forward before using the URL above; do not publish the database port:
+For local database access:
 
 ```powershell
-ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5555 <operator>@<shared-postgres-host>
+ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5556 <operator>@<memoryos-host>
 ```
+
+Migrating the retained MemoryOS and Keycloak databases from the legacy shared PostgreSQL deployment requires the backup-first [shared runtime migration runbook](shared-runtime-migration.md). Do not point writers at a fresh target or delete source data before its restore and rollback gates pass.
 
 ## Startup contract
 

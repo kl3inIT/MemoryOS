@@ -26,6 +26,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [MEM-12 — Production local-Keycloak member invitation](docs/increments/active/mem-12-local-keycloak-member-invitation/design.md)
+- [MEM-20 — MemoryOS-owned PostgreSQL and shared Keycloak runtime](docs/increments/active/mem-20-shared-keycloak-postgres/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
@@ -37,6 +38,8 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Conventions](docs/conventions.md)
 - [Operating model](docs/guidelines/operating-model.md)
 - [Persistence policy](docs/guidelines/persistence.md)
+- [Shared identity runtime decision](docs/decisions/0004-memoryos-owned-shared-identity-runtime.md)
+- [Shared runtime migration runbook](docs/runbooks/shared-runtime-migration.md)
 - [Identity contract](docs/specs/identity.md)
 - [Identity verification matrix](docs/tests/identity.md)
 - [Organization contract](docs/specs/organization.md)
