@@ -23,25 +23,25 @@
 ## Backup and restore
 
 - [x] Identify the exact source PostgreSQL container/database/role ownership for MemoryOS and Keycloak.
-- [ ] Stop source writers in a bounded maintenance window.
+- [x] Stop source writers in a bounded maintenance window.
 - [x] Create custom-format MemoryOS and Keycloak database archives.
 - [x] Copy archives outside source containers, checksum them, and validate `pg_restore --list`.
 - [x] Start an empty target volume and prove database/role bootstrap.
-- [x] Restore both archives with explicit target ownership and validate source/target facts in a non-authoritative rehearsal.
+- [x] Restore both final archives with explicit target ownership and validate exact source/target facts.
 
 ## Cutover
 
-- [ ] Recreate shared Keycloak from MemoryOS Compose against target PostgreSQL.
-- [ ] Preserve `auth.kl3in.tech`, both realms, network aliases, user/client IDs, and credentials.
-- [ ] Update MemoryOS database secret values and recreate API against target PostgreSQL.
-- [ ] Verify OrgMemory remains healthy and authenticated through its unchanged realm.
+- [x] Recreate shared Keycloak from MemoryOS Compose against target PostgreSQL.
+- [x] Preserve `auth.kl3in.tech`, both realms, network aliases, user/client IDs, and credentials.
+- [x] Update MemoryOS database secret values and recreate API against target PostgreSQL.
+- [x] Verify OrgMemory remains healthy and authenticated through its unchanged realm.
 - [x] Keep source databases and archives intact for rollback.
 
 ## Verification and delivery
 
 - [x] Run the documented static-analysis fallback because JetBrains/YAML language servers were unavailable.
 - [x] Validate shell syntax, Compose interpolation, service health, database isolation, image digests, backup workflow, and rollback commands.
-- [ ] Exercise MemoryOS owner/member browser flows and persistence against target infrastructure.
+- [x] Exercise MemoryOS owner/member browser flows and persistence against target infrastructure.
 - [x] Run `gradlew.bat clean check --no-daemon`, `pnpm check`, browser contracts, and production Compose/container gates.
 - [x] Record secret-safe migration evidence in `verification.md`.
-- [ ] Review, commit, push, open the MEM-20 PR, complete the one-pass review/CI loop, and merge only the verified head.
+- [x] Review, commit, push, open the MEM-20 PR, complete the one-pass review/CI loop, and merge only the verified head.

@@ -75,6 +75,7 @@ services:
       - ops
     user: "${MEMORYOS_BACKUP_UID:-1000}:${MEMORYOS_BACKUP_GID:-1000}"
     entrypoint:
+      - /bin/sh
       - /backup-tools/backup-databases.sh
     environment:
       PGHOST: postgres
@@ -113,7 +114,7 @@ services:
       - --optimized
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${MEMORYOS_KEYCLOAK_DATABASE_NAME:-keycloak}
+      KC_DB_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_KEYCLOAK_DATABASE_NAME:-keycloak}
       KC_DB_USERNAME: ${MEMORYOS_KEYCLOAK_DATABASE_USERNAME:-keycloak}
       KC_DB_PASSWORD: ${MEMORYOS_KEYCLOAK_DATABASE_PASSWORD:?Set MEMORYOS_KEYCLOAK_DATABASE_PASSWORD}
       KC_DB_POOL_INITIAL_SIZE: "2"
@@ -176,6 +177,10 @@ services:
     <<: *service-defaults
     image: ${MEMORYOS_API_IMAGE:?Set MEMORYOS_API_IMAGE}
     container_name: memoryos-api
+    cap_add:
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
     secrets:
       - source: memoryos_infisical_bootstrap
         target: memoryos_infisical_bootstrap
