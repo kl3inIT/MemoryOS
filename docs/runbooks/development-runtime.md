@@ -98,7 +98,9 @@ pnpm dev
 
 Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to `MEMORYOS_API_URL`, which defaults to `http://127.0.0.1:18080`. Open the exact loopback origin registered in Keycloak so the generated callback uses the same host. The loopback-only development proxy removes the production `Secure` attribute from response cookies because local verification uses HTTP; it preserves every other cookie attribute. Production Nginx never performs this rewrite.
 
-## Run the production containers
+## Run the production stack
+
+MemoryOS Compose owns PostgreSQL, shared Keycloak, API, and web. Copy [`production.env.example`](../../infrastructure/deployment/production.env.example) to a mode-`0600` file outside Git and load every required managed value. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume. The Keycloak database contains both products' runtime realm data, but this repository provisions only the `memoryos` realm.
 
 Build immutable API and web images from the same reviewed commit and tag both with the full source SHA:
 
@@ -107,29 +109,29 @@ docker build --build-arg VCS_REF=<40-character-commit> --build-arg BUILD_DATE=<U
 docker build --file web/Dockerfile --build-arg VCS_REF=<40-character-commit> --build-arg BUILD_DATE=<UTC-timestamp> --tag memoryos-web:sha-<40-character-commit> .
 ```
 
-Keep the complete API environment in a mode-`0600` file outside Git. It must contain the variables listed above, use `jdbc:postgresql://shared-postgres:5432/memoryos`, and keep `MEMORYOS_SESSION_COOKIE_SECURE=true`. It must not contain a Keycloak operator credential or owner password.
+Validate and start:
 
 ```text
-MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
-MEMORYOS_WEB_IMAGE=memoryos-web:sha-<40-character-commit> \
-MEMORYOS_ENV_FILE=/apps/memoryos/.env \
-docker compose -f infrastructure/deployment/compose.production.yaml config
+docker compose \
+  --env-file /apps/memoryos/.env.production \
+  -f infrastructure/deployment/compose.production.yaml \
+  config --quiet
 
-MEMORYOS_API_IMAGE=memoryos-api:sha-<40-character-commit> \
-MEMORYOS_WEB_IMAGE=memoryos-web:sha-<40-character-commit> \
-MEMORYOS_ENV_FILE=/apps/memoryos/.env \
-docker compose -f infrastructure/deployment/compose.production.yaml up -d --wait
+docker compose \
+  --env-file /apps/memoryos/.env.production \
+  -f infrastructure/deployment/compose.production.yaml \
+  up -d --wait
 ```
 
-Both services join `shared-infra`; only `memoryos-web` joins `proxy-network`. Configure the external reverse proxy to send the complete MemoryOS HTTPS origin to `memoryos-web:8080`. Nginx serves the SPA and proxies backend-owned `/api`, `/oauth2`, `/login`, `/logout`, and `/actuator/health` paths to `memoryos-api:8080`; do not configure CORS or split the browser across origins. Host ports `18080` and `18081` are loopback-only diagnostics.
+Only `memoryos-web` and shared Keycloak join the external proxy network. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`. Shared Keycloak keeps `orgmemory-keycloak`, `memoryos-keycloak`, and `keycloak` aliases while public issuers remain under `https://auth.kl3in.tech`.
 
-Both containers run non-root with read-only filesystems, bounded temporary storage, dropped capabilities, `no-new-privileges`, rotating logs, health checks, and CPU/memory limits. Forwarded host and scheme determine the exact OAuth2 callback origin.
-
-Shared PostgreSQL binds only to server loopback port `5555`. Establish an SSH local forward before using the URL above; do not publish the database port:
+For local database access:
 
 ```powershell
-ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5555 <operator>@<shared-postgres-host>
+ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5556 <operator>@<memoryos-host>
 ```
+
+Migrating the retained MemoryOS and Keycloak databases from the legacy shared PostgreSQL deployment requires the backup-first [shared runtime migration runbook](shared-runtime-migration.md). Do not point writers at a fresh target or delete source data before its restore and rollback gates pass.
 
 ## Startup contract
 

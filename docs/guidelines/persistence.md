@@ -27,12 +27,13 @@ Until MemoryOS holds external durable user data or a release milestone explicitl
 
 ## Operations
 
-- Shared PostgreSQL deployment: `/apps/postgres/docker-compose.yml`.
-- MemoryOS database/user: `memoryos` / `memoryos_app`.
-- Runtime password location: `/apps/memoryos/secrets/postgres-password`. Never record the value.
-- The database port remains loopback-only. Use an SSH tunnel for local operation; do not publish the port.
-- Before a destructive migration or approved rebind, create and verify a database backup.
-- After restore, run API startup so Flyway validates schema history, inspect actor/binding counts, and execute the real OIDC smoke flow.
+- MemoryOS-owned PostgreSQL deployment: `infrastructure/deployment/compose.production.yaml`.
+- Isolated application database/user: `memoryos` / `memoryos_app`.
+- Isolated shared-Keycloak database/user: `keycloak` / `keycloak`; neither role has cross-database `CONNECT`.
+- Runtime passwords remain managed values outside Git. Never record them in files, commands, logs, Linear, or verification evidence.
+- PostgreSQL binds only to server loopback for diagnostics. Use an SSH tunnel; do not publish it.
+- Before migration, rebind, or destructive cleanup, create custom-format archives, restore lists, SHA-256 manifests, and an off-host copy. Source databases remain intact until explicit cleanup approval.
+- After restore, run API startup so Flyway validates schema history, inspect actor/binding/Organization/invitation counts, verify both Keycloak realms, and exercise real OIDC flows for MemoryOS and OrgMemory. See the [shared runtime migration runbook](../runbooks/shared-runtime-migration.md).
 
 ## Identity binding recovery
 

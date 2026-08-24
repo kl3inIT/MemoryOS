@@ -20,6 +20,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-12](https://linear.app/memory-os/issue/MEM-12/onboard-one-member-by-local-keycloak-invitation) | Production owner-to-member invitation lifecycle through local Keycloak, with copy/share recovery, fixed memberships, and atomic acceptance | [Design](increments/active/mem-12-local-keycloak-member-invitation/design.md) · [Plan](increments/active/mem-12-local-keycloak-member-invitation/plan.md) · [Verification](increments/active/mem-12-local-keycloak-member-invitation/verification.md) |
+| [MEM-20](https://linear.app/memory-os/issue/MEM-20/own-memoryos-postgresql-and-shared-keycloak-runtime) | MemoryOS-owned PostgreSQL with isolated application/Keycloak databases and one shared Keycloak runtime whose realm provisioning remains repository-scoped | [Design](increments/active/mem-20-shared-keycloak-postgres/design.md) · [Plan](increments/active/mem-20-shared-keycloak-postgres/plan.md) · [Verification](increments/active/mem-20-shared-keycloak-postgres/verification.md) · [ADR 0004](decisions/0004-memoryos-owned-shared-identity-runtime.md) |
 
 ## Candidate increments
 
