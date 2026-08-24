@@ -26,7 +26,6 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [MEM-12 — Production local-Keycloak member invitation](docs/increments/active/mem-12-local-keycloak-member-invitation/design.md)
-- [MEM-20 — MemoryOS-owned PostgreSQL and shared Keycloak runtime](docs/increments/active/mem-20-shared-keycloak-postgres/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 

@@ -1,6 +1,6 @@
 # Shared PostgreSQL and Keycloak runtime migration
 
-This runbook moves the MemoryOS application database and the shared Keycloak database into the MemoryOS-owned PostgreSQL service from [MEM-20](../increments/active/mem-20-shared-keycloak-postgres/design.md). It does not provision the OrgMemory realm and does not migrate Infisical.
+This runbook moves the MemoryOS application database and the shared Keycloak database into the MemoryOS-owned PostgreSQL service from [MEM-20](../increments/completed/mem-20-shared-keycloak-postgres/design.md). It does not provision the OrgMemory realm and does not migrate Infisical.
 
 ## Preconditions
 
