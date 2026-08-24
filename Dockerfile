@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/root/.gradle sed -i 's/\r$//' gradlew \
     && cp "${jar_file}" /workspace/application.jar \
     && java -Djarmode=tools -jar /workspace/application.jar extract --layers --destination /workspace/extracted
 
-FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:f4273aca6e32b3da7440b3776238116b3f1db7b85060c12848cc24048032207c
+FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:a565bbf80f20fdc48b95347e7b527a055e99e11fe7c70ed1e6bba4829cdc29a9
 
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
