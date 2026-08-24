@@ -149,7 +149,7 @@ All issuers must remain HTTPS and unchanged. Verify the requested master adminis
 Update the existing MemoryOS secret delivery path so these keys target the new PostgreSQL service:
 
 ```text
-MEMORYOS_DATABASE_URL=jdbc:postgresql://postgres:5432/memoryos
+MEMORYOS_DATABASE_URL=jdbc:postgresql://memoryos-postgres:5432/memoryos
 MEMORYOS_DATABASE_USERNAME=memoryos_app
 MEMORYOS_DATABASE_PASSWORD=<managed target password>
 ```

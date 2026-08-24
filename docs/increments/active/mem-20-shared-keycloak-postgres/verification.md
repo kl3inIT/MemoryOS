@@ -34,7 +34,7 @@ JetBrains MCP and a YAML language server were unavailable in this session, so no
 - The API image pins Infisical CLI `0.43.125` by the official Linux archive SHA-256, requires an explicit environment, exchanges Universal Auth at startup, removes client credentials and the short-lived access token from the Java child environment, and drops to UID/GID 1654 before Java starts. The image build passed, and an image-level probe proved all 16 staging values, absent child token, and UID 1654 with `staging-bootstrap-ok`.
 - `infisical run --env=dev ... :api:bootRun` selected the `development` profile, connected through a temporary staging database tunnel, started the real API, and returned `{\"status\":\"UP\"}` from `/actuator/health`; the API and tunnel were then stopped.
 
-## Source backup and restore rehearsal
+## Backup, restore, and cutover
 
 The current source is PostgreSQL 18.4 in `zeromail-postgres`. Before any writer cutover, online consistent snapshots were captured for rehearsal and rollback preparation:
 
@@ -62,7 +62,7 @@ Target owners: memoryos=memoryos_app, keycloak=keycloak
 Target cross-database CONNECT: denied in both directions
 ```
 
-The source PostgreSQL databases and running source writers remain unchanged. The target PostgreSQL service is healthy and contains only the rehearsal restore. Final maintenance-window dumps and restore will replace this rehearsal only after the repository change is reviewed and merged.
+The rehearsal was replaced only after PR 25 merged. Source PostgreSQL remained the rollback authority until both writers were stopped and final archives were captured.
 
 ## Repository gates
 
@@ -70,6 +70,16 @@ The source PostgreSQL databases and running source writers remain unchanged. The
 - `pnpm --dir web check` passed generated-client stability, lint, formatting, TypeScript, unit tests, route stability, and production build.
 - `pnpm --dir web test:e2e` passed 9/9 Chromium contracts.
 
-## Remaining cutover gate
+## Final cutover evidence
 
-The reviewed-head maintenance window still must stop MemoryOS API and shared Keycloak writers, capture final archives, restore the final snapshots, recreate shared Keycloak from MemoryOS Compose, update the existing MemoryOS Infisical database keys, recreate API/web, and prove both products' authentication. Source databases and rollback archives remain intact until later explicit cleanup approval.
+- Reviewed head `7f623aed2db29cc9658fdbfcec7b026fd8b5e1ff` merged as `9579c743ec98246b4082869863760230f8381d3e`; exact merge-SHA CI run `32706606801` passed.
+- Final stopped-writer archives live under `/apps/memoryos/backups/mem20-final-20260824T083623Z`, passed restore-list and SHA-256 checks, and were copied off-host before restore. The source databases remain intact.
+- The rehearsal target volume was discarded. Final source and target facts matched exactly: MemoryOS `actors=1`, `bindings=1`, `invitations=0`, Organization/Workspace/membership counts all `1`, Flyway `3`; Keycloak `realms=3`, MemoryOS users/clients `1/9`, OrgMemory users/clients `35/35`.
+- Target database owners are `memoryos_app` and `keycloak`; both cross-database `CONNECT` checks are false.
+- Shared Keycloak became healthy from MemoryOS Compose. Public master, `memoryos`, and `orgmemory` discovery documents retain the exact HTTPS issuers.
+- The shared `postgres` alias was ambiguous while the retained ZeroMail source database remained on `shared-infra`; the reviewed follow-up uses the unique `memoryos-postgres` alias for Keycloak and Infisical staging.
+- The API needs only `DAC_OVERRIDE`, `SETGID`, and `SETUID` during bootstrap to read the mode-`0600` Compose secret and drop privileges. Runtime process evidence showed the Infisical parent as root and Java as UID 1654; credentials and the short-lived token were absent from Java.
+- Owner SSO completed through Keycloak impersonation without resetting the owner's password and resolved the original Actor. A temporary verified Keycloak user accepted a real invitation, resolved a second Actor, received Organization/Workspace membership, and was denied the owner-only invitation API with `403`.
+- After an API restart, the invited member's JDBC-backed browser session resolved the same Actor. Database evidence showed the accepted invitation and both memberships before cleanup; the temporary user, Actor, binding, memberships, invitation, and sessions were then removed, restoring the `1/1/0/1/1/0` baseline.
+- OrgMemory API, web, MCP, and docs containers remained healthy. Its public web health, `orgmemory-web` authorization endpoint, issuer, and MCP `401` challenge contract passed after the shared Keycloak move.
+- The recurring backup profile completed after cutover and verified `memoryos-20260824T090840Z.dump`, `keycloak-20260824T090840Z.dump`, their restore lists, and manifest `20260824T090840Z.sha256`.
