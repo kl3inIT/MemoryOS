@@ -16,6 +16,9 @@
 - [x] Make API depend on healthy PostgreSQL and use the MemoryOS-owned database hostname.
 - [x] Preserve only MemoryOS realm/client provisioning in this repository; add no OrgMemory identity configuration.
 - [x] Update environment examples, Docker build context, architecture, persistence policy, and runtime/cutover runbooks.
+- [x] Pin Infisical CLI in the API image and require an explicit `dev`, `staging`, or `prod` selection.
+- [x] Populate Infisical staging from development, add permanent Spring profiles, and leave production empty.
+- [x] Create the staging server viewer identity and owner-only Universal Auth bootstrap file.
 
 ## Backup and restore
 

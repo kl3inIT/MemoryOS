@@ -9,7 +9,7 @@ Date: 2026-08-24
 - Added the single shared Keycloak runtime with the exact deployed 26.7.0 image digest, PostgreSQL storage, fixed HTTPS hostname/proxy settings, health check, and stable `keycloak`, `orgmemory-keycloak`, and `memoryos-keycloak` aliases.
 - The Keycloak command explicitly disables embedded realm import. An empty database produced only the master realm; `memoryos` and `orgmemory` discovery both returned `404`, proving MemoryOS runtime ownership does not import either repository's realm configuration.
 - Added a recurring `ops` backup profile that emits PostgreSQL custom-format archives, `pg_restore --list` files, and SHA-256 manifests.
-- Added production environment template, ADR 0004, architecture/persistence updates, and a backup/restore/cutover/rollback runbook. No OrgMemory realm/client/user/scope/mapper provisioning was added.
+- Added a staging environment template, ADR 0004, architecture/persistence updates, and a backup/restore/cutover/rollback runbook. No OrgMemory realm/client/user/scope/mapper provisioning was added.
 
 ## Local infrastructure verification
 
@@ -23,6 +23,16 @@ Date: 2026-08-24
 - Validation containers, volumes, networks, dummy credentials, and archives were removed after proof.
 
 JetBrains MCP and a YAML language server were unavailable in this session, so no IDE-clean claim is made. Docker Compose interpolation, real container startup, shell parsing, database queries, and repository gates provide the documented fallback evidence.
+
+## Development and staging environments
+
+- Infisical `dev` uses the staging MemoryOS database through the documented loopback SSH tunnel and the shared Keycloak realm while API/web processes remain local. It now selects `SPRING_PROFILES_ACTIVE=development`.
+- Infisical `staging` was populated from the 15 existing `dev` application values, then given its server-internal database URL, `SPRING_PROFILES_ACTIVE=staging`, and `MEMORYOS_SESSION_COOKIE_SECURE=true`. The expected key sets are `dev=16`, `staging=16`, `prod=0`; production remains empty.
+- The server now has a dedicated `memoryos-staging-server` Universal Auth identity with project `viewer` access, 15-minute access tokens, 90-day client-secret expiry, lockout, and a mode-`0600` bootstrap file. A real server-origin login injected all 16 staging values and returned `staging-bootstrap-ok` without printing values.
+- Infisical rejected trusted-IP configuration as a plan-restricted feature. The accepted compensation is project-read-only access, short token TTL, expiring client secret, lockout, owner-only file storage, and documented rotation rather than a false IP-bound claim.
+- The server deployment environment is now `/apps/memoryos/.env.staging`; the misleading `.env.production` file was removed. The running writer has not yet been recreated, so runtime selection remains part of the reviewed cutover.
+- The API image pins Infisical CLI `0.43.125` by the official Linux archive SHA-256, requires an explicit environment, exchanges Universal Auth at startup, removes client credentials and the short-lived access token from the Java child environment, and drops to UID/GID 1654 before Java starts. The image build passed, and an image-level probe proved all 16 staging values, absent child token, and UID 1654 with `staging-bootstrap-ok`.
+- `infisical run --env=dev ... :api:bootRun` selected the `development` profile, connected through a temporary staging database tunnel, started the real API, and returned `{\"status\":\"UP\"}` from `/actuator/health`; the API and tunnel were then stopped.
 
 ## Source backup and restore rehearsal
 

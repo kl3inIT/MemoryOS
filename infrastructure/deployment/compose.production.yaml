@@ -176,12 +176,9 @@ services:
     <<: *service-defaults
     image: ${MEMORYOS_API_IMAGE:?Set MEMORYOS_API_IMAGE}
     container_name: memoryos-api
-    env_file:
-      - ${MEMORYOS_ENV_FILE:-../../.env}
-    environment:
-      MEMORYOS_DATABASE_URL: jdbc:postgresql://postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
-      MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
-      MEMORYOS_DATABASE_PASSWORD: ${MEMORYOS_DATABASE_PASSWORD:?Set MEMORYOS_DATABASE_PASSWORD}
+    secrets:
+      - source: memoryos_infisical_bootstrap
+        target: memoryos_infisical_bootstrap
     depends_on:
       postgres:
         condition: service_healthy
@@ -268,6 +265,10 @@ networks:
   proxy:
     name: ${MEMORYOS_PROXY_NETWORK:-proxy-network}
     external: true
+
+secrets:
+  memoryos_infisical_bootstrap:
+    file: ${MEMORYOS_INFISICAL_BOOTSTRAP_FILE:?Set MEMORYOS_INFISICAL_BOOTSTRAP_FILE}
 
 volumes:
   memoryos_postgres:

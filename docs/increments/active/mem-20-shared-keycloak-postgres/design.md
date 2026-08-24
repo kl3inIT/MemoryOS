@@ -2,9 +2,9 @@
 
 ## Outcome
 
-MemoryOS owns a portable production deployment containing one PostgreSQL 18 instance, the single Keycloak runtime shared by MemoryOS and OrgMemory, the MemoryOS API, and the MemoryOS web application. MemoryOS application data leaves the ZeroMail PostgreSQL container; Keycloak data leaves the OrgMemory PostgreSQL deployment. Existing public issuers, Keycloak realm/user/client identifiers, MemoryOS Actor bindings, and OrgMemory authentication remain unchanged.
+MemoryOS owns a portable hardened deployment containing one PostgreSQL 18 instance, the single Keycloak runtime shared by MemoryOS and OrgMemory, the MemoryOS API, and the MemoryOS web application. The current server is staging; no production server exists. MemoryOS application data leaves the ZeroMail PostgreSQL container; Keycloak data leaves the OrgMemory PostgreSQL deployment. Existing public issuers, Keycloak realm/user/client identifiers, MemoryOS Actor bindings, and OrgMemory authentication remain unchanged.
 
-Infisical remains on its current infrastructure. MEM-20 may update existing MemoryOS runtime secret values at cutover, but does not migrate or redesign the secret-management service; MEM-17 owns that work.
+Infisical remains on its current infrastructure. The API image selects one required Infisical environment at startup: `dev` for developer-local execution and `staging` for the current server. MEM-20 establishes those environments and may update staging database values at cutover, but does not migrate the Infisical service or store bootstrap credentials in Git. MEM-17 remains responsible for any unfinished machine-identity lifecycle work.
 
 ## Runtime topology
 
@@ -73,7 +73,7 @@ Verification requires:
 - MemoryOS owner login, existing-member login, invitation/member persistence, and API health;
 - OrgMemory API/web health plus an OrgMemory OIDC login contract;
 - exact rollback artifacts and commands recorded without secret values;
-- repository `clean check`, frontend checks, and production Compose validation.
+- repository `clean check`, frontend checks, and hardened deployment Compose validation.
 
 ## Exclusions
 

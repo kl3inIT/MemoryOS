@@ -2,6 +2,12 @@
 
 FROM eclipse-temurin:25-jdk-noble@sha256:d4920d49e0d7163a1a1534601b733c6e1b37bd53b144d68a51f00382410c7257 AS build
 
+ARG INFISICAL_CLI_VERSION=0.43.125
+ADD --checksum=sha256:8c3431afab5097ca7d943585be1580ebc13c28843e7d0c5292fb07d077be0372 \
+    https://github.com/Infisical/cli/releases/download/v${INFISICAL_CLI_VERSION}/cli_${INFISICAL_CLI_VERSION}_linux_amd64.tar.gz \
+    /tmp/infisical-cli.tar.gz
+RUN tar -xzf /tmp/infisical-cli.tar.gz -C /usr/local/bin infisical \
+    && /usr/local/bin/infisical --version
 WORKDIR /workspace
 
 COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts ./
@@ -37,11 +43,13 @@ COPY --from=build --chown=1654:1654 /workspace/extracted/dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/extracted/application/ ./
+COPY --from=build /usr/local/bin/infisical /usr/local/bin/infisical
+COPY --chmod=0755 api/src/main/docker/api-entrypoint.sh /usr/local/bin/memoryos-api-entrypoint
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
 
-USER 1654:1654
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "application.jar"]
+# The entrypoint reads the root-only Compose secret, then drops permanently to 1654.
+USER 0:0
+ENTRYPOINT ["/usr/local/bin/memoryos-api-entrypoint"]

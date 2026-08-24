@@ -18,7 +18,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
 - Node.js 24 with Corepack; `web/package.json` pins pnpm.
-- Docker with the Compose plugin for the PostgreSQL, shared Keycloak, API, and web production stack.
+- Docker with the Compose plugin for the hardened PostgreSQL, shared Keycloak, API, and web deployment stack.
 
 ## Modules and capabilities
 
@@ -72,7 +72,7 @@ pnpm generate:api
 
 Run the OpenAPI contract test again without the write flag, then run `pnpm check`. Normal runtime configuration does not expose springdoc API-doc endpoints.
 
-The API image is built from [`Dockerfile`](Dockerfile); the browser image is built from [`web/Dockerfile`](web/Dockerfile). [`infrastructure/deployment/compose.production.yaml`](infrastructure/deployment/compose.production.yaml) owns MemoryOS PostgreSQL, the single Keycloak runtime shared with OrgMemory, API, and web. PostgreSQL keeps isolated `memoryos` and `keycloak` databases; MemoryOS repository provisions only the `memoryos` realm. Deployment commands and migration/rollback procedures are in the runtime runbooks.
+The API image is built from [`Dockerfile`](Dockerfile) and injects the explicitly selected Infisical environment before Spring Boot starts; the browser image is built from [`web/Dockerfile`](web/Dockerfile). [`infrastructure/deployment/compose.production.yaml`](infrastructure/deployment/compose.production.yaml) owns MemoryOS PostgreSQL, the single Keycloak runtime shared with OrgMemory, API, and web. The current server selects Infisical `staging`; developer machines select `dev`; no production server exists. PostgreSQL keeps isolated `memoryos` and `keycloak` databases, and the MemoryOS repository provisions only the `memoryos` realm. Deployment commands and migration/rollback procedures are in the runtime runbooks.
 
 ## Current runtime behavior
 

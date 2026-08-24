@@ -79,7 +79,7 @@ Keycloak is the browser credential store and OIDC provider. MemoryOS owns the li
 
 ## Deployment
 
-The production Compose project owns `memoryos-postgres`, `shared-keycloak`, `memoryos-api`, and `memoryos-web`. PostgreSQL 18.4 stores isolated `memoryos` and `keycloak` databases under distinct non-superuser roles; an empty-volume bootstrap creates only those owners/databases, and the recurring backup profile emits custom-format archives, restore lists, and checksums. Shared Keycloak preserves `https://auth.kl3in.tech` and stable runtime aliases for both products, but MemoryOS contains provisioning only for its realm. API and web remain separate commit-labelled images with non-root/read-only runtime controls. The web gateway owns the browser origin; loopback-only diagnostic ports and private networks keep PostgreSQL and application internals off the public interface.
+The hardened deployment Compose project owns `memoryos-postgres`, `shared-keycloak`, `memoryos-api`, and `memoryos-web`; the current server is the `staging` environment and no production server exists. PostgreSQL 18.4 stores isolated `memoryos` and `keycloak` databases under distinct non-superuser roles; an empty-volume bootstrap creates only those owners/databases, and the recurring backup profile emits custom-format archives, restore lists, and checksums. Shared Keycloak preserves `https://auth.kl3in.tech` and stable runtime aliases for both products, but MemoryOS contains provisioning only for the `memoryos` realm. OrgMemory continues to own its realm configuration.
 
 ## Deferred components
 
