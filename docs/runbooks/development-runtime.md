@@ -142,7 +142,7 @@ MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mail
 
 ### Provision the staging mailbox
 
-Mailpit captures development verification mail and never relays it to external recipients. SMTP is reachable only as `mailpit:1025` on the internal Compose network, requires basic authentication after STARTTLS, and uses a private CA trusted by Keycloak through `KC_TRUSTSTORE_PATHS`. The web mailbox binds only to server loopback; it is never attached to the public proxy network.
+Mailpit captures development verification mail and never relays it to external recipients. SMTP is reachable only as `mailpit:1025` on the internal Compose network, requires basic authentication after STARTTLS, and uses a private CA trusted by Keycloak through `KC_TRUSTSTORE_PATHS`. A dedicated Mailpit access bridge exists only so Docker can publish the web mailbox to server loopback; no other service joins it, and Mailpit is never attached to the public proxy network.
 
 Before the first start, create the persistent mailbox directory and the complete mode-`0600` CA, certificate, private key, and SMTP authentication set:
 

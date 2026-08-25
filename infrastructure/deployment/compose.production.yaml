@@ -39,6 +39,7 @@ services:
         aliases:
           - mailpit
           - memoryos-mailpit
+      mailpit-access:
     volumes:
       - ${MEMORYOS_MAILPIT_DATA_DIRECTORY:-/apps/memoryos/mailpit}:/data
     read_only: true
@@ -306,6 +307,8 @@ networks:
   memoryos-internal:
     name: ${MEMORYOS_INTERNAL_NETWORK:-memoryos-internal}
     internal: true
+  mailpit-access:
+    name: ${MEMORYOS_MAILPIT_ACCESS_NETWORK:-memoryos-mailpit-access}
   shared-infra:
     name: ${MEMORYOS_SHARED_INFRA_NETWORK:-shared-infra}
     external: true
