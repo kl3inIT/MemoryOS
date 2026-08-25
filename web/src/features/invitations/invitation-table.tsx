@@ -22,16 +22,6 @@ const invitationTableFeatures = tableFeatures({
   rowSortingFeature,
 });
 const columnHelper = createColumnHelper<typeof invitationTableFeatures, Invitation>();
-const columns = columnHelper.columns([
-  columnHelper.accessor("email", { header: "Email" }),
-  columnHelper.display({ id: "status", header: "Status", enableSorting: false }),
-  columnHelper.accessor("createdAt", {
-    header: "Created",
-    sortDescFirst: true,
-  }),
-  columnHelper.display({ id: "lifecycle", header: "Lifecycle", enableSorting: false }),
-  columnHelper.display({ id: "actions", header: "Actions", enableSorting: false }),
-]);
 
 const statusStyles: Record<Invitation["status"], string> = {
   PENDING: "bg-status-warning-surface text-status-warning-content",
@@ -41,6 +31,87 @@ const statusStyles: Record<Invitation["status"], string> = {
 };
 
 export type InvitationPendingAction = "rotate" | "revoke";
+
+type InvitationTableMeta = {
+  pendingActions: Readonly<Partial<Record<string, InvitationPendingAction>>>;
+  rowErrors: Readonly<Partial<Record<string, string>>>;
+  onRotate: (invitation: Invitation) => void;
+  onRevoke: (invitation: Invitation) => void;
+};
+
+const columns = columnHelper.columns([
+  columnHelper.accessor("email", {
+    header: "Email",
+    cell: ({ getValue }) => {
+      const email = getValue();
+      return (
+        <span
+          className="block max-w-72 truncate font-main-ui-action text-content-primary"
+          title={email}
+        >
+          {email}
+        </span>
+      );
+    },
+  }),
+  columnHelper.display({
+    id: "status",
+    header: "Status",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <span
+        className={cn(
+          "inline-flex rounded-full px-2 py-0.5 font-figure-small-label tracking-wide",
+          statusStyles[row.original.status],
+        )}
+      >
+        {statusLabel(row.original.status)}
+      </span>
+    ),
+  }),
+  columnHelper.accessor("createdAt", {
+    header: "Created",
+    sortDescFirst: true,
+    cell: ({ getValue }) => {
+      const createdAt = getValue();
+      return (
+        <time
+          dateTime={createdAt}
+          className="font-secondary-body whitespace-nowrap text-content-secondary"
+        >
+          {formatInvitationDate(createdAt)}
+        </time>
+      );
+    },
+  }),
+  columnHelper.display({
+    id: "lifecycle",
+    header: "Lifecycle",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <span className="font-secondary-body whitespace-nowrap text-content-muted">
+        {lifecycleDate(row.original)}
+      </span>
+    ),
+  }),
+  columnHelper.display({
+    id: "actions",
+    header: "Actions",
+    enableSorting: false,
+    cell: ({ row, table }) => {
+      const meta = table.options.meta as InvitationTableMeta;
+      return (
+        <InvitationRowActions
+          invitation={row.original}
+          pendingAction={meta.pendingActions[row.id]}
+          error={meta.rowErrors[row.id]}
+          onRotate={meta.onRotate}
+          onRevoke={meta.onRevoke}
+        />
+      );
+    },
+  }),
+]);
 
 type InvitationTableProps = {
   invitations: Invitation[];
@@ -77,6 +148,7 @@ export function InvitationTable({
     features: invitationTableFeatures,
     columns,
     data: invitations,
+    meta: { pendingActions, rowErrors, onRotate, onRevoke },
     getRowId: (invitation) => invitation.id,
     rowCount: totalItems,
     manualPagination: true,
@@ -151,15 +223,13 @@ export function InvitationTable({
           </thead>
           <tbody className="divide-y divide-border-subtle">
             {table.getRowModel().rows.map((row) => (
-              <InvitationTableRow
-                key={row.id}
-                invitation={row.original}
-                cellIds={row.getAllCells().map((cell) => cell.column.id)}
-                pendingAction={pendingActions[row.id]}
-                error={rowErrors[row.id]}
-                onRotate={onRotate}
-                onRevoke={onRevoke}
-              />
+              <tr key={row.id} className="align-top">
+                {row.getAllCells().map((cell) => (
+                  <td key={cell.id} className="px-4 py-4">
+                    <table.FlexRender cell={cell} />
+                  </td>
+                ))}
+              </tr>
             ))}
           </tbody>
         </table>
@@ -213,82 +283,24 @@ export function InvitationTable({
   );
 }
 
-type InvitationTableRowProps = {
+type InvitationRowActionsProps = {
   invitation: Invitation;
-  cellIds: string[];
   pendingAction?: InvitationPendingAction;
   error?: string;
   onRotate: (invitation: Invitation) => void;
   onRevoke: (invitation: Invitation) => void;
 };
 
-function InvitationTableRow({
+function InvitationRowActions({
   invitation,
-  cellIds,
   pendingAction,
   error,
   onRotate,
   onRevoke,
-}: InvitationTableRowProps) {
-  return (
-    <tr className="align-top">
-      {cellIds.map((cellId) => (
-        <td key={cellId} className="px-4 py-4">
-          {renderCell(cellId, invitation, pendingAction, error, onRotate, onRevoke)}
-        </td>
-      ))}
-    </tr>
-  );
-}
+}: InvitationRowActionsProps) {
+  if (invitation.status !== "PENDING") return null;
 
-function renderCell(
-  cellId: string,
-  invitation: Invitation,
-  pendingAction: InvitationPendingAction | undefined,
-  error: string | undefined,
-  onRotate: (invitation: Invitation) => void,
-  onRevoke: (invitation: Invitation) => void,
-) {
-  if (cellId === "email") {
-    return (
-      <span
-        className="block max-w-72 truncate font-main-ui-action text-content-primary"
-        title={invitation.email}
-      >
-        {invitation.email}
-      </span>
-    );
-  }
-  if (cellId === "status") {
-    return (
-      <span
-        className={cn(
-          "inline-flex rounded-full px-2 py-0.5 font-figure-small-label tracking-wide",
-          statusStyles[invitation.status],
-        )}
-      >
-        {statusLabel(invitation.status)}
-      </span>
-    );
-  }
-  if (cellId === "createdAt") {
-    return (
-      <time
-        dateTime={invitation.createdAt}
-        className="font-secondary-body whitespace-nowrap text-content-secondary"
-      >
-        {formatInvitationDate(invitation.createdAt)}
-      </time>
-    );
-  }
-  if (cellId === "lifecycle") {
-    return (
-      <span className="font-secondary-body whitespace-nowrap text-content-muted">
-        {lifecycleDate(invitation)}
-      </span>
-    );
-  }
-  return invitation.status === "PENDING" ? (
+  return (
     <div className="flex min-w-52 flex-col items-end gap-1.5">
       <div className="flex gap-1">
         <Button
@@ -322,7 +334,7 @@ function renderCell(
         </p>
       )}
     </div>
-  ) : null;
+  );
 }
 
 function invitationSortingState(sort: InvitationSort): SortingState {
