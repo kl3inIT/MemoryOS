@@ -42,6 +42,7 @@
 - [x] Provide copy/share for a newly created or rotated link, plus revoke and rotate recovery actions.
 - [x] Add the recipient invitation landing and failure surfaces, then return successful recipients directly to `New Session`.
 - [x] Keep email delivery absent unless a concrete provider and observable production failure contract are implemented; copy/share must remain complete.
+- [x] Add guarded application-session and Keycloak SSO sign-out to the account menu, including pending/error states and observable session invalidation.
 
 ## Verification and delivery
 

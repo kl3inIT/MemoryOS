@@ -49,6 +49,41 @@ test("renders the authenticated application shell", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
 });
 
+test("signs out from the account menu with the same-origin guard", async ({ page }) => {
+  let logoutMethod: string | undefined;
+  let logoutGuard: string | undefined;
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ actorId: ACTOR_ID }),
+    });
+  });
+  await page.route("**/logout", async (route) => {
+    logoutMethod = route.request().method();
+    logoutGuard = route.request().headers()["x-memoryos-csrf"];
+    await route.fulfill({
+      status: 204,
+      headers: { "X-MemoryOS-Logout-Location": "/signed-out-test" },
+    });
+  });
+  await page.route("**/signed-out-test", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<title>Signed out</title>",
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Workspace owner" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+
+  await expect(page).toHaveURL(/\/signed-out-test$/);
+  expect(logoutMethod).toBe("POST");
+  expect(logoutGuard).toBe("1");
+});
+
 test("persists the selected dark theme", async ({ page }) => {
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({

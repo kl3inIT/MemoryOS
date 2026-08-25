@@ -39,7 +39,7 @@ import org.springframework.test.context.DynamicPropertySource;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "SqlWithoutWhere"})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class JwtAuthenticationIntegrationTest {
+class BearerAuthenticationIntegrationTest {
 
     private static final String AUDIENCE = "memoryos-api";
     private static final String BOUND_SUBJECT = "bound-subject";

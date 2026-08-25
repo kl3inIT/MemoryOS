@@ -28,7 +28,7 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 
-final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
+final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private static final String AUTHENTICATED_DESTINATION = "/";
     private static final String ACCESS_NOT_PROVISIONED_DESTINATION = "/access-not-provisioned";
@@ -40,7 +40,7 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
-    ActorSessionAuthenticationSuccessHandler(
+    ActorSessionLoginSuccessHandler(
             ExternalIdentityResolver identityResolver,
             OrganizationAccessResolver organizationAccessResolver,
             InvitationService invitationService
@@ -62,16 +62,16 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
             @NonNull HttpServletResponse response,
             @NonNull Authentication authentication
     ) throws IOException {
-        if (!(authentication instanceof OAuth2AuthenticationToken oauth2)
-                || !(oauth2.getPrincipal() instanceof OidcUser oidcUser)) {
-            reject(request, response);
+        if (!(authentication instanceof OAuth2AuthenticationToken oauth2Authentication)
+                || !(oauth2Authentication.getPrincipal() instanceof OidcUser oidcUser)) {
+            rejectLogin(request, response);
             return;
         }
 
         var issuer = oidcUser.getIssuer();
         String subject = oidcUser.getSubject();
         if (issuer == null || subject == null || subject.isBlank()) {
-            reject(request, response);
+            rejectLogin(request, response);
             return;
         }
 
@@ -102,11 +102,11 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
             ExternalIdentity externalIdentity
     ) throws IOException {
         var session = request.getSession(false);
-        Object candidate = session == null
+        Object continuationAttribute = session == null
                 ? null
                 : session.getAttribute(InvitationSessionState.ATTRIBUTE);
-        if (!(candidate instanceof InvitationSessionState invitationState)) {
-            reject(request, response);
+        if (!(continuationAttribute instanceof InvitationSessionState invitationState)) {
+            rejectLogin(request, response);
             return null;
         }
 
@@ -119,13 +119,13 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
                     Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
             ));
         } catch (InvitationException exception) {
-            rejectInvitation(request, response, reason(exception.reason()));
+            rejectInvitation(request, response, invitationFailurePathReason(exception.reason()));
             return null;
         }
     }
 
-    private void reject(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        clearSession(request);
+    private void rejectLogin(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        invalidatePartialSession(request);
         redirectStrategy.sendRedirect(request, response, ACCESS_NOT_PROVISIONED_DESTINATION);
     }
 
@@ -134,11 +134,11 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
             HttpServletResponse response,
             String reason
     ) throws IOException {
-        clearSession(request);
+        invalidatePartialSession(request);
         redirectStrategy.sendRedirect(request, response, INVITATION_FAILURE_DESTINATION + reason);
     }
 
-    private static void clearSession(HttpServletRequest request) {
+    private static void invalidatePartialSession(HttpServletRequest request) {
         SecurityContextHolder.clearContext();
         var session = request.getSession(false);
         if (session != null) {
@@ -146,7 +146,7 @@ final class ActorSessionAuthenticationSuccessHandler implements AuthenticationSu
         }
     }
 
-    private static String reason(InvitationFailureReason reason) {
+    private static String invitationFailurePathReason(InvitationFailureReason reason) {
         return switch (reason) {
             case EMAIL_NOT_VERIFIED -> "email-not-verified";
             case EMAIL_MISMATCH -> "email-mismatch";

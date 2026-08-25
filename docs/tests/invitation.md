@@ -13,11 +13,11 @@
 | Binding, fixed memberships, and acceptance commit atomically | `DefaultInvitationServiceTest.acceptsVerifiedMatchingIdentityAndCreatesFixedMembershipsAtomically` |
 | Concurrent replay of one invitation produces one member and one accepted invitation | `DefaultInvitationServiceTest.concurrentAcceptanceProducesOneMemberAndOneAcceptedInvitation` and `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
 | Concurrent invitations for one bound identity serialize on its Actor row and grant one authority | `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
-| Intake/current responses do not cache continuation metadata, and failed intake removes prior state | `BrowserAuthenticationIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
-| Invitation callback uses Authorization Code + S256 PKCE and stores only `ActorId` | `BrowserAuthenticationIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
-| Mismatched invitation email invalidates the partial session and writes no identity | `BrowserAuthenticationIntegrationTest.rejectsMismatchedInvitationEmailAndInvalidatesThePartialSession` |
-| Expected Invitation REST failures use `application/problem+json` with safe RFC 9457 fields, namespaced code, and derived URN type | `BrowserAuthenticationIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
-| Built-in malformed-request failures use Boot-native Problem Details without a capability code | `BrowserAuthenticationIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
+| Intake/current responses do not cache continuation metadata, and failed intake removes prior state | `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
+| Invitation callback uses Authorization Code + S256 PKCE and stores only `ActorId` | `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
+| Mismatched invitation email invalidates the partial session and writes no identity | `SessionSecurityIntegrationTest.rejectsMismatchedInvitationEmailAndInvalidatesThePartialSession` |
+| Expected Invitation REST failures use `application/problem+json` with safe RFC 9457 fields, namespaced code, and derived URN type | `SessionSecurityIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
+| Built-in malformed-request failures use Boot-native Problem Details without a capability code | `SessionSecurityIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
 | The committed browser API snapshot is generated from the live Invitation operations, schemas, security metadata, and Problem Detail responses | `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
 | Owner People page supports create, copy/share, and lifecycle presentation | `identity-shell.spec.ts` — `creates a production invitation from the People administration page` |
 | Recipient landing and failure recovery are responsive and accessible | `identity-shell.spec.ts` — `shows the recipient invitation landing and recovery states` plus shared-runtime browser evidence |

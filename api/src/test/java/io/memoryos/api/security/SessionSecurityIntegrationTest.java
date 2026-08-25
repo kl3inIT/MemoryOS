@@ -62,7 +62,7 @@ import org.springframework.test.context.DynamicPropertySource;
         "SqlWithoutWhere"
 })
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class BrowserAuthenticationIntegrationTest {
+class SessionSecurityIntegrationTest {
 
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final Map<String, AuthorizationGrant> AUTHORIZATION_GRANTS = new ConcurrentHashMap<>();
@@ -134,7 +134,7 @@ class BrowserAuthenticationIntegrationTest {
     }
 
     @Test
-    void authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession() throws Exception {
+    void authenticatesAndSignsOutTheInitialOwnerWithoutProviderState() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
         UUID ownerActorId = jdbcClient.sql("""
                         SELECT actor_id FROM external_identity_bindings
@@ -195,6 +195,43 @@ class BrowserAuthenticationIntegrationTest {
                 assertFalse(serialized.contains(PROVIDER_ID_TOKEN_MARKER));
                 assertFalse(serialized.contains(PROVIDER_ACCESS_TOKEN));
             }
+
+            var unguardedLogout = client.send(
+                    HttpRequest.newBuilder(baseUri().resolve("/logout"))
+                            .POST(HttpRequest.BodyPublishers.noBody())
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(403, unguardedLogout.statusCode());
+            assertEquals(
+                    200,
+                    client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+
+            var logout = client.send(
+                    HttpRequest.newBuilder(baseUri().resolve("/logout"))
+                            .header(BROWSER_MUTATION_HEADER, "1")
+                            .POST(HttpRequest.BodyPublishers.noBody())
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(204, logout.statusCode());
+            URI providerLogout = URI.create(logout.headers()
+                    .firstValue(SessionLogoutSuccessHandler.LOGOUT_LOCATION_HEADER)
+                    .orElseThrow());
+            assertEquals(
+                    ISSUER + "/logout",
+                    providerLogout.getScheme() + "://" + providerLogout.getAuthority() + providerLogout.getPath()
+            );
+            Map<String, String> logoutQuery = query(providerLogout);
+            assertEquals("memoryos-web", logoutQuery.get("client_id"));
+            assertEquals(baseUri().resolve("/").toString(), logoutQuery.get("post_logout_redirect_uri"));
+            assertEquals(
+                    401,
+                    client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+            assertTrue(cookies.getCookieStore().getCookies().stream()
+                    .noneMatch(cookie -> "SESSION".equals(cookie.getName())));
         }
     }
 
@@ -688,10 +725,10 @@ class BrowserAuthenticationIntegrationTest {
     private static HttpServer startIdentityServer() {
         try {
             var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
-            server.createContext("/.well-known/openid-configuration", BrowserAuthenticationIntegrationTest::metadata);
-            server.createContext("/authorize", BrowserAuthenticationIntegrationTest::authorize);
-            server.createContext("/token", BrowserAuthenticationIntegrationTest::token);
-            server.createContext("/jwks", BrowserAuthenticationIntegrationTest::jwks);
+            server.createContext("/.well-known/openid-configuration", SessionSecurityIntegrationTest::metadata);
+            server.createContext("/authorize", SessionSecurityIntegrationTest::authorize);
+            server.createContext("/token", SessionSecurityIntegrationTest::token);
+            server.createContext("/jwks", SessionSecurityIntegrationTest::jwks);
             server.start();
             return server;
         } catch (IOException exception) {
@@ -703,12 +740,13 @@ class BrowserAuthenticationIntegrationTest {
         String issuer = "http://127.0.0.1:" + exchange.getLocalAddress().getPort();
         json(exchange, """
                 {"issuer":"%s","authorization_endpoint":"%s/authorize","token_endpoint":"%s/token",\
-                "jwks_uri":"%s/jwks","response_types_supported":["code"],\
+                "jwks_uri":"%s/jwks","end_session_endpoint":"%s/logout",\
+                "response_types_supported":["code"],\
                 "subject_types_supported":["public"],"id_token_signing_alg_values_supported":["RS256"],\
                 "scopes_supported":["openid"],"code_challenge_methods_supported":["S256"],\
                 "token_endpoint_auth_methods_supported":["client_secret_basic"],\
                 "claims_supported":["iss","sub","aud","exp","iat","email","email_verified"]}
-                """.formatted(issuer, issuer, issuer, issuer));
+                """.formatted(issuer, issuer, issuer, issuer, issuer));
     }
 
     private static void authorize(HttpExchange exchange) throws IOException {

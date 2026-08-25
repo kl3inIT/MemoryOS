@@ -9,15 +9,16 @@
 | One actor may own multiple identities | `JdbcExternalIdentityResolverTest.oneActorCanOwnMultipleExternalIdentities` |
 | Bound actor deletion is restricted | `JdbcExternalIdentityResolverTest.actorWithBindingCannotBeDeleted` |
 | Locked registration serializes concurrent membership grants for one bound identity | `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
-| Missing, malformed, invalid-signature, wrong-issuer, wrong-audience, expired, future, or missing-subject bearer tokens fail | `JwtAuthenticationIntegrationTest` |
-| Unknown exact bearer binding fails | `JwtAuthenticationIntegrationTest.rejectsUnknownExternalIdentity` |
-| Bound bearer identity returns only `ActorId` | `JwtAuthenticationIntegrationTest.returnsOnlyActorIdForBoundIdentity` |
-| Anonymous current-identity probes return `401` without creating a JDBC session or emitting a session cookie | `BrowserAuthenticationIntegrationTest.rejectsAnonymousIdentityWithoutCreatingASession` |
+| Missing, malformed, invalid-signature, wrong-issuer, wrong-audience, expired, future, or missing-subject bearer tokens fail | `BearerAuthenticationIntegrationTest` |
+| Unknown exact bearer binding fails | `BearerAuthenticationIntegrationTest.rejectsValidTokenWithoutIdentityBinding` |
+| Bound bearer identity returns only `ActorId` | `BearerAuthenticationIntegrationTest.returnsOnlyActorIdForBoundIdentity` |
+| Anonymous current-identity probes return `401` without creating a JDBC session or emitting a session cookie | `SessionSecurityIntegrationTest.rejectsAnonymousIdentityWithoutCreatingASession` |
 | Initial Organization transaction creates or reuses one stable actor binding | `DefaultInitialOrganizationBootstrapperTest.createsTheExactInitialAggregateAndReplaysTheSameConfiguration` |
-| Browser callback replaces provider identity with `ActorId` and stores no provider token marker | `BrowserAuthenticationIntegrationTest.authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession` |
-| Authenticated browser session reads the same `ActorId` from `/api/identity/me` | `BrowserAuthenticationIntegrationTest.authenticatesTheInitialOwnerWithPkceAndPersistsOnlyTheActorSession` |
+| OAuth2 login replaces provider identity with `ActorId` and stores no provider token marker | `SessionSecurityIntegrationTest.authenticatesAndSignsOutTheInitialOwnerWithoutProviderState` |
+| Authenticated application session reads the same `ActorId` from `/api/identity/me` | `SessionSecurityIntegrationTest.authenticatesAndSignsOutTheInitialOwnerWithoutProviderState` |
+| Guarded sign-out invalidates the JDBC session and returns the Keycloak RP-initiated logout location | `SessionSecurityIntegrationTest.authenticatesAndSignsOutTheInitialOwnerWithoutProviderState` and `identity-shell.spec.ts` — `signs out from the account menu with the same-origin guard` |
 | The committed browser API snapshot describes the live current-identity operation and excludes non-API routes | `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
-| Bound browser identity without active Organization authority gains no session | `BrowserAuthenticationIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession` |
+| Bound identity without active Organization authority gains no application session | `SessionSecurityIntegrationTest.rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession` |
 | Signed-out browser state starts the backend-owned OAuth2 flow | `identity-shell.spec.ts` — `offers the backend OAuth2 flow when no session exists` |
 | Authenticated shell renders the stable actor and survives reload | `identity-shell.spec.ts` — `renders the stable actor returned by an authenticated session` |
 | Public not-provisioned state remains distinct from signed out | `identity-shell.spec.ts` — `keeps unprovisioned access separate from signed-out state` |

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { AccessNotProvisionedScreen, SignInScreen } from "./auth-states";
+import { AccessNotProvisionedScreen, SignInScreen } from "./session-states";
 
 describe("browser authentication states", () => {
   it("renders the signed-out state as a direct authentication gate", () => {

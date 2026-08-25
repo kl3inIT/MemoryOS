@@ -22,7 +22,7 @@ Date: 2026-08-21
 
 ## Browser and session evidence
 
-`BrowserAuthenticationIntegrationTest` passes six real-HTTP scenarios against the Spring API composition, local standards-shaped OIDC provider, Flyway schema, and JDBC Spring Session.
+`SessionSecurityIntegrationTest` passes six real-HTTP scenarios against the Spring API composition, local standards-shaped OIDC provider, Flyway schema, and JDBC Spring Session.
 
 The invitation success scenario proves:
 
@@ -37,16 +37,18 @@ The invitation success scenario proves:
 
 The mismatch scenario proves an email mismatch redirects to the recipient recovery surface, invalidates the partial session, returns `401` from `/api/identity/me`, creates no binding, and leaves the invitation pending.
 
+The owner session scenario also proves that POST `/logout` without the same-origin header returns `403` and leaves the session authenticated. The guarded request invalidates the JDBC session, removes the `SESSION` cookie, returns `204` with a Keycloak logout URL containing `client_id=memoryos-web` and the current registered post-logout origin, and makes `/api/identity/me` return `401`. No provider ID token is reintroduced to support logout.
+
 ## Frontend evidence
 
-- `pnpm check` passes generated-client freshness, container-image pin, zero-warning lint, formatting, TypeScript, 6 unit tests, route-tree freshness, and the production build.
-- `pnpm test:e2e` passes 9/9 Chromium contracts, including owner create/rotate/revoke and recipient landing/failure recovery.
+- `pnpm check` passes generated-client freshness, container-image pin, zero-warning lint, formatting, TypeScript, 8 unit tests, route-tree freshness, and the production build.
+- `pnpm test:e2e` passes 10/10 Chromium contracts, including guarded account-menu sign-out, owner create/rotate/revoke, and recipient landing/failure recovery.
 - Live `playwright-cli` inspection verified the People page and invitation dialog at desktop width with the 240px administration sidebar, plus the People page and recipient landing at 390 × 844. Navigation selection, modal focus, empty state, copy-link composition, and mobile layout were visually confirmed.
 - `memoryos-web:mem12` builds from the production Dockerfile. `nginx -t` passes the generated image configuration; the expected non-root `user` warning is retained because the runtime intentionally starts as UID 101.
 
 ## Static and repository gates
 
-- JetBrains inspections with warnings enabled report no errors. The only remaining weak warnings are IntelliJ's header-name registry rejecting the standard `Referrer-Policy` header and the intentional custom `X-MemoryOS-CSRF` header; both values are exercised by browser integration tests.
+- JetBrains inspections with warnings enabled report no errors. The only remaining weak warnings are IntelliJ's header-name registry rejecting the standard `Referrer-Policy` header and the intentional custom `X-MemoryOS-CSRF` and `X-MemoryOS-Logout-Location` headers; their values are exercised by browser integration tests.
 - Focused core architecture, Invitation, Organization, API startup/browser-authentication, and worker startup tests pass. Worker explicitly excludes JDBC datasource auto-configuration because the shared core starter is present but no worker persistence runtime path exists.
 - `ModulithArchitectureTest` and `CoreDependencyRulesTest` pass with the application/persistence package boundaries.
 - `gradlew.bat clean check --no-daemon` passes the repository-wide gate.
