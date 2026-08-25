@@ -39,6 +39,8 @@ The mismatch scenario proves an email mismatch redirects to the recipient recove
 
 The owner session scenario also proves that POST `/logout` without the same-origin header returns `403` and leaves the session authenticated. The guarded request invalidates the JDBC session, removes the `SESSION` cookie, returns `204` with a Keycloak logout URL containing `client_id=memoryos-web` and the current registered post-logout origin, and makes `/api/identity/me` return `401`. No provider ID token is reintroduced to support logout.
 
+PR #27 head `de260f96c8404132efa212165e704d8ea0ae33a7` was built into both staging API and web images; their OCI revision labels match that exact SHA and both containers became healthy. Chromium rendered the deployed authenticated shell and account popover with a separate danger-toned `Sign out` action. The public guarded POST returned `204`, expired the secure `SESSION` cookie, and returned the exact Keycloak `end_session_endpoint` with `client_id=memoryos-web` and `post_logout_redirect_uri=https://memoryos.72-62-193-33.nip.io/`.
+
 ## Frontend evidence
 
 - `pnpm check` passes generated-client freshness, container-image pin, zero-warning lint, formatting, TypeScript, 8 unit tests, route-tree freshness, and the production build.
