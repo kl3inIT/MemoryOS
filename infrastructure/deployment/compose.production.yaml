@@ -53,10 +53,12 @@ services:
           memory: 128m
         reservations:
           memory: 32m
+
   mailpit-oauth2-proxy:
     <<: *service-defaults
     image: ${MEMORYOS_OAUTH2_PROXY_IMAGE:?Set MEMORYOS_OAUTH2_PROXY_IMAGE}
     container_name: memoryos-mailpit-oauth2-proxy
+    user: "${MEMORYOS_MAILPIT_UID:-1000}:${MEMORYOS_MAILPIT_GID:-1000}"
     command:
       - --http-address=0.0.0.0:4180
       - --provider=keycloak-oidc
@@ -72,8 +74,7 @@ services:
       - --cookie-name=_memoryos_mailpit
       - --cookie-secure=true
       - --cookie-samesite=lax
-      - --cookie-refresh=5m
-      - --cookie-expire=8h
+      - --cookie-expire=1h
       - --session-cookie-minimal=true
       - --reverse-proxy=true
       - --trusted-proxy-ip=${MEMORYOS_PROXY_TRUSTED_CIDR:-172.21.0.0/16}
