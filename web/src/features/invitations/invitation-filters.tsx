@@ -66,10 +66,9 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
         <Button type="submit" className="h-10">
           Apply
         </Button>
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          className="h-10"
+          className="h-10 rounded-md px-2 font-main-ui-action text-content-secondary outline-none transition-colors hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring/50"
           onClick={() => {
             setEmail("");
             setStatus("");
@@ -77,7 +76,7 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
           }}
         >
           Clear
-        </Button>
+        </button>
       </div>
     </form>
   );
