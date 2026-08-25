@@ -3,6 +3,8 @@ set -eu
 
 OUTPUT_DIRECTORY=${1:-/apps/memoryos/secrets/mailpit}
 DATA_DIRECTORY=${MEMORYOS_MAILPIT_DATA_DIRECTORY:-/apps/memoryos/mailpit}
+MAILPIT_UID=${MEMORYOS_MAILPIT_UID:-1000}
+MAILPIT_GID=${MEMORYOS_MAILPIT_GID:-1000}
 SMTP_USERNAME=${MEMORYOS_MAILPIT_SMTP_USERNAME:-memoryos-keycloak}
 
 case "$SMTP_USERNAME" in
@@ -11,9 +13,26 @@ case "$SMTP_USERNAME" in
         exit 1
         ;;
 esac
+case "$MAILPIT_UID:$MAILPIT_GID" in
+    *[!0-9:]* | :* | *:)
+        echo "MEMORYOS_MAILPIT_UID and MEMORYOS_MAILPIT_GID must be positive integers" >&2
+        exit 1
+        ;;
+esac
+if [ "$MAILPIT_UID" -eq 0 ] || [ "$MAILPIT_GID" -eq 0 ]; then
+    echo "MEMORYOS_MAILPIT_UID and MEMORYOS_MAILPIT_GID must be positive integers" >&2
+    exit 1
+fi
 
 umask 077
 mkdir -p "$OUTPUT_DIRECTORY" "$DATA_DIRECTORY"
+CURRENT_UID=$(id -u)
+if [ "$CURRENT_UID" -eq 0 ]; then
+    chown "$MAILPIT_UID:$MAILPIT_GID" "$DATA_DIRECTORY"
+elif [ "$CURRENT_UID" -ne "$MAILPIT_UID" ]; then
+    echo "run as root or as configured Mailpit UID $MAILPIT_UID to provision $DATA_DIRECTORY" >&2
+    exit 1
+fi
 chmod 0700 "$OUTPUT_DIRECTORY" "$DATA_DIRECTORY"
 
 CA_CERTIFICATE="$OUTPUT_DIRECTORY/ca.crt"
@@ -32,7 +51,7 @@ done
 if [ "$existing_count" -eq 5 ]; then
     openssl verify -CAfile "$CA_CERTIFICATE" "$SMTP_CERTIFICATE" >/dev/null
     openssl x509 -in "$SMTP_CERTIFICATE" -noout -checkend 86400 >/dev/null
-    grep -q "^${SMTP_USERNAME}:" "$SMTP_AUTH_FILE"
+    awk -F: -v username="$SMTP_USERNAME" 'NR == 1 && $1 == username { matched = 1 } END { exit !(NR == 1 && matched) }' "$SMTP_AUTH_FILE"
     echo "mailpit staging secrets already provisioned"
     openssl x509 -in "$SMTP_CERTIFICATE" -noout -fingerprint -sha256
     exit 0
@@ -89,7 +108,14 @@ openssl x509 \
     -extfile "$TEMPORARY_DIRECTORY/smtp-extensions.cnf" \
     -out "$TEMPORARY_DIRECTORY/smtp.crt" >/dev/null
 
-SMTP_PASSWORD=$(openssl rand -base64 48 | tr -d '\r\n')
+if ! SMTP_PASSWORD=$(openssl rand -base64 48); then
+    echo "failed to generate Mailpit SMTP password" >&2
+    exit 1
+fi
+if [ -z "$SMTP_PASSWORD" ]; then
+    echo "generated Mailpit SMTP password is empty" >&2
+    exit 1
+fi
 printf '%s:%s\n' "$SMTP_USERNAME" "$SMTP_PASSWORD" >"$TEMPORARY_DIRECTORY/smtp-auth.txt"
 unset SMTP_PASSWORD
 
