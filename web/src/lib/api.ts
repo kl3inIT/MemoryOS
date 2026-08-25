@@ -1,4 +1,5 @@
 import { client } from "./hey-api/client.gen";
+export const sameOriginMutationHeaders = { "X-MemoryOS-CSRF": "1" as const };
 
 export class ApiError extends Error {
   readonly status: number | undefined;

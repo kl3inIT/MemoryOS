@@ -6,15 +6,24 @@ type MenuItemProps = {
   icon: ReactNode;
   href?: string;
   onClick?: MouseEventHandler<HTMLElement>;
+  disabled?: boolean;
   tone?: "default" | "danger";
 };
 
-export function MenuItem({ children, icon, href, onClick, tone = "default" }: MenuItemProps) {
+export function MenuItem({
+  children,
+  icon,
+  href,
+  onClick,
+  disabled = false,
+  tone = "default",
+}: MenuItemProps) {
   const className = cn(
     "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left font-main-ui-body outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
     tone === "danger"
       ? "text-status-danger-content hover:bg-status-danger-surface"
       : "text-content-primary hover:bg-action-ghost-hover",
+    disabled && "cursor-not-allowed opacity-55",
   );
   const content = (
     <>
@@ -40,6 +49,7 @@ export function MenuItem({ children, icon, href, onClick, tone = "default" }: Me
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick as MouseEventHandler<HTMLButtonElement> | undefined}
       className={className}
     >

@@ -2,6 +2,7 @@
 set -eu
 
 TARGET_REALM=memoryos
+KEYCLOAK_ADMIN_REALM=${KEYCLOAK_ADMIN_REALM:-master}
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 
@@ -12,6 +13,8 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${MEMORYOS_INITIAL_OWNER_EMAIL:?MEMORYOS_INITIAL_OWNER_EMAIL is required}"
 : "${MEMORYOS_BROWSER_CLIENT_SECRET:?MEMORYOS_BROWSER_CLIENT_SECRET is required}"
 : "${MEMORYOS_BROWSER_REDIRECT_URI:?MEMORYOS_BROWSER_REDIRECT_URI is required}"
+: "${MEMORYOS_MAILPIT_PUBLIC_URL:?MEMORYOS_MAILPIT_PUBLIC_URL is required}"
+: "${MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET:?MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_HOST:?MEMORYOS_KEYCLOAK_SMTP_HOST is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_FROM:?MEMORYOS_KEYCLOAK_SMTP_FROM is required}"
 MEMORYOS_KEYCLOAK_SMTP_PORT=${MEMORYOS_KEYCLOAK_SMTP_PORT:-587}
@@ -75,6 +78,17 @@ case "$MEMORYOS_BROWSER_REDIRECT_URI" in
         exit 1
         ;;
 esac
+MEMORYOS_BROWSER_PUBLIC_URL=${MEMORYOS_BROWSER_REDIRECT_URI%/login/oauth2/code/memoryos}
+
+case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
+    https://*.nip.io)
+        ;;
+    *)
+        echo "MEMORYOS_MAILPIT_PUBLIC_URL must be an exact HTTPS nip.io origin" >&2
+        exit 1
+        ;;
+esac
+
 
 
 command -v jq >/dev/null 2>&1 || {
@@ -82,11 +96,13 @@ command -v jq >/dev/null 2>&1 || {
     exit 1
 }
 umask 077
+export MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
 
 CONFIG_FILE=$(mktemp)
 BROWSER_CLIENT_FILE=$(mktemp)
+MAILPIT_CLIENT_FILE=$(mktemp)
 cleanup() {
-    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE"
+    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE" "$MAILPIT_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -126,7 +142,7 @@ find_mapper_uuid() {
 "$KCADM" config credentials \
     --config "$CONFIG_FILE" \
     --server "$KEYCLOAK_URL" \
-    --realm "$TARGET_REALM" \
+    --realm "$KEYCLOAK_ADMIN_REALM" \
     --user "$KEYCLOAK_ADMIN_USERNAME" >/dev/null
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
@@ -163,6 +179,22 @@ configure_self_registration() {
 configure_self_registration
 
 find_initial_owner_uuid() {
+    if [ -n "${MEMORYOS_INITIAL_OWNER_SUBJECT:-}" ]; then
+        row=$("$KCADM" get "users/$MEMORYOS_INITIAL_OWNER_SUBJECT" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            --fields id,username)
+        matches=$(printf '%s\n' "$row" |
+            jq -c '[select(.id == env.MEMORYOS_INITIAL_OWNER_SUBJECT and .username == env.MEMORYOS_INITIAL_OWNER_USERNAME)]')
+        count=$(printf '%s\n' "$matches" | jq -r 'length')
+        if [ "$count" -ne 1 ]; then
+            echo "configured initial owner subject does not match the expected username" >&2
+            exit 1
+        fi
+        printf '%s\n' "$matches" | jq -r '.[0].id'
+        return
+    fi
+
     rows=$("$KCADM" get users \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
@@ -257,17 +289,39 @@ upsert_mapper() {
             -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
         echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=created"
     else
-        "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
+        current_mapper=$("$KCADM" get "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
             --config "$CONFIG_FILE" \
-            -r "$TARGET_REALM" \
-            -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
-        echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=updated"
+            -r "$TARGET_REALM")
+        current_contract=$(printf '%s\n' "$current_mapper" |
+            jq -cS '{name, protocol, protocolMapper, consentRequired, config}')
+        desired_contract=$(jq -cS '{name, protocol, protocolMapper, consentRequired, config}' "$SCRIPT_DIR/$MAPPER_FILE")
+        if [ "$current_contract" = "$desired_contract" ]; then
+            echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=unchanged"
+        else
+            "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
+            echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=updated"
+        fi
     fi
 }
 
 jq --arg redirectUri "$MEMORYOS_BROWSER_REDIRECT_URI" \
-    '.redirectUris = [$redirectUri]' \
+    --arg publicUrl "$MEMORYOS_BROWSER_PUBLIC_URL" \
+    '.rootUrl = $publicUrl
+     | .baseUrl = "/"
+     | .redirectUris = [$redirectUri]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-browser-client.json" >"$BROWSER_CLIENT_FILE"
+jq --arg publicUrl "$MEMORYOS_MAILPIT_PUBLIC_URL" \
+    '.rootUrl = $publicUrl
+     | .redirectUris = [$publicUrl + "/oauth2/callback"]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
+    "$SCRIPT_DIR/memoryos-mailpit-client.json" >"$MAILPIT_CLIENT_FILE"
+
 
 provision_initial_owner
 upsert_client memoryos-integration "$SCRIPT_DIR/memoryos-client.json"
@@ -281,3 +335,11 @@ jq -cn '{secret: env.MEMORYOS_BROWSER_CLIENT_SECRET}' |
         -r "$TARGET_REALM" \
         -f - >/dev/null
 echo "client=memoryos-web secret=updated"
+
+upsert_client memoryos-mailpit "$MAILPIT_CLIENT_FILE"
+jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$CLIENT_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -f - >/dev/null
+echo "client=memoryos-mailpit secret=updated"

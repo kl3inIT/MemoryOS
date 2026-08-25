@@ -22,7 +22,7 @@ Date: 2026-08-21
 
 ## Browser and session evidence
 
-`BrowserAuthenticationIntegrationTest` passes six real-HTTP scenarios against the Spring API composition, local standards-shaped OIDC provider, Flyway schema, and JDBC Spring Session.
+`SessionSecurityIntegrationTest` passes six real-HTTP scenarios against the Spring API composition, local standards-shaped OIDC provider, Flyway schema, and JDBC Spring Session.
 
 The invitation success scenario proves:
 
@@ -37,16 +37,20 @@ The invitation success scenario proves:
 
 The mismatch scenario proves an email mismatch redirects to the recipient recovery surface, invalidates the partial session, returns `401` from `/api/identity/me`, creates no binding, and leaves the invitation pending.
 
+The owner session scenario also proves that POST `/logout` without the same-origin header returns `403` and leaves the session authenticated. The guarded request invalidates the JDBC session, removes the `SESSION` cookie, returns `204` with a Keycloak logout URL containing `client_id=memoryos-web` and the current registered post-logout origin, and makes `/api/identity/me` return `401`. No provider ID token is reintroduced to support logout.
+
+PR #27 head `de260f96c8404132efa212165e704d8ea0ae33a7` was built into both staging API and web images; their OCI revision labels match that exact SHA and both containers became healthy. Chromium rendered the deployed authenticated shell and account popover with a separate danger-toned `Sign out` action. The public guarded POST returned `204`, expired the secure `SESSION` cookie, and returned the exact Keycloak `end_session_endpoint` with `client_id=memoryos-web` and `post_logout_redirect_uri=https://memoryos.72-62-193-33.nip.io/`.
+
 ## Frontend evidence
 
-- `pnpm check` passes generated-client freshness, container-image pin, zero-warning lint, formatting, TypeScript, 6 unit tests, route-tree freshness, and the production build.
-- `pnpm test:e2e` passes 9/9 Chromium contracts, including owner create/rotate/revoke and recipient landing/failure recovery.
+- `pnpm check` passes generated-client freshness, container-image pin, zero-warning lint, formatting, TypeScript, 8 unit tests, route-tree freshness, and the production build.
+- `pnpm test:e2e` passes 10/10 Chromium contracts, including guarded account-menu sign-out, owner create/rotate/revoke, and recipient landing/failure recovery.
 - Live `playwright-cli` inspection verified the People page and invitation dialog at desktop width with the 240px administration sidebar, plus the People page and recipient landing at 390 × 844. Navigation selection, modal focus, empty state, copy-link composition, and mobile layout were visually confirmed.
 - `memoryos-web:mem12` builds from the production Dockerfile. `nginx -t` passes the generated image configuration; the expected non-root `user` warning is retained because the runtime intentionally starts as UID 101.
 
 ## Static and repository gates
 
-- JetBrains inspections with warnings enabled report no errors. The only remaining weak warnings are IntelliJ's header-name registry rejecting the standard `Referrer-Policy` header and the intentional custom `X-MemoryOS-CSRF` header; both values are exercised by browser integration tests.
+- JetBrains inspections with warnings enabled report no errors. The only remaining weak warnings are IntelliJ's header-name registry rejecting the standard `Referrer-Policy` header and the intentional custom `X-MemoryOS-CSRF` and `X-MemoryOS-Logout-Location` headers; their values are exercised by browser integration tests.
 - Focused core architecture, Invitation, Organization, API startup/browser-authentication, and worker startup tests pass. Worker explicitly excludes JDBC datasource auto-configuration because the shared core starter is present but no worker persistence runtime path exists.
 - `ModulithArchitectureTest` and `CoreDependencyRulesTest` pass with the application/persistence package boundaries.
 - `gradlew.bat clean check --no-daemon` passes the repository-wide gate.
@@ -72,17 +76,44 @@ The real browser flow then proved:
 
 The invited member also exposed a separate shell defect: owner labeling and administration navigation remain visible even though owner-only APIs correctly deny the member. [MEM-19](https://linear.app/memory-os/issue/MEM-19/hide-owner-only-administration-from-invited-members) tracks that UI/authority-context cutover.
 
-## Remaining shared-runtime gate
+## Shared self-registration and captured-email evidence
 
-The shared `memoryos` Keycloak realm currently reports:
+On 2026-08-25, PR #27 head `70be571` was deployed to the staging server. The deployment runs Mailpit `v1.31.0` from digest `sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24`, persists at most 500 messages for seven days, accepts only authenticated STARTTLS SMTP on the internal Compose network, and publishes only its web mailbox to server loopback through a dedicated single-service bridge. A deployment-owned private CA signs the `mailpit`/`memoryos-mailpit` SMTP certificate; Keycloak imports that CA through `KC_TRUSTSTORE_PATHS`. Generated CA, key, certificate, and SMTP-auth files remained mode `0600`, and only the certificate fingerprint was printed.
+
+The first Keycloak recreation exposed that imported PEM trust material generates `/opt/keycloak/data/keycloak-truststore.p12`; the read-only container therefore needs its complete data directory on tmpfs rather than only `data/tmp`. The corrected deployment recreated Keycloak healthy, retained the shared PostgreSQL realm state, and preserved the public `memoryos` and `orgmemory` issuers.
+
+Secret-safe realm inspection then proved:
 
 ```text
-registrationAllowed=false
-registrationEmailAsUsername=false
-verifyEmail=false
-smtpConfigured=false
+registrationAllowed=true
+registrationEmailAsUsername=true
+verifyEmail=true
+smtpHost=mailpit
+smtpPort=1025
+smtpAuth=true
+smtpStarttls=true
+smtpSsl=false
+smtpPasswordConfigured=true
 ```
 
-The repository desired state for self-registration and verified email is complete. Applying it to the shared realm still requires concrete managed SMTP host/from/username/password values. Until those values are supplied, the implemented invitation flow is fully usable only for an existing verified local Keycloak account, and the no-operator account-creation happy path cannot be claimed. No fake provider or unverified-registration bypass was added.
+A real Chromium session opened the public MemoryOS Keycloak registration surface, created one temporary `@memoryos.test` recipient, and reached the `VERIFY_EMAIL` required action. Mailpit received one `Verify email` message for that exact recipient. The browser followed the captured action-token link without printing it, reached `UPDATE_PASSWORD`, set the recipient password, and completed the required action. A subsequent administrator read observed exactly one enabled user with `emailVerified=true`. The temporary user and captured message were deleted; the mailbox returned to zero messages, the generated browser password was cleared, and no invitation, Actor, membership, or application session was created by this credential-only verification.
 
-PR #13 reviewed head `b95a2c1c1876c8c389c534a8d15da8f3c43d46b3` merged as `1318008496091c8a8afad474a4dd519bff530cb5`; exact merge-SHA CI run `32556578404` passed. Only the no-operator self-registration/email-verification path and final increment closure remain open.
+All five Compose services were healthy afterward, `/actuator/health` returned `UP`, and both public realm discovery documents retained their exact HTTPS issuers. PR #27 latest-head CI run `32805933698` passed `check`, `frontend`, and `frontend-image`; the single CodeRabbit pass produced three provisioning findings, all fixed and resolved.
+
+## Protected mailbox and current pgweb database evidence
+
+On 2026-08-25, PR #27 head `23d7b2f` extended the staging deployment with digest-pinned OAuth2 Proxy `v7.15.3` and the dedicated confidential `memoryos-mailpit` Keycloak client. The proxy uses Authorization Code with S256 PKCE, a one-hour secure minimal cookie, file-mounted client/cookie secrets, and an exact initial-owner email file. All three files remained mode `0600`; the allowlist returned to exactly one line after verification. Mailpit remains absent from the public proxy network: OAuth2 Proxy alone joins the isolated mailbox-access bridge and Nginx Proxy Manager network.
+
+Nginx Proxy Manager now owns `https://memoryos-mail.72-62-193-33.nip.io`, forwarding to `memoryos-mailpit-oauth2-proxy:4180` with WebSockets, exploit blocking, forced HTTPS, HTTP/2, HSTS, and an exact-domain Let's Encrypt certificate expiring 2026-11-23. An unauthenticated request redirected to the `memoryos-mailpit` authorization endpoint with the exact HTTPS callback and `code_challenge_method=S256`.
+
+A real Chromium session registered and verified one temporary non-allowlisted Keycloak user. Its first OAuth2 callback returned `403`, proving that realm authentication alone cannot read captured verification links. The same user was added temporarily to the watched email file, re-authenticated without restarting the proxy, and reached the live `Mailpit - MemoryOS staging` UI through the public HTTPS origin. The owner-only file was restored, the verified Keycloak user and captured email were deleted, the browser password was cleared, and all temporary browser, tunnel, NPM-operator, and provisioning artifacts were removed. OAuth2 Proxy remained stable with zero restarts and Nginx Proxy Manager reached its `/ping` endpoint.
+
+The separately protected pgweb deployment was cut over from legacy `zeromail-postgres`/`shared-postgres` to `memoryos-postgres` on `memoryos-internal`. Its dedicated `memoryos_pgweb` role connects to the `memoryos` database with transaction read-only enabled, can select `actors`, and cannot insert, update, or delete it. The pgweb and OAuth2 Proxy containers remained healthy, and `https://memoryos-db.72-62-193-33.nip.io` continued to redirect through the unchanged `memoryos-pgweb` S256 PKCE client.
+
+## Public staging application evidence
+
+On 2026-08-25, PR #27 head `4c42cb6` published `https://memoryos.72-62-193-33.nip.io` through Nginx Proxy Manager to `memoryos-web:8080`. The host enforces HTTPS, HTTP/2, HSTS, WebSockets, and exploit blocking with exact-domain Let's Encrypt certificate #28 expiring 2026-11-23. `/` served the production MemoryOS application and `/actuator/health` returned `UP`.
+
+The `memoryos-web` client now retains only `https://memoryos.72-62-193-33.nip.io/login/oauth2/code/memoryos`, uses the matching HTTPS root/web origin, and keeps mandatory S256 PKCE. A real Chromium click on `Continue with company account` reached the public `memoryos` authorization endpoint with `client_id=memoryos-web`, the exact HTTPS callback, and `code_challenge_method=S256`. The temporary Nginx Proxy Manager operator was removed after application-level provisioning.
+
+This closes the missing shared self-registration and email-verification prerequisite. It does not prove delivery to public mail providers: Mailpit is intentionally staging-only and captures rather than relays. One final combined runtime pass—owner invitation intake through this freshly self-registered recipient and atomic acceptance—plus guarded merge/exact-SHA closure remains before MEM-12 can move to completed.

@@ -11,23 +11,23 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-final class BrowserPageController {
+final class ApplicationSessionController {
 
     @GetMapping("/")
-    BrowserSessionResponse home(@AuthenticationPrincipal IdentityContext identityContext) {
-        return new BrowserSessionResponse(identityContext.actorId().value());
+    ApplicationSessionResponse currentSession(@AuthenticationPrincipal IdentityContext identityContext) {
+        return new ApplicationSessionResponse(identityContext.actorId().value());
     }
 
     @GetMapping("/access-not-provisioned")
-    ResponseEntity<BrowserFailureResponse> accessNotProvisioned() {
+    ResponseEntity<AccessNotProvisionedResponse> accessNotProvisioned() {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(new BrowserFailureResponse("ACCESS_NOT_PROVISIONED"));
+                .body(new AccessNotProvisionedResponse("ACCESS_NOT_PROVISIONED"));
     }
 
 
-    record BrowserSessionResponse(UUID actorId) {
+    record ApplicationSessionResponse(UUID actorId) {
     }
 
-    record BrowserFailureResponse(String reasonCode) {
+    record AccessNotProvisionedResponse(String reasonCode) {
     }
 }

@@ -1,17 +1,41 @@
-import { Moon, Settings2, Sun } from "lucide-react";
+import { LogOut, Moon, Settings2, Sun } from "lucide-react";
 import { useState } from "react";
 import { Popover } from "radix-ui";
 import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useTheme } from "@/features/theme/theme-context";
+import { sameOriginMutationHeaders } from "@/lib/api";
+
+const logoutLocationHeader = "X-MemoryOS-Logout-Location";
 
 export function AccountMenu({ collapsed }: { collapsed: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const [signOutState, setSignOutState] = useState<"idle" | "pending" | "error">("idle");
+  const signingOut = signOutState === "pending";
+
+  async function requestSignOut() {
+    if (signingOut) return;
+    setSignOutState("pending");
+    try {
+      const response = await fetch("/logout", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: sameOriginMutationHeaders,
+      });
+      const providerLogoutUrl = response.headers.get(logoutLocationHeader);
+      if (response.status !== 204 || !providerLogoutUrl) {
+        throw new Error("Session logout failed");
+      }
+      window.location.assign(providerLogoutUrl);
+    } catch {
+      setSignOutState("error");
+    }
+  }
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={menuOpen} onOpenChange={setMenuOpen}>
       <Popover.Trigger asChild>
         <SidebarTab
           icon={
@@ -19,7 +43,7 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
               OW
             </span>
           }
-          selected={open}
+          selected={menuOpen}
           collapsed={collapsed}
         >
           Workspace owner
@@ -44,6 +68,24 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
             <MenuItem href="/admin" icon={<Settings2 className="size-4.5" />}>
               Admin Panel
             </MenuItem>
+          </div>
+          <div className="mt-1 border-t border-border-subtle pt-1">
+            <MenuItem
+              icon={<LogOut className="size-4.5" />}
+              tone="danger"
+              disabled={signingOut}
+              onClick={() => void requestSignOut()}
+            >
+              {signingOut ? "Signing out…" : "Sign out"}
+            </MenuItem>
+            {signOutState === "error" ? (
+              <p
+                className="px-3 pb-2 pt-1 font-secondary-body text-status-danger-content"
+                role="alert"
+              >
+                We couldn't sign you out. Try again.
+              </p>
+            ) : null}
           </div>
         </Popover.Content>
       </Popover.Portal>

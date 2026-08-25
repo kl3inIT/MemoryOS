@@ -3,7 +3,7 @@ import { Brand } from "@/components/brand";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 
-export function OwnerShell() {
+export function NewSessionPage() {
   return (
     <AppShell pageTitle="New Session">
       <section className="flex min-h-full items-center justify-center px-5 py-12 sm:px-8">

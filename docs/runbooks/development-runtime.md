@@ -64,19 +64,23 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, verifies its deployment-managed email, enables email-as-username self-registration with required email verification, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential client `memoryos-web`, enforces Authorization Code with S256 PKCE, and sets the deployment-managed browser client secret.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, verifies its deployment-managed email, enables email-as-username self-registration with required email verification, configures realm SMTP, retains public client `memoryos-integration`, and reconciles confidential clients `memoryos-web` and `memoryos-mailpit` with Authorization Code and mandatory S256 PKCE. It sets both deployment-managed client secrets.
 
 Required operator environment:
 
 ```text
 KEYCLOAK_URL
 KEYCLOAK_ADMIN_USERNAME
+KEYCLOAK_ADMIN_REALM # defaults to master for the bootstrap administrator
 KC_CLI_PASSWORD
 MEMORYOS_INITIAL_OWNER_USERNAME
 MEMORYOS_INITIAL_OWNER_EMAIL
+MEMORYOS_INITIAL_OWNER_SUBJECT # optional exact existing subject; prevents username-only rediscovery
 MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD # required only when the user does not exist
 MEMORYOS_BROWSER_CLIENT_SECRET
 MEMORYOS_BROWSER_REDIRECT_URI # one exact HTTPS callback, or one loopback callback for local verification
+MEMORYOS_MAILPIT_PUBLIC_URL # exact HTTPS nip.io origin
+MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_SMTP_HOST
 MEMORYOS_KEYCLOAK_SMTP_PORT # defaults to 587
 MEMORYOS_KEYCLOAK_SMTP_FROM
@@ -88,7 +92,7 @@ MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 ```
 
-Run the script from a controlled operator shell with `jq` available. Its account needs realm, user, and client management permissions required by the script; do not grant the application, owner, or invited members those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback; wildcards and non-loopback HTTP origins are rejected. SMTP credentials remain managed operator values. Keycloak receives them in a partial realm update over stdin and sends recipient verification email itself; MemoryOS does not call the Admin API, hold SMTP credentials, or send account-verification mail. The script reads operator and SMTP passwords from environment and never prints them.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; set `KEYCLOAK_ADMIN_REALM` only when using a different deployment-managed administrative realm. Its account needs realm, user, and client management permissions required by the script; do not grant the application, owner, or invited members those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback and `MEMORYOS_MAILPIT_PUBLIC_URL` to the exact HTTPS nip.io origin; wildcards and non-loopback HTTP origins are rejected. SMTP and OAuth2 client credentials remain managed operator values. Keycloak receives them through environment/stdin channels and sends recipient verification email itself; MemoryOS does not call the Admin API, hold SMTP credentials, or send account-verification mail. The script reads passwords and client secrets from environment and never prints them.
 
 Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
 
@@ -137,7 +141,62 @@ Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`,
 
 ## Run the hardened staging stack
 
-MemoryOS Compose owns PostgreSQL, shared Keycloak, API, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume. The Keycloak database contains both products' runtime realm data, but this repository provisions only the `memoryos` realm.
+MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mailbox and OAuth2 Proxy, API, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume. The Keycloak database contains both products' runtime realm data, but this repository provisions only the `memoryos` realm.
+
+### Publish the staging application
+
+The temporary staging origin is `https://memoryos.72-62-193-33.nip.io`. Configure Nginx Proxy Manager to forward HTTP to `memoryos-web:8080` on `proxy-network` with WebSockets, exploit blocking, forced HTTPS, HTTP/2, HSTS, and an exact-domain Let's Encrypt certificate. Reconcile `memoryos-web` with:
+
+```text
+MEMORYOS_BROWSER_REDIRECT_URI=https://memoryos.72-62-193-33.nip.io/login/oauth2/code/memoryos
+```
+
+The reconciliation derives the public origin, sets it as the client root/web origin, and retains only that exact callback. Open the HTTPS origin—not a server loopback port—so the staging API's `Secure` JDBC-session cookie survives the OAuth callback.
+
+### Provision the staging mailbox
+
+Mailpit captures development verification mail and never relays it to external recipients. SMTP is reachable only as `mailpit:1025` on the internal Compose network, requires basic authentication after STARTTLS, and uses a private CA trusted by Keycloak through `KC_TRUSTSTORE_PATHS`. Mailpit itself never joins the public proxy network.
+
+Before the first start, create the persistent mailbox directory, SMTP material, OAuth2 client/cookie secrets, and exact owner-email allowlist. `MEMORYOS_MAILPIT_ALLOWED_EMAIL` must be the initial owner's verified Keycloak email:
+
+```text
+MEMORYOS_MAILPIT_ALLOWED_EMAIL=<verified-owner-email> \
+MEMORYOS_MAILPIT_DATA_DIRECTORY=/apps/memoryos/mailpit \
+  infrastructure/mailpit/provision-staging-secrets.sh /apps/memoryos/secrets/mailpit
+```
+
+The command is idempotent, adds the OAuth2 files without rotating an existing complete SMTP set, refuses partial secret sets, and prints only the SMTP certificate fingerprint. Every generated file remains mode `0600`. Copy the Mailpit keys from `staging.env.example` into `/apps/memoryos/.env.staging`; set `MEMORYOS_MAILPIT_UID` and `MEMORYOS_MAILPIT_GID` to the owner of `/apps/memoryos/mailpit`.
+
+Reconcile Keycloak with `MEMORYOS_KEYCLOAK_SMTP_HOST=mailpit`, port `1025`, authentication and STARTTLS enabled, SSL disabled, username `memoryos-keycloak`, and the generated SMTP password. Load `MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET` from `oauth2-client-secret.txt` without printing it and use `https://memoryos-mail.72-62-193-33.nip.io` as `MEMORYOS_MAILPIT_PUBLIC_URL`. The configured From address may use a reserved development domain because Mailpit captures rather than relays the message.
+
+The Compose-owned `memoryos-mailpit-oauth2-proxy` is the only public route to the mailbox. It uses Keycloak OIDC, S256 PKCE, a secure minimal cookie, file-mounted client/cookie secrets, and `oauth2-allowed-emails.txt`; unlike the existing pgweb proxy, it does not admit every realm email. Configure Nginx Proxy Manager with:
+
+```text
+domain=memoryos-mail.72-62-193-33.nip.io
+scheme=http
+forward-host=memoryos-mailpit-oauth2-proxy
+forward-port=4180
+websockets=true
+block-exploits=true
+force-ssl=true
+http2=true
+hsts=true
+certificate=Let's Encrypt for the exact domain
+```
+
+Operators retain a loopback-only fallback through an SSH tunnel:
+
+```text
+ssh -o ExitOnForwardFailure=yes -N -L 18025:127.0.0.1:18025 <operator>@<memoryos-host>
+```
+
+Use `https://memoryos-mail.72-62-193-33.nip.io` for normal browser access and `http://127.0.0.1:18025` only through the tunnel. Mailpit evidence proves Keycloak email generation and verification-link handling in staging; it does not prove public-domain deliverability, SPF, DKIM, DMARC, or provider retry behavior.
+
+### Run the protected database viewer
+
+The separately deployed `/apps/memoryos-pgweb` stack uses `memoryos-postgres:5432/memoryos` over the external declaration of the existing `memoryos-internal` network. It must not use the legacy `zeromail-postgres` container or `shared-postgres` alias. Its dedicated `memoryos_pgweb` role has `CONNECT`, schema `USAGE`, and `SELECT` only; `default_transaction_read_only=on` remains a second guard. The pgweb service joins only its private backend and `memoryos-internal`; its OAuth2 Proxy joins the private backend and public proxy network.
+
+Run `/apps/memoryos-pgweb/provision.py` after changing its database target. The provisioner preserves existing database/OIDC/cookie secrets, creates or updates `memoryos_pgweb` in the current PostgreSQL container, grants read-only access to current and future `memoryos_app` tables/sequences, and reconciles the existing `memoryos-pgweb` S256 client through the current `memoryos-shared-keycloak` container. Recreate the stack with its mode-`0600` environment file and verify that `https://memoryos-db.72-62-193-33.nip.io` still enters the Keycloak authorization flow.
 
 Build immutable API and web images from the same reviewed commit and tag both with the full source SHA:
 

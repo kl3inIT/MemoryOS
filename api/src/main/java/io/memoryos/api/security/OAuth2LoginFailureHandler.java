@@ -14,7 +14,7 @@ import org.springframework.security.web.DefaultRedirectStrategy;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 
-final class BrowserAuthenticationFailureHandler implements AuthenticationFailureHandler {
+final class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
 
     private static final String ACCESS_NOT_PROVISIONED_DESTINATION = "/access-not-provisioned";
     private static final String INVITATION_FAILURE_DESTINATION = "/invitation?reason=authentication-failed";

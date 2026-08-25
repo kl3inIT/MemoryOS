@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { IdentityGate } from "@/features/identity/identity-gate";
+import { ApplicationSessionBoundary } from "@/features/identity/application-session-boundary";
 
 export const Route = createFileRoute("/")({
-  component: IdentityGate,
+  component: ApplicationSessionBoundary,
 });
