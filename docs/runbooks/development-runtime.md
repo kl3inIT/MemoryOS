@@ -75,6 +75,7 @@ KEYCLOAK_ADMIN_REALM # defaults to master for the bootstrap administrator
 KC_CLI_PASSWORD
 MEMORYOS_INITIAL_OWNER_USERNAME
 MEMORYOS_INITIAL_OWNER_EMAIL
+MEMORYOS_INITIAL_OWNER_SUBJECT # optional exact existing subject; prevents username-only rediscovery
 MEMORYOS_INITIAL_OWNER_TEMPORARY_PASSWORD # required only when the user does not exist
 MEMORYOS_BROWSER_CLIENT_SECRET
 MEMORYOS_BROWSER_REDIRECT_URI # one exact HTTPS callback, or one loopback callback for local verification

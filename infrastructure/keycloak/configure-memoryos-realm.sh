@@ -177,6 +177,22 @@ configure_self_registration() {
 configure_self_registration
 
 find_initial_owner_uuid() {
+    if [ -n "${MEMORYOS_INITIAL_OWNER_SUBJECT:-}" ]; then
+        row=$("$KCADM" get "users/$MEMORYOS_INITIAL_OWNER_SUBJECT" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            --fields id,username)
+        matches=$(printf '%s\n' "$row" |
+            jq -c '[select(.id == env.MEMORYOS_INITIAL_OWNER_SUBJECT and .username == env.MEMORYOS_INITIAL_OWNER_USERNAME)]')
+        count=$(printf '%s\n' "$matches" | jq -r 'length')
+        if [ "$count" -ne 1 ]; then
+            echo "configured initial owner subject does not match the expected username" >&2
+            exit 1
+        fi
+        printf '%s\n' "$matches" | jq -r '.[0].id'
+        return
+    fi
+
     rows=$("$KCADM" get users \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
