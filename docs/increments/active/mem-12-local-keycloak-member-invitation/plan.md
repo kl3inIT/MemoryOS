@@ -36,7 +36,7 @@
 
 ## Product experience
 
-- [x] Add `People` administration navigation and a production invitations page using the existing app-shell and semantic token system.
+- [x] Add `Invitations` administration navigation and a production invitations page using the existing app-shell and semantic token system.
 - [x] Implement one-email invitation dialog, validation, submit progress, and plain-language error handling with Onyx/Opal interaction quality.
 - [x] Show pending, accepted, expired, and revoked invitations without exposing digests or secrets.
 - [x] Provide copy/share for a newly created or rotated link, plus revoke and rotate recovery actions.

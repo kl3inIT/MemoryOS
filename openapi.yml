@@ -13,15 +13,61 @@ paths:
       - invitation-controller
       summary: List the current owner's Organization invitations
       operationId: listInvitations
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - EXPIRED
+          - REVOKED
+      - name: email
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: CREATED_AT_DESC
+          enum:
+          - CREATED_AT_DESC
+          - CREATED_AT_ASC
+          - EMAIL_ASC
+          - EMAIL_DESC
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
       responses:
         "200":
-          description: Invitation lifecycle records without plaintext secrets
+          description: A bounded page of invitation lifecycle records without plaintext
+            secrets
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Invitation"
+                $ref: "#/components/schemas/InvitationPage"
+        "400":
+          description: Invalid invitation list query
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "401":
           description: No accepted authentication is present
         "403":
@@ -285,6 +331,37 @@ components:
       required:
       - invitation
       - invitationUrl
+    InvitationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invitation"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
     CurrentInvitation:
       type: object
       additionalProperties: false

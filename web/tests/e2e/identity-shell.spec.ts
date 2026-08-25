@@ -159,7 +159,9 @@ test("recovers from an unavailable identity endpoint without treating it as sign
   await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
 });
 
-test("creates a production invitation from the People administration page", async ({ page }) => {
+test("creates a production invitation from the Invitations administration page", async ({
+  page,
+}) => {
   const expiresAt = "2026-08-24T10:00:00Z";
   const invitations: Array<Record<string, unknown>> = [];
   let createMutationHeader: string | undefined;
@@ -172,7 +174,11 @@ test("creates a production invitation from the People administration page", asyn
       body: JSON.stringify({ actorId: ACTOR_ID }),
     });
   });
-  await page.route("**/api/invitations", async (route) => {
+  await page.route("**/api/invitations*", async (route) => {
+    if (new URL(route.request().url()).pathname !== "/api/invitations") {
+      await route.fallback();
+      return;
+    }
     if (route.request().method() === "POST") {
       createMutationHeader = route.request().headers()["x-memoryos-csrf"];
       const invitation = {
@@ -199,7 +205,13 @@ test("creates a production invitation from the People administration page", asyn
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(invitations),
+      body: JSON.stringify({
+        items: invitations,
+        page: 0,
+        size: 20,
+        totalItems: invitations.length,
+        totalPages: invitations.length === 0 ? 0 : 1,
+      }),
     });
   });
   await page.route("**/api/invitations/**", async (route) => {
@@ -229,12 +241,12 @@ test("creates a production invitation from the People administration page", asyn
     await route.fulfill({ status: 405 });
   });
 
-  await page.goto("/admin/people");
-  await expect(page.getByRole("link", { name: "People", exact: true })).toHaveAttribute(
+  await page.goto("/admin/invitations");
+  await expect(page.getByRole("link", { name: "Invitations", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
-  await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Invitations", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Invite member" }).click();
   await page.getByRole("textbox", { name: "Email address" }).fill("member@example.com");
   await page.getByRole("button", { name: "Create invitation" }).click();
@@ -251,16 +263,97 @@ test("creates a production invitation from the People administration page", asyn
   await expect(page.getByText("The invitation link could not be copied.")).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByText("member@example.com")).toBeVisible();
-  await expect(page.getByText("Pending", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Rotate link" }).click();
+  await expect(
+    page.getByRole("table", { name: "Organization invitations" }).getByText("Pending", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Rotate invitation link for member@example.com" }).click();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/rotated-secret$/,
   );
   await page.getByRole("button", { name: "Done" }).click();
-  await page.getByRole("button", { name: "Revoke" }).click();
-  await expect(page.getByText("Revoked", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Rotate link" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Revoke invitation for member@example.com" }).click();
+  await expect(
+    page.getByRole("table", { name: "Organization invitations" }).getByText("Revoked", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Rotate invitation link for member@example.com" }),
+  ).toHaveCount(0);
   expect(deleteMutationHeader).toBe("1");
+});
+test("restores and updates the server-driven invitation view from the URL", async ({ page }) => {
+  const invitations = Array.from({ length: 25 }, (_, index) => ({
+    id: `75c4e810-e1f2-45cb-9480-${String(index + 1).padStart(12, "0")}`,
+    email: `member${String(index + 1).padStart(2, "0")}@example.com`,
+    status: index === 24 ? "REVOKED" : "PENDING",
+    createdAt: new Date(Date.parse("2026-08-21T10:00:00Z") + index * 60_000).toISOString(),
+    expiresAt: "2026-08-24T10:00:00Z",
+    acceptedActorId: null,
+    acceptedAt: null,
+    revokedAt: index === 24 ? "2026-08-21T11:00:00Z" : null,
+  }));
+
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ actorId: ACTOR_ID }),
+    });
+  });
+  await page.route("**/api/invitations?*", async (route) => {
+    const url = new URL(route.request().url());
+    const status = url.searchParams.get("status");
+    const email = url.searchParams.get("email")?.toLowerCase();
+    const sort = url.searchParams.get("sort") ?? "CREATED_AT_DESC";
+    const pageIndex = Number(url.searchParams.get("page") ?? 0);
+    const pageSize = Number(url.searchParams.get("size") ?? 20);
+    const filtered = invitations
+      .filter((invitation) => !status || invitation.status === status)
+      .filter((invitation) => !email || invitation.email.includes(email))
+      .toSorted((left, right) => {
+        if (sort === "EMAIL_ASC") return left.email.localeCompare(right.email);
+        if (sort === "EMAIL_DESC") return right.email.localeCompare(left.email);
+        if (sort === "CREATED_AT_ASC") return left.createdAt.localeCompare(right.createdAt);
+        return right.createdAt.localeCompare(left.createdAt);
+      });
+    const start = pageIndex * pageSize;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: filtered.slice(start, start + pageSize),
+        page: pageIndex,
+        size: pageSize,
+        totalItems: filtered.length,
+        totalPages: Math.ceil(filtered.length / pageSize),
+      }),
+    });
+  });
+
+  await page.goto("/admin/invitations?status=PENDING&email=member&sort=EMAIL_ASC&page=1&size=20");
+
+  await expect(page.getByText("member21@example.com")).toBeVisible();
+  await expect(page.getByText("Showing 21–24 of 24")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+
+  await page.getByRole("button", { name: "Created" }).click();
+  await expect(page).toHaveURL(
+    /\/admin\/invitations\?status=PENDING&email=member&sort=CREATED_AT_DESC&page=0&size=20/,
+  );
+
+  await page.getByRole("searchbox", { name: "Email" }).fill("member02");
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(page).toHaveURL(/email=member02/);
+  await expect(page).toHaveURL(/page=0/);
+  await expect(page.getByText("member02@example.com")).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Rows per page" }).selectOption("50");
+  await expect(page).toHaveURL(/size=50/);
+  await page.reload();
+  await expect(page.getByText("member02@example.com")).toBeVisible();
 });
 
 test("shows the recipient invitation landing and recovery states", async ({ page }) => {

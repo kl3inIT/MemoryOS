@@ -14,7 +14,10 @@ import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
 import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
 import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.InvitationQuery;
+import io.memoryos.invitation.InvitationSort;
 import io.memoryos.invitation.InvitationStatus;
+import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.persistence.JdbcInvitationRepository;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationService;
@@ -125,11 +128,68 @@ class DefaultInvitationServiceTest {
         assertEquals(InvitationStatus.PENDING, issued.invitation().status());
         assertEquals(43, issued.plaintextSecret().length());
         assertEquals(START.plus(Duration.ofHours(72)), issued.invitation().expiresAt());
-        assertEquals(issued.invitation(), invitations.list(ownerActorId).getFirst());
+        assertEquals(issued.invitation(), invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst());
         assertNotEquals(issued.plaintextSecret(), scalar("secret_digest"));
         assertFalse(databaseContains(issued.plaintextSecret()));
         assertEquals("member@example.com", scalar("open_email_key"));
     }
+    @Test
+    void filtersSortsAndPaginatesInvitationHistory() {
+        invitations.issue(ownerActorId, "zeta@example.com");
+        clock.advance(Duration.ofSeconds(1));
+        var revoked = invitations.issue(ownerActorId, "alpha@example.com");
+        invitations.revoke(ownerActorId, revoked.invitation().id());
+        clock.advance(Duration.ofSeconds(1));
+        invitations.issue(ownerActorId, "beta@example.com");
+
+        var firstPendingPage = invitations.list(
+                ownerActorId,
+                new InvitationQuery(InvitationStatus.PENDING, "@EXAMPLE.COM", InvitationSort.EMAIL_ASC, 0, 1)
+        );
+        var secondPendingPage = invitations.list(
+                ownerActorId,
+                new InvitationQuery(InvitationStatus.PENDING, "@example.com", InvitationSort.EMAIL_ASC, 1, 1)
+        );
+        var revokedPage = invitations.list(
+                ownerActorId,
+                new InvitationQuery(InvitationStatus.REVOKED, "ALPHA", InvitationSort.CREATED_AT_DESC, 0, 20)
+        );
+        var outOfRangePage = invitations.list(
+                ownerActorId,
+                new InvitationQuery(null, null, InvitationSort.CREATED_AT_DESC, 10, 20)
+        );
+
+        assertEquals(2L, firstPendingPage.totalItems());
+        assertEquals(2L, firstPendingPage.totalPages());
+        assertEquals("beta@example.com", firstPendingPage.items().getFirst().email());
+        assertEquals("zeta@example.com", secondPendingPage.items().getFirst().email());
+        assertEquals(1L, revokedPage.totalItems());
+        assertEquals("alpha@example.com", revokedPage.items().getFirst().email());
+        assertTrue(outOfRangePage.items().isEmpty());
+        assertEquals(3L, outOfRangePage.totalItems());
+        assertEquals(1L, outOfRangePage.totalPages());
+    }
+
+    @Test
+    void usesInvitationIdAsTheStableTieBreakerForEqualSortValues() {
+        invitations.issue(ownerActorId, "first@example.com");
+        invitations.issue(ownerActorId, "second@example.com");
+        var expectedIds = jdbcClient.sql("""
+                        SELECT id
+                        FROM organization_invitations
+                        ORDER BY id
+                        """)
+                .query(UUID.class)
+                .list();
+
+        var page = invitations.list(
+                ownerActorId,
+                new InvitationQuery(null, null, InvitationSort.CREATED_AT_DESC, 0, 20)
+        );
+
+        assertEquals(expectedIds, page.items().stream().map(InvitationView::id).toList());
+    }
+
 
     @Test
     void requiresAnActiveOwnerAndValidEmail() {
@@ -173,7 +233,7 @@ class DefaultInvitationServiceTest {
         assertEquals(rotated.invitation().id(), invitations.intake(rotated.plaintextSecret()).invitationId());
 
         invitations.revoke(ownerActorId, rotated.invitation().id());
-        assertEquals(InvitationStatus.REVOKED, invitations.list(ownerActorId).getFirst().status());
+        assertEquals(InvitationStatus.REVOKED, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
         assertEquals(
                 InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                 assertThrows(
@@ -188,7 +248,7 @@ class DefaultInvitationServiceTest {
         var expired = invitations.issue(ownerActorId, "member@example.com");
         clock.advance(Duration.ofHours(73));
 
-        assertEquals(InvitationStatus.EXPIRED, invitations.list(ownerActorId).getFirst().status());
+        assertEquals(InvitationStatus.EXPIRED, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
         assertEquals(
                 InvitationFailureReason.INVITATION_NOT_AVAILABLE,
                 assertThrows(
@@ -225,7 +285,7 @@ class DefaultInvitationServiceTest {
                 .single());
         assertEquals("MEMBER", membershipRole("organization_memberships", member));
         assertEquals("MEMBER", membershipRole("workspace_memberships", member));
-        var accepted = invitations.list(ownerActorId).getFirst();
+        var accepted = invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst();
         assertEquals(InvitationStatus.ACCEPTED, accepted.status());
         assertEquals(member, accepted.acceptedActorId());
         assertEquals(
@@ -294,7 +354,7 @@ class DefaultInvitationServiceTest {
         assertEquals(InvitationFailureReason.EMAIL_MISMATCH, mismatch.reason());
         assertEquals(1L, count("actors"));
         assertEquals(1L, count("external_identity_bindings"));
-        assertEquals(InvitationStatus.PENDING, invitations.list(ownerActorId).getFirst().status());
+        assertEquals(InvitationStatus.PENDING, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
     }
 
     @Test

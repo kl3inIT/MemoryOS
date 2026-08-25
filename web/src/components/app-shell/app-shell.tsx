@@ -6,7 +6,7 @@ import {
   PanelLeftOpen,
   Plug,
   Settings2,
-  Users,
+  UserPlus,
   X,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -19,7 +19,7 @@ import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { cn } from "@/lib/utils";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "people";
+export type AdminPage = "sources" | "invitations";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -128,13 +128,13 @@ function SidebarContents({
           <div className="space-y-5">
             <SidebarSection title="Organization" collapsed={collapsed}>
               <SidebarTab
-                href="/admin/people"
-                icon={<Users className="size-4" />}
-                selected={adminPage === "people"}
+                href="/admin/invitations"
+                icon={<UserPlus className="size-4" />}
+                selected={adminPage === "invitations"}
                 collapsed={collapsed}
                 onClick={onNavigate}
               >
-                People
+                Invitations
               </SidebarTab>
             </SidebarSection>
             <SidebarSection title="Knowledge" collapsed={collapsed}>

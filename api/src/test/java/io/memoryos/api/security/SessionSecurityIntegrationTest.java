@@ -309,6 +309,75 @@ class SessionSecurityIntegrationTest {
             jdbcClient.sql("DELETE FROM spring_session").update();
         }
     }
+    @Test
+    void filtersSortsAndPaginatesInvitationHistoryOverHttp() throws Exception {
+        AUTHENTICATING_SUBJECT.set("initial-owner");
+        AUTHENTICATING_EMAIL.set("owner@example.test");
+        AUTHENTICATING_EMAIL_VERIFIED.set(true);
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var client = client(cookies)) {
+            completeOAuth(client, "/oauth2/authorization/memoryos");
+            var alpha = client.send(
+                    invitationMutation("{\"email\":\"alpha@example.test\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var zeta = client.send(
+                    invitationMutation("{\"email\":\"zeta@example.test\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var beta = client.send(
+                    invitationMutation("{\"email\":\"beta@example.test\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(201, alpha.statusCode());
+            assertEquals(201, zeta.statusCode());
+            assertEquals(201, beta.statusCode());
+
+            var revokeAlpha = client.send(
+                    HttpRequest.newBuilder(baseUri().resolve(
+                                    "/api/invitations/" + jsonString(alpha.body(), "id")
+                            ))
+                            .header(BROWSER_MUTATION_HEADER, "1")
+                            .DELETE()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(204, revokeAlpha.statusCode());
+
+            var firstPage = client.send(
+                    request("/api/invitations?status=PENDING&email=%40example.test"
+                            + "&sort=EMAIL_ASC&page=0&size=1"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var secondPage = client.send(
+                    request("/api/invitations?status=PENDING&email=%40example.test"
+                            + "&sort=EMAIL_ASC&page=1&size=1"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            assertEquals(200, firstPage.statusCode());
+            assertTrue(firstPage.body().contains("\"totalItems\":2"));
+            assertTrue(firstPage.body().contains("\"totalPages\":2"));
+            assertTrue(firstPage.body().contains("beta@example.test"));
+            assertFalse(firstPage.body().contains("alpha@example.test"));
+            assertEquals(200, secondPage.statusCode());
+            assertTrue(secondPage.body().contains("zeta@example.test"));
+
+            var invalidPageSize = client.send(
+                    request("/api/invitations?size=101"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(400, invalidPageSize.statusCode());
+            assertEquals("application/problem+json", invalidPageSize
+                    .headers().firstValue("content-type").orElseThrow());
+            assertEquals("/api/invitations", jsonString(invalidPageSize.body(), "instance"));
+        } finally {
+            jdbcClient.sql("DELETE FROM organization_invitations").update();
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
 
     @Test
     void derivesTheOAuthCallbackFromTheForwardedHttpsOrigin() throws Exception {

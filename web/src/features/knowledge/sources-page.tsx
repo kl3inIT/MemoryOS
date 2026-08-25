@@ -1,7 +1,7 @@
 import { DatabaseZap } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 
-export function AdminShell() {
+export function SourcesPage() {
   return (
     <AppShell area="admin" pageTitle="Sources">
       <section className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">

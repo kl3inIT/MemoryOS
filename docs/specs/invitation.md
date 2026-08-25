@@ -18,7 +18,7 @@ Identity and organization never depend on invitation. Invitation persistence own
 An active Organization `OWNER` may:
 
 - create one invitation for one normalized email;
-- list invitation lifecycle metadata;
+- list bounded invitation lifecycle metadata with optional status/email filtering and allowlisted sorting;
 - rotate a pending invitation, returning a replacement plaintext secret once;
 - revoke a pending invitation.
 
@@ -35,6 +35,14 @@ Plaintext secrets are absent from list responses, logs, JDBC sessions, exception
 Stored states are `PENDING`, `ACCEPTED`, `EXPIRED`, and `REVOKED`. Expiry is settled from durable `expires_at` without a background runtime mode. A database constraint permits at most one pending invitation for one normalized email in one Organization while preserving settled lifecycle evidence.
 
 The invitation row records Organization/default-Workspace scope, normalized email, secret digest, creator, expiry, and accepted or revoked lifecycle facts. Foreign keys prevent cross-Organization Workspace grants and reference stable actors for creator/consumer evidence.
+
+## Invitation history query
+
+The owner list is Organization-scoped by durable authority; clients never submit an Organization selector. `GET /api/invitations` accepts optional lifecycle status and normalized-email filters, an allowlisted invitation sort, a zero-based page, and a bounded page size. Defaults are newest-first, page `0`, and size `20`; the maximum size is `100`.
+
+The response contains invitation items plus page, size, total-item, and total-page metadata. Count and selection use the same filter after pending expiry is settled in the same transaction. Every order appends invitation ID as a deterministic tie-breaker. Invalid negative/bounded input returns the RFC 9457 validation contract; a valid page beyond the result is empty with unchanged totals.
+
+Invitation administration deliberately uses offset pagination because operators need filters, totals, and numbered pages over bounded lifecycle history. Future high-churn append feeds such as audit use cursor pagination under their own contract.
 
 ## Intake continuation
 
@@ -64,7 +72,7 @@ Browser intake and OAuth flows continue to catch `InvitationException` directly 
 
 ## Product surface
 
-The owner uses `Admin Panel` → `People` to create, list, rotate, and revoke invitations. Create and rotate expose an immediate copy/share link. Recipient surfaces identify the workspace, lead into local Keycloak sign-in/account creation, and provide plain-language recovery for unavailable, unverified, or mismatched invitations.
+The owner uses `Admin Panel` → `Invitations` at `/admin/invitations` to create, filter, sort, page, rotate, and revoke invitation lifecycle records. TanStack Router search parameters are the canonical browser view state; the generated query key includes status, email, sort, page, and size. Create and rotate expose an immediate copy/share link. Recipient surfaces identify the workspace, lead into local Keycloak sign-in/account creation, and provide plain-language recovery for unavailable, unverified, or mismatched invitations.
 
 Copy/share is the complete delivery contract. Email delivery is not implemented without a concrete provider and observable production failure behavior.
 

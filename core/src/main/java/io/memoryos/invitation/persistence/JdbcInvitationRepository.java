@@ -2,6 +2,8 @@ package io.memoryos.invitation.persistence;
 
 import io.memoryos.identity.ActorId;
 import io.memoryos.invitation.InvitationStatus;
+import io.memoryos.invitation.InvitationQuery;
+import io.memoryos.invitation.InvitationSort;
 import io.memoryos.organization.OrganizationId;
 import io.memoryos.organization.WorkspaceId;
 
@@ -71,11 +73,16 @@ public class JdbcInvitationRepository {
             )
             """;
 
-    private static final String SELECT_INVITATIONS = """
+    private static final String COUNT_INVITATIONS = """
+            SELECT count(*)
+            FROM organization_invitations invitation
+            WHERE invitation.organization_id = :organizationId
+            """;
+
+    private static final String SELECT_INVITATION_PAGE = """
             SELECT invitation.*
             FROM organization_invitations invitation
             WHERE invitation.organization_id = :organizationId
-            ORDER BY invitation.created_at DESC, invitation.id
             """;
 
     private static final String LOCK_INVITATION = """
@@ -170,11 +177,35 @@ public class JdbcInvitationRepository {
                 .update();
     }
 
-    public List<InvitationRow> findAll(OrganizationId organizationId) {
-        return jdbcClient.sql(SELECT_INVITATIONS)
+    public long count(OrganizationId organizationId, InvitationQuery query) {
+        var statement = jdbcClient.sql(COUNT_INVITATIONS + filterClause(query))
+                .param("organizationId", organizationId.value());
+        if (query.status() != null) {
+            statement = statement.param("status", query.status().name());
+        }
+        if (query.email() != null) {
+            statement = statement.param("email", query.email());
+        }
+        return statement.query(Long.class).single();
+    }
+
+    public List<InvitationRow> findPage(OrganizationId organizationId, InvitationQuery query) {
+        var statement = jdbcClient.sql(
+                        SELECT_INVITATION_PAGE
+                                + filterClause(query)
+                                + orderClause(query.sort())
+                                + " LIMIT :size OFFSET :offset"
+                )
                 .param("organizationId", organizationId.value())
-                .query((resultSet, ignored) -> row(resultSet))
-                .list();
+                .param("size", query.size())
+                .param("offset", query.offset());
+        if (query.status() != null) {
+            statement = statement.param("status", query.status().name());
+        }
+        if (query.email() != null) {
+            statement = statement.param("email", query.email());
+        }
+        return statement.query((resultSet, ignored) -> row(resultSet)).list();
     }
 
     public Optional<InvitationRow> findLocked(OrganizationId organizationId, UUID invitationId) {
@@ -218,6 +249,26 @@ public class JdbcInvitationRepository {
                 .param("actorId", actorId.value())
                 .param("now", sqlTime(now))
                 .update();
+    }
+
+    private static String filterClause(InvitationQuery query) {
+        StringBuilder filters = new StringBuilder();
+        if (query.status() != null) {
+            filters.append(" AND invitation.status = :status");
+        }
+        if (query.email() != null) {
+            filters.append(" AND POSITION(:email IN invitation.normalized_email) > 0");
+        }
+        return filters.toString();
+    }
+
+    private static String orderClause(InvitationSort sort) {
+        return switch (sort) {
+            case CREATED_AT_DESC -> " ORDER BY invitation.created_at DESC, invitation.id ASC";
+            case CREATED_AT_ASC -> " ORDER BY invitation.created_at ASC, invitation.id ASC";
+            case EMAIL_ASC -> " ORDER BY invitation.normalized_email ASC, invitation.id ASC";
+            case EMAIL_DESC -> " ORDER BY invitation.normalized_email DESC, invitation.id ASC";
+        };
     }
 
     private static InvitationRow row(ResultSet resultSet) throws SQLException {
