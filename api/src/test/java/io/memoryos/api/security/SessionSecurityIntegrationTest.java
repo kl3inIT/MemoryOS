@@ -357,12 +357,26 @@ class SessionSecurityIntegrationTest {
             );
 
             assertEquals(200, firstPage.statusCode());
-            assertTrue(firstPage.body().contains("\"totalItems\":2"));
-            assertTrue(firstPage.body().contains("\"totalPages\":2"));
-            assertTrue(firstPage.body().contains("beta@example.test"));
-            assertFalse(firstPage.body().contains("alpha@example.test"));
+            var firstPageJson = io.swagger.v3.core.util.Json.mapper().readTree(firstPage.body());
+            assertEquals(0, firstPageJson.path("page").asInt());
+            assertEquals(1, firstPageJson.path("size").asInt());
+            assertEquals(2L, firstPageJson.path("totalItems").asLong());
+            assertEquals(2L, firstPageJson.path("totalPages").asLong());
+            assertEquals(1, firstPageJson.path("items").size());
+            assertEquals(
+                    "beta@example.test",
+                    firstPageJson.path("items").get(0).path("email").asText()
+            );
+
             assertEquals(200, secondPage.statusCode());
-            assertTrue(secondPage.body().contains("zeta@example.test"));
+            var secondPageJson = io.swagger.v3.core.util.Json.mapper().readTree(secondPage.body());
+            assertEquals(1, secondPageJson.path("page").asInt());
+            assertEquals(1, secondPageJson.path("size").asInt());
+            assertEquals(1, secondPageJson.path("items").size());
+            assertEquals(
+                    "zeta@example.test",
+                    secondPageJson.path("items").get(0).path("email").asText()
+            );
 
             var invalidPageSize = client.send(
                     request("/api/invitations?size=101"),
