@@ -50,4 +50,4 @@
 - [x] Exercise filter, sort, pagination, refresh/deep link, empty/error, and rotate/revoke behavior in Chromium at desktop and narrow widths.
 - [x] Run repository-wide `gradlew.bat clean check --no-daemon` under bounded local JVM settings and `pnpm check` after focused behavior passes.
 - [x] Consolidate durable facts into conventions, invitation specs, and the verification matrix; keep the increment active until its guarded PR merges.
-- [ ] Complete the guarded PR review, exact-head merge, merge-SHA CI, Linear closure, and increment move to `completed/`.
+- [x] Complete the guarded PR #29 review/fix/merge, corrective PR #30 rate-limit fallback/merge, exact merge-SHA CI, Linear closure, and increment move to `completed/`.

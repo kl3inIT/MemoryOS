@@ -49,4 +49,9 @@ Evidence is appended here only after the corresponding command or runtime scenar
 - Browser-tool inspection at `1440 × 900` rendered 25 server records with explicit status/lifecycle columns, contextual row actions, filter controls, result count, and pagination. Inspection at `390 × 844` kept body width equal to viewport width, stacked the filter controls, exposed the table through its horizontal container, and retained the mobile application header.
 - The naming audit removed `/admin/people`, the `People` navigation/page discriminator, and the generic `AdminShell`; the resource routes are `/admin/invitations` and `/admin`, backed by `OrganizationInvitationsPage` and `SourcesPage`.
 
-The increment remains active pending guarded PR review, merge-SHA CI, Linear closure, and the repository-required move to `completed/`.
+- PR #29 reviewed head `934dcf6fd2310c9e9d14e69edf4dd8a6f5281aae` passed latest-head CI `32877425377` and merged as `d9cfa9954fd99441a90bf5603afcdc3fb0fd78a4`; exact main CI `32877956194` passed.
+- The original review evidence collection initially acted on one of four inline findings because displayed paginated output was truncated. Corrective PR #30 added OpenAPI integer bounds, hoisted the date formatter, and moved TanStack body rendering to declared column cells plus `FlexRender`. Its reviewed head `306d273c032543d077b88be6876de84e547e970f` passed CI `32879179639`; CodeRabbit explicitly rate-limited the one requested pass, while the complete fallback collection found no comments or threads.
+- PR #30 merged as `9b083ad9e2c00d8938d9b7fd98aadc2f19dd9142`; exact main CI `32879513229` passed `check`, `frontend`, and `frontend-image`, including 11/11 Chromium contracts.
+- Staging API and web images are labeled with exact final merge SHA `9b083ad9e2c00d8938d9b7fd98aadc2f19dd9142`, both containers are healthy, public `/actuator/health` returns `UP`, and the anonymous bounded invitation request retains its expected `401` authorization boundary.
+
+The increment is delivered and moves to `completed/`; Linear closes only after this lifecycle record merges.
