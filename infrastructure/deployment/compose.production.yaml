@@ -53,6 +53,61 @@ services:
           memory: 128m
         reservations:
           memory: 32m
+  mailpit-oauth2-proxy:
+    <<: *service-defaults
+    image: ${MEMORYOS_OAUTH2_PROXY_IMAGE:?Set MEMORYOS_OAUTH2_PROXY_IMAGE}
+    container_name: memoryos-mailpit-oauth2-proxy
+    command:
+      - --http-address=0.0.0.0:4180
+      - --provider=keycloak-oidc
+      - --oidc-issuer-url=${MEMORYOS_KEYCLOAK_HOSTNAME:-https://auth.kl3in.tech}/realms/memoryos
+      - --client-id=memoryos-mailpit
+      - --client-secret-file=/run/secrets/mailpit_oauth2_client_secret
+      - --redirect-url=${MEMORYOS_MAILPIT_PUBLIC_URL:?Set MEMORYOS_MAILPIT_PUBLIC_URL}/oauth2/callback
+      - --upstream=http://mailpit:8025/
+      - --authenticated-emails-file=/run/secrets/mailpit_oauth2_allowed_emails
+      - --scope=openid profile email
+      - --code-challenge-method=S256
+      - --cookie-secret-file=/run/secrets/mailpit_oauth2_cookie_secret
+      - --cookie-name=_memoryos_mailpit
+      - --cookie-secure=true
+      - --cookie-samesite=lax
+      - --cookie-refresh=5m
+      - --cookie-expire=8h
+      - --session-cookie-minimal=true
+      - --reverse-proxy=true
+      - --trusted-proxy-ip=${MEMORYOS_PROXY_TRUSTED_CIDR:-172.21.0.0/16}
+      - --skip-provider-button=true
+      - --pass-basic-auth=false
+      - --pass-user-headers=false
+      - --proxy-websockets=true
+      - --silence-ping-logging=true
+    secrets:
+      - mailpit_oauth2_allowed_emails
+      - mailpit_oauth2_client_secret
+      - mailpit_oauth2_cookie_secret
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    networks:
+      mailpit-access:
+        aliases:
+          - memoryos-mailpit-oauth2-proxy
+      proxy:
+        aliases:
+          - memoryos-mailpit-oauth2-proxy
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 96m
+        reservations:
+          memory: 32m
+
 
   postgres:
     image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
@@ -319,6 +374,12 @@ networks:
 secrets:
   memoryos_infisical_bootstrap:
     file: ${MEMORYOS_INFISICAL_BOOTSTRAP_FILE:?Set MEMORYOS_INFISICAL_BOOTSTRAP_FILE}
+  mailpit_oauth2_allowed_emails:
+    file: ${MEMORYOS_MAILPIT_OAUTH2_ALLOWED_EMAILS_FILE:?Set MEMORYOS_MAILPIT_OAUTH2_ALLOWED_EMAILS_FILE}
+  mailpit_oauth2_client_secret:
+    file: ${MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET_FILE:?Set MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET_FILE}
+  mailpit_oauth2_cookie_secret:
+    file: ${MEMORYOS_MAILPIT_OAUTH2_COOKIE_SECRET_FILE:?Set MEMORYOS_MAILPIT_OAUTH2_COOKIE_SECRET_FILE}
   mailpit_smtp_auth:
     file: ${MEMORYOS_MAILPIT_SMTP_AUTH_FILE:?Set MEMORYOS_MAILPIT_SMTP_AUTH_FILE}
   mailpit_smtp_ca:

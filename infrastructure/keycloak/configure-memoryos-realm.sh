@@ -13,6 +13,8 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${MEMORYOS_INITIAL_OWNER_EMAIL:?MEMORYOS_INITIAL_OWNER_EMAIL is required}"
 : "${MEMORYOS_BROWSER_CLIENT_SECRET:?MEMORYOS_BROWSER_CLIENT_SECRET is required}"
 : "${MEMORYOS_BROWSER_REDIRECT_URI:?MEMORYOS_BROWSER_REDIRECT_URI is required}"
+: "${MEMORYOS_MAILPIT_PUBLIC_URL:?MEMORYOS_MAILPIT_PUBLIC_URL is required}"
+: "${MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET:?MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_HOST:?MEMORYOS_KEYCLOAK_SMTP_HOST is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_FROM:?MEMORYOS_KEYCLOAK_SMTP_FROM is required}"
 MEMORYOS_KEYCLOAK_SMTP_PORT=${MEMORYOS_KEYCLOAK_SMTP_PORT:-587}
@@ -76,6 +78,15 @@ case "$MEMORYOS_BROWSER_REDIRECT_URI" in
         exit 1
         ;;
 esac
+case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
+    https://*.nip.io)
+        ;;
+    *)
+        echo "MEMORYOS_MAILPIT_PUBLIC_URL must be an exact HTTPS nip.io origin" >&2
+        exit 1
+        ;;
+esac
+
 
 
 command -v jq >/dev/null 2>&1 || {
@@ -83,11 +94,13 @@ command -v jq >/dev/null 2>&1 || {
     exit 1
 }
 umask 077
+export MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
 
 CONFIG_FILE=$(mktemp)
 BROWSER_CLIENT_FILE=$(mktemp)
+MAILPIT_CLIENT_FILE=$(mktemp)
 cleanup() {
-    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE"
+    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE" "$MAILPIT_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -269,6 +282,13 @@ upsert_mapper() {
 jq --arg redirectUri "$MEMORYOS_BROWSER_REDIRECT_URI" \
     '.redirectUris = [$redirectUri]' \
     "$SCRIPT_DIR/memoryos-browser-client.json" >"$BROWSER_CLIENT_FILE"
+jq --arg publicUrl "$MEMORYOS_MAILPIT_PUBLIC_URL" \
+    '.rootUrl = $publicUrl
+     | .redirectUris = [$publicUrl + "/oauth2/callback"]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
+    "$SCRIPT_DIR/memoryos-mailpit-client.json" >"$MAILPIT_CLIENT_FILE"
+
 
 provision_initial_owner
 upsert_client memoryos-integration "$SCRIPT_DIR/memoryos-client.json"
@@ -282,3 +302,11 @@ jq -cn '{secret: env.MEMORYOS_BROWSER_CLIENT_SECRET}' |
         -r "$TARGET_REALM" \
         -f - >/dev/null
 echo "client=memoryos-web secret=updated"
+
+upsert_client memoryos-mailpit "$MAILPIT_CLIENT_FILE"
+jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$CLIENT_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -f - >/dev/null
+echo "client=memoryos-mailpit secret=updated"

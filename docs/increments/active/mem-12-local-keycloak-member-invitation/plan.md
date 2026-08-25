@@ -27,8 +27,10 @@
 - [x] Commit Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation acceptance in one transaction.
 - [x] Rotate the session ID, persist the `ActorId`-only principal, discard provider state, and invalidate every failed partial session.
 - [x] Reconcile Keycloak realm desired state and deployment prerequisites for self-registration, verified email, and SMTP without giving MemoryOS administrator credentials.
-- [x] Add digest-pinned Mailpit to the staging Compose topology with bounded retention, internal authenticated STARTTLS SMTP, a deployment-owned private CA trusted by Keycloak, and a loopback-only mailbox UI.
+- [x] Add digest-pinned Mailpit to the staging Compose topology with bounded retention, internal authenticated STARTTLS SMTP, a deployment-owned private CA trusted by Keycloak, and a server-loopback mailbox endpoint.
 - [x] Reconcile the shared realm against Mailpit and exercise self-registration, captured verification email, and the verified callback without exposing SMTP credentials or action tokens.
+- [ ] Add owner-only public mailbox access through a dedicated Keycloak client, OAuth2 Proxy, Nginx Proxy Manager HTTPS host, S256 PKCE, file-mounted secrets, and an exact email allowlist.
+- [ ] Repoint the existing protected pgweb deployment from legacy ZeroMail PostgreSQL to the current MemoryOS-owned PostgreSQL using its dedicated read-only role.
 - [ ] Complete one combined shared-runtime pass from owner invitation through fresh recipient registration, email verification, continuation, and atomic acceptance.
 
 ## Product experience
