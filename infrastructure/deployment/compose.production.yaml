@@ -204,7 +204,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
-      - /opt/keycloak/data/tmp:size=128m,uid=1000,gid=0,mode=1770
+      - /opt/keycloak/data:size=128m,uid=1000,gid=0,mode=1770
     stop_grace_period: 45s
     cpu_shares: 256
     deploy:
