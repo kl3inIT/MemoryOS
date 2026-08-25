@@ -62,11 +62,14 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
         </select>
       </label>
 
-      <div className="flex gap-2 lg:pb-px">
-        <Button type="submit">Apply</Button>
+      <div className="flex gap-2">
+        <Button type="submit" className="h-10">
+          Apply
+        </Button>
         <Button
           type="button"
           variant="ghost"
+          className="h-10"
           onClick={() => {
             setEmail("");
             setStatus("");
