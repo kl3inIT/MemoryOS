@@ -78,6 +78,8 @@ case "$MEMORYOS_BROWSER_REDIRECT_URI" in
         exit 1
         ;;
 esac
+MEMORYOS_BROWSER_PUBLIC_URL=${MEMORYOS_BROWSER_REDIRECT_URI%/login/oauth2/code/memoryos}
+
 case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
     https://*.nip.io)
         ;;
@@ -306,7 +308,12 @@ upsert_mapper() {
 }
 
 jq --arg redirectUri "$MEMORYOS_BROWSER_REDIRECT_URI" \
-    '.redirectUris = [$redirectUri]' \
+    --arg publicUrl "$MEMORYOS_BROWSER_PUBLIC_URL" \
+    '.rootUrl = $publicUrl
+     | .baseUrl = "/"
+     | .redirectUris = [$redirectUri]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-browser-client.json" >"$BROWSER_CLIENT_FILE"
 jq --arg publicUrl "$MEMORYOS_MAILPIT_PUBLIC_URL" \
     '.rootUrl = $publicUrl
