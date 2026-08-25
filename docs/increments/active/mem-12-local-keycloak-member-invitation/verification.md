@@ -106,4 +106,10 @@ A real Chromium session registered and verified one temporary non-allowlisted Ke
 
 The separately protected pgweb deployment was cut over from legacy `zeromail-postgres`/`shared-postgres` to `memoryos-postgres` on `memoryos-internal`. Its dedicated `memoryos_pgweb` role connects to the `memoryos` database with transaction read-only enabled, can select `actors`, and cannot insert, update, or delete it. The pgweb and OAuth2 Proxy containers remained healthy, and `https://memoryos-db.72-62-193-33.nip.io` continued to redirect through the unchanged `memoryos-pgweb` S256 PKCE client.
 
+## Public staging application evidence
+
+On 2026-08-25, PR #27 head `4c42cb6` published `https://memoryos.72-62-193-33.nip.io` through Nginx Proxy Manager to `memoryos-web:8080`. The host enforces HTTPS, HTTP/2, HSTS, WebSockets, and exploit blocking with exact-domain Let's Encrypt certificate #28 expiring 2026-11-23. `/` served the production MemoryOS application and `/actuator/health` returned `UP`.
+
+The `memoryos-web` client now retains only `https://memoryos.72-62-193-33.nip.io/login/oauth2/code/memoryos`, uses the matching HTTPS root/web origin, and keeps mandatory S256 PKCE. A real Chromium click on `Continue with company account` reached the public `memoryos` authorization endpoint with `client_id=memoryos-web`, the exact HTTPS callback, and `code_challenge_method=S256`. The temporary Nginx Proxy Manager operator was removed after application-level provisioning.
+
 This closes the missing shared self-registration and email-verification prerequisite. It does not prove delivery to public mail providers: Mailpit is intentionally staging-only and captures rather than relays. One final combined runtime pass—owner invitation intake through this freshly self-registered recipient and atomic acceptance—plus guarded merge/exact-SHA closure remains before MEM-12 can move to completed.

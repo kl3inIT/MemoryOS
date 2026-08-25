@@ -31,7 +31,7 @@
 - [x] Reconcile the shared realm against Mailpit and exercise self-registration, captured verification email, and the verified callback without exposing SMTP credentials or action tokens.
 - [x] Add owner-only public mailbox access through a dedicated Keycloak client, OAuth2 Proxy, Nginx Proxy Manager HTTPS host, S256 PKCE, file-mounted secrets, and an exact email allowlist.
 - [x] Repoint the existing protected pgweb deployment from legacy ZeroMail PostgreSQL to the current MemoryOS-owned PostgreSQL using its dedicated read-only role.
-- [ ] Publish the staging MemoryOS web origin through Nginx Proxy Manager and reconcile `memoryos-web` to its exact HTTPS callback.
+- [x] Publish the staging MemoryOS web origin through Nginx Proxy Manager and reconcile `memoryos-web` to its exact HTTPS callback.
 - [ ] Complete one combined shared-runtime pass from owner invitation through fresh recipient registration, email verification, continuation, and atomic acceptance.
 
 ## Product experience
