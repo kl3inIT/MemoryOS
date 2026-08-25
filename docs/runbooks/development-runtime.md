@@ -182,6 +182,12 @@ ssh -o ExitOnForwardFailure=yes -N -L 18025:127.0.0.1:18025 <operator>@<memoryos
 
 Use `https://memoryos-mail.72-62-193-33.nip.io` for normal browser access and `http://127.0.0.1:18025` only through the tunnel. Mailpit evidence proves Keycloak email generation and verification-link handling in staging; it does not prove public-domain deliverability, SPF, DKIM, DMARC, or provider retry behavior.
 
+### Run the protected database viewer
+
+The separately deployed `/apps/memoryos-pgweb` stack uses `memoryos-postgres:5432/memoryos` over the external declaration of the existing `memoryos-internal` network. It must not use the legacy `zeromail-postgres` container or `shared-postgres` alias. Its dedicated `memoryos_pgweb` role has `CONNECT`, schema `USAGE`, and `SELECT` only; `default_transaction_read_only=on` remains a second guard. The pgweb service joins only its private backend and `memoryos-internal`; its OAuth2 Proxy joins the private backend and public proxy network.
+
+Run `/apps/memoryos-pgweb/provision.py` after changing its database target. The provisioner preserves existing database/OIDC/cookie secrets, creates or updates `memoryos_pgweb` in the current PostgreSQL container, grants read-only access to current and future `memoryos_app` tables/sequences, and reconciles the existing `memoryos-pgweb` S256 client through the current `memoryos-shared-keycloak` container. Recreate the stack with its mode-`0600` environment file and verify that `https://memoryos-db.72-62-193-33.nip.io` still enters the Keycloak authorization flow.
+
 Build immutable API and web images from the same reviewed commit and tag both with the full source SHA:
 
 ```text
