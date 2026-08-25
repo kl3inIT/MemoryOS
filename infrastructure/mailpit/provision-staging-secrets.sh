@@ -156,7 +156,7 @@ if [ "$oauth2_count" -eq 0 ]; then
         echo "failed to generate Mailpit OAuth2 client secret" >&2
         exit 1
     fi
-    if ! OAUTH2_COOKIE_SECRET=$(openssl rand -base64 32); then
+    if ! OAUTH2_COOKIE_SECRET=$(openssl rand -hex 16); then
         echo "failed to generate Mailpit OAuth2 cookie secret" >&2
         exit 1
     fi
@@ -165,7 +165,7 @@ if [ "$oauth2_count" -eq 0 ]; then
         exit 1
     fi
     printf '%s\n' "$OAUTH2_CLIENT_SECRET" >"$TEMPORARY_DIRECTORY/oauth2-client-secret.txt"
-    printf '%s\n' "$OAUTH2_COOKIE_SECRET" >"$TEMPORARY_DIRECTORY/oauth2-cookie-secret.txt"
+    printf '%s' "$OAUTH2_COOKIE_SECRET" >"$TEMPORARY_DIRECTORY/oauth2-cookie-secret.txt"
     printf '%s\n' "$MEMORYOS_MAILPIT_ALLOWED_EMAIL" >"$TEMPORARY_DIRECTORY/oauth2-allowed-emails.txt"
     unset OAUTH2_CLIENT_SECRET OAUTH2_COOKIE_SECRET
 
@@ -178,7 +178,11 @@ elif [ "$oauth2_count" -ne 3 ]; then
 fi
 
 test -s "$OAUTH2_CLIENT_SECRET_FILE"
-test -s "$OAUTH2_COOKIE_SECRET_FILE"
+cookie_secret_size=$(wc -c <"$OAUTH2_COOKIE_SECRET_FILE")
+if [ "$cookie_secret_size" -ne 32 ]; then
+    echo "Mailpit OAuth2 cookie secret must contain exactly 32 bytes" >&2
+    exit 1
+fi
 awk -v email="$MEMORYOS_MAILPIT_ALLOWED_EMAIL" 'NR == 1 && $0 == email { matched = 1 } END { exit !(NR == 1 && matched) }' "$OAUTH2_ALLOWED_EMAILS_FILE"
 
 echo "mailpit staging secrets ready"
