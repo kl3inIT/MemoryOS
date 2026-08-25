@@ -164,7 +164,7 @@ if [ "$oauth2_count" -eq 0 ]; then
         echo "generated Mailpit OAuth2 secret is empty" >&2
         exit 1
     fi
-    printf '%s\n' "$OAUTH2_CLIENT_SECRET" >"$TEMPORARY_DIRECTORY/oauth2-client-secret.txt"
+    printf '%s' "$OAUTH2_CLIENT_SECRET" >"$TEMPORARY_DIRECTORY/oauth2-client-secret.txt"
     printf '%s' "$OAUTH2_COOKIE_SECRET" >"$TEMPORARY_DIRECTORY/oauth2-cookie-secret.txt"
     printf '%s\n' "$MEMORYOS_MAILPIT_ALLOWED_EMAIL" >"$TEMPORARY_DIRECTORY/oauth2-allowed-emails.txt"
     unset OAUTH2_CLIENT_SECRET OAUTH2_COOKIE_SECRET
@@ -177,7 +177,11 @@ elif [ "$oauth2_count" -ne 3 ]; then
     exit 1
 fi
 
-test -s "$OAUTH2_CLIENT_SECRET_FILE"
+client_secret_size=$(wc -c <"$OAUTH2_CLIENT_SECRET_FILE")
+if [ "$client_secret_size" -ne 64 ]; then
+    echo "Mailpit OAuth2 client secret must contain exactly 64 bytes" >&2
+    exit 1
+fi
 cookie_secret_size=$(wc -c <"$OAUTH2_COOKIE_SECRET_FILE")
 if [ "$cookie_secret_size" -ne 32 ]; then
     echo "Mailpit OAuth2 cookie secret must contain exactly 32 bytes" >&2
