@@ -5,11 +5,13 @@ export type InvitationListQuery = NonNullable<ListInvitationsData["query"]>;
 export type InvitationStatusFilter = NonNullable<InvitationListQuery["status"]>;
 export type InvitationSort = NonNullable<InvitationListQuery["sort"]>;
 
-const optionalEmail = z.preprocess((value) => {
-  if (typeof value !== "string") return undefined;
-  const normalized = value.trim().toLowerCase();
-  return normalized || undefined;
-}, z.string().max(254).optional());
+const optionalEmail = z
+  .preprocess((value) => {
+    if (typeof value !== "string") return undefined;
+    const normalized = value.trim().toLowerCase();
+    return normalized || undefined;
+  }, z.string().max(254).optional())
+  .catch(undefined);
 
 export const invitationListSearchSchema = z.object({
   status: z.enum(["PENDING", "ACCEPTED", "EXPIRED", "REVOKED"]).optional().catch(undefined),

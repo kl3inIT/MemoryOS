@@ -31,10 +31,11 @@ describe("invitation list search", () => {
     });
   });
 
-  it("falls back from unsupported sort, page, and page-size values", () => {
+  it("falls back from unsupported filter, sort, page, and page-size values", () => {
     expect(
       invitationListSearchSchema.parse({
         status: "UNKNOWN",
+        email: "x".repeat(255),
         sort: "DROP_TABLE",
         page: "-1",
         size: "37",
