@@ -14,19 +14,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function SignInScreen() {
   return (
     <main className="grid min-h-svh place-items-center bg-background px-6 py-12 text-foreground">
-      <section className="w-full max-w-sm" aria-labelledby="sign-in-heading">
-        <div className="flex justify-center">
-          <Brand />
-        </div>
+      <section className="w-full max-w-sm -translate-y-4" aria-labelledby="sign-in-heading">
+        <header className="text-center">
+          <div className="flex justify-center">
+            <Brand />
+          </div>
 
-        <h1
-          id="sign-in-heading"
-          className="mt-10 text-center text-2xl font-semibold tracking-[-0.035em]"
-        >
-          Sign in to MemoryOS
-        </h1>
+          <h1
+            id="sign-in-heading"
+            className="mt-8 text-balance text-3xl font-semibold tracking-[-0.04em]"
+          >
+            Sign in to MemoryOS
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Use your organization account to continue.
+          </p>
+        </header>
 
-        <Button asChild size="lg" className="mt-8 h-11 w-full rounded-lg px-4 text-sm shadow-none">
+        <Button asChild size="lg" className="mt-7 h-12 w-full rounded-lg px-5 text-sm shadow-none">
           <a href="/oauth2/authorization/memoryos">Continue with company account</a>
         </Button>
       </section>
