@@ -101,7 +101,9 @@ final class InvitationController {
             @RequestParam(required = false) InvitationStatus status,
             @RequestParam(required = false) String email,
             @RequestParam(defaultValue = "CREATED_AT_DESC") InvitationSort sort,
+            @Parameter(schema = @Schema(type = "integer", format = "int32", defaultValue = "0", minimum = "0"))
             @RequestParam(defaultValue = "0") int page,
+            @Parameter(schema = @Schema(type = "integer", format = "int32", defaultValue = "20", minimum = "1", maximum = "100"))
             @RequestParam(defaultValue = "20") int size
     ) {
         InvitationQuery query;

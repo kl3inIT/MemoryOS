@@ -47,6 +47,7 @@ paths:
           type: integer
           format: int32
           default: 0
+          minimum: 0
       - name: size
         in: query
         required: false
@@ -54,6 +55,8 @@ paths:
           type: integer
           format: int32
           default: 20
+          maximum: 100
+          minimum: 1
       responses:
         "200":
           description: A bounded page of invitation lifecycle records without plaintext
