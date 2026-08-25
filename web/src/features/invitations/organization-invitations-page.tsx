@@ -1,9 +1,21 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Link2, MailPlus, RefreshCw, Trash2, UserRoundPlus, Users } from "lucide-react";
-import { useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Copy, Link2, MailPlus, UserRoundPlus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
+import { InvitationFilters } from "@/features/invitations/invitation-filters";
+import {
+  invitationListQuery,
+  type InvitationListSearch,
+  type InvitationSort,
+} from "@/features/invitations/invitation-list-search";
+import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
+import {
+  InvitationTable,
+  type InvitationPendingAction,
+} from "@/features/invitations/invitation-table";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
 import {
   createInvitationMutation,
@@ -13,30 +25,74 @@ import {
   rotateInvitationMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { Invitation, IssuedInvitation } from "@/lib/hey-api/types.gen";
-import { cn } from "@/lib/utils";
 
-const statusStyles: Record<Invitation["status"], string> = {
-  PENDING: "bg-status-warning-surface text-status-warning-content",
-  ACCEPTED: "bg-status-success-surface text-status-success-content",
-  EXPIRED: "bg-status-info-surface text-status-info-content",
-  REVOKED: "bg-status-info-surface text-content-muted",
-};
+const emptyInvitations: Invitation[] = [];
 
 export function OrganizationInvitationsPage() {
   const queryClient = useQueryClient();
-  const invitationsQuery = useQuery({ ...listInvitationsOptions(), retry: false });
+  const search = useSearch({ from: "/admin_/invitations" });
+  const navigate = useNavigate({ from: "/admin/invitations" });
+  const invitationsQuery = useQuery({
+    ...listInvitationsOptions({ query: invitationListQuery(search) }),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inviteeEmail, setInviteeEmail] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [issuedInvitation, setIssuedInvitation] = useState<IssuedInvitation | null>(null);
   const [invitationLinkCopied, setInvitationLinkCopied] = useState(false);
+  const [pendingActions, setPendingActions] = useState<
+    Partial<Record<string, InvitationPendingAction>>
+  >({});
+  const [rowErrors, setRowErrors] = useState<Partial<Record<string, string>>>({});
 
   const createInvitation = useMutation(createInvitationMutation());
   const rotateInvitation = useMutation(rotateInvitationMutation());
   const revokeInvitation = useMutation(revokeInvitationMutation());
 
+  useEffect(() => {
+    const totalPages = invitationsQuery.data?.totalPages;
+    if (!totalPages || search.page < totalPages) return;
+    void navigate({
+      replace: true,
+      search: (current) => ({ ...current, page: totalPages - 1 }),
+    });
+  }, [invitationsQuery.data?.totalPages, navigate, search.page]);
+
   async function refreshInvitations() {
     await queryClient.invalidateQueries({ queryKey: listInvitationsQueryKey() });
+  }
+
+  function updateView(
+    update: Partial<InvitationListSearch>,
+    options: { resetPage?: boolean } = {},
+  ) {
+    void navigate({
+      search: (current) => ({
+        ...current,
+        ...update,
+        page: options.resetPage ? 0 : (update.page ?? current.page),
+      }),
+    });
+  }
+
+  function updatePendingAction(invitationId: string, action?: InvitationPendingAction) {
+    setPendingActions((current) => {
+      const next = { ...current };
+      if (action) next[invitationId] = action;
+      else delete next[invitationId];
+      return next;
+    });
+  }
+
+  function updateRowError(invitationId: string, error?: string) {
+    setRowErrors((current) => {
+      const next = { ...current };
+      if (error) next[invitationId] = error;
+      else delete next[invitationId];
+      return next;
+    });
   }
 
   async function submitInvitation() {
@@ -55,7 +111,8 @@ export function OrganizationInvitationsPage() {
   }
 
   async function rotateInvitationLink(invitation: Invitation) {
-    setFormError(null);
+    updateRowError(invitation.id);
+    updatePendingAction(invitation.id, "rotate");
     try {
       const result = await rotateInvitation.mutateAsync({
         path: { invitationId: invitation.id },
@@ -65,12 +122,15 @@ export function OrganizationInvitationsPage() {
       setDialogOpen(true);
       await refreshInvitations();
     } catch (error) {
-      setFormError(invitationError(error));
+      updateRowError(invitation.id, invitationError(error));
+    } finally {
+      updatePendingAction(invitation.id);
     }
   }
 
   async function revokePendingInvitation(invitation: Invitation) {
-    setFormError(null);
+    updateRowError(invitation.id);
+    updatePendingAction(invitation.id, "revoke");
     try {
       await revokeInvitation.mutateAsync({
         path: { invitationId: invitation.id },
@@ -78,7 +138,9 @@ export function OrganizationInvitationsPage() {
       });
       await refreshInvitations();
     } catch (error) {
-      setFormError(invitationError(error));
+      updateRowError(invitation.id, invitationError(error));
+    } finally {
+      updatePendingAction(invitation.id);
     }
   }
 
@@ -103,17 +165,19 @@ export function OrganizationInvitationsPage() {
     }
   }
 
-  const invitationRows = invitationsQuery.data ?? [];
+  const invitationPage = invitationsQuery.data;
+  const invitationRows = invitationPage?.items ?? emptyInvitations;
+  const hasFilters = Boolean(search.status || search.email);
 
   return (
-    <AppShell area="admin" adminPage="people" pageTitle="People">
-      <section className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
+    <AppShell area="admin" adminPage="invitations" pageTitle="Invitations">
+      <section className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
         <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="mb-2 font-secondary-action text-content-muted">Organization</p>
-            <h1 className="font-heading-h2 text-content-primary">People</h1>
+            <h1 className="font-heading-h2 text-content-primary">Invitations</h1>
             <p className="mt-2 max-w-xl font-main-content-body text-content-secondary">
-              Invite someone into this workspace with a secure, expiring link.
+              Invite members and inspect the complete invitation lifecycle.
             </p>
           </div>
           <Button
@@ -129,31 +193,34 @@ export function OrganizationInvitationsPage() {
           </Button>
         </header>
 
-        {formError && !dialogOpen && (
-          <div
-            role="alert"
-            className="mb-5 rounded-xl border border-status-danger-content/20 bg-status-danger-surface px-4 py-3 font-main-ui-body text-status-danger-content"
-          >
-            {formError}
-          </div>
-        )}
-
         <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised">
           <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3 sm:px-5">
-            <div className="flex items-center gap-2.5">
-              <Users className="size-4 text-content-secondary" aria-hidden="true" />
-              <h2 className="font-main-ui-action text-content-primary">Invitations</h2>
-            </div>
-            <span className="font-secondary-body text-content-muted">
-              {invitationRows.length} {invitationRows.length === 1 ? "record" : "records"}
+            <h2 className="font-main-ui-action text-content-primary">Invitation history</h2>
+            <span
+              className="font-secondary-body text-content-muted"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {invitationsQuery.isFetching && !invitationsQuery.isPending
+                ? "Updating…"
+                : `${invitationPage?.totalItems ?? 0} ${
+                    invitationPage?.totalItems === 1 ? "record" : "records"
+                  }`}
             </span>
           </div>
+
+          <InvitationFilters
+            key={`${search.status ?? "ALL"}:${search.email ?? ""}`}
+            search={search}
+            onApply={(filters) => updateView(filters, { resetPage: true })}
+            onClear={() => updateView({ status: undefined, email: undefined }, { resetPage: true })}
+          />
 
           {invitationsQuery.isPending ? (
             <div className="px-5 py-12 text-center font-main-ui-body text-content-muted">
               Loading invitations…
             </div>
-          ) : invitationsQuery.isError ? (
+          ) : invitationsQuery.isError && !invitationPage ? (
             <div className="px-5 py-12 text-center">
               <p className="font-main-ui-body text-content-secondary">
                 Invitations could not be loaded.
@@ -171,67 +238,41 @@ export function OrganizationInvitationsPage() {
               <span className="mx-auto mb-5 grid size-11 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
                 <MailPlus className="size-5" aria-hidden="true" />
               </span>
-              <h2 className="font-heading-h3 text-content-primary">No invitations yet</h2>
+              <h2 className="font-heading-h3 text-content-primary">
+                {hasFilters ? "No invitations match these filters" : "No invitations yet"}
+              </h2>
               <p className="mx-auto mt-2 max-w-md font-main-ui-body text-content-muted">
-                Create a link when you are ready to bring someone into MemoryOS.
+                {hasFilters
+                  ? "Change or clear the current filters to see other invitation records."
+                  : "Create a link when you are ready to bring someone into MemoryOS."}
               </p>
+              {hasFilters && (
+                <Button
+                  variant="outline"
+                  className="mt-5"
+                  onClick={() =>
+                    updateView({ status: undefined, email: undefined }, { resetPage: true })
+                  }
+                >
+                  Clear filters
+                </Button>
+              )}
             </div>
           ) : (
-            <ul className="divide-y divide-border-subtle">
-              {invitationRows.map((invitation) => {
-                const pending = invitation.status === "PENDING";
-                return (
-                  <li
-                    key={invitation.id}
-                    className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:px-5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <p className="truncate font-main-ui-action text-content-primary">
-                          {invitation.email}
-                        </p>
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 font-figure-small-label tracking-wide",
-                            statusStyles[invitation.status],
-                          )}
-                        >
-                          {statusLabel(invitation.status)}
-                        </span>
-                      </div>
-                      <p className="mt-1 font-secondary-body text-content-muted">
-                        {invitation.status === "ACCEPTED" && invitation.acceptedAt
-                          ? `Joined ${formatDate(invitation.acceptedAt)}`
-                          : invitation.status === "REVOKED" && invitation.revokedAt
-                            ? `Revoked ${formatDate(invitation.revokedAt)}`
-                            : `Expires ${formatDate(invitation.expiresAt)}`}
-                      </p>
-                    </div>
-                    {pending && (
-                      <div className="flex shrink-0 gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => void rotateInvitationLink(invitation)}
-                          disabled={rotateInvitation.isPending || revokeInvitation.isPending}
-                        >
-                          <RefreshCw />
-                          Rotate link
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="text-status-danger-content"
-                          onClick={() => void revokePendingInvitation(invitation)}
-                          disabled={rotateInvitation.isPending || revokeInvitation.isPending}
-                        >
-                          <Trash2 />
-                          Revoke
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <InvitationTable
+              invitations={invitationRows}
+              sort={search.sort}
+              page={search.page}
+              size={search.size}
+              totalItems={invitationPage?.totalItems ?? 0}
+              pendingActions={pendingActions}
+              rowErrors={rowErrors}
+              onSortChange={(sort: InvitationSort) => updateView({ sort }, { resetPage: true })}
+              onPageChange={(page) => updateView({ page })}
+              onSizeChange={(size) => updateView({ size }, { resetPage: true })}
+              onRotate={(invitation) => void rotateInvitationLink(invitation)}
+              onRevoke={(invitation) => void revokePendingInvitation(invitation)}
+            />
           )}
         </div>
       </section>
@@ -276,7 +317,7 @@ export function OrganizationInvitationsPage() {
                   </Button>
                 </div>
                 <p className="mt-3 font-secondary-body text-content-muted">
-                  Expires {formatDate(issuedInvitation.invitation.expiresAt)}.
+                  Expires {formatInvitationDate(issuedInvitation.invitation.expiresAt)}.
                 </p>
               </div>
             ) : (
@@ -342,15 +383,4 @@ function invitationError(error: unknown) {
     if (error.status === 400) return "Enter a valid email address.";
   }
   return "The invitation could not be updated. Try again.";
-}
-
-function statusLabel(status: Invitation["status"]) {
-  return status.charAt(0) + status.slice(1).toLowerCase();
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

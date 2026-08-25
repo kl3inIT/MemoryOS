@@ -10,7 +10,7 @@ This is a production vertical slice, not a temporary onboarding mode. Storage, a
 
 ### Owner
 
-1. Open `Admin Panel` → `People`.
+1. Open `Admin Panel` → `Invitations`.
 2. Select `Invite member` and enter one email.
 3. Receive a clear copy/share action for the plaintext invitation URL.
 4. See invitation status as `PENDING`, `ACCEPTED`, `EXPIRED`, or `REVOKED`.
@@ -28,7 +28,7 @@ Technical state such as digests, locks, and provider-token disposal is never pre
 
 ## Reference boundary
 
-Onyx Enterprise is an interaction reference for the People page, invitation modal, pending status, loading, errors, and optional email delivery. MemoryOS does not copy Onyx's email-allowlist identity model, tenant switching, billing, or inactive tenant mappings.
+Onyx Enterprise is an interaction reference for invitation administration, its modal, pending status, loading, errors, and optional email delivery. MemoryOS does not copy Onyx's email-allowlist identity model, tenant switching, billing, or inactive tenant mappings.
 
 MemoryOS adds `invitation` as a top-level closed Spring Modulith capability from the first implementation commit:
 

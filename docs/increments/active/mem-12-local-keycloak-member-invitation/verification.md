@@ -11,7 +11,7 @@ Date: 2026-08-21
 - Registered identity, organization, and invitation implementations through component scanning; removed static persistence factories, forwarding API beans, the redundant invitation nonce, and unused secret-version state. Worker scanning is limited to its deployable package so it does not instantiate API-only JDBC capabilities.
 - Flattened public contract enums and records into top-level types. Invitation and initial Organization bootstrap now keep transactional orchestration in `application` and JDBC SQL/row mapping in `persistence`; Identity's existing adapters remain persistence-only.
 - Expanded the same-origin OpenAPI contract and regenerated the TypeScript client.
-- Added the responsive `Admin Panel` → `People` experience, one-email dialog, copy/share result, durable lifecycle rows, rotate/revoke recovery, recipient landing, and plain-language failure states.
+- Added the responsive `Admin Panel` → `Invitations` experience, one-email dialog, copy/share result, durable lifecycle rows, rotate/revoke recovery, recipient landing, and plain-language failure states.
 - Added production Nginx proxying, no-store/no-referrer invitation headers, separate gateway rate limits for intake and mutations, and a dedicated `/invite/` access log that emits only a static redacted path while retaining status telemetry.
 
 ## Persistence and concurrency evidence
@@ -45,7 +45,7 @@ PR #27 head `de260f96c8404132efa212165e704d8ea0ae33a7` was built into both stagi
 
 - `pnpm check` passes generated-client freshness, container-image pin, zero-warning lint, formatting, TypeScript, 8 unit tests, route-tree freshness, and the production build.
 - `pnpm test:e2e` passes 10/10 Chromium contracts, including guarded account-menu sign-out, owner create/rotate/revoke, and recipient landing/failure recovery.
-- Live `playwright-cli` inspection verified the People page and invitation dialog at desktop width with the 240px administration sidebar, plus the People page and recipient landing at 390 × 844. Navigation selection, modal focus, empty state, copy-link composition, and mobile layout were visually confirmed.
+- Live `playwright-cli` inspection verified the Invitations page and invitation dialog at desktop width with the 240px administration sidebar, plus the Invitations page and recipient landing at 390 × 844. Navigation selection, modal focus, empty state, copy-link composition, and mobile layout were visually confirmed.
 - `memoryos-web:mem12` builds from the production Dockerfile. `nginx -t` passes the generated image configuration; the expected non-root `user` warning is retained because the runtime intentionally starts as UID 101.
 
 ## Static and repository gates

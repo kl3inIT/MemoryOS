@@ -1,0 +1,365 @@
+import {
+  createColumnHelper,
+  rowPaginationFeature,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
+  type PaginationState,
+  type SortingState,
+} from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, RefreshCw, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type {
+  InvitationListSearch,
+  InvitationSort,
+} from "@/features/invitations/invitation-list-search";
+import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
+import type { Invitation } from "@/lib/hey-api/types.gen";
+import { cn } from "@/lib/utils";
+
+const invitationTableFeatures = tableFeatures({
+  rowPaginationFeature,
+  rowSortingFeature,
+});
+const columnHelper = createColumnHelper<typeof invitationTableFeatures, Invitation>();
+const columns = columnHelper.columns([
+  columnHelper.accessor("email", { header: "Email" }),
+  columnHelper.display({ id: "status", header: "Status", enableSorting: false }),
+  columnHelper.accessor("createdAt", {
+    header: "Created",
+    sortDescFirst: true,
+  }),
+  columnHelper.display({ id: "lifecycle", header: "Lifecycle", enableSorting: false }),
+  columnHelper.display({ id: "actions", header: "Actions", enableSorting: false }),
+]);
+
+const statusStyles: Record<Invitation["status"], string> = {
+  PENDING: "bg-status-warning-surface text-status-warning-content",
+  ACCEPTED: "bg-status-success-surface text-status-success-content",
+  EXPIRED: "bg-status-info-surface text-status-info-content",
+  REVOKED: "bg-status-info-surface text-content-muted",
+};
+
+export type InvitationPendingAction = "rotate" | "revoke";
+
+type InvitationTableProps = {
+  invitations: Invitation[];
+  sort: InvitationSort;
+  page: number;
+  size: InvitationListSearch["size"];
+  totalItems: number;
+  pendingActions: Readonly<Partial<Record<string, InvitationPendingAction>>>;
+  rowErrors: Readonly<Partial<Record<string, string>>>;
+  onSortChange: (sort: InvitationSort) => void;
+  onPageChange: (page: number) => void;
+  onSizeChange: (size: InvitationListSearch["size"]) => void;
+  onRotate: (invitation: Invitation) => void;
+  onRevoke: (invitation: Invitation) => void;
+};
+
+export function InvitationTable({
+  invitations,
+  sort,
+  page,
+  size,
+  totalItems,
+  pendingActions,
+  rowErrors,
+  onSortChange,
+  onPageChange,
+  onSizeChange,
+  onRotate,
+  onRevoke,
+}: InvitationTableProps) {
+  const sorting = invitationSortingState(sort);
+  const pagination: PaginationState = { pageIndex: page, pageSize: size };
+  const table = useTable({
+    features: invitationTableFeatures,
+    columns,
+    data: invitations,
+    getRowId: (invitation) => invitation.id,
+    rowCount: totalItems,
+    manualPagination: true,
+    manualSorting: true,
+    enableSortingRemoval: false,
+    state: { sorting, pagination },
+    onSortingChange: (updater) => {
+      const nextSorting = typeof updater === "function" ? updater(sorting) : updater;
+      onSortChange(invitationSort(nextSorting));
+    },
+    onPaginationChange: (updater) => {
+      const nextPagination = typeof updater === "function" ? updater(pagination) : updater;
+      if (nextPagination.pageSize !== size) {
+        onSizeChange(nextPagination.pageSize as InvitationListSearch["size"]);
+        return;
+      }
+      onPageChange(nextPagination.pageIndex);
+    },
+  });
+
+  const firstItem = totalItems === 0 ? 0 : page * size + 1;
+  const lastItem = Math.min((page + 1) * size, totalItems);
+
+  return (
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[48rem] border-collapse">
+          <caption className="sr-only">Organization invitations</caption>
+          <thead className="border-b border-border-subtle bg-surface-subtle/40 text-left">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  const sorted = header.column.getIsSorted();
+                  const sortable = header.column.getCanSort();
+                  return (
+                    <th
+                      key={header.id}
+                      scope="col"
+                      aria-sort={
+                        sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"
+                      }
+                      className={cn("px-4 py-3", header.column.id === "actions" && "text-right")}
+                    >
+                      {header.isPlaceholder ? null : sortable ? (
+                        <button
+                          type="button"
+                          className="inline-flex min-h-8 items-center gap-1.5 rounded-md font-secondary-action text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-ring/40"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          <table.FlexRender header={header} />
+                          {sorted === "asc" ? (
+                            <ArrowUp className="size-3.5" aria-hidden="true" />
+                          ) : (
+                            <ArrowDown
+                              className={cn("size-3.5", sorted !== "desc" && "opacity-35")}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
+                      ) : header.column.id === "actions" ? (
+                        <span className="sr-only">Actions</span>
+                      ) : (
+                        <span className="font-secondary-action text-content-secondary">
+                          <table.FlexRender header={header} />
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          <tbody className="divide-y divide-border-subtle">
+            {table.getRowModel().rows.map((row) => (
+              <InvitationTableRow
+                key={row.id}
+                invitation={row.original}
+                cellIds={row.getAllCells().map((cell) => cell.column.id)}
+                pendingAction={pendingActions[row.id]}
+                error={rowErrors[row.id]}
+                onRotate={onRotate}
+                onRevoke={onRevoke}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <nav
+        aria-label="Invitation pages"
+        className="flex flex-col gap-3 border-t border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p className="font-secondary-body text-content-muted">
+          Showing {firstItem}–{lastItem} of {totalItems}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
+            Rows
+            <select
+              aria-label="Rows per page"
+              value={size}
+              className="h-9 rounded-lg border border-border-default bg-surface-base px-2 font-main-ui-body text-content-primary outline-none focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
+              onChange={(event) => table.setPageSize(Number(event.target.value))}
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
+          <span className="min-w-24 text-center font-secondary-body text-content-secondary">
+            Page {page + 1} of {Math.max(table.getPageCount(), 1)}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!table.getCanPreviousPage()}
+            onClick={() => table.previousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!table.getCanNextPage()}
+            onClick={() => table.nextPage()}
+          >
+            Next
+          </Button>
+        </div>
+      </nav>
+    </>
+  );
+}
+
+type InvitationTableRowProps = {
+  invitation: Invitation;
+  cellIds: string[];
+  pendingAction?: InvitationPendingAction;
+  error?: string;
+  onRotate: (invitation: Invitation) => void;
+  onRevoke: (invitation: Invitation) => void;
+};
+
+function InvitationTableRow({
+  invitation,
+  cellIds,
+  pendingAction,
+  error,
+  onRotate,
+  onRevoke,
+}: InvitationTableRowProps) {
+  return (
+    <tr className="align-top">
+      {cellIds.map((cellId) => (
+        <td key={cellId} className="px-4 py-4">
+          {renderCell(cellId, invitation, pendingAction, error, onRotate, onRevoke)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function renderCell(
+  cellId: string,
+  invitation: Invitation,
+  pendingAction: InvitationPendingAction | undefined,
+  error: string | undefined,
+  onRotate: (invitation: Invitation) => void,
+  onRevoke: (invitation: Invitation) => void,
+) {
+  if (cellId === "email") {
+    return (
+      <span
+        className="block max-w-72 truncate font-main-ui-action text-content-primary"
+        title={invitation.email}
+      >
+        {invitation.email}
+      </span>
+    );
+  }
+  if (cellId === "status") {
+    return (
+      <span
+        className={cn(
+          "inline-flex rounded-full px-2 py-0.5 font-figure-small-label tracking-wide",
+          statusStyles[invitation.status],
+        )}
+      >
+        {statusLabel(invitation.status)}
+      </span>
+    );
+  }
+  if (cellId === "createdAt") {
+    return (
+      <time
+        dateTime={invitation.createdAt}
+        className="font-secondary-body whitespace-nowrap text-content-secondary"
+      >
+        {formatInvitationDate(invitation.createdAt)}
+      </time>
+    );
+  }
+  if (cellId === "lifecycle") {
+    return (
+      <span className="font-secondary-body whitespace-nowrap text-content-muted">
+        {lifecycleDate(invitation)}
+      </span>
+    );
+  }
+  return invitation.status === "PENDING" ? (
+    <div className="flex min-w-52 flex-col items-end gap-1.5">
+      <div className="flex gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`Rotate invitation link for ${invitation.email}`}
+          disabled={pendingAction !== undefined}
+          onClick={() => onRotate(invitation)}
+        >
+          <RefreshCw />
+          {pendingAction === "rotate" ? "Rotating…" : "Rotate"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-status-danger-content"
+          aria-label={`Revoke invitation for ${invitation.email}`}
+          disabled={pendingAction !== undefined}
+          onClick={() => onRevoke(invitation)}
+        >
+          <Trash2 />
+          {pendingAction === "revoke" ? "Revoking…" : "Revoke"}
+        </Button>
+      </div>
+      {error && (
+        <p
+          role="alert"
+          className="max-w-64 text-right font-secondary-body text-status-danger-content"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  ) : null;
+}
+
+function invitationSortingState(sort: InvitationSort): SortingState {
+  return sort.startsWith("EMAIL")
+    ? [{ id: "email", desc: sort === "EMAIL_DESC" }]
+    : [{ id: "createdAt", desc: sort === "CREATED_AT_DESC" }];
+}
+
+function invitationSort(sorting: SortingState): InvitationSort {
+  const activeSort = sorting[0];
+  if (!activeSort) return "CREATED_AT_DESC";
+  if (activeSort.id === "email") return activeSort.desc ? "EMAIL_DESC" : "EMAIL_ASC";
+  return activeSort.desc ? "CREATED_AT_DESC" : "CREATED_AT_ASC";
+}
+
+function lifecycleDate(invitation: Invitation) {
+  if (invitation.status === "ACCEPTED" && invitation.acceptedAt) {
+    return (
+      <time dateTime={invitation.acceptedAt}>
+        Joined {formatInvitationDate(invitation.acceptedAt)}
+      </time>
+    );
+  }
+  if (invitation.status === "REVOKED" && invitation.revokedAt) {
+    return (
+      <time dateTime={invitation.revokedAt}>
+        Revoked {formatInvitationDate(invitation.revokedAt)}
+      </time>
+    );
+  }
+  return (
+    <time dateTime={invitation.expiresAt}>
+      Expires {formatInvitationDate(invitation.expiresAt)}
+    </time>
+  );
+}
+
+function statusLabel(status: Invitation["status"]) {
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}

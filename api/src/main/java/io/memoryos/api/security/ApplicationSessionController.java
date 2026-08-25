@@ -1,8 +1,9 @@
 package io.memoryos.api.security;
 
+import io.memoryos.api.security.contract.AccessNotProvisionedResponse;
+import io.memoryos.api.security.contract.ApplicationSessionResponse;
 import io.memoryos.identity.IdentityContext;
 
-import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +25,4 @@ final class ApplicationSessionController {
                 .body(new AccessNotProvisionedResponse("ACCESS_NOT_PROVISIONED"));
     }
 
-
-    record ApplicationSessionResponse(UUID actorId) {
-    }
-
-    record AccessNotProvisionedResponse(String reasonCode) {
-    }
 }

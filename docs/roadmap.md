@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-24.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-25.
 
 ## Delivered
 
@@ -21,6 +21,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-12](https://linear.app/memory-os/issue/MEM-12/onboard-one-member-by-local-keycloak-invitation) | Production owner-to-member invitation lifecycle through local Keycloak, with copy/share recovery, fixed memberships, and atomic acceptance | [Design](increments/active/mem-12-local-keycloak-member-invitation/design.md) · [Plan](increments/active/mem-12-local-keycloak-member-invitation/plan.md) · [Verification](increments/active/mem-12-local-keycloak-member-invitation/verification.md) |
+| [MEM-15](https://linear.app/memory-os/issue/MEM-15/standardize-the-organization-invitation-data-view) | Bounded, filterable, sortable, URL-addressable Organization invitation administration with an accessible table | [Design](increments/active/mem-15-invitation-data-view/design.md) · [Plan](increments/active/mem-15-invitation-data-view/plan.md) · [Verification](increments/active/mem-15-invitation-data-view/verification.md) |
 
 ## Candidate increments
 

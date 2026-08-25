@@ -7,8 +7,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
+import io.memoryos.api.identity.contract.CurrentIdentityResponse;
 import io.memoryos.identity.IdentityContext;
-import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,13 +49,4 @@ final class IdentityController {
         return new CurrentIdentityResponse(identityContext.actorId().value());
     }
 
-    @Schema(name = "CurrentIdentity", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record CurrentIdentityResponse(
-            @Schema(
-                    description = "Stable internal MemoryOS actor identifier.",
-                    requiredMode = Schema.RequiredMode.REQUIRED
-            )
-            UUID actorId
-    ) {
-    }
 }

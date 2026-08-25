@@ -13,7 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-provisioned'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as InvitationRouteImport } from './routes/invitation'
-import { Route as AdminPeopleRouteImport } from './routes/admin_.people'
+import { Route as AdminInvitationsRouteImport } from './routes/admin_.invitations'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,9 +35,9 @@ const InvitationRoute = InvitationRouteImport.update({
   path: '/invitation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminPeopleRoute = AdminPeopleRouteImport.update({
-  id: '/admin_/people',
-  path: '/admin/people',
+const AdminInvitationsRoute = AdminInvitationsRouteImport.update({
+  id: '/admin_/invitations',
+  path: '/admin/invitations',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -46,14 +46,14 @@ export interface FileRoutesByFullPath {
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/admin': typeof AdminRoute
   '/invitation': typeof InvitationRoute
-  '/admin/people': typeof AdminPeopleRoute
+  '/admin/invitations': typeof AdminInvitationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/admin': typeof AdminRoute
   '/invitation': typeof InvitationRoute
-  '/admin/people': typeof AdminPeopleRoute
+  '/admin/invitations': typeof AdminInvitationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -61,22 +61,30 @@ export interface FileRoutesById {
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/admin': typeof AdminRoute
   '/invitation': typeof InvitationRoute
-  '/admin_/people': typeof AdminPeopleRoute
+  '/admin_/invitations': typeof AdminInvitationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/access-not-provisioned' | '/admin' | '/invitation' | '/admin/people'
+    | '/'
+    | '/access-not-provisioned'
+    | '/admin'
+    | '/invitation'
+    | '/admin/invitations'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/access-not-provisioned' | '/admin' | '/invitation' | '/admin/people'
+    | '/'
+    | '/access-not-provisioned'
+    | '/admin'
+    | '/invitation'
+    | '/admin/invitations'
   id:
     | '__root__'
     | '/'
     | '/access-not-provisioned'
     | '/admin'
     | '/invitation'
-    | '/admin_/people'
+    | '/admin_/invitations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -84,7 +92,7 @@ export interface RootRouteChildren {
   AccessNotProvisionedRoute: typeof AccessNotProvisionedRoute
   AdminRoute: typeof AdminRoute
   InvitationRoute: typeof InvitationRoute
-  AdminPeopleRoute: typeof AdminPeopleRoute
+  AdminInvitationsRoute: typeof AdminInvitationsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -117,11 +125,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin_/people': {
-      id: '/admin_/people'
-      path: '/admin/people'
-      fullPath: '/admin/people'
-      preLoaderRoute: typeof AdminPeopleRouteImport
+    '/admin_/invitations': {
+      id: '/admin_/invitations'
+      path: '/admin/invitations'
+      fullPath: '/admin/invitations'
+      preLoaderRoute: typeof AdminInvitationsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -132,7 +140,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccessNotProvisionedRoute: AccessNotProvisionedRoute,
   AdminRoute: AdminRoute,
   InvitationRoute: InvitationRoute,
-  AdminPeopleRoute: AdminPeopleRoute,
+  AdminInvitationsRoute: AdminInvitationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

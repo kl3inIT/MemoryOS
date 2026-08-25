@@ -28,6 +28,7 @@ These conventions apply across MemoryOS. Capability-specific behavior belongs in
 ## Published API contracts
 
 - Spring MVC controllers, request/response types, and backend-owned OpenAPI annotations are the source of the browser API contract.
+- HTTP request/response records live as one public top-level type per file under the owning API package's `contract` subpackage. Controllers own routing and thin mapping; they never accumulate nested transport records or introduce a second business model.
 - `openapi.yml` is generated from the live application context and committed only as the deterministic Hey API input; never maintain paths or schemas independently in that file.
 - Normal and production runtime configuration must keep springdoc API-doc endpoints disabled. Contract generation belongs to the full-context test boundary, not a temporary runtime profile or production startup task.
 - Every API change refreshes `openapi.yml` and the committed Hey API client in the same change. Backend tests reject contract drift; frontend checks reject generated-client drift.

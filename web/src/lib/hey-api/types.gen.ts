@@ -27,6 +27,14 @@ export type IssuedInvitation = {
     invitationUrl: string;
 };
 
+export type InvitationPage = {
+    items: Array<Invitation>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
 export type CurrentInvitation = {
     organizationDisplayName: string;
     expiresAt: string;
@@ -70,11 +78,21 @@ export type ApiProblem = {
 export type ListInvitationsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        status?: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+        email?: string;
+        sort?: 'CREATED_AT_DESC' | 'CREATED_AT_ASC' | 'EMAIL_ASC' | 'EMAIL_DESC';
+        page?: number;
+        size?: number;
+    };
     url: '/api/invitations';
 };
 
 export type ListInvitationsErrors = {
+    /**
+     * Invalid invitation list query
+     */
+    400: ApiProblem;
     /**
      * No accepted authentication is present
      */
@@ -89,9 +107,9 @@ export type ListInvitationsError = ListInvitationsErrors[keyof ListInvitationsEr
 
 export type ListInvitationsResponses = {
     /**
-     * Invitation lifecycle records without plaintext secrets
+     * A bounded page of invitation lifecycle records without plaintext secrets
      */
-    200: Array<Invitation>;
+    200: InvitationPage;
 };
 
 export type ListInvitationsResponse = ListInvitationsResponses[keyof ListInvitationsResponses];

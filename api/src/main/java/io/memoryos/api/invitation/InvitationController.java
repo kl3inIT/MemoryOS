@@ -2,15 +2,22 @@ package io.memoryos.api.invitation;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
+import io.memoryos.api.invitation.contract.CreateInvitationRequest;
+import io.memoryos.api.invitation.contract.CurrentInvitationResponse;
+import io.memoryos.api.invitation.contract.InvitationPageResponse;
+import io.memoryos.api.invitation.contract.InvitationResponse;
+import io.memoryos.api.invitation.contract.IssuedInvitationResponse;
 import io.memoryos.identity.IdentityContext;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.InvitationPage;
+import io.memoryos.invitation.InvitationQuery;
+import io.memoryos.invitation.InvitationSort;
 import io.memoryos.invitation.InvitationService;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
@@ -19,8 +26,6 @@ import io.memoryos.organization.OrganizationId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
@@ -33,6 +38,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -62,10 +68,18 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "200",
-            description = "Invitation lifecycle records without plaintext secrets",
+            description = "A bounded page of invitation lifecycle records without plaintext secrets",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    array = @ArraySchema(schema = @Schema(implementation = InvitationResponse.class))
+                    schema = @Schema(implementation = InvitationPageResponse.class)
+            )
+    )
+    @ApiResponse(
+            responseCode = "400",
+            description = "Invalid invitation list query",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
             )
     )
     @ApiResponse(
@@ -82,12 +96,21 @@ final class InvitationController {
             )
     )
     @GetMapping
-    List<InvitationResponse> list(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
+    InvitationPageResponse list(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @RequestParam(required = false) InvitationStatus status,
+            @RequestParam(required = false) String email,
+            @RequestParam(defaultValue = "CREATED_AT_DESC") InvitationSort sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
-        return invitations.list(identityContext.actorId()).stream()
-                .map(InvitationController::response)
-                .toList();
+        InvitationQuery query;
+        try {
+            query = new InvitationQuery(status, email, sort, page, size);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+        return page(invitations.list(identityContext.actorId(), query));
     }
 
     @Operation(
@@ -319,6 +342,18 @@ final class InvitationController {
         );
     }
 
+    private static InvitationPageResponse page(InvitationPage invitations) {
+        return new InvitationPageResponse(
+                invitations.items().stream()
+                        .map(InvitationController::response)
+                        .toList(),
+                invitations.page(),
+                invitations.size(),
+                invitations.totalItems(),
+                invitations.totalPages()
+        );
+    }
+
     private static InvitationResponse response(InvitationView invitation) {
         return new InvitationResponse(
                 invitation.id(),
@@ -345,59 +380,4 @@ final class InvitationController {
         );
     }
 
-    @Schema(name = "CreateInvitationRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record CreateInvitationRequest(
-            @Schema(
-                    format = "email",
-                    maxLength = 254,
-                    requiredMode = Schema.RequiredMode.REQUIRED
-            )
-            String email
-    ) {
-    }
-
-    @Schema(name = "Invitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record InvitationResponse(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            UUID id,
-            @Schema(format = "email", requiredMode = Schema.RequiredMode.REQUIRED)
-            String email,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            InvitationStatus status,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            Instant createdAt,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            Instant expiresAt,
-            @Schema(nullable = true)
-            UUID acceptedActorId,
-            @Schema(nullable = true)
-            Instant acceptedAt,
-            @Schema(nullable = true)
-            Instant revokedAt
-    ) {
-    }
-
-    @Schema(name = "IssuedInvitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record IssuedInvitationResponse(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            InvitationResponse invitation,
-            @Schema(
-                    pattern = "^/invite/",
-                    description = "Relative same-origin capability URL returned only from create or rotate.",
-                    requiredMode = Schema.RequiredMode.REQUIRED
-            )
-            String invitationUrl
-    ) {
-    }
-
-    @Schema(name = "CurrentInvitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record CurrentInvitationResponse(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            String organizationDisplayName,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            Instant expiresAt,
-            @Schema(pattern = "^/invite/continue", requiredMode = Schema.RequiredMode.REQUIRED)
-            String continueUrl
-    ) {
-    }
 }

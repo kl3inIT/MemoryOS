@@ -6,6 +6,8 @@ import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationContinuation;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.InvitationPage;
+import io.memoryos.invitation.InvitationQuery;
 import io.memoryos.invitation.InvitationService;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
@@ -26,7 +28,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -132,12 +133,21 @@ public class DefaultInvitationService implements InvitationService {
 
     @Override
     @Transactional
-    public List<InvitationView> list(ActorId ownerActorId) {
+    public InvitationPage list(ActorId ownerActorId, InvitationQuery query) {
+        Objects.requireNonNull(query, "query must not be null");
         InvitationAuthority owner = ownerContext(ownerActorId);
         invitationRepository.expirePending(owner.organizationId(), clock.instant());
-        return invitationRepository.findAll(owner.organizationId()).stream()
+        long totalItems = invitationRepository.count(owner.organizationId(), query);
+        var items = invitationRepository.findPage(owner.organizationId(), query).stream()
                 .map(DefaultInvitationService::view)
                 .toList();
+        return new InvitationPage(
+                items,
+                query.page(),
+                query.size(),
+                totalItems,
+                Math.ceilDiv(totalItems, query.size())
+        );
     }
 
     @Override
