@@ -96,6 +96,33 @@ Run the script from a controlled operator shell with `jq` available. The bootstr
 
 Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
 
+## Run the API through mirrored Infisical `dev`
+
+During the current shared-development stage, Infisical `dev` mirrors the staging runtime identity and database configuration by explicit operator decision. It overrides `MEMORYOS_DATABASE_URL` with `jdbc:postgresql://127.0.0.1:15555/memoryos` and `MEMORYOS_SESSION_COOKIE_SECURE=false`. The shared Keycloak `memoryos-web` client retains only the exact staging callback, so local API run/debug supports backend development and health checks while interactive browser login remains at `https://memoryos.72-62-193-33.nip.io`. Before a real production launch, replace this mirror with isolated development identity/database values.
+
+Give each developer project role `No Access` plus permanent `Describe Secret` and `Read Value` privileges conditioned on environment slug `dev`. Never grant developers the `prod` role or reuse the production API machine identity.
+
+In one terminal, establish the existing loopback-only database tunnel:
+
+```powershell
+ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5556 viet@72.62.193.33
+```
+
+Authenticate the local Infisical CLI once:
+
+```powershell
+$env:INFISICAL_DOMAIN = "https://secret.nhuxuanviet.com"
+infisical login
+```
+
+The checked-in Windows configuration uses the stable built-in interpreter `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`; it does not depend on IntelliJ resolving the Microsoft Store `pwsh.exe` alias.
+
+IntelliJ imports the shared `MemoryOS API Dev` and `Sync Infisical Dev Env` configurations from `.run/`. Run or debug `MemoryOS API Dev` directly in the Spring Boot tool window; its before-launch task executes `scripts/sync-env.ps1`, atomically refreshes the ignored root `.memoryos-dev.yaml` from project `90ae5a61-2159-47c2-a463-5a71beee234d` environment `dev`, imports that YAML through Spring Config Data, sets `SERVER_PORT=18080`, and starts `io.memoryos.api.MemoryOsApiApplication`. A failed or empty export leaves the last valid cache intact and prevents the API launch. The file is a local cache of shared development secrets: never commit or share it, delete it when access is removed, and run `infisical login` again when the CLI session expires. Do not launch `MemoryOsWorkerApplication`; the worker currently exits normally because it has no durable job loop.
+
+For a terminal-only launch, keep the SSH tunnel open, set `SERVER_PORT=18080`, then run `infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :api:bootRun --no-daemon`. The IntelliJ path does not need this terminal command because its before-launch sync supplies the same managed values through the YAML cache.
+
+Run the Vite web application on `127.0.0.1:8080` only after the API is healthy, as documented below. When a developer leaves, remove their Infisical project access and delete `.memoryos-dev.yaml`; rotate the production machine identity only when its bootstrap credential or server boundary is affected.
+
 ## Run the API
 
 Set runtime configuration:

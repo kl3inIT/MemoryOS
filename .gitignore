@@ -11,4 +11,7 @@ out/
 .omp/mcp.json
 web/.playwright-cli/
 .env
+.env.tmp
+.memoryos-dev.yaml
+.memoryos-dev.yaml.tmp
 secrets/
