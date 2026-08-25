@@ -287,11 +287,21 @@ upsert_mapper() {
             -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
         echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=created"
     else
-        "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
+        current_mapper=$("$KCADM" get "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
             --config "$CONFIG_FILE" \
-            -r "$TARGET_REALM" \
-            -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
-        echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=updated"
+            -r "$TARGET_REALM")
+        current_contract=$(printf '%s\n' "$current_mapper" |
+            jq -cS '{name, protocol, protocolMapper, consentRequired, config}')
+        desired_contract=$(jq -cS '{name, protocol, protocolMapper, consentRequired, config}' "$SCRIPT_DIR/$MAPPER_FILE")
+        if [ "$current_contract" = "$desired_contract" ]; then
+            echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=unchanged"
+        else
+            "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
+            echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=updated"
+        fi
     fi
 }
 
