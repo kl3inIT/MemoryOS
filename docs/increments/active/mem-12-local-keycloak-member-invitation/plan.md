@@ -27,6 +27,8 @@
 - [x] Commit Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation acceptance in one transaction.
 - [x] Rotate the session ID, persist the `ActorId`-only principal, discard provider state, and invalidate every failed partial session.
 - [x] Reconcile Keycloak realm desired state and deployment prerequisites for self-registration, verified email, and SMTP without giving MemoryOS administrator credentials.
+- [ ] Add digest-pinned Mailpit to the staging Compose topology with bounded retention, internal authenticated STARTTLS SMTP, a deployment-owned private CA trusted by Keycloak, and a loopback-only mailbox UI.
+- [ ] Reconcile the shared realm against Mailpit and exercise self-registration, captured verification email, verified callback, and invitation acceptance without exposing SMTP credentials or capability secrets.
 
 ## Product experience
 

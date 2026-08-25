@@ -14,6 +14,45 @@ x-service-defaults: &service-defaults
       max-file: "5"
 
 services:
+  mailpit:
+    <<: *service-defaults
+    image: ${MEMORYOS_MAILPIT_IMAGE:?Set MEMORYOS_MAILPIT_IMAGE}
+    container_name: memoryos-mailpit
+    user: "${MEMORYOS_MAILPIT_UID:-1000}:${MEMORYOS_MAILPIT_GID:-1000}"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_LABEL: MemoryOS staging
+      MP_MAX_MESSAGES: ${MEMORYOS_MAILPIT_MAX_MESSAGES:-500}
+      MP_MAX_AGE: ${MEMORYOS_MAILPIT_MAX_AGE:-7d}
+      MP_SMTP_AUTH_FILE: /run/secrets/mailpit_smtp_auth
+      MP_SMTP_TLS_CERT: /run/secrets/mailpit_smtp_tls_certificate
+      MP_SMTP_TLS_KEY: /run/secrets/mailpit_smtp_tls_private_key
+      MP_SMTP_REQUIRE_STARTTLS: "1"
+    secrets:
+      - mailpit_smtp_auth
+      - mailpit_smtp_tls_certificate
+      - mailpit_smtp_tls_private_key
+    ports:
+      - 127.0.0.1:${MEMORYOS_MAILPIT_UI_HOST_PORT:-18025}:8025
+    networks:
+      memoryos-internal:
+        aliases:
+          - mailpit
+          - memoryos-mailpit
+    volumes:
+      - ${MEMORYOS_MAILPIT_DATA_DIRECTORY:-/apps/memoryos/mailpit}:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    stop_grace_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128m
+        reservations:
+          memory: 32m
+
   postgres:
     image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
     container_name: memoryos-postgres
@@ -129,6 +168,9 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?Set MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?Set MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD}
       JAVA_OPTS_KC_HEAP: -XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=65
+      KC_TRUSTSTORE_PATHS: /run/secrets/mailpit_smtp_ca
+    secrets:
+      - mailpit_smtp_ca
     depends_on:
       postgres:
         condition: service_healthy
@@ -274,6 +316,14 @@ networks:
 secrets:
   memoryos_infisical_bootstrap:
     file: ${MEMORYOS_INFISICAL_BOOTSTRAP_FILE:?Set MEMORYOS_INFISICAL_BOOTSTRAP_FILE}
+  mailpit_smtp_auth:
+    file: ${MEMORYOS_MAILPIT_SMTP_AUTH_FILE:?Set MEMORYOS_MAILPIT_SMTP_AUTH_FILE}
+  mailpit_smtp_ca:
+    file: ${MEMORYOS_MAILPIT_SMTP_CA_FILE:?Set MEMORYOS_MAILPIT_SMTP_CA_FILE}
+  mailpit_smtp_tls_certificate:
+    file: ${MEMORYOS_MAILPIT_SMTP_TLS_CERTIFICATE_FILE:?Set MEMORYOS_MAILPIT_SMTP_TLS_CERTIFICATE_FILE}
+  mailpit_smtp_tls_private_key:
+    file: ${MEMORYOS_MAILPIT_SMTP_TLS_PRIVATE_KEY_FILE:?Set MEMORYOS_MAILPIT_SMTP_TLS_PRIVATE_KEY_FILE}
 
 volumes:
   memoryos_postgres:

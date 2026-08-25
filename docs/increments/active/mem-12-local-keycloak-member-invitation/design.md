@@ -110,6 +110,7 @@ After commit, the callback rotates the HTTP session ID, replaces the provider pr
 - Copy/share is the complete delivery path. No speculative email provider abstraction is added; configured email delivery may be added only with a concrete provider and observable failure contract.
 - Keycloak administrator and SMTP credentials never enter MemoryOS. The deployment-owned reconciliation script uses `kcadm` to enable self-registration, require verified email, and configure SMTP from managed environment values. At runtime, Spring Security performs the standard OAuth2 authorization-code/token exchange; MemoryOS has no Keycloak Admin SDK, custom Admin REST client, or SMTP client.
 - Rate limits must work across API replicas or be enforced by the production gateway; an in-memory-only limiter is not acceptable.
+- The only deployed server is staging. It uses a digest-pinned Mailpit mailbox to verify Keycloak-generated email without sending development mail to external recipients. Mailpit accepts only authenticated STARTTLS traffic on the internal Compose network; Keycloak trusts the deployment-owned private CA, and the mailbox UI binds to server loopback for SSH-tunnel access. This proves self-registration, verification-link handling, and invitation continuation, but it is not evidence of public email deliverability or a production SMTP provider.
 
 ## Failure outcomes
 

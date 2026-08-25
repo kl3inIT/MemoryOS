@@ -2,6 +2,7 @@
 set -eu
 
 TARGET_REALM=memoryos
+KEYCLOAK_ADMIN_REALM=${KEYCLOAK_ADMIN_REALM:-master}
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 
@@ -126,7 +127,7 @@ find_mapper_uuid() {
 "$KCADM" config credentials \
     --config "$CONFIG_FILE" \
     --server "$KEYCLOAK_URL" \
-    --realm "$TARGET_REALM" \
+    --realm "$KEYCLOAK_ADMIN_REALM" \
     --user "$KEYCLOAK_ADMIN_USERNAME" >/dev/null
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null

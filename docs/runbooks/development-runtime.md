@@ -71,6 +71,7 @@ Required operator environment:
 ```text
 KEYCLOAK_URL
 KEYCLOAK_ADMIN_USERNAME
+KEYCLOAK_ADMIN_REALM # defaults to master for the bootstrap administrator
 KC_CLI_PASSWORD
 MEMORYOS_INITIAL_OWNER_USERNAME
 MEMORYOS_INITIAL_OWNER_EMAIL
@@ -88,7 +89,7 @@ MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 ```
 
-Run the script from a controlled operator shell with `jq` available. Its account needs realm, user, and client management permissions required by the script; do not grant the application, owner, or invited members those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback; wildcards and non-loopback HTTP origins are rejected. SMTP credentials remain managed operator values. Keycloak receives them in a partial realm update over stdin and sends recipient verification email itself; MemoryOS does not call the Admin API, hold SMTP credentials, or send account-verification mail. The script reads operator and SMTP passwords from environment and never prints them.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; set `KEYCLOAK_ADMIN_REALM` only when using a different deployment-managed administrative realm. Its account needs realm, user, and client management permissions required by the script; do not grant the application, owner, or invited members those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback; wildcards and non-loopback HTTP origins are rejected. SMTP credentials remain managed operator values. Keycloak receives them in a partial realm update over stdin and sends recipient verification email itself; MemoryOS does not call the Admin API, hold SMTP credentials, or send account-verification mail. The script reads operator and SMTP passwords from environment and never prints them.
 
 Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
 
@@ -137,7 +138,30 @@ Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`,
 
 ## Run the hardened staging stack
 
-MemoryOS Compose owns PostgreSQL, shared Keycloak, API, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume. The Keycloak database contains both products' runtime realm data, but this repository provisions only the `memoryos` realm.
+MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mailbox, API, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume. The Keycloak database contains both products' runtime realm data, but this repository provisions only the `memoryos` realm.
+
+### Provision the staging mailbox
+
+Mailpit captures development verification mail and never relays it to external recipients. SMTP is reachable only as `mailpit:1025` on the internal Compose network, requires basic authentication after STARTTLS, and uses a private CA trusted by Keycloak through `KC_TRUSTSTORE_PATHS`. The web mailbox binds only to server loopback; it is never attached to the public proxy network.
+
+Before the first start, create the persistent mailbox directory and the complete mode-`0600` CA, certificate, private key, and SMTP authentication set:
+
+```text
+MEMORYOS_MAILPIT_DATA_DIRECTORY=/apps/memoryos/mailpit \
+  infrastructure/mailpit/provision-staging-secrets.sh /apps/memoryos/secrets/mailpit
+```
+
+The command is idempotent, refuses to replace a partial secret set, and prints only the SMTP certificate fingerprint. Copy the Mailpit keys from `staging.env.example` into `/apps/memoryos/.env.staging`; set `MEMORYOS_MAILPIT_UID` and `MEMORYOS_MAILPIT_GID` to the owner of `/apps/memoryos/mailpit`. Keep the generated SMTP password in `smtp-auth.txt`; load it into the controlled operator environment without printing it when running the realm reconciliation script.
+
+Reconcile Keycloak with `MEMORYOS_KEYCLOAK_SMTP_HOST=mailpit`, port `1025`, authentication and STARTTLS enabled, SSL disabled, username `memoryos-keycloak`, and the generated password. The configured From address may use a reserved development domain because Mailpit captures rather than relays the message.
+
+Access the mailbox only through an SSH tunnel:
+
+```text
+ssh -o ExitOnForwardFailure=yes -N -L 18025:127.0.0.1:18025 <operator>@<memoryos-host>
+```
+
+Then open `http://127.0.0.1:18025`. Mailpit evidence proves Keycloak email generation and verification-link handling in staging; it does not prove public-domain deliverability, SPF, DKIM, DMARC, or provider retry behavior.
 
 Build immutable API and web images from the same reviewed commit and tag both with the full source SHA:
 
