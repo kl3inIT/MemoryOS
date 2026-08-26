@@ -25,7 +25,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
   return (
     <ApplicationError
       title="This page could not be loaded."
-      description="The route or its data failed to load. Your workspace is unchanged."
+      description="The route or its data failed to load. Your Organization data is unchanged."
       error={error}
       onRetry={retry}
     />
@@ -55,9 +55,9 @@ export function RouteNotFound() {
           <Brand />
           <p className="mt-6 text-xs font-medium text-muted-foreground">404</p>
           <EmptyTitle className="text-2xl font-semibold tracking-[-0.03em]">
-            This path isn’t part of your workspace.
+            This path isn’t part of your Organization.
           </EmptyTitle>
-          <EmptyDescription>No data changed. Return to your owner workspace.</EmptyDescription>
+          <EmptyDescription>No data changed. Return to MemoryOS.</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button asChild variant="outline">

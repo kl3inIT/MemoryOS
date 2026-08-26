@@ -2,7 +2,7 @@
 
 | Requirement | Durable verification |
 | --- | --- |
-| Only an active Organization owner can issue, list, rotate, or revoke | `DefaultInvitationServiceTest.requiresAnActiveOwnerAndValidEmail` and invitation API integration tests |
+| Only an active Organization owner can issue, list, rotate, or revoke; a real accepted member receives `403 INVITATION_NOT_OWNER` for all four HTTP operations | `DefaultInvitationServiceTest.requiresAnActiveOwnerAndValidEmail` and `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
 | Email is normalized and only one pending invitation exists per Organization/email | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` and `rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
 | Plaintext secret is returned once and only its digest persists | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` |
 | Rotation replaces the digest and invalidates the prior secret | `DefaultInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
@@ -21,6 +21,7 @@
 | Built-in malformed-request failures use Boot-native Problem Details without a capability code | `SessionSecurityIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
 | The committed browser API snapshot is generated from the live Invitation operations, schemas, security metadata, and Problem Detail responses | `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
 | Owner Invitations page supports create, copy/share, lifecycle presentation, typed URL filters/sort/page state, and server-driven TanStack Table pagination | `identity-shell.spec.ts` — `creates a production invitation from the Invitations administration page` and `restores and updates the server-driven invitation view from the URL` |
+| Member shell/deep-link gates hide administration, preserve the URL, and issue zero invitation requests | `ApplicationSessionBoundary` unit tests and `identity-shell.spec.ts` — `hides owner UI and blocks member administration deep links without requests` |
 | Recipient landing and failure recovery are responsive and accessible | `identity-shell.spec.ts` — `shows the recipient invitation landing and recovery states` plus shared-runtime browser evidence |
 
 The persistence suite runs the production Flyway SQL in H2 PostgreSQL compatibility mode through real Spring transaction proxies. Final concurrency evidence also runs against PostgreSQL. Browser integration uses the real API composition, OIDC authorization/token exchange, and JDBC-backed Spring Session; delivery evidence uses the shared Keycloak realm and PostgreSQL deployment.

@@ -57,7 +57,9 @@ class DefaultInitialOrganizationBootstrapperTest {
         }
         new ResourceDatabasePopulator(
                 new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql")
+                new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
+                new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
+                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql")
         ).populate(keepAlive);
 
         jdbcClient = JdbcClient.create(dataSource);
@@ -85,6 +87,26 @@ class DefaultInitialOrganizationBootstrapperTest {
     }
 
     @Test
+    void currentSchemaContainsNoWorkspaceArtifacts() {
+        assertEquals(0L, jdbcClient.sql("""
+                        SELECT COUNT(*)
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                          AND table_name IN ('workspaces', 'workspace_memberships')
+                        """)
+                .query(Long.class)
+                .single());
+        assertEquals(0L, jdbcClient.sql("""
+                        SELECT COUNT(*)
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND column_name IN ('workspace_id', 'default_workspace_id')
+                        """)
+                .query(Long.class)
+                .single());
+    }
+
+    @Test
     void createsTheExactInitialAggregateAndReplaysTheSameConfiguration() {
         var request = request();
 
@@ -95,15 +117,11 @@ class DefaultInitialOrganizationBootstrapperTest {
         assertFalse(existing.created());
         assertEquals(created.ownerActorId(), existing.ownerActorId());
         assertEquals(created.organizationId(), existing.organizationId());
-        assertEquals(created.defaultWorkspaceId(), existing.defaultWorkspaceId());
         assertEquals(1L, count("actors"));
         assertEquals(1L, count("external_identity_bindings"));
         assertEquals(1L, count("organizations"));
-        assertEquals(1L, count("workspaces"));
         assertEquals(1L, count("organization_memberships"));
-        assertEquals(1L, count("workspace_memberships"));
         assertEquals("OWNER", scalar("SELECT role FROM organization_memberships"));
-        assertEquals("ADMIN", scalar("SELECT role FROM workspace_memberships"));
         assertEquals(created.organizationId().value(), jdbcClient.sql("""
                         SELECT initial_organization_id FROM organization_bootstrap_state WHERE id = 1
                         """)
@@ -135,9 +153,7 @@ class DefaultInitialOrganizationBootstrapperTest {
             assertNotEquals(firstResult.created(), secondResult.created());
             assertEquals(firstResult.ownerActorId(), secondResult.ownerActorId());
             assertEquals(firstResult.organizationId(), secondResult.organizationId());
-            assertEquals(firstResult.defaultWorkspaceId(), secondResult.defaultWorkspaceId());
             assertEquals(1L, count("organizations"));
-            assertEquals(1L, count("workspaces"));
         }
     }
 
@@ -179,8 +195,6 @@ class DefaultInitialOrganizationBootstrapperTest {
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "tasco-owner"),
                 "tasco",
                 "Different name",
-                "default",
-                "Tasco Default Workspace",
                 "DEPLOY-2026-08-19"
         );
 
@@ -196,8 +210,6 @@ class DefaultInitialOrganizationBootstrapperTest {
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "tasco-owner"),
                 "tasco",
                 "x".repeat(201),
-                "default",
-                "Tasco Default Workspace",
                 "DEPLOY-2026-08-19"
         );
 
@@ -206,9 +218,7 @@ class DefaultInitialOrganizationBootstrapperTest {
         assertEquals(0L, count("actors"));
         assertEquals(0L, count("external_identity_bindings"));
         assertEquals(0L, count("organizations"));
-        assertEquals(0L, count("workspaces"));
         assertEquals(0L, count("organization_memberships"));
-        assertEquals(0L, count("workspace_memberships"));
         assertEquals(0L, jdbcClient.sql("""
                         SELECT COUNT(*) FROM organization_bootstrap_state
                         WHERE initial_organization_id IS NOT NULL
@@ -237,8 +247,6 @@ class DefaultInitialOrganizationBootstrapperTest {
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "tasco-owner"),
                 "tasco",
                 "Tasco",
-                "default",
-                "Tasco Default Workspace",
                 "DEPLOY-2026-08-19"
         );
     }

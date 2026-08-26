@@ -78,7 +78,8 @@ class DefaultInvitationServiceTest {
         new ResourceDatabasePopulator(
                 new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
                 new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                new ClassPathResource("db/migration/V3__create_organization_invitations.sql")
+                new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
+                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql")
         ).populate(keepAlive);
 
         jdbcClient = JdbcClient.create(dataSource);
@@ -133,6 +134,7 @@ class DefaultInvitationServiceTest {
         assertFalse(databaseContains(issued.plaintextSecret()));
         assertEquals("member@example.com", scalar("open_email_key"));
     }
+
     @Test
     void filtersSortsAndPaginatesInvitationHistory() {
         invitations.issue(ownerActorId, "zeta@example.com");
@@ -283,8 +285,7 @@ class DefaultInvitationServiceTest {
                 .param("issuer", ISSUER)
                 .query(UUID.class)
                 .single());
-        assertEquals("MEMBER", membershipRole("organization_memberships", member));
-        assertEquals("MEMBER", membershipRole("workspace_memberships", member));
+        assertEquals("MEMBER", organizationMembershipRole(member));
         var accepted = invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst();
         assertEquals(InvitationStatus.ACCEPTED, accepted.status());
         assertEquals(member, accepted.acceptedActorId());
@@ -320,7 +321,6 @@ class DefaultInvitationServiceTest {
         assertFalse(replay.created());
         assertEquals(ownerActorId, replay.ownerActorId());
         assertEquals(2L, count("organization_memberships"));
-        assertEquals(2L, count("workspace_memberships"));
     }
 
     @Test
@@ -375,7 +375,6 @@ class DefaultInvitationServiceTest {
 
         assertEquals(InvitationFailureReason.IDENTITY_CONFLICT, conflict.reason());
         assertEquals(1L, count("organization_memberships"));
-        assertEquals(1L, count("workspace_memberships"));
     }
 
     @Test
@@ -423,7 +422,6 @@ class DefaultInvitationServiceTest {
         assertEquals(2L, count("actors"));
         assertEquals(2L, count("external_identity_bindings"));
         assertEquals(2L, count("organization_memberships"));
-        assertEquals(2L, count("workspace_memberships"));
         assertEquals("ACCEPTED", scalar("status"));
     }
 
@@ -437,8 +435,8 @@ class DefaultInvitationServiceTest {
         return invitations.accept(acceptance);
     }
 
-    private String membershipRole(String table, ActorId actorId) {
-        return jdbcClient.sql("SELECT role FROM " + table + " WHERE actor_id = :actorId")
+    private String organizationMembershipRole(ActorId actorId) {
+        return jdbcClient.sql("SELECT role FROM organization_memberships WHERE actor_id = :actorId")
                 .param("actorId", actorId.value())
                 .query(String.class)
                 .single();
@@ -453,8 +451,6 @@ class DefaultInvitationServiceTest {
                 new ExternalIdentity(ISSUER, "initial-owner"),
                 "tasco",
                 "Tasco",
-                "default",
-                "Tasco Default Workspace",
                 "TEST-MEM-12"
         );
     }

@@ -16,6 +16,7 @@ import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
+import { useCan } from "@/features/identity/application-session-context";
 import { cn } from "@/lib/utils";
 
 export type AppShellArea = "app" | "admin";
@@ -46,6 +47,7 @@ function SidebarContents({
   mobile = false,
 }: SidebarContentsProps) {
   const appArea = area === "app";
+  const canAccessAdmin = useCan("INVITATIONS_MANAGE");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -153,7 +155,7 @@ function SidebarContents({
       </nav>
 
       <footer className="shrink-0 p-2">
-        {appArea && (
+        {appArea && canAccessAdmin ? (
           <div className="mb-1">
             <SidebarTab
               href="/admin"
@@ -165,7 +167,7 @@ function SidebarContents({
               Admin Panel
             </SidebarTab>
           </div>
-        )}
+        ) : null}
         <AccountMenu collapsed={collapsed} />
       </footer>
     </div>

@@ -38,8 +38,6 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_INITIAL_OWNER_SUBJECT` | Sensitive identifier | Stable Keycloak user UUID used to bind or verify the first Organization owner. It is not a username and must not change when names/email change. |
 | `MEMORYOS_ORGANIZATION_SLUG` | No | DNS-style slug for the one published initial Organization; startup rejects drift after bootstrap. |
 | `MEMORYOS_ORGANIZATION_DISPLAY_NAME` | No | Display name for that Organization; startup rejects drift after bootstrap. |
-| `MEMORYOS_DEFAULT_WORKSPACE_SLUG` | No | DNS-style slug for its initial default Workspace; startup rejects drift after bootstrap. |
-| `MEMORYOS_DEFAULT_WORKSPACE_DISPLAY_NAME` | No | Display name for that Workspace; startup rejects drift after bootstrap. |
 | `MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Organization and compared on every bootstrap. `MEM-8-initial-owner` means MEM-8 authorized the original aggregate; it is not a per-deploy release label and must not be changed casually. |
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
 | `SPRING_PROFILES_ACTIVE` | No | `development` in Infisical `dev`; `staging` on the server. Selects logging policy only, not alternate business behavior. |
@@ -115,8 +113,6 @@ $env:MEMORYOS_DATABASE_PASSWORD = "<load from managed runtime secret>"
 $env:MEMORYOS_INITIAL_OWNER_SUBJECT = "<stable Keycloak user ID>"
 $env:MEMORYOS_ORGANIZATION_SLUG = "tasco"
 $env:MEMORYOS_ORGANIZATION_DISPLAY_NAME = "Tasco"
-$env:MEMORYOS_DEFAULT_WORKSPACE_SLUG = "default"
-$env:MEMORYOS_DEFAULT_WORKSPACE_DISPLAY_NAME = "Tasco Default Workspace"
 $env:MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE = "<approved deployment/change reference>"
 
 $env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
@@ -229,13 +225,29 @@ ssh -o ExitOnForwardFailure=yes -N -L 15555:127.0.0.1:5556 <operator>@<memoryos-
 
 Migrating the retained MemoryOS and Keycloak databases from the legacy shared PostgreSQL deployment requires the backup-first [shared runtime migration runbook](shared-runtime-migration.md). Do not point writers at a fresh target or delete source data before its restore and rollback gates pass.
 
+## MEM-28 Organization-only schema cutover
+
+V4 drops the historical Workspace tables and columns. The SQL is intentionally a direct clean cutover, but the deployment remains destructive and is not backward compatible with the prior API image.
+
+Before the first V4 staging deployment:
+
+1. Stop API writers.
+2. Use the existing PostgreSQL backup profile/runbook to capture the `memoryos` database dump, dump list, checksum manifest, Flyway history, and Organization/membership/invitation counts.
+3. Verify the checksum and copy the archive off-host.
+4. Restore the dump into an isolated rehearsal database.
+5. Start the exact cutover API image against the restored copy and confirm V4 is the latest successful Flyway migration.
+6. Confirm Organization, Organization-membership, Actor, binding, and invitation counts match the pre-cutover values; confirm `workspaces`, `workspace_memberships`, `default_workspace_id`, and `workspace_id` are absent.
+7. Complete owner login, verify the Organization-only `/api/identity/me` response, accept one temporary member invitation, verify exactly one Organization `MEMBER` row, then clean up the temporary evidence.
+
+Only after the restored-copy rehearsal passes may the same image migrate staging. Keep the verified archive and prior image until post-cutover approval. Rollback after V4 means stopping writers, restoring the pre-cutover dump, and restarting the prior image; do not run the prior binary against the V4 schema.
+
 ## Startup contract
 
 Flyway creates identity, Organization, membership, singleton bootstrap-state, and JDBC-session tables. API startup then transactionally creates or verifies:
 
 - the exact `(MEMORYOS_IDENTITY_ISSUER, MEMORYOS_INITIAL_OWNER_SUBJECT)` actor binding;
-- one Organization and one default Workspace;
-- Organization `OWNER` and Workspace `ADMIN` memberships; and
+- one Organization;
+- one Organization `OWNER` membership; and
 - the deployment change reference.
 
 The singleton database row serializes concurrent replicas. Restart with identical configuration reuses the aggregate. Changed subject, names, slugs, reference, statuses, cardinality, or memberships fails startup rather than mutating authority. Repair requires an explicitly reviewed persistence recovery; never bypass drift with a temporary profile or convenience endpoint.

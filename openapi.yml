@@ -207,7 +207,8 @@ paths:
       - identity-controller
       summary: Return the authenticated MemoryOS actor
       description: Accepts either an existing MemoryOS browser session or a valid
-        bound bearer identity and returns only the stable internal ActorId.
+        bound bearer identity and returns the stable internal ActorId plus its durable
+        Organization authority projection.
       operationId: getCurrentIdentity
       responses:
         "200":
@@ -389,8 +390,39 @@ components:
           type: string
           format: uuid
           description: Stable internal MemoryOS actor identifier.
+        organization:
+          description: "Active Organization context, or null when the actor has no\
+            \ active Organization membership."
+          oneOf:
+          - $ref: "#/components/schemas/CurrentOrganization"
+          - type: "null"
+        capabilities:
+          type: array
+          description: Canonical capabilities backed by current server enforcement.
+          items:
+            type: string
+            enum:
+            - INVITATIONS_MANAGE
       required:
       - actorId
+      - capabilities
+      - organization
+    CurrentOrganization:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+          description: Display name of the actor's active Organization.
+        role:
+          type: string
+          description: Stable Organization membership role used for presentation.
+          enum:
+          - OWNER
+          - MEMBER
+      required:
+      - displayName
+      - role
     ApiProblem:
       type: object
       additionalProperties: false

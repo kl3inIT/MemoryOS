@@ -290,7 +290,7 @@ export function OrganizationInvitationsPage() {
             <Dialog.Description className="mt-2 font-main-ui-body text-content-secondary">
               {issuedInvitation
                 ? "Share this link now. MemoryOS stores only its digest, so this exact link cannot be shown again."
-                : "They will join as a member of this Organization and its default workspace."}
+                : "They will join as a member of this Organization."}
             </Dialog.Description>
 
             {issuedInvitation ? (

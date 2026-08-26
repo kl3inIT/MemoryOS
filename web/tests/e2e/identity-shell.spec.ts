@@ -1,6 +1,20 @@
 import { expect, test } from "@playwright/test";
 
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
+const OWNER_SESSION = {
+  actorId: ACTOR_ID,
+  organization: {
+    displayName: "Tasco",
+    role: "OWNER",
+  },
+  capabilities: ["INVITATIONS_MANAGE"],
+};
+const MEMBER_SESSION = {
+  ...OWNER_SESSION,
+  actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
+  organization: { ...OWNER_SESSION.organization, role: "MEMBER" },
+  capabilities: [],
+};
 
 test("offers the backend OAuth2 flow when no session exists", async ({ page }) => {
   await page.route("**/api/identity/me", async (route) => {
@@ -11,9 +25,7 @@ test("offers the backend OAuth2 flow when no session exists", async ({ page }) =
 
   await expect(page.getByRole("heading", { name: /sign in to memoryos/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /keep what matters/i })).toHaveCount(0);
-  await expect(
-    page.getByText(/private workspace|authentication and mfa|authorized members only/i),
-  ).toHaveCount(0);
+  await expect(page.getByText(/authentication and mfa|authorized members only/i)).toHaveCount(0);
   await expect(page.getByRole("link", { name: /continue with company account/i })).toHaveAttribute(
     "href",
     "/oauth2/authorization/memoryos",
@@ -31,7 +43,7 @@ test("renders the authenticated application shell", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ actorId: ACTOR_ID }),
+      body: JSON.stringify(OWNER_SESSION),
     });
   });
 
@@ -49,6 +61,36 @@ test("renders the authenticated application shell", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
 });
 
+test("hides owner UI and blocks member administration deep links without requests", async ({
+  page,
+}) => {
+  let invitationRequests = 0;
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MEMBER_SESSION),
+    });
+  });
+  await page.route("**/api/invitations*", async (route) => {
+    invitationRequests += 1;
+    await route.fulfill({ status: 403 });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(page.getByRole("button", { name: "Organization member" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
+
+  await page.goto("/admin/invitations?status=PENDING");
+  await expect(page).toHaveURL(/\/admin\/invitations\?status=PENDING/);
+  await expect(
+    page.getByRole("heading", { name: "You don’t have access to this area." }),
+  ).toBeVisible();
+  expect(invitationRequests).toBe(0);
+});
+
 test("signs out from the account menu with the same-origin guard", async ({ page }) => {
   let logoutMethod: string | undefined;
   let logoutGuard: string | undefined;
@@ -56,7 +98,7 @@ test("signs out from the account menu with the same-origin guard", async ({ page
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ actorId: ACTOR_ID }),
+      body: JSON.stringify(OWNER_SESSION),
     });
   });
   await page.route("**/logout", async (route) => {
@@ -76,7 +118,7 @@ test("signs out from the account menu with the same-origin guard", async ({ page
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Workspace owner" }).click();
+  await page.getByRole("button", { name: "Organization owner" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/signed-out-test$/);
@@ -89,18 +131,18 @@ test("persists the selected dark theme", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ actorId: ACTOR_ID }),
+      body: JSON.stringify(OWNER_SESSION),
     });
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Workspace owner" }).click();
+  await page.getByRole("button", { name: "Organization owner" }).click();
   await page.getByRole("button", { name: "Use dark theme" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("button", { name: "Workspace owner" }).click();
+  await page.getByRole("button", { name: "Organization owner" }).click();
   await expect(page.getByRole("button", { name: "Use light theme" })).toBeVisible();
 });
 
@@ -109,7 +151,7 @@ test("opens the separate administration shell", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ actorId: ACTOR_ID }),
+      body: JSON.stringify(OWNER_SESSION),
     });
   });
 
@@ -128,10 +170,8 @@ test("opens the separate administration shell", async ({ page }) => {
 test("keeps unprovisioned access separate from signed-out state", async ({ page }) => {
   await page.goto("/access-not-provisioned");
 
-  await expect(
-    page.getByRole("heading", { name: /workspace doesn’t know you yet/i }),
-  ).toBeVisible();
-  await expect(page.getByText(/has not been invited into this memoryos workspace/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /don’t have access yet/i })).toBeVisible();
+  await expect(page.getByText(/has not been added to this memoryos organization/i)).toBeVisible();
 });
 
 test("recovers from an unavailable identity endpoint without treating it as signed out", async ({
@@ -148,7 +188,7 @@ test("recovers from an unavailable identity endpoint without treating it as sign
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ actorId: ACTOR_ID }),
+      body: JSON.stringify(OWNER_SESSION),
     });
   });
 
@@ -171,7 +211,7 @@ test("creates a production invitation from the Invitations administration page",
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ actorId: ACTOR_ID }),
+      body: JSON.stringify(OWNER_SESSION),
     });
   });
   await page.route("**/api/invitations*", async (route) => {
@@ -300,7 +340,7 @@ test("restores and updates the server-driven invitation view from the URL", asyn
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ actorId: ACTOR_ID }),
+      body: JSON.stringify(OWNER_SESSION),
     });
   });
   await page.route("**/api/invitations?*", async (route) => {
@@ -375,7 +415,7 @@ test("shows the recipient invitation landing and recovery states", async ({ page
     "href",
     "/invite/continue",
   );
-  await expect(page.getByText(/does not grant admin permissions/i)).toBeVisible();
+  await expect(page.getByText(/does not grant administration permissions/i)).toBeVisible();
 
   await page.goto("/invitation?reason=email-mismatch");
   await expect(page.getByRole("heading", { name: "Use the invited email" })).toBeVisible();

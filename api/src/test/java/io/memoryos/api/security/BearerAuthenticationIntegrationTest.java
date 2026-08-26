@@ -81,8 +81,6 @@ class BearerAuthenticationIntegrationTest {
         registry.add("memoryos.initial-organization.owner-subject", () -> "startup-owner");
         registry.add("memoryos.initial-organization.slug", () -> "test");
         registry.add("memoryos.initial-organization.display-name", () -> "Test");
-        registry.add("memoryos.initial-organization.default-workspace-slug", () -> "default");
-        registry.add("memoryos.initial-organization.default-workspace-display-name", () -> "Default");
         registry.add("memoryos.initial-organization.change-reference", () -> "TEST-JWT-BOOTSTRAP");
     }
 
@@ -201,11 +199,34 @@ class BearerAuthenticationIntegrationTest {
     }
 
     @Test
-    void returnsOnlyActorIdForBoundIdentity() throws Exception {
+    void returnsEmptyOrganizationAuthorityForBoundActorWithoutMembership() throws Exception {
         var response = request(token(validClaims(BOUND_SUBJECT), SIGNING_KEY));
 
         assertEquals(200, response.statusCode());
-        assertEquals("{\"actorId\":\"" + ACTOR_ID + "\"}", response.body());
+        assertEquals(
+                "{\"actorId\":\"" + ACTOR_ID + "\",\"organization\":null,\"capabilities\":[]}",
+                response.body()
+        );
+    }
+
+    @Test
+    void returnsDurableOrganizationAuthorityForBoundOwner() throws Exception {
+        UUID ownerActorId = jdbcClient.sql("""
+                        SELECT actor_id FROM external_identity_bindings
+                        WHERE issuer = :issuer AND subject = 'startup-owner'
+                        """)
+                .param("issuer", ISSUER)
+                .query(UUID.class)
+                .single();
+
+        var response = request(token(validClaims("startup-owner"), SIGNING_KEY));
+
+        assertEquals(200, response.statusCode());
+        assertEquals(
+                "{\"actorId\":\"" + ownerActorId + "\",\"organization\":{\"displayName\":\"Test\","
+                        + "\"role\":\"OWNER\"},\"capabilities\":[\"INVITATIONS_MANAGE\"]}",
+                response.body()
+        );
     }
 
     private HttpResponse<String> request(String token) throws IOException, InterruptedException {

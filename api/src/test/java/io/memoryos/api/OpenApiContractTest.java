@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.sun.net.httpserver.HttpServer;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -16,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.TreeSet;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,8 +36,6 @@ import org.springframework.test.web.servlet.MockMvc;
         "memoryos.initial-organization.owner-subject=openapi-owner",
         "memoryos.initial-organization.slug=openapi",
         "memoryos.initial-organization.display-name=OpenAPI",
-        "memoryos.initial-organization.default-workspace-slug=default",
-        "memoryos.initial-organization.default-workspace-display-name=Default",
         "memoryos.initial-organization.change-reference=TEST-OPENAPI-CONTRACT",
         "spring.datasource.url=jdbc:h2:mem:openapi-contract;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
                 + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
@@ -92,6 +92,17 @@ class OpenApiContractTest {
                         .path("format")
                         .textValue()
         );
+        JsonNode organizationSchema = actual.path("components")
+                .path("schemas")
+                .path("CurrentIdentity")
+                .path("properties")
+                .path("organization");
+        assertEquals(2, organizationSchema.path("oneOf").size());
+        assertEquals(
+                "#/components/schemas/CurrentOrganization",
+                organizationSchema.path("oneOf").path(0).path("$ref").textValue()
+        );
+        assertEquals("null", organizationSchema.path("oneOf").path(1).path("type").textValue());
 
         Path contract = repositoryRoot().resolve("openapi.yml");
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {

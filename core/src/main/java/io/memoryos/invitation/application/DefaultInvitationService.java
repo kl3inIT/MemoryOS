@@ -18,7 +18,6 @@ import io.memoryos.organization.InvitationAuthority;
 import io.memoryos.organization.InvitationTarget;
 import io.memoryos.organization.OrganizationId;
 import io.memoryos.organization.OrganizationMembershipProvisioner;
-import io.memoryos.organization.WorkspaceId;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -103,7 +102,6 @@ public class DefaultInvitationService implements InvitationService {
             requireOne(invitationRepository.insert(
                     invitationId,
                     owner.organizationId(),
-                    owner.defaultWorkspaceId(),
                     normalizedEmail,
                     digest(plaintextSecret),
                     ownerActorId,
@@ -118,7 +116,6 @@ public class DefaultInvitationService implements InvitationService {
                 new InvitationView(
                         invitationId,
                         owner.organizationId(),
-                        owner.defaultWorkspaceId(),
                         normalizedEmail,
                         InvitationStatus.PENDING,
                         now,
@@ -226,11 +223,7 @@ public class DefaultInvitationService implements InvitationService {
             if (membershipProvisioner.hasAnyMembership(actorId)) {
                 throw identityConflict();
             }
-            membershipProvisioner.grantDefaultMember(
-                    target.organizationId(),
-                    target.defaultWorkspaceId(),
-                    actorId
-            );
+            membershipProvisioner.grantMember(target.organizationId(), actorId);
             requireOne(
                     invitationRepository.accept(invitation, actorId, clock.instant()),
                     "accept invitation"
@@ -262,8 +255,7 @@ public class DefaultInvitationService implements InvitationService {
 
     private InvitationTarget activeTarget(InvitationRow invitation) {
         return membershipProvisioner.findActiveInvitationTarget(
-                        new OrganizationId(invitation.organizationId()),
-                        new WorkspaceId(invitation.defaultWorkspaceId())
+                        new OrganizationId(invitation.organizationId())
                 )
                 .orElseThrow(DefaultInvitationService::notAvailable);
     }
@@ -288,7 +280,6 @@ public class DefaultInvitationService implements InvitationService {
         return new InvitationView(
                 invitation.id(),
                 new OrganizationId(invitation.organizationId()),
-                new WorkspaceId(invitation.defaultWorkspaceId()),
                 invitation.email(),
                 invitation.status(),
                 invitation.createdAt(),

@@ -9,8 +9,6 @@ record MemoryOsInitialOrganizationProperties(
         String ownerSubject,
         String slug,
         String displayName,
-        String defaultWorkspaceSlug,
-        String defaultWorkspaceDisplayName,
         String changeReference
 ) {
 
@@ -18,8 +16,6 @@ record MemoryOsInitialOrganizationProperties(
         requireText(ownerSubject, "memoryos.initial-organization.owner-subject");
         requireText(slug, "memoryos.initial-organization.slug");
         requireText(displayName, "memoryos.initial-organization.display-name");
-        requireText(defaultWorkspaceSlug, "memoryos.initial-organization.default-workspace-slug");
-        requireText(defaultWorkspaceDisplayName, "memoryos.initial-organization.default-workspace-display-name");
         requireText(changeReference, "memoryos.initial-organization.change-reference");
     }
 

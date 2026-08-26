@@ -25,8 +25,6 @@ class OrganizationCapabilityConfiguration {
                 new ExternalIdentity(issuer, properties.ownerSubject()),
                 properties.slug(),
                 properties.displayName(),
-                properties.defaultWorkspaceSlug(),
-                properties.defaultWorkspaceDisplayName(),
                 properties.changeReference()
         ));
     }

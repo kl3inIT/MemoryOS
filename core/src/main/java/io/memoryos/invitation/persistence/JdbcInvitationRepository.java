@@ -5,7 +5,6 @@ import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationQuery;
 import io.memoryos.invitation.InvitationSort;
 import io.memoryos.organization.OrganizationId;
-import io.memoryos.organization.WorkspaceId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -48,7 +47,6 @@ public class JdbcInvitationRepository {
             INSERT INTO organization_invitations (
                 id,
                 organization_id,
-                default_workspace_id,
                 normalized_email,
                 open_email_key,
                 secret_digest,
@@ -61,7 +59,6 @@ public class JdbcInvitationRepository {
             VALUES (
                 :id,
                 :organizationId,
-                :workspaceId,
                 :email,
                 :email,
                 :digest,
@@ -158,7 +155,6 @@ public class JdbcInvitationRepository {
     public int insert(
             UUID invitationId,
             OrganizationId organizationId,
-            WorkspaceId workspaceId,
             String email,
             String digest,
             ActorId creatorActorId,
@@ -168,7 +164,6 @@ public class JdbcInvitationRepository {
         return jdbcClient.sql(INSERT_INVITATION)
                 .param("id", invitationId)
                 .param("organizationId", organizationId.value())
-                .param("workspaceId", workspaceId.value())
                 .param("email", email)
                 .param("digest", digest)
                 .param("actorId", creatorActorId.value())
@@ -275,7 +270,6 @@ public class JdbcInvitationRepository {
         return new InvitationRow(
                 resultSet.getObject("id", UUID.class),
                 resultSet.getObject("organization_id", UUID.class),
-                resultSet.getObject("default_workspace_id", UUID.class),
                 resultSet.getString("normalized_email"),
                 InvitationStatus.valueOf(resultSet.getString("status")),
                 resultSet.getTimestamp("created_at").toInstant(),

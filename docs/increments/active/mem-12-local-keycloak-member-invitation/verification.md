@@ -1,3 +1,5 @@
+> Historical runtime evidence below predates MEM-28 and accurately records the former default-Workspace schema. The current Organization-only contract is defined by MEM-28; these observations are not current architecture.
+
 # MEM-12 verification
 
 Date: 2026-08-21

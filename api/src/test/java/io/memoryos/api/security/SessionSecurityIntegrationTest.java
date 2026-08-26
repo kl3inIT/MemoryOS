@@ -108,8 +108,6 @@ class SessionSecurityIntegrationTest {
         registry.add("memoryos.initial-organization.owner-subject", () -> "initial-owner");
         registry.add("memoryos.initial-organization.slug", () -> "tasco");
         registry.add("memoryos.initial-organization.display-name", () -> "Tasco");
-        registry.add("memoryos.initial-organization.default-workspace-slug", () -> "default");
-        registry.add("memoryos.initial-organization.default-workspace-display-name", () -> "Tasco Default Workspace");
         registry.add("memoryos.initial-organization.change-reference", () -> "TEST-BROWSER-BOOTSTRAP");
     }
 
@@ -172,19 +170,17 @@ class SessionSecurityIntegrationTest {
             assertEquals(baseUri().resolve("/").toString(), callbackResponse.headers().firstValue("location").orElseThrow());
             assertNotEquals(preAuthenticationSessionId, sessionCookie(cookies));
 
-            var authenticated = client.send(request("/"), HttpResponse.BodyHandlers.ofString());
-            assertEquals(200, authenticated.statusCode());
-            assertTrue(authenticated.body().contains(ownerActorId.toString()));
             var currentIdentity = client.send(
                     request("/api/identity/me"),
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, currentIdentity.statusCode());
             assertTrue(currentIdentity.body().contains(ownerActorId.toString()));
+            assertTrue(currentIdentity.body().contains("\"displayName\":\"Tasco\""));
+            assertTrue(currentIdentity.body().contains("\"role\":\"OWNER\""));
+            assertTrue(currentIdentity.body().contains("\"capabilities\":[\"INVITATIONS_MANAGE\"]"));
             assertEquals(1L, count("organizations"));
-            assertEquals(1L, count("workspaces"));
             assertEquals(1L, count("organization_memberships"));
-            assertEquals(1L, count("workspace_memberships"));
 
             List<byte[]> attributes = jdbcClient.sql("SELECT attribute_bytes FROM spring_session_attributes")
                     .query(byte[].class)
@@ -309,6 +305,7 @@ class SessionSecurityIntegrationTest {
             jdbcClient.sql("DELETE FROM spring_session").update();
         }
     }
+
     @Test
     void filtersSortsAndPaginatesInvitationHistoryOverHttp() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
@@ -453,9 +450,6 @@ class SessionSecurityIntegrationTest {
                     callbackResponse.headers().firstValue("location").orElseThrow()
             );
 
-            var failure = client.send(request("/access-not-provisioned"), HttpResponse.BodyHandlers.ofString());
-            assertEquals(403, failure.statusCode());
-            assertTrue(failure.body().contains("ACCESS_NOT_PROVISIONED"));
             assertEquals(1L, jdbcClient.sql("""
                             SELECT COUNT(*) FROM external_identity_bindings
                             WHERE issuer = :issuer
@@ -466,10 +460,10 @@ class SessionSecurityIntegrationTest {
                     .param("actorId", unprovisionedActorId)
                     .query(Long.class)
                     .single());
-            var root = client.send(request("/"), HttpResponse.BodyHandlers.ofString());
-            assertEquals(302, root.statusCode());
-            assertTrue(root.headers().firstValue("location").orElseThrow()
-                    .endsWith("/oauth2/authorization/memoryos"));
+            assertEquals(
+                    401,
+                    client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
         }
     }
 
@@ -478,6 +472,7 @@ class SessionSecurityIntegrationTest {
         String memberSubject = "invited-member-" + UUID.randomUUID();
         String memberEmail = memberSubject + "@example.test";
         String invitationUrl;
+        UUID invitationId;
         var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
 
         try (var ownerClient = client(ownerCookies)) {
@@ -498,6 +493,7 @@ class SessionSecurityIntegrationTest {
             );
             assertEquals(201, create.statusCode());
             invitationUrl = jsonString(create.body(), "invitationUrl");
+            invitationId = UUID.fromString(jsonString(create.body(), "id"));
             assertTrue(invitationUrl.startsWith("/invite/"));
             assertFalse(databaseContains(invitationUrl.substring("/invite/".length())));
         }
@@ -571,8 +567,37 @@ class SessionSecurityIntegrationTest {
                     .query(UUID.class)
                     .single();
             assertTrue(identity.body().contains(memberActorId.toString()));
-            assertEquals("MEMBER", membershipRole("organization_memberships", memberActorId));
-            assertEquals("MEMBER", membershipRole("workspace_memberships", memberActorId));
+            assertTrue(identity.body().contains("\"displayName\":\"Tasco\""));
+            assertTrue(identity.body().contains("\"role\":\"MEMBER\""));
+            assertTrue(identity.body().contains("\"capabilities\":[]"));
+            var ownerOnlyResponses = List.of(
+                    memberClient.send(request("/api/invitations"), HttpResponse.BodyHandlers.ofString()),
+                    memberClient.send(
+                            invitationMutation("{\"email\":\"another-member@example.test\"}"),
+                            HttpResponse.BodyHandlers.ofString()
+                    ),
+                    memberClient.send(
+                            invitationMutation(
+                                    "/api/invitations/" + invitationId + "/rotate",
+                                    "POST",
+                                    HttpRequest.BodyPublishers.noBody()
+                            ),
+                            HttpResponse.BodyHandlers.ofString()
+                    ),
+                    memberClient.send(
+                            invitationMutation(
+                                    "/api/invitations/" + invitationId,
+                                    "DELETE",
+                                    HttpRequest.BodyPublishers.noBody()
+                            ),
+                            HttpResponse.BodyHandlers.ofString()
+                    )
+            );
+            for (var response : ownerOnlyResponses) {
+                assertEquals(403, response.statusCode());
+                assertEquals("INVITATION_NOT_OWNER", jsonString(response.body(), "code"));
+            }
+            assertEquals("MEMBER", organizationMembershipRole(memberActorId));
             assertEquals("ACCEPTED", jdbcClient.sql("""
                             SELECT status FROM organization_invitations
                             WHERE normalized_email = :email
@@ -700,6 +725,19 @@ class SessionSecurityIntegrationTest {
                 .build();
     }
 
+    private HttpRequest invitationMutation(
+            String path,
+            String method,
+            HttpRequest.BodyPublisher body
+    ) {
+        return HttpRequest.newBuilder(baseUri().resolve(path))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json")
+                .header(BROWSER_MUTATION_HEADER, "1")
+                .method(method, body)
+                .build();
+    }
+
     private HttpResponse<String> completeOAuth(HttpClient client, String startPath) throws Exception {
         var authorization = client.send(request(startPath), HttpResponse.BodyHandlers.ofString());
         assertEquals(302, authorization.statusCode());
@@ -717,8 +755,8 @@ class SessionSecurityIntegrationTest {
         );
     }
 
-    private String membershipRole(String table, UUID actorId) {
-        return jdbcClient.sql("SELECT role FROM " + table + " WHERE actor_id = :actorId")
+    private String organizationMembershipRole(UUID actorId) {
+        return jdbcClient.sql("SELECT role FROM organization_memberships WHERE actor_id = :actorId")
                 .param("actorId", actorId)
                 .query(String.class)
                 .single();
@@ -760,9 +798,6 @@ class SessionSecurityIntegrationTest {
                 .query(UUID.class)
                 .optional()
                 .ifPresent(actorId -> {
-                    jdbcClient.sql("DELETE FROM workspace_memberships WHERE actor_id = :actorId")
-                            .param("actorId", actorId)
-                            .update();
                     jdbcClient.sql("DELETE FROM organization_memberships WHERE actor_id = :actorId")
                             .param("actorId", actorId)
                             .update();

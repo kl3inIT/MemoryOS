@@ -173,7 +173,7 @@ export const getCurrentIdentityQueryKey = (options?: Options<GetCurrentIdentityD
 /**
  * Return the authenticated MemoryOS actor
  *
- * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns only the stable internal ActorId.
+ * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Organization authority projection.
  */
 export const getCurrentIdentityOptions = (options?: Options<GetCurrentIdentityData>) => queryOptions<GetCurrentIdentityResponse, DefaultError, GetCurrentIdentityResponse, ReturnType<typeof getCurrentIdentityQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

@@ -38,8 +38,6 @@ import org.springframework.test.web.servlet.MockMvc;
                 "memoryos.initial-organization.owner-subject=smoke-owner",
                 "memoryos.initial-organization.slug=smoke",
                 "memoryos.initial-organization.display-name=Smoke",
-                "memoryos.initial-organization.default-workspace-slug=default",
-                "memoryos.initial-organization.default-workspace-display-name=Default",
                 "memoryos.initial-organization.change-reference=TEST-SMOKE-BOOTSTRAP",
                 "spring.datasource.url=jdbc:h2:mem:api-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
                 "spring.datasource.username=sa",

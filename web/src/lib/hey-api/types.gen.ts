@@ -46,6 +46,25 @@ export type CurrentIdentity = {
      * Stable internal MemoryOS actor identifier.
      */
     actorId: string;
+    /**
+     * Active Organization context, or null when the actor has no active Organization membership.
+     */
+    organization: CurrentOrganization | null;
+    /**
+     * Canonical capabilities backed by current server enforcement.
+     */
+    capabilities: Array<'INVITATIONS_MANAGE'>;
+};
+
+export type CurrentOrganization = {
+    /**
+     * Display name of the actor's active Organization.
+     */
+    displayName: string;
+    /**
+     * Stable Organization membership role used for presentation.
+     */
+    role: 'OWNER' | 'MEMBER';
 };
 
 export type ApiProblem = {
