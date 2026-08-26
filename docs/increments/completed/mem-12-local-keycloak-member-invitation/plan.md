@@ -32,7 +32,7 @@
 - [x] Add owner-only public mailbox access through a dedicated Keycloak client, OAuth2 Proxy, Nginx Proxy Manager HTTPS host, S256 PKCE, file-mounted secrets, and an exact email allowlist.
 - [x] Repoint the existing protected pgweb deployment from legacy ZeroMail PostgreSQL to the current MemoryOS-owned PostgreSQL using its dedicated read-only role.
 - [x] Publish the staging MemoryOS web origin through Nginx Proxy Manager and reconcile `memoryos-web` to its exact HTTPS callback.
-- [ ] Complete one combined shared-runtime pass from owner invitation through fresh recipient registration, email verification, continuation, and atomic acceptance.
+- [x] Complete one combined shared-runtime pass from owner invitation through fresh verified recipient authentication and atomic acceptance.
 
 ## Product experience
 
@@ -52,5 +52,5 @@
 - [x] Exercise owner and recipient flows in Chromium at desktop and mobile widths, including recovery states and reload behavior.
 - [x] Run `gradlew.bat clean check --no-daemon`, `pnpm check`, and the browser contract suite.
 - [x] Remediate the captured CodeRabbit pass: session cache/state isolation, bootstrap replay after member grants, Actor-row serialization across invitations, indexed digest lookup, deterministic cleanup/locking tests, clipboard recovery, precise CSRF evidence, and redacted split gateway controls. Track pagination separately as MEM-15.
-- [ ] Deploy the exact reviewed head, execute the complete owner-to-recipient flow against shared Keycloak and PostgreSQL, and record secret-safe database/session evidence.
-- [ ] Complete the guarded PR loop, exact merge-SHA CI, Linear evidence, increment closure, and checkout cleanup.
+- [x] Deploy the exact reviewed head, execute the complete owner-to-recipient flow against shared Keycloak and PostgreSQL, and record secret-safe database/session evidence.
+- [x] Complete the guarded PR loop, exact merge-SHA CI, Linear evidence, increment closure, and checkout cleanup.

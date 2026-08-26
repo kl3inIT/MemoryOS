@@ -40,3 +40,7 @@ Evidence is appended only after the corresponding test, command, or runtime scen
 - `pnpm check`: passed, including generated-client stability, zero-warning lint, formatting, TypeScript, 18 unit tests, route generation, and production build.
 - `pnpm test:e2e`: 12/12 Chromium scenarios passed. Owner administration remained functional at desktop width. The member scenario ran at `390 × 844`, showed server-derived member context without Admin Panel, preserved the `/admin/invitations?status=PENDING` deep link (with canonical default search fields), rendered access denied, and recorded zero invitation requests.
 - Cross-actor unit verification changed the identity projection in one mounted boundary and observed prior query and mutation caches removed before member UI rendered.
+
+## Staging evidence
+
+On 2026-08-26, staging deployed exact source SHA `a17ea6c88e647fdd6c2f638dc26cf65061d23b48` after PR #32 and the PR #33 Infisical-domain hotfix. Flyway V4 was successful; API and web containers were healthy. A real owner session returned Organization role `OWNER` with `INVITATIONS_MANAGE` and no Workspace field. A newly invited verified member returned `MEMBER` with an empty capability list and no Workspace field, while `GET /api/invitations` returned `403` with `INVITATION_NOT_OWNER`. Cleanup restored the pre-smoke database counts and removed all application sessions.

@@ -32,3 +32,15 @@ Evidence is appended only after the corresponding test, command, inspection, or 
 - `pnpm check`: passed, including generated-client stability, zero-warning lint, formatting, TypeScript, 18 unit tests, route stability, and production build.
 - `pnpm test:e2e`: 12/12 Chromium scenarios passed with `Organization owner`/`Organization member` presentation, member deep-link denial, zero invitation requests, and Organization-only invitation copy.
 - Linear baseline was superseded by `MemoryOS — Organization ownership, Groups, Provisioning và Source ACL`; MEM-9, MEM-10, and MEM-24 now carry Organization-only scope.
+
+## Staging migration evidence
+
+On 2026-08-26, the pre-cutover production schema reported Flyway V1–V3 and `actors=1`, `bindings=1`, `organizations=1`, `organization_memberships=1`, `workspaces=1`, `workspace_memberships=1`, `invitations=1 (PENDING)`. The historical Workspace and invitation scopes matched the supported default-Workspace flow.
+
+The API writer stopped before backup. The ops profile produced `memoryos-20260826T135912Z.dump`, `keycloak-20260826T135912Z.dump`, both restore lists, and `20260826T135912Z.sha256`; checks passed inside the mounted backup context and again after the archives were copied off-host. The MemoryOS dump restored into isolated database `memoryos_mem28_rehearsal` with identical counts. Exact PR #32 application code applied V4 and became healthy; Flyway V1–V4 succeeded, counts remained `1/1/1/1/1`, and `workspace_tables=0`, `workspace_columns=0`. The rehearsal container, database, runtime-secret export, smoke scripts, and worktrees were removed after verification; rollback archives remain retained.
+
+The rehearsal exposed that `infisical login` honored the configured self-hosted domain while `infisical run` fell back to the cloud default. PR #33 added the missing explicit domain, passed local and latest-head CI, and used the documented CodeRabbit rate-limit fallback with no captured findings or threads. Merge SHA `a17ea6c88e647fdd6c2f638dc26cf65061d23b48` main CI run `32978942562` passed all jobs.
+
+Staging deployed API and web images labeled and tagged with `a17ea6c88e647fdd6c2f638dc26cf65061d23b48`. Both containers became healthy; public `/actuator/health` returned `UP`; anonymous `/api/identity/me` remained `401`; production Flyway showed V1–V4; Workspace tables/columns were absent; the original counts and pending invitation were preserved.
+
+A real browser smoke used Keycloak administrator impersonation for the existing owner without changing the owner password, then created a temporary verified local user for a new invitation. The owner projection was `OWNER + INVITATIONS_MANAGE`; the member projection was `MEMBER + no capabilities`; neither response contained Workspace data; invitation acceptance committed; the member received `403 INVITATION_NOT_OWNER`. Cleanup deleted all temporary Keycloak and MemoryOS evidence and restored `actors=1`, `bindings=1`, `organizations=1`, `memberships=1`, `invitations=1 (PENDING)`, `sessions=0`.

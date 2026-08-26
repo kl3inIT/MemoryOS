@@ -25,9 +25,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
-- [MEM-12 — Production local-Keycloak member invitation](docs/increments/active/mem-12-local-keycloak-member-invitation/design.md)
-- [MEM-19 — Frontend authority projection](docs/increments/active/mem-19-frontend-authority-projection/design.md)
-- [MEM-28 — Organization-only ownership](docs/increments/active/mem-28-organization-only-ownership/design.md)
+- None.
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 

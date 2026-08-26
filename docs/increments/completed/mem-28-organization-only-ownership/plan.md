@@ -35,5 +35,5 @@
 - [x] Inspect every changed Java, YAML, and SQL file with warnings enabled where supported.
 - [x] Run focused migration, bootstrap, invitation, identity, architecture, and PostgreSQL concurrency tests.
 - [x] Run `gradlew.bat clean check --no-daemon`, `pnpm check`, and Playwright.
-- [ ] Capture a verified pre-deploy dump, rehearse V4 on a restored copy, and smoke owner/member flows before staging cutover.
-- [ ] Keep MEM-28 active until PR merge, exact-main CI, staging rehearsal/deploy, Linear closure, and move to `completed/`.
+- [x] Capture a verified pre-deploy dump, rehearse V4 on a restored copy, and smoke owner/member flows before staging cutover.
+- [x] Complete PR merge, exact-main CI, staging rehearsal/deploy, Linear closure, and move to `completed/`.
