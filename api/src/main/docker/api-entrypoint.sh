@@ -38,6 +38,7 @@ export INFISICAL_TOKEN
 unset access_token
 
 exec infisical run \
+    --domain="$INFISICAL_DOMAIN" \
     --projectId="$INFISICAL_PROJECT_ID" \
     --env="$INFISICAL_ENVIRONMENT" \
     -- \
