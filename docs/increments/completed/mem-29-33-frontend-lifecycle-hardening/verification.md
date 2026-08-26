@@ -34,6 +34,6 @@ A real Chromium session exercised the Vite application at `http://127.0.0.1:4173
 
 CodeRabbit reviewed head `9e4d8ecd25c85e2ff7f24289bb0c80095ba01260` and raised two valid minor findings. Head `6bbc3f31a2857715c2929911e9116062d29be359` broadens the font assertion to any data URL inside `@font-face`, adds both legacy/current WOFF2 MIME fixtures, and closes the mobile drawer after account-menu navigation. Both threads contain fix evidence and are resolved; `pnpm check` and all 14 Playwright scenarios passed after the fixes.
 
-## Remaining delivery evidence
+## Completion evidence
 
-The increment remains active until the single PR covering MEM-29 through MEM-33 is reviewed and merged. Exact main-SHA CI and staging smoke are post-merge evidence and will be recorded in Linear under the repository operating policy.
+PR [#35](https://github.com/kl3inIT/MemoryOS/pull/35) merged at `2026-08-26T15:59:34Z` as `9b61dd00189a799a62449c77c8605d4a260c50f0`, containing reviewed head `81f6bbc3723867344384d6d84a558cb14e3ade75`. GitHub Actions was in a documented major outage: feature run `32985425211` failed during startup before any job executed, and no exact-main CI run started for the merge SHA. The local terminating gates, direct browser smoke, and resolved CodeRabbit review above remain the available verification. Staging was not redeployed or re-smoked after merge. The repository owner explicitly directed closure despite those unavailable post-merge signals; MEM-29 through MEM-33 are closed in Linear and this increment is completed with that exception recorded.

@@ -36,4 +36,4 @@
 - [x] Run `gradlew.bat clean check --no-daemon` and the complete Playwright suite.
 - [x] Exercise the changed browser surfaces and record exact runtime evidence.
 - [x] Consolidate durable facts into architecture, identity/invitation specs, test matrices, and increment verification evidence.
-- [ ] Keep the increment active until guarded PR merge, exact main CI, staging smoke, Linear closure, and move to `completed/`.
+- [x] Merge PR #35, record the GitHub Actions outage that prevented exact-main CI, close the linked Linear issues by explicit owner direction, and move this increment to `completed/`.
