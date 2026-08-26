@@ -1,9 +1,11 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, render, screen } from "@testing-library/react";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ThemeProvider } from "@/features/theme/theme-provider";
+import { useApplicationSession } from "@/features/identity/application-session-context";
+import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
+import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { ApplicationSessionBoundary } from "./application-session-boundary";
 
 const OWNER_SESSION: CurrentIdentity = {
@@ -23,27 +25,20 @@ const MEMBER_SESSION: CurrentIdentity = {
 };
 
 afterEach(() => {
+  focusManager.setFocused(undefined);
   vi.unstubAllGlobals();
 });
 
 describe("ApplicationSessionBoundary", () => {
-  it("denies a member administration deep link without issuing invitation requests", async () => {
-    let invitationRequests = 0;
+  it("provides the authenticated session to its child layout", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = input instanceof Request ? input.url : String(input);
-        if (new URL(url).pathname.startsWith("/api/invitations")) invitationRequests += 1;
-        return Response.json(MEMBER_SESSION);
-      }),
+      vi.fn(async () => Response.json(OWNER_SESSION)),
     );
 
-    renderBoundary(new QueryClient(), "invitations");
+    renderBoundary(createMemoryOsQueryClient());
 
-    expect(
-      await screen.findByRole("heading", { name: "You don’t have access to this area." }),
-    ).toBeInTheDocument();
-    expect(invitationRequests).toBe(0);
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
   });
 
   it("renders the provisioning state when durable membership is absent", async () => {
@@ -52,53 +47,170 @@ describe("ApplicationSessionBoundary", () => {
       vi.fn(async () => Response.json({ ...MEMBER_SESSION, organization: null })),
     );
 
-    renderBoundary(new QueryClient());
+    renderBoundary(createMemoryOsQueryClient());
 
     expect(
       await screen.findByRole("heading", { name: /don’t have access yet/i }),
     ).toBeInTheDocument();
   });
 
-  it("clears prior actor queries and mutations before rendering a replacement actor", async () => {
+  it("keeps the accepted authority fingerprint across boundary remounts", async () => {
     let currentSession = OWNER_SESSION;
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json(currentSession)),
     );
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: 0 } },
-    });
-    renderBoundary(queryClient);
-    expect(await screen.findByRole("button", { name: "Organization owner" })).toBeInTheDocument();
+    const queryClient = createMemoryOsQueryClient();
+    const firstRender = renderBoundary(queryClient);
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
+    firstRender.unmount();
 
     queryClient.setQueryData(["private-actor-state"], { secret: true });
     queryClient.getMutationCache().build(queryClient, {
       mutationKey: ["private-actor-mutation"],
       mutationFn: async () => undefined,
     });
+    queryClient.removeQueries({ queryKey: getCurrentIdentityQueryKey(), exact: true });
+    currentSession = {
+      ...MEMBER_SESSION,
+      actorId: OWNER_SESSION.actorId,
+    };
+
+    renderBoundary(queryClient);
+
+    expect(await screen.findByText("MEMBER")).toBeInTheDocument();
+    expect(queryClient.getQueryData(["private-actor-state"])).toBeUndefined();
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+  });
+
+  it("refetches identity on browser focus even while the query is fresh", async () => {
+    let currentSession = OWNER_SESSION;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(currentSession)),
+    );
+    const queryClient = createMemoryOsQueryClient();
+    renderBoundary(queryClient);
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
+
     currentSession = MEMBER_SESSION;
+    await act(async () => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    expect(await screen.findByText("MEMBER")).toBeInTheDocument();
+  });
+
+  it("purges private client state when the identity query becomes unauthenticated", async () => {
+    let authenticated = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
+      ),
+    );
+    const queryClient = createMemoryOsQueryClient();
+    renderBoundary(queryClient);
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
+    seedPrivateClientState(queryClient);
+    authenticated = false;
 
     await act(async () => {
       await queryClient.invalidateQueries({ queryKey: getCurrentIdentityQueryKey() });
     });
 
-    expect(await screen.findByRole("button", { name: "Organization member" })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(queryClient.getQueryData(["private-actor-state"])).toBeUndefined();
-      expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+    expect(
+      await screen.findByRole("heading", { name: /sign in to memoryos/i }),
+    ).toBeInTheDocument();
+    expectPrivateClientStatePurged(queryClient);
+  });
+
+  it("resets active identity after a private query returns unauthenticated", async () => {
+    let authenticated = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
+      ),
+    );
+    const queryClient = createMemoryOsQueryClient();
+    renderBoundary(queryClient);
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
+    authenticated = false;
+
+    await act(async () => {
+      await expect(
+        queryClient.fetchQuery({
+          queryKey: ["private-query"],
+          queryFn: async () => {
+            throw new ApiError(401, new Error("expired"));
+          },
+          retry: false,
+        }),
+      ).rejects.toMatchObject({ status: 401 });
     });
+
+    expect(
+      await screen.findByRole("heading", { name: /sign in to memoryos/i }),
+    ).toBeInTheDocument();
+    expectPrivateClientStatePurged(queryClient);
+  });
+
+  it("resets active identity after a private mutation returns unauthenticated", async () => {
+    let authenticated = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
+      ),
+    );
+    const queryClient = createMemoryOsQueryClient();
+    renderBoundary(queryClient);
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
+    authenticated = false;
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      mutationKey: ["private-mutation"],
+      mutationFn: async () => {
+        throw new ApiError(401, new Error("expired"));
+      },
+    });
+
+    await act(async () => {
+      await expect(mutation.execute(undefined)).rejects.toMatchObject({ status: 401 });
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: /sign in to memoryos/i }),
+    ).toBeInTheDocument();
+    expectPrivateClientStatePurged(queryClient);
   });
 });
 
-function renderBoundary(
-  queryClient: QueryClient,
-  page: "new-session" | "sources" | "invitations" = "new-session",
-) {
+function SessionRole() {
+  const role = useApplicationSession().organization.role;
+  return <span>{role}</span>;
+}
+
+function renderBoundary(queryClient: QueryClient) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ApplicationSessionBoundary page={page} />
-      </ThemeProvider>
+      <ApplicationSessionBoundary>
+        <SessionRole />
+      </ApplicationSessionBoundary>
     </QueryClientProvider>,
   );
+}
+
+function seedPrivateClientState(queryClient: QueryClient) {
+  queryClient.setQueryData(["private-actor-state"], { secret: true });
+  queryClient.getMutationCache().build(queryClient, {
+    mutationKey: ["private-actor-mutation"],
+    mutationFn: async () => undefined,
+  });
+}
+
+function expectPrivateClientStatePurged(queryClient: QueryClient) {
+  expect(queryClient.getQueryData(["private-actor-state"])).toBeUndefined();
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
 }

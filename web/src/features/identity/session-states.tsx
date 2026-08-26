@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ export function AccessDeniedScreen() {
         </EmptyHeader>
         <EmptyContent>
           <Button asChild variant="outline">
-            <a href="/">Return to MemoryOS</a>
+            <Link to="/">Return to MemoryOS</Link>
           </Button>
         </EmptyContent>
       </Empty>

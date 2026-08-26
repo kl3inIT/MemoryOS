@@ -1,5 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -15,14 +22,26 @@ const OWNER_SESSION: ApplicationSession = {
   capabilities: ["INVITATIONS_MANAGE"],
 };
 
-function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
-  return render(
-    <ApplicationSessionProvider session={session}>
-      <ThemeProvider>
-        <NewSessionPage />
-      </ThemeProvider>
-    </ApplicationSessionProvider>,
-  );
+async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
+  vi.stubGlobal("scrollTo", vi.fn());
+  const rootRoute = createRootRoute();
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/",
+    component: () => (
+      <ApplicationSessionProvider session={session}>
+        <ThemeProvider>
+          <NewSessionPage />
+        </ThemeProvider>
+      </ApplicationSessionProvider>
+    ),
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+  await router.load();
+  return render(<RouterProvider router={router} />);
 }
 
 afterEach(() => {
@@ -33,8 +52,8 @@ afterEach(() => {
 });
 
 describe("NewSessionPage", () => {
-  it("renders New Session inside the authenticated application shell", () => {
-    renderNewSession();
+  it("renders New Session inside the authenticated application shell", async () => {
+    await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New Session" })).toHaveAttribute(
@@ -47,8 +66,8 @@ describe("NewSessionPage", () => {
     expect(screen.getByRole("button", { name: "Organization owner" })).toBeInTheDocument();
   });
 
-  it("removes owner administration affordances for a member", () => {
-    renderNewSession({
+  it("removes owner administration affordances for a member", async () => {
+    await renderNewSession({
       ...OWNER_SESSION,
       organization: { ...OWNER_SESSION.organization, role: "MEMBER" },
       capabilities: [],
@@ -60,7 +79,7 @@ describe("NewSessionPage", () => {
 
   it("collapses and expands the desktop sidebar", async () => {
     const user = userEvent.setup();
-    renderNewSession();
+    await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
     expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
@@ -71,7 +90,7 @@ describe("NewSessionPage", () => {
 
   it("persists a real dark theme preference", async () => {
     const user = userEvent.setup();
-    renderNewSession();
+    await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Organization owner" }));
     await user.click(screen.getByRole("button", { name: "Use dark theme" }));
@@ -85,7 +104,7 @@ describe("NewSessionPage", () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
     vi.stubGlobal("fetch", fetchMock);
-    renderNewSession();
+    await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Organization owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
@@ -101,7 +120,7 @@ describe("NewSessionPage", () => {
   it("keeps the account menu actionable when sign-out fails", async () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
-    renderNewSession();
+    await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Organization owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));

@@ -42,6 +42,12 @@ The exact current-identity endpoint accepts either a bound bearer identity or an
 
 An active member receives the same Organization shape with role `MEMBER` and an empty capability list. A bound bearer actor without active membership receives `organization: null` and an empty list. Browser admission still requires active Organization authority. Role is presentation-only; browser behavior uses capabilities. The projection suppresses known-forbidden UI and requests but never authorizes a server operation. Invitation endpoints continue to resolve durable membership on every request, and capabilities are never stored in Spring Session.
 
+## Browser-session convergence
+
+One persistent authenticated frontend layout owns the current-identity query across application routes. Internal route changes do not replace the browser document or remount the session boundary. The identity query refetches whenever the browser returns to the foreground because the JDBC-session cookie can change in another tab.
+
+The frontend QueryClient retains the accepted actor id plus Organization role/capability projection. Before rendering a changed actor or authority projection, it removes every non-identity query and all mutation state. An identity `401` performs the same private-state purge and renders signed-out state; a `401` from another private query or mutation additionally resets the active identity query so all protected UI converges through the canonical endpoint.
+
 ## Persistence
 
 `JdbcExternalIdentityResolver` is the capability-owned read adapter. `JdbcExternalIdentityRegistrar` is the capability-owned write adapter exposed to authorized transactions. Registration creates an actor and exact binding atomically or returns the actor already bound to that exact identity. Invitation acceptance uses the locked registration operation, which holds the stable Actor row until the surrounding transaction completes so concurrent membership grants for one identity serialize. SQL failures use Spring's unchecked `DataAccessException` hierarchy.

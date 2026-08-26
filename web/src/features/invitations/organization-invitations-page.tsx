@@ -1,9 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Copy, Link2, MailPlus, UserRoundPlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
-import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { InvitationFilters } from "@/features/invitations/invitation-filters";
 import {
@@ -30,7 +29,7 @@ const emptyInvitations: Invitation[] = [];
 
 export function OrganizationInvitationsPage() {
   const queryClient = useQueryClient();
-  const search = useSearch({ from: "/admin_/invitations" });
+  const search = useSearch({ from: "/_authenticated/admin/invitations" });
   const navigate = useNavigate({ from: "/admin/invitations" });
   const invitationsQuery = useQuery({
     ...listInvitationsOptions({ query: invitationListQuery(search) }),
@@ -46,6 +45,7 @@ export function OrganizationInvitationsPage() {
     Partial<Record<string, InvitationPendingAction>>
   >({});
   const [rowErrors, setRowErrors] = useState<Partial<Record<string, string>>>({});
+  const invitationCreationInFlight = useRef(false);
 
   const createInvitation = useMutation(createInvitationMutation());
   const rotateInvitation = useMutation(rotateInvitationMutation());
@@ -96,10 +96,14 @@ export function OrganizationInvitationsPage() {
   }
 
   async function submitInvitation() {
+    const email = inviteeEmail.trim();
+    if (!email || invitationCreationInFlight.current) return;
+
+    invitationCreationInFlight.current = true;
     setFormError(null);
     try {
       const result = await createInvitation.mutateAsync({
-        body: { email: inviteeEmail },
+        body: { email },
         headers: sameOriginMutationHeaders,
       });
       setIssuedInvitation(result);
@@ -107,6 +111,8 @@ export function OrganizationInvitationsPage() {
       await refreshInvitations();
     } catch (error) {
       setFormError(invitationError(error));
+    } finally {
+      invitationCreationInFlight.current = false;
     }
   }
 
@@ -145,7 +151,13 @@ export function OrganizationInvitationsPage() {
   }
 
   function closeInvitationDialog() {
-    if (createInvitation.isPending || rotateInvitation.isPending) return;
+    if (
+      invitationCreationInFlight.current ||
+      createInvitation.isPending ||
+      rotateInvitation.isPending
+    ) {
+      return;
+    }
     setDialogOpen(false);
     setInviteeEmail("");
     setFormError(null);
@@ -170,7 +182,7 @@ export function OrganizationInvitationsPage() {
   const hasFilters = Boolean(search.status || search.email);
 
   return (
-    <AppShell area="admin" adminPage="invitations" pageTitle="Invitations">
+    <>
       <section className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
         <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -284,93 +296,100 @@ export function OrganizationInvitationsPage() {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
           <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border-default bg-surface-overlay p-5 shadow-md outline-none sm:p-6">
-            <Dialog.Title className="font-heading-h3 text-content-primary">
-              {issuedInvitation ? "Invitation link ready" : "Invite a member"}
-            </Dialog.Title>
-            <Dialog.Description className="mt-2 font-main-ui-body text-content-secondary">
-              {issuedInvitation
-                ? "Share this link now. MemoryOS stores only its digest, so this exact link cannot be shown again."
-                : "They will join as a member of this Organization."}
-            </Dialog.Description>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitInvitation();
+              }}
+              aria-busy={createInvitation.isPending}
+            >
+              <Dialog.Title className="font-heading-h3 text-content-primary">
+                {issuedInvitation ? "Invitation link ready" : "Invite a member"}
+              </Dialog.Title>
+              <Dialog.Description className="mt-2 font-main-ui-body text-content-secondary">
+                {issuedInvitation
+                  ? "Share this link now. MemoryOS stores only its digest, so this exact link cannot be shown again."
+                  : "They will join as a member of this Organization."}
+              </Dialog.Description>
 
-            {issuedInvitation ? (
-              <div className="mt-6">
-                <label
-                  className="font-secondary-action text-content-secondary"
-                  htmlFor="invitation-link"
-                >
-                  Secure invitation link
-                </label>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    id="invitation-link"
-                    readOnly
-                    value={new URL(
-                      issuedInvitation.invitationUrl,
-                      window.location.origin,
-                    ).toString()}
-                    className="h-10 min-w-0 flex-1 rounded-lg border border-border-default bg-surface-subtle px-3 font-main-ui-body text-content-primary outline-none focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
-                  />
-                  <Button size="lg" onClick={() => void copyInvitationLink()}>
-                    {invitationLinkCopied ? <Link2 /> : <Copy />}
-                    {invitationLinkCopied ? "Copied" : "Copy"}
-                  </Button>
+              {issuedInvitation ? (
+                <div className="mt-6">
+                  <label
+                    className="font-secondary-action text-content-secondary"
+                    htmlFor="invitation-link"
+                  >
+                    Secure invitation link
+                  </label>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      id="invitation-link"
+                      readOnly
+                      value={new URL(
+                        issuedInvitation.invitationUrl,
+                        window.location.origin,
+                      ).toString()}
+                      className="h-10 min-w-0 flex-1 rounded-lg border border-border-default bg-surface-subtle px-3 font-main-ui-body text-content-primary outline-none focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
+                    />
+                    <Button type="button" size="lg" onClick={() => void copyInvitationLink()}>
+                      {invitationLinkCopied ? <Link2 /> : <Copy />}
+                      {invitationLinkCopied ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <p className="mt-3 font-secondary-body text-content-muted">
+                    Expires {formatInvitationDate(issuedInvitation.invitation.expiresAt)}.
+                  </p>
                 </div>
-                <p className="mt-3 font-secondary-body text-content-muted">
-                  Expires {formatInvitationDate(issuedInvitation.invitation.expiresAt)}.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-6">
-                <label
-                  className="font-secondary-action text-content-secondary"
-                  htmlFor="invite-email"
-                >
-                  Email address
-                </label>
-                <input
-                  id="invite-email"
-                  type="email"
-                  autoComplete="email"
-                  autoFocus
-                  value={inviteeEmail}
-                  onChange={(event) => setInviteeEmail(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && inviteeEmail.trim()) void submitInvitation();
-                  }}
-                  placeholder="name@company.com"
-                  className="mt-2 h-11 w-full rounded-lg border border-border-default bg-surface-base px-3.5 font-main-ui-body text-content-primary outline-none placeholder:text-content-muted focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
-                />
-              </div>
-            )}
-
-            {formError && (
-              <p role="alert" className="mt-4 font-main-ui-body text-status-danger-content">
-                {formError}
-              </p>
-            )}
-
-            <div className="mt-7 flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={closeInvitationDialog}
-                disabled={createInvitation.isPending || rotateInvitation.isPending}
-              >
-                {issuedInvitation ? "Done" : "Cancel"}
-              </Button>
-              {!issuedInvitation && (
-                <Button
-                  onClick={() => void submitInvitation()}
-                  disabled={!inviteeEmail.trim() || createInvitation.isPending}
-                >
-                  {createInvitation.isPending ? "Creating…" : "Create invitation"}
-                </Button>
+              ) : (
+                <div className="mt-6">
+                  <label
+                    className="font-secondary-action text-content-secondary"
+                    htmlFor="invite-email"
+                  >
+                    Email address
+                  </label>
+                  <input
+                    id="invite-email"
+                    type="email"
+                    autoComplete="email"
+                    autoFocus
+                    required
+                    value={inviteeEmail}
+                    onChange={(event) => setInviteeEmail(event.target.value)}
+                    placeholder="name@company.com"
+                    className="mt-2 h-11 w-full rounded-lg border border-border-default bg-surface-base px-3.5 font-main-ui-body text-content-primary outline-none placeholder:text-content-muted focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
+                  />
+                </div>
               )}
-            </div>
+
+              {formError && (
+                <p role="alert" className="mt-4 font-main-ui-body text-status-danger-content">
+                  {formError}
+                </p>
+              )}
+
+              <div className="mt-7 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={closeInvitationDialog}
+                  disabled={createInvitation.isPending || rotateInvitation.isPending}
+                >
+                  {issuedInvitation ? "Done" : "Cancel"}
+                </Button>
+                {!issuedInvitation && (
+                  <Button
+                    type="submit"
+                    disabled={!inviteeEmail.trim() || createInvitation.isPending}
+                  >
+                    {createInvitation.isPending ? "Creating…" : "Create invitation"}
+                  </Button>
+                )}
+              </div>
+            </form>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
-    </AppShell>
+    </>
   );
 }
 

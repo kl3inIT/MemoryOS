@@ -1,3 +1,4 @@
+import { Link, type LinkProps } from "@tanstack/react-router";
 import {
   forwardRef,
   type HTMLAttributes,
@@ -12,7 +13,7 @@ type SidebarTabProps = Omit<HTMLAttributes<HTMLElement>, "children" | "onClick">
   icon: ReactNode;
   selected?: boolean;
   collapsed?: boolean;
-  href?: string;
+  to?: LinkProps["to"];
   onClick?: MouseEventHandler<HTMLElement>;
   variant?: "heavy" | "light";
 };
@@ -24,7 +25,7 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
       icon,
       selected = false,
       collapsed = false,
-      href,
+      to,
       onClick,
       variant = "heavy",
       ...elementProps
@@ -52,12 +53,12 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
       </>
     );
 
-    if (href) {
+    if (to) {
       return (
-        <a
+        <Link
           {...elementProps}
           ref={ref as Ref<HTMLAnchorElement>}
-          href={href}
+          to={to}
           aria-current={selected ? "page" : undefined}
           aria-label={collapsed ? label : undefined}
           title={collapsed ? label : undefined}
@@ -65,7 +66,7 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
           className={className}
         >
           {content}
-        </a>
+        </Link>
       );
     }
 
