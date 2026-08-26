@@ -30,6 +30,10 @@ A real Chromium session exercised the Vite application at `http://127.0.0.1:4173
 - the exercised desktop flow emitted no browser console errors;
 - at 390×844, navigation left zero `[role=dialog]` elements and the trigger returned to `aria-expanded="false"` after route change.
 
+## Review evidence
+
+CodeRabbit reviewed head `9e4d8ecd25c85e2ff7f24289bb0c80095ba01260` and raised two valid minor findings. Head `6bbc3f31a2857715c2929911e9116062d29be359` broadens the font assertion to any data URL inside `@font-face`, adds both legacy/current WOFF2 MIME fixtures, and closes the mobile drawer after account-menu navigation. Both threads contain fix evidence and are resolved; `pnpm check` and all 14 Playwright scenarios passed after the fixes.
+
 ## Remaining delivery evidence
 
 The increment remains active until the single PR covering MEM-29 through MEM-33 is reviewed and merged. Exact main-SHA CI and staging smoke are post-merge evidence and will be recorded in Linear under the repository operating policy.
