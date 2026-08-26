@@ -167,6 +167,87 @@ test("opens the separate administration shell", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
 });
 
+test("keeps one document, identity session, and admin shell across internal routes", async ({
+  page,
+}) => {
+  let identityRequests = 0;
+  await page.route("**/api/identity/me", async (route) => {
+    identityRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(OWNER_SESSION),
+    });
+  });
+  await page.route("**/api/invitations?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [],
+        page: 0,
+        size: 20,
+        totalItems: 0,
+        totalPages: 0,
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.evaluate(() => {
+    (window as typeof window & { memoryOsDocumentSentinel?: string }).memoryOsDocumentSentinel =
+      "same-document";
+  });
+  await page.getByRole("link", { name: "Admin Panel" }).click();
+
+  await expect(page).toHaveURL(/\/admin$/);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as typeof window & { memoryOsDocumentSentinel?: string }).memoryOsDocumentSentinel,
+    ),
+  ).toBe("same-document");
+  expect(identityRequests).toBe(1);
+
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await page.getByRole("link", { name: "Invitations", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/invitations(?:\?|$)/);
+  await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  expect(identityRequests).toBe(1);
+});
+
+test("closes mobile administration navigation after a client route change", async ({ page }) => {
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(OWNER_SESSION),
+    });
+  });
+  await page.route("**/api/invitations?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [],
+        page: 0,
+        size: 20,
+        totalItems: 0,
+        totalPages: 0,
+      }),
+    });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toBeVisible();
+  await page.getByRole("link", { name: "Invitations", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/invitations(?:\?|$)/);
+  await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
+});
+
 test("keeps unprovisioned access separate from signed-out state", async ({ page }) => {
   await page.goto("/access-not-provisioned");
 
@@ -205,6 +286,7 @@ test("creates a production invitation from the Invitations administration page",
   const expiresAt = "2026-08-24T10:00:00Z";
   const invitations: Array<Record<string, unknown>> = [];
   let createMutationHeader: string | undefined;
+  let createRequests = 0;
   let deleteMutationHeader: string | undefined;
 
   await page.route("**/api/identity/me", async (route) => {
@@ -220,6 +302,7 @@ test("creates a production invitation from the Invitations administration page",
       return;
     }
     if (route.request().method() === "POST") {
+      createRequests += 1;
       createMutationHeader = route.request().headers()["x-memoryos-csrf"];
       const invitation = {
         id: "75c4e810-e1f2-45cb-9480-8e713a934bca",
@@ -289,13 +372,19 @@ test("creates a production invitation from the Invitations administration page",
   await expect(page.getByRole("heading", { name: "Invitations", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Invite member" }).click();
   await page.getByRole("textbox", { name: "Email address" }).fill("member@example.com");
-  await page.getByRole("button", { name: "Create invitation" }).click();
+  await page.getByRole("textbox", { name: "Email address" }).evaluate((input) => {
+    const form = input.closest("form");
+    if (!form) throw new Error("Invitation form is missing");
+    form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+    form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+  });
 
   await expect(page.getByRole("heading", { name: "Invitation link ready" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/one-time-secret$/,
   );
   expect(createMutationHeader).toBe("1");
+  expect(createRequests).toBe(1);
   await page.evaluate(() => {
     navigator.clipboard.writeText = () => Promise.reject(new Error("clipboard denied"));
   });

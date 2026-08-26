@@ -9,15 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-provisioned'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as InvitationRouteImport } from './routes/invitation'
-import { Route as AdminInvitationsRouteImport } from './routes/admin_.invitations'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
+import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated.admin.invitations'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccessNotProvisionedRoute = AccessNotProvisionedRouteImport.update({
@@ -25,83 +26,98 @@ const AccessNotProvisionedRoute = AccessNotProvisionedRouteImport.update({
   path: '/access-not-provisioned',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const InvitationRoute = InvitationRouteImport.update({
   id: '/invitation',
   path: '/invitation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminInvitationsRoute = AdminInvitationsRouteImport.update({
-  id: '/admin_/invitations',
-  path: '/admin/invitations',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminInvitationsRoute =
+  AuthenticatedAdminInvitationsRouteImport.update({
+    id: '/invitations',
+    path: '/invitations',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
-  '/admin': typeof AdminRoute
   '/invitation': typeof InvitationRoute
-  '/admin/invitations': typeof AdminInvitationsRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
-  '/admin': typeof AdminRoute
   '/invitation': typeof InvitationRoute
-  '/admin/invitations': typeof AdminInvitationsRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
-  '/admin': typeof AdminRoute
   '/invitation': typeof InvitationRoute
-  '/admin_/invitations': typeof AdminInvitationsRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/access-not-provisioned'
-    | '/admin'
     | '/invitation'
+    | '/admin'
     | '/admin/invitations'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/access-not-provisioned'
-    | '/admin'
     | '/invitation'
+    | '/'
     | '/admin/invitations'
+    | '/admin'
   id:
     | '__root__'
-    | '/'
+    | '/_authenticated'
     | '/access-not-provisioned'
-    | '/admin'
     | '/invitation'
-    | '/admin_/invitations'
+    | '/_authenticated/admin'
+    | '/_authenticated/'
+    | '/_authenticated/admin/invitations'
+    | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AccessNotProvisionedRoute: typeof AccessNotProvisionedRoute
-  AdminRoute: typeof AdminRoute
   InvitationRoute: typeof InvitationRoute
-  AdminInvitationsRoute: typeof AdminInvitationsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/access-not-provisioned': {
@@ -111,13 +127,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccessNotProvisionedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/invitation': {
       id: '/invitation'
       path: '/invitation'
@@ -125,22 +134,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin_/invitations': {
-      id: '/admin_/invitations'
-      path: '/admin/invitations'
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/invitations': {
+      id: '/_authenticated/admin/invitations'
+      path: '/invitations'
       fullPath: '/admin/invitations'
-      preLoaderRoute: typeof AdminInvitationsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminInvitationsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
     }
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminInvitationsRoute: typeof AuthenticatedAdminInvitationsRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminInvitationsRoute: AuthenticatedAdminInvitationsRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AccessNotProvisionedRoute: AccessNotProvisionedRoute,
-  AdminRoute: AdminRoute,
   InvitationRoute: InvitationRoute,
-  AdminInvitationsRoute: AdminInvitationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

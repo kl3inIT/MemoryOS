@@ -80,7 +80,11 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
               {isDark ? "Use light theme" : "Use dark theme"}
             </MenuItem>
             {canAccessAdmin ? (
-              <MenuItem href="/admin" icon={<Settings2 className="size-4.5" />}>
+              <MenuItem
+                to="/admin"
+                icon={<Settings2 className="size-4.5" />}
+                onClick={() => setMenuOpen(false)}
+              >
                 Admin Panel
               </MenuItem>
             ) : null}

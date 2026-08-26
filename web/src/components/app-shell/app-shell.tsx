@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Menu,
@@ -68,14 +69,14 @@ function SidebarContents({
           </Button>
         ) : (
           <>
-            <a
-              href="/"
+            <Link
+              to="/"
               aria-label="MemoryOS home"
               className="flex min-w-0 flex-1 items-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               onClick={onNavigate}
             >
               <Brand />
-            </a>
+            </Link>
             {mobile ? (
               <Dialog.Close asChild>
                 <Button variant="ghost" size="icon" aria-label="Close navigation">
@@ -105,7 +106,7 @@ function SidebarContents({
         {!appArea && (
           <div className="mb-5">
             <SidebarTab
-              href="/"
+              to="/"
               icon={<ArrowLeft className="size-4" />}
               collapsed={collapsed}
               variant="light"
@@ -118,7 +119,7 @@ function SidebarContents({
 
         {appArea ? (
           <SidebarTab
-            href="/"
+            to="/"
             icon={<SquarePen className="size-4" />}
             selected
             collapsed={collapsed}
@@ -130,7 +131,7 @@ function SidebarContents({
           <div className="space-y-5">
             <SidebarSection title="Organization" collapsed={collapsed}>
               <SidebarTab
-                href="/admin/invitations"
+                to="/admin/invitations"
                 icon={<UserPlus className="size-4" />}
                 selected={adminPage === "invitations"}
                 collapsed={collapsed}
@@ -141,7 +142,7 @@ function SidebarContents({
             </SidebarSection>
             <SidebarSection title="Knowledge" collapsed={collapsed}>
               <SidebarTab
-                href="/admin"
+                to="/admin"
                 icon={<Plug className="size-4" />}
                 selected={adminPage === "sources"}
                 collapsed={collapsed}
@@ -158,7 +159,7 @@ function SidebarContents({
         {appArea && canAccessAdmin ? (
           <div className="mb-1">
             <SidebarTab
-              href="/admin"
+              to="/admin"
               icon={<Settings2 className="size-4" />}
               collapsed={collapsed}
               variant="light"
@@ -181,6 +182,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface-canvas text-content-primary">
@@ -207,7 +209,7 @@ export function AppShell({
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-base md:m-2 md:ml-0 md:rounded-2xl md:border md:border-border-subtle md:shadow-xs">
-        <Dialog.Root>
+        <Dialog.Root open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3 md:hidden">
             <Dialog.Trigger asChild>
               <Button variant="ghost" size="icon" aria-label="Open navigation">
@@ -223,7 +225,12 @@ export function AppShell({
             <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
             <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none">
               <Dialog.Title className="sr-only">MemoryOS navigation</Dialog.Title>
-              <SidebarContents area={area} adminPage={adminPage} mobile />
+              <SidebarContents
+                area={area}
+                adminPage={adminPage}
+                mobile
+                onNavigate={() => setMobileNavigationOpen(false)}
+              />
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

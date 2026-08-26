@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { ArrowRight, CircleAlert, Clock3, ShieldCheck, UserRoundCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,7 @@ function InvitationFailure({ reason }: { reason: string }) {
       </p>
       <div className="mt-7 flex flex-col gap-2 sm:flex-row">
         <Button asChild size="lg">
-          <a href="/">Go to MemoryOS</a>
+          <Link to="/">Go to MemoryOS</Link>
         </Button>
         <Button asChild size="lg" variant="outline">
           <a href="mailto:?subject=MemoryOS invitation help">Ask an Organization owner</a>

@@ -74,6 +74,8 @@ Browser intake and OAuth flows continue to catch `InvitationException` directly 
 
 The owner uses `Admin Panel` → `Invitations` at `/admin/invitations` to create, filter, sort, page, rotate, and revoke invitation lifecycle records. The browser shows and mounts this surface only when `/api/identity/me` projects `INVITATIONS_MANAGE`; role names are not behavior gates. A member deep link preserves its URL, renders access denied, and issues no invitation request. This projection is presentation only: create/list/rotate/revoke still resolve active durable Organization-owner membership on every request and return `INVITATION_NOT_OWNER` otherwise. TanStack Router search parameters are the canonical owner view state; the generated query key includes status, email, sort, page, and size. Create and rotate expose an immediate copy/share link. Recipient surfaces identify the Organization, lead into local Keycloak sign-in/account creation, and provide plain-language recovery for unavailable, unverified, or mismatched invitations.
 
+Invitation creation uses one semantic form with a synchronous single-flight guard. Enter and button submission share that path, and two events delivered before React commits pending state can issue at most one create request. This prevents a successful one-time secret from being accompanied or overwritten by a duplicate-conflict response.
+
 Copy/share is the complete delivery contract. Email delivery is not implemented without a concrete provider and observable production failure behavior.
 
 ## Exclusions

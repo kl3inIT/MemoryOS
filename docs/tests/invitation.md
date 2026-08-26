@@ -21,6 +21,7 @@
 | Built-in malformed-request failures use Boot-native Problem Details without a capability code | `SessionSecurityIntegrationTest.returnsProblemDetailsForBusinessAndFrameworkFailures` |
 | The committed browser API snapshot is generated from the live Invitation operations, schemas, security metadata, and Problem Detail responses | `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
 | Owner Invitations page supports create, copy/share, lifecycle presentation, typed URL filters/sort/page state, and server-driven TanStack Table pagination | `identity-shell.spec.ts` — `creates a production invitation from the Invitations administration page` and `restores and updates the server-driven invitation view from the URL` |
+| Two invitation form submissions delivered before React commits pending state issue exactly one create request and retain the successful one-time link | `identity-shell.spec.ts` — `creates a production invitation from the Invitations administration page` |
 | Member shell/deep-link gates hide administration, preserve the URL, and issue zero invitation requests | `ApplicationSessionBoundary` unit tests and `identity-shell.spec.ts` — `hides owner UI and blocks member administration deep links without requests` |
 | Recipient landing and failure recovery are responsive and accessible | `identity-shell.spec.ts` — `shows the recipient invitation landing and recovery states` plus shared-runtime browser evidence |
 

@@ -1,10 +1,11 @@
+import { Link, type LinkProps } from "@tanstack/react-router";
 import type { MouseEventHandler, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type MenuItemProps = {
   children: ReactNode;
   icon: ReactNode;
-  href?: string;
+  to?: LinkProps["to"];
   onClick?: MouseEventHandler<HTMLElement>;
   disabled?: boolean;
   tone?: "default" | "danger";
@@ -13,7 +14,7 @@ type MenuItemProps = {
 export function MenuItem({
   children,
   icon,
-  href,
+  to,
   onClick,
   disabled = false,
   tone = "default",
@@ -34,15 +35,15 @@ export function MenuItem({
     </>
   );
 
-  if (href) {
+  if (to) {
     return (
-      <a
-        href={href}
+      <Link
+        to={to}
         onClick={onClick as MouseEventHandler<HTMLAnchorElement> | undefined}
         className={className}
       >
         {content}
-      </a>
+      </Link>
     );
   }
 

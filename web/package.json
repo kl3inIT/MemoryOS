@@ -10,7 +10,7 @@
     "dev": "pnpm generate:api && vite",
     "dev:e2e": "pnpm generate:api && node scripts/start-e2e-server.ts",
     "typecheck": "tsc -b",
-    "build": "vite build && tsc -b",
+    "build": "vite build && node scripts/assert-font-assets.mjs && tsc -b",
     "check:routes": "node scripts/assert-generated-stable.mjs src/routeTree.gen.ts -- pnpm build",
     "lint": "oxlint --deny-warnings .",
     "format": "oxfmt --write .",
