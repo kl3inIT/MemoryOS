@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The invitation capability owns the production lifecycle that authorizes one verified external identity to receive fixed membership in the existing Organization and default Workspace. It is a top-level closed Spring Modulith capability, not an Organization subpackage.
+The invitation capability owns the production lifecycle that authorizes one verified external identity to receive fixed membership in the existing Organization. It is a top-level closed Spring Modulith capability, not an Organization subpackage.
 
 Its allowed dependency direction is:
 
@@ -22,7 +22,7 @@ An active Organization `OWNER` may:
 - rotate a pending invitation, returning a replacement plaintext secret once;
 - revoke a pending invitation.
 
-Organization supplies the owner authority and default Workspace through a narrow public port. Clients cannot choose an Organization role or Workspace grant. Acceptance always grants Organization `MEMBER` and default-Workspace `MEMBER`.
+Organization supplies durable owner authority through a narrow public port. Clients cannot choose an Organization or role grant. Acceptance always grants Organization `MEMBER`.
 
 ## Secret contract
 
@@ -34,7 +34,7 @@ Plaintext secrets are absent from list responses, logs, JDBC sessions, exception
 
 Stored states are `PENDING`, `ACCEPTED`, `EXPIRED`, and `REVOKED`. Expiry is settled from durable `expires_at` without a background runtime mode. A database constraint permits at most one pending invitation for one normalized email in one Organization while preserving settled lifecycle evidence.
 
-The invitation row records Organization/default-Workspace scope, normalized email, secret digest, creator, expiry, and accepted or revoked lifecycle facts. Foreign keys prevent cross-Organization Workspace grants and reference stable actors for creator/consumer evidence.
+The invitation row records Organization scope, normalized email, secret digest, creator, expiry, and accepted or revoked lifecycle facts. Foreign keys keep lifecycle rows inside one Organization and reference stable actors for creator/consumer evidence.
 
 ## Invitation history query
 
@@ -56,11 +56,11 @@ An unbound browser identity may be provisioned only from a valid invitation cont
 
 - exact configured issuer and nonblank subject;
 - verified email exactly matching the normalized invitation email;
-- active Organization and default Workspace;
+- active Organization;
 - invitation still pending and unexpired under a row lock;
 - no conflicting existing membership or identity ownership.
 
-One transaction calls the Identity-owned mandatory binding-and-lock port, calls the Organization-owned mandatory membership port, and conditionally accepts the Invitation-owned row. Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation consumption commit or roll back together. The Invitation row lock rejects replay of one invitation; the stable Actor row lock serializes different invitations that target the same external identity.
+One transaction calls the Identity-owned mandatory binding-and-lock port, calls the Organization-owned mandatory membership port, and conditionally accepts the Invitation-owned row. Actor binding, Organization `MEMBER`, and invitation consumption commit or roll back together. The Invitation row lock rejects replay of one invitation; the stable Actor row lock serializes different invitations that target the same external identity.
 
 After commit, the browser flow rotates the session ID and persists only the existing `ActorId` application principal. Provider access tokens, refresh tokens, raw ID tokens, and authorized-client state are discarded. Every failed partial flow invalidates its session.
 
@@ -72,10 +72,10 @@ Browser intake and OAuth flows continue to catch `InvitationException` directly 
 
 ## Product surface
 
-The owner uses `Admin Panel` → `Invitations` at `/admin/invitations` to create, filter, sort, page, rotate, and revoke invitation lifecycle records. TanStack Router search parameters are the canonical browser view state; the generated query key includes status, email, sort, page, and size. Create and rotate expose an immediate copy/share link. Recipient surfaces identify the workspace, lead into local Keycloak sign-in/account creation, and provide plain-language recovery for unavailable, unverified, or mismatched invitations.
+The owner uses `Admin Panel` → `Invitations` at `/admin/invitations` to create, filter, sort, page, rotate, and revoke invitation lifecycle records. The browser shows and mounts this surface only when `/api/identity/me` projects `INVITATIONS_MANAGE`; role names are not behavior gates. A member deep link preserves its URL, renders access denied, and issues no invitation request. This projection is presentation only: create/list/rotate/revoke still resolve active durable Organization-owner membership on every request and return `INVITATION_NOT_OWNER` otherwise. TanStack Router search parameters are the canonical owner view state; the generated query key includes status, email, sort, page, and size. Create and rotate expose an immediate copy/share link. Recipient surfaces identify the Organization, lead into local Keycloak sign-in/account creation, and provide plain-language recovery for unavailable, unverified, or mismatched invitations.
 
 Copy/share is the complete delivery contract. Email delivery is not implemented without a concrete provider and observable production failure behavior.
 
 ## Exclusions
 
-The capability does not implement bulk invitation, multi-Organization switching, owner transfer, role or Workspace pickers, billing/seat logic, SCIM, group provisioning, domain JIT access, inactive tenant mappings, or a generic audit module.
+The capability does not implement bulk invitation, multi-Organization switching, owner transfer, role pickers, billing/seat logic, SCIM, group provisioning, domain JIT access, inactive tenant mappings, or a generic audit module.

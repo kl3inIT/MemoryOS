@@ -27,11 +27,20 @@ Browser authentication validates the OIDC Authorization Code + PKCE callback, th
 
 The exact current-identity endpoint accepts either a bound bearer identity or an `ActorSessionAuthenticationToken` restored from the JDBC-backed browser session. Its higher-priority security chain may read an existing session but never saves bearer authentication into one. Every other `/api/**` endpoint remains stateless and bearer-only.
 
-`GET /api/identity/me` requires either authentication mode above and returns exactly:
+`GET /api/identity/me` composes the Identity-owned `ActorId` with the Organization-owned durable presentation/authority projection:
 
 ```json
-{"actorId":"<uuid>"}
+{
+  "actorId": "<uuid>",
+  "organization": {
+    "displayName": "Tasco",
+    "role": "OWNER"
+  },
+  "capabilities": ["INVITATIONS_MANAGE"]
+}
 ```
+
+An active member receives the same Organization shape with role `MEMBER` and an empty capability list. A bound bearer actor without active membership receives `organization: null` and an empty list. Browser admission still requires active Organization authority. Role is presentation-only; browser behavior uses capabilities. The projection suppresses known-forbidden UI and requests but never authorizes a server operation. Invitation endpoints continue to resolve durable membership on every request, and capabilities are never stored in Spring Session.
 
 ## Persistence
 

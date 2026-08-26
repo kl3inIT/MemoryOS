@@ -7,11 +7,7 @@ public record InitialOrganizationRow(
         String organizationSlug,
         String organizationDisplayName,
         String organizationStatus,
-        UUID defaultWorkspaceId,
         String bootstrapReference,
-        String workspaceSlug,
-        String workspaceDisplayName,
-        String workspaceStatus,
         UUID ownerActorId
 ) {
 }

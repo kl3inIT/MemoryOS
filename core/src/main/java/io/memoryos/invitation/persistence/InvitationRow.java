@@ -8,7 +8,6 @@ import java.util.UUID;
 public record InvitationRow(
         UUID id,
         UUID organizationId,
-        UUID defaultWorkspaceId,
         String email,
         InvitationStatus status,
         Instant createdAt,

@@ -1,8 +1,29 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ApplicationSession } from "@/features/identity/application-session-context";
+import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { NewSessionPage } from "./new-session-page";
+
+const OWNER_SESSION: ApplicationSession = {
+  actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  organization: {
+    displayName: "Tasco",
+    role: "OWNER",
+  },
+  capabilities: ["INVITATIONS_MANAGE"],
+};
+
+function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
+  return render(
+    <ApplicationSessionProvider session={session}>
+      <ThemeProvider>
+        <NewSessionPage />
+      </ThemeProvider>
+    </ApplicationSessionProvider>,
+  );
+}
 
 afterEach(() => {
   window.localStorage.clear();
@@ -13,11 +34,7 @@ afterEach(() => {
 
 describe("NewSessionPage", () => {
   it("renders New Session inside the authenticated application shell", () => {
-    render(
-      <ThemeProvider>
-        <NewSessionPage />
-      </ThemeProvider>,
-    );
+    renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New Session" })).toHaveAttribute(
@@ -27,16 +44,23 @@ describe("NewSessionPage", () => {
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Ask MemoryOS" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Workspace owner" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Organization owner" })).toBeInTheDocument();
+  });
+
+  it("removes owner administration affordances for a member", () => {
+    renderNewSession({
+      ...OWNER_SESSION,
+      organization: { ...OWNER_SESSION.organization, role: "MEMBER" },
+      capabilities: [],
+    });
+
+    expect(screen.getByRole("button", { name: "Organization member" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
   });
 
   it("collapses and expands the desktop sidebar", async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider>
-        <NewSessionPage />
-      </ThemeProvider>,
-    );
+    renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
     expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
@@ -47,13 +71,9 @@ describe("NewSessionPage", () => {
 
   it("persists a real dark theme preference", async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider>
-        <NewSessionPage />
-      </ThemeProvider>,
-    );
+    renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Workspace owner" }));
+    await user.click(screen.getByRole("button", { name: "Organization owner" }));
     await user.click(screen.getByRole("button", { name: "Use dark theme" }));
 
     expect(document.documentElement).toHaveClass("dark");
@@ -65,13 +85,9 @@ describe("NewSessionPage", () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
     vi.stubGlobal("fetch", fetchMock);
-    render(
-      <ThemeProvider>
-        <NewSessionPage />
-      </ThemeProvider>,
-    );
+    renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Workspace owner" }));
+    await user.click(screen.getByRole("button", { name: "Organization owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/logout", {
@@ -85,13 +101,9 @@ describe("NewSessionPage", () => {
   it("keeps the account menu actionable when sign-out fails", async () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
-    render(
-      <ThemeProvider>
-        <NewSessionPage />
-      </ThemeProvider>,
-    );
+    renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Workspace owner" }));
+    await user.click(screen.getByRole("button", { name: "Organization owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(

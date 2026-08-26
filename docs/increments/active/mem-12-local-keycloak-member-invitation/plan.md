@@ -24,7 +24,7 @@
 - [x] Add invitation intake with digest lookup, expiry/revocation/consumption checks, no-store/no-referrer headers, and redacted JDBC session continuation.
 - [x] Extend the browser OAuth2 success path so an unbound identity is provisioned only from a valid invitation continuation.
 - [x] Require exact issuer/subject, verified matching email, an unexpired continuation, and a locked pending invitation before acceptance; rely on Spring Security for OAuth2 state and OIDC nonce correlation.
-- [x] Commit Actor binding, Organization `MEMBER`, default-Workspace `MEMBER`, and invitation acceptance in one transaction.
+- [x] Commit Actor binding, Organization `MEMBER`, and invitation acceptance in one transaction.
 - [x] Rotate the session ID, persist the `ActorId`-only principal, discard provider state, and invalidate every failed partial session.
 - [x] Reconcile Keycloak realm desired state and deployment prerequisites for self-registration, verified email, and SMTP without giving MemoryOS administrator credentials.
 - [x] Add digest-pinned Mailpit to the staging Compose topology with bounded retention, internal authenticated STARTTLS SMTP, a deployment-owned private CA trusted by Keycloak, and a server-loopback mailbox endpoint.

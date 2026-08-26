@@ -11,7 +11,11 @@ import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
+
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,8 +54,28 @@ class OpenApiConfiguration {
                         openApi.setComponents(new Components());
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
+                    configureNullableCurrentOrganization(openApi.getComponents());
                 })
                 .build();
+    }
+
+    private static void configureNullableCurrentOrganization(Components components) {
+        Schema<?> currentIdentity = Objects.requireNonNull(
+                components.getSchemas().get("CurrentIdentity"),
+                "CurrentIdentity schema must exist"
+        );
+        Schema<?> generatedOrganization = Objects.requireNonNull(
+                currentIdentity.getProperties().get("organization"),
+                "CurrentIdentity.organization schema must exist"
+        );
+        Schema<Object> organizationReference = new Schema<>();
+        organizationReference.set$ref("#/components/schemas/CurrentOrganization");
+        Schema<Object> nullValue = new Schema<>();
+        nullValue.setTypes(Set.of("null"));
+        Schema<Object> nullableOrganization = new Schema<>();
+        nullableOrganization.setDescription(generatedOrganization.getDescription());
+        nullableOrganization.setOneOf(List.of(organizationReference, nullValue));
+        currentIdentity.addProperty("organization", nullableOrganization);
     }
 
     private static Schema<?> apiProblemSchema() {

@@ -5,7 +5,6 @@ import io.memoryos.organization.InvitationAuthority;
 import io.memoryos.organization.InvitationTarget;
 import io.memoryos.organization.OrganizationId;
 import io.memoryos.organization.OrganizationMembershipProvisioner;
-import io.memoryos.organization.WorkspaceId;
 
 import java.util.List;
 import java.util.Objects;
@@ -23,41 +22,26 @@ public class JdbcOrganizationMembershipProvisioner implements OrganizationMember
 
     private static final String SELECT_OWNER_AUTHORITY = """
             SELECT organization.id AS organization_id,
-                   organization.default_workspace_id,
                    organization.display_name AS organization_display_name
             FROM organization_memberships membership
             JOIN organizations organization
               ON organization.id = membership.organization_id
-            JOIN workspaces workspace
-              ON workspace.organization_id = organization.id
-             AND workspace.id = organization.default_workspace_id
             WHERE membership.actor_id = :actorId
               AND membership.role = 'OWNER'
               AND membership.status = 'ACTIVE'
               AND organization.status = 'ACTIVE'
-              AND workspace.status = 'ACTIVE'
             """;
 
     private static final String SELECT_ACTIVE_TARGET = """
             SELECT organization.id AS organization_id,
-                   organization.default_workspace_id,
                    organization.display_name AS organization_display_name
             FROM organizations organization
-            JOIN workspaces workspace
-              ON workspace.organization_id = organization.id
-             AND workspace.id = organization.default_workspace_id
             WHERE organization.id = :organizationId
-              AND organization.default_workspace_id = :workspaceId
               AND organization.status = 'ACTIVE'
-              AND workspace.status = 'ACTIVE'
             """;
 
     private static final String COUNT_MEMBERSHIPS = """
-            SELECT (
-                (SELECT COUNT(*) FROM organization_memberships WHERE actor_id = :actorId)
-                +
-                (SELECT COUNT(*) FROM workspace_memberships WHERE actor_id = :actorId)
-            )
+            SELECT COUNT(*) FROM organization_memberships WHERE actor_id = :actorId
             """;
 
     private static final String INSERT_ORGANIZATION_MEMBER = """
@@ -65,10 +49,6 @@ public class JdbcOrganizationMembershipProvisioner implements OrganizationMember
             VALUES (:organizationId, :actorId, 'MEMBER', 'ACTIVE')
             """;
 
-    private static final String INSERT_WORKSPACE_MEMBER = """
-            INSERT INTO workspace_memberships (organization_id, workspace_id, actor_id, role, status)
-            VALUES (:organizationId, :workspaceId, :actorId, 'MEMBER', 'ACTIVE')
-            """;
 
     private final JdbcClient jdbcClient;
 
@@ -83,7 +63,6 @@ public class JdbcOrganizationMembershipProvisioner implements OrganizationMember
                 .param("actorId", actorId.value())
                 .query((resultSet, ignored) -> new InvitationAuthority(
                         new OrganizationId(resultSet.getObject("organization_id", UUID.class)),
-                        new WorkspaceId(resultSet.getObject("default_workspace_id", UUID.class)),
                         resultSet.getString("organization_display_name")
                 ))
                 .list();
@@ -94,18 +73,12 @@ public class JdbcOrganizationMembershipProvisioner implements OrganizationMember
     }
 
     @Override
-    public Optional<InvitationTarget> findActiveInvitationTarget(
-            OrganizationId organizationId,
-            WorkspaceId defaultWorkspaceId
-    ) {
+    public Optional<InvitationTarget> findActiveInvitationTarget(OrganizationId organizationId) {
         Objects.requireNonNull(organizationId, "organizationId must not be null");
-        Objects.requireNonNull(defaultWorkspaceId, "defaultWorkspaceId must not be null");
         return jdbcClient.sql(SELECT_ACTIVE_TARGET)
                 .param("organizationId", organizationId.value())
-                .param("workspaceId", defaultWorkspaceId.value())
                 .query((resultSet, ignored) -> new InvitationTarget(
                         new OrganizationId(resultSet.getObject("organization_id", UUID.class)),
-                        new WorkspaceId(resultSet.getObject("default_workspace_id", UUID.class)),
                         resultSet.getString("organization_display_name")
                 ))
                 .optional();
@@ -122,28 +95,16 @@ public class JdbcOrganizationMembershipProvisioner implements OrganizationMember
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public void grantDefaultMember(
-            OrganizationId organizationId,
-            WorkspaceId defaultWorkspaceId,
-            ActorId actorId
-    ) {
+    public void grantMember(OrganizationId organizationId, ActorId actorId) {
         Objects.requireNonNull(organizationId, "organizationId must not be null");
-        Objects.requireNonNull(defaultWorkspaceId, "defaultWorkspaceId must not be null");
         Objects.requireNonNull(actorId, "actorId must not be null");
-        requireOne(jdbcClient.sql(INSERT_ORGANIZATION_MEMBER)
+        int updated = jdbcClient.sql(INSERT_ORGANIZATION_MEMBER)
                 .param("organizationId", organizationId.value())
                 .param("actorId", actorId.value())
-                .update(), "grant Organization member");
-        requireOne(jdbcClient.sql(INSERT_WORKSPACE_MEMBER)
-                .param("organizationId", organizationId.value())
-                .param("workspaceId", defaultWorkspaceId.value())
-                .param("actorId", actorId.value())
-                .update(), "grant default-Workspace member");
-    }
-
-    private static void requireOne(int updated, String operation) {
+                .update();
         if (updated != 1) {
-            throw new IllegalStateException(operation + " affected " + updated + " rows");
+            throw new IllegalStateException("grant Organization member affected " + updated + " rows");
         }
     }
+
 }

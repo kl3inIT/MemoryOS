@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 import io.memoryos.api.identity.contract.CurrentIdentityResponse;
 import io.memoryos.identity.IdentityContext;
+import io.memoryos.organization.OrganizationAccessResolver;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,11 +20,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/identity")
 final class IdentityController {
 
+    private final OrganizationAccessResolver organizationAccessResolver;
+
+    IdentityController(OrganizationAccessResolver organizationAccessResolver) {
+        this.organizationAccessResolver = organizationAccessResolver;
+    }
+
     @Operation(
             operationId = "getCurrentIdentity",
             summary = "Return the authenticated MemoryOS actor",
             description = "Accepts either an existing MemoryOS browser session or a valid bound bearer identity "
-                    + "and returns only the stable internal ActorId.",
+                    + "and returns the stable internal ActorId plus its durable Organization authority projection.",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -46,7 +53,10 @@ final class IdentityController {
     CurrentIdentityResponse currentIdentity(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
     ) {
-        return new CurrentIdentityResponse(identityContext.actorId().value());
+        return CurrentIdentityResponse.from(
+                identityContext.actorId().value(),
+                organizationAccessResolver.findSessionAuthority(identityContext.actorId()).orElse(null)
+        );
     }
 
 }

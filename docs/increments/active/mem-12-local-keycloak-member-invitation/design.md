@@ -2,7 +2,7 @@
 
 ## Outcome
 
-An authenticated Organization owner can onboard one member through a complete invitation lifecycle. The owner creates an invitation for one email, shares a one-time link, observes its status, and can revoke or rotate it. The recipient opens the link, authenticates with local Keycloak, and joins the existing Organization and default Workspace when the verified email matches.
+An authenticated Organization owner can onboard one member through a complete invitation lifecycle. The owner creates an invitation for one email, shares a one-time link, observes its status, and can revoke or rotate it. The recipient opens the link, authenticates with local Keycloak, and joins the existing Organization when the verified email matches.
 
 This is a production vertical slice, not a temporary onboarding mode. Storage, authorization, recovery, concurrency, browser session handling, deployment configuration, and live runtime verification belong to the same increment.
 
@@ -18,7 +18,7 @@ This is a production vertical slice, not a temporary onboarding mode. Storage, a
 
 ### Recipient
 
-1. Open an invitation landing page that identifies the MemoryOS workspace.
+1. Open an invitation landing page that identifies the MemoryOS Organization.
 2. Continue to the local Keycloak Authorization Code + S256 PKCE flow.
 3. Sign in or create a local email-as-username account, then complete Keycloak email verification.
 4. Return to MemoryOS with an exact issuer/subject and verified email.
@@ -33,7 +33,7 @@ Onyx Enterprise is an interaction reference for invitation administration, its m
 MemoryOS adds `invitation` as a top-level closed Spring Modulith capability from the first implementation commit:
 
 - identity owns stable `ActorId` and exact `(issuer, subject)` bindings;
-- organization owns Organizations, Workspaces, and memberships, and exposes only a narrow invitation-authority/membership port;
+- organization owns Organizations and memberships, and exposes only a narrow invitation-authority/membership port;
 - invitation owns invitation lifecycle, secret handling, persistence, intake, and acceptance orchestration;
 - Spring Security owns the OAuth2 continuation and JDBC-backed browser session;
 - Keycloak owns credentials, authentication, and verified-email claims.
@@ -61,7 +61,7 @@ Each invitation records:
 - creator `ActorId` and creation time;
 - expiry;
 - accepted actor/time or revoking actor/time when settled;
-- the default Workspace grant implied by the Organization at issue time.
+- the Organization grant authorized at issue time.
 
 The plaintext secret exists only in the create or rotate response and the recipient's intake request. It is never logged, persisted, listed, or reconstructed.
 
@@ -75,7 +75,7 @@ Existing applied migration files are not silently edited against a retained data
 
 ## Owner authorization
 
-Issue, revoke, and rotate require the current `ActorId` to hold active Organization `OWNER` membership in an active Organization. The service derives Organization and default Workspace context from durable authority; clients do not submit an Organization role or Workspace selection.
+Issue, revoke, and rotate require the current `ActorId` to hold active Organization `OWNER` membership in an active Organization. The service derives Organization context from durable authority; clients do not submit an Organization or role selection.
 
 An existing active member, an external identity already bound to another actor, or a conflicting pending invitation fails explicitly. No endpoint widens authority through email alone.
 
@@ -98,7 +98,7 @@ Acceptance requires:
 - invitation still pending and unexpired under a row lock;
 - no conflicting binding or memberships.
 
-One transaction creates or resolves the Actor as permitted, inserts the exact external identity binding, grants Organization `MEMBER`, grants default-Workspace `MEMBER`, and conditionally accepts the invitation. Concurrent or replayed callbacks leave exactly one accepted result.
+One transaction creates or resolves the Actor as permitted, inserts the exact external identity binding, grants Organization `MEMBER`, and conditionally accepts the invitation. Concurrent or replayed callbacks leave exactly one accepted result.
 
 After commit, the callback rotates the HTTP session ID, replaces the provider principal with the existing `ActorId`-only application principal, saves the security context explicitly, and removes provider authorized-client state. Failure invalidates the partial session.
 
@@ -128,7 +128,7 @@ Recipient pages use plain-language recovery actions rather than exposing these i
 ## Explicit exclusions
 
 - multi-Organization switching or owner transfer;
-- role or Workspace pickers;
+- Organization role pickers;
 - billing, seat metering, and trial quotas;
 - bulk invitation;
 - SCIM, group provisioning, and domain-based JIT access;

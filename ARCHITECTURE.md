@@ -16,7 +16,7 @@ MemoryOS is a controlled Spring Modulith monolith with three flat Gradle modules
 
 `web/` is a separate production deployable built with Vite, React, TanStack Router, TanStack Query, Tailwind CSS, and generated Hey API clients. It is not a Gradle module or a reusable package. The Nginx runtime serves immutable assets and owns the browser origin; Spring remains the API, OAuth2, session, and authorization runtime.
 
-The authenticated root route uses a responsive OrgMemory/Onyx-aligned application shell. Desktop provides a 15rem sidebar that folds to a 4rem rail; the folded logo is the expand control and swaps to the sidebar icon on hover or focus. Mobile uses an accessible modal drawer. `New Session` is the selected shell surface, `/admin` provides the separate administration shell, and the account popover exposes appearance, administration, and `Sign out`. Sign-out uses a same-origin guarded POST, invalidates the JDBC application session, and returns a Keycloak RP-initiated logout location so the browser can terminate SSO before returning to the signed-out application. These are shell surfaces only; no assistant execution, source operation, notification, or help capability is inferred from them.
+The authenticated root route uses a responsive OrgMemory/Onyx-aligned application shell. Desktop provides a 15rem sidebar that folds to a 4rem rail; mobile uses an accessible modal drawer. `ApplicationSessionBoundary` resolves `/api/identity/me`, provides one application-session context, and gates behavior through projected capabilities. Organization display, initials, and owner/member labels come from the durable projection. `Admin Panel`, administration routes, and invitation UI require `INVITATIONS_MANAGE`; a denied deep link preserves its URL and mounts no invitation query. Sign-out uses a same-origin guarded POST, invalidates the JDBC application session, and returns a Keycloak RP-initiated logout location so the browser can terminate SSO before returning to the signed-out application.
 
 The web design system remains local to the single application. `styles/tokens.css` owns the monochrome primitives and semantic roles, `styles/theme.css` maps those roles and the Hanken Grotesk type scale into Tailwind v4, and `styles/base.css` owns global element behavior. Product components consume semantic roles and typography presets rather than raw palette or font-size values. Shared `SidebarTab`, `SidebarSection`, and `MenuItem` primitives own navigation/menu interaction. No reusable design-system package, Storybook surface, Style Dictionary pipeline, cross-platform token output, or migration component tree exists without a second consumer.
 
@@ -32,13 +32,14 @@ Audit is intentionally absent until a real evidence consumer defines attribution
 
 ## Persistence and startup
 
-Flyway owns three migrations:
+Flyway owns four migrations:
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
-- `V2__create_initial_organization_and_sessions.sql`: Organizations, Workspaces, scoped memberships, singleton bootstrap state, and Spring Session JDBC tables.
-- `V3__create_organization_invitations.sql`: Invitation-owned digest-only lifecycle rows scoped by Organization/default Workspace.
+- `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
+- `V3__create_organization_invitations.sql`: historical Invitation lifecycle initially scoped by Organization/default Workspace.
+- `V4__collapse_workspace_into_organization.sql`: removes the default-Workspace layer and makes Organization the direct membership and invitation owner.
 
-API startup requires datasource, OIDC, confidential browser-client, and initial Organization configuration. After migration, an `ApplicationRunner` invokes the transactional initial bootstrap. A migration-created singleton row is locked with `SELECT ... FOR UPDATE`; the transaction resolves or creates the exact owner binding, inserts one Organization and default Workspace, grants Organization `OWNER` and Workspace `ADMIN`, and publishes the Organization ID. Concurrent replicas serialize on that row. Identical configuration replays; drift or incomplete state fails startup.
+API startup requires datasource, OIDC, confidential browser-client, and initial Organization configuration. After migration, an `ApplicationRunner` invokes the transactional initial bootstrap. A migration-created singleton row is locked with `SELECT ... FOR UPDATE`; the transaction resolves or creates the exact owner binding, inserts one Organization, grants Organization `OWNER`, and publishes the Organization ID. Concurrent replicas serialize on that row. Identical configuration replays; drift or incomplete state fails startup.
 
 ## Authentication
 
@@ -48,14 +49,14 @@ The API composes three ordered security chains:
 2. Remaining `/api/**`: stateless OAuth2 Resource Server bearer authentication.
 3. Browser routes: invitation intake/continuation plus OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
 
-Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Ordinary browser login additionally requires active Organization authority and otherwise redirects to `ACCESS_NOT_PROVISIONED`. A valid invitation continuation is the only alternate browser path: the Invitation transaction binds the exact identity, grants fixed Organization/default-Workspace `MEMBER`, and consumes the invitation before the same `ActorId`-only session is saved. Failure invalidates the partial session. Remaining API routes stay stateless and bearer-only.
+Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Ordinary browser login additionally requires active Organization authority and otherwise redirects to `ACCESS_NOT_PROVISIONED`. A valid invitation continuation is the only alternate browser path: the Invitation transaction binds the exact identity, grants Organization `MEMBER`, and consumes the invitation before the same `ActorId`-only session is saved. Failure invalidates the partial session. Remaining API routes stay stateless and bearer-only.
 
 On successful browser login, Spring Security session-fixation protection rotates the session ID. The callback replaces `OAuth2AuthenticationToken` with `ActorSessionAuthenticationToken`, explicitly saves a security context whose serializable principal contains only `ActorId`, and uses a discarding authorized-client repository. Provider access, refresh, and raw ID-token state is not retained in Spring Session.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | Health status |
-| `GET /api/identity/me` | Valid bound bearer identity or authenticated browser session | `{"actorId":"<uuid>"}` |
+| `GET /api/identity/me` | Valid bound bearer identity or authenticated browser session | Stable `actorId`, nullable active Organization presentation context, and capability list |
 | `GET /` | Browser origin | Static application; session state is resolved through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Public accessible denial state |
 | `GET /invite/{secret}` | Public capability link | Digest lookup, redacted JDBC continuation, then invitation landing |
@@ -65,7 +66,7 @@ On successful browser login, Spring Security session-fixation protection rotates
 
 Spring Boot MVC Problem Details is enabled for framework exceptions. Expected capability failures are carried by typed subclasses of the root-package abstract `BusinessException`, which snapshots a capability-prefixed code, semantic category, and safe fallback message while keeping typed reasons in the capability. Root placement keeps the shared vocabulary outside the eight Spring Modulith capability modules. `ApiExceptionHandler` handles `BusinessException` only for `@RestController` types, maps semantic failure category to HTTP status/title once, and returns RFC 9457 `application/problem+json` with a derived `urn:memoryos:failure:*` type. Diagnostic exception messages are never exposed.
 
-Browser redirect controllers continue to consume typed exceptions directly, `ACCESS_NOT_PROVISIONED` remains a browser destination response, and Spring Security filter-chain failures remain outside MVC advice. Unexpected exceptions are not caught by the global handler.
+Browser redirect controllers continue to consume typed exceptions directly, `ACCESS_NOT_PROVISIONED` remains a browser SPA destination, and Spring Security filter-chain failures remain outside MVC advice. Unexpected exceptions are not caught by the global handler.
 
 ## Published API contract
 
@@ -85,4 +86,4 @@ The staging application origin is `https://memoryos.72-62-193-33.nip.io`, termin
 
 ## Deferred components
 
-No Organization/Workspace switcher, broker policy, audit history, OpenFGA client, connector, MCP server, GraphRAG engine, public deployment automation, account-linking endpoint, durable memory screen, chat UI, or background-processing loop exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.
+No multi-Organization switcher, broker policy, audit history, OpenFGA client, connector, MCP server, GraphRAG engine, public deployment automation, account-linking endpoint, durable memory screen, chat UI, or background-processing loop exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.

@@ -58,7 +58,9 @@ class PostgresInitialOrganizationBootstrapperConcurrencyTest {
         try (var connection = dataSource.getConnection()) {
             new ResourceDatabasePopulator(
                     new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                    new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql")
+                    new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
+                    new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
+                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql")
             ).populate(connection);
         }
 
@@ -126,13 +128,10 @@ class PostgresInitialOrganizationBootstrapperConcurrencyTest {
                 assertFalse(secondResult.created());
                 assertEquals(firstResult.ownerActorId(), secondResult.ownerActorId());
                 assertEquals(firstResult.organizationId(), secondResult.organizationId());
-                assertEquals(firstResult.defaultWorkspaceId(), secondResult.defaultWorkspaceId());
                 assertEquals(1L, count(jdbcClient, "actors"));
                 assertEquals(1L, count(jdbcClient, "external_identity_bindings"));
                 assertEquals(1L, count(jdbcClient, "organizations"));
-                assertEquals(1L, count(jdbcClient, "workspaces"));
                 assertEquals(1L, count(jdbcClient, "organization_memberships"));
-                assertEquals(1L, count(jdbcClient, "workspace_memberships"));
                 assertEquals(1L, count(jdbcClient, "organization_bootstrap_state"));
             } finally {
                 releaseFirstResolver.countDown();
@@ -181,8 +180,6 @@ class PostgresInitialOrganizationBootstrapperConcurrencyTest {
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "tasco-owner"),
                 "tasco",
                 "Tasco",
-                "default",
-                "Tasco Default Workspace",
                 "DEPLOY-2026-08-19"
         );
     }

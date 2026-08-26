@@ -69,7 +69,7 @@ export const getCurrentInvitation = <ThrowOnError extends boolean = false>(optio
 /**
  * Return the authenticated MemoryOS actor
  *
- * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns only the stable internal ActorId.
+ * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Organization authority projection.
  */
 export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentIdentityData, ThrowOnError>): RequestResult<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError>({
     security: [{

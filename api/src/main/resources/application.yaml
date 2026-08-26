@@ -65,6 +65,4 @@ memoryos:
     owner-subject: ${MEMORYOS_INITIAL_OWNER_SUBJECT}
     slug: ${MEMORYOS_ORGANIZATION_SLUG}
     display-name: ${MEMORYOS_ORGANIZATION_DISPLAY_NAME}
-    default-workspace-slug: ${MEMORYOS_DEFAULT_WORKSPACE_SLUG}
-    default-workspace-display-name: ${MEMORYOS_DEFAULT_WORKSPACE_DISPLAY_NAME}
     change-reference: ${MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE}

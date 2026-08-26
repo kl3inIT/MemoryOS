@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-25.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-26.
 
 ## Delivered
 
@@ -22,13 +22,15 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-12](https://linear.app/memory-os/issue/MEM-12/onboard-one-member-by-local-keycloak-invitation) | Production owner-to-member invitation lifecycle through local Keycloak, with copy/share recovery, fixed memberships, and atomic acceptance | [Design](increments/active/mem-12-local-keycloak-member-invitation/design.md) · [Plan](increments/active/mem-12-local-keycloak-member-invitation/plan.md) · [Verification](increments/active/mem-12-local-keycloak-member-invitation/verification.md) |
+| [MEM-19](https://linear.app/memory-os/issue/MEM-19/expose-durable-invitation-authority-to-the-frontend) | Server-authored Organization invitation authority projection with capability-aware owner/member browser surfaces | [Design](increments/active/mem-19-frontend-authority-projection/design.md) · [Plan](increments/active/mem-19-frontend-authority-projection/plan.md) · [Verification](increments/active/mem-19-frontend-authority-projection/verification.md) |
+| [MEM-28](https://linear.app/memory-os/issue/MEM-28/collapse-default-workspace-into-organization-ownership) | Remove the default-Workspace layer so Organization directly owns membership, invitations, and future source/knowledge/Agent resources | [Design](increments/active/mem-28-organization-only-ownership/design.md) · [Plan](increments/active/mem-28-organization-only-ownership/plan.md) · [Verification](increments/active/mem-28-organization-only-ownership/verification.md) |
 
 ## Candidate increments
 
 These are sequencing signals, not commitments or approved designs.
 
-1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-workspace-owned-google-drive-connections) — authorize Workspace-owned Google Drive connections.
-2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-workspace-scoped-google-docs-with-source-acls) — ingest Workspace-scoped Google Docs with source ACL evidence.
+1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Organization-owned Google Drive connections.
+2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Organization-scoped Google Docs with source ACL evidence.
 3. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
 
 Create or link an issue and add an active increment record before implementation begins.

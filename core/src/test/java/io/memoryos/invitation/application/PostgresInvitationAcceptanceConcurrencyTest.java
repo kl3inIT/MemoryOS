@@ -26,7 +26,6 @@ import io.memoryos.organization.OrganizationMembershipProvisioner;
 import io.memoryos.organization.application.DefaultInitialOrganizationBootstrapper;
 import io.memoryos.organization.persistence.JdbcOrganizationBootstrapRepository;
 import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisioner;
-import io.memoryos.organization.WorkspaceId;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -78,7 +77,8 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             new ResourceDatabasePopulator(
                     new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
                     new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                    new ClassPathResource("db/migration/V3__create_organization_invitations.sql")
+                    new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
+                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql")
             ).populate(connection);
         }
 
@@ -105,8 +105,6 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "owner"),
                 "tasco",
                 "Tasco",
-                "default",
-                "Tasco Default Workspace",
                 "TEST-MEM-12-POSTGRES"
         )).ownerActorId();
 
@@ -191,7 +189,6 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 assertEquals(2L, count(jdbcClient, "actors"));
                 assertEquals(2L, count(jdbcClient, "external_identity_bindings"));
                 assertEquals(2L, count(jdbcClient, "organization_memberships"));
-                assertEquals(2L, count(jdbcClient, "workspace_memberships"));
                 assertEquals(1L, jdbcClient.sql("""
                                 SELECT COUNT(*) FROM organization_invitations
                                 WHERE status = 'ACCEPTED' AND accepted_by_actor_id = :actorId
@@ -206,13 +203,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
 
         ActorId secondOwner = createBoundActor(jdbcClient, "second-owner");
         OrganizationId secondOrganization = new OrganizationId(java.util.UUID.randomUUID());
-        WorkspaceId secondWorkspace = new WorkspaceId(java.util.UUID.randomUUID());
-        createOwnedOrganization(
-                jdbcClient,
-                secondOwner,
-                secondOrganization,
-                secondWorkspace
-        );
+        createOwnedOrganization(jdbcClient, secondOwner, secondOrganization);
         ExternalIdentity sharedIdentity = new ExternalIdentity(
                 "https://keycloak.example/realms/memoryos",
                 "shared-member"
@@ -286,13 +277,6 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 .query(Long.class)
                 .single());
         assertEquals(1L, jdbcClient.sql("""
-                        SELECT COUNT(*) FROM workspace_memberships
-                        WHERE actor_id = :actorId
-                        """)
-                .param("actorId", sharedActor.value())
-                .query(Long.class)
-                .single());
-        assertEquals(1L, jdbcClient.sql("""
                         SELECT COUNT(*) FROM organization_invitations
                         WHERE accepted_by_actor_id = :actorId AND status = 'ACCEPTED'
                         """)
@@ -328,14 +312,11 @@ class PostgresInvitationAcceptanceConcurrencyTest {
     private static void createOwnedOrganization(
             JdbcClient jdbcClient,
             ActorId owner,
-            OrganizationId organizationId,
-            WorkspaceId workspaceId
+            OrganizationId organizationId
     ) {
         jdbcClient.sql("""
-                        INSERT INTO organizations (
-                            id, slug, display_name, status, default_workspace_id, bootstrap_reference
-                        )
-                        VALUES (:id, :slug, :displayName, 'ACTIVE', NULL, :reference)
+                        INSERT INTO organizations (id, slug, display_name, status, bootstrap_reference)
+                        VALUES (:id, :slug, :displayName, 'ACTIVE', :reference)
                         """)
                 .param("id", organizationId.value())
                 .param("slug", "second")
@@ -343,35 +324,10 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 .param("reference", "TEST-MEM-12-second")
                 .update();
         jdbcClient.sql("""
-                        INSERT INTO workspaces (id, organization_id, slug, display_name, status)
-                        VALUES (:id, :organizationId, 'default', 'Default Workspace', 'ACTIVE')
-                        """)
-                .param("id", workspaceId.value())
-                .param("organizationId", organizationId.value())
-                .update();
-        jdbcClient.sql("""
-                        UPDATE organizations
-                        SET default_workspace_id = :workspaceId
-                        WHERE id = :organizationId
-                        """)
-                .param("workspaceId", workspaceId.value())
-                .param("organizationId", organizationId.value())
-                .update();
-        jdbcClient.sql("""
                         INSERT INTO organization_memberships (organization_id, actor_id, role, status)
                         VALUES (:organizationId, :actorId, 'OWNER', 'ACTIVE')
                         """)
                 .param("organizationId", organizationId.value())
-                .param("actorId", owner.value())
-                .update();
-        jdbcClient.sql("""
-                        INSERT INTO workspace_memberships (
-                            organization_id, workspace_id, actor_id, role, status
-                        )
-                        VALUES (:organizationId, :workspaceId, :actorId, 'ADMIN', 'ACTIVE')
-                        """)
-                .param("organizationId", organizationId.value())
-                .param("workspaceId", workspaceId.value())
                 .param("actorId", owner.value())
                 .update();
     }
@@ -409,11 +365,8 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             }
 
             @Override
-            public Optional<InvitationTarget> findActiveInvitationTarget(
-                    OrganizationId organizationId,
-                    WorkspaceId defaultWorkspaceId
-            ) {
-                return delegate.findActiveInvitationTarget(organizationId, defaultWorkspaceId);
+            public Optional<InvitationTarget> findActiveInvitationTarget(OrganizationId organizationId) {
+                return delegate.findActiveInvitationTarget(organizationId);
             }
 
             @Override
@@ -422,11 +375,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             }
 
             @Override
-            public void grantDefaultMember(
-                    OrganizationId organizationId,
-                    WorkspaceId defaultWorkspaceId,
-                    ActorId actorId
-            ) {
+            public void grantMember(OrganizationId organizationId, ActorId actorId) {
                 entered.countDown();
                 try {
                     assertTrue(release.await(10, SECONDS));
@@ -434,7 +383,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException("interrupted while holding invitation lock", exception);
                 }
-                delegate.grantDefaultMember(organizationId, defaultWorkspaceId, actorId);
+                delegate.grantMember(organizationId, actorId);
             }
         };
     }
