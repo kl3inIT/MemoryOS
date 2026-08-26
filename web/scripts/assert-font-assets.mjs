@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { inlineFontDataUrlPattern } from "./font-data-url.mjs";
 
 const distDirectory = fileURLToPath(new URL("../dist/", import.meta.url));
 const emittedFiles = await readdir(distDirectory, { recursive: true });
@@ -16,7 +17,7 @@ if (fontFiles.length === 0) {
 
 for (const styleSheet of styleSheets) {
   const css = await readFile(path.join(distDirectory, styleSheet), "utf8");
-  if (/url\((?:["'])?data:font/iu.test(css)) {
+  if (inlineFontDataUrlPattern.test(css)) {
     throw new Error(`${styleSheet} contains a CSP-incompatible inline font`);
   }
 }

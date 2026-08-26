@@ -169,7 +169,7 @@ function SidebarContents({
             </SidebarTab>
           </div>
         ) : null}
-        <AccountMenu collapsed={collapsed} />
+        <AccountMenu collapsed={collapsed} onNavigate={onNavigate} />
       </footer>
     </div>
   );

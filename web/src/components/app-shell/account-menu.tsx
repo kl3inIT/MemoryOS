@@ -9,7 +9,13 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 
 const logoutLocationHeader = "X-MemoryOS-Logout-Location";
 
-export function AccountMenu({ collapsed }: { collapsed: boolean }) {
+export function AccountMenu({
+  collapsed,
+  onNavigate,
+}: {
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const { organization } = useApplicationSession();
@@ -83,7 +89,10 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
               <MenuItem
                 to="/admin"
                 icon={<Settings2 className="size-4.5" />}
-                onClick={() => setMenuOpen(false)}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onNavigate?.();
+                }}
               >
                 Admin Panel
               </MenuItem>

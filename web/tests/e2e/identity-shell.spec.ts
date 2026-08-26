@@ -246,6 +246,12 @@ test("closes mobile administration navigation after a client route change", asyn
   await page.getByRole("link", { name: "Invitations", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/invitations(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Organization owner" }).click();
+  await page.getByRole("link", { name: "Admin Panel" }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
 });
 
 test("keeps unprovisioned access separate from signed-out state", async ({ page }) => {
