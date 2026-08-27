@@ -341,10 +341,10 @@ class SessionSecurityIntegrationTest {
 
             var revokeAlpha = client.send(
                     HttpRequest.newBuilder(baseUri().resolve(
-                                    "/api/invitations/" + jsonString(alpha.body(), "id")
+                                    "/api/invitations/" + jsonString(alpha.body(), "id") + "/revoke"
                             ))
                             .header(BROWSER_MUTATION_HEADER, "1")
-                            .DELETE()
+                            .POST(HttpRequest.BodyPublishers.noBody())
                             .build(),
                     HttpResponse.BodyHandlers.ofString()
             );
@@ -587,15 +587,13 @@ class SessionSecurityIntegrationTest {
                     memberClient.send(
                             invitationMutation(
                                     "/api/invitations/" + invitationId + "/rotate",
-                                    "POST",
                                     HttpRequest.BodyPublishers.noBody()
                             ),
                             HttpResponse.BodyHandlers.ofString()
                     ),
                     memberClient.send(
                             invitationMutation(
-                                    "/api/invitations/" + invitationId,
-                                    "DELETE",
+                                    "/api/invitations/" + invitationId + "/revoke",
                                     HttpRequest.BodyPublishers.noBody()
                             ),
                             HttpResponse.BodyHandlers.ofString()
@@ -846,14 +844,13 @@ class SessionSecurityIntegrationTest {
 
     private HttpRequest invitationMutation(
             String path,
-            String method,
             HttpRequest.BodyPublisher body
     ) {
         return HttpRequest.newBuilder(baseUri().resolve(path))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
                 .header(BROWSER_MUTATION_HEADER, "1")
-                .method(method, body)
+                .POST(body)
                 .build();
     }
 

@@ -22,7 +22,7 @@ Example:
 
 ```json
 {
-  "filePath": "core/src/main/java/io/memoryos/authorization/AuthorizationService.java",
+  "filePath": "core/src/main/java/io/memoryos/invitation/InvitationService.java",
   "errorsOnly": false,
   "timeout": 10000,
   "projectPath": "D:/path/to/MemoryOS"
@@ -74,12 +74,12 @@ Do not substitute broad text search for semantic symbol analysis.
 
 Static verification must preserve these repository invariants:
 
-- Gradle modules remain flat: `core`, `api`, and `worker`.
-- `core` never depends on `api` or `worker`.
-- The eight Spring Modulith capabilities remain `identity`, `organization`, `invitation`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`; audit returns only with an evidence consumer under ADR 0003.
+- Current Gradle modules remain `core`, `api`, and `worker` until MEM-35 adds the approved shared `connector` integration bundle with its implementation ADR.
+- `connector` depends on public core APIs; `core` never depends on connector implementations, `api`, or `worker`.
+- Current core capabilities are exactly `identity`, `organization`, and `invitation`; MEM-35 adds real `connector`, `document`, and `ingestion` implementations. Speculative empty capability packages are forbidden.
 - `invitation` depends only on public `identity` and `organization` APIs. It owns invitation persistence and never imports Organization persistence or writes membership tables directly.
 - Capability-owned persistence stays under that capability's `persistence` package and is not imported by another capability.
-- Provider integration packaging is not decided by MEM-5; do not add speculative provider rules.
+- MEM-35 groups implemented providers under independent `io.memoryos.provider.<provider>` folders in one connector artifact; no provider folder exists before its implementing increment, and a later split requires measured dependency/runtime pressure.
 - API and worker remain thin composition roots.
 
 Run `ModulithArchitectureTest` and `CoreDependencyRulesTest` whenever module declarations, package placement, or dependency rules change.

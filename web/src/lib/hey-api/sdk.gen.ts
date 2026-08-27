@@ -62,6 +62,19 @@ export const rotateInvitation = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
+ * Revoke a pending invitation
+ */
+export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).post<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/invitations/{invitationId}/revoke',
+    ...options
+});
+
+/**
  * Return the redacted invitation landing context from the browser session
  */
 export const getCurrentInvitation = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentInvitationData, ThrowOnError>): RequestResult<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError>({ url: '/api/invitations/current', ...options });
@@ -78,18 +91,5 @@ export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/identity/me',
-    ...options
-});
-
-/**
- * Revoke a pending invitation
- */
-export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
-    url: '/api/invitations/{invitationId}',
     ...options
 });

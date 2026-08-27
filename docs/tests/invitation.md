@@ -2,7 +2,7 @@
 
 | Requirement | Durable verification |
 | --- | --- |
-| Only an active Organization owner can issue, list, rotate, or revoke; a real accepted member receives `403 INVITATION_NOT_OWNER` for all four HTTP operations | `DefaultInvitationServiceTest.requiresAnActiveOwnerAndValidEmail` and `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
+| Only an active Organization owner can issue, list, rotate, or revoke; a real accepted member receives `403 INVITATION_NOT_OWNER` for all four HTTP operations, including `POST /api/invitations/{invitationId}/revoke` | `DefaultInvitationServiceTest.requiresAnActiveOwnerAndValidEmail`, `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession`, and `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
 | Email is normalized and only one pending invitation exists per Organization/email | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` and `rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
 | Plaintext secret is returned once and only its digest persists | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` |
 | Rotation replaces the digest and invalidates the prior secret | `DefaultInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |

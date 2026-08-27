@@ -293,7 +293,7 @@ test("creates a production invitation from the Invitations administration page",
   const invitations: Array<Record<string, unknown>> = [];
   let createMutationHeader: string | undefined;
   let createRequests = 0;
-  let deleteMutationHeader: string | undefined;
+  let revokeMutationHeader: string | undefined;
 
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -362,8 +362,8 @@ test("creates a production invitation from the Invitations administration page",
       });
       return;
     }
-    if (route.request().method() === "DELETE") {
-      deleteMutationHeader = route.request().headers()["x-memoryos-csrf"];
+    if (route.request().method() === "POST" && route.request().url().endsWith("/revoke")) {
+      revokeMutationHeader = route.request().headers()["x-memoryos-csrf"];
       invitation.status = "REVOKED";
       invitation.revokedAt = "2026-08-21T11:00:00Z";
       await route.fulfill({ status: 204 });
@@ -420,7 +420,7 @@ test("creates a production invitation from the Invitations administration page",
   await expect(
     page.getByRole("button", { name: "Rotate invitation link for member@example.com" }),
   ).toHaveCount(0);
-  expect(deleteMutationHeader).toBe("1");
+  expect(revokeMutationHeader).toBe("1");
 });
 test("restores and updates the server-driven invitation view from the URL", async ({ page }) => {
   const invitations = Array.from({ length: 25 }, (_, index) => ({

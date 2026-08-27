@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import io.memoryos.api.identity.contract.CurrentIdentityResponse;
 import io.memoryos.identity.IdentityContext;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/identity")
+@Tag(name = "Identity")
 final class IdentityController {
 
     private final OrganizationAccessResolver organizationAccessResolver;

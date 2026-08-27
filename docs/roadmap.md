@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-26.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-27.
 
 ## Delivered
 
@@ -27,6 +27,8 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | [MEM-19](https://linear.app/memory-os/issue/MEM-19/expose-durable-invitation-authority-to-the-frontend) | Server-authored Organization invitation authority projection with capability-aware owner/member browser surfaces | [Design](increments/active/mem-19-frontend-authority-projection/design.md) · [Plan](increments/active/mem-19-frontend-authority-projection/plan.md) · [Verification](increments/active/mem-19-frontend-authority-projection/verification.md) |
 | [MEM-28](https://linear.app/memory-os/issue/MEM-28/collapse-default-workspace-into-organization-ownership) | Remove the default-Workspace layer so Organization directly owns membership, invitations, and future source/knowledge/Agent resources | [Design](increments/active/mem-28-organization-only-ownership/design.md) · [Plan](increments/active/mem-28-organization-only-ownership/plan.md) · [Verification](increments/active/mem-28-organization-only-ownership/verification.md) |
 | [MEM-34](https://linear.app/memory-os/issue/MEM-34/pre-provision-invited-keycloak-users-with-activation-email) | Pre-provision new local-Keycloak invitees so recipients verify the fixed email and choose a password without generic self-registration | [Design](increments/active/mem-34-keycloak-invited-user-activation/design.md) · [Plan](increments/active/mem-34-keycloak-invited-user-activation/plan.md) · [Verification](increments/active/mem-34-keycloak-invited-user-activation/verification.md) |
+| [MEM-35](https://linear.app/memory-os/issue/MEM-35/establish-organization-owned-file-connectors-and-document-boundary) | Establish the Onyx-aligned Organization-owned Connector/Credential/Pair/Document boundary through a production FILE source and persistence-backed indexing worker | [Design](increments/active/mem-35-file-connectors/design.md) · [Plan](increments/active/mem-35-file-connectors/plan.md) · [Verification](increments/active/mem-35-file-connectors/verification.md) |
+| [MEM-37](https://linear.app/memory-os/issue/MEM-37/use-command-style-invitation-revocation-and-product-api-tags) | Replace DELETE-shaped invitation revocation with an explicit POST command and expose consumer-facing Identity/Invitations OpenAPI tags | [Design](increments/active/mem-37-command-style-invitation-revoke/design.md) · [Plan](increments/active/mem-37-command-style-invitation-revoke/plan.md) · [Verification](increments/active/mem-37-command-style-invitation-revoke/verification.md) |
 
 ## Candidate increments
 

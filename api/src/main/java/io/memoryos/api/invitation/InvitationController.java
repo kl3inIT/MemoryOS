@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import io.memoryos.api.invitation.contract.CreateInvitationRequest;
 import io.memoryos.api.invitation.contract.CurrentInvitationResponse;
@@ -33,7 +34,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +47,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/invitations")
+@Tag(name = "Invitations")
 final class InvitationController {
 
     static final String BROWSER_REQUEST_HEADER = "X-MemoryOS-CSRF";
@@ -278,7 +279,7 @@ final class InvitationController {
             )
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @DeleteMapping("/{invitationId}")
+    @PostMapping("/{invitationId}/revoke")
     void revoke(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
             @Parameter(

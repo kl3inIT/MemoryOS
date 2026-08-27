@@ -44,6 +44,17 @@ The response contains invitation items plus page, size, total-item, and total-pa
 
 Invitation administration deliberately uses offset pagination because operators need filters, totals, and numbered pages over bounded lifecycle history. Future high-churn append feeds such as audit use cursor pagination under their own contract.
 
+## HTTP lifecycle commands
+
+Rotation and revocation are durable state transitions, not resource deletion:
+
+```text
+POST /api/invitations/{invitationId}/rotate
+POST /api/invitations/{invitationId}/revoke
+```
+
+Both preserve the invitation history resource. Revocation returns `204 No Content`; the obsolete DELETE-shaped route does not exist. OpenAPI groups invitation operations under the stable consumer-facing `Invitations` tag and current identity under `Identity`, never generated controller class names.
+
 ## Intake continuation
 
 `GET /invite/{secret}` hashes and reads the matching invitation. Missing, expired, revoked, consumed, or superseded secrets return the not-available flow. A valid intake stores only redacted continuation state in the JDBC-backed browser session and redirects to the invitation landing surface. Intake and current-continuation resolution do not lock the row; acceptance revalidates availability under the lifecycle lock before any authority write.

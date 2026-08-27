@@ -228,6 +228,50 @@ export type RotateInvitationResponses = {
 
 export type RotateInvitationResponse = RotateInvitationResponses[keyof RotateInvitationResponses];
 
+export type RevokeInvitationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        /**
+         * Invitation identifier.
+         */
+        invitationId: string;
+    };
+    query?: never;
+    url: '/api/invitations/{invitationId}/revoke';
+};
+
+export type RevokeInvitationErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active Organization owner or the same-origin header is missing
+     */
+    403: ApiProblem;
+    /**
+     * Invitation is no longer pending and available
+     */
+    410: ApiProblem;
+};
+
+export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
+
+export type RevokeInvitationResponses = {
+    /**
+     * Invitation revoked
+     */
+    204: void;
+};
+
+export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
+
 export type GetCurrentInvitationData = {
     body?: never;
     path?: never;
@@ -275,47 +319,3 @@ export type GetCurrentIdentityResponses = {
 };
 
 export type GetCurrentIdentityResponse = GetCurrentIdentityResponses[keyof GetCurrentIdentityResponses];
-
-export type RevokeInvitationData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        /**
-         * Invitation identifier.
-         */
-        invitationId: string;
-    };
-    query?: never;
-    url: '/api/invitations/{invitationId}';
-};
-
-export type RevokeInvitationErrors = {
-    /**
-     * No accepted authentication is present
-     */
-    401: unknown;
-    /**
-     * The actor is not an active Organization owner or the same-origin header is missing
-     */
-    403: ApiProblem;
-    /**
-     * Invitation is no longer pending and available
-     */
-    410: ApiProblem;
-};
-
-export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
-
-export type RevokeInvitationResponses = {
-    /**
-     * Invitation revoked
-     */
-    204: void;
-};
-
-export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];

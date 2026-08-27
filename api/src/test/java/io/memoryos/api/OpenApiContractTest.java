@@ -2,6 +2,7 @@ package io.memoryos.api;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -53,7 +54,7 @@ class OpenApiContractTest {
             "/api/identity/me",
             "/api/invitations",
             "/api/invitations/current",
-            "/api/invitations/{invitationId}",
+            "/api/invitations/{invitationId}/revoke",
             "/api/invitations/{invitationId}/rotate"
     );
 
@@ -88,6 +89,21 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        JsonNode revokeOperation = actual.path("paths")
+                .path("/api/invitations/{invitationId}/revoke")
+                .path("post");
+        assertEquals("revokeInvitation", revokeOperation.path("operationId").textValue());
+        assertEquals("Invitations", revokeOperation.path("tags").path(0).textValue());
+        assertEquals(
+                "Identity",
+                actual.path("paths")
+                        .path("/api/identity/me")
+                        .path("get")
+                        .path("tags")
+                        .path(0)
+                        .textValue()
+        );
+        assertFalse(actual.path("paths").has("/api/invitations/{invitationId}"));
         assertEquals(
                 "uri-reference",
                 actual.path("components")
