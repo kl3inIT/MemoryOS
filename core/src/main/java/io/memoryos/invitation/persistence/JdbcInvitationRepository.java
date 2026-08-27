@@ -82,6 +82,13 @@ public class JdbcInvitationRepository {
             WHERE invitation.organization_id = :organizationId
             """;
 
+    private static final String SELECT_INVITATION = """
+            SELECT invitation.*
+            FROM organization_invitations invitation
+            WHERE invitation.organization_id = :organizationId
+              AND invitation.id = :invitationId
+            """;
+
     private static final String LOCK_INVITATION = """
             SELECT invitation.*
             FROM organization_invitations invitation
@@ -90,11 +97,10 @@ public class JdbcInvitationRepository {
             FOR UPDATE
             """;
 
-    private static final String LOCK_INVITATION_BY_DIGEST = """
+    private static final String SELECT_INVITATION_BY_DIGEST = """
             SELECT invitation.*
             FROM organization_invitations invitation
             WHERE invitation.secret_digest = :digest
-            FOR UPDATE
             """;
 
     private static final String LOCK_PENDING_INVITATION_BY_EMAIL = """
@@ -212,6 +218,14 @@ public class JdbcInvitationRepository {
         return statement.query((resultSet, ignored) -> row(resultSet)).list();
     }
 
+    public Optional<InvitationRow> find(OrganizationId organizationId, UUID invitationId) {
+        return jdbcClient.sql(SELECT_INVITATION)
+                .param("organizationId", organizationId.value())
+                .param("invitationId", invitationId)
+                .query((resultSet, ignored) -> row(resultSet))
+                .optional();
+    }
+
     public Optional<InvitationRow> findLocked(OrganizationId organizationId, UUID invitationId) {
         return jdbcClient.sql(LOCK_INVITATION)
                 .param("organizationId", organizationId.value())
@@ -220,8 +234,8 @@ public class JdbcInvitationRepository {
                 .optional();
     }
 
-    public Optional<InvitationRow> findLockedByDigest(String digest) {
-        return jdbcClient.sql(LOCK_INVITATION_BY_DIGEST)
+    public Optional<InvitationRow> findByDigest(String digest) {
+        return jdbcClient.sql(SELECT_INVITATION_BY_DIGEST)
                 .param("digest", digest)
                 .query((resultSet, ignored) -> row(resultSet))
                 .optional();

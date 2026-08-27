@@ -205,7 +205,7 @@ public class DefaultInvitationService implements InvitationService {
         if (plaintextSecret == null || plaintextSecret.isBlank()) {
             throw notAvailable();
         }
-        InvitationRow invitation = invitationRepository.findLockedByDigest(digest(plaintextSecret))
+        InvitationRow invitation = invitationRepository.findByDigest(digest(plaintextSecret))
                 .orElseThrow(DefaultInvitationService::notAvailable);
         requireAvailable(invitation);
         return continuation(invitation, activeTarget(invitation));
@@ -216,7 +216,8 @@ public class DefaultInvitationService implements InvitationService {
     public InvitationContinuation resume(UUID invitationId, OrganizationId organizationId) {
         Objects.requireNonNull(invitationId, "invitationId must not be null");
         Objects.requireNonNull(organizationId, "organizationId must not be null");
-        InvitationRow invitation = lock(organizationId, invitationId);
+        InvitationRow invitation = invitationRepository.find(organizationId, invitationId)
+                .orElseThrow(DefaultInvitationService::notAvailable);
         requireAvailable(invitation);
         return continuation(invitation, activeTarget(invitation));
     }

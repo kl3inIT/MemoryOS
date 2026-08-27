@@ -46,7 +46,7 @@ Invitation administration deliberately uses offset pagination because operators 
 
 ## Intake continuation
 
-`GET /invite/{secret}` hashes and locks the matching invitation. Missing, expired, revoked, consumed, or superseded secrets return the not-available flow. A valid intake stores only redacted continuation state in the JDBC-backed browser session and redirects to the invitation landing surface.
+`GET /invite/{secret}` hashes and reads the matching invitation. Missing, expired, revoked, consumed, or superseded secrets return the not-available flow. A valid intake stores only redacted continuation state in the JDBC-backed browser session and redirects to the invitation landing surface. Intake and current-continuation resolution do not lock the row; acceptance revalidates availability under the lifecycle lock before any authority write.
 
 The continuation contains only invitation ID, Organization ID, and expiry. It never contains the plaintext secret or a parallel invitation nonce; Spring Security owns OAuth2 state and OIDC nonce correlation. Intake and current-continuation responses use `Cache-Control: no-store`; intake also uses `Referrer-Policy: no-referrer`. Failed intake removes any prior continuation from the browser session.
 

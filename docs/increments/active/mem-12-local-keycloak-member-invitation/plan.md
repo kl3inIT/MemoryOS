@@ -22,6 +22,7 @@
 ## Recipient intake and authentication
 
 - [x] Add invitation intake with digest lookup, expiry/revocation/consumption checks, no-store/no-referrer headers, and redacted JDBC session continuation.
+- [x] Keep intake and current-continuation lookup non-locking; retain row locks only for lifecycle mutation and acceptance, which revalidate availability before authority writes.
 - [x] Extend the browser OAuth2 success path so an unbound identity is provisioned only from a valid invitation continuation.
 - [x] Require exact issuer/subject, verified matching email, an unexpired continuation, and a locked pending invitation before acceptance; rely on Spring Security for OAuth2 state and OIDC nonce correlation.
 - [x] Commit Actor binding, Organization `MEMBER`, and invitation acceptance in one transaction.
