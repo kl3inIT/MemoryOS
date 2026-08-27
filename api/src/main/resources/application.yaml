@@ -57,6 +57,17 @@ management:
 memoryos:
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
+    keycloak:
+      admin:
+        server-url: ${MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL}
+        realm: ${MEMORYOS_KEYCLOAK_ADMIN_REALM:memoryos}
+        client-id: ${MEMORYOS_KEYCLOAK_ADMIN_CLIENT_ID:memoryos-user-provisioner}
+        client-secret: ${MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET}
+        action-client-id: ${MEMORYOS_BROWSER_CLIENT_ID:memoryos-web}
+        action-redirect-uri: ${MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI}
+        connect-timeout: ${MEMORYOS_KEYCLOAK_ADMIN_CONNECT_TIMEOUT:2s}
+        connection-request-timeout: ${MEMORYOS_KEYCLOAK_ADMIN_CONNECTION_REQUEST_TIMEOUT:1s}
+        read-timeout: ${MEMORYOS_KEYCLOAK_ADMIN_READ_TIMEOUT:5s}
   browser:
     registration-id: memoryos
   invitation:

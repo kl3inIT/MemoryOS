@@ -9,6 +9,7 @@ import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.InvitationService;
+import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
 import io.memoryos.organization.OrganizationId;
 import io.memoryos.organization.OrganizationAccessResolver;
 import jakarta.servlet.http.HttpServletRequest;
@@ -87,6 +88,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         var session = request.getSession(false);
         if (session != null) {
             session.removeAttribute(InvitationSessionState.ATTRIBUTE);
+            session.removeAttribute(InvitationSessionState.ACTIVATION_ATTRIBUTE);
         }
         var securityContext = SecurityContextHolder.createEmptyContext();
         securityContext.setAuthentication(new ActorSessionAuthenticationToken(new IdentityContext(actorId)));
@@ -105,21 +107,38 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         Object continuationAttribute = session == null
                 ? null
                 : session.getAttribute(InvitationSessionState.ATTRIBUTE);
-        if (!(continuationAttribute instanceof InvitationSessionState invitationState)) {
-            rejectLogin(request, response);
-            return null;
-        }
+        boolean activationFlow = session != null
+                && Boolean.TRUE.equals(
+                session.getAttribute(InvitationSessionState.ACTIVATION_ATTRIBUTE)
+        );
 
         try {
-            return invitationService.accept(new InvitationAcceptance(
-                    invitationState.invitationId(),
-                    new OrganizationId(invitationState.organizationId()),
-                    externalIdentity,
-                    oidcUser.getClaimAsString("email"),
-                    Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
-            ));
+            if (continuationAttribute instanceof InvitationSessionState invitationState) {
+                return invitationService.accept(new InvitationAcceptance(
+                        invitationState.invitationId(),
+                        new OrganizationId(invitationState.organizationId()),
+                        externalIdentity,
+                        oidcUser.getClaimAsString("email"),
+                        Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
+                ));
+            }
+            return invitationService.acceptVerifiedEmail(
+                    new VerifiedEmailInvitationAcceptance(
+                            externalIdentity,
+                            oidcUser.getClaimAsString("email"),
+                            Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
+                    )
+            );
         } catch (InvitationException exception) {
-            rejectInvitation(request, response, invitationFailurePathReason(exception.reason()));
+            if (continuationAttribute instanceof InvitationSessionState || activationFlow) {
+                rejectInvitation(
+                        request,
+                        response,
+                        invitationFailurePathReason(exception.reason())
+                );
+            } else {
+                rejectLogin(request, response);
+            }
             return null;
         }
     }

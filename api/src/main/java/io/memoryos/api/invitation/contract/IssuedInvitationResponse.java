@@ -11,6 +11,11 @@ public record IssuedInvitationResponse(
                 description = "Relative same-origin capability URL returned only from create or rotate.",
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
-        String invitationUrl
+        String invitationUrl,
+        @Schema(
+                description = "Observable delivery result for this issue or rotation operation.",
+                requiredMode = Schema.RequiredMode.REQUIRED
+        )
+        InvitationDeliveryResponse delivery
 ) {
 }

@@ -327,6 +327,7 @@ test("creates a production invitation from the Invitations administration page",
         body: JSON.stringify({
           invitation,
           invitationUrl: "/invite/one-time-secret",
+          delivery: "ACTIVATION_EMAIL_SENT",
         }),
       });
       return;
@@ -356,6 +357,7 @@ test("creates a production invitation from the Invitations administration page",
         body: JSON.stringify({
           invitation,
           invitationUrl: "/invite/rotated-secret",
+          delivery: "RECOVERY_LINK_ONLY",
         }),
       });
       return;
@@ -385,7 +387,7 @@ test("creates a production invitation from the Invitations administration page",
     form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
   });
 
-  await expect(page.getByRole("heading", { name: "Invitation link ready" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Activation email sent" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/one-time-secret$/,
   );
@@ -407,6 +409,7 @@ test("creates a production invitation from the Invitations administration page",
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/rotated-secret$/,
   );
+  await expect(page.getByRole("heading", { name: "Recovery link rotated" })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await page.getByRole("button", { name: "Revoke invitation for member@example.com" }).click();
   await expect(

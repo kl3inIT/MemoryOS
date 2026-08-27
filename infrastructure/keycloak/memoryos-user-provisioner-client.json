@@ -1,0 +1,16 @@
+{
+  "clientId": "memoryos-user-provisioner",
+  "name": "MemoryOS User Provisioner",
+  "description": "Realm-local service account for MemoryOS invitation recipient activation",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "publicClient": false,
+  "clientAuthenticatorType": "client-secret",
+  "bearerOnly": false,
+  "standardFlowEnabled": false,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": true,
+  "redirectUris": [],
+  "webOrigins": []
+}

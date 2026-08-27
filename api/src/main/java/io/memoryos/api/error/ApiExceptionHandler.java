@@ -33,6 +33,7 @@ final class ApiExceptionHandler {
             case NOT_PERMITTED -> HttpStatus.FORBIDDEN;
             case CONFLICT -> HttpStatus.CONFLICT;
             case UNAVAILABLE -> HttpStatus.GONE;
+            case SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
 
@@ -42,6 +43,7 @@ final class ApiExceptionHandler {
             case NOT_PERMITTED -> "Not permitted";
             case CONFLICT -> "Conflict";
             case UNAVAILABLE -> "Unavailable";
+            case SERVICE_UNAVAILABLE -> "Service unavailable";
         };
     }
 

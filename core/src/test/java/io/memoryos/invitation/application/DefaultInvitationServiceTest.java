@@ -10,12 +10,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
+import io.memoryos.identity.IdentityProvisioningException;
+import io.memoryos.identity.IdentityProvisioningFailureReason;
+import io.memoryos.identity.KeycloakRecipientProvisioning;
 import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
 import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
 import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.InvitationQuery;
 import io.memoryos.invitation.InvitationSort;
+import io.memoryos.invitation.InvitationDelivery;
+import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.persistence.JdbcInvitationRepository;
@@ -31,6 +36,10 @@ import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisione
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -63,6 +72,8 @@ class DefaultInvitationServiceTest {
     private InvitationService invitations;
     private InitialOrganizationBootstrapper bootstrapper;
     private ActorId ownerActorId;
+    private List<String> provisionedEmails;
+    private RuntimeException provisioningFailure;
 
     @BeforeEach
     void setUp() {
@@ -102,12 +113,22 @@ class DefaultInvitationServiceTest {
                 OrganizationMembershipProvisioner.class,
                 transactionManager
         );
+        provisionedEmails = new ArrayList<>();
+        provisioningFailure = null;
         clock = new MutableClock(START);
         invitations = transactionalProxy(
                 new DefaultInvitationService(
                         new JdbcInvitationRepository(jdbcClient),
                         registrar,
                         membershipProvisioner,
+                        (email, expiresAt) -> {
+                            if (provisioningFailure != null) {
+                                throw provisioningFailure;
+                            }
+                            provisionedEmails.add(email);
+                            assertTrue(expiresAt.isAfter(clock.instant()));
+                            return KeycloakRecipientProvisioning.ACTIVATION_EMAIL_SENT;
+                        },
                         clock,
                         Duration.ofHours(72)
                 ),
@@ -133,6 +154,25 @@ class DefaultInvitationServiceTest {
         assertNotEquals(issued.plaintextSecret(), scalar("secret_digest"));
         assertFalse(databaseContains(issued.plaintextSecret()));
         assertEquals("member@example.com", scalar("open_email_key"));
+        assertEquals(InvitationDelivery.ACTIVATION_EMAIL_SENT, issued.delivery());
+        assertEquals(List.of("member@example.com"), provisionedEmails);
+    }
+
+    @Test
+    void rollsBackInvitationWhenRecipientProvisioningFails() {
+        provisioningFailure = new IdentityProvisioningException(
+                IdentityProvisioningFailureReason.PROVIDER_UNAVAILABLE,
+                "provider timed out"
+        );
+
+        IdentityProvisioningException failure = assertThrows(
+                IdentityProvisioningException.class,
+                () -> invitations.issue(ownerActorId, "member@example.com")
+        );
+
+        assertEquals(IdentityProvisioningFailureReason.PROVIDER_UNAVAILABLE, failure.reason());
+        assertEquals(0L, count("organization_invitations"));
+        assertEquals(List.of(), provisionedEmails);
     }
 
     @Test
@@ -233,6 +273,8 @@ class DefaultInvitationServiceTest {
                 ).reason()
         );
         assertEquals(rotated.invitation().id(), invitations.intake(rotated.plaintextSecret()).invitationId());
+        assertEquals(InvitationDelivery.RECOVERY_LINK_ONLY, rotated.delivery());
+        assertEquals(List.of("member@example.com"), provisionedEmails);
 
         invitations.revoke(ownerActorId, rotated.invitation().id());
         assertEquals(InvitationStatus.REVOKED, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
@@ -302,6 +344,105 @@ class DefaultInvitationServiceTest {
                         ))
                 ).reason()
         );
+    }
+
+    @Test
+    void acceptsProvisionedInvitationByVerifiedEmailWithoutContinuation() {
+        invitations.issue(ownerActorId, "member@example.com");
+
+        ActorId member = invitations.acceptVerifiedEmail(
+                new VerifiedEmailInvitationAcceptance(
+                        new ExternalIdentity(ISSUER, "provisioned-member"),
+                        "Member@Example.com",
+                        true
+                )
+        );
+
+        assertEquals("MEMBER", organizationMembershipRole(member));
+        assertEquals(
+                InvitationStatus.ACCEPTED,
+                invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status()
+        );
+        assertEquals(
+                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
+                assertThrows(
+                        InvitationException.class,
+                        () -> invitations.acceptVerifiedEmail(
+                                new VerifiedEmailInvitationAcceptance(
+                                        new ExternalIdentity(ISSUER, "replay"),
+                                        "member@example.com",
+                                        true
+                                )
+                        )
+                ).reason()
+        );
+    }
+
+    @Test
+    void rejectsAmbiguousOrUnverifiedActivationWithoutContinuation() {
+        invitations.issue(ownerActorId, "member@example.com");
+
+        InvitationException unverified = assertThrows(
+                InvitationException.class,
+                () -> invitations.acceptVerifiedEmail(
+                        new VerifiedEmailInvitationAcceptance(
+                                new ExternalIdentity(ISSUER, "unverified"),
+                                "member@example.com",
+                                false
+                        )
+                )
+        );
+        UUID secondOrganizationId = UUID.randomUUID();
+        jdbcClient.sql("""
+                        INSERT INTO organizations (id, slug, display_name, status, bootstrap_reference)
+                        VALUES (:id, 'second', 'Second', 'ACTIVE', 'TEST-SECOND')
+                        """)
+                .param("id", secondOrganizationId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO organization_invitations (
+                            id, organization_id, normalized_email, open_email_key,
+                            secret_digest, status, created_by_actor_id, created_at,
+                            updated_at, expires_at
+                        )
+                        VALUES (
+                            :id, :organizationId, 'member@example.com', 'member@example.com',
+                            :digest, 'PENDING', :actorId, :now, :now, :expiresAt
+                        )
+                        """)
+                .param("id", UUID.randomUUID())
+                .param("organizationId", secondOrganizationId)
+                .param("digest", "0".repeat(64))
+                .param("actorId", ownerActorId.value())
+                .param("now", OffsetDateTime.ofInstant(START, ZoneOffset.UTC))
+                .param("expiresAt", OffsetDateTime.ofInstant(START.plus(Duration.ofHours(72)), ZoneOffset.UTC))
+                .update();
+        InvitationException ambiguous = assertThrows(
+                InvitationException.class,
+                () -> invitations.acceptVerifiedEmail(
+                        new VerifiedEmailInvitationAcceptance(
+                                new ExternalIdentity(ISSUER, "ambiguous"),
+                                "member@example.com",
+                                true
+                        )
+                )
+        );
+        InvitationException noMatch = assertThrows(
+                InvitationException.class,
+                () -> invitations.acceptVerifiedEmail(
+                        new VerifiedEmailInvitationAcceptance(
+                                new ExternalIdentity(ISSUER, "no-match"),
+                                "other@example.com",
+                                true
+                        )
+                )
+        );
+
+        assertEquals(InvitationFailureReason.EMAIL_NOT_VERIFIED, unverified.reason());
+        assertEquals(InvitationFailureReason.INVITATION_NOT_AVAILABLE, ambiguous.reason());
+        assertEquals(InvitationFailureReason.INVITATION_NOT_AVAILABLE, noMatch.reason());
+        assertEquals(1L, count("external_identity_bindings"));
+        assertEquals(InvitationStatus.PENDING, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
     }
 
     @Test

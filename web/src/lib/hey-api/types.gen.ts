@@ -25,6 +25,10 @@ export type IssuedInvitation = {
      * Relative same-origin capability URL returned only from create or rotate.
      */
     invitationUrl: string;
+    /**
+     * Observable delivery result for this issue or rotation operation.
+     */
+    delivery: 'ACTIVATION_EMAIL_SENT' | 'EXISTING_ACCOUNT' | 'RECOVERY_LINK_ONLY';
 };
 
 export type InvitationPage = {
@@ -163,6 +167,10 @@ export type CreateInvitationErrors = {
      * A conflicting pending invitation already exists
      */
     409: ApiProblem;
+    /**
+     * Keycloak recipient activation is temporarily unavailable
+     */
+    503: ApiProblem;
 };
 
 export type CreateInvitationError = CreateInvitationErrors[keyof CreateInvitationErrors];

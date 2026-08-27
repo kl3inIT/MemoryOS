@@ -97,6 +97,15 @@ public class JdbcInvitationRepository {
             FOR UPDATE
             """;
 
+    private static final String LOCK_PENDING_INVITATION_BY_EMAIL = """
+            SELECT invitation.*
+            FROM organization_invitations invitation
+            WHERE invitation.open_email_key = :email
+              AND invitation.status = 'PENDING'
+              AND invitation.expires_at > :now
+            FOR UPDATE
+            """;
+
     private static final String ROTATE_INVITATION = """
             UPDATE organization_invitations
             SET secret_digest = :digest,
@@ -216,6 +225,14 @@ public class JdbcInvitationRepository {
                 .param("digest", digest)
                 .query((resultSet, ignored) -> row(resultSet))
                 .optional();
+    }
+
+    public List<InvitationRow> findLockedPendingByEmail(String email, Instant now) {
+        return jdbcClient.sql(LOCK_PENDING_INVITATION_BY_EMAIL)
+                .param("email", email)
+                .param("now", sqlTime(now))
+                .query((resultSet, ignored) -> row(resultSet))
+                .list();
     }
 
     public int rotate(InvitationRow invitation, String digest, Instant expiresAt, Instant now) {

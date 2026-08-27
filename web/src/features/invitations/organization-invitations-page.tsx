@@ -304,11 +304,11 @@ export function OrganizationInvitationsPage() {
               aria-busy={createInvitation.isPending}
             >
               <Dialog.Title className="font-heading-h3 text-content-primary">
-                {issuedInvitation ? "Invitation link ready" : "Invite a member"}
+                {issuedInvitation ? issuedTitle(issuedInvitation) : "Invite a member"}
               </Dialog.Title>
               <Dialog.Description className="mt-2 font-main-ui-body text-content-secondary">
                 {issuedInvitation
-                  ? "Share this link now. MemoryOS stores only its digest, so this exact link cannot be shown again."
+                  ? issuedDescription(issuedInvitation)
                   : "They will join as a member of this Organization."}
               </Dialog.Description>
 
@@ -393,13 +393,31 @@ export function OrganizationInvitationsPage() {
   );
 }
 
+function issuedTitle(invitation: IssuedInvitation) {
+  if (invitation.delivery === "ACTIVATION_EMAIL_SENT") return "Activation email sent";
+  if (invitation.delivery === "EXISTING_ACCOUNT") return "Invitation ready";
+  return "Recovery link rotated";
+}
+
+function issuedDescription(invitation: IssuedInvitation) {
+  if (invitation.delivery === "ACTIVATION_EMAIL_SENT") {
+    return "They can verify the invited email and choose a password. Keep this recovery link in case they need help.";
+  }
+  if (invitation.delivery === "EXISTING_ACCOUNT") {
+    return "They already have a verified account and can sign in to accept. Share this recovery link only if needed.";
+  }
+  return "The previous recovery link no longer works. Share this replacement only if needed.";
+}
+
 function invitationError(error: unknown) {
   if (error instanceof ApiError) {
+    if (error.status === 401) return "Your session expired. Sign in and try again.";
     if (error.status === 409) return "An open invitation already exists for this email.";
     if (error.status === 403) return "Only an active Organization owner can manage invitations.";
     if (error.status === 410)
       return "This invitation is no longer available. Refresh and try again.";
     if (error.status === 400) return "Enter a valid email address.";
+    if (error.status === 503) return "The activation email could not be sent. Try again.";
   }
   return "The invitation could not be updated. Try again.";
 }

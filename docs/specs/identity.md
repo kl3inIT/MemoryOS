@@ -58,6 +58,14 @@ Flyway owns the schema under `core/src/main/resources/db/migration/`. Applied mi
 
 No generic account-linking endpoint, administrative binding endpoint, provisioning CLI, or unauthenticated identity write surface exists. The initial Organization transaction and the closed `invitation` capability are the only production binding writers. Invitation acceptance may invoke `ExternalIdentityRegistrar` only inside its authorized acceptance transaction; ordinary authentication never creates an actor.
 
+## Local-Keycloak invitation provisioning
+
+Keycloak is the fixed MemoryOS authentication plane and enterprise OIDC/SAML broker. MemoryOS PostgreSQL remains authoritative for Actors and application authority. The Identity capability owns the concrete Keycloak Admin Client implementation used by Invitation; no provider-neutral adapter or user-administration surface exists.
+
+Invitation issue resolves one exact normalized email in the `memoryos` realm. An absent user is created enabled with email-as-username, `emailVerified=false`, minimal MemoryOS origin evidence, and bounded `VERIFY_EMAIL` plus `UPDATE_PASSWORD` required actions. A MemoryOS-created unverified user is reused on retry. An exact existing verified user is reused without required actions or password reset. An unrelated unverified or ambiguous account fails closed.
+
+The action email returns to the additional exact `/invite/activate` browser URI without an invitation secret, invitation ID, or parallel nonce. The API uses a dedicated realm-local `memoryos-user-provisioner` service account, explicit bounded HTTP-client timeouts, and managed credentials that are never logged or persisted. A Keycloak account alone grants no MemoryOS authority.
+
 ## Runtime configuration
 
-The API requires the OIDC issuer/JWKS/audience, confidential browser client secret, datasource credentials, and initial Organization values listed in the [development runtime runbook](../runbooks/development-runtime.md). Keycloak reconciliation also requires one exact absolute HTTP(S) browser callback URI and rejects wildcard redirect values. Missing or invalid values fail startup or reconciliation. Plain HTTP JWKS is accepted only for literal loopback test hosts; production uses HTTPS. Session cookies default to `HttpOnly`, `Secure`, and `SameSite=Lax`.
+The API requires the OIDC issuer/JWKS/audience, confidential browser client secret, datasource credentials, initial Organization values, and Keycloak invitation-provisioner values listed in the [development runtime runbook](../runbooks/development-runtime.md). Keycloak reconciliation requires the exact browser callback plus the exact `/invite/activate` return URI and rejects wildcard redirect values. Missing or invalid values fail startup or reconciliation. Plain HTTP JWKS and activation URIs are accepted only for literal loopback test hosts; production uses HTTPS. Session cookies default to `HttpOnly`, `Secure`, and `SameSite=Lax`.

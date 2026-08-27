@@ -21,4 +21,6 @@ public interface InvitationService {
 
     ActorId accept(InvitationAcceptance acceptance);
 
+    ActorId acceptVerifiedEmail(VerifiedEmailInvitationAcceptance acceptance);
+
 }
