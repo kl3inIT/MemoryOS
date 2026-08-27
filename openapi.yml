@@ -131,6 +131,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Keycloak recipient activation is temporarily unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
       security:
       - browserSession: []
       - bearerAuth: []
@@ -332,7 +338,15 @@ components:
           description: Relative same-origin capability URL returned only from create
             or rotate.
           pattern: ^/invite/
+        delivery:
+          type: string
+          description: Observable delivery result for this issue or rotation operation.
+          enum:
+          - ACTIVATION_EMAIL_SENT
+          - EXISTING_ACCOUNT
+          - RECOVERY_LINK_ONLY
       required:
+      - delivery
       - invitation
       - invitationUrl
     InvitationPage:

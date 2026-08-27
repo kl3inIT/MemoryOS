@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.memoryos.api.invitation.contract.CreateInvitationRequest;
 import io.memoryos.api.invitation.contract.CurrentInvitationResponse;
 import io.memoryos.api.invitation.contract.InvitationPageResponse;
+import io.memoryos.api.invitation.contract.InvitationDeliveryResponse;
 import io.memoryos.api.invitation.contract.InvitationResponse;
 import io.memoryos.api.invitation.contract.IssuedInvitationResponse;
 import io.memoryos.identity.IdentityContext;
@@ -155,6 +156,14 @@ final class InvitationController {
     @ApiResponse(
             responseCode = "409",
             description = "A conflicting pending invitation already exists",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
+            )
+    )
+    @ApiResponse(
+            responseCode = "503",
+            description = "Keycloak recipient activation is temporarily unavailable",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -340,7 +349,8 @@ final class InvitationController {
     ) {
         return new IssuedInvitationResponse(
                 response(invitation.invitation()),
-                "/invite/" + invitation.plaintextSecret()
+                "/invite/" + invitation.plaintextSecret(),
+                InvitationDeliveryResponse.valueOf(invitation.delivery().name())
         );
     }
 

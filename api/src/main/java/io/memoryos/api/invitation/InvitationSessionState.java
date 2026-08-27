@@ -16,6 +16,7 @@ public record InvitationSessionState(
     private static final long serialVersionUID = 1L;
 
     public static final String ATTRIBUTE = InvitationSessionState.class.getName();
+    public static final String ACTIVATION_ATTRIBUTE = ATTRIBUTE + ".activation";
 
     public InvitationSessionState {
         Objects.requireNonNull(invitationId, "invitationId must not be null");

@@ -63,6 +63,12 @@ class OpenApiContractTest {
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
+        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
+        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
+        registry.add(
+                "memoryos.identity.keycloak.admin.action-redirect-uri",
+                () -> "http://127.0.0.1/invite/activate"
+        );
     }
 
     @AfterAll

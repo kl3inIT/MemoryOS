@@ -35,6 +35,9 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_IDENTITY_AUDIENCE` | No | Required API audience claim; rejects a valid Keycloak token minted for another client/resource. |
 | `MEMORYOS_BROWSER_CLIENT_ID` | No | Confidential OAuth2 browser client registration name, currently `memoryos-web`. |
 | `MEMORYOS_BROWSER_CLIENT_SECRET` | Yes | OAuth2 authorization-code/token-exchange credential for `memoryos-web`; never a browser/Vite variable. |
+| `MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL` | No | Internal Keycloak base URL used only by the Identity-owned invitation provisioner. Staging uses the shared Keycloak container alias; browser issuer URLs remain public and exact. |
+| `MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET` | Yes | Client-credentials secret for realm-local `memoryos-user-provisioner`; never a browser variable or operator administrator credential. |
+| `MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI` | No | Exact public `https://<memoryos-origin>/invite/activate` return target registered on `memoryos-web`; wildcards are forbidden. |
 | `MEMORYOS_INITIAL_OWNER_SUBJECT` | Sensitive identifier | Stable Keycloak user UUID used to bind or verify the first Organization owner. It is not a username and must not change when names/email change. |
 | `MEMORYOS_ORGANIZATION_SLUG` | No | DNS-style slug for the one published initial Organization; startup rejects drift after bootstrap. |
 | `MEMORYOS_ORGANIZATION_DISPLAY_NAME` | No | Display name for that Organization; startup rejects drift after bootstrap. |
@@ -62,7 +65,7 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, verifies its deployment-managed email, enables email-as-username self-registration with required email verification, configures realm SMTP, retains public client `memoryos-integration`, and reconciles confidential clients `memoryos-web` and `memoryos-mailpit` with Authorization Code and mandatory S256 PKCE. It sets both deployment-managed client secrets.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web` and `memoryos-mailpit` with Authorization Code and mandatory S256 PKCE, and creates confidential service-account client `memoryos-user-provisioner`. The browser client retains the exact Spring callback plus exact `/invite/activate` action return. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
 
 Required operator environment:
 
@@ -79,6 +82,7 @@ MEMORYOS_BROWSER_CLIENT_SECRET
 MEMORYOS_BROWSER_REDIRECT_URI # one exact HTTPS callback, or one loopback callback for local verification
 MEMORYOS_MAILPIT_PUBLIC_URL # exact HTTPS nip.io origin
 MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
+MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_SMTP_HOST
 MEMORYOS_KEYCLOAK_SMTP_PORT # defaults to 587
 MEMORYOS_KEYCLOAK_SMTP_FROM
@@ -90,7 +94,9 @@ MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 ```
 
-Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; set `KEYCLOAK_ADMIN_REALM` only when using a different deployment-managed administrative realm. Its account needs realm, user, and client management permissions required by the script; do not grant the application, owner, or invited members those Keycloak permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback and `MEMORYOS_MAILPIT_PUBLIC_URL` to the exact HTTPS nip.io origin; wildcards and non-loopback HTTP origins are rejected. SMTP and OAuth2 client credentials remain managed operator values. Keycloak receives them through environment/stdin channels and sends recipient verification email itself; MemoryOS does not call the Admin API, hold SMTP credentials, or send account-verification mail. The script reads passwords and client secrets from environment and never prints them.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; set `KEYCLOAK_ADMIN_REALM` only when using a different deployment-managed administrative realm. Its account needs realm, user, role-mapping, and client management permissions required by the script; do not grant the owner or invited members those permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback and `MEMORYOS_MAILPIT_PUBLIC_URL` to the exact HTTPS nip.io origin; reconciliation derives and registers the exact `/invite/activate` return, while wildcards and non-loopback HTTP origins remain rejected. Store the same provisioner secret in the operator's mode-`0600` staging environment and both Infisical `dev` and `staging` as `MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET`.
+
+If a future invitee email is already owned by an unrelated unverified Keycloak user, invitation issue fails closed. An operator must inspect that exact user in the `memoryos` realm, confirm ownership out of band, and delete or repair it through the Keycloak admin console before retrying. MemoryOS never takes over or deletes the account automatically.
 
 Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
 
@@ -105,6 +111,9 @@ $env:MEMORYOS_IDENTITY_AUDIENCE = "memoryos-api"
 
 $env:MEMORYOS_BROWSER_CLIENT_ID = "memoryos-web"
 $env:MEMORYOS_BROWSER_CLIENT_SECRET = "<load from managed runtime secret>"
+$env:MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL = "http://127.0.0.1:18180"
+$env:MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET = "<load from managed runtime secret>"
+$env:MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI = "http://127.0.0.1:8080/invite/activate"
 
 $env:MEMORYOS_DATABASE_URL = "jdbc:postgresql://127.0.0.1:15555/memoryos"
 $env:MEMORYOS_DATABASE_USERNAME = "memoryos_app"

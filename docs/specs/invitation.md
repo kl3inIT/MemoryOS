@@ -50,17 +50,20 @@ Invitation administration deliberately uses offset pagination because operators 
 
 The continuation contains only invitation ID, Organization ID, and expiry. It never contains the plaintext secret or a parallel invitation nonce; Spring Security owns OAuth2 state and OIDC nonce correlation. Intake and current-continuation responses use `Cache-Control: no-store`; intake also uses `Referrer-Policy: no-referrer`. Failed intake removes any prior continuation from the browser session.
 
+`GET /invite/activate` is the fixed post-Keycloak-action entry point. It stores only a non-correlating activation-flow marker, removes any stale capability-link continuation, applies no-store/no-referrer headers, and immediately starts `/oauth2/authorization/memoryos`.
+
 ## Acceptance transaction
 
-An unbound browser identity may be provisioned only from a valid invitation continuation. Acceptance requires:
+An identity may be provisioned from either a valid capability-link continuation or the activation-email callback. The latter accepts only an unbound identity or bound Actor without active Organization authority when all of these hold:
 
 - exact configured issuer and nonblank subject;
-- verified email exactly matching the normalized invitation email;
+- verified email exactly matching one normalized pending invitation email;
+- exactly one pending unexpired invitation match;
 - active Organization;
 - invitation still pending and unexpired under a row lock;
 - no conflicting existing membership or identity ownership.
 
-One transaction calls the Identity-owned mandatory binding-and-lock port, calls the Organization-owned mandatory membership port, and conditionally accepts the Invitation-owned row. Actor binding, Organization `MEMBER`, and invitation consumption commit or roll back together. The Invitation row lock rejects replay of one invitation; the stable Actor row lock serializes different invitations that target the same external identity.
+One transaction calls the Identity-owned mandatory binding-and-lock port, calls the Organization-owned mandatory membership port, and conditionally accepts the Invitation-owned row. Actor binding, Organization `MEMBER`, and invitation consumption commit or roll back together. The Invitation row lock rejects replay of one invitation; the stable Actor row lock serializes different invitations that target the same external identity. Capability-link acceptance uses the redacted continuation; activation-email acceptance uses owner-approved pending state plus exact provider-verified mailbox ownership and sends no invitation correlation through Keycloak.
 
 After commit, the browser flow rotates the session ID and persists only the existing `ActorId` application principal. Provider access tokens, refresh tokens, raw ID tokens, and authorized-client state are discarded. Every failed partial flow invalidates its session.
 
@@ -72,11 +75,11 @@ Browser intake and OAuth flows continue to catch `InvitationException` directly 
 
 ## Product surface
 
-The owner uses `Admin Panel` → `Invitations` at `/admin/invitations` to create, filter, sort, page, rotate, and revoke invitation lifecycle records. The browser shows and mounts this surface only when `/api/identity/me` projects `INVITATIONS_MANAGE`; role names are not behavior gates. A member deep link preserves its URL, renders access denied, and issues no invitation request. This projection is presentation only: create/list/rotate/revoke still resolve active durable Organization-owner membership on every request and return `INVITATION_NOT_OWNER` otherwise. TanStack Router search parameters are the canonical owner view state; the generated query key includes status, email, sort, page, and size. Create and rotate expose an immediate copy/share link. Recipient surfaces identify the Organization, lead into local Keycloak sign-in/account creation, and provide plain-language recovery for unavailable, unverified, or mismatched invitations.
+The owner uses `Admin Panel` → `Invitations` at `/admin/invitations` to create, filter, sort, page, rotate, and revoke invitation lifecycle records. The browser shows and mounts this surface only when `/api/identity/me` projects `INVITATIONS_MANAGE`; role names are not behavior gates. A member deep link preserves its URL, renders access denied, and issues no invitation request. This projection is presentation only: create/list/rotate/revoke still resolve active durable Organization-owner membership on every request and return `INVITATION_NOT_OWNER` otherwise. TanStack Router search parameters are the canonical owner view state; the generated query key includes status, email, sort, page, and size.
 
-Invitation creation uses one semantic form with a synchronous single-flight guard. Enter and button submission share that path, and two events delivered before React commits pending state can issue at most one create request. This prevents a successful one-time secret from being accompanied or overwritten by a duplicate-conflict response.
+Invitation creation is one semantic single-flight operation. For a new local-Keycloak recipient it synchronously provisions the exact provider account and Keycloak sends a bounded activation email. For an exact existing verified account, the recipient accepts on normal login without forced password reset. The create response reports the observable delivery outcome and always returns the one-time copy/share link as recovery. Rotation replaces only that recovery capability; revoke plus re-invite sends a fresh activation email for a MemoryOS-created unverified account.
 
-Copy/share is the complete delivery contract. Email delivery is not implemented without a concrete provider and observable production failure behavior.
+Plaintext secrets remain absent from MemoryOS persistence, logs, exceptions, and JDBC sessions. Keycloak action emails contain no invitation secret or identifier. Staging Mailpit is the observable activation-delivery boundary; public-provider deliverability remains excluded.
 
 ## Exclusions
 

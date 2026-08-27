@@ -74,11 +74,11 @@ Run the OpenAPI contract test again without the write flag, then run `pnpm check
 
 The API image is built from [`Dockerfile`](Dockerfile) and injects the explicitly selected Infisical environment before Spring Boot starts; the browser image is built from [`web/Dockerfile`](web/Dockerfile). [`infrastructure/deployment/compose.production.yaml`](infrastructure/deployment/compose.production.yaml) owns MemoryOS PostgreSQL, the single Keycloak runtime shared with OrgMemory, staging-only Mailpit and its OAuth2 Proxy, API, and web. The current server selects Infisical `staging`; developer machines select `dev`; no production server exists. PostgreSQL keeps isolated `memoryos` and `keycloak` databases, and the MemoryOS repository provisions only the `memoryos` realm. Mailpit captures verification messages through authenticated STARTTLS; its operator fallback binds to server loopback, while `https://memoryos-mail.72-62-193-33.nip.io` reaches it only through an initial-owner-email-allowlisted S256 OIDC proxy. Deployment commands and migration/rollback procedures are in the runtime runbooks.
 
-The staging application is available at `https://memoryos.72-62-193-33.nip.io`; Keycloak retains the matching exact HTTPS callback for `memoryos-web`.
+The staging application is available at `https://memoryos.72-62-193-33.nip.io`; Keycloak retains the matching exact HTTPS callback and `/invite/activate` action return for `memoryos-web`.
 
 ## Current runtime behavior
 
-API startup runs Flyway, transactionally bootstraps or verifies the configured initial Organization owner, and fails on configuration or aggregate drift. Remaining `/api/**` routes use stateless bearer authentication. The exact current-identity endpoint also accepts an existing confidential OAuth2 Authorization Code + PKCE browser session backed by Spring Session JDBC.
+API startup runs Flyway, transactionally bootstraps or verifies the configured initial Organization owner, and fails on configuration or aggregate drift. Owner invitation issue synchronously creates or reuses the exact local-Keycloak recipient through a realm-local service account; new recipients receive bounded verification/password actions and acceptance still commits Actor binding, Organization `MEMBER`, and Invitation consumption in MemoryOS. Remaining `/api/**` routes use stateless bearer authentication. The exact current-identity endpoint also accepts an existing confidential OAuth2 Authorization Code + PKCE browser session backed by Spring Session JDBC.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
@@ -87,6 +87,7 @@ API startup runs Flyway, transactionally bootstraps or verifies the configured i
 | `GET /api/identity/me` | Missing/invalid authentication or unknown binding | `401` |
 | `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
+| `GET /invite/activate` | Public Keycloak action return | Starts browser OAuth2 login without carrying invitation correlation |
 
 The [identity contract](docs/specs/identity.md), [organization contract](docs/specs/organization.md), and [runtime runbook](docs/runbooks/development-runtime.md) define the write boundary and operational procedure.
 

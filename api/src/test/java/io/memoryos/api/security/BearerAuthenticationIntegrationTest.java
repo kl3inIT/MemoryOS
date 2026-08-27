@@ -62,6 +62,12 @@ class BearerAuthenticationIntegrationTest {
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> "http://127.0.0.1:" + JWK_SERVER.getAddress().getPort() + "/jwks");
         registry.add("memoryos.identity.audience", () -> AUDIENCE);
+        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
+        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
+        registry.add(
+                "memoryos.identity.keycloak.admin.action-redirect-uri",
+                () -> "http://127.0.0.1/invite/activate"
+        );
         registry.add(
                 "spring.datasource.url",
                 () -> "jdbc:h2:mem:jwt-auth;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"

@@ -28,6 +28,18 @@ final class InvitationIntakeController {
         this.invitations = invitations;
     }
 
+    @GetMapping("/invite/activate")
+    void activate(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        noSecretCaching(response);
+        var session = request.getSession(true);
+        session.removeAttribute(InvitationSessionState.ATTRIBUTE);
+        session.setAttribute(InvitationSessionState.ACTIVATION_ATTRIBUTE, Boolean.TRUE);
+        redirect(response, OAUTH_PATH);
+    }
+
     @GetMapping("/invite/{secret}")
     void intake(
             @PathVariable String secret,

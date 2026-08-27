@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
+import io.memoryos.identity.KeycloakInvitationProvisioner;
+import io.memoryos.identity.KeycloakRecipientProvisioning;
 import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
 import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
 import io.memoryos.invitation.InvitationAcceptance;
@@ -32,6 +34,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -65,6 +68,13 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             .withDatabaseName("memoryos")
             .withUsername("memoryos")
             .withPassword("memoryos");
+
+    private static final KeycloakInvitationProvisioner EXISTING_VERIFIED_RECIPIENT =
+            (email, expiresAt) -> {
+                Objects.requireNonNull(email);
+                Objects.requireNonNull(expiresAt);
+                return KeycloakRecipientProvisioning.EXISTING_VERIFIED;
+            };
 
     @Test
     void concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember() throws Exception {
@@ -122,6 +132,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                         invitationRepository,
                         registrar,
                         normalProvisioner,
+                        EXISTING_VERIFIED_RECIPIENT,
                         clock,
                         Duration.ofHours(72)
                 ),
@@ -133,6 +144,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                         invitationRepository,
                         registrar,
                         blockingProvisioner,
+                        EXISTING_VERIFIED_RECIPIENT,
                         clock,
                         Duration.ofHours(72)
                 ),
@@ -144,6 +156,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                         invitationRepository,
                         registrar,
                         normalProvisioner,
+                        EXISTING_VERIFIED_RECIPIENT,
                         clock,
                         Duration.ofHours(72)
                 ),
@@ -234,6 +247,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                         invitationRepository,
                         registrar,
                         blockingProvisioner(normalProvisioner, actorGrantEntered, releaseActorGrant),
+                        EXISTING_VERIFIED_RECIPIENT,
                         clock,
                         Duration.ofHours(72)
                 ),

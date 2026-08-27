@@ -54,6 +54,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.context.annotation.Import;
 
 @SuppressWarnings({
         "SqlResolve",
@@ -62,6 +63,7 @@ import org.springframework.test.context.DynamicPropertySource;
         "SqlWithoutWhere"
 })
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TestKeycloakProvisioningConfiguration.class)
 class SessionSecurityIntegrationTest {
 
     private static final RSAKey SIGNING_KEY = rsaKey();
@@ -89,6 +91,12 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> ISSUER);
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> ISSUER + "/jwks");
         registry.add("memoryos.identity.audience", () -> "memoryos-api");
+        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
+        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
+        registry.add(
+                "memoryos.identity.keycloak.admin.action-redirect-uri",
+                () -> "http://127.0.0.1/invite/activate"
+        );
         registry.add("server.servlet.session.cookie.secure", () -> "false");
         registry.add("spring.datasource.url", () -> "jdbc:h2:mem:browser-auth;MODE=PostgreSQL;"
                 + "DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
@@ -607,6 +615,117 @@ class SessionSecurityIntegrationTest {
                     .single());
 
             assertPersistedSessionsContainNoProviderOrInvitationState();
+        } finally {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(memberSubject, memberEmail);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+    @Test
+    void acceptsProvisionedInvitationByVerifiedEmailWithoutContinuation() throws Exception {
+        String memberSubject = "activated-member-" + UUID.randomUUID();
+        String memberEmail = memberSubject + "@example.test";
+        var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var ownerClient = client(ownerCookies)) {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            completeOAuth(ownerClient, "/oauth2/authorization/memoryos");
+            var create = ownerClient.send(
+                    invitationMutation("{\"email\":\"" + memberEmail + "\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(201, create.statusCode());
+            assertEquals("ACTIVATION_EMAIL_SENT", jsonString(create.body(), "delivery"));
+        }
+
+        var memberCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var memberClient = client(memberCookies)) {
+            var activation = memberClient.send(
+                    request("/invite/activate"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(303, activation.statusCode());
+            assertEquals(
+                    "/oauth2/authorization/memoryos",
+                    activation.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals("no-store", activation.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-referrer", activation.headers().firstValue("referrer-policy").orElseThrow());
+
+            AUTHENTICATING_SUBJECT.set(memberSubject);
+            AUTHENTICATING_EMAIL.set(memberEmail);
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            var callback = completeOAuth(
+                    memberClient,
+                    activation.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals(302, callback.statusCode());
+            assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
+
+            var identity = memberClient.send(
+                    request("/api/identity/me"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, identity.statusCode());
+            assertEquals("MEMBER", jsonString(identity.body(), "role"));
+            assertEquals("ACCEPTED", jdbcClient.sql("""
+                            SELECT status FROM organization_invitations
+                            WHERE normalized_email = :email
+                            """)
+                    .param("email", memberEmail)
+                    .query(String.class)
+                    .single());
+            assertPersistedSessionsContainNoProviderOrInvitationState();
+        } finally {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(memberSubject, memberEmail);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+    @Test
+    void acceptsExistingVerifiedInvitationOnNormalLoginWithoutRecoverySecret() throws Exception {
+        String memberSubject = "existing-member-" + UUID.randomUUID();
+        String memberEmail = memberSubject + "@example.test";
+        var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var ownerClient = client(ownerCookies)) {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            completeOAuth(ownerClient, "/oauth2/authorization/memoryos");
+            assertEquals(
+                    201,
+                    ownerClient.send(
+                            invitationMutation("{\"email\":\"" + memberEmail + "\"}"),
+                            HttpResponse.BodyHandlers.ofString()
+                    ).statusCode()
+            );
+        }
+
+        var memberCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var memberClient = client(memberCookies)) {
+            AUTHENTICATING_SUBJECT.set(memberSubject);
+            AUTHENTICATING_EMAIL.set(memberEmail);
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            var callback = completeOAuth(memberClient, "/oauth2/authorization/memoryos");
+
+            assertEquals(302, callback.statusCode());
+            assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
+            assertEquals("ACCEPTED", jdbcClient.sql("""
+                            SELECT status FROM organization_invitations
+                            WHERE normalized_email = :email
+                            """)
+                    .param("email", memberEmail)
+                    .query(String.class)
+                    .single());
         } finally {
             AUTHENTICATING_SUBJECT.set("initial-owner");
             AUTHENTICATING_EMAIL.set("owner@example.test");

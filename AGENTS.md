@@ -22,12 +22,14 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - Never ship a temporary runtime mode, one-shot application profile, speculative endpoint, or unused abstraction to make an incomplete flow operable. Implement the real authorized runtime path, or keep the capability absent. See [ADR 0002](docs/decisions/0002-no-speculative-operational-surfaces.md).
 - Test observable contracts at the narrowest useful boundary, then exercise the changed runtime surface. See [testing guidelines](docs/guidelines/testing.md).
 - Use the checked-in Gradle wrapper. `clean check` is the repository-wide gate.
+- For Onyx implementation research, read the reference checkout under `.tmp/onyx/` before GitHub or web sources. If it is absent or stale for the question, create or refresh that ignored reference checkout there; never infer Onyx behavior from MemoryOS notes alone.
 
 ## Current active increments
 
 - [MEM-12 — Production local-Keycloak member invitation](docs/increments/active/mem-12-local-keycloak-member-invitation/design.md)
 - [MEM-19 — Frontend authority projection](docs/increments/active/mem-19-frontend-authority-projection/design.md)
 - [MEM-28 — Organization-only ownership](docs/increments/active/mem-28-organization-only-ownership/design.md)
+- [MEM-34 — Pre-provision invited Keycloak users](docs/increments/active/mem-34-keycloak-invited-user-activation/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
@@ -39,6 +41,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Conventions](docs/conventions.md)
 - [Operating model](docs/guidelines/operating-model.md)
 - [Persistence policy](docs/guidelines/persistence.md)
+- [Keycloak invitation provisioning decision](docs/decisions/0005-keycloak-invited-user-provisioning.md)
 - [Shared identity runtime decision](docs/decisions/0004-memoryos-owned-shared-identity-runtime.md)
 - [Shared runtime migration runbook](docs/runbooks/shared-runtime-migration.md)
 - [Identity contract](docs/specs/identity.md)

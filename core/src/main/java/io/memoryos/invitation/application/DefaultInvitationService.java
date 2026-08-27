@@ -1,9 +1,13 @@
 package io.memoryos.invitation.application;
 
 import io.memoryos.identity.ActorId;
+import io.memoryos.identity.ExternalIdentity;
+import io.memoryos.identity.KeycloakInvitationProvisioner;
+import io.memoryos.identity.KeycloakRecipientProvisioning;
 import io.memoryos.identity.ExternalIdentityRegistrar;
 import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationContinuation;
+import io.memoryos.invitation.InvitationDelivery;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.InvitationPage;
@@ -12,6 +16,7 @@ import io.memoryos.invitation.InvitationService;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.IssuedInvitation;
+import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
 import io.memoryos.invitation.persistence.InvitationRow;
 import io.memoryos.invitation.persistence.JdbcInvitationRepository;
 import io.memoryos.organization.InvitationAuthority;
@@ -28,6 +33,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -47,6 +53,7 @@ public class DefaultInvitationService implements InvitationService {
     private final JdbcInvitationRepository invitationRepository;
     private final ExternalIdentityRegistrar identityRegistrar;
     private final OrganizationMembershipProvisioner membershipProvisioner;
+    private final KeycloakInvitationProvisioner keycloakProvisioner;
     private final Clock clock;
     private final Duration timeToLive;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -56,12 +63,14 @@ public class DefaultInvitationService implements InvitationService {
             JdbcInvitationRepository invitationRepository,
             ExternalIdentityRegistrar identityRegistrar,
             OrganizationMembershipProvisioner membershipProvisioner,
+            KeycloakInvitationProvisioner keycloakProvisioner,
             @Value("${memoryos.invitation.time-to-live:PT72H}") Duration timeToLive
     ) {
         this(
                 invitationRepository,
                 identityRegistrar,
                 membershipProvisioner,
+                keycloakProvisioner,
                 Clock.systemUTC(),
                 timeToLive
         );
@@ -71,6 +80,7 @@ public class DefaultInvitationService implements InvitationService {
             JdbcInvitationRepository invitationRepository,
             ExternalIdentityRegistrar identityRegistrar,
             OrganizationMembershipProvisioner membershipProvisioner,
+            KeycloakInvitationProvisioner keycloakProvisioner,
             Clock clock,
             Duration timeToLive
     ) {
@@ -82,6 +92,10 @@ public class DefaultInvitationService implements InvitationService {
         this.membershipProvisioner = Objects.requireNonNull(
                 membershipProvisioner,
                 "membershipProvisioner must not be null"
+        );
+        this.keycloakProvisioner = Objects.requireNonNull(
+                keycloakProvisioner,
+                "keycloakProvisioner must not be null"
         );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.timeToLive = requireTimeToLive(timeToLive);
@@ -112,6 +126,10 @@ public class DefaultInvitationService implements InvitationService {
             throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, "an open invitation already exists for this email", exception);
         }
 
+        KeycloakRecipientProvisioning provisioning = keycloakProvisioner.provision(
+                normalizedEmail,
+                expiresAt
+        );
         return new IssuedInvitation(
                 new InvitationView(
                         invitationId,
@@ -124,7 +142,8 @@ public class DefaultInvitationService implements InvitationService {
                         null,
                         null
                 ),
-                plaintextSecret
+                plaintextSecret,
+                delivery(provisioning)
         );
     }
 
@@ -163,7 +182,11 @@ public class DefaultInvitationService implements InvitationService {
             throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, "could not rotate invitation", exception);
         }
 
-        return new IssuedInvitation(view(invitation, expiresAt), plaintextSecret);
+        return new IssuedInvitation(
+                view(invitation, expiresAt),
+                plaintextSecret,
+                InvitationDelivery.RECOVERY_LINK_ONLY
+        );
     }
 
     @Override
@@ -205,21 +228,49 @@ public class DefaultInvitationService implements InvitationService {
         Objects.requireNonNull(acceptance.invitationId(), "invitationId must not be null");
         Objects.requireNonNull(acceptance.organizationId(), "organizationId must not be null");
         Objects.requireNonNull(acceptance.externalIdentity(), "externalIdentity must not be null");
-        if (!acceptance.emailVerified()) {
-            throw new InvitationException(InvitationFailureReason.EMAIL_NOT_VERIFIED, "invitation email is not verified");
-        }
+        requireVerifiedEmail(acceptance.emailVerified());
 
         String normalizedEmail = normalizeEmail(acceptance.email());
         InvitationRow invitation = lock(acceptance.organizationId(), acceptance.invitationId());
         requireAvailable(invitation);
+        return acceptLocked(invitation, acceptance.externalIdentity(), normalizedEmail);
+    }
+
+    @Override
+    @Transactional
+    public ActorId acceptVerifiedEmail(VerifiedEmailInvitationAcceptance acceptance) {
+        Objects.requireNonNull(acceptance, "acceptance must not be null");
+        Objects.requireNonNull(acceptance.externalIdentity(), "externalIdentity must not be null");
+        requireVerifiedEmail(acceptance.emailVerified());
+
+        String normalizedEmail = normalizeEmail(acceptance.email());
+        List<InvitationRow> invitations = invitationRepository.findLockedPendingByEmail(
+                normalizedEmail,
+                clock.instant()
+        );
+        if (invitations.size() != 1) {
+            throw notAvailable();
+        }
+        InvitationRow invitation = invitations.getFirst();
+        requireAvailable(invitation);
+        return acceptLocked(invitation, acceptance.externalIdentity(), normalizedEmail);
+    }
+
+    private ActorId acceptLocked(
+            InvitationRow invitation,
+            ExternalIdentity externalIdentity,
+            String normalizedEmail
+    ) {
         InvitationTarget target = activeTarget(invitation);
         if (!invitation.email().equals(normalizedEmail)) {
-            throw new InvitationException(InvitationFailureReason.EMAIL_MISMATCH, "authenticated email does not match invitation");
+            throw new InvitationException(
+                    InvitationFailureReason.EMAIL_MISMATCH,
+                    "authenticated email does not match invitation"
+            );
         }
 
-
         try {
-            ActorId actorId = identityRegistrar.resolveOrCreateLocked(acceptance.externalIdentity());
+            ActorId actorId = identityRegistrar.resolveOrCreateLocked(externalIdentity);
             if (membershipProvisioner.hasAnyMembership(actorId)) {
                 throw identityConflict();
             }
@@ -230,7 +281,11 @@ public class DefaultInvitationService implements InvitationService {
             );
             return actorId;
         } catch (DataIntegrityViolationException exception) {
-            throw new InvitationException(InvitationFailureReason.IDENTITY_CONFLICT, "invitation identity or membership conflicts with existing authority", exception);
+            throw new InvitationException(
+                    InvitationFailureReason.IDENTITY_CONFLICT,
+                    "invitation identity or membership conflicts with existing authority",
+                    exception
+            );
         }
     }
 
@@ -288,6 +343,22 @@ public class DefaultInvitationService implements InvitationService {
                 invitation.acceptedAt(),
                 invitation.revokedAt()
         );
+    }
+
+    private static InvitationDelivery delivery(KeycloakRecipientProvisioning provisioning) {
+        return switch (provisioning) {
+            case ACTIVATION_EMAIL_SENT -> InvitationDelivery.ACTIVATION_EMAIL_SENT;
+            case EXISTING_VERIFIED -> InvitationDelivery.EXISTING_ACCOUNT;
+        };
+    }
+
+    private static void requireVerifiedEmail(boolean emailVerified) {
+        if (!emailVerified) {
+            throw new InvitationException(
+                    InvitationFailureReason.EMAIL_NOT_VERIFIED,
+                    "invitation email is not verified"
+            );
+        }
     }
 
     private static Duration requireTimeToLive(Duration value) {

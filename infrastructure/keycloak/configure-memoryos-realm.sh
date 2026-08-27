@@ -15,6 +15,7 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${MEMORYOS_BROWSER_REDIRECT_URI:?MEMORYOS_BROWSER_REDIRECT_URI is required}"
 : "${MEMORYOS_MAILPIT_PUBLIC_URL:?MEMORYOS_MAILPIT_PUBLIC_URL is required}"
 : "${MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET:?MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET is required}"
+: "${MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET:?MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_HOST:?MEMORYOS_KEYCLOAK_SMTP_HOST is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_FROM:?MEMORYOS_KEYCLOAK_SMTP_FROM is required}"
 MEMORYOS_KEYCLOAK_SMTP_PORT=${MEMORYOS_KEYCLOAK_SMTP_PORT:-587}
@@ -65,6 +66,7 @@ export MEMORYOS_KEYCLOAK_SMTP_SSL
 export MEMORYOS_KEYCLOAK_SMTP_FROM_DISPLAY_NAME
 export MEMORYOS_KEYCLOAK_SMTP_REPLY_TO
 export MEMORYOS_KEYCLOAK_SMTP_ENVELOPE_FROM
+export MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET
 
 case "$MEMORYOS_BROWSER_REDIRECT_URI" in
     *'*'*)
@@ -101,8 +103,9 @@ export MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
 CONFIG_FILE=$(mktemp)
 BROWSER_CLIENT_FILE=$(mktemp)
 MAILPIT_CLIENT_FILE=$(mktemp)
+PROVISIONER_CLIENT_FILE=$(mktemp)
 cleanup() {
-    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE" "$MAILPIT_CLIENT_FILE"
+    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE" "$MAILPIT_CLIENT_FILE" "$PROVISIONER_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -147,9 +150,11 @@ find_mapper_uuid() {
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
 
-configure_self_registration() {
+configure_realm() {
     jq -cn '{
-        registrationAllowed: true,
+        displayName: "MemoryOS",
+        displayNameHtml: "MemoryOS",
+        registrationAllowed: false,
         registrationEmailAsUsername: true,
         loginWithEmailAllowed: true,
         duplicateEmailsAllowed: false,
@@ -173,10 +178,10 @@ configure_self_registration() {
         "$KCADM" update "realms/$TARGET_REALM" \
             --config "$CONFIG_FILE" \
             -f - >/dev/null
-    echo "realm=$TARGET_REALM self-registration=enabled email-verification=required smtp=updated"
+    echo "realm=$TARGET_REALM self-registration=disabled email-verification=required smtp=updated"
 }
 
-configure_self_registration
+configure_realm
 
 find_initial_owner_uuid() {
     if [ -n "${MEMORYOS_INITIAL_OWNER_SUBJECT:-}" ]; then
@@ -308,10 +313,11 @@ upsert_mapper() {
 }
 
 jq --arg redirectUri "$MEMORYOS_BROWSER_REDIRECT_URI" \
+    --arg activationUri "$MEMORYOS_BROWSER_PUBLIC_URL/invite/activate" \
     --arg publicUrl "$MEMORYOS_BROWSER_PUBLIC_URL" \
     '.rootUrl = $publicUrl
      | .baseUrl = "/"
-     | .redirectUris = [$redirectUri]
+     | .redirectUris = [$redirectUri, $activationUri]
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-browser-client.json" >"$BROWSER_CLIENT_FILE"
@@ -321,6 +327,7 @@ jq --arg publicUrl "$MEMORYOS_MAILPIT_PUBLIC_URL" \
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-mailpit-client.json" >"$MAILPIT_CLIENT_FILE"
+cp "$SCRIPT_DIR/memoryos-user-provisioner-client.json" "$PROVISIONER_CLIENT_FILE"
 
 
 provision_initial_owner
@@ -335,6 +342,46 @@ jq -cn '{secret: env.MEMORYOS_BROWSER_CLIENT_SECRET}' |
         -r "$TARGET_REALM" \
         -f - >/dev/null
 echo "client=memoryos-web secret=updated"
+
+upsert_client memoryos-user-provisioner "$PROVISIONER_CLIENT_FILE"
+PROVISIONER_CLIENT_UUID=$CLIENT_UUID
+jq -cn '{secret: env.MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$PROVISIONER_CLIENT_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -f - >/dev/null
+SERVICE_ACCOUNT_ID=$("$KCADM" get "clients/$PROVISIONER_CLIENT_UUID/service-account-user" \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --fields id |
+    jq -r '.id')
+if [ -z "$SERVICE_ACCOUNT_ID" ] || [ "$SERVICE_ACCOUNT_ID" = "null" ]; then
+    echo "memoryos-user-provisioner service account did not converge" >&2
+    exit 1
+fi
+CLIENT_ID=realm-management
+REALM_MANAGEMENT_UUID=$(find_client_uuid)
+if [ -z "$REALM_MANAGEMENT_UUID" ]; then
+    echo "realm-management client does not exist" >&2
+    exit 1
+fi
+"$KCADM" add-roles \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --uid "$SERVICE_ACCOUNT_ID" \
+    --cclientid realm-management \
+    --rolename manage-users >/dev/null
+PROVISIONER_ROLES=$("$KCADM" get \
+    "users/$SERVICE_ACCOUNT_ID/role-mappings/clients/$REALM_MANAGEMENT_UUID" \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --fields name |
+    jq -cS '[.[].name] | sort')
+if [ "$PROVISIONER_ROLES" != '["manage-users"]' ]; then
+    echo "memoryos-user-provisioner must have only realm-management manage-users" >&2
+    exit 1
+fi
+echo "client=memoryos-user-provisioner secret=updated roles=manage-users"
 
 upsert_client memoryos-mailpit "$MAILPIT_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |
