@@ -28,7 +28,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 | `api` | Spring Boot HTTP and security composition root |
 | `worker` | Spring Boot background-processing composition root |
 
-Current capabilities: `identity`, `organization`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `identity`, `organization`, and `invitation`. Empty future capability placeholders are absent; approved source capabilities and provider adapters are designed under MEM-35 before their first implementation. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 

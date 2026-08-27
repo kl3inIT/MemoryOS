@@ -150,6 +150,23 @@ export const rotateInvitationMutation = (options?: Partial<Options<RotateInvitat
     return mutationOptions;
 };
 
+/**
+ * Revoke a pending invitation
+ */
+export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitationData>>): UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> => {
+    const mutationOptions: UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeInvitation({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const getCurrentInvitationQueryKey = (options?: Options<GetCurrentInvitationData>) => createQueryKey('getCurrentInvitation', options);
 
 /**
@@ -187,20 +204,3 @@ export const getCurrentIdentityOptions = (options?: Options<GetCurrentIdentityDa
     },
     queryKey: getCurrentIdentityQueryKey(options)
 });
-
-/**
- * Revoke a pending invitation
- */
-export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitationData>>): UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> => {
-    const mutationOptions: UseMutationOptions<RevokeInvitationResponse, RevokeInvitationError, Options<RevokeInvitationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await revokeInvitation({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};

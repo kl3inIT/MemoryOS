@@ -16,6 +16,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - Keep this file a map, not an encyclopedia. Put each fact in one canonical document and link to it.
 - Classify knowledge before writing: current implementation in `ARCHITECTURE.md` or `docs/specs/`; product intent in `docs/vision.md`; cross-cutting engineering policy in `docs/conventions.md` or `docs/guidelines/`; change-local reasoning in the active increment.
 - Treat `core` as capability implementation, not a framework-free domain layer. Capability code may use Spring, `JdbcClient`, transactions, or JPA when they reduce real complexity; forbid dependency inversion violations and speculative layers, not framework use.
+- Keep `core` limited to implemented capabilities. Current modules are `identity`, `organization`, and `invitation`; MEM-35 adds real `connector`, `document`, and `ingestion` modules plus one shared `connector` Gradle integration bundle organized by provider folders. Never predeclare empty future capability or provider packages.
 - Start non-trivial work with an increment directory containing `design.md` and `plan.md`. Update both as scope changes.
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
 - After verification, consolidate durable facts into architecture/spec/test/guideline documents in the same change. Keep the increment under `active/` until the pull request merges; then move it to `completed/` and reconcile the roadmap.
@@ -30,6 +31,8 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-19 — Frontend authority projection](docs/increments/active/mem-19-frontend-authority-projection/design.md)
 - [MEM-28 — Organization-only ownership](docs/increments/active/mem-28-organization-only-ownership/design.md)
 - [MEM-34 — Pre-provision invited Keycloak users](docs/increments/active/mem-34-keycloak-invited-user-activation/design.md)
+- [MEM-35 — Organization-owned FILE connectors](docs/increments/active/mem-35-file-connectors/design.md)
+- [MEM-37 — Command-style invitation revocation](docs/increments/active/mem-37-command-style-invitation-revoke/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 

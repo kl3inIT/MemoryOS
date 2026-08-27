@@ -10,7 +10,7 @@ paths:
   /api/invitations:
     get:
       tags:
-      - invitation-controller
+      - Invitations
       summary: List the current owner's Organization invitations
       operationId: listInvitations
       parameters:
@@ -84,7 +84,7 @@ paths:
       - bearerAuth: []
     post:
       tags:
-      - invitation-controller
+      - Invitations
       summary: Create one Organization member invitation
       operationId: createInvitation
       parameters:
@@ -143,7 +143,7 @@ paths:
   /api/invitations/{invitationId}/rotate:
     post:
       tags:
-      - invitation-controller
+      - Invitations
       summary: Replace the secret of a pending invitation
       operationId: rotateInvitation
       parameters:
@@ -188,50 +188,10 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
-  /api/invitations/current:
-    get:
+  /api/invitations/{invitationId}/revoke:
+    post:
       tags:
-      - invitation-controller
-      summary: Return the redacted invitation landing context from the browser session
-      operationId: getCurrentInvitation
-      responses:
-        "200":
-          description: Active invitation continuation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CurrentInvitation"
-        "410":
-          description: No available invitation continuation exists
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-  /api/identity/me:
-    get:
-      tags:
-      - identity-controller
-      summary: Return the authenticated MemoryOS actor
-      description: Accepts either an existing MemoryOS browser session or a valid
-        bound bearer identity and returns the stable internal ActorId plus its durable
-        Organization authority projection.
-      operationId: getCurrentIdentity
-      responses:
-        "200":
-          description: The authenticated actor
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CurrentIdentity"
-        "401":
-          description: No accepted authentication is present
-      security:
-      - browserSession: []
-      - bearerAuth: []
-  /api/invitations/{invitationId}:
-    delete:
-      tags:
-      - invitation-controller
+      - Invitations
       summary: Revoke a pending invitation
       operationId: revokeInvitation
       parameters:
@@ -268,6 +228,46 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/invitations/current:
+    get:
+      tags:
+      - Invitations
+      summary: Return the redacted invitation landing context from the browser session
+      operationId: getCurrentInvitation
+      responses:
+        "200":
+          description: Active invitation continuation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentInvitation"
+        "410":
+          description: No available invitation continuation exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+  /api/identity/me:
+    get:
+      tags:
+      - Identity
+      summary: Return the authenticated MemoryOS actor
+      description: Accepts either an existing MemoryOS browser session or a valid
+        bound bearer identity and returns the stable internal ActorId plus its durable
+        Organization authority projection.
+      operationId: getCurrentIdentity
+      responses:
+        "200":
+          description: The authenticated actor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentIdentity"
+        "401":
+          description: No accepted authentication is present
       security:
       - browserSession: []
       - bearerAuth: []

@@ -14,12 +14,7 @@ class ModulithArchitectureTest {
     private static final Set<String> CAPABILITIES = Set.of(
             "identity",
             "organization",
-            "invitation",
-            "authorization",
-            "knowledge",
-            "ingestion",
-            "retrieval",
-            "assistant"
+            "invitation"
     );
 
     private final ApplicationModules modules = ApplicationModules.of(MemoryOsModules.class);
