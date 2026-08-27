@@ -465,7 +465,6 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                     SELECT invitation.*
                     FROM organization_invitations invitation
                     WHERE invitation.secret_digest = ?
-                    FOR UPDATE
                     """)) {
                 explain.setString(1, digest);
                 try (var resultSet = explain.executeQuery()) {

@@ -22,6 +22,8 @@ Date: 2026-08-21
 
 `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` passes against digest-pinned PostgreSQL 17. It proves one-invitation replay serialization, then drives two different invitations for one pre-bound identity and observes the second transaction waiting on the stable Actor row until the first membership grant commits. Exactly one invitation accepts that Actor, one remains pending, and exactly one fixed membership pair exists. The test also proves PostgreSQL uses `uq_organization_invitations_secret_digest` for digest lookup after the schema uses `VARCHAR(64)`.
 
+`PostgresInvitationRepositoryReadConcurrencyTest.readOnlyLookupsDoNotWaitForLifecycleRowLock` holds the invitation lifecycle row lock in one PostgreSQL transaction and proves digest intake plus ID continuation reads still complete from independent transactions. Mutation and acceptance continue to use the existing locked queries and revalidate availability before authority writes.
+
 ## Browser and session evidence
 
 `SessionSecurityIntegrationTest` passes six real-HTTP scenarios against the Spring API composition, local standards-shaped OIDC provider, Flyway schema, and JDBC Spring Session.

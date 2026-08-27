@@ -83,6 +83,8 @@ An existing active member, an external identity already bound to another actor, 
 
 Opening `/invite/{secret}` hashes the secret, resolves exactly one available invitation, and rejects missing, expired, revoked, or consumed values before authority is created. A successful intake stores only invitation ID, Organization ID, and continuation expiry in the JDBC session. Spring Security owns OAuth2 state and OIDC nonce correlation; Invitation does not create a parallel nonce.
 
+Intake and current-continuation resolution are read-only availability checks and therefore use ordinary reads. They may observe a continuation that becomes unavailable immediately afterward; acceptance always revalidates and locks the invitation before any authority write, so revoke, rotation, expiry, or consumption still wins safely.
+
 The response uses `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, then redirects into the existing OAuth2 authorization endpoint. The raw secret is not retained in the session.
 
 ## OAuth2 callback and acceptance
