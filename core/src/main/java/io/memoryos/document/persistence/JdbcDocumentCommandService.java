@@ -13,15 +13,18 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.ObjectMapper;
 
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcDocumentCommandService implements DocumentCommandService {
 
     private final JdbcClient jdbcClient;
+    private final ObjectMapper objectMapper;
 
-    public JdbcDocumentCommandService(JdbcClient jdbcClient) {
+    public JdbcDocumentCommandService(JdbcClient jdbcClient, ObjectMapper objectMapper) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     }
 
     @Override
@@ -100,7 +103,7 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
                             title, media_type, normalized_text, source_content_sha256, metadata_json
                         ) VALUES (
                             :id, :organizationId, :documentId, :versionNumber,
-                            :title, :mediaType, :normalizedText, :sha256, '{}'
+                            :title, :mediaType, :normalizedText, :sha256, :metadata
                         )
                         """)
                 .param("id", versionId)
@@ -111,6 +114,7 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
                 .param("mediaType", truncate(extraction.mediaType(), 160))
                 .param("normalizedText", extraction.normalizedText())
                 .param("sha256", sourceSha256)
+                .param("metadata", objectMapper.writeValueAsString(extraction.metadata()))
                 .update();
         jdbcClient.sql("""
                         UPDATE documents

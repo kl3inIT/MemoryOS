@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DatabaseZap, FileText, LoaderCircle, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
 import {
   createFileSourceMutation,
   deleteSourceMutation,
-  getSourceOperationOptions,
   getSourceOptions,
   getSourceQueryKey,
   listSourcesOptions,
@@ -15,6 +14,7 @@ import {
   removeSourceItemMutation,
   uploadSourceItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { getSourceOperation } from "@/lib/hey-api/sdk.gen";
 import type { SourceItemResponse, SourceSummaryResponse } from "@/lib/hey-api/types.gen";
 
 const terminalOperationStatuses: Record<string, true> = {
@@ -37,6 +37,15 @@ export function SourcesPage() {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cleanupPending, setCleanupPending] = useState(false);
+  const cleanupController = useRef<AbortController | null>(null);
+
+  useEffect(
+    () => () => {
+      cleanupController.current?.abort();
+      cleanupController.current = null;
+    },
+    [],
+  );
 
   const selectedId = selectedSourceId ?? sources[0]?.id ?? null;
   const sourceQuery = useQuery({
@@ -120,16 +129,15 @@ export function SourcesPage() {
     }
   }
 
-  async function waitForCleanup(operationId: string) {
+  async function waitForCleanup(operationId: string, signal: AbortSignal) {
     for (let attempt = 0; attempt < 120; attempt += 1) {
-      const operation = await queryClient.fetchQuery({
-        ...getSourceOperationOptions({ path: { operationId } }),
-        staleTime: 0,
+      const { data: operation } = await getSourceOperation({
+        path: { operationId },
+        signal,
+        throwOnError: true,
       });
-      if (terminalOperationStatuses[operation.status ?? ""]) return operation;
-      const { promise, resolve } = Promise.withResolvers<void>();
-      window.setTimeout(resolve, 1_000);
-      await promise;
+      if (Object.hasOwn(terminalOperationStatuses, operation.status)) return operation;
+      await abortableDelay(1_000, signal);
     }
     throw new Error("Source cleanup did not finish within two minutes");
   }
@@ -137,6 +145,9 @@ export function SourcesPage() {
   async function removeSource() {
     if (!selectedId) return;
     setError(null);
+    cleanupController.current?.abort();
+    const controller = new AbortController();
+    cleanupController.current = controller;
     setCleanupPending(true);
     try {
       const operation = await deleteSource.mutateAsync({
@@ -144,7 +155,8 @@ export function SourcesPage() {
         headers: sameOriginMutationHeaders,
       });
       if (!operation.id) throw new Error("Source cleanup operation is missing an identifier");
-      const completed = await waitForCleanup(operation.id);
+      await refresh(selectedId);
+      const completed = await waitForCleanup(operation.id, controller.signal);
       if (completed.status === "FAILED") {
         setError("Source cleanup failed. Try the operation again.");
         return;
@@ -152,9 +164,14 @@ export function SourcesPage() {
       setSelectedSourceId(null);
       await refresh();
     } catch (cause) {
-      setError(sourceError(cause));
+      if (!controller.signal.aborted) {
+        setError(sourceError(cause));
+      }
     } finally {
-      setCleanupPending(false);
+      if (cleanupController.current === controller) {
+        cleanupController.current = null;
+        setCleanupPending(false);
+      }
     }
   }
 
@@ -164,8 +181,7 @@ export function SourcesPage() {
     uploadItem.isPending ||
     reindexItem.isPending ||
     removeItem.isPending ||
-    deleteSource.isPending ||
-    cleanupPending;
+    deleteSource.isPending;
 
   return (
     <section className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
@@ -270,7 +286,7 @@ export function SourcesPage() {
                 <Button
                   variant="outline"
                   className="text-status-danger-content"
-                  disabled={busy || detail.source.status === "DELETING"}
+                  disabled={busy || cleanupPending || detail.source.status === "DELETING"}
                   onClick={() => void removeSource()}
                 >
                   <Trash2 />
@@ -437,6 +453,24 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
       <p className="mx-auto mt-2 max-w-md font-main-ui-body text-content-muted">{detail}</p>
     </div>
   );
+}
+
+function abortableDelay(milliseconds: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    function abort() {
+      window.clearTimeout(timeout);
+      reject(signal.reason);
+    }
+    signal.addEventListener("abort", abort, { once: true });
+  });
 }
 
 function sourceError(error: unknown) {

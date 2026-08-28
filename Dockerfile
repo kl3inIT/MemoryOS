@@ -52,6 +52,8 @@ LABEL org.opencontainers.image.title="MemoryOS Worker" \
       org.opencontainers.image.source="https://github.com/dathip04/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
+ENV MEMORYOS_APPLICATION_JAR=worker.jar \
+    MEMORYOS_EXTRACTION_CLASSPATH="/application/worker.jar:/application/lib/*"
 COPY --from=build --chown=1654:1654 /workspace/worker-extracted/dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/worker-extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/worker-extracted/snapshot-dependencies/ ./
@@ -64,6 +66,7 @@ LABEL org.opencontainers.image.title="MemoryOS API" \
       org.opencontainers.image.source="https://github.com/dathip04/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
+ENV MEMORYOS_APPLICATION_JAR=api.jar
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/snapshot-dependencies/ ./

@@ -143,9 +143,22 @@ public class DefaultSourceManagementService implements SourceManagementService {
         if (existing.isPresent()) {
             return existing.get();
         }
-        var pair = mutable(sources.lock(organizationId, requiredSourceId));
-        items.currentVersion(organizationId, pair, requiredItemId);
-        items.markDeleting(organizationId, pair, requiredItemId);
+        var pair = sources.lock(organizationId, requiredSourceId);
+        parentCleanup = sources.findCleanup(
+                organizationId,
+                SourceOperationType.DELETE_SOURCE,
+                "PAIR:" + requiredSourceId.value()
+        );
+        if (parentCleanup.isPresent()) {
+            return parentCleanup.get();
+        }
+        existing = sources.findCleanup(organizationId, SourceOperationType.REMOVE_ITEM, targetKey);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        var mutablePair = mutable(pair);
+        items.currentVersion(organizationId, mutablePair, requiredItemId);
+        items.markDeleting(organizationId, mutablePair, requiredItemId);
         documents.invalidateItem(organizationId, requiredSourceId, requiredItemId);
         attempts.cancelForItem(organizationId, requiredSourceId, requiredItemId);
         return sources.createCleanup(
@@ -169,6 +182,10 @@ public class DefaultSourceManagementService implements SourceManagementService {
             return existing.get();
         }
         var pair = sources.lock(organizationId, requiredSourceId);
+        existing = sources.findCleanup(organizationId, SourceOperationType.DELETE_SOURCE, targetKey);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
         sources.markDeleting(organizationId, pair);
         documents.invalidateSource(organizationId, requiredSourceId);
         attempts.cancelForSource(organizationId, requiredSourceId);

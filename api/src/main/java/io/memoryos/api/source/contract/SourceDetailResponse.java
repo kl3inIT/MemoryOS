@@ -3,8 +3,15 @@ package io.memoryos.api.source.contract;
 import io.memoryos.connector.SourceDetail;
 
 import java.util.List;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-public record SourceDetailResponse(SourceSummaryResponse source, List<SourceItemResponse> items) {
+@Schema(name = "SourceDetailResponse", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
+public record SourceDetailResponse(
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+        SourceSummaryResponse source,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+        List<SourceItemResponse> items
+) {
     public SourceDetailResponse {
         items = List.copyOf(items);
     }

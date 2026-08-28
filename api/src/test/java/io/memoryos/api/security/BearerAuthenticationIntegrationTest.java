@@ -234,6 +234,38 @@ class BearerAuthenticationIntegrationTest {
                 response.body()
         );
     }
+    @Test
+    void rejectsOversizedMultipartAtTheServletBoundary() throws Exception {
+        String boundary = "----MemoryOSUploadBoundary";
+        byte[] prefix = (
+                "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"file\"; filename=\"oversized.txt\"\r\n"
+                        + "Content-Type: text/plain\r\n\r\n"
+        ).getBytes(UTF_8);
+        byte[] suffix = ("\r\n--" + boundary + "--\r\n").getBytes(UTF_8);
+        var body = HttpRequest.BodyPublishers.concat(
+                HttpRequest.BodyPublishers.ofByteArray(prefix),
+                HttpRequest.BodyPublishers.ofByteArray(new byte[10 * 1024 * 1024 + 1]),
+                HttpRequest.BodyPublishers.ofByteArray(suffix)
+        );
+        var request = HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + port + "/api/sources/" + UUID.randomUUID() + "/items"))
+                .timeout(Duration.ofSeconds(10))
+                .header("Authorization", "Bearer " + token(validClaims(BOUND_SUBJECT), SIGNING_KEY))
+                .header("X-MemoryOS-CSRF", "1")
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(body)
+                .build();
+
+        var response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(413, response.statusCode());
+        assertEquals(
+                "SOURCE_UPLOAD_TOO_LARGE",
+                io.swagger.v3.core.util.Json.mapper().readTree(response.body()).path("code").textValue()
+        );
+    }
+
 
     private HttpResponse<String> request(String token) throws IOException, InterruptedException {
         var builder = HttpRequest.newBuilder(

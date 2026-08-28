@@ -48,6 +48,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/sources")
 @Tag(name = "Sources")
+@SecurityRequirement(name = "browserSession")
+@SecurityRequirement(name = "bearerAuth")
 final class SourceController {
 
     private static final String BROWSER_REQUEST_HEADER = "X-MemoryOS-CSRF";
@@ -61,8 +63,7 @@ final class SourceController {
 
     @Operation(
             operationId = "createFileSource",
-            summary = "Create an Organization-owned FILE source",
-            security = {@SecurityRequirement(name = "browserSession"), @SecurityRequirement(name = "bearerAuth")}
+            summary = "Create an Organization-owned FILE source"
     )
     @PostMapping(value = "/file", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)

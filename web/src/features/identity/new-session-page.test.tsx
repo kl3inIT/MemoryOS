@@ -76,6 +76,17 @@ describe("NewSessionPage", () => {
     expect(screen.getByRole("button", { name: "Organization member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
   });
+  it("routes invitation-only administrators to invitations", async () => {
+    await renderNewSession({
+      ...OWNER_SESSION,
+      capabilities: ["INVITATIONS_MANAGE"],
+    });
+
+    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
+      "href",
+      "/admin/invitations",
+    );
+  });
 
   it("collapses and expands the desktop sidebar", async () => {
     const user = userEvent.setup();

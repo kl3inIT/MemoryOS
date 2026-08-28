@@ -51,6 +51,7 @@ function SidebarContents({
   const canManageInvitations = useCan("INVITATIONS_MANAGE");
   const canManageSources = useCan("SOURCES_MANAGE");
   const canAccessAdmin = canManageInvitations || canManageSources;
+  const adminEntryPath = canManageSources ? "/admin" : "/admin/invitations";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -165,7 +166,7 @@ function SidebarContents({
         {appArea && canAccessAdmin ? (
           <div className="mb-1">
             <SidebarTab
-              to="/admin"
+              to={adminEntryPath}
               icon={<Settings2 className="size-4" />}
               collapsed={collapsed}
               variant="light"

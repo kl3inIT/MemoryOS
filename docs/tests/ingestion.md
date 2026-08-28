@@ -3,7 +3,7 @@
 | Contract | Evidence |
 | --- | --- |
 | TXT, Markdown, PDF, and DOCX bytes are detected/extracted despite misleading extensions | `TikaSourceContentExtractorTest` |
-| Unsupported, encrypted, malformed, and write-limit content returns typed failures | `TikaSourceContentExtractorTest` failure matrix |
+| Unsupported, encrypted, malformed, and write-limit content returns typed failures; timeout terminates the child process and extractor close remains bounded | `TikaSourceContentExtractorTest` failure and lifecycle matrix |
 | PostgreSQL `SKIP LOCKED` claim plus expired lease issues a new token and rejects stale completion | `PostgresSourceConcurrencyTest.staleWorkerTokenCannotCompleteAfterLeaseReclaimAndTenantFksFailClosed` |
 | Real scheduled worker indexes, removes, and deletes through PostgreSQL, including cleanup after Organization deactivation | `WorkerFileProcessingIntegrationTest.schedulerIndexesRemovesAndDeletesOneRealFile` |
 | Provider adapter imports only public capability APIs | `ProviderDependencyRulesTest` |

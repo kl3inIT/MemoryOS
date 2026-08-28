@@ -2,6 +2,7 @@ package io.memoryos.provider.file;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.ingestion.ExtractionException;
@@ -103,6 +104,19 @@ class TikaSourceContentExtractorTest {
             assertEquals(ExtractionFailure.WRITE_LIMIT, limited.failure());
         }
     }
+    @Test
+    void timeoutTerminatesTheChildAndCloseRemainsBounded() {
+        try (var extractor = new TikaSourceContentExtractor(Duration.ofMillis(1))) {
+            ExtractionException timeout = assertThrows(
+                    ExtractionException.class,
+                    () -> extractor.extract(pdf(), "timeout.pdf")
+            );
+
+            assertEquals(ExtractionFailure.TIMEOUT, timeout.failure());
+            assertTimeoutPreemptively(Duration.ofSeconds(2), extractor::close);
+        }
+    }
+
 
     private static byte[] pdf() throws Exception {
         try (var document = new PDDocument(); var output = new ByteArrayOutputStream()) {

@@ -5,28 +5,28 @@ export type ClientOptions = {
 };
 
 export type SourceItemResponse = {
-    id?: string;
-    filename?: string;
-    sha256?: string;
-    sizeBytes?: number;
-    status?: string;
-    uploadedAt?: string;
-    latestOperationId?: string;
-    errorCode?: string;
+    id: string;
+    filename: string;
+    sha256: string;
+    sizeBytes: number;
+    status: string;
+    uploadedAt: string;
+    latestOperationId: string | null;
+    errorCode: string | null;
 };
 
 export type SourceOperationResponse = {
-    id?: string;
-    type?: string;
-    status?: string;
-    createdAt?: string;
-    completedAt?: string;
-    errorCode?: string;
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string;
+    completedAt: string | null;
+    errorCode: string | null;
 };
 
 export type SourceUploadResponse = {
-    item?: SourceItemResponse;
-    operation?: SourceOperationResponse;
+    item: SourceItemResponse;
+    operation: SourceOperationResponse;
 };
 
 export type CreateFileSourceRequest = {
@@ -34,20 +34,20 @@ export type CreateFileSourceRequest = {
 };
 
 export type SourceDetailResponse = {
-    source?: SourceSummaryResponse;
-    items?: Array<SourceItemResponse>;
+    source: SourceSummaryResponse;
+    items: Array<SourceItemResponse>;
 };
 
 export type SourceSummaryResponse = {
-    id?: string;
-    name?: string;
-    type?: string;
-    access?: string;
-    status?: string;
-    pendingWork?: boolean;
-    documentCount?: number;
-    lastSucceededAt?: string;
-    errorCode?: string;
+    id: string;
+    name: string;
+    type: string;
+    access: string;
+    status: string;
+    pendingWork: boolean;
+    documentCount: number;
+    lastSucceededAt: string | null;
+    errorCode: string | null;
 };
 
 export type CreateInvitationRequest = {

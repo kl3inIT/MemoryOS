@@ -29,6 +29,9 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SourceItemResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
     post:
       tags:
       - Sources
@@ -68,6 +71,9 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceUploadResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items/{itemId}/remove:
     post:
       tags:
@@ -102,6 +108,9 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items/{itemId}/index-attempts:
     post:
       tags:
@@ -136,6 +145,9 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/delete:
     post:
       tags:
@@ -164,6 +176,9 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/file:
     post:
       tags:
@@ -193,8 +208,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/SourceDetailResponse"
       security:
-      - browserSession: []
       - bearerAuth: []
+      - browserSession: []
   /api/invitations:
     get:
       tags:
@@ -434,6 +449,9 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SourceSummaryResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}:
     get:
       tags:
@@ -454,6 +472,9 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceDetailResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/index-attempts:
     get:
       tags:
@@ -485,6 +506,9 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/source-operations/{operationId}:
     get:
       tags:
@@ -505,6 +529,9 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations/current:
     get:
       tags:
@@ -549,6 +576,7 @@ components:
   schemas:
     SourceItemResponse:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
@@ -566,12 +594,26 @@ components:
           type: string
           format: date-time
         latestOperationId:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
         errorCode:
-          type: string
+          type:
+          - string
+          - "null"
+      required:
+      - errorCode
+      - filename
+      - id
+      - latestOperationId
+      - sha256
+      - sizeBytes
+      - status
+      - uploadedAt
     SourceOperationResponse:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
@@ -584,17 +626,32 @@ components:
           type: string
           format: date-time
         completedAt:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
         errorCode:
-          type: string
+          type:
+          - string
+          - "null"
+      required:
+      - completedAt
+      - createdAt
+      - errorCode
+      - id
+      - status
+      - type
     SourceUploadResponse:
       type: object
+      additionalProperties: false
       properties:
         item:
           $ref: "#/components/schemas/SourceItemResponse"
         operation:
           $ref: "#/components/schemas/SourceOperationResponse"
+      required:
+      - item
+      - operation
     CreateFileSourceRequest:
       type: object
       additionalProperties: false
@@ -607,6 +664,7 @@ components:
       - name
     SourceDetailResponse:
       type: object
+      additionalProperties: false
       properties:
         source:
           $ref: "#/components/schemas/SourceSummaryResponse"
@@ -614,8 +672,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SourceItemResponse"
+      required:
+      - items
+      - source
     SourceSummaryResponse:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
@@ -634,10 +696,24 @@ components:
           type: integer
           format: int64
         lastSucceededAt:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
         errorCode:
-          type: string
+          type:
+          - string
+          - "null"
+      required:
+      - access
+      - documentCount
+      - errorCode
+      - id
+      - lastSucceededAt
+      - name
+      - pendingWork
+      - status
+      - type
     CreateInvitationRequest:
       type: object
       additionalProperties: false

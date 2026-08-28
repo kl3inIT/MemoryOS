@@ -33,6 +33,7 @@ postgresql = { module = "org.postgresql:postgresql" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 h2 = { module = "com.h2database:h2" }
+jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 keycloak-admin-client = { module = "org.keycloak:keycloak-admin-client", version.ref = "keycloak-admin-client" }
 tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }
 tika-parser-pdf = { module = "org.apache.tika:tika-parser-pdf-module", version.ref = "tika" }

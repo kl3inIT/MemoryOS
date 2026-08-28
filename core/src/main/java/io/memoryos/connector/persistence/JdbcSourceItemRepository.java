@@ -28,7 +28,7 @@ public class JdbcSourceItemRepository {
             String sha256
     ) {
         var existing = jdbcClient.sql("""
-                        SELECT item.id AS item_id, version.id AS version_id
+                        SELECT item.id AS item_id, version.id AS version_id, item.status
                         FROM connector_items item
                         JOIN connector_item_versions version
                           ON version.organization_id = item.organization_id
@@ -40,10 +40,15 @@ public class JdbcSourceItemRepository {
                 .param("organizationId", organizationId.value())
                 .param("connectorId", pair.connectorId())
                 .param("sha256", sha256)
-                .query((resultSet, ignored) -> new ItemVersion(
-                        new SourceItemId(resultSet.getObject("item_id", UUID.class)),
-                        resultSet.getObject("version_id", UUID.class)
-                ))
+                .query((resultSet, ignored) -> {
+                    if ("DELETING".equals(resultSet.getString("status"))) {
+                        throw SourceException.conflict("source item is deleting");
+                    }
+                    return new ItemVersion(
+                            new SourceItemId(resultSet.getObject("item_id", UUID.class)),
+                            resultSet.getObject("version_id", UUID.class)
+                    );
+                })
                 .optional();
         if (existing.isPresent()) {
             return existing.get();

@@ -7,6 +7,7 @@ import io.memoryos.identity.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.UUID;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/source-operations")
 @Tag(name = "Sources")
+@SecurityRequirement(name = "browserSession")
+@SecurityRequirement(name = "bearerAuth")
 final class SourceOperationController {
 
     private final SourceManagementService sources;

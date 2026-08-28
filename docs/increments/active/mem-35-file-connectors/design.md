@@ -674,7 +674,7 @@ The scheduler first reads a bounded ordered list of candidate IDs without taking
 Eligibility is NOT_STARTED with `available_at <= now()` or IN_PROGRESS with expired `lease_expires_at`. Inactive Organization work becomes CANCELLED while holding the lifecycle lock. Otherwise claim writes a fresh random claim_token, worker identity, claim/start time, and two-minute lease. Reclaim keeps the history row but replaces the token; a late worker cannot finalize.
 ### Extract outside transaction
 
-The worker loads bounded bytes, closes the database transaction/connection, then detects and extracts. It never holds row locks or a database connection while Tika parses. The extraction deadline is shorter than the claim lease; process crash or timeout eventually makes the attempt reclaimable.
+The worker loads bounded bytes, closes the database transaction/connection, then starts one bounded child JVM to detect and extract. It never holds row locks or a database connection while Tika parses. The extraction deadline is shorter than the claim lease; timeout or shutdown forcibly terminates the child process, while an abrupt worker/process crash leaves the attempt reclaimable.
 ### Finalize success
 One transaction reads the attempt identity without locking, then locks active Organization lifecycle, Connector, Pair, attempt, ConnectorItem, current item version, Document, and mappings in the shared stable order. It requires:
 
@@ -723,7 +723,7 @@ text/plain; charset=UTF-8
 text/markdown; charset=UTF-8
 ```
 
-Parser configuration disables OCR, macros, recursive embedded attachment extraction, and archive/container expansion. Output is limited to 2,000,000 characters. Total/progress timeouts are bounded, and the worker container has explicit memory/CPU limits so parser failure cannot exhaust the API process. Encrypted, malformed, unsupported, timeout, write-limit, and internal parser failures map to distinct safe IndexAttempt error codes.
+Parser configuration disables OCR, macros, recursive embedded attachment extraction, and archive/container expansion. Output is limited to 2,000,000 characters. Every parse runs in a memory-bounded child JVM using a length-bounded binary protocol; the worker forcibly terminates the process at the extraction deadline and during shutdown. Encrypted, malformed, unsupported, timeout, write-limit, child-process, and internal parser failures map to distinct safe IndexAttempt error codes.
 
 Tika configuration is capability-owned and closed; callers receive normalized extraction results or typed failures, never Tika objects.
 
@@ -733,7 +733,7 @@ Worker adds JDBC/PostgreSQL runtime dependencies and datasource configuration. C
 
 The API remains the Flyway migration owner. Deployment starts worker only after API health proves migrations completed. Worker readiness requires datasource reachability and successful index/cleanup queue initialization. A real worker container uses bounded restart policy, memory/CPU, and the same managed database credential boundary as API.
 
-The worker loop claims index and cleanup work in bounded batches with idle delay and graceful shutdown. Each claim has a two-minute lease and random token. A process crash, OOM kill, or node loss leaves work reclaimable after lease expiry; a late process cannot finalize with its stale token. Extraction deadline remains below the lease. Shutdown stops new claims and allows in-flight work to finish within deployment grace.
+The worker loop claims index and cleanup work in bounded batches with idle delay and graceful shutdown. Each claim has a two-minute lease and random token. A process crash, OOM kill, or node loss leaves work reclaimable after lease expiry; a late process cannot finalize with its stale token. Extraction deadline remains below the lease, and shutdown forcibly terminates remaining parser children before the deployment grace expires.
 ## HTTP and UI contract
 
 Initial API surface:

@@ -6,13 +6,21 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(name = "SourceOperationResponse", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record SourceOperationResponse(
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         UUID id,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         String type,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         String status,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         Instant createdAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable Instant completedAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String errorCode
 ) {
     public static SourceOperationResponse from(SourceOperationView operation) {

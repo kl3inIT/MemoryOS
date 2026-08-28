@@ -14,12 +14,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(annotations = RestController.class)
+@RestControllerAdvice
 final class ApiExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
@@ -33,6 +33,18 @@ final class ApiExceptionHandler {
         problem.setProperty("code", exception.code());
         return problem;
     }
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ProblemDetail handleMaxUploadSize() {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONTENT_TOO_LARGE,
+                "Upload one file no larger than 10 MiB."
+        );
+        problem.setTitle("Upload too large");
+        problem.setType(problemType("SOURCE_UPLOAD_TOO_LARGE"));
+        problem.setProperty("code", "SOURCE_UPLOAD_TOO_LARGE");
+        return problem;
+    }
+
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleRequestValidation(MethodArgumentNotValidException exception) {

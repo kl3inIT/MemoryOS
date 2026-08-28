@@ -7,6 +7,7 @@ dependencies {
     api(libs.spring.modulith.api)
     implementation(platform(libs.spring.boot.dependencies))
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.jackson.databind)
     implementation(libs.keycloak.admin.client)
 
     testImplementation(platform(libs.spring.modulith.bom))
