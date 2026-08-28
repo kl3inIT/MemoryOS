@@ -619,13 +619,12 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     if (request.method() === "POST" && path.endsWith("/index-attempts")) {
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
       await route.fulfill({
-        status: 202,
-        contentType: "application/json",
+        status: 409,
+        contentType: "application/problem+json",
         body: JSON.stringify({
-          id: "f30b4dc5-b4e9-4eca-8bc0-6f83df4dd07d",
-          type: "INDEX",
-          status: "NOT_STARTED",
-          createdAt: "2026-08-27T10:00:00Z",
+          title: "Conflict",
+          status: 409,
+          code: "SOURCE_CONFLICT",
         }),
       });
       return;
@@ -692,6 +691,9 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByRole("button", { name: "Upload file" }).click();
   await expect(page.getByText("knowledge.txt")).toBeVisible();
   await page.getByRole("button", { name: "Reindex" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "The source cannot accept that operation right now.",
+  );
 
   const removeTrigger = page.getByRole("button", { name: "Remove" });
   await removeTrigger.click();
@@ -718,6 +720,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(confirmation.getByRole("alert")).toHaveText(
     "This file is already changing. Refresh the source and try again.",
   );
+  await expect(page.getByRole("alert")).toHaveCount(1);
   await expect(confirmation).toBeVisible();
 
   await confirmation.getByRole("button", { name: "Remove file" }).click();

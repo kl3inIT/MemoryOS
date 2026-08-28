@@ -122,6 +122,7 @@ export function SourcesPage() {
 
   async function remove(item: SourceItemResponse) {
     if (!selectedId || !item.id) throw new Error("Source item is unavailable");
+    setError(null);
     await removeItem.mutateAsync({
       path: { sourceId: selectedId, itemId: item.id },
       headers: sameOriginMutationHeaders,
@@ -144,6 +145,7 @@ export function SourcesPage() {
 
   async function removeSource() {
     if (!selectedId) throw new Error("Source is unavailable");
+    setError(null);
     cleanupController.current?.abort();
     const controller = new AbortController();
     cleanupController.current = controller;
