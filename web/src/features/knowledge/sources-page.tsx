@@ -2,9 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DatabaseZap, FileText, LoaderCircle, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { actionVariants } from "@/components/ui/action-styles";
 import { Input } from "@/components/ui/input";
-import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createFileSourceMutation,
   deleteSourceMutation,
@@ -19,6 +20,7 @@ import {
 import { getSourceOperation } from "@/lib/hey-api/sdk.gen";
 import type { SourceItemResponse, SourceSummaryResponse } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
+import { SourceActionError, sourceMutationError, sourceStatusMessage } from "./source-errors";
 
 const terminalOperationStatuses: Record<string, true> = {
   SUCCEEDED: true,
@@ -84,7 +86,7 @@ export function SourcesPage() {
       setSelectedSourceId(created.source?.id ?? null);
       await refresh(created.source?.id);
     } catch (cause) {
-      setError(sourceError(cause));
+      setError(sourceMutationError(cause, "create"));
     }
   }
 
@@ -100,7 +102,7 @@ export function SourcesPage() {
       setFile(null);
       await refresh(selectedId);
     } catch (cause) {
-      setError(sourceError(cause));
+      setError(sourceMutationError(cause, "upload"));
     }
   }
 
@@ -114,22 +116,17 @@ export function SourcesPage() {
       });
       await refresh(selectedId);
     } catch (cause) {
-      setError(sourceError(cause));
+      setError(sourceMutationError(cause, "reindex"));
     }
   }
 
   async function remove(item: SourceItemResponse) {
-    if (!selectedId || !item.id) return;
-    setError(null);
-    try {
-      await removeItem.mutateAsync({
-        path: { sourceId: selectedId, itemId: item.id },
-        headers: sameOriginMutationHeaders,
-      });
-      await refresh(selectedId);
-    } catch (cause) {
-      setError(sourceError(cause));
-    }
+    if (!selectedId || !item.id) throw new Error("Source item is unavailable");
+    await removeItem.mutateAsync({
+      path: { sourceId: selectedId, itemId: item.id },
+      headers: sameOriginMutationHeaders,
+    });
+    await refresh(selectedId);
   }
 
   async function waitForCleanup(operationId: string, signal: AbortSignal) {
@@ -142,12 +139,11 @@ export function SourcesPage() {
       if (Object.hasOwn(terminalOperationStatuses, operation.status)) return operation;
       await abortableDelay(1_000, signal);
     }
-    throw new Error("Source cleanup did not finish within two minutes");
+    throw new SourceActionError("cleanup-timeout");
   }
 
   async function removeSource() {
-    if (!selectedId) return;
-    setError(null);
+    if (!selectedId) throw new Error("Source is unavailable");
     cleanupController.current?.abort();
     const controller = new AbortController();
     cleanupController.current = controller;
@@ -157,19 +153,12 @@ export function SourcesPage() {
         path: { sourceId: selectedId },
         headers: sameOriginMutationHeaders,
       });
-      if (!operation.id) throw new Error("Source cleanup operation is missing an identifier");
+      if (!operation.id) throw new SourceActionError("invalid-cleanup-response");
       await refresh(selectedId);
       const completed = await waitForCleanup(operation.id, controller.signal);
-      if (completed.status === "FAILED") {
-        setError("Source cleanup failed. Try the operation again.");
-        return;
-      }
+      if (completed.status === "FAILED") throw new SourceActionError("cleanup-failed");
       setSelectedSourceId(null);
       await refresh();
-    } catch (cause) {
-      if (!controller.signal.aborted) {
-        setError(sourceError(cause));
-      }
     } finally {
       if (cleanupController.current === controller) {
         cleanupController.current = null;
@@ -286,20 +275,28 @@ export function SourcesPage() {
                   </p>
                   {detail.source.errorCode ? (
                     <p className="mt-2 text-sm text-status-danger-content">
-                      {detail.source.errorCode}
+                      {sourceStatusMessage(detail.source.errorCode)}
                     </p>
                   ) : null}
                 </div>
-                <Button
-                  tone="danger"
-                  prominence="secondary"
-                  disabled={busy || cleanupPending || detail.source.status === "DELETING"}
-                  pending={cleanupPending || deleteSource.isPending}
-                  onClick={() => void removeSource()}
-                >
-                  <Trash2 />
-                  Delete source
-                </Button>
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      tone="danger"
+                      prominence="secondary"
+                      disabled={busy || cleanupPending || detail.source.status === "DELETING"}
+                    >
+                      <Trash2 />
+                      Delete source
+                    </Button>
+                  }
+                  title={`Delete ${detail.source.name}?`}
+                  description={`Deleting “${detail.source.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
+                  confirmLabel="Delete source"
+                  pendingLabel="Deleting source"
+                  onConfirm={removeSource}
+                  errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
+                />
               </div>
 
               <form
@@ -357,7 +354,7 @@ export function SourcesPage() {
                           </p>
                           {item.errorCode ? (
                             <p className="mt-1 text-xs text-status-danger-content">
-                              {item.errorCode}
+                              {sourceStatusMessage(item.errorCode)}
                             </p>
                           ) : null}
                         </div>
@@ -370,14 +367,24 @@ export function SourcesPage() {
                           >
                             <RefreshCw /> Reindex
                           </Button>
-                          <Button
-                            tone="danger"
-                            prominence="secondary"
-                            disabled={busy || item.status === "DELETING"}
-                            onClick={() => void remove(item)}
-                          >
-                            <Trash2 /> Remove
-                          </Button>
+                          <ConfirmDialog
+                            trigger={
+                              <Button
+                                tone="danger"
+                                prominence="secondary"
+                                size="sm"
+                                disabled={busy || item.status === "DELETING"}
+                              >
+                                <Trash2 /> Remove
+                              </Button>
+                            }
+                            title={`Remove ${item.filename ?? "uploaded file"}?`}
+                            description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
+                            confirmLabel="Remove file"
+                            pendingLabel="Removing file"
+                            onConfirm={() => remove(item)}
+                            errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
+                          />
                         </div>
                       </div>
                     ))}
@@ -480,17 +487,6 @@ function abortableDelay(milliseconds: number, signal: AbortSignal) {
     }
     signal.addEventListener("abort", abort, { once: true });
   });
-}
-
-function sourceError(error: unknown) {
-  if (error instanceof ApiError) {
-    if (error.status === 403) return "Only an active Organization owner can manage sources.";
-    if (error.status === 404) return "The source or item is no longer available.";
-    if (error.status === 409) return "The source cannot accept that operation right now.";
-    if (error.status === 400 || error.status === 413)
-      return "Check the source name or uploaded file and try again.";
-  }
-  return "The source operation could not be completed. Try again.";
 }
 
 function formatBytes(bytes: number) {
