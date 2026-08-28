@@ -535,6 +535,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   const items: Array<Record<string, unknown>> = [];
   const mutationHeaders: string[] = [];
   let sourceDeleted = false;
+  let removeAttempts = 0;
 
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -618,19 +619,32 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     if (request.method() === "POST" && path.endsWith("/index-attempts")) {
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
       await route.fulfill({
-        status: 202,
-        contentType: "application/json",
+        status: 409,
+        contentType: "application/problem+json",
         body: JSON.stringify({
-          id: "f30b4dc5-b4e9-4eca-8bc0-6f83df4dd07d",
-          type: "INDEX",
-          status: "NOT_STARTED",
-          createdAt: "2026-08-27T10:00:00Z",
+          title: "Conflict",
+          status: 409,
+          code: "SOURCE_CONFLICT",
         }),
       });
       return;
     }
     if (request.method() === "POST" && path.endsWith("/remove")) {
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      removeAttempts += 1;
+      if (removeAttempts === 1) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/problem+json",
+          body: JSON.stringify({
+            title: "Conflict",
+            status: 409,
+            code: "SOURCE_CONFLICT",
+          }),
+        });
+        return;
+      }
+      await page.waitForTimeout(250);
       items.length = 0;
       source.status = "NOT_STARTED";
       source.documentCount = 0;
@@ -677,9 +691,58 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByRole("button", { name: "Upload file" }).click();
   await expect(page.getByText("knowledge.txt")).toBeVisible();
   await page.getByRole("button", { name: "Reindex" }).click();
-  await page.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "The source cannot accept that operation right now.",
+  );
+
+  const removeTrigger = page.getByRole("button", { name: "Remove" });
+  await removeTrigger.click();
+  let confirmation = page.getByRole("alertdialog");
+  await expect(confirmation.getByRole("heading", { name: "Remove knowledge.txt?" })).toBeVisible();
+  await expect(
+    confirmation.getByText(
+      "Removing “knowledge.txt” makes its indexed document unavailable. Cleanup continues asynchronously.",
+    ),
+  ).toBeVisible();
+  await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(confirmation).not.toBeVisible();
+  expect(removeAttempts).toBe(0);
+
+  await removeTrigger.click();
+  confirmation = page.getByRole("alertdialog");
+  await confirmation.getByRole("button", { name: "Cancel" }).click();
+  expect(removeAttempts).toBe(0);
+
+  await removeTrigger.click();
+  confirmation = page.getByRole("alertdialog");
+  await confirmation.getByRole("button", { name: "Remove file" }).click();
+  await expect(confirmation.getByRole("alert")).toHaveText(
+    "This file is already changing. Refresh the source and try again.",
+  );
+  await expect(page.getByRole("alert")).toHaveCount(1);
+  await expect(confirmation).toBeVisible();
+
+  await confirmation.getByRole("button", { name: "Remove file" }).click();
+  const pendingRemove = confirmation.getByRole("button", { name: "Removing file" });
+  await expect(pendingRemove).toBeDisabled();
+  await expect(pendingRemove).toHaveAttribute("aria-busy", "true");
+  await pendingRemove.evaluate((button: HTMLButtonElement) => button.click());
+  expect(removeAttempts).toBe(2);
+  await expect(confirmation).not.toBeVisible();
   await expect(page.getByText("No files yet")).toBeVisible();
+
   await page.getByRole("button", { name: "Delete source" }).click();
+  confirmation = page.getByRole("alertdialog");
+  await expect(
+    confirmation.getByRole("heading", { name: "Delete Product documentation?" }),
+  ).toBeVisible();
+  await expect(
+    confirmation.getByText(
+      "Deleting “Product documentation” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.",
+    ),
+  ).toBeVisible();
+  await confirmation.getByRole("button", { name: "Delete source" }).click();
   await expect(page.getByText("No sources connected")).toBeVisible();
-  expect(mutationHeaders).toEqual(["1", "1", "1", "1", "1"]);
+  expect(mutationHeaders).toEqual(["1", "1", "1", "1", "1", "1"]);
 });

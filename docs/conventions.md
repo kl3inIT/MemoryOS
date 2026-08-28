@@ -92,6 +92,7 @@ Domain Story and Consumer
 - `Input`, `Select`, `Button`, and `IconButton` share the 32px, 40px, and 44px size scale. Adjacent controls use the same named size rather than handwritten heights.
 - Native buttons default to `type="button"`. A caller must request `submit` or `reset` explicitly. Pending actions retain their accessible name, expose busy state, and prevent repeated activation.
 - Disabled presentation uses semantic content, surface, and border tokens; opacity alone is not a disabled state. Keyboard focus must remain visible through the shared focus-ring role.
+- Destructive product actions use `ConfirmDialog`: callers provide visible entity-specific title and impact copy, Cancel receives initial focus, and async confirmation prevents duplicate activation, stays open while pending or failed, announces safe action-local feedback, and closes only after success.
 - Feature code may own layout and selected-resource treatment, but it must not introduce a second standard interaction matrix or raw Tailwind palette classes for product actions.
 
 ## Data and security
