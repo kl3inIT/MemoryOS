@@ -2,6 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
 
+import { disableActionChild } from "@/components/ui/action-activation";
 import type { ActionTone } from "@/components/ui/action-styles";
 import { cn } from "@/lib/utils";
 
@@ -41,15 +42,28 @@ function TextButton({
   asChild = false,
   pending = false,
   disabled = false,
+  children,
+  onClick,
+  onClickCapture,
+  onKeyDown,
+  onKeyDownCapture,
+  tabIndex,
   type,
   ...props
 }: TextButtonProps) {
   const Comp = asChild ? Slot.Root : "button";
   const blocked = disabled || pending;
+  const blockedAsChild = asChild && blocked;
+  const renderedChildren = blockedAsChild ? disableActionChild(children) : children;
 
   return (
     <Comp
       {...props}
+      onClick={blockedAsChild ? undefined : onClick}
+      onClickCapture={blockedAsChild ? undefined : onClickCapture}
+      onKeyDown={blockedAsChild ? undefined : onKeyDown}
+      onKeyDownCapture={blockedAsChild ? undefined : onKeyDownCapture}
+      tabIndex={blockedAsChild ? undefined : tabIndex}
       type={asChild ? undefined : (type ?? "button")}
       data-slot="text-button"
       data-tone={tone}
@@ -59,7 +73,9 @@ function TextButton({
       aria-disabled={asChild && blocked ? true : undefined}
       disabled={asChild ? undefined : blocked}
       className={cn(textButtonVariants({ tone, size }), className)}
-    />
+    >
+      {renderedChildren}
+    </Comp>
   );
 }
 

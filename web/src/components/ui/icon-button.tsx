@@ -2,6 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
 
+import { disableActionChild } from "@/components/ui/action-activation";
 import {
   actionVariants,
   type ActionProminence,
@@ -49,15 +50,28 @@ function IconButton({
   asChild = false,
   pending = false,
   disabled = false,
+  children,
+  onClick,
+  onClickCapture,
+  onKeyDown,
+  onKeyDownCapture,
+  tabIndex,
   type,
   ...props
 }: IconButtonProps) {
   const Comp = asChild ? Slot.Root : "button";
   const blocked = disabled || pending;
+  const blockedAsChild = asChild && blocked;
+  const renderedChildren = blockedAsChild ? disableActionChild(children) : children;
 
   return (
     <Comp
       {...props}
+      onClick={blockedAsChild ? undefined : onClick}
+      onClickCapture={blockedAsChild ? undefined : onClickCapture}
+      onKeyDown={blockedAsChild ? undefined : onKeyDown}
+      onKeyDownCapture={blockedAsChild ? undefined : onKeyDownCapture}
+      tabIndex={blockedAsChild ? undefined : tabIndex}
       type={asChild ? undefined : (type ?? "button")}
       data-slot="icon-button"
       data-tone={tone}
@@ -68,7 +82,9 @@ function IconButton({
       aria-disabled={asChild && blocked ? true : undefined}
       disabled={asChild ? undefined : blocked}
       className={cn(actionVariants({ tone, prominence }), iconButtonSizes({ size }), className)}
-    />
+    >
+      {renderedChildren}
+    </Comp>
   );
 }
 
