@@ -41,7 +41,7 @@ Keep parts together when they share one language, invariant owner, transaction/l
 - Target JDK 25 and use the checked-in Gradle wrapper.
 - Prefer immutable value types and constructor validation at public boundaries.
 - Preserve exact security identifiers. Do not normalize issuer, subject, actor ID, email, or username unless a capability contract explicitly requires it.
-- Prefer Spring `JdbcClient` for explicit SQL and Spring-managed transaction/error semantics. Use JPA when entity lifecycle or relationships provide concrete value; never create parallel domain/entity/repository/mapper layers by default.
+- Prefer Spring `JdbcClient` for explicit SQL and Spring-managed transaction/error semantics. Application services never contain SQL or row mapping; concrete capability-owned `@Repository` classes own those mechanics and need no interface when only one internal implementation exists. Group repositories by consistency/use-case boundary, not table. Use JPA only when entity lifecycle or relationships provide concrete value; never create parallel domain/entity/repository/mapper layers by default. See [persistence policy](guidelines/persistence.md).
 - Centralize dependency versions in `gradle/libs.versions.toml`.
 
 ## API discovery and product boundaries

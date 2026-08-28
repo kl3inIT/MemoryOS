@@ -14,7 +14,7 @@ const OWNER_SESSION: CurrentIdentity = {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["INVITATIONS_MANAGE"],
+  capabilities: ["INVITATIONS_MANAGE", "SOURCES_MANAGE"],
 };
 
 const MEMBER_SESSION: CurrentIdentity = {

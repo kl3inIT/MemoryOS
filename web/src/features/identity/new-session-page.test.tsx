@@ -19,7 +19,7 @@ const OWNER_SESSION: ApplicationSession = {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["INVITATIONS_MANAGE"],
+  capabilities: ["INVITATIONS_MANAGE", "SOURCES_MANAGE"],
 };
 
 async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {

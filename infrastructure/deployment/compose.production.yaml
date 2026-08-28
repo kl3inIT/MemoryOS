@@ -320,6 +320,51 @@ services:
         reservations:
           memory: 384m
 
+
+  worker:
+    <<: *service-defaults
+    image: ${MEMORYOS_WORKER_IMAGE:?Set MEMORYOS_WORKER_IMAGE}
+    container_name: memoryos-worker
+    cap_add:
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    secrets:
+      - source: memoryos_infisical_bootstrap
+        target: memoryos_infisical_bootstrap
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      memoryos-internal:
+        aliases:
+          - memoryos-worker
+      shared-infra:
+        aliases:
+          - memoryos-worker
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q -O - http://127.0.0.1:8081/actuator/health/readiness
+          | grep -q '"status":"UP"'
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    stop_grace_period: 120s
+    cpu_shares: 512
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1024m
+        reservations:
+          memory: 512m
+
   web:
     <<: *service-defaults
     image: ${MEMORYOS_WEB_IMAGE:?Set MEMORYOS_WEB_IMAGE}

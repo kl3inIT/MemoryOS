@@ -48,7 +48,9 @@ function SidebarContents({
   mobile = false,
 }: SidebarContentsProps) {
   const appArea = area === "app";
-  const canAccessAdmin = useCan("INVITATIONS_MANAGE");
+  const canManageInvitations = useCan("INVITATIONS_MANAGE");
+  const canManageSources = useCan("SOURCES_MANAGE");
+  const canAccessAdmin = canManageInvitations || canManageSources;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -129,28 +131,32 @@ function SidebarContents({
           </SidebarTab>
         ) : (
           <div className="space-y-5">
-            <SidebarSection title="Organization" collapsed={collapsed}>
-              <SidebarTab
-                to="/admin/invitations"
-                icon={<UserPlus className="size-4" />}
-                selected={adminPage === "invitations"}
-                collapsed={collapsed}
-                onClick={onNavigate}
-              >
-                Invitations
-              </SidebarTab>
-            </SidebarSection>
-            <SidebarSection title="Knowledge" collapsed={collapsed}>
-              <SidebarTab
-                to="/admin"
-                icon={<Plug className="size-4" />}
-                selected={adminPage === "sources"}
-                collapsed={collapsed}
-                onClick={onNavigate}
-              >
-                Sources
-              </SidebarTab>
-            </SidebarSection>
+            {canManageInvitations ? (
+              <SidebarSection title="Organization" collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/invitations"
+                  icon={<UserPlus className="size-4" />}
+                  selected={adminPage === "invitations"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  Invitations
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageSources ? (
+              <SidebarSection title="Knowledge" collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin"
+                  icon={<Plug className="size-4" />}
+                  selected={adminPage === "sources"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  Sources
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
           </div>
         )}
       </nav>

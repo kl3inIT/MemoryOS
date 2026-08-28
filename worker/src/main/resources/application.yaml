@@ -1,5 +1,26 @@
 spring:
   application:
     name: memoryos-worker
-  main:
-    web-application-type: none
+  datasource:
+    url: ${MEMORYOS_DATABASE_URL}
+    username: ${MEMORYOS_DATABASE_USERNAME}
+    password: ${MEMORYOS_DATABASE_PASSWORD}
+
+server:
+  port: ${MEMORYOS_WORKER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+memoryos:
+  worker:
+    enabled: true
+    batch-size: ${MEMORYOS_WORKER_BATCH_SIZE:8}
+    idle-delay: ${MEMORYOS_WORKER_IDLE_DELAY:1s}

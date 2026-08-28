@@ -16,7 +16,10 @@ class CoreDependencyRulesTest {
     private static final Set<String> CAPABILITIES = Set.of(
             "identity",
             "organization",
-            "invitation"
+            "invitation",
+            "connector",
+            "document",
+            "ingestion"
     );
 
     private final JavaClasses coreClasses = new ClassFileImporter()

@@ -7,7 +7,7 @@ const OWNER_SESSION = {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["INVITATIONS_MANAGE"],
+  capabilities: ["INVITATIONS_MANAGE", "SOURCES_MANAGE"],
 };
 const MEMBER_SESSION = {
   ...OWNER_SESSION,
@@ -518,4 +518,168 @@ test("shows the recipient invitation landing and recovery states", async ({ page
   await page.goto("/invitation?reason=email-mismatch");
   await expect(page.getByRole("heading", { name: "Use the invited email" })).toBeVisible();
   await expect(page.getByText(/verified email does not match/i)).toBeVisible();
+});
+
+test("creates, indexes, removes, and deletes a FILE source", async ({ page }) => {
+  const source = {
+    id: "15f8cb72-2628-4d75-bcf1-8f6cda95a120",
+    name: "Product documentation",
+    type: "FILE",
+    access: "PUBLIC",
+    status: "NOT_STARTED",
+    pendingWork: false,
+    documentCount: 0,
+    lastSucceededAt: null,
+    errorCode: null,
+  };
+  const items: Array<Record<string, unknown>> = [];
+  const mutationHeaders: string[] = [];
+  let sourceDeleted = false;
+
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(OWNER_SESSION),
+    });
+  });
+  await page.route("**/api/source-operations/**", async (route) => {
+    sourceDeleted = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "4e54f788-33b7-4f20-b3e0-12bd445a598a",
+        type: "DELETE_SOURCE",
+        status: "SUCCEEDED",
+        createdAt: "2026-08-27T10:00:00Z",
+        completedAt: "2026-08-27T10:00:01Z",
+        errorCode: null,
+      }),
+    });
+  });
+  await page.route("**/api/sources**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() === "GET" && path === "/api/sources") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(sourceDeleted ? [] : source.name ? [source] : []),
+      });
+      return;
+    }
+    if (request.method() === "POST" && path === "/api/sources/file") {
+      mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ source, items }),
+      });
+      return;
+    }
+    if (request.method() === "GET" && path === `/api/sources/${source.id}`) {
+      await route.fulfill({
+        status: sourceDeleted ? 404 : 200,
+        contentType: "application/json",
+        body: sourceDeleted ? "{}" : JSON.stringify({ source, items }),
+      });
+      return;
+    }
+    if (request.method() === "POST" && path === `/api/sources/${source.id}/items`) {
+      mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      source.status = "ACTIVE";
+      source.documentCount = 1;
+      items.push({
+        id: "71923275-0c07-44e0-9537-1f4f67259dc7",
+        filename: "knowledge.txt",
+        sha256: "a".repeat(64),
+        sizeBytes: 24,
+        status: "INDEXED",
+        uploadedAt: "2026-08-27T10:00:00Z",
+        latestOperationId: "3aca91f5-53e8-4c9b-8e3a-1afedbd4a18f",
+        errorCode: null,
+      });
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          item: items[0],
+          operation: {
+            id: "3aca91f5-53e8-4c9b-8e3a-1afedbd4a18f",
+            type: "INDEX",
+            status: "NOT_STARTED",
+            createdAt: "2026-08-27T10:00:00Z",
+          },
+        }),
+      });
+      return;
+    }
+    if (request.method() === "POST" && path.endsWith("/index-attempts")) {
+      mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "f30b4dc5-b4e9-4eca-8bc0-6f83df4dd07d",
+          type: "INDEX",
+          status: "NOT_STARTED",
+          createdAt: "2026-08-27T10:00:00Z",
+        }),
+      });
+      return;
+    }
+    if (request.method() === "POST" && path.endsWith("/remove")) {
+      mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      items.length = 0;
+      source.status = "NOT_STARTED";
+      source.documentCount = 0;
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "19d557e6-fd95-461e-b2e7-0a7f858170dd",
+          type: "REMOVE_ITEM",
+          status: "NOT_STARTED",
+          createdAt: "2026-08-27T10:00:00Z",
+        }),
+      });
+      return;
+    }
+    if (request.method() === "POST" && path.endsWith("/delete")) {
+      mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      source.status = "DELETING";
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "4e54f788-33b7-4f20-b3e0-12bd445a598a",
+          type: "DELETE_SOURCE",
+          status: "NOT_STARTED",
+          createdAt: "2026-08-27T10:00:00Z",
+        }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 405 });
+  });
+
+  await page.goto("/admin");
+  await page.getByRole("textbox", { name: "Source name" }).fill(source.name);
+  await page.getByRole("button", { name: "Add FILE source" }).click();
+  await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
+
+  await page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file").setInputFiles({
+    name: "knowledge.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("MemoryOS browser source"),
+  });
+  await page.getByRole("button", { name: "Upload file" }).click();
+  await expect(page.getByText("knowledge.txt")).toBeVisible();
+  await page.getByRole("button", { name: "Reindex" }).click();
+  await page.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByText("No files yet")).toBeVisible();
+  await page.getByRole("button", { name: "Delete source" }).click();
+  await expect(page.getByText("No sources connected")).toBeVisible();
+  expect(mutationHeaders).toEqual(["1", "1", "1", "1", "1"]);
 });

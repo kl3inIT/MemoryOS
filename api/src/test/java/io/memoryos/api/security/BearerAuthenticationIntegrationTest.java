@@ -230,7 +230,7 @@ class BearerAuthenticationIntegrationTest {
         assertEquals(200, response.statusCode());
         assertEquals(
                 "{\"actorId\":\"" + ownerActorId + "\",\"organization\":{\"displayName\":\"Test\","
-                        + "\"role\":\"OWNER\"},\"capabilities\":[\"INVITATIONS_MANAGE\"]}",
+                        + "\"role\":\"OWNER\"},\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]}",
                 response.body()
         );
     }

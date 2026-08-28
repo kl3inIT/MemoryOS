@@ -55,7 +55,16 @@ class OpenApiContractTest {
             "/api/invitations",
             "/api/invitations/current",
             "/api/invitations/{invitationId}/revoke",
-            "/api/invitations/{invitationId}/rotate"
+            "/api/invitations/{invitationId}/rotate",
+            "/api/source-operations/{operationId}",
+            "/api/sources",
+            "/api/sources/file",
+            "/api/sources/{sourceId}",
+            "/api/sources/{sourceId}/delete",
+            "/api/sources/{sourceId}/index-attempts",
+            "/api/sources/{sourceId}/items",
+            "/api/sources/{sourceId}/items/{itemId}/index-attempts",
+            "/api/sources/{sourceId}/items/{itemId}/remove"
     );
 
     @Autowired

@@ -38,7 +38,10 @@ public record CurrentIdentityResponse(
                 actorId,
                 authority == null ? null : CurrentOrganizationResponse.from(authority),
                 authority != null && authority.role() == OrganizationMembershipRole.OWNER
-                        ? List.of(CurrentIdentityCapability.INVITATIONS_MANAGE)
+                        ? List.of(
+                        CurrentIdentityCapability.INVITATIONS_MANAGE,
+                        CurrentIdentityCapability.SOURCES_MANAGE
+                )
                         : List.of()
         );
     }

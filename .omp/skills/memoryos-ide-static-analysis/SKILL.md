@@ -79,6 +79,7 @@ Static verification must preserve these repository invariants:
 - Current core capabilities are exactly `identity`, `organization`, and `invitation`; MEM-35 adds real `connector`, `document`, and `ingestion` implementations. Speculative empty capability packages are forbidden.
 - `invitation` depends only on public `identity` and `organization` APIs. It owns invitation persistence and never imports Organization persistence or writes membership tables directly.
 - Capability-owned persistence stays under that capability's `persistence` package and is not imported by another capability.
+- Capability application services contain no SQL, row mapping, `JdbcClient`, lock/claim mechanics, or bulk persistence logic. Concrete single-implementation repositories live under the owning `persistence` package; internal repository interfaces require a demonstrated second implementation or cross-module port.
 - MEM-35 groups implemented providers under independent `io.memoryos.provider.<provider>` folders in one connector artifact; no provider folder exists before its implementing increment, and a later split requires measured dependency/runtime pressure.
 - API and worker remain thin composition roots.
 

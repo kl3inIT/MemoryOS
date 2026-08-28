@@ -238,6 +238,23 @@ connector/src/main/java/io/memoryos/provider/
 ```
 
 Capability root packages are public APIs. Application and persistence packages remain internal. Credential stays inside the core connector capability. Provider implementations live outside every capability package subtree and may import only public core types.
+
+### Persistence implementation boundary
+
+`DefaultSourceManagementService` owns authorization, input validation, orchestration, transaction boundaries, transition decisions, and typed failures. It contains no SQL, row mapping, `JdbcClient`, locks, claims, or bulk updates.
+
+The application service injects concrete single-implementation repositories from `connector.persistence`; no internal repository interface is added:
+
+```text
+JdbcSourceRepository          -> Connector/Credential/Pair create, load, lock, status
+JdbcSourceItemRepository      -> item/version identity, current version, byte/hash idempotency
+JdbcIndexAttemptRepository    -> attempt creation, ordering, claims, leases, completion/failure
+JdbcSourceDocumentRepository  -> Pair/Document provenance and retrieval eligibility
+JdbcSourceQueryRepository     -> source/item/operation read projections
+```
+
+Repositories follow aggregate/use-case and consistency boundaries, not one class per table. Source/ingestion remains JDBC-first because conditional transitions, row locks, worker claims, multi-join projections, and bulk invalidation require explicit SQL. MEM-35 adds no JPA, Querydsl, or jOOQ. Existing invitation and Organization JDBC code is not migrated for stylistic uniformity. JPA is reconsidered for MEM-36 Groups only if relationship lifecycle demonstrably reduces complexity.
+
 ## Domain semantics
 
 ### ConnectorType
@@ -258,7 +275,7 @@ ACTIVE
 DELETING
 ```
 
-The final Pair deletion marks Connector DELETING in the same transaction. No new item or Pair operation is accepted afterward; retries resolve the existing DELETE_PAIR cleanup.
+The final Pair deletion marks Connector DELETING in the same transaction. No new item or Pair operation is accepted afterward; retries resolve the existing DELETE_SOURCE cleanup.
 
 ### CredentialKind
 
@@ -367,7 +384,7 @@ FAILED
 SUPERSEDED
 ```
 
-SUCCEEDED, FAILED, and SUPERSEDED are terminal. DELETE returns CleanupAttemptId, and the record remains queryable after target hard deletion. SUPERSEDED means a broader cleanup atomically adopted the target; it is a successful terminal outcome for polling and idempotent retries.
+SUCCEEDED, FAILED, and SUPERSEDED are terminal. Remove/delete commands return CleanupAttemptId, and the record remains queryable after target hard deletion. SUPERSEDED means a broader cleanup atomically adopted the target; it is a successful terminal outcome for polling and idempotent retries.
 
 ## Persistence design
 
@@ -567,7 +584,7 @@ CHECK char_length(normalized_text) <= 2000000
 The document capability locks the Document row before allocating a version. Same-content concurrency is resolved inside DocumentCommandService through the content-hash uniqueness constraint; full FILE finalization is additionally Pair-serialized.
 ### `documents_by_connector_credential_pair`
 
-Owned by Ingestion:
+Owned by Connector:
 
 ```text
 organization_id UUID NOT NULL
@@ -608,7 +625,7 @@ updated_at TIMESTAMPTZ NOT NULL
 FK organization_id -> organizations
 ```
 
-Operations are REMOVE_ITEM and DELETE_PAIR. Target IDs are retained evidence, not foreign keys, because successful cleanup hard-deletes target rows while the result remains queryable. Separate partial unique indexes enforce one cleanup record per `(organization_id, operation, target_item_id)` or `(organization_id, operation, target_pair_id)`. DELETE first looks up this evidence, so retry after a lost response returns the original CleanupAttemptId even when the target is DELETING or already gone.
+Operations are REMOVE_ITEM and DELETE_SOURCE. Target IDs are retained evidence, not foreign keys, because successful cleanup hard-deletes target rows while the result remains queryable. A stable `target_key` plus unique `(organization_id, operation, target_key)` enforces one cleanup record per target. The command looks up this evidence before locking a possibly deleted target, so retry after a lost response returns the original CleanupAttemptId even when the target is DELETING or already gone.
 ## Transaction and concurrency flows
 
 ### Create FILE Connector
@@ -686,16 +703,16 @@ One transaction requires the current claim token, records bounded safe error cod
 
 Every mutating transaction uses one lock order: Organization lifecycle, Connector, affected Pair rows sorted by UUID, index/cleanup attempts sorted by UUID, ConnectorItem, item version, Document, then mappings.
 
-Removing an item locks active Organization lifecycle, Connector, affected Pairs, attempts, item/version, Document, then mappings. If Connector or its only FILE Pair is DELETING, it returns the existing DELETE_PAIR CleanupAttemptId and creates no child task. Otherwise it marks the item DELETING, invalidates nonterminal claim tokens, marks mappings retrieval-ineligible, recomputes Pair aggregates, marks Document INELIGIBLE, and inserts or resolves one idempotent REMOVE_ITEM cleanup attempt.
+Removing an item locks active Organization lifecycle, Connector, affected Pairs, attempts, item/version, Document, then mappings. If Connector or its only FILE Pair is DELETING, it returns the existing DELETE_SOURCE CleanupAttemptId and creates no child task. Otherwise it marks the item DELETING, invalidates nonterminal claim tokens, marks mappings retrieval-ineligible, recomputes Pair aggregates, marks Document INELIGIBLE, and inserts or resolves one idempotent REMOVE_ITEM cleanup attempt.
 
-Pair deletion uses the same order and additionally locks every nonterminal REMOVE_ITEM cleanup attempt for the Connector. For the final FILE Pair it marks Connector DELETING, changes Pair to DELETING, invalidates index/cleanup claim tokens, marks subordinate item cleanups SUPERSEDED, makes mappings ineligible, recomputes aggregate state, marks Documents with no other live mappings INELIGIBLE, and inserts or resolves one DELETE_PAIR cleanup attempt. DELETE always returns the existing/new CleanupAttemptId.
+Pair deletion uses the same order and additionally locks every nonterminal REMOVE_ITEM cleanup attempt for the Connector. For the final FILE Pair it marks Connector DELETING, changes Pair to DELETING, invalidates index/cleanup claim tokens, marks subordinate item cleanups SUPERSEDED, makes mappings ineligible, recomputes aggregate state, marks Documents with no other live mappings INELIGIBLE, and inserts or resolves one DELETE_SOURCE cleanup attempt. The source-delete command always returns the existing/new CleanupAttemptId.
 
-Cleanup scheduling reads candidate IDs without locks. Claim/execution transactions lock existing Organization lifecycle without requiring ACTIVE, then Connector, affected Pairs, cleanup attempts sorted by UUID, items/versions, Documents, and mappings. They require the current claim token before destructive writes; lease reclaim replaces the token, so a stale worker's transaction rolls back. A task whose target was already removed by a broader cleanup is token-guardedly marked SUPERSEDED rather than stranded.
+Claim transactions select a bounded batch with `FOR UPDATE OF attempt SKIP LOCKED` (or the single-table cleanup equivalent), assign a fresh random token per row, and commit before extraction. Execution requires the current token. Lease reclaim replaces the token, so a stale worker cannot finalize. Cleanup remains allowed after Organization deactivation; missing targets adopted by broader cleanup become SUPERSEDED rather than stranded.
 
-REMOVE_ITEM removes mappings and item attempts, recomputes Pair aggregates, and deletes versions/binary/item. For every removed mapping it hard-deletes unreferenced Document/version content under the Document lock. DELETE_PAIR performs the same per-mapping check before removing Pair attempts/Pair. If another Pair remains, ConnectorItems survive; if none remains, it removes items then Connector. Concurrent Pair creation requires Connector lock, so future final-Pair decisions serialize. Cleanup cannot create mappings, Documents, or access and remains allowed after Organization deactivation.
+REMOVE_ITEM removes mappings and item attempts, recomputes Pair aggregates, and deletes versions/binary/item. For every removed mapping it hard-deletes unreferenced Document/version content under the Document lock. DELETE_SOURCE performs the same per-mapping check before removing Pair attempts/Pair. If another Pair remains, ConnectorItems survive; if none remains, it removes items then Connector. Concurrent Pair creation requires Connector lock, so future final-Pair decisions serialize. Cleanup cannot create mappings, Documents, or access and remains allowed after Organization deactivation.
 ## File extraction boundary
 
-Use Apache Tika 3 inside the worker, not the API. Detection uses content plus resource metadata; extension never overrides detected type.
+Use Apache Tika 4.0.0 inside the worker, not the API. Pin only `tika-core`, PDF, Microsoft, and text parser modules; detection uses content plus resource metadata and extension never overrides detected type.
 
 Allowlist:
 
@@ -727,11 +744,11 @@ GET    /api/sources
 GET    /api/sources/{sourceId}
 GET    /api/sources/{sourceId}/index-attempts
 POST   /api/sources/{sourceId}/items/{itemId}/index-attempts
-DELETE /api/sources/{sourceId}
+POST   /api/sources/{sourceId}/delete
 
 POST   /api/sources/{sourceId}/items
 GET    /api/sources/{sourceId}/items
-DELETE /api/sources/{sourceId}/items/{itemId}
+POST   /api/sources/{sourceId}/items/{itemId}/remove
 
 GET    /api/source-operations/{operationId}
 
@@ -745,7 +762,7 @@ List/detail responses expose safe type, status, access, pending-work flag, last 
 
 Identity projection adds SOURCES_MANAGE only for active Organization OWNER. Backend authority still resolves durable membership for every command.
 
-Sources UI follows the Onyx interaction model: connector type, fixed NO_AUTH credential context, connector configuration, PUBLIC access, then a Pair-keyed status page/card. It polls Pair detail while indexing. DELETE returns CleanupAttemptId; the UI treats SUCCEEDED and SUPERSEDED as terminal success and FAILED as terminal failure, after which Pair not-found is expected for successful source deletion. No WebSocket/SSE infrastructure is introduced.
+Sources UI follows the Onyx interaction model: connector type, fixed NO_AUTH credential context, connector configuration, PUBLIC access, then a Pair-keyed status page/card. It polls Pair detail while indexing. The delete command returns CleanupAttemptId; the UI treats SUCCEEDED and SUPERSEDED as terminal success and FAILED as terminal failure, after which Pair not-found is expected for successful source deletion. No WebSocket/SSE infrastructure is introduced.
 ## Security and access
 
 All persistence reads and writes include authorized Organization ID. A missing or foreign Pair, Connector, or item returns a safe not-found outcome without revealing existence. OWNER management authority is separate from PUBLIC read clearance. PRIVATE and SYNC are rejected until their prerequisites exist.
@@ -753,6 +770,8 @@ All persistence reads and writes include authorized Organization ID. A missing o
 Connector exposes SourceDocumentAccessResolver accepting ActorId and DocumentId. For PUBLIC, it resolves current active Organization membership and one live retrieval-eligible Pair mapping; it does not require source-management authority. Retrieval has no endpoint in MEM-35, but this public connector contract makes persisted access executable without introducing a connector/document/ingestion cycle.
 
 Multipart handling applies request limits and filename normalization for display only. Detected media type is authoritative: valid allowed bytes are accepted even when the extension is missing or misleading. Unsupported detected type becomes an asynchronous failed IndexAttempt. Request bodies and extracted content are never logged.
+
+Spring Boot manages Jakarta Validation and Hibernate Validator through the platform BOM. Only `:api` depends on `spring-boot-starter-validation`. Request DTOs use `@Valid`; direct query/path constraints use Spring MVC method validation without class-level `@Validated`. `ApiExceptionHandler` remains a narrow advice and handles only business failures plus `MethodArgumentNotValidException` and `HandlerMethodValidationException`; it does not extend `ResponseEntityExceptionHandler` or add catch-all exception mappings. Core retains semantic authority and lifecycle validation.
 ## Exclusions
 
 - Google OAuth, real Google Credential execution, Drive sync, and permission materialization;
