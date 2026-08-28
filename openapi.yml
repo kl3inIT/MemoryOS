@@ -7,6 +7,209 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/sources/{sourceId}/items:
+    get:
+      tags:
+      - Sources
+      summary: List current source items
+      operationId: listSourceItems
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceItemResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Sources
+      summary: Upload one bounded FILE source item
+      operationId: uploadSourceItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+        required: true
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceUploadResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/items/{itemId}/remove:
+    post:
+      tags:
+      - Sources
+      summary: Start durable source item removal
+      operationId: removeSourceItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/items/{itemId}/index-attempts:
+    post:
+      tags:
+      - Sources
+      summary: Reindex one source item
+      operationId: reindexSourceItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/delete:
+    post:
+      tags:
+      - Sources
+      summary: Start durable source deletion
+      operationId: deleteSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/file:
+    post:
+      tags:
+      - Sources
+      summary: Create an Organization-owned FILE source
+      operationId: createFileSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFileSourceRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceDetailResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations:
     get:
       tags:
@@ -231,6 +434,104 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/sources:
+    get:
+      tags:
+      - Sources
+      summary: List Organization sources
+      operationId: listSources
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceSummaryResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}:
+    get:
+      tags:
+      - Sources
+      summary: Get one source with current items
+      operationId: getSource
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceDetailResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/index-attempts:
+    get:
+      tags:
+      - Sources
+      summary: List source indexing attempts
+      operationId: listSourceIndexAttempts
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/source-operations/{operationId}:
+    get:
+      tags:
+      - Sources
+      summary: Get a durable source operation
+      operationId: getSourceOperation
+      parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations/current:
     get:
       tags:
@@ -273,6 +574,146 @@ paths:
       - bearerAuth: []
 components:
   schemas:
+    SourceItemResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        sha256:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+        latestOperationId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - errorCode
+      - filename
+      - id
+      - latestOperationId
+      - sha256
+      - sizeBytes
+      - status
+      - uploadedAt
+    SourceOperationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - completedAt
+      - createdAt
+      - errorCode
+      - id
+      - status
+      - type
+    SourceUploadResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        item:
+          $ref: "#/components/schemas/SourceItemResponse"
+        operation:
+          $ref: "#/components/schemas/SourceOperationResponse"
+      required:
+      - item
+      - operation
+    CreateFileSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+      required:
+      - name
+    SourceDetailResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        source:
+          $ref: "#/components/schemas/SourceSummaryResponse"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceItemResponse"
+      required:
+      - items
+      - source
+    SourceSummaryResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        access:
+          type: string
+        status:
+          type: string
+        pendingWork:
+          type: boolean
+        documentCount:
+          type: integer
+          format: int64
+        lastSucceededAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - access
+      - documentCount
+      - errorCode
+      - id
+      - lastSucceededAt
+      - name
+      - pendingWork
+      - status
+      - type
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -417,6 +858,7 @@ components:
             type: string
             enum:
             - INVITATIONS_MANAGE
+            - SOURCES_MANAGE
       required:
       - actorId
       - capabilities

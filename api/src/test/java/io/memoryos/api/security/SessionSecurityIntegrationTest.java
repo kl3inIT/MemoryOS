@@ -186,7 +186,9 @@ class SessionSecurityIntegrationTest {
             assertTrue(currentIdentity.body().contains(ownerActorId.toString()));
             assertTrue(currentIdentity.body().contains("\"displayName\":\"Tasco\""));
             assertTrue(currentIdentity.body().contains("\"role\":\"OWNER\""));
-            assertTrue(currentIdentity.body().contains("\"capabilities\":[\"INVITATIONS_MANAGE\"]"));
+            assertTrue(currentIdentity.body().contains(
+                    "\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]"
+            ));
             assertEquals(1L, count("organizations"));
             assertEquals(1L, count("organization_memberships"));
 

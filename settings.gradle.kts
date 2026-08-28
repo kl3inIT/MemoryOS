@@ -15,5 +15,6 @@ dependencyResolutionManagement {
 rootProject.name = "memoryos"
 
 include(":core")
+include(":connector")
 include(":api")
 include(":worker")

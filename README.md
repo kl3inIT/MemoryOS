@@ -18,17 +18,18 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
 - Node.js 24 with Corepack; `web/package.json` pins pnpm.
-- Docker with the Compose plugin for the hardened PostgreSQL, shared Keycloak, API, and web deployment stack.
+- Docker with the Compose plugin for the hardened PostgreSQL, shared Keycloak, API, indexing worker, and web deployment stack.
 
 ## Modules and capabilities
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Capability contracts, behavior, transactions, persistence, and architecture rules |
-| `api` | Spring Boot HTTP and security composition root |
-| `worker` | Spring Boot background-processing composition root |
+| `core` | Six closed capability implementations, transactions, persistence, and architecture rules |
+| `connector` | Shared provider adapter bundle; current FILE adapter uses Apache Tika 4 |
+| `api` | Spring Boot HTTP, validation, migration, and security composition root |
+| `worker` | Persistence-backed indexing and cleanup composition root |
 
-Current core capabilities are `identity`, `organization`, and `invitation`. Empty future capability placeholders are absent; approved source capabilities and provider adapters are designed under MEM-35 before their first implementation. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `identity`, `organization`, `invitation`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 
@@ -78,7 +79,7 @@ The staging application is available at `https://memoryos.72-62-193-33.nip.io`; 
 
 ## Current runtime behavior
 
-API startup runs Flyway, transactionally bootstraps or verifies the configured initial Organization owner, and fails on configuration or aggregate drift. Owner invitation issue synchronously creates or reuses the exact local-Keycloak recipient through a realm-local service account; new recipients receive bounded verification/password actions and acceptance still commits Actor binding, Organization `MEMBER`, and Invitation consumption in MemoryOS. Remaining `/api/**` routes use stateless bearer authentication. The exact current-identity endpoint also accepts an existing confidential OAuth2 Authorization Code + PKCE browser session backed by Spring Session JDBC.
+API startup runs Flyway through V5, transactionally bootstraps or verifies the initial Organization owner, and owns authorized source commands. The worker starts after migrated API health, claims durable leased work, uses the FILE/Tika adapter for bounded detection and extraction, and token-guardedly publishes or cleans Document state. Invitation provisioning and browser/bearer authentication remain unchanged.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
@@ -88,8 +89,10 @@ API startup runs Flyway, transactionally bootstraps or verifies the configured i
 | `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
 | `GET /invite/activate` | Public Keycloak action return | Starts browser OAuth2 login without carrying invitation correlation |
+| `/api/sources/**` | Active Organization owner | Create/list/detail/upload/reindex/remove/delete FILE sources; mutations use POST commands |
+| `/api/source-operations/**` | Active Organization owner | Poll durable index and cleanup operations |
 
-The [identity contract](docs/specs/identity.md), [organization contract](docs/specs/organization.md), and [runtime runbook](docs/runbooks/development-runtime.md) define the write boundary and operational procedure.
+The [identity](docs/specs/identity.md), [organization](docs/specs/organization.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
 
 ## Engineering policies
 

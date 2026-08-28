@@ -19,7 +19,7 @@ const OWNER_SESSION: ApplicationSession = {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["INVITATIONS_MANAGE"],
+  capabilities: ["INVITATIONS_MANAGE", "SOURCES_MANAGE"],
 };
 
 async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
@@ -75,6 +75,17 @@ describe("NewSessionPage", () => {
 
     expect(screen.getByRole("button", { name: "Organization member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
+  });
+  it("routes invitation-only administrators to invitations", async () => {
+    await renderNewSession({
+      ...OWNER_SESSION,
+      capabilities: ["INVITATIONS_MANAGE"],
+    });
+
+    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
+      "href",
+      "/admin/invitations",
+    );
   });
 
   it("collapses and expands the desktop sidebar", async () => {

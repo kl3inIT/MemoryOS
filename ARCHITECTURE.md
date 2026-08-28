@@ -4,19 +4,20 @@ This document describes the system implemented in this repository. Product inten
 
 ## System shape
 
-MemoryOS is a controlled Spring Modulith monolith with three flat Gradle modules:
+MemoryOS is a controlled Spring Modulith monolith with four flat Gradle modules:
 
 | Module | Runtime role | Dependency rule |
 | --- | --- | --- |
-| `core` | Complete capability implementations: contracts, transactions, and capability-owned persistence | Must not depend on a deployable |
-| `api` | Spring Boot HTTP and security composition root | Depends on `core` |
-| `worker` | Spring Boot background-processing composition root | Depends on `core` |
+| `core` | Complete capability implementations: contracts, transactions, and capability-owned persistence | Must not depend on an adapter or deployable |
+| `connector` | Shared provider integration bundle; current `provider.file` adapter carries Tika 4 | Depends only on public `core` APIs |
+| `api` | Spring Boot HTTP, validation, migration, and security composition root | Depends on `core`; MEM-35 excludes `connector`/Tika |
+| `worker` | Persistence-backed indexing/cleanup composition root | Depends on `core` and selects `connector` at runtime |
 
-`api` and `worker` are separate deployables. The worker currently starts and exits because no durable job processor exists.
+`api` and `worker` are separate deployables. API owns Flyway migrations and durable source commands. Worker starts after API health, claims leased index/cleanup work, extracts outside database transactions, and token-guardedly finalizes or reclaims work.
 
 `web/` is a separate production deployable built with Vite, React, TanStack Router, TanStack Query, Tailwind CSS, and generated Hey API clients. It is not a Gradle module or a reusable package. The Nginx runtime serves immutable assets and owns the browser origin; Spring remains the API, OAuth2, session, and authorization runtime.
 
-The pathless authenticated route owns `ApplicationSessionBoundary`, which resolves `/api/identity/me` once for all protected child routes and provides one application-session context. The nested administration layout owns the capability gate and one persistent administration `AppShell`, so Sources/Invitations navigation preserves shell state and never mounts a denied child. Desktop provides a 15rem sidebar that folds to a 4rem rail; mobile uses a controlled accessible drawer that closes after internal navigation. Organization display, initials, and owner/member labels come from the durable projection. `Admin Panel`, administration routes, and invitation UI require `INVITATIONS_MANAGE`; a denied deep link preserves its URL and mounts no invitation query. Sign-out uses a same-origin guarded POST, invalidates the JDBC application session, and returns a Keycloak RP-initiated logout location so the browser can terminate SSO before returning to the signed-out application.
+The pathless authenticated route owns `ApplicationSessionBoundary`, which resolves `/api/identity/me` once for all protected child routes and provides one application-session context. The nested administration layout owns capability-specific gates and one persistent administration `AppShell`: invitation surfaces require `INVITATIONS_MANAGE`, Sources surfaces require `SOURCES_MANAGE`, and a denied deep link mounts no protected query. The Sources flow creates FILE sources, uploads one bounded file, polls indexing/cleanup state, and exposes safe item/retry/remove/delete operations without binary or extracted content.
 
 Application-owned links use TanStack Router and preserve the browser document; OAuth2, provider logout, invitation continuation, mail, and fragment navigation remain native. The QueryClient retains an accepted actor/authority fingerprint across route remounts, refetches identity whenever the browser returns to the foreground, and purges non-identity queries plus mutations before accepting changed authority or converging any private `401` to signed-out state. Invitation creation is a semantic single-flight form. Vite emits imported fonts as same-origin assets, and the build rejects inline `data:font` URLs to remain compatible with the production `font-src 'self'` policy.
 
@@ -24,22 +25,23 @@ The web design system remains local to the single application. `styles/tokens.cs
 
 ## Capability boundaries
 
-`core` contains three implemented closed Spring Modulith modules: `identity`, `organization`, and `invitation`. Empty future authorization, document, ingestion, retrieval, or assistant packages are deliberately absent until a concrete increment implements them. A capability root package is its public API; transactional orchestration lives in `application`, and SQL/row mapping/conditional storage operations live in `persistence`.
+`core` contains six implemented closed Spring Modulith modules: `identity`, `organization`, `invitation`, `connector`, `document`, and `ingestion`. A capability root package is its public API; application services own authorization, validation, orchestration, and transaction boundaries, while concrete `persistence` repositories own SQL, row mapping, locks, claims, conditional transitions, and bulk operations.
 
-`organization` depends only on `identity`. `invitation` depends only on public `identity` and `organization` APIs, owns invitation lifecycle/persistence, and coordinates mandatory transaction ports without importing either capability's persistence. Spring Modulith and ArchUnit enforce completeness and ownership. `core` is capability implementation, not a framework-free domain layer.
+`organization` depends only on `identity`. `invitation` depends on public `identity` and `organization`. `document` depends only on `organization`. `connector` depends on public `identity`, `organization`, and `document`; it owns Connector/Credential/Pair/item and Pair/Document provenance. `ingestion` depends on public `connector`, `document`, and `organization` APIs and owns asynchronous orchestration. Spring Modulith and ArchUnit reject cycles, cross-capability persistence imports, deployable dependencies, and provider imports of capability internals.
 
-`api` scans `io.memoryos`, so capability implementations in `core` register themselves with Spring stereotypes; deployable configuration defines only infrastructure, security, properties, and startup runners. `worker` scans only `io.memoryos.worker` and excludes datasource auto-configuration until it owns a persistence-backed background runtime path, preventing the shared core JDBC starter from requiring unused worker datasource configuration. Static persistence factories and forwarding `@Bean` methods are intentionally absent.
+`api` scans `io.memoryos`, so capability implementations register through Spring stereotypes. Worker scans only worker plus connector/document/ingestion and required Organization persistence packages; it carries JDBC/PostgreSQL, Tika provider auto-configuration, scheduling, readiness, and bounded batch configuration without loading API/security composition.
 
 Audit is intentionally absent until a real evidence consumer defines attribution, transaction, retention, access, and export semantics. See [ADR 0003](docs/decisions/0003-defer-audit-until-evidence-consumer.md).
 
 ## Persistence and startup
 
-Flyway owns four migrations:
+Flyway owns five migrations:
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
 - `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
 - `V3__create_organization_invitations.sql`: historical Invitation lifecycle initially scoped by Organization/default Workspace.
 - `V4__collapse_workspace_into_organization.sql`: removes the default-Workspace layer and makes Organization the direct membership and invitation owner.
+- `V5__create_file_source_and_document_schema.sql`: Organization-scoped Connector/Credential/Pair/item/attempt/Document/provenance/cleanup state with composite tenant FKs, bounded binary/text checks, idempotency keys, operation ordering, and lease claims.
 
 API startup requires datasource, OIDC, confidential browser-client, and initial Organization configuration. After migration, an `ApplicationRunner` invokes the transactional initial bootstrap. A migration-created singleton row is locked with `SELECT ... FOR UPDATE`; the transaction resolves or creates the exact owner binding, inserts one Organization, grants Organization `OWNER`, and publishes the Organization ID. Concurrent replicas serialize on that row. Identical configuration replays; drift or incomplete state fails startup.
 
@@ -47,7 +49,7 @@ API startup requires datasource, OIDC, confidential browser-client, and initial 
 
 The API composes three ordered security chains:
 
-1. Browser application API (`/api/identity/me` and `/api/invitations/**`): existing JDBC-backed browser sessions or bound bearer identities; the redacted current-invitation lookup is public but reads only an existing session.
+1. Browser application API (`/api/identity/me`, `/api/invitations/**`, `/api/sources/**`, and `/api/source-operations/**`): existing JDBC-backed browser sessions or bound bearer identities; the redacted current-invitation lookup is public but reads only an existing session.
 2. Remaining `/api/**`: stateless OAuth2 Resource Server bearer authentication.
 3. Browser routes: invitation intake/continuation plus OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
 
@@ -64,10 +66,12 @@ On successful browser login, Spring Security session-fixation protection rotates
 | `GET /invite/{secret}` | Public capability link | Digest lookup, redacted JDBC continuation, then invitation landing |
 | `GET /invite/activate` | Public Keycloak action return | Clear stale continuation, mark activation flow, and start browser OAuth2 login |
 | `/api/invitations/**` | Active Organization owner, except redacted current continuation | Create/list/rotate/revoke lifecycle and recipient landing context |
+| `/api/sources/**` | Active Organization owner | Create/list/detail/upload/reindex/remove/delete FILE source lifecycle; mutations use explicit POST commands |
+| `/api/source-operations/**` | Active Organization owner | Poll durable index or cleanup operation status |
 
 ## API error contract
 
-Spring Boot MVC Problem Details is enabled for framework exceptions. Expected capability failures are carried by typed subclasses of the root-package abstract `BusinessException`, which snapshots a capability-prefixed code, semantic category, and safe fallback message while keeping typed reasons in the capability. Root placement keeps the shared vocabulary outside Spring Modulith capability modules. `ApiExceptionHandler` handles `BusinessException` only for `@RestController` types, maps semantic failure category to HTTP status/title once, and returns RFC 9457 `application/problem+json` with a derived `urn:memoryos:failure:*` type. Diagnostic exception messages are never exposed.
+Spring Boot MVC Problem Details is enabled for framework exceptions. Expected capability failures are carried by typed `BusinessException` subclasses and mapped to RFC 9457 by the narrow `ApiExceptionHandler`. The same advice handles only `MethodArgumentNotValidException` and `HandlerMethodValidationException` to publish safe stable field/parameter errors; it does not extend `ResponseEntityExceptionHandler` or catch `Exception`, `IllegalArgumentException`, or persistence exceptions. Diagnostic messages, rejected sensitive values, bytes, extracted text, claim tokens, and parser failures are never exposed.
 
 Browser redirect controllers continue to consume typed exceptions directly, `ACCESS_NOT_PROVISIONED` remains a browser SPA destination, and Spring Security filter-chain failures remain outside MVC advice. Unexpected exceptions are not caught by the global handler.
 
@@ -83,10 +87,10 @@ Keycloak is the fixed browser credential store and enterprise OIDC/SAML broker. 
 
 ## Deployment
 
-The hardened deployment Compose project owns `memoryos-postgres`, `shared-keycloak`, `memoryos-mailpit`, `memoryos-mailpit-oauth2-proxy`, `memoryos-api`, and `memoryos-web`; the current server is the `staging` environment and no production server exists. PostgreSQL 18.4 stores isolated `memoryos` and `keycloak` databases under distinct non-superuser roles; an empty-volume bootstrap creates only those owners/databases, and the recurring backup profile emits custom-format archives, restore lists, and checksums. Shared Keycloak preserves `https://auth.kl3in.tech` and stable runtime aliases for both products, but MemoryOS contains provisioning only for the `memoryos` realm. OrgMemory continues to own its realm configuration. Staging Mailpit captures Keycloak verification messages with bounded retention, authenticated STARTTLS over the internal network, and a private CA imported by Keycloak. Nginx Proxy Manager exposes `https://memoryos-mail.72-62-193-33.nip.io` only through the dedicated owner-email-allowlisted OAuth2 Proxy; Mailpit itself stays off the public proxy network, and server loopback remains the operator fallback. This is not a public SMTP provider or deliverability claim. The separately protected pgweb deployment uses a dedicated transaction-read-only role against `memoryos-postgres` on the MemoryOS internal network.
+The hardened deployment Compose project owns `memoryos-postgres`, `shared-keycloak`, `memoryos-mailpit`, `memoryos-mailpit-oauth2-proxy`, `memoryos-api`, `memoryos-worker`, and `memoryos-web`. API and worker use separate image targets from the layered backend Dockerfile; worker starts only after API health, exposes readiness internally, runs read-only with bounded temporary storage, and has explicit CPU/memory and shutdown limits.
 
 The staging application origin is `https://memoryos.72-62-193-33.nip.io`, terminated by Nginx Proxy Manager and forwarded to `memoryos-web:8080`. The confidential `memoryos-web` client retains the matching HTTPS callback, `/invite/activate` action return, root, and web origin with S256 PKCE; staging's secure JDBC-session cookie is therefore exercised over HTTPS rather than a loopback development rewrite.
 
 ## Deferred components
 
-No multi-Organization switcher, broker policy, audit history, OpenFGA client, connector, MCP server, GraphRAG engine, public deployment automation, account-linking endpoint, durable memory screen, chat UI, or background-processing loop exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.
+No multi-Organization switcher, broker policy, audit history, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen, or chat UI exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.

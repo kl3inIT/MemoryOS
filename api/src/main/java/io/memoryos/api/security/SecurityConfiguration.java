@@ -55,7 +55,14 @@ class SecurityConfiguration {
             HttpSecurity http,
             JwtDecoder jwtDecoder,
             ExternalIdentityResolver identityResolver) {
-        http.securityMatcher("/api/identity/me", "/api/invitations", "/api/invitations/**");
+        http.securityMatcher(
+                "/api/identity/me",
+                "/api/invitations",
+                "/api/invitations/**",
+                "/api/sources",
+                "/api/sources/**",
+                "/api/source-operations/**"
+        );
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)

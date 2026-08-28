@@ -6,10 +6,13 @@ import { useCan } from "@/features/identity/application-session-context";
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
     const canManageInvitations = useCan("INVITATIONS_MANAGE");
+    const canManageSources = useCan("SOURCES_MANAGE");
     const matchRoute = useMatchRoute();
     const invitationsSelected = Boolean(matchRoute({ to: "/admin/invitations" }));
 
-    if (!canManageInvitations) return <AccessDeniedScreen />;
+    if (invitationsSelected ? !canManageInvitations : !canManageSources) {
+      return <AccessDeniedScreen />;
+    }
 
     return (
       <AppShell

@@ -8,6 +8,7 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.validation)
     implementation(libs.springdoc.webmvc)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
     implementation(libs.spring.boot.starter.oauth2.client)
@@ -18,6 +19,9 @@ dependencies {
     runtimeOnly(libs.postgresql)
 
     testImplementation(libs.spring.boot.starter.actuator.test)
+    testImplementation(project(":connector"))
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
     testRuntimeOnly(libs.h2)

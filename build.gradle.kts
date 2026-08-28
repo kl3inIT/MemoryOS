@@ -28,9 +28,9 @@ subprojects {
 }
 
 tasks.named("clean") {
-    dependsOn(":core:clean", ":api:clean", ":worker:clean")
+    dependsOn(":core:clean", ":connector:clean", ":api:clean", ":worker:clean")
 }
 
 tasks.named("check") {
-    dependsOn(":core:check", ":api:check", ":worker:check")
+    dependsOn(":core:check", ":connector:check", ":api:check", ":worker:check")
 }

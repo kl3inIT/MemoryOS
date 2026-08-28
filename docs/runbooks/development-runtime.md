@@ -27,9 +27,9 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 
 | Key | Secret | Runtime effect and environment rule |
 | --- | --- | --- |
-| `MEMORYOS_DATABASE_URL` | No | JDBC target. By current policy, both `dev` and `staging` use the staging MemoryOS database; only the API/web processes are local in `dev`. |
-| `MEMORYOS_DATABASE_USERNAME` | No | Login role for the MemoryOS database. It must remain `memoryos_app`, never the PostgreSQL platform administrator. |
-| `MEMORYOS_DATABASE_PASSWORD` | Yes | Password for `memoryos_app`. Staging cutover updates both Infisical staging and the target role atomically. |
+| `MEMORYOS_DATABASE_URL` | No | JDBC target shared by API and worker. API owns Flyway; worker starts only after API health proves the schema current. |
+| `MEMORYOS_DATABASE_USERNAME` | No | Login role shared by API and worker for the MemoryOS database. It must remain `memoryos_app`, never the PostgreSQL platform administrator. |
+| `MEMORYOS_DATABASE_PASSWORD` | Yes | Password for `memoryos_app`, consumed by API and worker. Staging cutover updates both Infisical staging and the target role atomically. |
 | `MEMORYOS_IDENTITY_ISSUER` | No | Required JWT/OIDC issuer and exact `(issuer, subject)` identity-binding namespace. Changing it breaks existing bindings. |
 | `MEMORYOS_IDENTITY_JWK_SET_URI` | No | Explicit signing-key endpoint for resource-server JWT verification; issuer validation still uses `MEMORYOS_IDENTITY_ISSUER`. |
 | `MEMORYOS_IDENTITY_AUDIENCE` | No | Required API audience claim; rejects a valid Keycloak token minted for another client/resource. |
@@ -43,9 +43,12 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_ORGANIZATION_DISPLAY_NAME` | No | Display name for that Organization; startup rejects drift after bootstrap. |
 | `MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Organization and compared on every bootstrap. `MEM-8-initial-owner` means MEM-8 authorized the original aggregate; it is not a per-deploy release label and must not be changed casually. |
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
+| `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
+| `MEMORYOS_WORKER_BATCH_SIZE` | No | Bounded index/cleanup claim batch; default `8`, runtime-clamped to `1..32`. |
+| `MEMORYOS_WORKER_IDLE_DELAY` | No | Delay between scheduled claim loops; default `1s`. |
 | `SPRING_PROFILES_ACTIVE` | No | `development` in Infisical `dev`; `staging` on the server. Selects logging policy only, not alternate business behavior. |
 
-`MEMORYOS_INVITATION_TTL` and `MEMORYOS_SESSION_TIMEOUT` are optional: the checked-in defaults are `72h` and `30m`. Keep them out of Infisical until an environment has an approved reason to override those contracts.
+`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, and the `MEMORYOS_WORKER_*` tuning keys are optional. Keep them out of Infisical until an environment has an approved reason to override the checked-in `72h`, `30m`, `8081`, `8`, and `1s` defaults.
 
 ## OMP code intelligence and debugging
 
@@ -146,7 +149,7 @@ Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`,
 
 ## Run the hardened staging stack
 
-MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mailbox and OAuth2 Proxy, API, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume. The Keycloak database contains both products' runtime realm data, but this repository provisions only the `memoryos` realm.
+MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mailbox and OAuth2 Proxy, API, persistence-backed FILE indexing worker, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. API runs Flyway before becoming healthy; worker depends on that health and uses the same managed MemoryOS database credential. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume.
 
 ### Publish the staging application
 
@@ -267,6 +270,7 @@ The singleton database row serializes concurrent replicas. Restart with identica
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health through the web gateway |
 | `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | `{"actorId":"<uuid>"}` |
+| `GET http://127.0.0.1:8081/actuator/health/readiness` | Worker container/internal diagnostics | Worker datasource and claim-loop readiness |
 | `GET /` | No browser session | Sign-in state with `/oauth2/authorization/memoryos` action |
 | `GET /` | Initial owner after Keycloak login | Authenticated `New Session` application shell |
 | `GET /access-not-provisioned` | Public browser route | Accessible `ACCESS_NOT_PROVISIONED` explanation |
@@ -275,11 +279,13 @@ Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keyclo
 
 ## Run the worker
 
+Start API first so Flyway completes, then run the persistent worker with the same managed database values:
+
 ```powershell
-.\gradlew.bat :worker:bootRun
+infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :worker:bootRun --no-daemon
 ```
 
-The foundation worker exits cleanly because no durable job loop exists.
+The worker serves readiness on port `8081` by default and continuously claims bounded index/cleanup batches. It does not exit while healthy. Stop it with the normal process signal; graceful shutdown stops new scheduling and allows Spring to close the datasource and in-flight task infrastructure. Provider parsing and extracted content are never logged.
 
 ## Repository verification
 

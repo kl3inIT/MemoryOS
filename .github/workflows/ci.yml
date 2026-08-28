@@ -81,3 +81,18 @@ jobs:
 
       - name: Build production frontend image
         run: docker build --file web/Dockerfile --tag memoryos-web:ci .
+
+  backend-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build production API image
+        run: docker build --target api --tag memoryos-api:ci .
+
+      - name: Build production worker image
+        run: docker build --target worker --tag memoryos-worker:ci .

@@ -16,6 +16,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - Keep this file a map, not an encyclopedia. Put each fact in one canonical document and link to it.
 - Classify knowledge before writing: current implementation in `ARCHITECTURE.md` or `docs/specs/`; product intent in `docs/vision.md`; cross-cutting engineering policy in `docs/conventions.md` or `docs/guidelines/`; change-local reasoning in the active increment.
 - Treat `core` as capability implementation, not a framework-free domain layer. Capability code may use Spring, `JdbcClient`, transactions, or JPA when they reduce real complexity; forbid dependency inversion violations and speculative layers, not framework use.
+- Keep SQL, row mapping, locks, claims, and bulk persistence mechanics in concrete capability `persistence` repositories. Application services own authorization, validation, orchestration, and cross-repository transaction boundaries; do not add single-implementation repository interfaces. See [persistence policy](docs/guidelines/persistence.md).
 - Keep `core` limited to implemented capabilities. Current modules are `identity`, `organization`, and `invitation`; MEM-35 adds real `connector`, `document`, and `ingestion` modules plus one shared `connector` Gradle integration bundle organized by provider folders. Never predeclare empty future capability or provider packages.
 - Start non-trivial work with an increment directory containing `design.md` and `plan.md`. Update both as scope changes.
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
@@ -44,6 +45,13 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Conventions](docs/conventions.md)
 - [Operating model](docs/guidelines/operating-model.md)
 - [Persistence policy](docs/guidelines/persistence.md)
+- [Shared connector and JDBC source persistence decision](docs/decisions/0006-shared-connector-bundle-and-jdbc-source-persistence.md)
+- [Connector contract](docs/specs/connector.md)
+- [Connector verification matrix](docs/tests/connector.md)
+- [Document contract](docs/specs/document.md)
+- [Document verification matrix](docs/tests/document.md)
+- [Ingestion contract](docs/specs/ingestion.md)
+- [Ingestion verification matrix](docs/tests/ingestion.md)
 - [Keycloak invitation provisioning decision](docs/decisions/0005-keycloak-invited-user-provisioning.md)
 - [Shared identity runtime decision](docs/decisions/0004-memoryos-owned-shared-identity-runtime.md)
 - [Shared runtime migration runbook](docs/runbooks/shared-runtime-migration.md)

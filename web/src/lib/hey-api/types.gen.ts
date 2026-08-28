@@ -4,6 +4,52 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type SourceItemResponse = {
+    id: string;
+    filename: string;
+    sha256: string;
+    sizeBytes: number;
+    status: string;
+    uploadedAt: string;
+    latestOperationId: string | null;
+    errorCode: string | null;
+};
+
+export type SourceOperationResponse = {
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string;
+    completedAt: string | null;
+    errorCode: string | null;
+};
+
+export type SourceUploadResponse = {
+    item: SourceItemResponse;
+    operation: SourceOperationResponse;
+};
+
+export type CreateFileSourceRequest = {
+    name: string;
+};
+
+export type SourceDetailResponse = {
+    source: SourceSummaryResponse;
+    items: Array<SourceItemResponse>;
+};
+
+export type SourceSummaryResponse = {
+    id: string;
+    name: string;
+    type: string;
+    access: string;
+    status: string;
+    pendingWork: boolean;
+    documentCount: number;
+    lastSucceededAt: string | null;
+    errorCode: string | null;
+};
+
 export type CreateInvitationRequest = {
     email: string;
 };
@@ -57,7 +103,7 @@ export type CurrentIdentity = {
     /**
      * Canonical capabilities backed by current server enforcement.
      */
-    capabilities: Array<'INVITATIONS_MANAGE'>;
+    capabilities: Array<'INVITATIONS_MANAGE' | 'SOURCES_MANAGE'>;
 };
 
 export type CurrentOrganization = {
@@ -97,6 +143,146 @@ export type ApiProblem = {
      */
     code?: string;
 };
+
+export type ListSourceItemsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items';
+};
+
+export type ListSourceItemsResponses = {
+    /**
+     * OK
+     */
+    200: Array<SourceItemResponse>;
+};
+
+export type ListSourceItemsResponse = ListSourceItemsResponses[keyof ListSourceItemsResponses];
+
+export type UploadSourceItemData = {
+    body: {
+        file: Blob | File;
+    };
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items';
+};
+
+export type UploadSourceItemResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceUploadResponse;
+};
+
+export type UploadSourceItemResponse = UploadSourceItemResponses[keyof UploadSourceItemResponses];
+
+export type RemoveSourceItemData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items/{itemId}/remove';
+};
+
+export type RemoveSourceItemResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceOperationResponse;
+};
+
+export type RemoveSourceItemResponse = RemoveSourceItemResponses[keyof RemoveSourceItemResponses];
+
+export type ReindexSourceItemData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items/{itemId}/index-attempts';
+};
+
+export type ReindexSourceItemResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceOperationResponse;
+};
+
+export type ReindexSourceItemResponse = ReindexSourceItemResponses[keyof ReindexSourceItemResponses];
+
+export type DeleteSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/delete';
+};
+
+export type DeleteSourceResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceOperationResponse;
+};
+
+export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceResponses];
+
+export type CreateFileSourceData = {
+    body: CreateFileSourceRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/sources/file';
+};
+
+export type CreateFileSourceResponses = {
+    /**
+     * Created
+     */
+    201: SourceDetailResponse;
+};
+
+export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFileSourceResponses];
 
 export type ListInvitationsData = {
     body?: never;
@@ -271,6 +457,78 @@ export type RevokeInvitationResponses = {
 };
 
 export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
+
+export type ListSourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sources';
+};
+
+export type ListSourcesResponses = {
+    /**
+     * OK
+     */
+    200: Array<SourceSummaryResponse>;
+};
+
+export type ListSourcesResponse = ListSourcesResponses[keyof ListSourcesResponses];
+
+export type GetSourceData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}';
+};
+
+export type GetSourceResponses = {
+    /**
+     * OK
+     */
+    200: SourceDetailResponse;
+};
+
+export type GetSourceResponse = GetSourceResponses[keyof GetSourceResponses];
+
+export type ListSourceIndexAttemptsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        size?: number;
+    };
+    url: '/api/sources/{sourceId}/index-attempts';
+};
+
+export type ListSourceIndexAttemptsResponses = {
+    /**
+     * OK
+     */
+    200: Array<SourceOperationResponse>;
+};
+
+export type ListSourceIndexAttemptsResponse = ListSourceIndexAttemptsResponses[keyof ListSourceIndexAttemptsResponses];
+
+export type GetSourceOperationData = {
+    body?: never;
+    path: {
+        operationId: string;
+    };
+    query?: never;
+    url: '/api/source-operations/{operationId}';
+};
+
+export type GetSourceOperationResponses = {
+    /**
+     * OK
+     */
+    200: SourceOperationResponse;
+};
+
+export type GetSourceOperationResponse = GetSourceOperationResponses[keyof GetSourceOperationResponses];
 
 export type GetCurrentInvitationData = {
     body?: never;

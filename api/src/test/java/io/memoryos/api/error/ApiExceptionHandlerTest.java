@@ -60,6 +60,7 @@ class ApiExceptionHandlerTest {
         return switch (category) {
             case VALIDATION -> HttpStatus.BAD_REQUEST;
             case NOT_PERMITTED -> HttpStatus.FORBIDDEN;
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT -> HttpStatus.CONFLICT;
             case UNAVAILABLE -> HttpStatus.GONE;
             case SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
@@ -70,6 +71,7 @@ class ApiExceptionHandlerTest {
         return switch (category) {
             case VALIDATION -> "Validation failed";
             case NOT_PERMITTED -> "Not permitted";
+            case NOT_FOUND -> "Not found";
             case CONFLICT -> "Conflict";
             case UNAVAILABLE -> "Unavailable";
             case SERVICE_UNAVAILABLE -> "Service unavailable";

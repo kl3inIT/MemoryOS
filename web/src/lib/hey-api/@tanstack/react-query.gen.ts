@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createInvitation, getCurrentIdentity, getCurrentInvitation, listInvitations, type Options, revokeInvitation, rotateInvitation } from '../sdk.gen';
-import type { CreateInvitationData, CreateInvitationError, CreateInvitationResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse } from '../types.gen';
+import { createFileSource, createInvitation, deleteSource, getCurrentIdentity, getCurrentInvitation, getSource, getSourceOperation, listInvitations, listSourceIndexAttempts, listSourceItems, listSources, type Options, reindexSourceItem, removeSourceItem, revokeInvitation, rotateInvitation, uploadSourceItem } from '../sdk.gen';
+import type { CreateFileSourceData, CreateFileSourceResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeleteSourceData, DeleteSourceResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveSourceItemData, RemoveSourceItemResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, UploadSourceItemData, UploadSourceItemResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -37,6 +37,109 @@ const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions
         params.query = options.query;
     }
     return [params];
+};
+
+export const listSourceItemsQueryKey = (options: Options<ListSourceItemsData>) => createQueryKey('listSourceItems', options);
+
+/**
+ * List current source items
+ */
+export const listSourceItemsOptions = (options: Options<ListSourceItemsData>) => queryOptions<ListSourceItemsResponse, DefaultError, ListSourceItemsResponse, ReturnType<typeof listSourceItemsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourceItems({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourceItemsQueryKey(options)
+});
+
+/**
+ * Upload one bounded FILE source item
+ */
+export const uploadSourceItemMutation = (options?: Partial<Options<UploadSourceItemData>>): UseMutationOptions<UploadSourceItemResponse, DefaultError, Options<UploadSourceItemData>> => {
+    const mutationOptions: UseMutationOptions<UploadSourceItemResponse, DefaultError, Options<UploadSourceItemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await uploadSourceItem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start durable source item removal
+ */
+export const removeSourceItemMutation = (options?: Partial<Options<RemoveSourceItemData>>): UseMutationOptions<RemoveSourceItemResponse, DefaultError, Options<RemoveSourceItemData>> => {
+    const mutationOptions: UseMutationOptions<RemoveSourceItemResponse, DefaultError, Options<RemoveSourceItemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeSourceItem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Reindex one source item
+ */
+export const reindexSourceItemMutation = (options?: Partial<Options<ReindexSourceItemData>>): UseMutationOptions<ReindexSourceItemResponse, DefaultError, Options<ReindexSourceItemData>> => {
+    const mutationOptions: UseMutationOptions<ReindexSourceItemResponse, DefaultError, Options<ReindexSourceItemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reindexSourceItem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start durable source deletion
+ */
+export const deleteSourceMutation = (options?: Partial<Options<DeleteSourceData>>): UseMutationOptions<DeleteSourceResponse, DefaultError, Options<DeleteSourceData>> => {
+    const mutationOptions: UseMutationOptions<DeleteSourceResponse, DefaultError, Options<DeleteSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Create an Organization-owned FILE source
+ */
+export const createFileSourceMutation = (options?: Partial<Options<CreateFileSourceData>>): UseMutationOptions<CreateFileSourceResponse, DefaultError, Options<CreateFileSourceData>> => {
+    const mutationOptions: UseMutationOptions<CreateFileSourceResponse, DefaultError, Options<CreateFileSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createFileSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };
 
 export const listInvitationsQueryKey = (options?: Options<ListInvitationsData>) => createQueryKey('listInvitations', options);
@@ -166,6 +269,78 @@ export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitat
     };
     return mutationOptions;
 };
+
+export const listSourcesQueryKey = (options?: Options<ListSourcesData>) => createQueryKey('listSources', options);
+
+/**
+ * List Organization sources
+ */
+export const listSourcesOptions = (options?: Options<ListSourcesData>) => queryOptions<ListSourcesResponse, DefaultError, ListSourcesResponse, ReturnType<typeof listSourcesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSources({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourcesQueryKey(options)
+});
+
+export const getSourceQueryKey = (options: Options<GetSourceData>) => createQueryKey('getSource', options);
+
+/**
+ * Get one source with current items
+ */
+export const getSourceOptions = (options: Options<GetSourceData>) => queryOptions<GetSourceResponse, DefaultError, GetSourceResponse, ReturnType<typeof getSourceQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSource({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSourceQueryKey(options)
+});
+
+export const listSourceIndexAttemptsQueryKey = (options: Options<ListSourceIndexAttemptsData>) => createQueryKey('listSourceIndexAttempts', options);
+
+/**
+ * List source indexing attempts
+ */
+export const listSourceIndexAttemptsOptions = (options: Options<ListSourceIndexAttemptsData>) => queryOptions<ListSourceIndexAttemptsResponse, DefaultError, ListSourceIndexAttemptsResponse, ReturnType<typeof listSourceIndexAttemptsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourceIndexAttempts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourceIndexAttemptsQueryKey(options)
+});
+
+export const getSourceOperationQueryKey = (options: Options<GetSourceOperationData>) => createQueryKey('getSourceOperation', options);
+
+/**
+ * Get a durable source operation
+ */
+export const getSourceOperationOptions = (options: Options<GetSourceOperationData>) => queryOptions<GetSourceOperationResponse, DefaultError, GetSourceOperationResponse, ReturnType<typeof getSourceOperationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSourceOperation({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSourceOperationQueryKey(options)
+});
 
 export const getCurrentInvitationQueryKey = (options?: Options<GetCurrentInvitationData>) => createQueryKey('getCurrentInvitation', options);
 
