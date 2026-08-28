@@ -37,4 +37,4 @@
 - [x] Inspect every changed Java file with JetBrains warnings enabled, then run focused compilation/tests.
 - [x] Run `gradlew.bat clean check --no-daemon`, `pnpm check`, and the full Playwright suite.
 - [x] Exercise owner/member browser surfaces at desktop and narrow widths and record evidence.
-- [ ] Keep the increment active until guarded PR merge, exact main CI, staging smoke, Linear closure, and move to `completed/`.
+- [x] Keep the increment active until guarded PR merge, exact main CI, staging smoke, Linear closure, and move to `completed/`.

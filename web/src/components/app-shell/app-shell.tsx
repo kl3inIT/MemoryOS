@@ -14,7 +14,7 @@ import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/components/app-shell/account-menu";
 import { Brand } from "@/components/brand";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useCan } from "@/features/identity/application-session-context";
@@ -57,9 +57,9 @@ function SidebarContents({
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex h-10 shrink-0 items-center gap-2 px-2.5">
         {collapsed && !mobile ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <IconButton
+            prominence="internal"
+            size="sm"
             aria-label="Expand sidebar"
             title="Expand sidebar"
             onClick={onCollapseToggle}
@@ -69,7 +69,7 @@ function SidebarContents({
               <Brand compact />
             </span>
             <PanelLeftOpen className="absolute opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
-          </Button>
+          </IconButton>
         ) : (
           <>
             <Link
@@ -82,21 +82,21 @@ function SidebarContents({
             </Link>
             {mobile ? (
               <Dialog.Close asChild>
-                <Button variant="ghost" size="icon" aria-label="Close navigation">
+                <IconButton prominence="internal" size="md" aria-label="Close navigation">
                   <X />
-                </Button>
+                </IconButton>
               </Dialog.Close>
             ) : (
-              <Button
-                variant="ghost"
-                size="icon-sm"
+              <IconButton
+                prominence="internal"
+                size="sm"
                 aria-label="Collapse sidebar"
                 title="Collapse sidebar"
                 onClick={onCollapseToggle}
                 className="text-content-secondary"
               >
                 <PanelLeftClose />
-              </Button>
+              </IconButton>
             )}
           </>
         )}
@@ -219,9 +219,9 @@ export function AppShell({
         <Dialog.Root open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3 md:hidden">
             <Dialog.Trigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Open navigation">
+              <IconButton prominence="internal" size="md" aria-label="Open navigation">
                 <Menu />
-              </Button>
+              </IconButton>
             </Dialog.Trigger>
             <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
               {pageTitle}

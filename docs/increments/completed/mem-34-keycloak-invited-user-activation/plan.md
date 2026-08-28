@@ -53,9 +53,9 @@
 - [x] Test activation callback correlation for exact verified-email match, no match, ambiguous match, unverified email, and an existing verified user signing in without the copy/share secret.
 - [x] Test that provider creation or email failure creates no membership and that retry converges to one Keycloak user and one open invitation.
 - [x] Exercise revoke, expiry, and replay after the provider account exists; none may create binding or authority. Verify rotation invalidates prior capability links while the still-pending invitation remains acceptable through exact verified-email correlation.
-- [ ] Exercise the real Spring browser chain and local Keycloak action email with `VERIFY_EMAIL`, `UPDATE_PASSWORD`, exact redirect, Authorization Code + S256 PKCE, and `ActorId`-only final session.
-- [ ] Verify the `memoryos-user-provisioner` grant is realm-local and no broader than Keycloak 26.7.0 requires; record `keycloak/keycloak#51411` as the narrowing trigger.
+- [x] Exercise the real Spring browser chain and local Keycloak action email with `VERIFY_EMAIL`, `UPDATE_PASSWORD`, exact redirect, Authorization Code + S256 PKCE, and `ActorId`-only final session.
+- [x] Verify the `memoryos-user-provisioner` grant is realm-local and no broader than Keycloak 26.7.0 requires; record `keycloak/keycloak#51411` as the narrowing trigger.
 - [x] Inspect every changed Java, Kotlin DSL, YAML, properties, and XML file with JetBrains warnings enabled, then compile affected modules.
 - [x] Run focused capability/API tests, `gradlew.bat clean check --no-daemon`, `pnpm check`, and the browser contract suite.
-- [ ] Deploy one exact reviewed SHA and complete the owner invitation → action email → verify email → set password → automatic acceptance staging flow through Mailpit and shared Keycloak.
-- [ ] Consolidate implemented facts into architecture/spec/test/runbook documents, complete the guarded PR loop, and close MEM-34 only after exact-merge verification.
+- [x] Deploy one exact reviewed SHA and complete the owner invitation → action email → verify email → set password → automatic acceptance staging flow through Mailpit and shared Keycloak.
+- [x] Consolidate implemented facts into architecture/spec/test/runbook documents, complete the guarded PR loop, and close MEM-34 only after exact-merge verification.

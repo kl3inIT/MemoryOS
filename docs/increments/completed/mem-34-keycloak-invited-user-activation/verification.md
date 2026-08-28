@@ -27,7 +27,9 @@
 - `pnpm test:e2e` passes 14/14 Chromium browser contracts, including activation-delivery and recovery-link presentation.
 - `sh -n infrastructure/keycloak/configure-memoryos-realm.sh` and JSON parsing of `memoryos-user-provisioner-client.json` pass.
 
-## Remaining delivery evidence
+## Final delivery evidence
 
-- Secret-safe realm reconciliation proving self-registration disabled, exact redirect set, provisioner role/secret state, and no broader direct realm-management role.
-- Exact reviewed staging SHA through owner invite, captured Keycloak action email, recipient email verification/password setup, `/invite/activate`, automatic acceptance, Organization `MEMBER`, and `ActorId`-only final session.
+- PR #36 merged as `b291a8abdbeedd56e357d3aa35bb99fabe480515`; reviewed head `d5ca8c7a31979f343a3152161a1349484c374a40` is its ancestor, and exact-merge main CI run `33037296010` passed.
+- Staging runs healthy exact-merge API and web images. Realm reconciliation disabled registration, retained only the exact callbacks, and limited `memoryos-user-provisioner` to direct `manage-users`.
+- A temporary recipient received the captured `VERIFY_EMAIL + UPDATE_PASSWORD` action email, completed verification and password setup, returned through `/invite/activate`, and accepted automatically. Keycloak showed one exact enabled verified user with no remaining required actions.
+- PostgreSQL showed the invitation `ACCEPTED`, cleared email correlation, exact issuer/subject binding, active Organization `MEMBER`, and an acceptance timestamp. Persisted sessions contained only `SPRING_SECURITY_CONTEXT` and zero `InvitationSessionState` attributes. Linear records MEM-34 as Done.

@@ -85,6 +85,15 @@ Domain Story and Consumer
 - Normal and production runtime configuration must keep springdoc API-doc endpoints disabled. Contract generation belongs to the full-context test boundary, not a temporary runtime profile or production startup task.
 - Every API change refreshes `openapi.yml` and the committed Hey API client in the same change. Backend tests reject contract drift; frontend checks reject generated-client drift.
 
+## Frontend interaction contracts
+
+- Product code chooses action `tone` (`default` or `danger`), `prominence` (`primary`, `secondary`, `tertiary`, or `internal`), and control `size` (`sm`, `md`, or `lg`). Shared UI components own rest, hover, active, focus-visible, disabled, and pending presentation in both themes.
+- Container actions use `Button`; quiet foreground-only actions use `TextButton`; icon-only actions use `IconButton` with an accessible name. Do not recreate these distinctions with feature-local color, border, background, opacity, height, or focus classes.
+- `Input`, `Select`, `Button`, and `IconButton` share the 32px, 40px, and 44px size scale. Adjacent controls use the same named size rather than handwritten heights.
+- Native buttons default to `type="button"`. A caller must request `submit` or `reset` explicitly. Pending actions retain their accessible name, expose busy state, and prevent repeated activation.
+- Disabled presentation uses semantic content, surface, and border tokens; opacity alone is not a disabled state. Keyboard focus must remain visible through the shared focus-ring role.
+- Feature code may own layout and selected-resource treatment, but it must not introduce a second standard interaction matrix or raw Tailwind palette classes for product actions.
+
 ## Data and security
 
 - Follow [production-first persistence](guidelines/persistence.md).

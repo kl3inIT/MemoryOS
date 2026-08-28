@@ -3,41 +3,41 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
 
 import { disableActionChild } from "@/components/ui/action-activation";
-import {
-  actionVariants,
-  type ActionProminence,
-  type ActionTone,
-} from "@/components/ui/action-styles";
+import type { ActionTone } from "@/components/ui/action-styles";
 import { cn } from "@/lib/utils";
 
-const buttonSizes = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg bg-clip-padding font-main-ui-action whitespace-nowrap select-none active:not-aria-[haspopup]:translate-y-px [&_svg]:pointer-events-none [&_svg]:shrink-0",
+const textButtonVariants = cva(
+  "inline-flex shrink-0 items-center justify-center gap-1 border-0 bg-transparent p-0 font-main-ui-action whitespace-nowrap outline-none transition-colors duration-150 select-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base disabled:pointer-events-none disabled:text-content-disabled aria-disabled:pointer-events-none aria-disabled:text-content-disabled [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
+      tone: {
+        default: "text-content-secondary hover:text-content-primary active:text-content-primary",
+        danger:
+          "text-status-danger-content hover:text-[var(--action-danger-tertiary-content-hover)] active:text-[var(--action-danger-tertiary-content-active)]",
+      },
       size: {
-        sm: "h-[var(--control-height-sm)] gap-1.5 px-3 [&_svg:not([class*='size-'])]:size-[var(--control-icon-sm)]",
-        md: "h-[var(--control-height-md)] gap-2 px-4 [&_svg:not([class*='size-'])]:size-[var(--control-icon-md)]",
-        lg: "h-[var(--control-height-lg)] gap-2 px-5 [&_svg:not([class*='size-'])]:size-[var(--control-icon-lg)]",
+        sm: "h-[var(--control-height-sm)] [&_svg:not([class*='size-'])]:size-[var(--control-icon-sm)]",
+        md: "h-[var(--control-height-md)] [&_svg:not([class*='size-'])]:size-[var(--control-icon-md)]",
+        lg: "h-[var(--control-height-lg)] [&_svg:not([class*='size-'])]:size-[var(--control-icon-lg)]",
       },
     },
     defaultVariants: {
+      tone: "default",
       size: "md",
     },
   },
 );
 
-type ButtonProps = Omit<React.ComponentProps<"button">, "color"> &
-  VariantProps<typeof buttonSizes> & {
+type TextButtonProps = Omit<React.ComponentProps<"button">, "color"> &
+  VariantProps<typeof textButtonVariants> & {
     asChild?: boolean;
     pending?: boolean;
     tone?: ActionTone;
-    prominence?: ActionProminence;
   };
 
-function Button({
+function TextButton({
   className,
   tone = "default",
-  prominence = "primary",
   size = "md",
   asChild = false,
   pending = false,
@@ -50,7 +50,7 @@ function Button({
   tabIndex,
   type,
   ...props
-}: ButtonProps) {
+}: TextButtonProps) {
   const Comp = asChild ? Slot.Root : "button";
   const blocked = disabled || pending;
   const blockedAsChild = asChild && blocked;
@@ -65,19 +65,18 @@ function Button({
       onKeyDownCapture={blockedAsChild ? undefined : onKeyDownCapture}
       tabIndex={blockedAsChild ? undefined : tabIndex}
       type={asChild ? undefined : (type ?? "button")}
-      data-slot="button"
+      data-slot="text-button"
       data-tone={tone}
-      data-prominence={prominence}
       data-size={size}
       data-pending={pending || undefined}
       aria-busy={pending || undefined}
       aria-disabled={asChild && blocked ? true : undefined}
       disabled={asChild ? undefined : blocked}
-      className={cn(actionVariants({ tone, prominence }), buttonSizes({ size }), className)}
+      className={cn(textButtonVariants({ tone, size }), className)}
     >
       {renderedChildren}
     </Comp>
   );
 }
 
-export { Button, buttonSizes, type ButtonProps };
+export { TextButton, textButtonVariants, type TextButtonProps };

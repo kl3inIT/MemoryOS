@@ -1,5 +1,6 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
 import type { MouseEventHandler, ReactNode } from "react";
+import { actionVariants } from "@/components/ui/action-styles";
 import { cn } from "@/lib/utils";
 
 type MenuItemProps = {
@@ -20,11 +21,9 @@ export function MenuItem({
   tone = "default",
 }: MenuItemProps) {
   const className = cn(
-    "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left font-main-ui-body outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-    tone === "danger"
-      ? "text-status-danger-content hover:bg-status-danger-surface"
-      : "text-content-primary hover:bg-action-ghost-hover",
-    disabled && "cursor-not-allowed opacity-55",
+    actionVariants({ tone, prominence: "internal" }),
+    "flex h-[var(--control-height-md)] w-full items-center gap-3 rounded-lg px-3 text-left font-main-ui-body",
+    disabled && "cursor-not-allowed",
   );
   const content = (
     <>
@@ -38,8 +37,14 @@ export function MenuItem({
   if (to) {
     return (
       <Link
+        aria-disabled={disabled || undefined}
+        tabIndex={disabled ? -1 : undefined}
         to={to}
-        onClick={onClick as MouseEventHandler<HTMLAnchorElement> | undefined}
+        onClick={
+          disabled
+            ? (event) => event.preventDefault()
+            : (onClick as MouseEventHandler<HTMLAnchorElement> | undefined)
+        }
         className={className}
       >
         {content}

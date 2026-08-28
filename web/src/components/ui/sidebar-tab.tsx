@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
+import { actionVariants } from "@/components/ui/action-styles";
 import { cn } from "@/lib/utils";
 
 type SidebarTabProps = Omit<HTMLAttributes<HTMLElement>, "children" | "onClick"> & {
@@ -34,12 +35,10 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
   ) {
     const label = typeof children === "string" ? children : undefined;
     const className = cn(
-      "flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 font-main-ui-body outline-none transition-colors duration-150 focus-visible:ring-3 focus-visible:ring-ring/50",
-      selected
-        ? "bg-surface-sunken text-content-primary hover:bg-surface-sunken"
-        : variant === "light"
-          ? "text-content-muted hover:bg-action-ghost-hover hover:text-content-secondary"
-          : "text-content-secondary hover:bg-action-ghost-hover hover:text-content-primary",
+      actionVariants({ tone: "default", prominence: "internal" }),
+      "flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 font-main-ui-body",
+      selected && "bg-surface-sunken text-content-primary",
+      !selected && variant === "light" && "text-content-muted",
       collapsed && "justify-center px-0",
     );
     const content = (

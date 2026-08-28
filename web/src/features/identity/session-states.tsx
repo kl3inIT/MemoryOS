@@ -27,7 +27,7 @@ export function SignInScreen() {
           Sign in to MemoryOS
         </h1>
 
-        <Button asChild size="lg" className="mt-8 h-11 w-full rounded-lg px-4 text-sm shadow-none">
+        <Button asChild size="lg" className="mt-8 w-full">
           <a href="/oauth2/authorization/memoryos">Continue with company account</a>
         </Button>
       </section>
@@ -62,7 +62,7 @@ export function AccessNotProvisionedScreen() {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button asChild size="lg" className="h-11 rounded-lg px-5 shadow-none">
+            <Button asChild size="lg">
               <a href="/oauth2/authorization/memoryos">Try another account</a>
             </Button>
           </EmptyContent>
@@ -92,7 +92,7 @@ export function AccessDeniedScreen() {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button asChild variant="outline">
+          <Button asChild prominence="secondary">
             <Link to="/">Return to MemoryOS</Link>
           </Button>
         </EmptyContent>
@@ -121,7 +121,7 @@ export function SessionErrorScreen({ onRetry }: { onRetry: () => void }) {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button variant="outline" onClick={onRetry}>
+          <Button prominence="secondary" onClick={onRetry}>
             Try again
           </Button>
         </EmptyContent>
