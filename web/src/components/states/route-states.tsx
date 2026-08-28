@@ -60,7 +60,7 @@ export function RouteNotFound() {
           <EmptyDescription>No data changed. Return to MemoryOS.</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button asChild variant="outline">
+          <Button asChild prominence="secondary">
             <Link to="/">Return home</Link>
           </Button>
         </EmptyContent>

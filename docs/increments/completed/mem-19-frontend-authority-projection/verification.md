@@ -40,3 +40,7 @@ Evidence is appended only after the corresponding test, command, or runtime scen
 - `pnpm check`: passed, including generated-client stability, zero-warning lint, formatting, TypeScript, 18 unit tests, route generation, and production build.
 - `pnpm test:e2e`: 12/12 Chromium scenarios passed. Owner administration remained functional at desktop width. The member scenario ran at `390 × 844`, showed server-derived member context without Admin Panel, preserved the `/admin/invitations?status=PENDING` deep link (with canonical default search fields), rendered access denied, and recorded zero invitation requests.
 - Cross-actor unit verification changed the identity projection in one mounted boundary and observed prior query and mutation caches removed before member UI rendered.
+
+## Closure reconciliation
+
+PR #32 merged and PR #33 corrected explicit self-hosted Infisical domain propagation. Exact-main CI run `32978942562` passed backend, frontend image, frontend, and all 12 Playwright scenarios. Staging source SHA `a17ea6c88e647fdd6c2f638dc26cf65061d23b48` projected `OWNER + INVITATIONS_MANAGE` for a real owner and `MEMBER + no capabilities` for a newly invited verified member; the member received `403 INVITATION_NOT_OWNER`. Linear records MEM-19 as Done.

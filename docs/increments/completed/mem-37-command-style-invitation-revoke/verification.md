@@ -19,3 +19,7 @@
 - `pnpm check`: passed, including generated-client stability, lint, formatting, TypeScript, 25 unit tests, route stability, and production build.
 - Targeted Chromium invitation create/rotate/revoke flow: 1/1 passed and asserted the revoke command's same-origin header.
 - `gradlew.bat clean check --no-daemon`: passed; 17 tasks, 9 executed and 8 from cache.
+
+## Closure reconciliation
+
+PR #38 merged reviewed head `b9e8297bcf8a49b3c80a25ad5ff3aacb13ff7e92` as `c0fabd83e27bd16c12c9faca85aed2e42c4596c3`. Feature-branch CI and exact-merge main CI run `33092987501` passed backend, frontend, production frontend image, and browser-state jobs. No deployment applied to this transport-only contract cleanup. Linear records MEM-37 as Done.

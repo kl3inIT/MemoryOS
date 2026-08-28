@@ -83,4 +83,4 @@
 - [x] Run `gradlew.bat clean check --no-daemon`, `pnpm check`, the browser contract suite, and production image builds.
 - [ ] Deploy one reviewed SHA and prove API/worker health plus one complete FILE Connector indexing and cleanup flow without secret/content leakage.
 - [x] Consolidate implemented facts into architecture, connector/document/ingestion specs, verification matrices, runbooks, roadmap, and increment evidence in the same substantive change.
-- [ ] Complete the guarded PR/CodeRabbit/latest-head CI/merge-SHA loop, update MEM-35, and clean the checkout.
+- [x] Complete the guarded PR/CodeRabbit/latest-head CI/merge-SHA loop, update MEM-35, and clean the checkout.

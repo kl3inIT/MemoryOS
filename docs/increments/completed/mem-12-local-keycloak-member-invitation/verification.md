@@ -120,4 +120,10 @@ On 2026-08-25, PR #27 head `4c42cb6` published `https://memoryos.72-62-193-33.ni
 
 The `memoryos-web` client now retains only `https://memoryos.72-62-193-33.nip.io/login/oauth2/code/memoryos`, uses the matching HTTPS root/web origin, and keeps mandatory S256 PKCE. A real Chromium click on `Continue with company account` reached the public `memoryos` authorization endpoint with `client_id=memoryos-web`, the exact HTTPS callback, and `code_challenge_method=S256`. The temporary Nginx Proxy Manager operator was removed after application-level provisioning.
 
-This closes the missing shared self-registration and email-verification prerequisite. It does not prove delivery to public mail providers: Mailpit is intentionally staging-only and captures rather than relays. One final combined runtime pass—owner invitation intake through this freshly self-registered recipient and atomic acceptance—plus guarded merge/exact-SHA closure remains before MEM-12 can move to completed.
+This closes the missing shared self-registration and email-verification prerequisite. It does not prove delivery to public mail providers: Mailpit is intentionally staging-only and captures rather than relays. The final combined acceptance and merge evidence is recorded in the closure reconciliation below.
+
+## Closure reconciliation
+
+PR #32 and its PR #33 deployment correction merged and ran as staging source SHA `a17ea6c88e647fdd6c2f638dc26cf65061d23b48`. Exact-main CI passed. A real owner created a temporary invitation; a temporary enabled, verified local-Keycloak recipient authenticated with the invited email, received exactly one active Organization `MEMBER` membership, projected `MEMBER` with no capabilities, and received `403 INVITATION_NOT_OWNER`. Cleanup restored the Actor, binding, Organization, membership, invitation, and session baseline.
+
+PR #37 subsequently merged the continuation lock-scope correction as merge commit `3113913df77d58b44eb4325320db0d35732b0948`. Exact-merge main CI run `33054569691`, focused PostgreSQL concurrency tests, the real Spring invitation browser-flow integration test, and repository `clean check` passed. Linear records MEM-12 as Done.

@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DatabaseZap, FileText, LoaderCircle, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { actionVariants } from "@/components/ui/action-styles";
+import { Input } from "@/components/ui/input";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
 import {
   createFileSourceMutation,
@@ -16,6 +18,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getSourceOperation } from "@/lib/hey-api/sdk.gen";
 import type { SourceItemResponse, SourceSummaryResponse } from "@/lib/hey-api/types.gen";
+import { cn } from "@/lib/utils";
 
 const terminalOperationStatuses: Record<string, true> = {
   SUCCEEDED: true,
@@ -200,15 +203,19 @@ export function SourcesPage() {
             void submitSource();
           }}
         >
-          <input
+          <Input
             aria-label="Source name"
             value={sourceName}
             maxLength={120}
             onChange={(event) => setSourceName(event.target.value)}
             placeholder="e.g. Product documentation"
-            className="h-10 min-w-0 flex-1 rounded-lg border border-border-default bg-surface-raised px-3 font-main-ui-body text-content-primary outline-none focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
+            className="min-w-0 flex-1"
           />
-          <Button type="submit" disabled={!sourceName.trim() || createSource.isPending}>
+          <Button
+            type="submit"
+            pending={createSource.isPending}
+            disabled={!sourceName.trim() || createSource.isPending}
+          >
             <Plus />
             Add FILE source
           </Button>
@@ -284,9 +291,10 @@ export function SourcesPage() {
                   ) : null}
                 </div>
                 <Button
-                  variant="outline"
-                  className="text-status-danger-content"
+                  tone="danger"
+                  prominence="secondary"
                   disabled={busy || cleanupPending || detail.source.status === "DELETING"}
+                  pending={cleanupPending || deleteSource.isPending}
                   onClick={() => void removeSource()}
                 >
                   <Trash2 />
@@ -303,15 +311,16 @@ export function SourcesPage() {
               >
                 <label className="min-w-0 flex-1">
                   <span className="sr-only">Choose PDF, DOCX, TXT, or Markdown file</span>
-                  <input
+                  <Input
                     type="file"
                     accept=".pdf,.docx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                    className="block w-full rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-secondary file:mr-3 file:rounded-md file:border-0 file:bg-surface-accent file:px-3 file:py-1.5 file:font-medium file:text-content-primary"
+                    className="bg-surface-raised"
                   />
                 </label>
                 <Button
                   type="submit"
+                  pending={uploadItem.isPending}
                   disabled={!file || busy || detail.source.status === "DELETING"}
                 >
                   <Upload />
@@ -354,7 +363,7 @@ export function SourcesPage() {
                         </div>
                         <div className="flex gap-2">
                           <Button
-                            variant="outline"
+                            prominence="secondary"
                             size="sm"
                             disabled={busy || item.status === "DELETING"}
                             onClick={() => void reindex(item)}
@@ -362,9 +371,8 @@ export function SourcesPage() {
                             <RefreshCw /> Reindex
                           </Button>
                           <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-status-danger-content"
+                            tone="danger"
+                            prominence="secondary"
                             disabled={busy || item.status === "DELETING"}
                             onClick={() => void remove(item)}
                           >
@@ -396,12 +404,13 @@ function SourceCard({
   return (
     <button
       type="button"
+      aria-pressed={selected}
       onClick={onSelect}
-      className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-        selected
-          ? "border-focus-ring bg-surface-accent"
-          : "border-border-subtle bg-surface-raised hover:border-border-default"
-      }`}
+      className={cn(
+        actionVariants({ tone: "default", prominence: "secondary" }),
+        "w-full rounded-xl px-4 py-3 text-left",
+        selected && "border-focus-ring bg-surface-sunken",
+      )}
     >
       <span className="flex items-center justify-between gap-3">
         <span className="truncate text-sm font-medium text-content-primary">

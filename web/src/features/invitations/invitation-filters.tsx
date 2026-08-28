@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { TextButton } from "@/components/ui/text-button";
 import type {
   InvitationListSearch,
   InvitationStatusFilter,
 } from "@/features/invitations/invitation-list-search";
-
-const controlClassName =
-  "h-10 rounded-lg border border-border-default bg-surface-base px-3 font-main-ui-body text-content-primary outline-none focus:border-focus-ring focus:ring-3 focus:ring-ring/30";
 
 type InvitationFiltersProps = {
   search: InvitationListSearch;
@@ -37,21 +37,19 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
     >
       <label className="grid gap-1.5 font-secondary-action text-content-secondary">
         Email
-        <input
+        <Input
           type="search"
           value={email}
           maxLength={254}
           placeholder="Search invitation email"
-          className={controlClassName}
           onChange={(event) => setEmail(event.target.value)}
         />
       </label>
 
       <label className="grid gap-1.5 font-secondary-action text-content-secondary">
         Status
-        <select
+        <Select
           value={status}
-          className={controlClassName}
           onChange={(event) => setStatus(event.target.value as InvitationStatusFilter | "")}
         >
           <option value="">All statuses</option>
@@ -59,16 +57,12 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
           <option value="ACCEPTED">Accepted</option>
           <option value="EXPIRED">Expired</option>
           <option value="REVOKED">Revoked</option>
-        </select>
+        </Select>
       </label>
 
       <div className="flex gap-2">
-        <Button type="submit" className="h-10">
-          Apply
-        </Button>
-        <button
-          type="button"
-          className="h-10 rounded-md px-2 font-main-ui-action text-content-secondary outline-none transition-colors hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring/50"
+        <Button type="submit">Apply</Button>
+        <TextButton
           onClick={() => {
             setEmail("");
             setStatus("");
@@ -76,7 +70,7 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
           }}
         >
           Clear
-        </button>
+        </TextButton>
       </div>
     </form>
   );

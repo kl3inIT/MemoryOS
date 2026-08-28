@@ -32,3 +32,7 @@ Evidence is appended only after the corresponding test, command, inspection, or 
 - `pnpm check`: passed, including generated-client stability, zero-warning lint, formatting, TypeScript, 18 unit tests, route stability, and production build.
 - `pnpm test:e2e`: 12/12 Chromium scenarios passed with `Organization owner`/`Organization member` presentation, member deep-link denial, zero invitation requests, and Organization-only invitation copy.
 - Linear baseline was superseded by `MemoryOS — Organization ownership, Groups, Provisioning và Source ACL`; MEM-9, MEM-10, and MEM-24 now carry Organization-only scope.
+
+## Closure reconciliation
+
+PR #32 and deployment hotfix PR #33 merged and deployed. Backup manifest `20260826T135912Z.sha256` verified MemoryOS and Keycloak dumps plus restore lists on-host and off-host. The MemoryOS dump restored into isolated `memoryos_mem28_rehearsal`; V4 applied, the exact application became healthy, counts remained `actors=1`, `bindings=1`, `organizations=1`, `memberships=1`, and `invitations=1`, and Workspace tables/columns became zero. Final staging source SHA `a17ea6c88e647fdd6c2f638dc26cf65061d23b48` passed Flyway V1–V4, public health, owner/member projection, invitation acceptance, and member `403 INVITATION_NOT_OWNER`. Linear records MEM-28 as Done.

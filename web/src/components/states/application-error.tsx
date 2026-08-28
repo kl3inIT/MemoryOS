@@ -49,7 +49,7 @@ export function ApplicationError({
         </EmptyHeader>
         {onRetry && (
           <EmptyContent>
-            <Button variant="outline" onClick={onRetry}>
+            <Button prominence="secondary" onClick={onRetry}>
               Try again
             </Button>
           </EmptyContent>

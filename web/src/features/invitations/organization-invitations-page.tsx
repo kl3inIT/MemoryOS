@@ -4,6 +4,7 @@ import { Copy, Link2, MailPlus, UserRoundPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { InvitationFilters } from "@/features/invitations/invitation-filters";
 import {
   invitationListQuery,
@@ -238,7 +239,7 @@ export function OrganizationInvitationsPage() {
                 Invitations could not be loaded.
               </p>
               <Button
-                variant="outline"
+                prominence="secondary"
                 className="mt-4"
                 onClick={() => void invitationsQuery.refetch()}
               >
@@ -260,7 +261,7 @@ export function OrganizationInvitationsPage() {
               </p>
               {hasFilters && (
                 <Button
-                  variant="outline"
+                  prominence="secondary"
                   className="mt-5"
                   onClick={() =>
                     updateView({ status: undefined, email: undefined }, { resetPage: true })
@@ -321,16 +322,16 @@ export function OrganizationInvitationsPage() {
                     Secure invitation link
                   </label>
                   <div className="mt-2 flex gap-2">
-                    <input
+                    <Input
                       id="invitation-link"
                       readOnly
                       value={new URL(
                         issuedInvitation.invitationUrl,
                         window.location.origin,
                       ).toString()}
-                      className="h-10 min-w-0 flex-1 rounded-lg border border-border-default bg-surface-subtle px-3 font-main-ui-body text-content-primary outline-none focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
+                      className="min-w-0 flex-1 bg-surface-subtle"
                     />
-                    <Button type="button" size="lg" onClick={() => void copyInvitationLink()}>
+                    <Button type="button" onClick={() => void copyInvitationLink()}>
                       {invitationLinkCopied ? <Link2 /> : <Copy />}
                       {invitationLinkCopied ? "Copied" : "Copy"}
                     </Button>
@@ -347,7 +348,7 @@ export function OrganizationInvitationsPage() {
                   >
                     Email address
                   </label>
-                  <input
+                  <Input
                     id="invite-email"
                     type="email"
                     autoComplete="email"
@@ -356,7 +357,8 @@ export function OrganizationInvitationsPage() {
                     value={inviteeEmail}
                     onChange={(event) => setInviteeEmail(event.target.value)}
                     placeholder="name@company.com"
-                    className="mt-2 h-11 w-full rounded-lg border border-border-default bg-surface-base px-3.5 font-main-ui-body text-content-primary outline-none placeholder:text-content-muted focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
+                    size="lg"
+                    className="mt-2"
                   />
                 </div>
               )}
@@ -370,7 +372,7 @@ export function OrganizationInvitationsPage() {
               <div className="mt-7 flex justify-end gap-2">
                 <Button
                   type="button"
-                  variant="ghost"
+                  prominence="tertiary"
                   onClick={closeInvitationDialog}
                   disabled={createInvitation.isPending || rotateInvitation.isPending}
                 >
@@ -379,6 +381,7 @@ export function OrganizationInvitationsPage() {
                 {!issuedInvitation && (
                   <Button
                     type="submit"
+                    pending={createInvitation.isPending}
                     disabled={!inviteeEmail.trim() || createInvitation.isPending}
                   >
                     {createInvitation.isPending ? "Creating…" : "Create invitation"}

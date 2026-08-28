@@ -1,7 +1,7 @@
 import { ArrowUp } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 
 export function NewSessionPage() {
   return (
@@ -25,15 +25,9 @@ export function NewSessionPage() {
               className="block w-full resize-none bg-transparent px-5 pt-5 font-main-ui-body text-content-primary outline-none placeholder:text-content-muted disabled:cursor-not-allowed disabled:opacity-100"
             />
             <div className="flex justify-end px-4 pb-4">
-              <Button
-                type="button"
-                size="icon-lg"
-                aria-label="Send message"
-                disabled
-                className="rounded-xl"
-              >
+              <IconButton size="lg" aria-label="Send message" disabled className="rounded-xl">
                 <ArrowUp />
-              </Button>
+              </IconButton>
             </div>
           </div>
         </div>

@@ -55,7 +55,7 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
         </div>
       </div>
 
-      <Button asChild size="lg" className="mt-7 h-11 w-full sm:w-auto">
+      <Button asChild size="lg" className="mt-7 w-full sm:w-auto">
         <a href={invitation.data.continueUrl}>
           Continue to sign in
           <ArrowRight />
@@ -85,7 +85,7 @@ function InvitationFailure({ reason }: { reason: string }) {
         <Button asChild size="lg">
           <Link to="/">Go to MemoryOS</Link>
         </Button>
-        <Button asChild size="lg" variant="outline">
+        <Button asChild size="lg" prominence="secondary">
           <a href="mailto:?subject=MemoryOS invitation help">Ask an Organization owner</a>
         </Button>
       </div>

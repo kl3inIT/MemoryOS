@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { TextButton } from "@/components/ui/text-button";
 import type {
   InvitationListSearch,
   InvitationSort,
@@ -193,9 +195,9 @@ export function InvitationTable({
                       className={cn("px-4 py-3", header.column.id === "actions" && "text-right")}
                     >
                       {header.isPlaceholder ? null : sortable ? (
-                        <button
-                          type="button"
-                          className="inline-flex min-h-8 items-center gap-1.5 rounded-md font-secondary-action text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-ring/40"
+                        <TextButton
+                          size="sm"
+                          className="gap-1.5 font-secondary-action"
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           <table.FlexRender header={header} />
@@ -207,7 +209,7 @@ export function InvitationTable({
                               aria-hidden="true"
                             />
                           )}
-                        </button>
+                        </TextButton>
                       ) : header.column.id === "actions" ? (
                         <span className="sr-only">Actions</span>
                       ) : (
@@ -245,16 +247,17 @@ export function InvitationTable({
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
             Rows
-            <select
+            <Select
               aria-label="Rows per page"
               value={size}
-              className="h-9 rounded-lg border border-border-default bg-surface-base px-2 font-main-ui-body text-content-primary outline-none focus:border-focus-ring focus:ring-3 focus:ring-ring/30"
+              size="sm"
+              className="w-auto px-2"
               onChange={(event) => table.setPageSize(Number(event.target.value))}
             >
               <option value={20}>20</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
-            </select>
+            </Select>
           </label>
           <span className="min-w-24 text-center font-secondary-body text-content-secondary">
             Page {page + 1} of {Math.max(table.getPageCount(), 1)}
@@ -262,7 +265,7 @@ export function InvitationTable({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            prominence="secondary"
             disabled={!table.getCanPreviousPage()}
             onClick={() => table.previousPage()}
           >
@@ -271,7 +274,7 @@ export function InvitationTable({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            prominence="secondary"
             disabled={!table.getCanNextPage()}
             onClick={() => table.nextPage()}
           >
@@ -304,7 +307,7 @@ function InvitationRowActions({
     <div className="flex min-w-52 flex-col items-end gap-1.5">
       <div className="flex gap-1">
         <Button
-          variant="outline"
+          prominence="secondary"
           size="sm"
           aria-label={`Rotate invitation link for ${invitation.email}`}
           disabled={pendingAction !== undefined}
@@ -314,9 +317,9 @@ function InvitationRowActions({
           {pendingAction === "rotate" ? "Rotating…" : "Rotate"}
         </Button>
         <Button
-          variant="ghost"
+          tone="danger"
+          prominence="tertiary"
           size="sm"
-          className="text-status-danger-content"
           aria-label={`Revoke invitation for ${invitation.email}`}
           disabled={pendingAction !== undefined}
           onClick={() => onRevoke(invitation)}
