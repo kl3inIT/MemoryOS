@@ -63,7 +63,7 @@ final class SourceController {
 
     @Operation(
             operationId = "createFileSource",
-            summary = "Create an Organization-owned FILE source"
+            summary = "Create a Tenant-owned FILE source"
     )
     @PostMapping(value = "/file", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
@@ -82,7 +82,7 @@ final class SourceController {
         return SourceDetailResponse.from(sources.createFileSource(identityContext.actorId(), request.name()));
     }
 
-    @Operation(operationId = "listSources", summary = "List Organization sources")
+    @Operation(operationId = "listSources", summary = "List Tenant sources")
     @GetMapping
     List<SourceSummaryResponse> listSources(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext

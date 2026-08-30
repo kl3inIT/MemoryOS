@@ -35,7 +35,7 @@ export function createMemoryOsQueryClient() {
 export function acceptCurrentIdentity(queryClient: QueryClient, identity: CurrentIdentity) {
   const nextFingerprint = JSON.stringify([
     identity.actorId,
-    identity.organization?.role ?? null,
+    identity.tenant?.role ?? null,
     [...identity.capabilities].sort(),
   ]);
   const acceptedFingerprint = acceptedSessionFingerprints.get(queryClient);

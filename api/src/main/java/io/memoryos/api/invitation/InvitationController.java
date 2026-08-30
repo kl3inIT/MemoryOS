@@ -24,7 +24,7 @@ import io.memoryos.invitation.InvitationService;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.IssuedInvitation;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -62,7 +62,7 @@ final class InvitationController {
 
     @Operation(
             operationId = "listInvitations",
-            summary = "List the current owner's Organization invitations",
+            summary = "List the current owner's Tenant invitations",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -91,7 +91,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner",
+            description = "The actor is not an active Tenant owner",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -119,7 +119,7 @@ final class InvitationController {
 
     @Operation(
             operationId = "createInvitation",
-            summary = "Create one Organization member invitation",
+            summary = "Create one Tenant member invitation",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -148,7 +148,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner or the same-origin header is missing",
+            description = "The actor is not an active Tenant owner or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -217,7 +217,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner or the same-origin header is missing",
+            description = "The actor is not an active Tenant owner or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -264,7 +264,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner or the same-origin header is missing",
+            description = "The actor is not an active Tenant owner or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -332,10 +332,10 @@ final class InvitationController {
         try {
             var continuation = invitations.resume(
                     invitationState.invitationId(),
-                    new OrganizationId(invitationState.organizationId())
+                    new TenantId(invitationState.tenantId())
             );
             return new CurrentInvitationResponse(
-                    continuation.organizationDisplayName(),
+                    continuation.tenantDisplayName(),
                     continuation.expiresAt(),
                     "/invite/continue"
             );

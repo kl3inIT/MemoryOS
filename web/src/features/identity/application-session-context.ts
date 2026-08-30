@@ -1,8 +1,8 @@
 import { createContext, useContext } from "react";
-import type { CurrentIdentity, CurrentOrganization } from "@/lib/hey-api/types.gen";
+import type { CurrentIdentity, CurrentTenant } from "@/lib/hey-api/types.gen";
 
 export type ApplicationCapability = CurrentIdentity["capabilities"][number];
-export type ApplicationSession = CurrentIdentity & { organization: CurrentOrganization };
+export type ApplicationSession = CurrentIdentity & { tenant: CurrentTenant };
 
 export const ApplicationSessionContext = createContext<ApplicationSession | null>(null);
 

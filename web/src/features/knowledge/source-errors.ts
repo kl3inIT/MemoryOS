@@ -4,8 +4,8 @@ type SourceMutation = "create" | "upload" | "reindex" | "remove-item" | "delete-
 type SourceActionFailure = "cleanup-failed" | "cleanup-timeout" | "invalid-cleanup-response";
 
 const statusMessages: Record<string, string> = {
-  SOURCE_ORGANIZATION_INACTIVE:
-    "Processing paused because this Organization is inactive. Contact an administrator.",
+  SOURCE_TENANT_INACTIVE:
+    "Processing paused because this Tenant is inactive. Contact an administrator.",
   SOURCE_EXTRACTION_UNSUPPORTED: "This file type could not be extracted.",
   SOURCE_EXTRACTION_ENCRYPTED: "Password-protected files cannot be indexed.",
   SOURCE_EXTRACTION_MALFORMED: "The file could not be read. Check the file and upload it again.",
@@ -44,7 +44,7 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
   if (error instanceof ApiError) {
     const code = problemCode(error);
     if (code && statusMessages[code]) return statusMessages[code];
-    if (error.status === 403) return "Only an active Organization owner can manage sources.";
+    if (error.status === 403) return "Only an active Tenant owner can manage sources.";
     if (error.status === 404) return unavailableMessage(mutation);
     if (error.status === 409) return conflictMessage(mutation);
     if (error.status === 400 || error.status === 413)

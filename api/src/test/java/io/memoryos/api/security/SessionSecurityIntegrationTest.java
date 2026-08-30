@@ -113,10 +113,15 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.client.registration.memoryos.scope", () -> "openid");
         registry.add("spring.security.oauth2.client.registration.memoryos.provider", () -> "memoryos");
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> ISSUER);
-        registry.add("memoryos.initial-organization.owner-subject", () -> "initial-owner");
-        registry.add("memoryos.initial-organization.slug", () -> "tasco");
-        registry.add("memoryos.initial-organization.display-name", () -> "Tasco");
-        registry.add("memoryos.initial-organization.change-reference", () -> "TEST-BROWSER-BOOTSTRAP");
+        registry.add(
+                "arconia.multitenancy.resolution.fixed.tenant-identifier",
+                () -> "10000000-0000-0000-0000-000000000024"
+        );
+        registry.add("memoryos.initial-tenant.id", () -> "10000000-0000-0000-0000-000000000024");
+        registry.add("memoryos.initial-tenant.owner-subject", () -> "initial-owner");
+        registry.add("memoryos.initial-tenant.slug", () -> "tasco");
+        registry.add("memoryos.initial-tenant.display-name", () -> "Tasco");
+        registry.add("memoryos.initial-tenant.change-reference", () -> "TEST-BROWSER-BOOTSTRAP");
     }
 
     @AfterAll
@@ -189,8 +194,8 @@ class SessionSecurityIntegrationTest {
             assertTrue(currentIdentity.body().contains(
                     "\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]"
             ));
-            assertEquals(1L, count("organizations"));
-            assertEquals(1L, count("organization_memberships"));
+            assertEquals(1L, count("tenants"));
+            assertEquals(1L, count("tenant_memberships"));
 
             List<byte[]> attributes = jdbcClient.sql("SELECT attribute_bytes FROM spring_session_attributes")
                     .query(byte[].class)
@@ -394,7 +399,7 @@ class SessionSecurityIntegrationTest {
                     .headers().firstValue("content-type").orElseThrow());
             assertEquals("/api/invitations", jsonString(invalidPageSize.body(), "instance"));
         } finally {
-            jdbcClient.sql("DELETE FROM organization_invitations").update();
+            jdbcClient.sql("DELETE FROM tenant_invitations").update();
             jdbcClient.sql("DELETE FROM spring_session").update();
         }
     }
@@ -423,7 +428,7 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
-    void rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession() throws Exception {
+    void rejectsABoundIdentityWithoutTenantMembershipAndInvalidatesItsSession() throws Exception {
         AUTHENTICATING_SUBJECT.set("unprovisioned-user");
         UUID unprovisionedActorId = UUID.randomUUID();
         jdbcClient.sql("INSERT INTO actors (id) VALUES (:actorId)")
@@ -549,7 +554,7 @@ class SessionSecurityIntegrationTest {
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, current.statusCode());
-            assertEquals("Tasco", jsonString(current.body(), "organizationDisplayName"));
+            assertEquals("Tasco", jsonString(current.body(), "tenantDisplayName"));
 
             AUTHENTICATING_SUBJECT.set(memberSubject);
             AUTHENTICATING_EMAIL.set(memberEmail);
@@ -605,9 +610,9 @@ class SessionSecurityIntegrationTest {
                 assertEquals(403, response.statusCode());
                 assertEquals("INVITATION_NOT_OWNER", jsonString(response.body(), "code"));
             }
-            assertEquals("MEMBER", organizationMembershipRole(memberActorId));
+            assertEquals("MEMBER", tenantMembershipRole(memberActorId));
             assertEquals("ACCEPTED", jdbcClient.sql("""
-                            SELECT status FROM organization_invitations
+                            SELECT status FROM tenant_invitations
                             WHERE normalized_email = :email
                             """)
                     .param("email", memberEmail)
@@ -674,7 +679,7 @@ class SessionSecurityIntegrationTest {
             assertEquals(200, identity.statusCode());
             assertEquals("MEMBER", jsonString(identity.body(), "role"));
             assertEquals("ACCEPTED", jdbcClient.sql("""
-                            SELECT status FROM organization_invitations
+                            SELECT status FROM tenant_invitations
                             WHERE normalized_email = :email
                             """)
                     .param("email", memberEmail)
@@ -720,7 +725,7 @@ class SessionSecurityIntegrationTest {
             assertEquals(302, callback.statusCode());
             assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
             assertEquals("ACCEPTED", jdbcClient.sql("""
-                            SELECT status FROM organization_invitations
+                            SELECT status FROM tenant_invitations
                             WHERE normalized_email = :email
                             """)
                     .param("email", memberEmail)
@@ -803,7 +808,7 @@ class SessionSecurityIntegrationTest {
                     .query(Long.class)
                     .single());
             assertEquals("PENDING", jdbcClient.sql("""
-                            SELECT status FROM organization_invitations
+                            SELECT status FROM tenant_invitations
                             WHERE normalized_email = :email
                             """)
                     .param("email", invitedEmail)
@@ -813,7 +818,7 @@ class SessionSecurityIntegrationTest {
             AUTHENTICATING_SUBJECT.set("initial-owner");
             AUTHENTICATING_EMAIL.set("owner@example.test");
             AUTHENTICATING_EMAIL_VERIFIED.set(true);
-            jdbcClient.sql("DELETE FROM organization_invitations WHERE normalized_email = :email")
+            jdbcClient.sql("DELETE FROM tenant_invitations WHERE normalized_email = :email")
                     .param("email", invitedEmail)
                     .update();
             jdbcClient.sql("DELETE FROM spring_session").update();
@@ -873,8 +878,8 @@ class SessionSecurityIntegrationTest {
         );
     }
 
-    private String organizationMembershipRole(UUID actorId) {
-        return jdbcClient.sql("SELECT role FROM organization_memberships WHERE actor_id = :actorId")
+    private String tenantMembershipRole(UUID actorId) {
+        return jdbcClient.sql("SELECT role FROM tenant_memberships WHERE actor_id = :actorId")
                 .param("actorId", actorId)
                 .query(String.class)
                 .single();
@@ -882,7 +887,7 @@ class SessionSecurityIntegrationTest {
 
     private boolean databaseContains(String value) {
         return jdbcClient.sql("""
-                        SELECT COUNT(*) FROM organization_invitations
+                        SELECT COUNT(*) FROM tenant_invitations
                         WHERE secret_digest = :value OR normalized_email = :value
                         """)
                 .param("value", value)
@@ -904,7 +909,7 @@ class SessionSecurityIntegrationTest {
     }
 
     private void deleteInvitedMember(String subject, String email) {
-        jdbcClient.sql("DELETE FROM organization_invitations WHERE normalized_email = :email")
+        jdbcClient.sql("DELETE FROM tenant_invitations WHERE normalized_email = :email")
                 .param("email", email)
                 .update();
         jdbcClient.sql("""
@@ -916,7 +921,7 @@ class SessionSecurityIntegrationTest {
                 .query(UUID.class)
                 .optional()
                 .ifPresent(actorId -> {
-                    jdbcClient.sql("DELETE FROM organization_memberships WHERE actor_id = :actorId")
+                    jdbcClient.sql("DELETE FROM tenant_memberships WHERE actor_id = :actorId")
                             .param("actorId", actorId)
                             .update();
                     jdbcClient.sql("""

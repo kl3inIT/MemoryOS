@@ -6,7 +6,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 import io.memoryos.document.DocumentCommandService;
 import io.memoryos.document.DocumentId;
 
@@ -113,7 +113,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
 
     private CleanupWork load(UUID operationId, UUID token) {
         return jdbcClient.sql("""
-                        SELECT id, organization_id, operation, target_pair_id, target_item_id
+                        SELECT id, tenant_id, operation, target_pair_id, target_item_id
                         FROM connector_cleanup_attempts
                         WHERE id = :id AND claim_token = :token
                         """)
@@ -123,7 +123,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                     UUID itemId = resultSet.getObject("target_item_id", UUID.class);
                     return new CleanupWork(
                             new SourceOperationId(resultSet.getObject("id", UUID.class)),
-                            new OrganizationId(resultSet.getObject("organization_id", UUID.class)),
+                            new TenantId(resultSet.getObject("tenant_id", UUID.class)),
                             SourceOperationType.valueOf(resultSet.getString("operation")),
                             resultSet.getObject("target_pair_id", UUID.class),
                             itemId == null ? null : new SourceItemId(itemId),
@@ -136,12 +136,12 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
     private boolean ownsClaim(CleanupWork work) {
         return jdbcClient.sql("""
                         SELECT COUNT(*) FROM connector_cleanup_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND id = :id
                           AND status = 'IN_PROGRESS'
                           AND claim_token = :token
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("id", work.operationId().value())
                 .param("token", work.claimToken())
                 .query(Integer.class)
@@ -151,54 +151,54 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
     private void removeItem(CleanupWork work) {
         SourceItemId itemId = Objects.requireNonNull(work.itemId(), "REMOVE_ITEM requires itemId");
         List<UUID> documentIds = sourceDocuments.removeItemMappings(
-                work.organizationId(),
+                work.tenantId(),
                 new SourceId(work.sourceId()),
                 itemId
         );
         jdbcClient.sql("""
                         DELETE FROM index_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId())
                 .param("itemId", itemId.value())
                 .update();
         jdbcClient.sql("""
                         UPDATE connector_items SET current_version_id = NULL
-                        WHERE organization_id = :organizationId AND id = :itemId
+                        WHERE tenant_id = :tenantId AND id = :itemId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("itemId", itemId.value())
                 .update();
         jdbcClient.sql("""
                         DELETE FROM connector_item_versions
-                        WHERE organization_id = :organizationId AND connector_item_id = :itemId
+                        WHERE tenant_id = :tenantId AND connector_item_id = :itemId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("itemId", itemId.value())
                 .update();
         jdbcClient.sql("""
                         DELETE FROM connector_items
-                        WHERE organization_id = :organizationId AND id = :itemId
+                        WHERE tenant_id = :tenantId AND id = :itemId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("itemId", itemId.value())
                 .update();
         documents.removeUnreferenced(
-                work.organizationId(),
+                work.tenantId(),
                 documentIds.stream().map(DocumentId::new).toList()
         );
-        recomputePair(work.organizationId(), work.sourceId());
+        recomputePair(work.tenantId(), work.sourceId());
     }
 
     private void deleteSource(CleanupWork work) {
         UUID connectorId = jdbcClient.sql("""
                         SELECT connector_id FROM connector_credential_pairs
-                        WHERE organization_id = :organizationId AND id = :pairId
+                        WHERE tenant_id = :tenantId AND id = :pairId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId())
                 .query(UUID.class)
                 .optional()
@@ -208,67 +208,67 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
             return;
         }
         List<UUID> documentIds = sourceDocuments.removeSourceMappings(
-                work.organizationId(),
+                work.tenantId(),
                 new SourceId(work.sourceId())
         );
         jdbcClient.sql("""
                         DELETE FROM index_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId())
                 .update();
         jdbcClient.sql("""
                         UPDATE connector_items SET current_version_id = NULL
-                        WHERE organization_id = :organizationId AND connector_id = :connectorId
+                        WHERE tenant_id = :tenantId AND connector_id = :connectorId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("connectorId", connectorId)
                 .update();
         jdbcClient.sql("""
                         DELETE FROM connector_item_versions
-                        WHERE organization_id = :organizationId AND connector_id = :connectorId
+                        WHERE tenant_id = :tenantId AND connector_id = :connectorId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("connectorId", connectorId)
                 .update();
         jdbcClient.sql("""
                         DELETE FROM connector_items
-                        WHERE organization_id = :organizationId AND connector_id = :connectorId
+                        WHERE tenant_id = :tenantId AND connector_id = :connectorId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("connectorId", connectorId)
                 .update();
         jdbcClient.sql("""
                         DELETE FROM connector_credential_pairs
-                        WHERE organization_id = :organizationId AND id = :pairId
+                        WHERE tenant_id = :tenantId AND id = :pairId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId())
                 .update();
         jdbcClient.sql("""
                         DELETE FROM connectors
-                        WHERE organization_id = :organizationId AND id = :connectorId
+                        WHERE tenant_id = :tenantId AND id = :connectorId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("connectorId", connectorId)
                 .update();
         documents.removeUnreferenced(
-                work.organizationId(),
+                work.tenantId(),
                 documentIds.stream().map(DocumentId::new).toList()
         );
     }
 
 
-    private void recomputePair(OrganizationId organizationId, UUID sourceId) {
+    private void recomputePair(TenantId tenantId, UUID sourceId) {
         long documents = jdbcClient.sql("""
                         SELECT COUNT(*) FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND retrieval_eligible = TRUE
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId)
                 .query(Long.class)
                 .single();
@@ -277,12 +277,12 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                         SET document_count = :documentCount,
                             status = CASE WHEN :documentCount > 0 THEN 'ACTIVE' ELSE 'NOT_STARTED' END,
                             updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND id = :pairId
                           AND status <> 'DELETING'
                         """)
                 .param("documentCount", documents)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId)
                 .update();
     }
@@ -293,14 +293,14 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                         SET status = :status, error_code = :errorCode,
                             completed_at = CURRENT_TIMESTAMP,
                             claim_token = NULL, lease_expires_at = NULL
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND id = :id
                           AND status = 'IN_PROGRESS'
                           AND claim_token = :token
                         """)
                 .param("status", status)
                 .param("errorCode", errorCode)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("id", work.operationId().value())
                 .param("token", work.claimToken())
                 .update();

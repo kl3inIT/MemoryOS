@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -31,45 +31,45 @@ public class JdbcSourceRepository {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
     }
 
-    public SourcePair createFileSource(OrganizationId organizationId, String name) {
-        lockOrganization(organizationId);
-        UUID credentialId = ensureNoAuthCredential(organizationId);
+    public SourcePair createFileSource(TenantId tenantId, String name) {
+        lockTenant(tenantId);
+        UUID credentialId = ensureNoAuthCredential(tenantId);
         UUID connectorId = UUID.randomUUID();
         SourceId sourceId = new SourceId(UUID.randomUUID());
         jdbcClient.sql("""
-                        INSERT INTO connectors (id, organization_id, name, connector_type, status)
-                        VALUES (:id, :organizationId, :name, 'FILE', 'ACTIVE')
+                        INSERT INTO connectors (id, tenant_id, name, connector_type, status)
+                        VALUES (:id, :tenantId, :name, 'FILE', 'ACTIVE')
                         """)
                 .param("id", connectorId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("name", name)
                 .update();
         jdbcClient.sql("""
                         INSERT INTO connector_credential_pairs (
-                            id, organization_id, connector_id, credential_id, access_type, status
+                            id, tenant_id, connector_id, credential_id, access_type, status
                         ) VALUES (
-                            :id, :organizationId, :connectorId, :credentialId, 'PUBLIC', 'NOT_STARTED'
+                            :id, :tenantId, :connectorId, :credentialId, 'PUBLIC', 'NOT_STARTED'
                         )
                         """)
                 .param("id", sourceId.value())
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", connectorId)
                 .param("credentialId", credentialId)
                 .update();
         return new SourcePair(connectorId, sourceId, SourceStatus.NOT_STARTED, 0);
     }
 
-    public SourcePair lock(OrganizationId organizationId, SourceId sourceId) {
+    public SourcePair lock(TenantId tenantId, SourceId sourceId) {
         return jdbcClient.sql("""
                         SELECT pair.connector_id, pair.status, pair.pair_sequence
                         FROM connector_credential_pairs pair
                         JOIN connectors connector
-                          ON connector.organization_id = pair.organization_id
+                          ON connector.tenant_id = pair.tenant_id
                          AND connector.id = pair.connector_id
-                        WHERE pair.organization_id = :organizationId AND pair.id = :pairId
+                        WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
                         FOR UPDATE
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query((resultSet, ignored) -> new SourcePair(
                         resultSet.getObject("connector_id", UUID.class),
@@ -81,35 +81,35 @@ public class JdbcSourceRepository {
                 .orElseThrow(SourceException::notFound);
     }
 
-    public void markDeleting(OrganizationId organizationId, SourcePair pair) {
+    public void markDeleting(TenantId tenantId, SourcePair pair) {
         jdbcClient.sql("""
                         UPDATE connectors SET status = 'DELETING', updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId AND id = :connectorId
+                        WHERE tenant_id = :tenantId AND id = :connectorId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
                 .update();
         jdbcClient.sql("""
                         UPDATE connector_credential_pairs SET status = 'DELETING', updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId AND id = :pairId
+                        WHERE tenant_id = :tenantId AND id = :pairId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", pair.sourceId().value())
                 .update();
     }
 
     public Optional<SourceOperationView> findCleanup(
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceOperationType type,
             String targetKey
     ) {
         return jdbcClient.sql("""
                         SELECT id, operation, status, created_at, completed_at, error_code
                         FROM connector_cleanup_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND operation = :operation AND target_key = :targetKey
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("operation", type.name())
                 .param("targetKey", targetKey)
                 .query(JdbcSourceRepository::cleanupOperation)
@@ -118,7 +118,7 @@ public class JdbcSourceRepository {
 
     public SourceOperationView createCleanup(
             SourceOperationId operationId,
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceOperationType type,
             String targetKey,
             SourceId sourceId,
@@ -126,60 +126,60 @@ public class JdbcSourceRepository {
     ) {
         jdbcClient.sql("""
                         INSERT INTO connector_cleanup_attempts (
-                            id, organization_id, operation, target_key,
+                            id, tenant_id, operation, target_key,
                             target_pair_id, target_item_id, status
                         ) VALUES (
-                            :id, :organizationId, :operation, :targetKey,
+                            :id, :tenantId, :operation, :targetKey,
                             :pairId, :itemId, 'NOT_STARTED'
                         )
                         """)
                 .param("id", operationId.value())
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("operation", type.name())
                 .param("targetKey", targetKey)
                 .param("pairId", sourceId.value())
                 .param("itemId", itemId == null ? null : itemId.value())
                 .update();
-        return findCleanupById(organizationId, operationId).orElseThrow();
+        return findCleanupById(tenantId, operationId).orElseThrow();
     }
 
     public Optional<SourceOperationView> findCleanupById(
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceOperationId operationId
     ) {
         return jdbcClient.sql("""
                         SELECT id, operation, status, created_at, completed_at, error_code
                         FROM connector_cleanup_attempts
-                        WHERE organization_id = :organizationId AND id = :id
+                        WHERE tenant_id = :tenantId AND id = :id
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("id", operationId.value())
                 .query(JdbcSourceRepository::cleanupOperation)
                 .optional();
     }
 
-    public void supersedeItemCleanups(OrganizationId organizationId, SourceId sourceId) {
+    public void supersedeItemCleanups(TenantId tenantId, SourceId sourceId) {
         jdbcClient.sql("""
                         UPDATE connector_cleanup_attempts
                         SET status = 'SUPERSEDED', claim_token = NULL, lease_expires_at = NULL,
                             completed_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND target_pair_id = :pairId
                           AND operation = 'REMOVE_ITEM'
                           AND status IN ('NOT_STARTED', 'IN_PROGRESS')
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .update();
     }
 
-    private void lockOrganization(OrganizationId organizationId) {
+    private void lockTenant(TenantId tenantId) {
         boolean active = jdbcClient.sql("""
-                        SELECT id FROM organizations
-                        WHERE id = :organizationId AND status = 'ACTIVE'
+                        SELECT id FROM tenants
+                        WHERE id = :tenantId AND status = 'ACTIVE'
                         FOR UPDATE
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .query(UUID.class)
                 .optional()
                 .isPresent();
@@ -188,12 +188,12 @@ public class JdbcSourceRepository {
         }
     }
 
-    private UUID ensureNoAuthCredential(OrganizationId organizationId) {
+    private UUID ensureNoAuthCredential(TenantId tenantId) {
         Optional<UUID> existing = jdbcClient.sql("""
                         SELECT id FROM credentials
-                        WHERE organization_id = :organizationId AND credential_kind = 'NO_AUTH'
+                        WHERE tenant_id = :tenantId AND credential_kind = 'NO_AUTH'
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .query(UUID.class)
                 .optional();
         if (existing.isPresent()) {
@@ -201,11 +201,11 @@ public class JdbcSourceRepository {
         }
         UUID credentialId = UUID.randomUUID();
         jdbcClient.sql("""
-                        INSERT INTO credentials (id, organization_id, credential_kind, status)
-                        VALUES (:id, :organizationId, 'NO_AUTH', 'ACTIVE')
+                        INSERT INTO credentials (id, tenant_id, credential_kind, status)
+                        VALUES (:id, :tenantId, 'NO_AUTH', 'ACTIVE')
                         """)
                 .param("id", credentialId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .update();
         return credentialId;
     }

@@ -4,7 +4,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
 import io.memoryos.identity.ActorId;
-import io.memoryos.organization.OrganizationAccessResolver;
+import io.memoryos.tenant.TenantAccessResolver;
 
 import java.util.Objects;
 
@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DefaultSourceDocumentAccessResolver implements SourceDocumentAccessResolver {
 
-    private final OrganizationAccessResolver organizations;
+    private final TenantAccessResolver tenants;
     private final JdbcSourceDocumentRepository documents;
 
     public DefaultSourceDocumentAccessResolver(
-            OrganizationAccessResolver organizations,
+            TenantAccessResolver tenants,
             JdbcSourceDocumentRepository documents
     ) {
-        this.organizations = Objects.requireNonNull(organizations, "organizations must not be null");
+        this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
         this.documents = Objects.requireNonNull(documents, "documents must not be null");
     }
 
@@ -30,8 +30,8 @@ public class DefaultSourceDocumentAccessResolver implements SourceDocumentAccess
     public boolean canRead(ActorId actorId, DocumentId documentId) {
         Objects.requireNonNull(actorId, "actorId must not be null");
         Objects.requireNonNull(documentId, "documentId must not be null");
-        return organizations.findActiveOrganization(actorId)
-                .map(organizationId -> documents.hasEligibleMapping(organizationId, documentId))
+        return tenants.findActiveTenant(actorId)
+                .map(tenantId -> documents.hasEligibleMapping(tenantId, documentId))
                 .orElse(false);
     }
 }

@@ -126,7 +126,7 @@ export const deleteSourceMutation = (options?: Partial<Options<DeleteSourceData>
 };
 
 /**
- * Create an Organization-owned FILE source
+ * Create a Tenant-owned FILE source
  */
 export const createFileSourceMutation = (options?: Partial<Options<CreateFileSourceData>>): UseMutationOptions<CreateFileSourceResponse, DefaultError, Options<CreateFileSourceData>> => {
     const mutationOptions: UseMutationOptions<CreateFileSourceResponse, DefaultError, Options<CreateFileSourceData>> = {
@@ -145,7 +145,7 @@ export const createFileSourceMutation = (options?: Partial<Options<CreateFileSou
 export const listInvitationsQueryKey = (options?: Options<ListInvitationsData>) => createQueryKey('listInvitations', options);
 
 /**
- * List the current owner's Organization invitations
+ * List the current owner's Tenant invitations
  */
 export const listInvitationsOptions = (options?: Options<ListInvitationsData>) => queryOptions<ListInvitationsResponse, ListInvitationsError, ListInvitationsResponse, ReturnType<typeof listInvitationsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -192,7 +192,7 @@ const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'hea
 export const listInvitationsInfiniteQueryKey = (options?: Options<ListInvitationsData>): QueryKey<Options<ListInvitationsData>> => createQueryKey('listInvitations', options, true);
 
 /**
- * List the current owner's Organization invitations
+ * List the current owner's Tenant invitations
  */
 export const listInvitationsInfiniteOptions = (options?: Options<ListInvitationsData>) => {
     const opts = infiniteQueryOptions<ListInvitationsResponse, ListInvitationsError, InfiniteData<ListInvitationsResponse>, QueryKey<Options<ListInvitationsData>>, number | Pick<QueryKey<Options<ListInvitationsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -220,7 +220,7 @@ export const listInvitationsInfiniteOptions = (options?: Options<ListInvitations
 };
 
 /**
- * Create one Organization member invitation
+ * Create one Tenant member invitation
  */
 export const createInvitationMutation = (options?: Partial<Options<CreateInvitationData>>): UseMutationOptions<CreateInvitationResponse, CreateInvitationError, Options<CreateInvitationData>> => {
     const mutationOptions: UseMutationOptions<CreateInvitationResponse, CreateInvitationError, Options<CreateInvitationData>> = {
@@ -273,7 +273,7 @@ export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitat
 export const listSourcesQueryKey = (options?: Options<ListSourcesData>) => createQueryKey('listSources', options);
 
 /**
- * List Organization sources
+ * List Tenant sources
  */
 export const listSourcesOptions = (options?: Options<ListSourcesData>) => queryOptions<ListSourcesResponse, DefaultError, ListSourcesResponse, ReturnType<typeof listSourcesQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -365,7 +365,7 @@ export const getCurrentIdentityQueryKey = (options?: Options<GetCurrentIdentityD
 /**
  * Return the authenticated MemoryOS actor
  *
- * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Organization authority projection.
+ * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Tenant authority projection.
  */
 export const getCurrentIdentityOptions = (options?: Options<GetCurrentIdentityData>) => queryOptions<GetCurrentIdentityResponse, DefaultError, GetCurrentIdentityResponse, ReturnType<typeof getCurrentIdentityQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

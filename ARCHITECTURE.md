@@ -25,25 +25,26 @@ The web design system remains local to the single application. `styles/tokens.cs
 
 ## Capability boundaries
 
-`core` contains six implemented closed Spring Modulith modules: `identity`, `organization`, `invitation`, `connector`, `document`, and `ingestion`. A capability root package is its public API; application services own authorization, validation, orchestration, and transaction boundaries, while concrete `persistence` repositories own SQL, row mapping, locks, claims, conditional transitions, and bulk operations.
+`core` contains six implemented closed Spring Modulith modules: `identity`, `tenant`, `invitation`, `connector`, `document`, and `ingestion`. A capability root package is its public API; application services own authorization, validation, orchestration, and transaction boundaries, while concrete `persistence` repositories own SQL, row mapping, locks, claims, conditional transitions, and bulk operations.
 
-`organization` depends only on `identity`. `invitation` depends on public `identity` and `organization`. `document` depends only on `organization`. `connector` depends on public `identity`, `organization`, and `document`; it owns Connector/Credential/Pair/item and Pair/Document provenance. `ingestion` depends on public `connector`, `document`, and `organization` APIs and owns asynchronous orchestration. Spring Modulith and ArchUnit reject cycles, cross-capability persistence imports, deployable dependencies, and provider imports of capability internals.
+`tenant` depends only on `identity`. `invitation` depends on public `identity` and `tenant`. `document` depends only on `tenant`. `connector` depends on public `identity`, `tenant`, and `document`; it owns Connector/Credential/Pair/item and Pair/Document provenance. `ingestion` depends on public `connector`, `document`, and `tenant` APIs and owns asynchronous orchestration. Spring Modulith and ArchUnit reject cycles, cross-capability persistence imports, deployable dependencies, and provider imports of capability internals.
 
-`api` scans `io.memoryos`, so capability implementations register through Spring stereotypes. Worker scans only worker plus connector/document/ingestion and required Organization persistence packages; it carries JDBC/PostgreSQL, Tika provider auto-configuration, scheduling, readiness, and bounded batch configuration without loading API/security composition.
+`api` scans `io.memoryos`, so capability implementations register through Spring stereotypes. API composes Arconia Web fixed Tenant resolution and verifies the configured UUID against active Tenant persistence. Worker scans worker plus connector/document/ingestion and required Tenant persistence packages without loading API/security or Arconia composition; durable index and cleanup records carry the explicit `TenantId` used by every worker repository predicate.
 
 Audit is intentionally absent until a real evidence consumer defines attribution, transaction, retention, access, and export semantics. See [ADR 0003](docs/decisions/0003-defer-audit-until-evidence-consumer.md).
 
 ## Persistence and startup
 
-Flyway owns five migrations:
+Flyway owns six migrations:
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
 - `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
 - `V3__create_organization_invitations.sql`: historical Invitation lifecycle initially scoped by Organization/default Workspace.
-- `V4__collapse_workspace_into_organization.sql`: removes the default-Workspace layer and makes Organization the direct membership and invitation owner.
-- `V5__create_file_source_and_document_schema.sql`: Organization-scoped Connector/Credential/Pair/item/attempt/Document/provenance/cleanup state with composite tenant FKs, bounded binary/text checks, idempotency keys, operation ordering, and lease claims.
+- `V4__collapse_workspace_into_organization.sql`: removes the default-Workspace layer and makes Organization the direct historical owner.
+- `V5__create_file_source_and_document_schema.sql`: historical Organization-scoped Connector/Credential/Pair/item/attempt/Document/provenance/cleanup state.
+- `V6__cut_over_organization_to_tenant.sql`: renames the active schema to Tenant, preserves UUIDs and composite ownership, and enforces one `deployment_slot = 1` Tenant row.
 
-API startup requires datasource, OIDC, confidential browser-client, and initial Organization configuration. After migration, an `ApplicationRunner` invokes the transactional initial bootstrap. A migration-created singleton row is locked with `SELECT ... FOR UPDATE`; the transaction resolves or creates the exact owner binding, inserts one Organization, grants Organization `OWNER`, and publishes the Organization ID. Concurrent replicas serialize on that row. Identical configuration replays; drift or incomplete state fails startup.
+API startup requires datasource, OIDC, confidential browser-client, and initial Tenant configuration including `MEMORYOS_TENANT_ID`. After migration, an `ApplicationRunner` locks the singleton bootstrap row, resolves or creates the exact owner binding, inserts or verifies the configured Tenant UUID, grants Tenant `OWNER`, and publishes the same UUID. Concurrent replicas serialize on that row. Identical configuration replays; UUID, owner, authority, lifecycle, or descriptive drift fails startup.
 
 ## Authentication
 
@@ -53,21 +54,21 @@ The API composes three ordered security chains:
 2. Remaining `/api/**`: stateless OAuth2 Resource Server bearer authentication.
 3. Browser routes: invitation intake/continuation plus OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
 
-Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Ordinary browser login requires active Organization authority unless a pending invitation authorizes admission. Capability-link admission uses the redacted JDBC continuation. Keycloak activation-email admission returns through public `/invite/activate`, starts Authorization Code + S256 PKCE, and resolves exactly one pending unexpired invitation from the exact issuer and provider-verified normalized email without putting invitation correlation into Keycloak. Both paths enter the same locked transaction that binds the identity, grants Organization `MEMBER`, and consumes the invitation before the `ActorId`-only session is saved. Failure invalidates the partial session. Remaining API routes stay stateless and bearer-only.
+Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Ordinary browser login requires active Tenant authority unless a pending invitation authorizes admission. Both invitation paths enter the same locked transaction that binds the identity, grants Tenant `MEMBER`, and consumes the invitation before the `ActorId`-only session is persisted. Arconia request context never substitutes for membership or capability authorization.
 
 On successful browser login, Spring Security session-fixation protection rotates the session ID. The callback replaces `OAuth2AuthenticationToken` with `ActorSessionAuthenticationToken`, explicitly saves a security context whose serializable principal contains only `ActorId`, and uses a discarding authorized-client repository. Provider access, refresh, and raw ID-token state is not retained in Spring Session.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | Health status |
-| `GET /api/identity/me` | Valid bound bearer identity or authenticated browser session | Stable `actorId`, nullable active Organization presentation context, and capability list |
+| `GET /api/identity/me` | Valid bound bearer identity or authenticated browser session | Stable `actorId`, nullable active Tenant presentation context, and capability list |
 | `GET /` | Browser origin | Static application; session state is resolved through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Public accessible denial state |
 | `GET /invite/{secret}` | Public capability link | Digest lookup, redacted JDBC continuation, then invitation landing |
 | `GET /invite/activate` | Public Keycloak action return | Clear stale continuation, mark activation flow, and start browser OAuth2 login |
-| `/api/invitations/**` | Active Organization owner, except redacted current continuation | Create/list/rotate/revoke lifecycle and recipient landing context |
-| `/api/sources/**` | Active Organization owner | Create/list/detail/upload/reindex/remove/delete FILE source lifecycle; mutations use explicit POST commands |
-| `/api/source-operations/**` | Active Organization owner | Poll durable index or cleanup operation status |
+| `/api/invitations/**` | Active Tenant owner, except redacted current continuation | Create/list/rotate/revoke lifecycle and recipient landing context |
+| `/api/sources/**` | Active Tenant owner | Create/list/detail/upload/reindex/remove/delete FILE source lifecycle; mutations use explicit POST commands |
+| `/api/source-operations/**` | Active Tenant owner | Poll durable index or cleanup operation status |
 
 ## API error contract
 
@@ -93,4 +94,4 @@ The staging application origin is `https://memoryos.72-62-193-33.nip.io`, termin
 
 ## Deferred components
 
-No multi-Organization switcher, broker policy, audit history, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen, or chat UI exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.
+No multi-Tenant switcher, broker policy, audit history, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen, or chat UI exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.

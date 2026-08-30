@@ -89,7 +89,7 @@ export const deleteSource = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 /**
- * Create an Organization-owned FILE source
+ * Create a Tenant-owned FILE source
  */
 export const createFileSource = <ThrowOnError extends boolean = false>(options: Options<CreateFileSourceData, ThrowOnError>): RequestResult<CreateFileSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateFileSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -106,7 +106,7 @@ export const createFileSource = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
- * List the current owner's Organization invitations
+ * List the current owner's Tenant invitations
  */
 export const listInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListInvitationsData, ThrowOnError>): RequestResult<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError>({
     security: [{
@@ -119,7 +119,7 @@ export const listInvitations = <ThrowOnError extends boolean = false>(options?: 
 });
 
 /**
- * Create one Organization member invitation
+ * Create one Tenant member invitation
  */
 export const createInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateInvitationData, ThrowOnError>): RequestResult<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError> => (options.client ?? client).post<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError>({
     security: [{
@@ -162,7 +162,7 @@ export const revokeInvitation = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
- * List Organization sources
+ * List Tenant sources
  */
 export const listSources = <ThrowOnError extends boolean = false>(options?: Options<ListSourcesData, ThrowOnError>): RequestResult<ListSourcesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcesResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -221,7 +221,7 @@ export const getCurrentInvitation = <ThrowOnError extends boolean = false>(optio
 /**
  * Return the authenticated MemoryOS actor
  *
- * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Organization authority projection.
+ * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Tenant authority projection.
  */
 export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentIdentityData, ThrowOnError>): RequestResult<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError>({
     security: [{

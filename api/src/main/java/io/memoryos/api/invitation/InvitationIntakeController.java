@@ -2,7 +2,7 @@ package io.memoryos.api.invitation;
 
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationService;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -51,7 +51,7 @@ final class InvitationIntakeController {
             var continuation = invitations.intake(secret);
             var state = new InvitationSessionState(
                     continuation.invitationId(),
-                    continuation.organizationId().value(),
+                    continuation.tenantId().value(),
                     continuation.expiresAt()
             );
             request.getSession(true).setAttribute(InvitationSessionState.ATTRIBUTE, state);
@@ -77,7 +77,7 @@ final class InvitationIntakeController {
                 : session.getAttribute(InvitationSessionState.ATTRIBUTE);
         if (!(state instanceof InvitationSessionState(
                 var invitationId,
-                var organizationId,
+                var tenantId,
                 var expiresAt
         ))
                 || !expiresAt.isAfter(Instant.now())) {
@@ -85,7 +85,7 @@ final class InvitationIntakeController {
             return;
         }
         try {
-            invitations.resume(invitationId, new OrganizationId(organizationId));
+            invitations.resume(invitationId, new TenantId(tenantId));
             redirect(response, OAUTH_PATH);
         } catch (InvitationException exception) {
             session.removeAttribute(InvitationSessionState.ATTRIBUTE);

@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 
 import java.util.UUID;
@@ -9,7 +9,7 @@ import org.jspecify.annotations.Nullable;
 
 public record CleanupWork(
         SourceOperationId operationId,
-        OrganizationId organizationId,
+        TenantId tenantId,
         SourceOperationType type,
         UUID sourceId,
         @Nullable SourceItemId itemId,

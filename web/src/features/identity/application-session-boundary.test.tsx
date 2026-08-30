@@ -10,7 +10,7 @@ import { ApplicationSessionBoundary } from "./application-session-boundary";
 
 const OWNER_SESSION: CurrentIdentity = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
-  organization: {
+  tenant: {
     displayName: "Tasco",
     role: "OWNER",
   },
@@ -20,7 +20,7 @@ const OWNER_SESSION: CurrentIdentity = {
 const MEMBER_SESSION: CurrentIdentity = {
   ...OWNER_SESSION,
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
-  organization: { ...OWNER_SESSION.organization!, role: "MEMBER" },
+  tenant: { ...OWNER_SESSION.tenant!, role: "MEMBER" },
   capabilities: [],
 };
 
@@ -44,7 +44,7 @@ describe("ApplicationSessionBoundary", () => {
   it("renders the provisioning state when durable membership is absent", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => Response.json({ ...MEMBER_SESSION, organization: null })),
+      vi.fn(async () => Response.json({ ...MEMBER_SESSION, tenant: null })),
     );
 
     renderBoundary(createMemoryOsQueryClient());
@@ -188,7 +188,7 @@ describe("ApplicationSessionBoundary", () => {
 });
 
 function SessionRole() {
-  const role = useApplicationSession().organization.role;
+  const role = useApplicationSession().tenant.role;
   return <span>{role}</span>;
 }
 

@@ -1,6 +1,6 @@
 # MemoryOS
 
-MemoryOS is a durable personal knowledge system built as a controlled Spring Modulith monolith. External provider identities resolve to stable internal actors; the current product path bootstraps one Organization and admits its configured owner through Keycloak browser login.
+MemoryOS is a durable personal knowledge system built as a controlled Spring Modulith monolith. External provider identities resolve to stable internal actors; each self-hosted deployment bootstraps one fixed Tenant and admits its configured owner through Keycloak browser login.
 
 ## Start here
 
@@ -29,7 +29,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 | `api` | Spring Boot HTTP, validation, migration, and security composition root |
 | `worker` | Persistence-backed indexing and cleanup composition root |
 
-Current core capabilities are `identity`, `organization`, `invitation`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `identity`, `tenant`, `invitation`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 
@@ -79,20 +79,20 @@ The staging application is available at `https://memoryos.72-62-193-33.nip.io`; 
 
 ## Current runtime behavior
 
-API startup runs Flyway through V5, transactionally bootstraps or verifies the initial Organization owner, and owns authorized source commands. The worker starts after migrated API health, claims durable leased work, uses the FILE/Tika adapter for bounded detection and extraction, and token-guardedly publishes or cleans Document state. Invitation provisioning and browser/bearer authentication remain unchanged.
+API startup runs Flyway through V6, transactionally bootstraps or verifies the configured Tenant UUID and initial owner, and binds Arconia Web fixed Tenant context around HTTP requests. The worker starts after migrated API health, claims durable leased work, carries each work record's explicit `TenantId` through JDBC predicates, uses the FILE/Tika adapter for bounded detection and extraction, and token-guardedly publishes or cleans Document state.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health |
-| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable actor plus nullable Organization context and capabilities |
+| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable actor plus nullable Tenant context and capabilities |
 | `GET /api/identity/me` | Missing/invalid authentication or unknown binding | `401` |
 | `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
 | `GET /invite/activate` | Public Keycloak action return | Starts browser OAuth2 login without carrying invitation correlation |
-| `/api/sources/**` | Active Organization owner | Create/list/detail/upload/reindex/remove/delete FILE sources; mutations use POST commands |
-| `/api/source-operations/**` | Active Organization owner | Poll durable index and cleanup operations |
+| `/api/sources/**` | Active Tenant owner | Create/list/detail/upload/reindex/remove/delete FILE sources; mutations use POST commands |
+| `/api/source-operations/**` | Active Tenant owner | Poll durable index and cleanup operations |
 
-The [identity](docs/specs/identity.md), [organization](docs/specs/organization.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
+The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitation](docs/specs/invitation.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
 
 ## Engineering policies
 

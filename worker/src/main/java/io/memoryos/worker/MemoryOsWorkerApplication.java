@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "io.memoryos.connector",
         "io.memoryos.document",
         "io.memoryos.ingestion",
-        "io.memoryos.organization.persistence"
+        "io.memoryos.tenant.persistence"
 })
 public class MemoryOsWorkerApplication {
 

@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.document.DocumentId;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -43,21 +43,21 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     }
 
     public Optional<SourceOperationView> findLive(
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceId sourceId,
             JdbcSourceItemRepository.ItemVersion itemVersion
     ) {
         return jdbcClient.sql("""
                         SELECT id, status, created_at, completed_at, error_code
                         FROM index_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_version_id = :versionId
                           AND status IN ('NOT_STARTED', 'IN_PROGRESS')
                         ORDER BY pair_sequence DESC
                         FETCH FIRST 1 ROW ONLY
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .param("versionId", itemVersion.versionId())
                 .query((resultSet, ignored) -> operation(resultSet))
@@ -65,7 +65,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     }
 
     public SourceOperationView create(
-            OrganizationId organizationId,
+            TenantId tenantId,
             JdbcSourceRepository.SourcePair pair,
             JdbcSourceItemRepository.ItemVersion itemVersion
     ) {
@@ -73,9 +73,9 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         Long itemSequence = jdbcClient.sql("""
                         SELECT COALESCE(MAX(item_sequence), 0) + 1
                         FROM index_attempts
-                        WHERE organization_id = :organizationId AND connector_item_id = :itemId
+                        WHERE tenant_id = :tenantId AND connector_item_id = :itemId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("itemId", itemVersion.itemId().value())
                 .query(Long.class)
                 .single();
@@ -84,31 +84,31 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         UPDATE connector_credential_pairs
                         SET pair_sequence = :pairSequence, status = 'INDEXING',
                             error_code = NULL, updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId AND id = :pairId
+                        WHERE tenant_id = :tenantId AND id = :pairId
                         """)
                 .param("pairSequence", pairSequence)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", pair.sourceId().value())
                 .update();
         jdbcClient.sql("""
                         UPDATE connector_items SET status = 'PENDING', updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId AND id = :itemId
+                        WHERE tenant_id = :tenantId AND id = :itemId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("itemId", itemVersion.itemId().value())
                 .update();
         jdbcClient.sql("""
                         INSERT INTO index_attempts (
-                            id, organization_id, connector_id, connector_credential_pair_id,
+                            id, tenant_id, connector_id, connector_credential_pair_id,
                             connector_item_id, connector_item_version_id,
                             pair_sequence, item_sequence, status
                         ) VALUES (
-                            :id, :organizationId, :connectorId, :pairId,
+                            :id, :tenantId, :connectorId, :pairId,
                             :itemId, :versionId, :pairSequence, :itemSequence, 'NOT_STARTED'
                         )
                         """)
                 .param("id", attemptId.value())
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
                 .param("pairId", pair.sourceId().value())
                 .param("itemId", itemVersion.itemId().value())
@@ -116,40 +116,40 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .param("pairSequence", pairSequence)
                 .param("itemSequence", itemSequence)
                 .update();
-        return findById(organizationId, attemptId).orElseThrow();
+        return findById(tenantId, attemptId).orElseThrow();
     }
 
     public Optional<SourceOperationView> findById(
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceOperationId operationId
     ) {
         return jdbcClient.sql("""
                         SELECT id, status, created_at, completed_at, error_code
                         FROM index_attempts
-                        WHERE organization_id = :organizationId AND id = :id
+                        WHERE tenant_id = :tenantId AND id = :id
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("id", operationId.value())
                 .query((resultSet, ignored) -> operation(resultSet))
                 .optional();
     }
 
-    public List<SourceOperationView> list(OrganizationId organizationId, SourceId sourceId) {
+    public List<SourceOperationView> list(TenantId tenantId, SourceId sourceId) {
         return jdbcClient.sql("""
                         SELECT id, status, created_at, completed_at, error_code
                         FROM index_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                         ORDER BY pair_sequence DESC
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query((resultSet, ignored) -> operation(resultSet))
                 .list();
     }
 
     public void cancelForItem(
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceId sourceId,
             SourceItemId itemId
     ) {
@@ -157,27 +157,27 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         UPDATE index_attempts
                         SET status = 'CANCELLED', claim_token = NULL, lease_expires_at = NULL,
                             completed_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                           AND status IN ('NOT_STARTED', 'IN_PROGRESS')
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .param("itemId", itemId.value())
                 .update();
     }
 
-    public void cancelForSource(OrganizationId organizationId, SourceId sourceId) {
+    public void cancelForSource(TenantId tenantId, SourceId sourceId) {
         jdbcClient.sql("""
                         UPDATE index_attempts
                         SET status = 'CANCELLED', claim_token = NULL, lease_expires_at = NULL,
                             completed_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND status IN ('NOT_STARTED', 'IN_PROGRESS')
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .update();
     }
@@ -191,11 +191,11 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         SET status = 'CANCELLED',
                             claim_token = NULL,
                             lease_expires_at = NULL,
-                            error_code = 'SOURCE_ORGANIZATION_INACTIVE',
+                            error_code = 'SOURCE_TENANT_INACTIVE',
                             completed_at = CURRENT_TIMESTAMP
                         WHERE status IN ('NOT_STARTED', 'IN_PROGRESS')
-                          AND organization_id IN (
-                              SELECT id FROM organizations WHERE status <> 'ACTIVE'
+                          AND tenant_id IN (
+                              SELECT id FROM tenants WHERE status <> 'ACTIVE'
                           )
                         """)
                 .update();
@@ -203,14 +203,14 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         List<UUID> candidates = jdbcClient.sql("""
                         SELECT attempt.id
                         FROM index_attempts attempt
-                        JOIN organizations organization ON organization.id = attempt.organization_id
+                        JOIN tenants tenant ON tenant.id = attempt.tenant_id
                         JOIN connector_credential_pairs pair
-                          ON pair.organization_id = attempt.organization_id
+                          ON pair.tenant_id = attempt.tenant_id
                          AND pair.id = attempt.connector_credential_pair_id
                         JOIN connector_items item
-                          ON item.organization_id = attempt.organization_id
+                          ON item.tenant_id = attempt.tenant_id
                          AND item.id = attempt.connector_item_id
-                        WHERE organization.status = 'ACTIVE'
+                        WHERE tenant.status = 'ACTIVE'
                           AND pair.status <> 'DELETING'
                           AND item.status <> 'DELETING'
                           AND (
@@ -272,12 +272,12 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         UPDATE index_attempts
                         SET status = 'SUCCEEDED', completed_at = CURRENT_TIMESTAMP,
                             claim_token = NULL, lease_expires_at = NULL, error_code = NULL
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND id = :attemptId
                           AND status = 'IN_PROGRESS'
                           AND claim_token = :claimToken
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("attemptId", work.operationId().value())
                 .param("claimToken", work.claimToken())
                 .update();
@@ -288,12 +288,12 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         jdbcClient.sql("""
                         UPDATE connector_items
                         SET status = 'INDEXED', updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId AND id = :itemId
+                        WHERE tenant_id = :tenantId AND id = :itemId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("itemId", work.itemId().value())
                 .update();
-        recomputePair(work.organizationId(), work.sourceId());
+        recomputePair(work.tenantId(), work.sourceId());
         return true;
     }
 
@@ -305,13 +305,13 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         UPDATE index_attempts
                         SET status = 'FAILED', completed_at = CURRENT_TIMESTAMP,
                             claim_token = NULL, lease_expires_at = NULL, error_code = :errorCode
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND id = :attemptId
                           AND status = 'IN_PROGRESS'
                           AND claim_token = :claimToken
                         """)
                 .param("errorCode", safeCode)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("attemptId", work.operationId().value())
                 .param("claimToken", work.claimToken())
                 .update();
@@ -319,14 +319,14 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
             jdbcClient.sql("""
                             UPDATE connector_items
                             SET status = 'FAILED', updated_at = CURRENT_TIMESTAMP
-                            WHERE organization_id = :organizationId
+                            WHERE tenant_id = :tenantId
                               AND id = :itemId
                               AND status <> 'DELETING'
                             """)
-                    .param("organizationId", work.organizationId().value())
+                    .param("tenantId", work.tenantId().value())
                     .param("itemId", work.itemId().value())
                     .update();
-            recomputePair(work.organizationId(), work.sourceId());
+            recomputePair(work.tenantId(), work.sourceId());
         }
         return updated == 1;
     }
@@ -334,7 +334,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     private IndexWork load(UUID attemptId, UUID token) {
         return jdbcClient.sql("""
                         SELECT attempt.id,
-                               attempt.organization_id,
+                               attempt.tenant_id,
                                attempt.connector_id,
                                attempt.connector_credential_pair_id,
                                attempt.connector_item_id,
@@ -344,7 +344,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                version.content_sha256
                         FROM index_attempts attempt
                         JOIN connector_item_versions version
-                          ON version.organization_id = attempt.organization_id
+                          ON version.tenant_id = attempt.tenant_id
                          AND version.id = attempt.connector_item_version_id
                         WHERE attempt.id = :id AND attempt.claim_token = :token
                         """)
@@ -352,7 +352,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .param("token", token)
                 .query((resultSet, ignored) -> new IndexWork(
                         new SourceOperationId(resultSet.getObject("id", UUID.class)),
-                        new OrganizationId(resultSet.getObject("organization_id", UUID.class)),
+                        new TenantId(resultSet.getObject("tenant_id", UUID.class)),
                         resultSet.getObject("connector_id", UUID.class),
                         new SourceId(resultSet.getObject("connector_credential_pair_id", UUID.class)),
                         new SourceItemId(resultSet.getObject("connector_item_id", UUID.class)),
@@ -369,22 +369,22 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         return jdbcClient.sql("""
                         SELECT COUNT(*)
                         FROM index_attempts attempt
-                        JOIN organizations organization ON organization.id = attempt.organization_id
+                        JOIN tenants tenant ON tenant.id = attempt.tenant_id
                         JOIN connector_credential_pairs pair
-                          ON pair.organization_id = attempt.organization_id
+                          ON pair.tenant_id = attempt.tenant_id
                          AND pair.id = attempt.connector_credential_pair_id
                         JOIN connector_items item
-                          ON item.organization_id = attempt.organization_id
+                          ON item.tenant_id = attempt.tenant_id
                          AND item.id = attempt.connector_item_id
-                        WHERE attempt.organization_id = :organizationId
+                        WHERE attempt.tenant_id = :tenantId
                           AND attempt.id = :attemptId
                           AND attempt.status = 'IN_PROGRESS'
                           AND attempt.claim_token = :claimToken
-                          AND organization.status = 'ACTIVE'
+                          AND tenant.status = 'ACTIVE'
                           AND pair.status <> 'DELETING'
                           AND NOT EXISTS (
                               SELECT 1 FROM index_attempts newer
-                              WHERE newer.organization_id = attempt.organization_id
+                              WHERE newer.tenant_id = attempt.tenant_id
                                 AND newer.connector_credential_pair_id = attempt.connector_credential_pair_id
                                 AND newer.connector_item_id = attempt.connector_item_id
                                 AND newer.pair_sequence > attempt.pair_sequence
@@ -392,7 +392,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                           AND item.status <> 'DELETING'
                           AND item.current_version_id = attempt.connector_item_version_id
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("attemptId", work.operationId().value())
                 .param("claimToken", work.claimToken())
                 .query(Integer.class)
@@ -406,47 +406,47 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         UPDATE index_attempts
                         SET status = 'SUPERSEDED', completed_at = CURRENT_TIMESTAMP,
                             claim_token = NULL, lease_expires_at = NULL
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND id = :attemptId
                           AND status = 'IN_PROGRESS'
                           AND claim_token = :claimToken
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("attemptId", work.operationId().value())
                 .param("claimToken", work.claimToken())
                 .update();
     }
 
-    private void recomputePair(OrganizationId organizationId, SourceId sourceId) {
+    private void recomputePair(TenantId tenantId, SourceId sourceId) {
         int nonterminal = jdbcClient.sql("""
                         SELECT COUNT(*) FROM index_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND status IN ('NOT_STARTED', 'IN_PROGRESS')
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query(Integer.class)
                 .single();
         long documentCount = jdbcClient.sql("""
                         SELECT COUNT(*) FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND retrieval_eligible = TRUE
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query(Long.class)
                 .single();
         String latestError = jdbcClient.sql("""
                         SELECT error_code FROM index_attempts
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND status = 'FAILED'
                         ORDER BY pair_sequence DESC
                         FETCH FIRST 1 ROW ONLY
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query(String.class)
                 .optional()
@@ -464,12 +464,12 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                             END,
                             error_code = :errorCode,
                             updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId AND id = :pairId
+                        WHERE tenant_id = :tenantId AND id = :pairId
                         """)
                 .param("status", status)
                 .param("documentCount", documentCount)
                 .param("errorCode", latestError)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .update();
     }

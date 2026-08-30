@@ -40,13 +40,13 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
     return <SessionErrorScreen onRetry={() => void sessionQuery.refetch()} />;
   }
 
-  if (!sessionQuery.data.organization) {
+  if (!sessionQuery.data.tenant) {
     return <AccessNotProvisionedScreen />;
   }
 
   return (
     <ApplicationSessionProvider
-      session={{ ...sessionQuery.data, organization: sessionQuery.data.organization }}
+      session={{ ...sessionQuery.data, tenant: sessionQuery.data.tenant }}
     >
       {children ?? <Outlet />}
     </ApplicationSessionProvider>

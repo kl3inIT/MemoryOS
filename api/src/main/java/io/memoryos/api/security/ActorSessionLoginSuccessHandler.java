@@ -10,8 +10,8 @@ import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.InvitationService;
 import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
-import io.memoryos.organization.OrganizationId;
-import io.memoryos.organization.OrganizationAccessResolver;
+import io.memoryos.tenant.TenantId;
+import io.memoryos.tenant.TenantAccessResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -36,20 +36,20 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     private static final String INVITATION_FAILURE_DESTINATION = "/invitation?reason=";
 
     private final ExternalIdentityResolver identityResolver;
-    private final OrganizationAccessResolver organizationAccessResolver;
+    private final TenantAccessResolver tenantAccessResolver;
     private final InvitationService invitationService;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
     ActorSessionLoginSuccessHandler(
             ExternalIdentityResolver identityResolver,
-            OrganizationAccessResolver organizationAccessResolver,
+            TenantAccessResolver tenantAccessResolver,
             InvitationService invitationService
     ) {
         this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
-        this.organizationAccessResolver = Objects.requireNonNull(
-                organizationAccessResolver,
-                "organizationAccessResolver must not be null"
+        this.tenantAccessResolver = Objects.requireNonNull(
+                tenantAccessResolver,
+                "tenantAccessResolver must not be null"
         );
         this.invitationService = Objects.requireNonNull(
                 invitationService,
@@ -78,7 +78,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
 
         var externalIdentity = new ExternalIdentity(issuer.toString(), subject);
         var actorId = identityResolver.resolve(externalIdentity).orElse(null);
-        if (actorId == null || !organizationAccessResolver.hasActiveOrganization(actorId)) {
+        if (actorId == null || !tenantAccessResolver.hasActiveTenant(actorId)) {
             actorId = acceptInvitation(request, response, oidcUser, externalIdentity);
             if (actorId == null) {
                 return;
@@ -116,7 +116,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             if (continuationAttribute instanceof InvitationSessionState invitationState) {
                 return invitationService.accept(new InvitationAcceptance(
                         invitationState.invitationId(),
-                        new OrganizationId(invitationState.organizationId()),
+                        new TenantId(invitationState.tenantId()),
                         externalIdentity,
                         oidcUser.getClaimAsString("email"),
                         Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))

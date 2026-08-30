@@ -17,7 +17,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - Classify knowledge before writing: current implementation in `ARCHITECTURE.md` or `docs/specs/`; product intent in `docs/vision.md`; cross-cutting engineering policy in `docs/conventions.md` or `docs/guidelines/`; change-local reasoning in the active increment.
 - Treat `core` as capability implementation, not a framework-free domain layer. Capability code may use Spring, `JdbcClient`, transactions, or JPA when they reduce real complexity; forbid dependency inversion violations and speculative layers, not framework use.
 - Keep SQL, row mapping, locks, claims, and bulk persistence mechanics in concrete capability `persistence` repositories. Application services own authorization, validation, orchestration, and cross-repository transaction boundaries; do not add single-implementation repository interfaces. See [persistence policy](docs/guidelines/persistence.md).
-- Keep `core` limited to implemented capabilities. Current modules are `identity`, `organization`, and `invitation`; MEM-35 adds real `connector`, `document`, and `ingestion` modules plus one shared `connector` Gradle integration bundle organized by provider folders. Never predeclare empty future capability or provider packages.
+- Keep `core` limited to implemented capabilities. Current modules are `identity`, `tenant`, `invitation`, `connector`, `document`, and `ingestion`; the shared `connector` Gradle integration bundle is organized by provider folders. Never predeclare empty future capability or provider packages.
 - Start non-trivial work with an increment directory containing `design.md` and `plan.md`. Update both as scope changes.
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
 - After verification, consolidate durable facts into architecture/spec/test/guideline documents in the same change. Keep the increment under `active/` until the pull request merges; then move it to `completed/` and reconcile the roadmap.
@@ -28,8 +28,9 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
+- [MEM-24 — Self-hosted single-Tenant backend cutover](docs/increments/active/mem-24-tenant-cutover/design.md)
 - [MEM-38 — Destructive confirmations and async feedback](docs/increments/active/mem-38-destructive-confirmations/design.md)
-- [MEM-35 — Organization-owned FILE connectors](docs/increments/active/mem-35-file-connectors/design.md)
+- [MEM-35 — Tenant-owned FILE connectors](docs/increments/active/mem-35-file-connectors/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
@@ -53,7 +54,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Shared runtime migration runbook](docs/runbooks/shared-runtime-migration.md)
 - [Identity contract](docs/specs/identity.md)
 - [Identity verification matrix](docs/tests/identity.md)
-- [Organization contract](docs/specs/organization.md)
-- [Organization verification matrix](docs/tests/organization.md)
+- [Tenant contract](docs/specs/tenant.md)
+- [Tenant verification matrix](docs/tests/tenant.md)
 - [Invitation contract](docs/specs/invitation.md)
 - [Invitation verification matrix](docs/tests/invitation.md)

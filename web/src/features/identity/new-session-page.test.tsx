@@ -15,7 +15,7 @@ import { NewSessionPage } from "./new-session-page";
 
 const OWNER_SESSION: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
-  organization: {
+  tenant: {
     displayName: "Tasco",
     role: "OWNER",
   },
@@ -63,17 +63,17 @@ describe("NewSessionPage", () => {
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Ask MemoryOS" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Organization owner" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
   });
 
   it("removes owner administration affordances for a member", async () => {
     await renderNewSession({
       ...OWNER_SESSION,
-      organization: { ...OWNER_SESSION.organization, role: "MEMBER" },
+      tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
       capabilities: [],
     });
 
-    expect(screen.getByRole("button", { name: "Organization member" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
   });
   it("routes invitation-only administrators to invitations", async () => {
@@ -103,7 +103,7 @@ describe("NewSessionPage", () => {
     const user = userEvent.setup();
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Organization owner" }));
+    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
     await user.click(screen.getByRole("button", { name: "Use dark theme" }));
 
     expect(document.documentElement).toHaveClass("dark");
@@ -117,7 +117,7 @@ describe("NewSessionPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Organization owner" }));
+    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/logout", {
@@ -133,7 +133,7 @@ describe("NewSessionPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Organization owner" }));
+    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(

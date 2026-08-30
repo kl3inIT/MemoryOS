@@ -133,7 +133,7 @@ function SidebarContents({
         ) : (
           <div className="space-y-5">
             {canManageInvitations ? (
-              <SidebarSection title="Organization" collapsed={collapsed}>
+              <SidebarSection title="Tenant" collapsed={collapsed}>
                 <SidebarTab
                   to="/admin/invitations"
                   icon={<UserPlus className="size-4" />}

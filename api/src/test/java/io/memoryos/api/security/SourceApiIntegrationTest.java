@@ -45,10 +45,12 @@ import org.springframework.transaction.support.TransactionTemplate;
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
         "memoryos.identity.audience=memoryos-api",
         "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "memoryos.initial-organization.owner-subject=source-owner",
-        "memoryos.initial-organization.slug=sources",
-        "memoryos.initial-organization.display-name=Sources",
-        "memoryos.initial-organization.change-reference=MEM-35-TEST",
+        "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000024",
+        "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000024",
+        "memoryos.initial-tenant.owner-subject=source-owner",
+        "memoryos.initial-tenant.slug=sources",
+        "memoryos.initial-tenant.display-name=Sources",
+        "memoryos.initial-tenant.change-reference=MEM-35-TEST",
         "spring.datasource.url=jdbc:h2:mem:source-api;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
                 + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
         "spring.datasource.username=sa",
@@ -107,7 +109,7 @@ class SourceApiIntegrationTest {
 
     @BeforeEach
     void seedActors() {
-        UUID organizationId = jdbcClient.sql("SELECT id FROM organizations WHERE slug = 'sources'")
+        UUID tenantId = jdbcClient.sql("SELECT id FROM tenants WHERE slug = 'sources'")
                 .query(UUID.class)
                 .single();
         UUID ownerActorId = ownerActorId();
@@ -122,20 +124,20 @@ class SourceApiIntegrationTest {
                     .update();
         }
         int membershipCount = jdbcClient.sql("""
-                        SELECT COUNT(*) FROM organization_memberships
-                        WHERE organization_id = :organizationId AND actor_id = :actorId
+                        SELECT COUNT(*) FROM tenant_memberships
+                        WHERE tenant_id = :tenantId AND actor_id = :actorId
                         """)
-                .param("organizationId", organizationId)
+                .param("tenantId", tenantId)
                 .param("actorId", memberActorId)
                 .query(Integer.class)
                 .single();
         if (membershipCount == 0) {
             jdbcClient.sql("""
-                            INSERT INTO organization_memberships (
-                                organization_id, actor_id, role, status
-                            ) VALUES (:organizationId, :actorId, 'MEMBER', 'ACTIVE')
+                            INSERT INTO tenant_memberships (
+                                tenant_id, actor_id, role, status
+                            ) VALUES (:tenantId, :actorId, 'MEMBER', 'ACTIVE')
                             """)
-                    .param("organizationId", organizationId)
+                    .param("tenantId", tenantId)
                     .param("actorId", memberActorId)
                     .update();
         }
@@ -173,7 +175,7 @@ class SourceApiIntegrationTest {
         String itemId = io.swagger.v3.core.util.Json.mapper().readTree(uploadBody)
                 .path("item").path("id").textValue();
 
-        coordinator().processAvailable(8);
+        processAvailableWork();
         UUID documentId = jdbcClient.sql("""
                         SELECT document_id FROM documents_by_connector_credential_pair
                         WHERE connector_credential_pair_id = :sourceId
@@ -204,7 +206,7 @@ class SourceApiIntegrationTest {
                 member.getPrincipal().actorId(),
                 new DocumentId(documentId)
         ));
-        coordinator().processAvailable(8);
+        processAvailableWork();
         mockMvc.perform(get("/api/sources/{sourceId}", sourceId).with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty());
@@ -217,7 +219,7 @@ class SourceApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String deleteOperationId = io.swagger.v3.core.util.Json.mapper().readTree(deleteBody)
                 .path("id").textValue();
-        coordinator().processAvailable(8);
+        processAvailableWork();
         mockMvc.perform(post("/api/sources/{sourceId}/delete", sourceId)
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1"))
@@ -281,6 +283,10 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
 
+    }
+
+    private void processAvailableWork() {
+        coordinator().processAvailable(8);
     }
 
     private DefaultIndexingCoordinator coordinator() {

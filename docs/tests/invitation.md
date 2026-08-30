@@ -2,18 +2,17 @@
 
 | Requirement | Durable verification |
 | --- | --- |
-| Only an active Organization owner can issue, list, rotate, or revoke; a real accepted member receives `403 INVITATION_NOT_OWNER` for all four HTTP operations, including `POST /api/invitations/{invitationId}/revoke` | `DefaultInvitationServiceTest.requiresAnActiveOwnerAndValidEmail`, `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession`, and `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
-| Email is normalized and only one pending invitation exists per Organization/email | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` and `rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
+| Only an active Tenant owner can issue, list, rotate, or revoke; a real accepted member receives `403 INVITATION_NOT_OWNER` for all four HTTP operations, including `POST /api/invitations/{invitationId}/revoke` | `DefaultInvitationServiceTest.requiresAnActiveOwnerAndValidEmail`, `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession`, and `OpenApiContractTest.committedContractDescribesOnlyTheLiveBrowserApi` |
+| Email is normalized and only one pending invitation exists per Tenant/email | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` and `rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
 | Plaintext secret is returned once and only its digest persists | `DefaultInvitationServiceTest.issuesAndListsDigestOnlyInvitationForTheActiveOwner` |
 | Rotation replaces the digest and invalidates the prior secret | `DefaultInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
 | Revocation prevents intake | `DefaultInvitationServiceTest.rejectsDuplicatePendingEmailAndRotatesOrRevokesWithoutRecoveringOldSecrets` |
 | Expiry is durable and permits a later replacement invitation | `DefaultInvitationServiceTest.expiresPendingInvitationAndAllowsAReplacementForTheSameEmail` |
 | Invitation history filtering, sorting, totals, bounded pages, and deterministic ID tie-breakers share one server transaction view | `DefaultInvitationServiceTest.filtersSortsAndPaginatesInvitationHistory`, `usesInvitationIdAsTheStableTieBreakerForEqualSortValues`, and `SessionSecurityIntegrationTest.filtersSortsAndPaginatesInvitationHistoryOverHttp` |
 | Unverified or mismatched email creates no identity or membership | `DefaultInvitationServiceTest.rejectsUnverifiedOrMismatchedEmailWithoutIdentityWrites` |
-| Existing authority conflicts fail without mutation | `DefaultInvitationServiceTest.rejectsAnIdentityThatAlreadyHasOrganizationAuthority` |
+| Existing authority conflicts fail without mutation | `DefaultInvitationServiceTest.rejectsAnIdentityThatAlreadyHasTenantAuthority` |
 | Binding, fixed memberships, and acceptance commit atomically | `DefaultInvitationServiceTest.acceptsVerifiedMatchingIdentityAndCreatesFixedMembershipsAtomically` |
 | Concurrent replay of one invitation produces one member and one accepted invitation | `DefaultInvitationServiceTest.concurrentAcceptanceProducesOneMemberAndOneAcceptedInvitation` and `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
-| Concurrent invitations for one bound identity serialize on its Actor row and grant one authority | `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
 | Read-only digest and ID lookups proceed while the invitation row is lifecycle-locked; mutation and acceptance retain their serialization boundary | `PostgresInvitationRepositoryReadConcurrencyTest.readOnlyLookupsDoNotWaitForLifecycleRowLock` and `PostgresInvitationAcceptanceConcurrencyTest.concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember` |
 | Intake/current responses do not cache continuation metadata, and failed intake removes prior state | `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |
 | Invitation callback uses Authorization Code + S256 PKCE and stores only `ActorId` | `SessionSecurityIntegrationTest.acceptsInvitationThroughPkceAndPersistsOnlyTheMemberActorSession` |

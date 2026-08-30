@@ -184,7 +184,7 @@ export function SourcesPage() {
           <p className="font-secondary-action text-content-muted">Knowledge operations</p>
           <h1 className="mt-1 font-heading-h2 text-content-primary">Sources</h1>
           <p className="mt-2 max-w-2xl font-main-ui-body text-content-secondary">
-            Upload durable Organization knowledge. Extraction runs asynchronously in the worker.
+            Upload durable Tenant knowledge. Extraction runs asynchronously in the worker.
           </p>
         </div>
         <form
@@ -229,7 +229,7 @@ export function SourcesPage() {
           ) : sourcesQuery.isError ? (
             <EmptyState
               title="Sources unavailable"
-              detail="Refresh to retry the Organization source list."
+              detail="Refresh to retry the Tenant source list."
             />
           ) : sources.length === 0 ? (
             <EmptyState

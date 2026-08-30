@@ -1,3 +1,10 @@
+arconia:
+  multitenancy:
+    resolution:
+      fixed:
+        enabled: true
+        tenant-identifier: ${MEMORYOS_TENANT_ID}
+
 spring:
   application:
     name: memoryos-api
@@ -76,8 +83,9 @@ memoryos:
     registration-id: memoryos
   invitation:
     time-to-live: ${MEMORYOS_INVITATION_TTL:72h}
-  initial-organization:
+  initial-tenant:
+    id: ${MEMORYOS_TENANT_ID}
     owner-subject: ${MEMORYOS_INITIAL_OWNER_SUBJECT}
-    slug: ${MEMORYOS_ORGANIZATION_SLUG}
-    display-name: ${MEMORYOS_ORGANIZATION_DISPLAY_NAME}
-    change-reference: ${MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE}
+    slug: ${MEMORYOS_TENANT_SLUG}
+    display-name: ${MEMORYOS_TENANT_DISPLAY_NAME}
+    change-reference: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}

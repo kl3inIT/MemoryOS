@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Invitation",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"identity", "organization"}
+        allowedDependencies = {"identity", "tenant"}
 )
 package io.memoryos.invitation;
 

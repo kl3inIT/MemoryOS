@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public record InvitationSessionState(
         UUID invitationId,
-        UUID organizationId,
+        UUID tenantId,
         Instant expiresAt
 ) implements Serializable {
 
@@ -20,7 +20,7 @@ public record InvitationSessionState(
 
     public InvitationSessionState {
         Objects.requireNonNull(invitationId, "invitationId must not be null");
-        Objects.requireNonNull(organizationId, "organizationId must not be null");
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
         Objects.requireNonNull(expiresAt, "expiresAt must not be null");
     }
 }

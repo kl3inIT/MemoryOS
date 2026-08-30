@@ -10,7 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import io.memoryos.api.identity.contract.CurrentIdentityResponse;
 import io.memoryos.identity.IdentityContext;
-import io.memoryos.organization.OrganizationAccessResolver;
+import io.memoryos.tenant.TenantAccessResolver;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,17 +22,17 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Identity")
 final class IdentityController {
 
-    private final OrganizationAccessResolver organizationAccessResolver;
+    private final TenantAccessResolver tenantAccessResolver;
 
-    IdentityController(OrganizationAccessResolver organizationAccessResolver) {
-        this.organizationAccessResolver = organizationAccessResolver;
+    IdentityController(TenantAccessResolver tenantAccessResolver) {
+        this.tenantAccessResolver = tenantAccessResolver;
     }
 
     @Operation(
             operationId = "getCurrentIdentity",
             summary = "Return the authenticated MemoryOS actor",
             description = "Accepts either an existing MemoryOS browser session or a valid bound bearer identity "
-                    + "and returns the stable internal ActorId plus its durable Organization authority projection.",
+                    + "and returns the stable internal ActorId plus its durable Tenant authority projection.",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -57,7 +57,7 @@ final class IdentityController {
     ) {
         return CurrentIdentityResponse.from(
                 identityContext.actorId().value(),
-                organizationAccessResolver.findSessionAuthority(identityContext.actorId()).orElse(null)
+                tenantAccessResolver.findSessionAuthority(identityContext.actorId()).orElse(null)
         );
     }
 

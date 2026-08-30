@@ -29,15 +29,16 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
+| MEM-24 | Clean-cut the runtime to one deployment-owned Tenant with UUID-preserving V6 migration and Arconia fixed Tenant context | [Design](increments/active/mem-24-tenant-cutover/design.md) · [Plan](increments/active/mem-24-tenant-cutover/plan.md) |
 | [MEM-38](https://linear.app/memory-os/issue/MEM-38/standardize-destructive-confirmations-and-async-feedback) | Standardize accessible destructive confirmations, async pending behavior, and safe source mutation feedback before the Sources redesign | [Design](increments/active/mem-38-destructive-confirmations/design.md) · [Plan](increments/active/mem-38-destructive-confirmations/plan.md) · [Verification](increments/active/mem-38-destructive-confirmations/verification.md) |
-| [MEM-35](https://linear.app/memory-os/issue/MEM-35/establish-organization-owned-file-connectors-and-document-boundary) | Establish the Onyx-aligned Organization-owned Connector/Credential/Pair/Document boundary through a production FILE source and persistence-backed indexing worker | [Design](increments/active/mem-35-file-connectors/design.md) · [Plan](increments/active/mem-35-file-connectors/plan.md) · [Verification](increments/active/mem-35-file-connectors/verification.md) |
+| [MEM-35](https://linear.app/memory-os/issue/MEM-35/establish-organization-owned-file-connectors-and-document-boundary) | Establish the Onyx-aligned Tenant-owned Connector/Credential/Pair/Document boundary through a production FILE source and persistence-backed indexing worker | [Design](increments/active/mem-35-file-connectors/design.md) · [Plan](increments/active/mem-35-file-connectors/plan.md) · [Verification](increments/active/mem-35-file-connectors/verification.md) |
 
 ## Candidate increments
 
 These are sequencing signals, not commitments or approved designs.
 
-1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Organization-owned Google Drive connections.
-2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Organization-scoped Google Docs with source ACL evidence.
+1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Tenant-owned Google Drive connections.
+2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Tenant-scoped Google Docs with source ACL evidence.
 3. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
 
 Create or link an issue and add an active increment record before implementation begins.

@@ -57,8 +57,8 @@ export function AccessNotProvisionedScreen() {
               You don’t have access yet.
             </EmptyTitle>
             <EmptyDescription className="max-w-sm text-sm leading-6">
-              Your identity was verified, but it has not been added to this MemoryOS Organization.
-              Ask an Organization owner for access, or continue with another account.
+              Your identity was verified, but it has not been added to this MemoryOS Tenant. Ask a
+              Tenant owner for access, or continue with another account.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -88,7 +88,7 @@ export function AccessDeniedScreen() {
             You don’t have access to this area.
           </EmptyTitle>
           <EmptyDescription>
-            Your account is active, but it cannot manage Organization invitations or administration.
+            Your account is active, but it cannot manage Tenant invitations or administration.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -117,7 +117,7 @@ export function SessionErrorScreen({ onRetry }: { onRetry: () => void }) {
             We couldn’t confirm your session.
           </EmptyTitle>
           <EmptyDescription>
-            Your Organization data is unchanged. Check the MemoryOS service and try again.
+            Your Tenant data is unchanged. Check the MemoryOS service and try again.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

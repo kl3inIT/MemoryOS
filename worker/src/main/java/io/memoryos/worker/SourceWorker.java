@@ -1,7 +1,6 @@
 package io.memoryos.worker;
 
 import io.memoryos.ingestion.IndexingCoordinator;
-
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -13,10 +12,7 @@ final class SourceWorker {
     private final IndexingCoordinator coordinator;
     private final int batchSize;
 
-    SourceWorker(
-            IndexingCoordinator coordinator,
-            WorkerProperties properties
-    ) {
+    SourceWorker(IndexingCoordinator coordinator, WorkerProperties properties) {
         this.coordinator = coordinator;
         this.batchSize = Math.clamp(properties.batchSize(), 1, 32);
     }
