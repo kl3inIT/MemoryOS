@@ -29,12 +29,15 @@ Verified on 2026-08-30.
 - Scheduler composition exists only in `:worker`; `:api` owns Flyway and has no scheduler runtime.
 - `scheduled_tasks` carries scheduler task identity, execution time, pick/heartbeat, result counters, version, and priority only. It carries no Tenant, operation, connector, document, content, or credential data.
 - The production Boot JAR contains db-scheduler 16.12.0 and excludes development-only Arconia/Testcontainers artifacts.
+- Java 25 virtual threads are enabled for both Spring Boot composition roots with JVM keep-alive. `ApiApplicationSmokeTest` and `WorkerApplicationSmokeTest` submit work through the real `applicationTaskExecutor` and assert `Thread.isVirtual()`.
+- db-scheduler task execution uses the named `memoryos-db-scheduler-*` virtual-thread-per-task executor while its two configured execution slots remain the concurrency bound. `ControlPlaneIntegrationTest` intercepts the real topology execution and asserts that it runs on a virtual thread.
+- Due polling, scheduler/datasource housekeeping, and Lettuce/Netty event loops remain library-managed platform threads. No application `ThreadLocal` cache, native method, or synchronized monitor was found in the production source scan.
 
 ## Static and repository gates
 
-- JetBrains inspections with warnings enabled reported no findings in changed Java, Kotlin DSL, TOML, or YAML files.
+- JetBrains inspections with warnings enabled reported no findings in changed Java, Kotlin DSL, TOML, or YAML files, including the virtual-thread executor and both application configurations.
 - V7's only IDE warning was `No data sources are configured`; the real PostgreSQL Flyway test verifies the SQL and exact schema. No warning was suppressed in source.
-- Final `./gradlew.bat clean check --no-daemon` completed successfully after the scheduler-readiness assertion was added: 23 actionable tasks, 12 executed and 11 from cache.
+- Final `./gradlew.bat clean check --no-daemon` completed successfully on the virtual-thread head: 23 actionable tasks, 14 executed, 8 from cache, and 1 up-to-date.
 - `./gradlew.bat :worker:bootJar --no-daemon` completed successfully; archive inspection verified the production dependency set.
 
 ## Deliberate boundary

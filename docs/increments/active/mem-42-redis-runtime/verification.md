@@ -28,7 +28,7 @@ An independent reviewer returned `approve_with_changes`. The accepted changes ke
 ## Static and repository gates
 
 - JetBrains inspections with warnings enabled reported no findings in the changed Redis Java, Kotlin DSL, TOML, or YAML files.
-- Final `./gradlew.bat clean check --no-daemon` completed successfully after the readiness assertion was added: 23 actionable tasks, 12 executed and 11 from cache.
+- Final `./gradlew.bat clean check --no-daemon` completed successfully on the virtual-thread head: 23 actionable tasks, 14 executed, 8 from cache, and 1 up-to-date.
 - All relevant real-container test reports record `skipped="0"`; Docker-backed verification was not silently bypassed.
 
 ## Deliberate boundary

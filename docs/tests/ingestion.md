@@ -8,6 +8,7 @@
 | Real scheduled worker carries each durable record's `TenantId` through indexing, removal, and deletion on PostgreSQL, including cleanup after Tenant deactivation | `SourceWorkerTest.clampsTheBatchAndDelegatesAvailableWork` and `WorkerFileProcessingIntegrationTest.schedulerIndexesRemovesAndDeletesOneRealFile` |
 | Redis execution topology is idempotent and supports identifier-only XADD → consumer-group delivery → PEL → XACK against real Redis | `RedisExecutionTopologyIntegrationTest` |
 | PostgreSQL persists the recurring topology control task, revives dead ownership, and prevents concurrent execution across two scheduler instances | `ControlPlaneIntegrationTest` |
+| API/worker Spring task executors and the real db-scheduler topology execution use virtual threads while scheduler concurrency remains bounded | `ApiApplicationSmokeTest.applicationTaskExecutorUsesVirtualThreads`, `WorkerApplicationSmokeTest.contextLoadsWithPersistenceRuntimeAndSchedulingDisabled`, and `ControlPlaneIntegrationTest.registersExecutesAndRecoversTheTopologyControlTask` |
 | Flyway V7 creates the exact db-scheduler table and indexes against real PostgreSQL | `SchedulerSchemaMigrationTest` |
 | Redis unavailability makes worker readiness unavailable without changing PostgreSQL business state | `RedisUnavailableReadinessIntegrationTest` |
 | Provider adapter imports only public capability APIs | `ProviderDependencyRulesTest` |

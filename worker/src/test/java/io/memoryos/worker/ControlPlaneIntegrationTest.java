@@ -5,17 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.kagkarlsson.scheduler.Scheduler;
 import com.github.kagkarlsson.scheduler.SchedulerName;
+import com.github.kagkarlsson.scheduler.event.ExecutionInterceptor;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.locks.LockSupport;
-import java.util.function.BooleanSupplier;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -57,6 +62,7 @@ import org.springframework.test.context.DynamicPropertySource;
         }
 )
 @AutoConfigureTestRestTemplate
+@Import(ControlPlaneIntegrationTest.VirtualThreadProbeConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -82,6 +88,8 @@ class ControlPlaneIntegrationTest {
     private StringRedisTemplate redis;
     @Autowired
     private TestRestTemplate http;
+    @Autowired
+    private AtomicBoolean topologyTaskRanOnVirtualThread;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -93,6 +101,7 @@ class ControlPlaneIntegrationTest {
     @Test
     void registersExecutesAndRecoversTheTopologyControlTask() {
         await(() -> successfulExecutionTime() != null);
+        assertTrue(topologyTaskRanOnVirtualThread.get());
         Instant firstSuccess = successfulExecutionTime();
         assertTrue(groupExists(redisProperties.ingestion()));
         assertTrue(groupExists(redisProperties.cleanup()));
@@ -191,4 +200,23 @@ class ControlPlaneIntegrationTest {
             LockSupport.parkNanos(Duration.ofMillis(50).toNanos());
         }
     }
+    @TestConfiguration(proxyBeanMethods = false)
+    static class VirtualThreadProbeConfiguration {
+
+        @Bean
+        AtomicBoolean topologyTaskRanOnVirtualThread() {
+            return new AtomicBoolean();
+        }
+
+        @Bean
+        ExecutionInterceptor virtualThreadProbe(AtomicBoolean topologyTaskRanOnVirtualThread) {
+            return (taskInstance, executionContext, chain) -> {
+                if (ControlPlaneConfiguration.REDIS_TOPOLOGY_TASK.equals(taskInstance.getTaskName())) {
+                    topologyTaskRanOnVirtualThread.set(Thread.currentThread().isVirtual());
+                }
+                return chain.proceed(taskInstance, executionContext);
+            };
+        }
+    }
+
 }

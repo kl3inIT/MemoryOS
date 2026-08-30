@@ -44,16 +44,20 @@ MEM-43 later registers bounded operation-dispatch and reconciliation tasks. Thos
 
 ```text
 table                       scheduled_tasks
-threads                     2
-polling interval            5s
-heartbeat interval          30s
-missed heartbeat limit      4
-startup                     after application context ready
-shutdown max wait           30s
-priority                    disabled
+task concurrency             2
+task execution              named virtual thread per execution
+due polling/housekeeping     library-managed platform threads
+polling interval             5s
+heartbeat interval           30s
+missed heartbeat limit       4
+startup                      after application context ready
+shutdown max wait            30s
+priority                     disabled
 ```
 
 Scheduler identity comes from `MEMORYOS_SCHEDULER_NAME` when provided; otherwise the library's host identity is used. Replica identities must be unique. Metrics and health use bounded task names only.
+
+Spring Boot virtual threads and JVM keep-alive are enabled for both deployables on Java 25. db-scheduler receives a dedicated `newThreadPerTaskExecutor` backed by named virtual threads; its `threads = 2` setting still limits fetched/running control tasks. The custom executor is a non-default Spring candidate so it does not displace Boot's virtual `applicationTaskExecutor`, and Spring closes it with the scheduler context. Due polling and housekeeping stay on the library's small platform-thread executors because they are long-lived coordination loops rather than blocking application tasks. Datasource and Redis pools remain downstream concurrency bounds.
 
 ## Failure contract
 
@@ -62,7 +66,7 @@ Scheduler identity comes from `MEMORYOS_SCHEDULER_NAME` when provided; otherwise
 - Recurring registration is idempotent across restart and rolling deployment.
 - Redis unavailable produces scheduler failure evidence and worker readiness remains down; no operation state changes.
 - PostgreSQL unavailable prevents scheduling and fails closed.
-- Scheduler saturation cannot consume business execution capacity because the pool is separate and small.
+- Scheduler saturation cannot exceed the configured two task execution slots; virtual threads do not remove datasource or Redis pool limits.
 - Shutdown waits a bounded interval and does not invent success for interrupted tasks.
 
 ## Security and tenancy

@@ -15,6 +15,8 @@
 - [x] Add Flyway V7 with the PostgreSQL `scheduled_tasks` table and execution/heartbeat indexes.
 - [x] Disable library-owned schema initialization.
 - [x] Configure scheduler identity, polling, threads, heartbeat, missed-heartbeat recovery, context-ready startup, shutdown bound, and fetch strategy.
+- [x] Enable Spring Boot virtual threads and keep-alive for both deployables while preserving datasource, Redis, and scheduler concurrency bounds.
+- [x] Run db-scheduler task executions on named virtual threads without replacing its due-polling or housekeeping executors.
 
 ## Control task
 
@@ -31,6 +33,7 @@
 - [x] Prove stale/dead execution recovery under the configured heartbeat bound.
 - [x] Prove the real Redis topology task records success and remains idempotent.
 - [x] Prove scheduler startup/shutdown and PostgreSQL/Redis failure separation.
+- [x] Prove API/worker application task executors and the real db-scheduler topology task execute on virtual threads.
 - [x] Run focused worker/architecture tests and the repository gate once.
 
 ## Consolidation

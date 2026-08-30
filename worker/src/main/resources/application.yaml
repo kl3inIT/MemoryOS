@@ -1,6 +1,11 @@
 spring:
   application:
     name: memoryos-worker
+  main:
+    keep-alive: true
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: ${MEMORYOS_DATABASE_URL}
     username: ${MEMORYOS_DATABASE_USERNAME}

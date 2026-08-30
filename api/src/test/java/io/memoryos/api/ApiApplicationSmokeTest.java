@@ -1,29 +1,32 @@
 package io.memoryos.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import java.net.URI;
 
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,6 +56,9 @@ class ApiApplicationSmokeTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private AsyncTaskExecutor applicationTaskExecutor;
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
@@ -72,6 +78,13 @@ class ApiApplicationSmokeTest {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void applicationTaskExecutorUsesVirtualThreads() throws Exception {
+        assertTrue(applicationTaskExecutor
+                .submit(() -> Thread.currentThread().isVirtual())
+                .get(5, TimeUnit.SECONDS));
     }
 
     @Test

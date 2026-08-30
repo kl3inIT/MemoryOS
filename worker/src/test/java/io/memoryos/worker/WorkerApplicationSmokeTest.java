@@ -1,7 +1,14 @@
 package io.memoryos.worker;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.task.AsyncTaskExecutor;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
@@ -18,7 +25,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 )
 class WorkerApplicationSmokeTest {
 
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private AsyncTaskExecutor applicationTaskExecutor;
+
     @Test
-    void contextLoadsWithPersistenceRuntimeAndSchedulingDisabled() {
+    void contextLoadsWithPersistenceRuntimeAndSchedulingDisabled() throws Exception {
+        assertTrue(applicationTaskExecutor
+                .submit(() -> Thread.currentThread().isVirtual())
+                .get(5, TimeUnit.SECONDS));
     }
 }
