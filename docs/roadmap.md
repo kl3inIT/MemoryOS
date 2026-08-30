@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-28.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-30.
 
 ## Delivered
 
@@ -18,27 +18,29 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | MEM-18 | Deterministic committed OpenAPI snapshot generated from the live Spring MVC browser API, with backend and Hey API drift gates | [Design](increments/completed/mem-18-backend-generated-openapi/design.md) · [Verification](increments/completed/mem-18-backend-generated-openapi/verification.md) · [PR #16](https://github.com/kl3inIT/MemoryOS/pull/16) |
 | MEM-19 | Server-authored Organization invitation authority projection with capability-aware owner/member browser surfaces | [Design](increments/completed/mem-19-frontend-authority-projection/design.md) · [Verification](increments/completed/mem-19-frontend-authority-projection/verification.md) · [PR #32](https://github.com/kl3inIT/MemoryOS/pull/32) |
 | MEM-20 | MemoryOS-owned PostgreSQL with isolated application/Keycloak databases, one shared Keycloak runtime, and separated Infisical development/staging environments | [Design](increments/completed/mem-20-shared-keycloak-postgres/design.md) · [Verification](increments/completed/mem-20-shared-keycloak-postgres/verification.md) · [ADR 0004](decisions/0004-memoryos-owned-shared-identity-runtime.md) · [PR #25](https://github.com/kl3inIT/MemoryOS/pull/25) · [PR #26](https://github.com/kl3inIT/MemoryOS/pull/26) |
+| MEM-24 | Clean-cut runtime ownership to one deployment-owned Tenant with UUID-preserving V6 migration and Arconia fixed Tenant resolution at the API boundary | [Design](increments/completed/mem-24-tenant-cutover/design.md) · [Verification](increments/completed/mem-24-tenant-cutover/verification.md) |
 | MEM-28 | Organization-only membership, invitation, and future resource ownership with the historical Workspace layer removed | [Design](increments/completed/mem-28-organization-only-ownership/design.md) · [Verification](increments/completed/mem-28-organization-only-ownership/verification.md) · [PR #32](https://github.com/kl3inIT/MemoryOS/pull/32) · [PR #33](https://github.com/kl3inIT/MemoryOS/pull/33) |
-
 | MEM-29–33 | Frontend lifecycle hardening across client navigation, persistent authenticated layouts, browser-session query convergence, single-flight invitation creation, and CSP-compatible font assets | [Design](increments/completed/mem-29-33-frontend-lifecycle-hardening/design.md) · [Verification](increments/completed/mem-29-33-frontend-lifecycle-hardening/verification.md) · [PR #35](https://github.com/kl3inIT/MemoryOS/pull/35) |
 | MEM-34 | Pre-provisioned local-Keycloak invitees with bounded activation email, exact verified-email acceptance, and recovery-link fallback | [Design](increments/completed/mem-34-keycloak-invited-user-activation/design.md) · [Verification](increments/completed/mem-34-keycloak-invited-user-activation/verification.md) · [PR #36](https://github.com/kl3inIT/MemoryOS/pull/36) |
 | MEM-37 | Command-style invitation revocation and consumer-facing Identity/Invitations OpenAPI taxonomy | [Design](increments/completed/mem-37-command-style-invitation-revoke/design.md) · [Verification](increments/completed/mem-37-command-style-invitation-revoke/verification.md) · [PR #38](https://github.com/kl3inIT/MemoryOS/pull/38) |
 | MEM-27 | Onyx/Opal-informed semantic interaction tokens, action prominence, shared control sizes, and enforced disabled/pending behavior across the production frontend | [Design](increments/completed/mem-27-frontend-interaction-contracts/design.md) · [Verification](increments/completed/mem-27-frontend-interaction-contracts/verification.md) · [PR #40](https://github.com/kl3inIT/MemoryOS/pull/40) |
+| MEM-38 | Accessible destructive confirmations with bounded pending, failure, retry, cleanup, and focus-restoration behavior | [Design](increments/completed/mem-38-destructive-confirmations/design.md) · [Verification](increments/completed/mem-38-destructive-confirmations/verification.md) |
 
 ## Active
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
-| MEM-24 | Clean-cut the runtime to one deployment-owned Tenant with UUID-preserving V6 migration and Arconia fixed Tenant context | [Design](increments/active/mem-24-tenant-cutover/design.md) · [Plan](increments/active/mem-24-tenant-cutover/plan.md) |
-| [MEM-38](https://linear.app/memory-os/issue/MEM-38/standardize-destructive-confirmations-and-async-feedback) | Standardize accessible destructive confirmations, async pending behavior, and safe source mutation feedback before the Sources redesign | [Design](increments/active/mem-38-destructive-confirmations/design.md) · [Plan](increments/active/mem-38-destructive-confirmations/plan.md) · [Verification](increments/active/mem-38-destructive-confirmations/verification.md) |
 | [MEM-35](https://linear.app/memory-os/issue/MEM-35/establish-organization-owned-file-connectors-and-document-boundary) | Establish the Onyx-aligned Tenant-owned Connector/Credential/Pair/Document boundary through a production FILE source and persistence-backed indexing worker | [Design](increments/active/mem-35-file-connectors/design.md) · [Plan](increments/active/mem-35-file-connectors/plan.md) · [Verification](increments/active/mem-35-file-connectors/verification.md) |
+| [MEM-42](https://linear.app/memory-os/issue/MEM-42/provision-redis-consistently-across-development-test-and-production) | Establish the real Redis Streams runtime boundary for worker/control-plane delivery without changing PostgreSQL operation authority | [Design](increments/active/mem-42-redis-runtime/design.md) · [Plan](increments/active/mem-42-redis-runtime/plan.md) · [Verification](increments/active/mem-42-redis-runtime/verification.md) |
+| [MEM-45](https://linear.app/memory-os/issue/MEM-45/run-durable-control-plane-tasks-with-db-scheduler) | Establish db-scheduler as the PostgreSQL-backed cluster-safe owner of bounded recurring control tasks | [Design](increments/active/mem-45-db-scheduler-control-plane/design.md) · [Plan](increments/active/mem-45-db-scheduler-control-plane/plan.md) · [Verification](increments/active/mem-45-db-scheduler-control-plane/verification.md) |
 
 ## Candidate increments
 
-These are sequencing signals, not commitments or approved designs.
+These are sequencing signals, not commitments or independently deployable slices.
 
-1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Tenant-owned Google Drive connections.
-2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Tenant-scoped Google Docs with source ACL evidence.
-3. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
+1. [MEM-43](https://linear.app/memory-os/issue/MEM-43/dispatch-durable-postgresql-operations-to-redis-streams) + [MEM-44](https://linear.app/memory-os/issue/MEM-44/operate-tenant-aware-redis-stream-workers-safely) + [MEM-51](https://linear.app/memory-os/issue/MEM-51/cut-over-the-postgresql-polling-worker-to-redis-dispatch-safely) — one Redis operation-execution cutover increment and PR: relay durable PostgreSQL operations without an outbox, consume them with explicit-Tenant fenced claims/renewal/reclaim, drain the old epoch, and remove direct polling. The three Linear issues are work packages, not separately shippable runtime states.
+2. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Tenant-owned Google Drive connections.
+3. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Tenant-scoped Google Docs with source ACL evidence.
+4. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
 
 Create or link an issue and add an active increment record before implementation begins.

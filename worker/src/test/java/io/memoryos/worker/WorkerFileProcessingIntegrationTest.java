@@ -37,6 +37,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
                         + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
                         + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql",
+                "db-scheduler.enabled=false",
+                "management.endpoint.health.group.readiness.include=readinessState,db,redis",
                 "memoryos.worker.enabled=true",
                 "memoryos.worker.batch-size=4",
                 "memoryos.worker.idle-delay=25ms"
@@ -140,7 +142,7 @@ class WorkerFileProcessingIntegrationTest {
         );
     }
 
-    private static void await(BooleanSupplier condition) throws Exception {
+    private static void await(BooleanSupplier condition) {
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() >= deadline) {

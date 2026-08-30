@@ -7,6 +7,10 @@ import org.springframework.boot.test.context.SpringBootTest;
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
                 "memoryos.worker.enabled=false",
+                "db-scheduler.enabled=false",
+                "management.endpoint.health.group.readiness.include=readinessState,db,redis",
+                "memoryos.redis.topology-enabled=false",
+                "arconia.dev.services.redis.enabled=false",
                 "spring.datasource.url=jdbc:h2:mem:worker-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
                 "spring.datasource.username=sa",
                 "spring.datasource.password="

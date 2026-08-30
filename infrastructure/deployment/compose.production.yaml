@@ -332,6 +332,8 @@ services:
     secrets:
       - source: memoryos_infisical_bootstrap
         target: memoryos_infisical_bootstrap
+    environment:
+      SPRING_PROFILES_ACTIVE: ${MEMORYOS_WORKER_PROFILE:-production}
     depends_on:
       api:
         condition: service_healthy

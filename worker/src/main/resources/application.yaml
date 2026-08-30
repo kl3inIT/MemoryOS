@@ -5,6 +5,38 @@ spring:
     url: ${MEMORYOS_DATABASE_URL}
     username: ${MEMORYOS_DATABASE_USERNAME}
     password: ${MEMORYOS_DATABASE_PASSWORD}
+  data:
+    redis:
+      host: ${MEMORYOS_REDIS_HOST:localhost}
+      port: ${MEMORYOS_REDIS_PORT:6379}
+      username: ${MEMORYOS_REDIS_USERNAME:}
+      password: ${MEMORYOS_REDIS_PASSWORD:}
+      connect-timeout: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:2s}
+      ssl:
+        enabled: ${MEMORYOS_REDIS_SSL_ENABLED:false}
+      lettuce:
+        shutdown-timeout: 1s
+        pool:
+          enabled: true
+          max-active: ${MEMORYOS_REDIS_POOL_MAX_ACTIVE:8}
+          max-idle: ${MEMORYOS_REDIS_POOL_MAX_IDLE:8}
+          min-idle: ${MEMORYOS_REDIS_POOL_MIN_IDLE:0}
+          max-wait: ${MEMORYOS_REDIS_POOL_MAX_WAIT:2s}
+
+db-scheduler:
+  enabled: true
+  table-name: scheduled_tasks
+  scheduler-name: ${MEMORYOS_SCHEDULER_NAME:}
+  threads: 2
+  polling-interval: 5s
+  heartbeat-interval: 30s
+  missed-heartbeats-limit: 4
+  immediate-execution-enabled: true
+  delay-startup-until-context-ready: true
+  polling-strategy: fetch
+  priority-enabled: false
+  shutdown-max-wait: 30s
 
 server:
   port: ${MEMORYOS_WORKER_PORT:8081}
@@ -18,9 +50,22 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis,dbScheduler
 
 memoryos:
   worker:
     enabled: true
     batch-size: ${MEMORYOS_WORKER_BATCH_SIZE:8}
     idle-delay: ${MEMORYOS_WORKER_IDLE_DELAY:1s}
+  redis:
+    topology-enabled: true
+    topology-initial-delay: 0s
+    topology-interval: 30s
+    ingestion:
+      stream: memoryos:work:ingestion
+      group: memoryos-ingestion-workers
+    cleanup:
+      stream: memoryos:work:cleanup
+      group: memoryos-cleanup-workers
