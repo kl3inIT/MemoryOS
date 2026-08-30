@@ -6,6 +6,8 @@ plugins {
 
 dependencies {
     implementation(project(":core"))
+    implementation(platform(libs.arconia.bom))
+    implementation(libs.arconia.multitenancy.web)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.validation)

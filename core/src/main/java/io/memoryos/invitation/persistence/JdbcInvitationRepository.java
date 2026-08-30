@@ -4,7 +4,7 @@ import io.memoryos.identity.ActorId;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationQuery;
 import io.memoryos.invitation.InvitationSort;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -23,30 +23,30 @@ import org.springframework.stereotype.Repository;
 public class JdbcInvitationRepository {
 
     private static final String EXPIRE_PENDING_EMAIL = """
-            UPDATE organization_invitations
+            UPDATE tenant_invitations
             SET status = 'EXPIRED',
                 open_email_key = NULL,
                 updated_at = :now
-            WHERE organization_id = :organizationId
+            WHERE tenant_id = :tenantId
               AND open_email_key = :email
               AND status = 'PENDING'
               AND expires_at <= :now
             """;
 
-    private static final String EXPIRE_PENDING_ORGANIZATION = """
-            UPDATE organization_invitations
+    private static final String EXPIRE_PENDING_TENANT = """
+            UPDATE tenant_invitations
             SET status = 'EXPIRED',
                 open_email_key = NULL,
                 updated_at = :now
-            WHERE organization_id = :organizationId
+            WHERE tenant_id = :tenantId
               AND status = 'PENDING'
               AND expires_at <= :now
             """;
 
     private static final String INSERT_INVITATION = """
-            INSERT INTO organization_invitations (
+            INSERT INTO tenant_invitations (
                 id,
-                organization_id,
+                tenant_id,
                 normalized_email,
                 open_email_key,
                 secret_digest,
@@ -58,7 +58,7 @@ public class JdbcInvitationRepository {
             )
             VALUES (
                 :id,
-                :organizationId,
+                :tenantId,
                 :email,
                 :email,
                 :digest,
@@ -72,40 +72,40 @@ public class JdbcInvitationRepository {
 
     private static final String COUNT_INVITATIONS = """
             SELECT count(*)
-            FROM organization_invitations invitation
-            WHERE invitation.organization_id = :organizationId
+            FROM tenant_invitations invitation
+            WHERE invitation.tenant_id = :tenantId
             """;
 
     private static final String SELECT_INVITATION_PAGE = """
             SELECT invitation.*
-            FROM organization_invitations invitation
-            WHERE invitation.organization_id = :organizationId
+            FROM tenant_invitations invitation
+            WHERE invitation.tenant_id = :tenantId
             """;
 
     private static final String SELECT_INVITATION = """
             SELECT invitation.*
-            FROM organization_invitations invitation
-            WHERE invitation.organization_id = :organizationId
+            FROM tenant_invitations invitation
+            WHERE invitation.tenant_id = :tenantId
               AND invitation.id = :invitationId
             """;
 
     private static final String LOCK_INVITATION = """
             SELECT invitation.*
-            FROM organization_invitations invitation
-            WHERE invitation.organization_id = :organizationId
+            FROM tenant_invitations invitation
+            WHERE invitation.tenant_id = :tenantId
               AND invitation.id = :invitationId
             FOR UPDATE
             """;
 
     private static final String SELECT_INVITATION_BY_DIGEST = """
             SELECT invitation.*
-            FROM organization_invitations invitation
+            FROM tenant_invitations invitation
             WHERE invitation.secret_digest = :digest
             """;
 
     private static final String LOCK_PENDING_INVITATION_BY_EMAIL = """
             SELECT invitation.*
-            FROM organization_invitations invitation
+            FROM tenant_invitations invitation
             WHERE invitation.open_email_key = :email
               AND invitation.status = 'PENDING'
               AND invitation.expires_at > :now
@@ -113,35 +113,35 @@ public class JdbcInvitationRepository {
             """;
 
     private static final String ROTATE_INVITATION = """
-            UPDATE organization_invitations
+            UPDATE tenant_invitations
             SET secret_digest = :digest,
                 expires_at = :expiresAt,
                 updated_at = :now
-            WHERE organization_id = :organizationId
+            WHERE tenant_id = :tenantId
               AND id = :invitationId
               AND status = 'PENDING'
             """;
 
     private static final String REVOKE_INVITATION = """
-            UPDATE organization_invitations
+            UPDATE tenant_invitations
             SET status = 'REVOKED',
                 open_email_key = NULL,
                 revoked_by_actor_id = :actorId,
                 revoked_at = :now,
                 updated_at = :now
-            WHERE organization_id = :organizationId
+            WHERE tenant_id = :tenantId
               AND id = :invitationId
               AND status = 'PENDING'
             """;
 
     private static final String ACCEPT_INVITATION = """
-            UPDATE organization_invitations
+            UPDATE tenant_invitations
             SET status = 'ACCEPTED',
                 open_email_key = NULL,
                 accepted_by_actor_id = :actorId,
                 accepted_at = :now,
                 updated_at = :now
-            WHERE organization_id = :organizationId
+            WHERE tenant_id = :tenantId
               AND id = :invitationId
               AND status = 'PENDING'
             """;
@@ -152,24 +152,24 @@ public class JdbcInvitationRepository {
         this.jdbcClient = jdbcClient;
     }
 
-    public void expirePending(OrganizationId organizationId, String email, Instant now) {
+    public void expirePending(TenantId tenantId, String email, Instant now) {
         jdbcClient.sql(EXPIRE_PENDING_EMAIL)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("email", email)
                 .param("now", sqlTime(now))
                 .update();
     }
 
-    public void expirePending(OrganizationId organizationId, Instant now) {
-        jdbcClient.sql(EXPIRE_PENDING_ORGANIZATION)
-                .param("organizationId", organizationId.value())
+    public void expirePending(TenantId tenantId, Instant now) {
+        jdbcClient.sql(EXPIRE_PENDING_TENANT)
+                .param("tenantId", tenantId.value())
                 .param("now", sqlTime(now))
                 .update();
     }
 
     public int insert(
             UUID invitationId,
-            OrganizationId organizationId,
+            TenantId tenantId,
             String email,
             String digest,
             ActorId creatorActorId,
@@ -178,7 +178,7 @@ public class JdbcInvitationRepository {
     ) {
         return jdbcClient.sql(INSERT_INVITATION)
                 .param("id", invitationId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("email", email)
                 .param("digest", digest)
                 .param("actorId", creatorActorId.value())
@@ -187,9 +187,9 @@ public class JdbcInvitationRepository {
                 .update();
     }
 
-    public long count(OrganizationId organizationId, InvitationQuery query) {
+    public long count(TenantId tenantId, InvitationQuery query) {
         var statement = jdbcClient.sql(COUNT_INVITATIONS + filterClause(query))
-                .param("organizationId", organizationId.value());
+                .param("tenantId", tenantId.value());
         if (query.status() != null) {
             statement = statement.param("status", query.status().name());
         }
@@ -199,14 +199,14 @@ public class JdbcInvitationRepository {
         return statement.query(Long.class).single();
     }
 
-    public List<InvitationRow> findPage(OrganizationId organizationId, InvitationQuery query) {
+    public List<InvitationRow> findPage(TenantId tenantId, InvitationQuery query) {
         var statement = jdbcClient.sql(
                         SELECT_INVITATION_PAGE
                                 + filterClause(query)
                                 + orderClause(query.sort())
                                 + " LIMIT :size OFFSET :offset"
                 )
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("size", query.size())
                 .param("offset", query.offset());
         if (query.status() != null) {
@@ -218,17 +218,17 @@ public class JdbcInvitationRepository {
         return statement.query((resultSet, ignored) -> row(resultSet)).list();
     }
 
-    public Optional<InvitationRow> find(OrganizationId organizationId, UUID invitationId) {
+    public Optional<InvitationRow> find(TenantId tenantId, UUID invitationId) {
         return jdbcClient.sql(SELECT_INVITATION)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("invitationId", invitationId)
                 .query((resultSet, ignored) -> row(resultSet))
                 .optional();
     }
 
-    public Optional<InvitationRow> findLocked(OrganizationId organizationId, UUID invitationId) {
+    public Optional<InvitationRow> findLocked(TenantId tenantId, UUID invitationId) {
         return jdbcClient.sql(LOCK_INVITATION)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("invitationId", invitationId)
                 .query((resultSet, ignored) -> row(resultSet))
                 .optional();
@@ -251,7 +251,7 @@ public class JdbcInvitationRepository {
 
     public int rotate(InvitationRow invitation, String digest, Instant expiresAt, Instant now) {
         return jdbcClient.sql(ROTATE_INVITATION)
-                .param("organizationId", invitation.organizationId())
+                .param("tenantId", invitation.tenantId())
                 .param("invitationId", invitation.id())
                 .param("digest", digest)
                 .param("expiresAt", sqlTime(expiresAt))
@@ -261,7 +261,7 @@ public class JdbcInvitationRepository {
 
     public int revoke(InvitationRow invitation, ActorId actorId, Instant now) {
         return jdbcClient.sql(REVOKE_INVITATION)
-                .param("organizationId", invitation.organizationId())
+                .param("tenantId", invitation.tenantId())
                 .param("invitationId", invitation.id())
                 .param("actorId", actorId.value())
                 .param("now", sqlTime(now))
@@ -270,7 +270,7 @@ public class JdbcInvitationRepository {
 
     public int accept(InvitationRow invitation, ActorId actorId, Instant now) {
         return jdbcClient.sql(ACCEPT_INVITATION)
-                .param("organizationId", invitation.organizationId())
+                .param("tenantId", invitation.tenantId())
                 .param("invitationId", invitation.id())
                 .param("actorId", actorId.value())
                 .param("now", sqlTime(now))
@@ -300,7 +300,7 @@ public class JdbcInvitationRepository {
     private static InvitationRow row(ResultSet resultSet) throws SQLException {
         return new InvitationRow(
                 resultSet.getObject("id", UUID.class),
-                resultSet.getObject("organization_id", UUID.class),
+                resultSet.getObject("tenant_id", UUID.class),
                 resultSet.getString("normalized_email"),
                 InvitationStatus.valueOf(resultSet.getString("status")),
                 resultSet.getTimestamp("created_at").toInstant(),

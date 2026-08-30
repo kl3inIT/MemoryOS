@@ -17,8 +17,8 @@ import io.memoryos.connector.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.identity.ActorId;
-import io.memoryos.organization.OrganizationAccessResolver;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantAccessResolver;
+import io.memoryos.tenant.TenantId;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,7 +37,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final JdbcIndexAttemptRepository attempts;
     private final JdbcSourceDocumentRepository documents;
     private final JdbcSourceQueryRepository queries;
-    private final OrganizationAccessResolver organizationAccessResolver;
+    private final TenantAccessResolver tenantAccessResolver;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -45,25 +45,25 @@ public class DefaultSourceManagementService implements SourceManagementService {
             JdbcIndexAttemptRepository attempts,
             JdbcSourceDocumentRepository documents,
             JdbcSourceQueryRepository queries,
-            OrganizationAccessResolver organizationAccessResolver
+            TenantAccessResolver tenantAccessResolver
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
         this.attempts = Objects.requireNonNull(attempts, "attempts must not be null");
         this.documents = Objects.requireNonNull(documents, "documents must not be null");
         this.queries = Objects.requireNonNull(queries, "queries must not be null");
-        this.organizationAccessResolver = Objects.requireNonNull(
-                organizationAccessResolver,
-                "organizationAccessResolver must not be null"
+        this.tenantAccessResolver = Objects.requireNonNull(
+                tenantAccessResolver,
+                "tenantAccessResolver must not be null"
         );
     }
 
     @Override
     @Transactional
     public SourceDetail createFileSource(ActorId actorId, String name) {
-        OrganizationId organizationId = requireOwner(actorId);
-        var pair = sources.createFileSource(organizationId, requireName(name));
-        return queries.detail(organizationId, pair.sourceId());
+        TenantId tenantId = requireOwner(actorId);
+        var pair = sources.createFileSource(tenantId, requireName(name));
+        return queries.detail(tenantId, pair.sourceId());
     }
 
     @Override
@@ -81,9 +81,9 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Override
     @Transactional(readOnly = true)
     public List<SourceOperationView> listIndexOperations(ActorId actorId, SourceId sourceId) {
-        OrganizationId organizationId = requireOwner(actorId);
-        queries.detail(organizationId, requireSourceId(sourceId));
-        return attempts.list(organizationId, sourceId);
+        TenantId tenantId = requireOwner(actorId);
+        queries.detail(tenantId, requireSourceId(sourceId));
+        return attempts.list(tenantId, sourceId);
     }
 
     @Override
@@ -95,43 +95,43 @@ public class DefaultSourceManagementService implements SourceManagementService {
             byte[] content,
             String sha256
     ) {
-        OrganizationId organizationId = requireOwner(actorId);
+        TenantId tenantId = requireOwner(actorId);
         requireContent(content);
-        var pair = mutable(sources.lock(organizationId, requireSourceId(sourceId)));
+        var pair = mutable(sources.lock(tenantId, requireSourceId(sourceId)));
         var version = items.resolveOrCreate(
-                organizationId,
+                tenantId,
                 pair,
                 requireFilename(filename),
                 content,
                 requireSha256(sha256)
         );
-        SourceOperationView operation = attempts.findLive(organizationId, sourceId, version)
-                .orElseGet(() -> attempts.create(organizationId, pair, version));
-        return new SourceUploadResult(queries.item(organizationId, sourceId, version.itemId()), operation);
+        SourceOperationView operation = attempts.findLive(tenantId, sourceId, version)
+                .orElseGet(() -> attempts.create(tenantId, pair, version));
+        return new SourceUploadResult(queries.item(tenantId, sourceId, version.itemId()), operation);
     }
 
     @Override
     @Transactional
     public SourceOperationView reindex(ActorId actorId, SourceId sourceId, SourceItemId itemId) {
-        OrganizationId organizationId = requireOwner(actorId);
-        var pair = mutable(sources.lock(organizationId, requireSourceId(sourceId)));
+        TenantId tenantId = requireOwner(actorId);
+        var pair = mutable(sources.lock(tenantId, requireSourceId(sourceId)));
         var version = items.currentVersion(
-                organizationId,
+                tenantId,
                 pair,
                 Objects.requireNonNull(itemId, "itemId must not be null")
         );
-        return attempts.findLive(organizationId, sourceId, version)
-                .orElseGet(() -> attempts.create(organizationId, pair, version));
+        return attempts.findLive(tenantId, sourceId, version)
+                .orElseGet(() -> attempts.create(tenantId, pair, version));
     }
 
     @Override
     @Transactional
     public SourceOperationView removeItem(ActorId actorId, SourceId sourceId, SourceItemId itemId) {
-        OrganizationId organizationId = requireOwner(actorId);
+        TenantId tenantId = requireOwner(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         SourceItemId requiredItemId = Objects.requireNonNull(itemId, "itemId must not be null");
         var parentCleanup = sources.findCleanup(
-                organizationId,
+                tenantId,
                 SourceOperationType.DELETE_SOURCE,
                 "PAIR:" + requiredSourceId.value()
         );
@@ -139,31 +139,31 @@ public class DefaultSourceManagementService implements SourceManagementService {
             return parentCleanup.get();
         }
         String targetKey = "ITEM:" + requiredItemId.value();
-        var existing = sources.findCleanup(organizationId, SourceOperationType.REMOVE_ITEM, targetKey);
+        var existing = sources.findCleanup(tenantId, SourceOperationType.REMOVE_ITEM, targetKey);
         if (existing.isPresent()) {
             return existing.get();
         }
-        var pair = sources.lock(organizationId, requiredSourceId);
+        var pair = sources.lock(tenantId, requiredSourceId);
         parentCleanup = sources.findCleanup(
-                organizationId,
+                tenantId,
                 SourceOperationType.DELETE_SOURCE,
                 "PAIR:" + requiredSourceId.value()
         );
         if (parentCleanup.isPresent()) {
             return parentCleanup.get();
         }
-        existing = sources.findCleanup(organizationId, SourceOperationType.REMOVE_ITEM, targetKey);
+        existing = sources.findCleanup(tenantId, SourceOperationType.REMOVE_ITEM, targetKey);
         if (existing.isPresent()) {
             return existing.get();
         }
         var mutablePair = mutable(pair);
-        items.currentVersion(organizationId, mutablePair, requiredItemId);
-        items.markDeleting(organizationId, mutablePair, requiredItemId);
-        documents.invalidateItem(organizationId, requiredSourceId, requiredItemId);
-        attempts.cancelForItem(organizationId, requiredSourceId, requiredItemId);
+        items.currentVersion(tenantId, mutablePair, requiredItemId);
+        items.markDeleting(tenantId, mutablePair, requiredItemId);
+        documents.invalidateItem(tenantId, requiredSourceId, requiredItemId);
+        attempts.cancelForItem(tenantId, requiredSourceId, requiredItemId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
-                organizationId,
+                tenantId,
                 SourceOperationType.REMOVE_ITEM,
                 targetKey,
                 requiredSourceId,
@@ -174,25 +174,25 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Override
     @Transactional
     public SourceOperationView deleteSource(ActorId actorId, SourceId sourceId) {
-        OrganizationId organizationId = requireOwner(actorId);
+        TenantId tenantId = requireOwner(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         String targetKey = "PAIR:" + requiredSourceId.value();
-        var existing = sources.findCleanup(organizationId, SourceOperationType.DELETE_SOURCE, targetKey);
+        var existing = sources.findCleanup(tenantId, SourceOperationType.DELETE_SOURCE, targetKey);
         if (existing.isPresent()) {
             return existing.get();
         }
-        var pair = sources.lock(organizationId, requiredSourceId);
-        existing = sources.findCleanup(organizationId, SourceOperationType.DELETE_SOURCE, targetKey);
+        var pair = sources.lock(tenantId, requiredSourceId);
+        existing = sources.findCleanup(tenantId, SourceOperationType.DELETE_SOURCE, targetKey);
         if (existing.isPresent()) {
             return existing.get();
         }
-        sources.markDeleting(organizationId, pair);
-        documents.invalidateSource(organizationId, requiredSourceId);
-        attempts.cancelForSource(organizationId, requiredSourceId);
-        sources.supersedeItemCleanups(organizationId, requiredSourceId);
+        sources.markDeleting(tenantId, pair);
+        documents.invalidateSource(tenantId, requiredSourceId);
+        attempts.cancelForSource(tenantId, requiredSourceId);
+        sources.supersedeItemCleanups(tenantId, requiredSourceId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
-                organizationId,
+                tenantId,
                 SourceOperationType.DELETE_SOURCE,
                 targetKey,
                 requiredSourceId,
@@ -203,16 +203,16 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Override
     @Transactional(readOnly = true)
     public SourceOperationView getOperation(ActorId actorId, SourceOperationId operationId) {
-        OrganizationId organizationId = requireOwner(actorId);
+        TenantId tenantId = requireOwner(actorId);
         SourceOperationId requiredOperationId = Objects.requireNonNull(operationId, "operationId must not be null");
-        return attempts.findById(organizationId, requiredOperationId)
-                .or(() -> sources.findCleanupById(organizationId, requiredOperationId))
+        return attempts.findById(tenantId, requiredOperationId)
+                .or(() -> sources.findCleanupById(tenantId, requiredOperationId))
                 .orElseThrow(SourceException::notFound);
     }
 
-    private OrganizationId requireOwner(ActorId actorId) {
+    private TenantId requireOwner(ActorId actorId) {
         Objects.requireNonNull(actorId, "actorId must not be null");
-        return organizationAccessResolver.findActiveOwnerOrganization(actorId)
+        return tenantAccessResolver.findActiveOwnerTenant(actorId)
                 .orElseThrow(SourceException::notOwner);
     }
 

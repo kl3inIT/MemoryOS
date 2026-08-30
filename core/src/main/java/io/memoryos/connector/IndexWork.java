@@ -1,12 +1,12 @@
 package io.memoryos.connector;
 
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.util.UUID;
 
 public record IndexWork(
         SourceOperationId operationId,
-        OrganizationId organizationId,
+        TenantId tenantId,
         UUID connectorId,
         SourceId sourceId,
         SourceItemId itemId,

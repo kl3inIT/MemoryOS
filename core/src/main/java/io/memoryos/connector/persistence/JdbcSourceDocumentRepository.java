@@ -4,7 +4,7 @@ import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.document.DocumentId;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,20 +21,20 @@ public class JdbcSourceDocumentRepository {
     private final JdbcClient jdbcClient;
 
 
-    public boolean hasEligibleMapping(OrganizationId organizationId, DocumentId documentId) {
+    public boolean hasEligibleMapping(TenantId tenantId, DocumentId documentId) {
         return jdbcClient.sql("""
                         SELECT COUNT(*)
                         FROM documents_by_connector_credential_pair mapping
                         JOIN connector_credential_pairs pair
-                          ON pair.organization_id = mapping.organization_id
+                          ON pair.tenant_id = mapping.tenant_id
                          AND pair.id = mapping.connector_credential_pair_id
                         JOIN connectors connector
-                          ON connector.organization_id = mapping.organization_id
+                          ON connector.tenant_id = mapping.tenant_id
                          AND connector.id = mapping.connector_id
                         JOIN documents document
-                          ON document.organization_id = mapping.organization_id
+                          ON document.tenant_id = mapping.tenant_id
                          AND document.id = mapping.document_id
-                        WHERE mapping.organization_id = :organizationId
+                        WHERE mapping.tenant_id = :tenantId
                           AND mapping.document_id = :documentId
                           AND mapping.retrieval_eligible = TRUE
                           AND pair.access_type = 'PUBLIC'
@@ -42,7 +42,7 @@ public class JdbcSourceDocumentRepository {
                           AND connector.status = 'ACTIVE'
                           AND document.status = 'ELIGIBLE'
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("documentId", documentId.value())
                 .query(Integer.class)
                 .single() != 0;
@@ -55,11 +55,11 @@ public class JdbcSourceDocumentRepository {
     public Optional<DocumentId> findMappedDocument(IndexWork work) {
         return jdbcClient.sql("""
                         SELECT document_id FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId().value())
                 .param("itemId", work.itemId().value())
                 .query(UUID.class)
@@ -70,11 +70,11 @@ public class JdbcSourceDocumentRepository {
     public void publishMapping(IndexWork work, DocumentId documentId) {
         int existing = jdbcClient.sql("""
                         SELECT COUNT(*) FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId().value())
                 .param("itemId", work.itemId().value())
                 .query(Integer.class)
@@ -82,14 +82,14 @@ public class JdbcSourceDocumentRepository {
         if (existing == 0) {
             jdbcClient.sql("""
                             INSERT INTO documents_by_connector_credential_pair (
-                                organization_id, connector_id, connector_credential_pair_id,
+                                tenant_id, connector_id, connector_credential_pair_id,
                                 document_id, connector_item_id, retrieval_eligible
                             ) VALUES (
-                                :organizationId, :connectorId, :pairId,
+                                :tenantId, :connectorId, :pairId,
                                 :documentId, :itemId, TRUE
                             )
                             """)
-                    .param("organizationId", work.organizationId().value())
+                    .param("tenantId", work.tenantId().value())
                     .param("connectorId", work.connectorId())
                     .param("pairId", work.sourceId().value())
                     .param("documentId", documentId.value())
@@ -101,90 +101,90 @@ public class JdbcSourceDocumentRepository {
                         UPDATE documents_by_connector_credential_pair
                         SET document_id = :documentId, retrieval_eligible = TRUE,
                             last_indexed_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
                 .param("documentId", documentId.value())
-                .param("organizationId", work.organizationId().value())
+                .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId().value())
                 .param("itemId", work.itemId().value())
                 .update();
     }
 
-    public void invalidateItem(OrganizationId organizationId, SourceId sourceId, SourceItemId itemId) {
+    public void invalidateItem(TenantId tenantId, SourceId sourceId, SourceItemId itemId) {
         jdbcClient.sql("""
                         UPDATE documents_by_connector_credential_pair
                         SET retrieval_eligible = FALSE, last_indexed_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .param("itemId", itemId.value())
                 .update();
     }
 
-    public void invalidateSource(OrganizationId organizationId, SourceId sourceId) {
+    public void invalidateSource(TenantId tenantId, SourceId sourceId) {
         jdbcClient.sql("""
                         UPDATE documents_by_connector_credential_pair
                         SET retrieval_eligible = FALSE, last_indexed_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .update();
     }
 
     public List<UUID> removeItemMappings(
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceId sourceId,
             SourceItemId itemId
     ) {
-        List<UUID> documents = documentIds(organizationId, sourceId, itemId);
+        List<UUID> documents = documentIds(tenantId, sourceId, itemId);
         jdbcClient.sql("""
                         DELETE FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .param("itemId", itemId.value())
                 .update();
         return documents;
     }
 
-    public List<UUID> removeSourceMappings(OrganizationId organizationId, SourceId sourceId) {
-        List<UUID> documents = documentIds(organizationId, sourceId, null);
+    public List<UUID> removeSourceMappings(TenantId tenantId, SourceId sourceId) {
+        List<UUID> documents = documentIds(tenantId, sourceId, null);
         jdbcClient.sql("""
                         DELETE FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .update();
         return documents;
     }
 
     private List<UUID> documentIds(
-            OrganizationId organizationId,
+            TenantId tenantId,
             SourceId sourceId,
             SourceItemId itemId
     ) {
         var statement = jdbcClient.sql(itemId == null ? """
                         SELECT document_id FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId AND connector_credential_pair_id = :pairId
+                        WHERE tenant_id = :tenantId AND connector_credential_pair_id = :pairId
                         """ : """
                         SELECT document_id FROM documents_by_connector_credential_pair
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value());
         if (itemId != null) {
             statement = statement.param("itemId", itemId.value());

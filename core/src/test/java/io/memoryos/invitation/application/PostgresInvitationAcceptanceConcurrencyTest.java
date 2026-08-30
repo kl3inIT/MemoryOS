@@ -19,15 +19,15 @@ import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.persistence.JdbcInvitationRepository;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationService;
-import io.memoryos.organization.InitialOrganizationBootstrapRequest;
-import io.memoryos.organization.InitialOrganizationBootstrapper;
-import io.memoryos.organization.InvitationAuthority;
-import io.memoryos.organization.InvitationTarget;
-import io.memoryos.organization.OrganizationId;
-import io.memoryos.organization.OrganizationMembershipProvisioner;
-import io.memoryos.organization.application.DefaultInitialOrganizationBootstrapper;
-import io.memoryos.organization.persistence.JdbcOrganizationBootstrapRepository;
-import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisioner;
+import io.memoryos.tenant.InitialTenantBootstrapRequest;
+import io.memoryos.tenant.InitialTenantBootstrapper;
+import io.memoryos.tenant.InvitationAuthority;
+import io.memoryos.tenant.InvitationTarget;
+import io.memoryos.tenant.TenantId;
+import io.memoryos.tenant.TenantMembershipProvisioner;
+import io.memoryos.tenant.application.DefaultInitialTenantBootstrapper;
+import io.memoryos.tenant.persistence.JdbcTenantBootstrapRepository;
+import io.memoryos.tenant.persistence.JdbcTenantMembershipProvisioner;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -88,7 +89,9 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                     new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
                     new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
                     new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql")
+                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
+                    new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
+                    new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
             ).populate(connection);
         }
 
@@ -101,17 +104,18 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 transactionManager
         );
         var normalProvisioner = transactionalProxy(
-                new JdbcOrganizationMembershipProvisioner(jdbcClient),
-                OrganizationMembershipProvisioner.class,
+                new JdbcTenantMembershipProvisioner(jdbcClient),
+                TenantMembershipProvisioner.class,
                 transactionManager
         );
-        var bootstrapRepository = new JdbcOrganizationBootstrapRepository(jdbcClient);
-        InitialOrganizationBootstrapper bootstrapper = transactionalProxy(
-                new DefaultInitialOrganizationBootstrapper(bootstrapRepository, resolver, registrar),
-                InitialOrganizationBootstrapper.class,
+        var bootstrapRepository = new JdbcTenantBootstrapRepository(jdbcClient);
+        InitialTenantBootstrapper bootstrapper = transactionalProxy(
+                new DefaultInitialTenantBootstrapper(bootstrapRepository, resolver, registrar),
+                InitialTenantBootstrapper.class,
                 transactionManager
         );
-        ActorId owner = bootstrapper.bootstrap(new InitialOrganizationBootstrapRequest(
+        ActorId owner = bootstrapper.bootstrap(new InitialTenantBootstrapRequest(
+                new TenantId(UUID.fromString("10000000-0000-0000-0000-000000000024")),
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "owner"),
                 "tasco",
                 "Tasco",
@@ -169,7 +173,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
         var continuation = issuer.intake(issued.plaintextSecret());
         var acceptance = new InvitationAcceptance(
                 continuation.invitationId(),
-                continuation.organizationId(),
+                continuation.tenantId(),
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "member"),
                 "member@example.com",
                 true
@@ -201,9 +205,9 @@ class PostgresInvitationAcceptanceConcurrencyTest {
 
                 assertEquals(2L, count(jdbcClient, "actors"));
                 assertEquals(2L, count(jdbcClient, "external_identity_bindings"));
-                assertEquals(2L, count(jdbcClient, "organization_memberships"));
+                assertEquals(2L, count(jdbcClient, "tenant_memberships"));
                 assertEquals(1L, jdbcClient.sql("""
-                                SELECT COUNT(*) FROM organization_invitations
+                                SELECT COUNT(*) FROM tenant_invitations
                                 WHERE status = 'ACCEPTED' AND accepted_by_actor_id = :actorId
                                 """)
                         .param("actorId", member.value())
@@ -214,173 +218,23 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             }
         }
 
-        ActorId secondOwner = createBoundActor(jdbcClient, "second-owner");
-        OrganizationId secondOrganization = new OrganizationId(java.util.UUID.randomUUID());
-        createOwnedOrganization(jdbcClient, secondOwner, secondOrganization);
-        ExternalIdentity sharedIdentity = new ExternalIdentity(
-                "https://keycloak.example/realms/memoryos",
-                "shared-member"
-        );
-        ActorId sharedActor = createBoundActor(jdbcClient, sharedIdentity.subject());
-        var firstIssued = issuer.issue(owner, "shared@example.com");
-        var secondIssued = issuer.issue(secondOwner, "shared@example.com");
-        var firstContinuation = issuer.intake(firstIssued.plaintextSecret());
-        var secondContinuation = issuer.intake(secondIssued.plaintextSecret());
-        var firstAcceptance = new InvitationAcceptance(
-                firstContinuation.invitationId(),
-                firstContinuation.organizationId(),
-                sharedIdentity,
-                "shared@example.com",
-                true
-        );
-        var secondAcceptance = new InvitationAcceptance(
-                secondContinuation.invitationId(),
-                secondContinuation.organizationId(),
-                sharedIdentity,
-                "shared@example.com",
-                true
-        );
-        var actorGrantEntered = new CountDownLatch(1);
-        var releaseActorGrant = new CountDownLatch(1);
-        var actorBlockingService = transactionalProxy(
-                new DefaultInvitationService(
-                        invitationRepository,
-                        registrar,
-                        blockingProvisioner(normalProvisioner, actorGrantEntered, releaseActorGrant),
-                        EXISTING_VERIFIED_RECIPIENT,
-                        clock,
-                        Duration.ofHours(72)
-                ),
-                InvitationService.class,
-                transactionManager
-        );
-
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> actorBlockingService.accept(firstAcceptance));
-            try {
-                assertTrue(actorGrantEntered.await(10, SECONDS));
-                var second = executor.submit(() -> secondService.accept(secondAcceptance));
-                assertTrue(waitForActorRowLock(jdbcClient));
-                assertFalse(second.isDone());
-
-                releaseActorGrant.countDown();
-                assertEquals(sharedActor, first.get(10, SECONDS));
-                try {
-                    second.get(10, SECONDS);
-                    throw new AssertionError("second identity grant unexpectedly succeeded");
-                } catch (ExecutionException exception) {
-                    var invitationException = assertInstanceOf(
-                            InvitationException.class,
-                            exception.getCause()
-                    );
-                    assertEquals(
-                            InvitationFailureReason.IDENTITY_CONFLICT,
-                            invitationException.reason()
-                    );
-                }
-            } finally {
-                releaseActorGrant.countDown();
-            }
-        }
-
-        assertEquals(1L, jdbcClient.sql("""
-                        SELECT COUNT(*) FROM organization_memberships
-                        WHERE actor_id = :actorId
-                        """)
-                .param("actorId", sharedActor.value())
-                .query(Long.class)
-                .single());
-        assertEquals(1L, jdbcClient.sql("""
-                        SELECT COUNT(*) FROM organization_invitations
-                        WHERE accepted_by_actor_id = :actorId AND status = 'ACCEPTED'
-                        """)
-                .param("actorId", sharedActor.value())
-                .query(Long.class)
-                .single());
-        assertEquals(1L, jdbcClient.sql("""
-                        SELECT COUNT(*) FROM organization_invitations
-                        WHERE id IN (:firstId, :secondId) AND status = 'PENDING'
-                        """)
-                .param("firstId", firstContinuation.invitationId())
-                .param("secondId", secondContinuation.invitationId())
-                .query(Long.class)
-                .single());
     }
 
-    private static ActorId createBoundActor(JdbcClient jdbcClient, String subject) {
-        ActorId actorId = new ActorId(java.util.UUID.randomUUID());
-        jdbcClient.sql("INSERT INTO actors (id) VALUES (:actorId)")
-                .param("actorId", actorId.value())
-                .update();
-        jdbcClient.sql("""
-                        INSERT INTO external_identity_bindings (issuer, subject, actor_id)
-                        VALUES (:issuer, :subject, :actorId)
-                        """)
-                .param("issuer", "https://keycloak.example/realms/memoryos")
-                .param("subject", subject)
-                .param("actorId", actorId.value())
-                .update();
-        return actorId;
-    }
 
-    private static void createOwnedOrganization(
-            JdbcClient jdbcClient,
-            ActorId owner,
-            OrganizationId organizationId
-    ) {
-        jdbcClient.sql("""
-                        INSERT INTO organizations (id, slug, display_name, status, bootstrap_reference)
-                        VALUES (:id, :slug, :displayName, 'ACTIVE', :reference)
-                        """)
-                .param("id", organizationId.value())
-                .param("slug", "second")
-                .param("displayName", "Second Organization")
-                .param("reference", "TEST-MEM-12-second")
-                .update();
-        jdbcClient.sql("""
-                        INSERT INTO organization_memberships (organization_id, actor_id, role, status)
-                        VALUES (:organizationId, :actorId, 'OWNER', 'ACTIVE')
-                        """)
-                .param("organizationId", organizationId.value())
-                .param("actorId", owner.value())
-                .update();
-    }
-
-    private static boolean waitForActorRowLock(JdbcClient jdbcClient) throws InterruptedException {
-        var deadline = System.nanoTime() + SECONDS.toNanos(10);
-        do {
-            long blocked = jdbcClient.sql("""
-                    SELECT COUNT(*)
-                    FROM pg_stat_activity
-                    WHERE datname = current_database()
-                      AND wait_event_type = 'Lock'
-                      AND query LIKE '%FROM actors%'
-                    """).query(Long.class).single();
-            if (blocked > 0) {
-                return true;
-            }
-            LockSupport.parkNanos(MILLISECONDS.toNanos(25));
-            if (Thread.interrupted()) {
-                throw new InterruptedException();
-            }
-        } while (System.nanoTime() < deadline);
-        return false;
-    }
-
-    private static OrganizationMembershipProvisioner blockingProvisioner(
-            OrganizationMembershipProvisioner delegate,
+    private static TenantMembershipProvisioner blockingProvisioner(
+            TenantMembershipProvisioner delegate,
             CountDownLatch entered,
             CountDownLatch release
     ) {
-        return new OrganizationMembershipProvisioner() {
+        return new TenantMembershipProvisioner() {
             @Override
             public Optional<InvitationAuthority> findInvitationAuthority(ActorId actorId) {
                 return delegate.findInvitationAuthority(actorId);
             }
 
             @Override
-            public Optional<InvitationTarget> findActiveInvitationTarget(OrganizationId organizationId) {
-                return delegate.findActiveInvitationTarget(organizationId);
+            public Optional<InvitationTarget> findActiveInvitationTarget(TenantId tenantId) {
+                return delegate.findActiveInvitationTarget(tenantId);
             }
 
             @Override
@@ -389,7 +243,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             }
 
             @Override
-            public void grantMember(OrganizationId organizationId, ActorId actorId) {
+            public void grantMember(TenantId tenantId, ActorId actorId) {
                 entered.countDown();
                 try {
                     assertTrue(release.await(10, SECONDS));
@@ -397,7 +251,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException("interrupted while holding invitation lock", exception);
                 }
-                delegate.grantMember(organizationId, actorId);
+                delegate.grantMember(tenantId, actorId);
             }
         };
     }
@@ -410,7 +264,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                     FROM pg_stat_activity
                     WHERE datname = current_database()
                       AND wait_event_type = 'Lock'
-                      AND query LIKE '%organization_invitations%'
+                      AND query LIKE '%tenant_invitations%'
                     """).query(Long.class).single();
             if (blocked > 0) {
                 return true;
@@ -446,7 +300,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             String digest;
             try (var digestStatement = connection.prepareStatement("""
                     SELECT secret_digest
-                    FROM organization_invitations
+                    FROM tenant_invitations
                     WHERE id = ?
                     """)) {
                 digestStatement.setObject(1, invitationId);
@@ -463,7 +317,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             try (var explain = connection.prepareStatement("""
                     EXPLAIN (COSTS OFF)
                     SELECT invitation.*
-                    FROM organization_invitations invitation
+                    FROM tenant_invitations invitation
                     WHERE invitation.secret_digest = ?
                     """)) {
                 explain.setString(1, digest);
@@ -474,7 +328,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 }
             }
             assertTrue(
-                    plan.toString().contains("uq_organization_invitations_secret_digest"),
+                    plan.toString().contains("uq_tenant_invitations_secret_digest"),
                     plan::toString
             );
         }

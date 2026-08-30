@@ -4,7 +4,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -49,24 +49,26 @@ class PostgresInvitationRepositoryReadConcurrencyTest {
                     new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
                     new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
                     new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql")
+                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
+                    new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
+                    new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
             ).populate(connection);
         }
 
         var jdbcClient = JdbcClient.create(dataSource);
         var repository = new JdbcInvitationRepository(jdbcClient);
         var transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
-        var organizationId = new OrganizationId(UUID.randomUUID());
+        var tenantId = new TenantId(UUID.randomUUID());
         var actorId = UUID.randomUUID();
         var invitationId = UUID.randomUUID();
         var digest = "a".repeat(64);
-        insertPendingInvitation(jdbcClient, actorId, organizationId, invitationId, digest);
+        insertPendingInvitation(jdbcClient, actorId, tenantId, invitationId, digest);
 
         var lockHeld = new CountDownLatch(1);
         var releaseLock = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(3)) {
             var locker = executor.submit(() -> transaction.executeWithoutResult(ignored -> {
-                repository.findLocked(organizationId, invitationId).orElseThrow();
+                repository.findLocked(tenantId, invitationId).orElseThrow();
                 lockHeld.countDown();
                 await(releaseLock);
             }));
@@ -76,7 +78,7 @@ class PostgresInvitationRepositoryReadConcurrencyTest {
                         ignored -> repository.findByDigest(digest).orElseThrow()
                 ));
                 var byId = executor.submit(() -> transaction.execute(
-                        ignored -> repository.find(organizationId, invitationId).orElseThrow()
+                        ignored -> repository.find(tenantId, invitationId).orElseThrow()
                 ));
 
                 assertEquals(invitationId, byDigest.get(2, SECONDS).id());
@@ -91,7 +93,7 @@ class PostgresInvitationRepositoryReadConcurrencyTest {
     private static void insertPendingInvitation(
             JdbcClient jdbcClient,
             UUID actorId,
-            OrganizationId organizationId,
+            TenantId tenantId,
             UUID invitationId,
             String digest
     ) {
@@ -99,16 +101,16 @@ class PostgresInvitationRepositoryReadConcurrencyTest {
                 .param("actorId", actorId)
                 .update();
         jdbcClient.sql("""
-                        INSERT INTO organizations (id, slug, display_name, status, bootstrap_reference)
-                        VALUES (:id, 'test', 'Test Organization', 'ACTIVE', 'TEST-READ-LOCK')
+                        INSERT INTO tenants (id, slug, display_name, status, bootstrap_reference)
+                        VALUES (:id, 'test', 'Test Tenant', 'ACTIVE', 'TEST-READ-LOCK')
                         """)
-                .param("id", organizationId.value())
+                .param("id", tenantId.value())
                 .update();
         OffsetDateTime now = OffsetDateTime.parse("2026-08-27T00:00:00Z");
         jdbcClient.sql("""
-                        INSERT INTO organization_invitations (
+                        INSERT INTO tenant_invitations (
                             id,
-                            organization_id,
+                            tenant_id,
                             normalized_email,
                             open_email_key,
                             secret_digest,
@@ -119,7 +121,7 @@ class PostgresInvitationRepositoryReadConcurrencyTest {
                             expires_at
                         ) VALUES (
                             :id,
-                            :organizationId,
+                            :tenantId,
                             'member@example.com',
                             'member@example.com',
                             :digest,
@@ -131,7 +133,7 @@ class PostgresInvitationRepositoryReadConcurrencyTest {
                         )
                         """)
                 .param("id", invitationId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("digest", digest)
                 .param("actorId", actorId)
                 .param("now", now)

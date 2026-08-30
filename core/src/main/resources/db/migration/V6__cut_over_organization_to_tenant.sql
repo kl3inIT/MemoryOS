@@ -1,0 +1,61 @@
+ALTER TABLE organizations RENAME TO tenants;
+ALTER TABLE organization_bootstrap_state RENAME TO tenant_bootstrap_state;
+ALTER TABLE organization_memberships RENAME TO tenant_memberships;
+ALTER TABLE organization_invitations RENAME TO tenant_invitations;
+
+ALTER TABLE tenant_bootstrap_state RENAME COLUMN initial_organization_id TO tenant_id;
+ALTER TABLE tenant_memberships RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE tenant_invitations RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE connectors RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE credentials RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE connector_credential_pairs RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE connector_items RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE connector_item_versions RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE index_attempts RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE documents RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE document_versions RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE documents_by_connector_credential_pair RENAME COLUMN organization_id TO tenant_id;
+ALTER TABLE connector_cleanup_attempts RENAME COLUMN organization_id TO tenant_id;
+
+ALTER TABLE tenants ADD COLUMN deployment_slot SMALLINT DEFAULT 1 NOT NULL;
+ALTER TABLE tenants ADD CONSTRAINT uq_tenants_deployment_slot UNIQUE (deployment_slot);
+ALTER TABLE tenants ADD CONSTRAINT ck_tenants_deployment_slot CHECK (deployment_slot = 1);
+
+ALTER TABLE tenants RENAME CONSTRAINT uq_organizations_slug TO uq_tenants_slug;
+ALTER TABLE tenants RENAME CONSTRAINT ck_organizations_status TO ck_tenants_status;
+ALTER TABLE tenant_bootstrap_state RENAME CONSTRAINT ck_organization_bootstrap_state_singleton TO ck_tenant_bootstrap_state_singleton;
+ALTER TABLE tenant_bootstrap_state RENAME CONSTRAINT uq_organization_bootstrap_state_organization TO uq_tenant_bootstrap_state_tenant;
+ALTER TABLE tenant_bootstrap_state RENAME CONSTRAINT fk_organization_bootstrap_state_organization TO fk_tenant_bootstrap_state_tenant;
+ALTER TABLE tenant_memberships RENAME CONSTRAINT pk_organization_memberships TO pk_tenant_memberships;
+ALTER TABLE tenant_memberships RENAME CONSTRAINT fk_organization_memberships_organization TO fk_tenant_memberships_tenant;
+ALTER TABLE tenant_memberships RENAME CONSTRAINT fk_organization_memberships_actor TO fk_tenant_memberships_actor;
+ALTER TABLE tenant_memberships RENAME CONSTRAINT ck_organization_memberships_role TO ck_tenant_memberships_role;
+ALTER TABLE tenant_memberships RENAME CONSTRAINT ck_organization_memberships_status TO ck_tenant_memberships_status;
+ALTER INDEX ix_organization_memberships_actor RENAME TO ix_tenant_memberships_actor;
+
+ALTER TABLE tenant_invitations RENAME CONSTRAINT fk_organization_invitations_organization TO fk_tenant_invitations_tenant;
+ALTER TABLE tenant_invitations RENAME CONSTRAINT fk_organization_invitations_creator TO fk_tenant_invitations_creator;
+ALTER TABLE tenant_invitations RENAME CONSTRAINT fk_organization_invitations_accepted_actor TO fk_tenant_invitations_accepted_actor;
+ALTER TABLE tenant_invitations RENAME CONSTRAINT fk_organization_invitations_revoking_actor TO fk_tenant_invitations_revoking_actor;
+ALTER TABLE tenant_invitations RENAME CONSTRAINT ck_organization_invitations_status TO ck_tenant_invitations_status;
+ALTER TABLE tenant_invitations RENAME CONSTRAINT ck_organization_invitations_lifecycle TO ck_tenant_invitations_lifecycle;
+ALTER INDEX uq_organization_invitations_secret_digest RENAME TO uq_tenant_invitations_secret_digest;
+ALTER INDEX uq_organization_invitations_open_email RENAME TO uq_tenant_invitations_open_email;
+ALTER INDEX ix_organization_invitations_organization_created RENAME TO ix_tenant_invitations_tenant_created;
+
+ALTER TABLE connectors RENAME CONSTRAINT uq_connectors_organization_id_id TO uq_connectors_tenant_id_id;
+ALTER TABLE connectors RENAME CONSTRAINT fk_connectors_organization TO fk_connectors_tenant;
+ALTER INDEX ix_connectors_organization_status RENAME TO ix_connectors_tenant_status;
+ALTER TABLE credentials RENAME CONSTRAINT uq_credentials_organization_id_id TO uq_credentials_tenant_id_id;
+ALTER TABLE credentials RENAME CONSTRAINT uq_credentials_organization_kind TO uq_credentials_tenant_kind;
+ALTER TABLE credentials RENAME CONSTRAINT fk_credentials_organization TO fk_credentials_tenant;
+ALTER TABLE connector_credential_pairs RENAME CONSTRAINT uq_pairs_organization_id_id TO uq_pairs_tenant_id_id;
+ALTER TABLE connector_items RENAME CONSTRAINT uq_items_organization_id_id TO uq_items_tenant_id_id;
+ALTER TABLE connector_item_versions RENAME CONSTRAINT uq_item_versions_organization_id_id TO uq_item_versions_tenant_id_id;
+ALTER TABLE index_attempts RENAME CONSTRAINT uq_index_attempts_organization_id_id TO uq_index_attempts_tenant_id_id;
+ALTER TABLE documents RENAME CONSTRAINT uq_documents_organization_id_id TO uq_documents_tenant_id_id;
+ALTER TABLE documents RENAME CONSTRAINT fk_documents_organization TO fk_documents_tenant;
+ALTER TABLE document_versions RENAME CONSTRAINT uq_document_versions_organization_id_id TO uq_document_versions_tenant_id_id;
+ALTER TABLE connector_cleanup_attempts RENAME CONSTRAINT uq_cleanup_attempts_organization_id_id TO uq_cleanup_attempts_tenant_id_id;
+ALTER TABLE connector_cleanup_attempts RENAME CONSTRAINT fk_cleanup_attempts_organization TO fk_cleanup_attempts_tenant;
+ALTER INDEX ix_pairs_organization_status RENAME TO ix_pairs_tenant_status;

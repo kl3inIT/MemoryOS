@@ -11,7 +11,7 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -37,7 +37,7 @@ public class JdbcSourceQueryRepository {
                    pair.error_code
             FROM connector_credential_pairs pair
             JOIN connectors connector
-              ON connector.organization_id = pair.organization_id
+              ON connector.tenant_id = pair.tenant_id
              AND connector.id = pair.connector_id
             """;
 
@@ -47,36 +47,36 @@ public class JdbcSourceQueryRepository {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
     }
 
-    public List<SourceSummary> list(OrganizationId organizationId) {
+    public List<SourceSummary> list(TenantId tenantId) {
         return jdbcClient.sql(SOURCE_SELECT + """
-                        WHERE pair.organization_id = :organizationId
+                        WHERE pair.tenant_id = :tenantId
                         ORDER BY connector.created_at, pair.id
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .query(JdbcSourceQueryRepository::summary)
                 .list();
     }
 
-    public SourceDetail detail(OrganizationId organizationId, SourceId sourceId) {
+    public SourceDetail detail(TenantId tenantId, SourceId sourceId) {
         SourceSummary source = jdbcClient.sql(SOURCE_SELECT + """
-                        WHERE pair.organization_id = :organizationId AND pair.id = :pairId
+                        WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query(JdbcSourceQueryRepository::summary)
                 .optional()
                 .orElseThrow(SourceException::notFound);
-        return new SourceDetail(source, items(organizationId, sourceId));
+        return new SourceDetail(source, items(tenantId, sourceId));
     }
 
-    public SourceItemView item(OrganizationId organizationId, SourceId sourceId, SourceItemId itemId) {
-        return items(organizationId, sourceId).stream()
+    public SourceItemView item(TenantId tenantId, SourceId sourceId, SourceItemId itemId) {
+        return items(tenantId, sourceId).stream()
                 .filter(item -> item.id().equals(itemId))
                 .findFirst()
                 .orElseThrow(SourceException::notFound);
     }
 
-    private List<SourceItemView> items(OrganizationId organizationId, SourceId sourceId) {
+    private List<SourceItemView> items(TenantId tenantId, SourceId sourceId) {
         return jdbcClient.sql("""
                         SELECT item.id,
                                version.filename,
@@ -88,26 +88,26 @@ public class JdbcSourceQueryRepository {
                                attempt.error_code
                         FROM connector_credential_pairs pair
                         JOIN connector_items item
-                          ON item.organization_id = pair.organization_id
+                          ON item.tenant_id = pair.tenant_id
                          AND item.connector_id = pair.connector_id
                         JOIN connector_item_versions version
-                          ON version.organization_id = item.organization_id
+                          ON version.tenant_id = item.tenant_id
                          AND version.id = item.current_version_id
                         LEFT JOIN index_attempts attempt
-                          ON attempt.organization_id = pair.organization_id
+                          ON attempt.tenant_id = pair.tenant_id
                          AND attempt.connector_credential_pair_id = pair.id
                          AND attempt.connector_item_id = item.id
                          AND attempt.pair_sequence = (
                              SELECT MAX(latest.pair_sequence)
                              FROM index_attempts latest
-                             WHERE latest.organization_id = pair.organization_id
+                             WHERE latest.tenant_id = pair.tenant_id
                                AND latest.connector_credential_pair_id = pair.id
                                AND latest.connector_item_id = item.id
                          )
-                        WHERE pair.organization_id = :organizationId AND pair.id = :pairId
+                        WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
                         ORDER BY item.created_at, item.id
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query(JdbcSourceQueryRepository::item)
                 .list();

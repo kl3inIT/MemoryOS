@@ -178,7 +178,7 @@ export function InvitationTable({
     <>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[48rem] border-collapse">
-          <caption className="sr-only">Organization invitations</caption>
+          <caption className="sr-only">Tenant invitations</caption>
           <thead className="border-b border-border-subtle bg-surface-subtle/40 text-left">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>

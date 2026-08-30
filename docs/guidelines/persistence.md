@@ -21,7 +21,7 @@ A temporary runtime profile, command, or endpoint is not an acceptable substitut
 - Do not add repository interfaces for a single internal JDBC implementation. Inject concrete repositories inside the same closed capability. Introduce a port only when a second implementation, a cross-module consumer, or a testable non-database contract provides concrete value.
 - Keep `@Transactional` on the application operation when one command coordinates several repositories. Repository methods participate in that transaction and own SQL, row mapping, locks, conditional writes, claims, bulk updates, and database-specific mechanics.
 - Source and ingestion persistence is JDBC-first because it requires explicit row locks, worker leases, conditional transitions, bulk invalidation, PostgreSQL-specific constraints, and multi-join projections. Read projections use a dedicated query repository rather than inflating write repositories.
-- JPA is allowed only when entity lifecycle or relationship management demonstrably reduces complexity. Do not introduce entity/domain/persistence DTO/mapping layers by default, and do not migrate clear invitation or Organization JDBC repositories merely for stylistic uniformity.
+- JPA is allowed only when entity lifecycle or relationship management demonstrably reduces complexity. Do not introduce entity/domain/persistence DTO/mapping layers by default, and do not migrate clear invitation or Tenant JDBC repositories merely for stylistic uniformity.
 - Reevaluate Spring Data JPA for MEM-36 Groups, where relationship lifecycle may provide concrete value. Defer Querydsl or jOOQ until measured dynamic-query or SQL type-safety pressure justifies the dependency and migration cost.
 
 ## Early-project schema evolution
@@ -43,7 +43,7 @@ Until MemoryOS holds external durable user data or a release milestone explicitl
 - Runtime passwords remain managed values outside Git. Never record them in files, commands, logs, Linear, or verification evidence.
 - PostgreSQL binds only to server loopback for diagnostics. Use an SSH tunnel; do not publish it.
 - Before migration, rebind, or destructive cleanup, create custom-format archives, restore lists, SHA-256 manifests, and an off-host copy. Source databases remain intact until explicit cleanup approval.
-- After restore, run API startup so Flyway validates schema history, inspect actor/binding/Organization/invitation counts, verify both Keycloak realms, and exercise real OIDC flows for MemoryOS and OrgMemory. See the [shared runtime migration runbook](../runbooks/shared-runtime-migration.md).
+- After restore, run API startup so Flyway validates schema history, inspect actor/binding/Tenant/invitation counts, verify both Keycloak realms, and exercise real OIDC flows for MemoryOS and OrgMemory. See the [shared runtime migration runbook](../runbooks/shared-runtime-migration.md).
 
 ## Identity binding recovery
 

@@ -31,7 +31,7 @@ describe("InvitationTable", () => {
       />,
     );
 
-    expect(screen.getByRole("table", { name: "Organization invitations" })).toBeVisible();
+    expect(screen.getByRole("table", { name: "Tenant invitations" })).toBeVisible();
     expect(screen.getByRole("columnheader", { name: /created/i })).toHaveAttribute(
       "aria-sort",
       "descending",

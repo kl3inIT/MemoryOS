@@ -2,7 +2,7 @@ package io.memoryos.api.security;
 
 import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.invitation.InvitationService;
-import io.memoryos.organization.OrganizationAccessResolver;
+import io.memoryos.tenant.TenantAccessResolver;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -25,7 +25,7 @@ class SessionSecurityConfiguration {
             HttpSecurity http,
             ClientRegistrationRepository clientRegistrationRepository,
             ExternalIdentityResolver identityResolver,
-            OrganizationAccessResolver organizationAccessResolver,
+            TenantAccessResolver tenantAccessResolver,
             InvitationService invitationService,
             OAuth2LoginProperties oauth2LoginProperties
     ) {
@@ -57,7 +57,7 @@ class SessionSecurityConfiguration {
                         .authorizedClientRepository(new DiscardingOAuth2AuthorizedClientRepository())
                         .successHandler(new ActorSessionLoginSuccessHandler(
                                 identityResolver,
-                                organizationAccessResolver,
+                                tenantAccessResolver,
                                 invitationService
                         ))
                         .failureHandler(new OAuth2LoginFailureHandler()))

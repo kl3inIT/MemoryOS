@@ -2,7 +2,7 @@ package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceItemId;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -21,7 +21,7 @@ public class JdbcSourceItemRepository {
     }
 
     public ItemVersion resolveOrCreate(
-            OrganizationId organizationId,
+            TenantId tenantId,
             JdbcSourceRepository.SourcePair pair,
             String filename,
             byte[] content,
@@ -31,13 +31,13 @@ public class JdbcSourceItemRepository {
                         SELECT item.id AS item_id, version.id AS version_id, item.status
                         FROM connector_items item
                         JOIN connector_item_versions version
-                          ON version.organization_id = item.organization_id
+                          ON version.tenant_id = item.tenant_id
                          AND version.id = item.current_version_id
-                        WHERE item.organization_id = :organizationId
+                        WHERE item.tenant_id = :tenantId
                           AND item.connector_id = :connectorId
                           AND item.content_sha256 = :sha256
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
                 .param("sha256", sha256)
                 .query((resultSet, ignored) -> {
@@ -58,27 +58,27 @@ public class JdbcSourceItemRepository {
         UUID versionId = UUID.randomUUID();
         jdbcClient.sql("""
                         INSERT INTO connector_items (
-                            id, organization_id, connector_id, content_sha256, status
+                            id, tenant_id, connector_id, content_sha256, status
                         ) VALUES (
-                            :id, :organizationId, :connectorId, :sha256, 'PENDING'
+                            :id, :tenantId, :connectorId, :sha256, 'PENDING'
                         )
                         """)
                 .param("id", itemId.value())
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
                 .param("sha256", sha256)
                 .update();
         jdbcClient.sql("""
                         INSERT INTO connector_item_versions (
-                            id, organization_id, connector_id, connector_item_id,
+                            id, tenant_id, connector_id, connector_item_id,
                             revision_number, filename, content_bytes, content_sha256, size_bytes
                         ) VALUES (
-                            :id, :organizationId, :connectorId, :itemId,
+                            :id, :tenantId, :connectorId, :itemId,
                             1, :filename, :content, :sha256, :sizeBytes
                         )
                         """)
                 .param("id", versionId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
                 .param("itemId", itemId.value())
                 .param("filename", filename)
@@ -88,29 +88,29 @@ public class JdbcSourceItemRepository {
                 .update();
         jdbcClient.sql("""
                         UPDATE connector_items SET current_version_id = :versionId
-                        WHERE organization_id = :organizationId AND id = :itemId
+                        WHERE tenant_id = :tenantId AND id = :itemId
                         """)
                 .param("versionId", versionId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("itemId", itemId.value())
                 .update();
         return new ItemVersion(itemId, versionId);
     }
 
     public ItemVersion currentVersion(
-            OrganizationId organizationId,
+            TenantId tenantId,
             JdbcSourceRepository.SourcePair pair,
             SourceItemId itemId
     ) {
         return jdbcClient.sql("""
                         SELECT id, current_version_id, status
                         FROM connector_items
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_id = :connectorId
                           AND id = :itemId
                         FOR UPDATE
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
                 .param("itemId", itemId.value())
                 .query((resultSet, ignored) -> {
@@ -127,17 +127,17 @@ public class JdbcSourceItemRepository {
     }
 
     public void markDeleting(
-            OrganizationId organizationId,
+            TenantId tenantId,
             JdbcSourceRepository.SourcePair pair,
             SourceItemId itemId
     ) {
         int updated = jdbcClient.sql("""
                         UPDATE connector_items SET status = 'DELETING', updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId
+                        WHERE tenant_id = :tenantId
                           AND connector_id = :connectorId
                           AND id = :itemId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
                 .param("itemId", itemId.value())
                 .update();

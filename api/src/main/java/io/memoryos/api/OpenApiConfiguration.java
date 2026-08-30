@@ -54,28 +54,28 @@ class OpenApiConfiguration {
                         openApi.setComponents(new Components());
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
-                    configureNullableCurrentOrganization(openApi.getComponents());
+                    configureNullableCurrentTenant(openApi.getComponents());
                 })
                 .build();
     }
 
-    private static void configureNullableCurrentOrganization(Components components) {
+    private static void configureNullableCurrentTenant(Components components) {
         Schema<?> currentIdentity = Objects.requireNonNull(
                 components.getSchemas().get("CurrentIdentity"),
                 "CurrentIdentity schema must exist"
         );
-        Schema<?> generatedOrganization = Objects.requireNonNull(
-                currentIdentity.getProperties().get("organization"),
-                "CurrentIdentity.organization schema must exist"
+        Schema<?> generatedTenant = Objects.requireNonNull(
+                currentIdentity.getProperties().get("tenant"),
+                "CurrentIdentity.tenant schema must exist"
         );
-        Schema<Object> organizationReference = new Schema<>();
-        organizationReference.set$ref("#/components/schemas/CurrentOrganization");
+        Schema<Object> tenantReference = new Schema<>();
+        tenantReference.set$ref("#/components/schemas/CurrentTenant");
         Schema<Object> nullValue = new Schema<>();
         nullValue.setTypes(Set.of("null"));
-        Schema<Object> nullableOrganization = new Schema<>();
-        nullableOrganization.setDescription(generatedOrganization.getDescription());
-        nullableOrganization.setOneOf(List.of(organizationReference, nullValue));
-        currentIdentity.addProperty("organization", nullableOrganization);
+        Schema<Object> nullableTenant = new Schema<>();
+        nullableTenant.setDescription(generatedTenant.getDescription());
+        nullableTenant.setOneOf(List.of(tenantReference, nullValue));
+        currentIdentity.addProperty("tenant", nullableTenant);
     }
 
     private static Schema<?> apiProblemSchema() {

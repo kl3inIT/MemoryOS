@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
 const OWNER_SESSION = {
   actorId: ACTOR_ID,
-  organization: {
+  tenant: {
     displayName: "Tasco",
     role: "OWNER",
   },
@@ -12,7 +12,7 @@ const OWNER_SESSION = {
 const MEMBER_SESSION = {
   ...OWNER_SESSION,
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
-  organization: { ...OWNER_SESSION.organization, role: "MEMBER" },
+  tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
   capabilities: [],
 };
 
@@ -80,7 +80,7 @@ test("hides owner UI and blocks member administration deep links without request
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(page.getByRole("button", { name: "Organization member" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
 
   await page.goto("/admin/invitations?status=PENDING");
@@ -118,7 +118,7 @@ test("signs out from the account menu with the same-origin guard", async ({ page
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Organization owner" }).click();
+  await page.getByRole("button", { name: "Tenant owner" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/signed-out-test$/);
@@ -136,13 +136,13 @@ test("persists the selected dark theme", async ({ page }) => {
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Organization owner" }).click();
+  await page.getByRole("button", { name: "Tenant owner" }).click();
   await page.getByRole("button", { name: "Use dark theme" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("button", { name: "Organization owner" }).click();
+  await page.getByRole("button", { name: "Tenant owner" }).click();
   await expect(page.getByRole("button", { name: "Use light theme" })).toBeVisible();
 });
 
@@ -248,7 +248,7 @@ test("closes mobile administration navigation after a client route change", asyn
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("button", { name: "Organization owner" }).click();
+  await page.getByRole("button", { name: "Tenant owner" }).click();
   await page.getByRole("link", { name: "Admin Panel" }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
@@ -258,7 +258,7 @@ test("keeps unprovisioned access separate from signed-out state", async ({ page 
   await page.goto("/access-not-provisioned");
 
   await expect(page.getByRole("heading", { name: /don’t have access yet/i })).toBeVisible();
-  await expect(page.getByText(/has not been added to this memoryos organization/i)).toBeVisible();
+  await expect(page.getByText(/has not been added to this memoryos tenant/i)).toBeVisible();
 });
 
 test("recovers from an unavailable identity endpoint without treating it as signed out", async ({
@@ -401,7 +401,7 @@ test("creates a production invitation from the Invitations administration page",
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByText("member@example.com")).toBeVisible();
   await expect(
-    page.getByRole("table", { name: "Organization invitations" }).getByText("Pending", {
+    page.getByRole("table", { name: "Tenant invitations" }).getByText("Pending", {
       exact: true,
     }),
   ).toBeVisible();
@@ -413,7 +413,7 @@ test("creates a production invitation from the Invitations administration page",
   await page.getByRole("button", { name: "Done" }).click();
   await page.getByRole("button", { name: "Revoke invitation for member@example.com" }).click();
   await expect(
-    page.getByRole("table", { name: "Organization invitations" }).getByText("Revoked", {
+    page.getByRole("table", { name: "Tenant invitations" }).getByText("Revoked", {
       exact: true,
     }),
   ).toBeVisible();
@@ -500,7 +500,7 @@ test("shows the recipient invitation landing and recovery states", async ({ page
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        organizationDisplayName: "Tasco",
+        tenantDisplayName: "Tasco",
         expiresAt: "2026-08-24T10:00:00Z",
         continueUrl: "/invite/continue",
       }),

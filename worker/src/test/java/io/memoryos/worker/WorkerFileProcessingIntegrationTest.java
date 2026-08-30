@@ -35,7 +35,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
                         + "classpath:db/migration/V3__create_organization_invitations.sql,"
                         + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
-                        + "classpath:db/migration/V5__create_file_source_and_document_schema.sql",
+                        + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
+                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql",
                 "memoryos.worker.enabled=true",
                 "memoryos.worker.batch-size=4",
                 "memoryos.worker.idle-delay=25ms"
@@ -58,7 +59,7 @@ class WorkerFileProcessingIntegrationTest {
     private static final ActorId OWNER = new ActorId(
             UUID.fromString("ac009796-bf52-4d3b-b619-acbde4e46717")
     );
-    private static final UUID ORGANIZATION_ID =
+    private static final UUID TENANT_ID =
             UUID.fromString("4595ef61-4758-4dcf-982a-a0d69ceec87f");
 
 
@@ -67,6 +68,7 @@ class WorkerFileProcessingIntegrationTest {
 
     @Autowired
     private SourceManagementService sources;
+
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -77,23 +79,23 @@ class WorkerFileProcessingIntegrationTest {
 
     @BeforeEach
     void seedOwner() {
-        UUID organizationId = ORGANIZATION_ID;
+        UUID tenantId = TENANT_ID;
         jdbcClient.sql("INSERT INTO actors (id) VALUES (:id)").param("id", OWNER.value()).update();
         jdbcClient.sql("""
-                        INSERT INTO organizations (
+                        INSERT INTO tenants (
                             id, slug, display_name, status, bootstrap_reference
                         ) VALUES (
                             :id, 'worker-file', 'Worker file', 'ACTIVE', 'MEM-35-WORKER-TEST'
                         )
                         """)
-                .param("id", organizationId)
+                .param("id", tenantId)
                 .update();
         jdbcClient.sql("""
-                        INSERT INTO organization_memberships (
-                            organization_id, actor_id, role, status
-                        ) VALUES (:organizationId, :actorId, 'OWNER', 'ACTIVE')
+                        INSERT INTO tenant_memberships (
+                            tenant_id, actor_id, role, status
+                        ) VALUES (:tenantId, :actorId, 'OWNER', 'ACTIVE')
                         """)
-                .param("organizationId", organizationId)
+                .param("tenantId", tenantId)
                 .param("actorId", OWNER.value())
                 .update();
     }
@@ -114,10 +116,10 @@ class WorkerFileProcessingIntegrationTest {
 
         sources.deleteSource(OWNER, sourceId);
         jdbcClient.sql("""
-                        UPDATE organizations SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
-                        WHERE id = :organizationId
+                        UPDATE tenants SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
+                        WHERE id = :tenantId
                         """)
-                .param("organizationId", ORGANIZATION_ID)
+                .param("tenantId", TENANT_ID)
                 .update();
         await(() -> jdbcClient.sql("""
                         SELECT COUNT(*) FROM connector_credential_pairs

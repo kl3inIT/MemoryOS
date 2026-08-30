@@ -20,7 +20,7 @@ describe("browser authentication states", () => {
     render(<AccessNotProvisionedScreen />);
 
     expect(screen.getByRole("heading", { name: /don’t have access yet/i })).toBeVisible();
-    expect(screen.getByText(/has not been added to this memoryos organization/i)).toBeVisible();
+    expect(screen.getByText(/has not been added to this memoryos tenant/i)).toBeVisible();
     expect(screen.getByRole("link", { name: /try another account/i })).toHaveAttribute(
       "href",
       "/oauth2/authorization/memoryos",

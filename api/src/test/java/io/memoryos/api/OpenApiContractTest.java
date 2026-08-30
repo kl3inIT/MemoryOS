@@ -34,10 +34,12 @@ import org.springframework.test.web.servlet.MockMvc;
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
         "memoryos.identity.audience=memoryos-api",
         "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "memoryos.initial-organization.owner-subject=openapi-owner",
-        "memoryos.initial-organization.slug=openapi",
-        "memoryos.initial-organization.display-name=OpenAPI",
-        "memoryos.initial-organization.change-reference=TEST-OPENAPI-CONTRACT",
+        "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000024",
+        "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000024",
+        "memoryos.initial-tenant.owner-subject=openapi-owner",
+        "memoryos.initial-tenant.slug=openapi",
+        "memoryos.initial-tenant.display-name=OpenAPI",
+        "memoryos.initial-tenant.change-reference=TEST-OPENAPI-CONTRACT",
         "spring.datasource.url=jdbc:h2:mem:openapi-contract;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
                 + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
         "spring.datasource.username=sa",
@@ -123,17 +125,17 @@ class OpenApiContractTest {
                         .path("format")
                         .textValue()
         );
-        JsonNode organizationSchema = actual.path("components")
+        JsonNode tenantSchema = actual.path("components")
                 .path("schemas")
                 .path("CurrentIdentity")
                 .path("properties")
-                .path("organization");
-        assertEquals(2, organizationSchema.path("oneOf").size());
+                .path("tenant");
+        assertEquals(2, tenantSchema.path("oneOf").size());
         assertEquals(
-                "#/components/schemas/CurrentOrganization",
-                organizationSchema.path("oneOf").path(0).path("$ref").textValue()
+                "#/components/schemas/CurrentTenant",
+                tenantSchema.path("oneOf").path(0).path("$ref").textValue()
         );
-        assertEquals("null", organizationSchema.path("oneOf").path(1).path("type").textValue());
+        assertEquals("null", tenantSchema.path("oneOf").path(1).path("type").textValue());
 
         Path contract = repositoryRoot().resolve("openapi.yml");
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {

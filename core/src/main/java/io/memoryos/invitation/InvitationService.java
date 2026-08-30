@@ -1,7 +1,7 @@
 package io.memoryos.invitation;
 
 import io.memoryos.identity.ActorId;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.util.UUID;
 
@@ -17,7 +17,7 @@ public interface InvitationService {
 
     InvitationContinuation intake(String plaintextSecret);
 
-    InvitationContinuation resume(UUID invitationId, OrganizationId organizationId);
+    InvitationContinuation resume(UUID invitationId, TenantId tenantId);
 
     ActorId accept(InvitationAcceptance acceptance);
 

@@ -7,7 +7,7 @@
 - Docker with the Compose plugin for production image and topology checks.
 - Access to the target Keycloak realm and PostgreSQL database.
 - Secrets loaded from managed storage into process environment only; never copy values into Git, docs, Linear, logs, or command history.
-- A deployment-managed username for the initial owner. The reconciliation script creates that local Keycloak user with a one-time temporary password when absent and reports its stable Keycloak user ID as the OIDC subject. The user receives no Keycloak administrative role; MemoryOS grants Organization authority from the reported subject.
+- A deployment-managed username for the initial owner. The reconciliation script creates that local Keycloak user with a one-time temporary password when absent and reports its stable Keycloak user ID as the OIDC subject. The user receives no Keycloak administrative role; MemoryOS grants Tenant authority from the reported subject.
 
 ## Environment boundaries
 
@@ -38,10 +38,11 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL` | No | Internal Keycloak base URL used only by the Identity-owned invitation provisioner. Staging uses the shared Keycloak container alias; browser issuer URLs remain public and exact. |
 | `MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET` | Yes | Client-credentials secret for realm-local `memoryos-user-provisioner`; never a browser variable or operator administrator credential. |
 | `MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI` | No | Exact public `https://<memoryos-origin>/invite/activate` return target registered on `memoryos-web`; wildcards are forbidden. |
-| `MEMORYOS_INITIAL_OWNER_SUBJECT` | Sensitive identifier | Stable Keycloak user UUID used to bind or verify the first Organization owner. It is not a username and must not change when names/email change. |
-| `MEMORYOS_ORGANIZATION_SLUG` | No | DNS-style slug for the one published initial Organization; startup rejects drift after bootstrap. |
-| `MEMORYOS_ORGANIZATION_DISPLAY_NAME` | No | Display name for that Organization; startup rejects drift after bootstrap. |
-| `MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Organization and compared on every bootstrap. `MEM-8-initial-owner` means MEM-8 authorized the original aggregate; it is not a per-deploy release label and must not be changed casually. |
+| `MEMORYOS_TENANT_ID` | No | Required stable UUID for the one deployment Tenant. It must match `tenants.id` and `tenant_bootstrap_state.tenant_id`; never rotate it during an ordinary deployment. |
+| `MEMORYOS_INITIAL_OWNER_SUBJECT` | Sensitive identifier | Stable Keycloak user UUID used to bind or verify the first Tenant owner. It is not a username and must not change when names/email change. |
+| `MEMORYOS_TENANT_SLUG` | No | DNS-style slug for the one deployment Tenant; startup rejects drift after bootstrap. |
+| `MEMORYOS_TENANT_DISPLAY_NAME` | No | Display name for that Tenant; startup rejects drift after bootstrap. |
+| `MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Tenant and compared on every bootstrap. It is not a per-deploy release label and must not be changed casually. |
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
 | `MEMORYOS_WORKER_BATCH_SIZE` | No | Bounded index/cleanup claim batch; default `8`, runtime-clamped to `1..32`. |
@@ -122,10 +123,11 @@ $env:MEMORYOS_DATABASE_URL = "jdbc:postgresql://127.0.0.1:15555/memoryos"
 $env:MEMORYOS_DATABASE_USERNAME = "memoryos_app"
 $env:MEMORYOS_DATABASE_PASSWORD = "<load from managed runtime secret>"
 
+$env:MEMORYOS_TENANT_ID = "<stable deployment Tenant UUID>"
 $env:MEMORYOS_INITIAL_OWNER_SUBJECT = "<stable Keycloak user ID>"
-$env:MEMORYOS_ORGANIZATION_SLUG = "tasco"
-$env:MEMORYOS_ORGANIZATION_DISPLAY_NAME = "Tasco"
-$env:MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE = "<approved deployment/change reference>"
+$env:MEMORYOS_TENANT_SLUG = "tasco"
+$env:MEMORYOS_TENANT_DISPLAY_NAME = "Tasco"
+$env:MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE = "<approved deployment/change reference>"
 
 $env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
 
@@ -253,23 +255,38 @@ Before the first V4 staging deployment:
 
 Only after the restored-copy rehearsal passes may the same image migrate staging. Keep the verified archive and prior image until post-cutover approval. Rollback after V4 means stopping writers, restoring the pre-cutover dump, and restarting the prior image; do not run the prior binary against the V4 schema.
 
+## MEM-24 Tenant schema cutover
+
+V6 renames the active Organization schema to Tenant, preserves all business UUIDs, and adds the checked unique `tenants.deployment_slot = 1` invariant. This is a maintenance-window clean cutover; no compatibility views or dual runtime exist.
+
+Before the first V6 deployment:
+
+1. Stop API and worker writers.
+2. Capture the `memoryos` custom-format dump, restore list, SHA-256 manifest, Flyway history, and Organization-era row counts; copy verified evidence off-host.
+3. Restore into an isolated rehearsal database and run the exact cutover API image.
+4. Confirm V6 is the latest successful migration; all active tables, columns, constraints, and indexes use Tenant terminology; all prior UUIDs and row counts are preserved.
+5. Confirm exactly one `deployment_slot = 1` Tenant exists and its UUID equals `MEMORYOS_TENANT_ID`.
+6. Start the worker, complete owner login, call `/api/identity/me` with no `X-TenantId`, and repeat with a conflicting `X-TenantId`; both successful responses must project the configured Tenant and retain membership authorization.
+
+Only after rehearsal passes may the same image migrate staging. Rollback after V6 means stopping writers, restoring the pre-cutover archive, and restarting the prior image. Never run an Organization-era binary against V6.
+
 ## Startup contract
 
-Flyway creates identity, Organization, membership, singleton bootstrap-state, and JDBC-session tables. API startup then transactionally creates or verifies:
+Flyway creates identity and historical capability state, then V6 exposes Tenant tables, columns, constraints, and indexes. API startup transactionally creates or verifies:
 
+- the configured `MEMORYOS_TENANT_ID`;
 - the exact `(MEMORYOS_IDENTITY_ISSUER, MEMORYOS_INITIAL_OWNER_SUBJECT)` actor binding;
-- one Organization;
-- one Organization `OWNER` membership; and
+- one Tenant and one Tenant `OWNER` membership; and
 - the deployment change reference.
 
-The singleton database row serializes concurrent replicas. Restart with identical configuration reuses the aggregate. Changed subject, names, slugs, reference, statuses, cardinality, or memberships fails startup rather than mutating authority. Repair requires an explicitly reviewed persistence recovery; never bypass drift with a temporary profile or convenience endpoint.
+The singleton bootstrap row serializes concurrent replicas, while `tenants.deployment_slot` prevents a second Tenant. Restart with identical configuration reuses the aggregate. Changed Tenant UUID, subject, names, slug, reference, statuses, cardinality, or memberships fails startup rather than mutating authority. Repair requires explicitly reviewed persistence recovery; never bypass drift with a temporary profile or convenience endpoint.
 
 ## Runtime checks
 
 | Endpoint | Access | Expected result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health through the web gateway |
-| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | `{"actorId":"<uuid>"}` |
+| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable Actor plus nullable Tenant projection and capabilities |
 | `GET http://127.0.0.1:8081/actuator/health/readiness` | Worker container/internal diagnostics | Worker datasource and claim-loop readiness |
 | `GET /` | No browser session | Sign-in state with `/oauth2/authorization/memoryos` action |
 | `GET /` | Initial owner after Keycloak login | Authenticated `New Session` application shell |

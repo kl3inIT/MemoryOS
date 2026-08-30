@@ -1,7 +1,7 @@
 package io.memoryos.api.identity.contract;
 
-import io.memoryos.organization.OrganizationMembershipRole;
-import io.memoryos.organization.OrganizationSessionAuthority;
+import io.memoryos.tenant.TenantMembershipRole;
+import io.memoryos.tenant.TenantSessionAuthority;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -18,11 +18,11 @@ public record CurrentIdentityResponse(
         )
         UUID actorId,
         @Schema(
-                description = "Active Organization context, or null when the actor has no active Organization membership.",
+                description = "Active Tenant context, or null when the actor has no active Tenant membership.",
                 requiredMode = Schema.RequiredMode.REQUIRED,
                 nullable = true
         )
-        @Nullable CurrentOrganizationResponse organization,
+        @Nullable CurrentTenantResponse tenant,
         @Schema(
                 description = "Canonical capabilities backed by current server enforcement.",
                 requiredMode = Schema.RequiredMode.REQUIRED
@@ -32,12 +32,12 @@ public record CurrentIdentityResponse(
 
     public static CurrentIdentityResponse from(
             UUID actorId,
-            @Nullable OrganizationSessionAuthority authority
+            @Nullable TenantSessionAuthority authority
     ) {
         return new CurrentIdentityResponse(
                 actorId,
-                authority == null ? null : CurrentOrganizationResponse.from(authority),
-                authority != null && authority.role() == OrganizationMembershipRole.OWNER
+                authority == null ? null : CurrentTenantResponse.from(authority),
+                authority != null && authority.role() == TenantMembershipRole.OWNER
                         ? List.of(
                         CurrentIdentityCapability.INVITATIONS_MANAGE,
                         CurrentIdentityCapability.SOURCES_MANAGE

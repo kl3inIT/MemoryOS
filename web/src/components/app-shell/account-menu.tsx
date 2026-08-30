@@ -18,11 +18,10 @@ export function AccountMenu({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
-  const { organization } = useApplicationSession();
+  const { tenant } = useApplicationSession();
   const canAccessAdmin = useCan("INVITATIONS_MANAGE");
-  const membershipLabel =
-    organization.role === "OWNER" ? "Organization owner" : "Organization member";
-  const initials = organization.displayName
+  const membershipLabel = tenant.role === "OWNER" ? "Tenant owner" : "Tenant member";
+  const initials = tenant.displayName
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -74,9 +73,7 @@ export function AccountMenu({
           sideOffset={10}
           className="z-50 w-72 rounded-2xl border border-border-default bg-surface-overlay p-2 shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in"
         >
-          <p className="px-3 pt-2 font-main-ui-body text-content-primary">
-            {organization.displayName}
-          </p>
+          <p className="px-3 pt-2 font-main-ui-body text-content-primary">{tenant.displayName}</p>
           <p className="px-3 pb-2 font-secondary-body text-content-secondary">{membershipLabel}</p>
           <div className="mt-1 border-t border-border-subtle pt-1">
             <MenuItem

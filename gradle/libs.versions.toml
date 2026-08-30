@@ -6,8 +6,11 @@ archunit = "1.5.0"
 springdoc = "3.0.3"
 keycloak-admin-client = "26.0.12"
 tika = "4.0.0"
+arconia = "0.30.0"
 
 [libraries]
+arconia-bom = { module = "io.arconia:arconia-bom", version.ref = "arconia" }
+arconia-multitenancy-web = { module = "io.arconia:arconia-multitenancy-web-spring-boot-starter" }
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 spring-modulith-api = { module = "org.springframework.modulith:spring-modulith-api" }
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }

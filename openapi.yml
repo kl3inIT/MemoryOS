@@ -183,7 +183,7 @@ paths:
     post:
       tags:
       - Sources
-      summary: Create an Organization-owned FILE source
+      summary: Create a Tenant-owned FILE source
       operationId: createFileSource
       parameters:
       - name: X-MemoryOS-CSRF
@@ -214,7 +214,7 @@ paths:
     get:
       tags:
       - Invitations
-      summary: List the current owner's Organization invitations
+      summary: List the current owner's Tenant invitations
       operationId: listInvitations
       parameters:
       - name: status
@@ -277,7 +277,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner
+          description: The actor is not an active Tenant owner
           content:
             application/problem+json:
               schema:
@@ -288,7 +288,7 @@ paths:
     post:
       tags:
       - Invitations
-      summary: Create one Organization member invitation
+      summary: Create one Tenant member invitation
       operationId: createInvitation
       parameters:
       - name: X-MemoryOS-CSRF
@@ -322,7 +322,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner or the same-origin
+          description: The actor is not an active Tenant owner or the same-origin
             header is missing
           content:
             application/problem+json:
@@ -376,7 +376,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner or the same-origin
+          description: The actor is not an active Tenant owner or the same-origin
             header is missing
           content:
             application/problem+json:
@@ -419,7 +419,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner or the same-origin
+          description: The actor is not an active Tenant owner or the same-origin
             header is missing
           content:
             application/problem+json:
@@ -438,7 +438,7 @@ paths:
     get:
       tags:
       - Sources
-      summary: List Organization sources
+      summary: List Tenant sources
       operationId: listSources
       responses:
         "200":
@@ -558,7 +558,7 @@ paths:
       summary: Return the authenticated MemoryOS actor
       description: Accepts either an existing MemoryOS browser session or a valid
         bound bearer identity and returns the stable internal ActorId plus its durable
-        Organization authority projection.
+        Tenant authority projection.
       operationId: getCurrentIdentity
       responses:
         "200":
@@ -825,7 +825,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        organizationDisplayName:
+        tenantDisplayName:
           type: string
         expiresAt:
           type: string
@@ -836,7 +836,7 @@ components:
       required:
       - continueUrl
       - expiresAt
-      - organizationDisplayName
+      - tenantDisplayName
     CurrentIdentity:
       type: object
       additionalProperties: false
@@ -845,11 +845,11 @@ components:
           type: string
           format: uuid
           description: Stable internal MemoryOS actor identifier.
-        organization:
-          description: "Active Organization context, or null when the actor has no\
-            \ active Organization membership."
+        tenant:
+          description: "Active Tenant context, or null when the actor has no active\
+            \ Tenant membership."
           oneOf:
-          - $ref: "#/components/schemas/CurrentOrganization"
+          - $ref: "#/components/schemas/CurrentTenant"
           - type: "null"
         capabilities:
           type: array
@@ -862,17 +862,17 @@ components:
       required:
       - actorId
       - capabilities
-      - organization
-    CurrentOrganization:
+      - tenant
+    CurrentTenant:
       type: object
       additionalProperties: false
       properties:
         displayName:
           type: string
-          description: Display name of the actor's active Organization.
+          description: Display name of the actor's active Tenant.
         role:
           type: string
-          description: Stable Organization membership role used for presentation.
+          description: Stable Tenant membership role used for presentation.
           enum:
           - OWNER
           - MEMBER

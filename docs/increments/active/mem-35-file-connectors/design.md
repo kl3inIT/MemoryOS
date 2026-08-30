@@ -1,4 +1,4 @@
-# MEM-35 design: Organization-owned FILE connectors
+# MEM-35 design: Tenant-owned FILE connectors
 
 ## Outcome
 
@@ -8,7 +8,7 @@ MemoryOS delivers the first production source vertical slice through the Onyx-al
 Connector + Credential -> ConnectorCredentialPair -> IndexAttempt -> Document
 ```
 
-An active Organization `OWNER` creates a named `FILE` Connector. MemoryOS creates or reuses the Organization's `NO_AUTH` Credential, links both through one ConnectorCredentialPair, accepts bounded files as first-class ConnectorItems, and indexes them asynchronously through the same Pair-keyed status, scheduler, access, metrics, and cleanup boundary that later Google Drive work consumes.
+An active Tenant `OWNER` creates a named `FILE` Connector. MemoryOS creates or reuses the Tenant's `NO_AUTH` Credential, links both through one ConnectorCredentialPair, accepts bounded files as first-class ConnectorItems, and indexes them asynchronously through the same Pair-keyed status, scheduler, access, metrics, and cleanup boundary that later Google Drive work consumes.
 
 A file is one ConnectorItem beneath a Connector. It is never one Connector and never an ad hoc mutation of the Knowledge Base.
 
@@ -26,14 +26,14 @@ The local Onyx reference at upstream main `ec08b5f` establishes the model delibe
 
 MemoryOS accepts the same operational tradeoff. A `NO_AUTH` Credential is an explicit authentication context with no provider account, scope, secret reference, token, or refresh lifecycle. It is not provider secret material. Every configured source has at least one Pair so the product does not acquire separate FILE and authenticated-source pipelines.
 
-The design also accounts for the costs observed in Onyx: Pair deletion spans many dependent records, group authorization can leak existence or degenerate into N-query checks, and attempt timestamp coupling can stop scheduling while stale documents remain visible. MemoryOS therefore makes Organization scoping, cleanup state, authorization queries, and scheduling transitions explicit from the first Pair.
+The design also accounts for the costs observed in Onyx: Pair deletion spans many dependent records, group authorization can leak existence or degenerate into N-query checks, and attempt timestamp coupling can stop scheduling while stale documents remain visible. MemoryOS therefore makes Tenant scoping, cleanup state, authorization queries, and scheduling transitions explicit from the first Pair.
 
 ## Product flow
 
 ```text
-active Organization OWNER
+active Tenant OWNER
   -> create FILE Connector
-  -> create/reuse deterministic Organization NO_AUTH Credential
+  -> create/reuse deterministic Tenant NO_AUTH Credential
   -> create PUBLIC ConnectorCredentialPair
   -> upload one allowlisted file up to 10 MiB
   -> persist one ConnectorItem revision and NOT_STARTED IndexAttempt atomically
@@ -54,7 +54,7 @@ MEM-35 applies the repository boundary-discovery sequence before assigning packa
 
 ```text
 Source management:
-Organization OWNER creates/configures/revokes a source and chooses access policy.
+Tenant OWNER creates/configures/revokes a source and chooses access policy.
 
 Indexing:
 Worker claims an item-version attempt, obtains/extracts content, publishes a normalized version, and records outcome.
@@ -99,11 +99,11 @@ Each table has one writer capability. Cross-capability finalization uses public 
 ### Context map and module cut
 
 ```text
-organization -> identity
-invitation -> identity, organization
+tenant -> identity
+invitation -> identity, tenant
 
-connector -> identity, organization, document
-ingestion -> connector, document, organization
+connector -> identity, tenant, document
+ingestion -> connector, document, tenant
 ```
 
 Connector is a source-management capability; document is a normalized-corpus capability; ingestion is a supporting process/application capability. They are separate top-level Spring Modulith modules in core because their language, data ownership, actors, lifecycle, and failure semantics differ. They remain in one Gradle artifact because they release/deploy/transact together. Provider drivers are physical adapters and receive a Gradle boundary only for concrete SDK/classpath isolation; that build decision does not define a bounded context.
@@ -121,7 +121,7 @@ MEM-35 keeps product capabilities in `:core` and adds one shared provider-integr
 
 ### `:core`
 
-Core owns complete product capability implementations that run in one application, transact over one schema, and release together. Current modules are identity, organization, and invitation. MEM-35 adds:
+Core owns complete product capability implementations that run in one application, transact over one schema, and release together. Current modules are identity, tenant, and invitation. MEM-35 adds:
 
 ```text
 connector
@@ -131,15 +131,15 @@ ingestion
 
 #### `connector`
 
-Owns Connector, Credential, ConnectorCredentialPair, ConnectorItem/binary lineage, Pair status/access/health, DocumentByConnectorCredentialPair mappings, source-management views, and mandatory transaction ports consumed by ingestion. It depends on public identity, organization, and document APIs and never on ingestion.
+Owns Connector, Credential, ConnectorCredentialPair, ConnectorItem/binary lineage, Pair status/access/health, DocumentByConnectorCredentialPair mappings, source-management views, and mandatory transaction ports consumed by ingestion. It depends on public identity, tenant, and document APIs and never on ingestion.
 
 #### `document`
 
-Owns Document/DocumentVersion, normalized title/text/metadata, stable identity, version allocation, eligibility, and hard deletion. It depends only on OrganizationId and knows no provider SDK, Pair, attempt, worker, or binary-store implementation.
+Owns Document/DocumentVersion, normalized title/text/metadata, stable identity, version allocation, eligibility, and hard deletion. It depends only on TenantId and knows no provider SDK, Pair, attempt, worker, or binary-store implementation.
 
 #### `ingestion`
 
-Owns IndexAttempt/CleanupAttempt queues, lease/claim-token lifecycle, extraction/finalization/cleanup orchestration, and provider-facing ports such as SourceContentExtractor. It depends on connector, document, and organization public APIs.
+Owns IndexAttempt/CleanupAttempt queues, lease/claim-token lifecycle, extraction/finalization/cleanup orchestration, and provider-facing ports such as SourceContentExtractor. It depends on connector, document, and tenant public APIs.
 
 ### `:connector`
 
@@ -253,7 +253,7 @@ JdbcSourceDocumentRepository  -> Pair/Document provenance and retrieval eligibil
 JdbcSourceQueryRepository     -> source/item/operation read projections
 ```
 
-Repositories follow aggregate/use-case and consistency boundaries, not one class per table. Source/ingestion remains JDBC-first because conditional transitions, row locks, worker claims, multi-join projections, and bulk invalidation require explicit SQL. MEM-35 adds no JPA, Querydsl, or jOOQ. Existing invitation and Organization JDBC code is not migrated for stylistic uniformity. JPA is reconsidered for MEM-36 Groups only if relationship lifecycle demonstrably reduces complexity.
+Repositories follow aggregate/use-case and consistency boundaries, not one class per table. Source/ingestion remains JDBC-first because conditional transitions, row locks, worker claims, multi-join projections, and bulk invalidation require explicit SQL. MEM-35 adds no JPA, Querydsl, or jOOQ. Existing invitation and Tenant JDBC code is not migrated for stylistic uniformity. JPA is reconsidered for MEM-36 Groups only if relationship lifecycle demonstrably reduces complexity.
 
 ## Domain semantics
 
@@ -286,7 +286,7 @@ NO_AUTH
 GOOGLE_OAUTH
 ```
 
-MEM-35 creates only NO_AUTH. A deterministic Organization NO_AUTH credential is unique by `(organization_id, kind)` and reusable by every no-auth Connector in that Organization.
+MEM-35 creates only NO_AUTH. A deterministic Tenant NO_AUTH credential is unique by `(tenant_id, kind)` and reusable by every no-auth Connector in that Tenant.
 
 ### CredentialStatus
 
@@ -296,7 +296,7 @@ INVALID
 REVOKED
 ```
 
-NO_AUTH has no token lifecycle. Persisted Credential status remains independent of Organization status; every management, worker claim/finalization, and read decision separately requires the Organization to remain active.
+NO_AUTH has no token lifecycle. Persisted Credential status remains independent of Tenant status; every management, worker claim/finalization, and read decision separately requires the Tenant to remain active.
 
 ### PairAccessType
 
@@ -306,7 +306,7 @@ PRIVATE
 SYNC
 ```
 
-`PUBLIC` means all actors with current active membership in the owning Organization. It never means internet-public. FILE supports PUBLIC only in MEM-35.
+`PUBLIC` means all actors with current active membership in the owning Tenant. It never means internet-public. FILE supports PUBLIC only in MEM-35.
 
 `PRIVATE` requires selected MemoryOS Groups and is rejected until a concrete Group sharing increment ships.
 
@@ -394,7 +394,7 @@ Flyway V5 creates the first connector/document schema. Existing migrations remai
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 connector_type VARCHAR(32) NOT NULL
 status VARCHAR(16) NOT NULL
 name VARCHAR(200) NOT NULL
@@ -402,17 +402,17 @@ configuration_json JSONB NOT NULL
 created_by_actor_id UUID NOT NULL
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-FK organization_id -> organizations
+UNIQUE (tenant_id, id)
+FK tenant_id -> tenants
 FK created_by_actor_id -> actors
 ```
 
-A separate unique expression index enforces `(organization_id, lower(name))`. FILE configuration contains no file IDs or secrets and records only bounded source-level options exercised by FILE.
+A separate unique expression index enforces `(tenant_id, lower(name))`. FILE configuration contains no file IDs or secrets and records only bounded source-level options exercised by FILE.
 ### `credentials`
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 credential_kind VARCHAR(32) NOT NULL
 status VARCHAR(16) NOT NULL
 provider_account_reference VARCHAR(500)
@@ -420,17 +420,17 @@ secret_reference VARCHAR(500)
 created_by_actor_id UUID NOT NULL
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-FK organization_id -> organizations
+UNIQUE (tenant_id, id)
+FK tenant_id -> tenants
 FK created_by_actor_id -> actors
 ```
 
-A separate partial unique index enforces one NO_AUTH Credential per Organization. A check requires NO_AUTH provider account and secret reference to be null. Future GOOGLE_OAUTH requires a secret reference and safe provider account metadata.
+A separate partial unique index enforces one NO_AUTH Credential per Tenant. A check requires NO_AUTH provider account and secret reference to be null. Future GOOGLE_OAUTH requires a secret reference and safe provider account metadata.
 ### `connector_credential_pairs`
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 connector_id UUID NOT NULL
 credential_id UUID NOT NULL
 status VARCHAR(16) NOT NULL
@@ -446,23 +446,23 @@ last_error_code VARCHAR(100)
 created_by_actor_id UUID NOT NULL
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-UNIQUE (organization_id, id, connector_id)
-UNIQUE (organization_id, connector_id, credential_id)
-FK organization_id -> organizations
-FK (organization_id, connector_id) -> connectors
-FK (organization_id, credential_id) -> credentials
+UNIQUE (tenant_id, id)
+UNIQUE (tenant_id, id, connector_id)
+UNIQUE (tenant_id, connector_id, credential_id)
+FK tenant_id -> tenants
+FK (tenant_id, connector_id) -> connectors
+FK (tenant_id, credential_id) -> credentials
 FK created_by_actor_id -> actors
 ```
 
 FILE + NO_AUTH + PUBLIC + MANUAL is enforced in the creation transaction; provider-specific cross-table invariants cannot be PostgreSQL CHECK constraints.
 
-The schema permits future multiple Credentials per Connector. MEM-35 FILE creation exposes exactly one Pair because one Organization NO_AUTH Credential plus pair uniqueness cannot produce a second valid FILE Pair. Multi-Pair execution and convergence are enabled only by MEM-9/MEM-10 after their provider rules are implemented.
+The schema permits future multiple Credentials per Connector. MEM-35 FILE creation exposes exactly one Pair because one Tenant NO_AUTH Credential plus pair uniqueness cannot produce a second valid FILE Pair. Multi-Pair execution and convergence are enabled only by MEM-9/MEM-10 after their provider rules are implemented.
 ### `connector_items`
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 connector_id UUID NOT NULL
 native_key VARCHAR(500) NOT NULL
 current_version BIGINT NOT NULL
@@ -473,11 +473,11 @@ status VARCHAR(32) NOT NULL
 created_by_actor_id UUID NOT NULL
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-UNIQUE (organization_id, id, connector_id)
-UNIQUE (organization_id, connector_id, native_key)
-FK organization_id -> organizations
-FK (organization_id, connector_id) -> connectors
+UNIQUE (tenant_id, id)
+UNIQUE (tenant_id, id, connector_id)
+UNIQUE (tenant_id, connector_id, native_key)
+FK tenant_id -> tenants
+FK (tenant_id, connector_id) -> connectors
 FK created_by_actor_id -> actors
 ```
 
@@ -486,7 +486,7 @@ For FILE, native_key is the lowercase hexadecimal SHA-256 of uploaded bytes. Sam
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 connector_id UUID NOT NULL
 connector_item_id UUID NOT NULL
 version BIGINT NOT NULL
@@ -496,11 +496,11 @@ binary_size BIGINT NOT NULL
 detected_media_type VARCHAR(200)
 original_filename VARCHAR(500) NOT NULL
 created_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-UNIQUE (organization_id, id, connector_id)
-UNIQUE (organization_id, connector_item_id, version)
-FK organization_id -> organizations
-FK (organization_id, connector_item_id, connector_id) -> connector_items
+UNIQUE (tenant_id, id)
+UNIQUE (tenant_id, id, connector_id)
+UNIQUE (tenant_id, connector_item_id, version)
+FK tenant_id -> tenants
+FK (tenant_id, connector_item_id, connector_id) -> connector_items
 CHECK binary_size = octet_length(binary_content)
 CHECK binary_size BETWEEN 1 AND 10485760
 CHECK content_sha256 ~ '^[0-9a-f]{64}$'
@@ -511,7 +511,7 @@ Application code computes SHA-256 while enforcing the byte limit; PostgreSQL che
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 connector_id UUID NOT NULL
 connector_credential_pair_id UUID NOT NULL
 connector_item_version_id UUID NOT NULL
@@ -530,13 +530,13 @@ error_code VARCHAR(100)
 error_detail VARCHAR(500)
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-UNIQUE (organization_id, connector_credential_pair_id, connector_item_version_id, attempt_number)
-UNIQUE (organization_id, connector_credential_pair_id, pair_sequence)
-UNIQUE (organization_id, connector_item_version_id, item_sequence)
-FK organization_id -> organizations
-FK (organization_id, connector_credential_pair_id, connector_id) -> connector_credential_pairs
-FK (organization_id, connector_item_version_id, connector_id) -> connector_item_versions
+UNIQUE (tenant_id, id)
+UNIQUE (tenant_id, connector_credential_pair_id, connector_item_version_id, attempt_number)
+UNIQUE (tenant_id, connector_credential_pair_id, pair_sequence)
+UNIQUE (tenant_id, connector_item_version_id, item_sequence)
+FK tenant_id -> tenants
+FK (tenant_id, connector_credential_pair_id, connector_id) -> connector_credential_pairs
+FK (tenant_id, connector_item_version_id, connector_id) -> connector_item_versions
 ```
 
 pair_sequence is allocated from Pair.next_attempt_sequence and item_sequence from ConnectorItem.next_attempt_sequence while both rows are locked in the global order. Pair status chooses its latest terminal outcome by greatest pair_sequence; ConnectorItem status chooses across Pairs by greatest item_sequence.
@@ -548,15 +548,15 @@ Owned by the document capability:
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 stable_key VARCHAR(500) NOT NULL
 current_version BIGINT NOT NULL
 status VARCHAR(16) NOT NULL
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-UNIQUE (organization_id, stable_key)
-FK organization_id -> organizations
+UNIQUE (tenant_id, id)
+UNIQUE (tenant_id, stable_key)
+FK tenant_id -> tenants
 ```
 
 DocumentStatus is ACTIVE or INELIGIBLE. For MEM-35, stable_key derives from ConnectorItemId. Provider-native deduplication across different Connectors is deliberately absent.
@@ -564,7 +564,7 @@ DocumentStatus is ACTIVE or INELIGIBLE. For MEM-35, stable_key derives from Conn
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 document_id UUID NOT NULL
 version BIGINT NOT NULL
 source_content_sha256 CHAR(64) NOT NULL
@@ -572,11 +572,11 @@ title VARCHAR(500) NOT NULL
 normalized_text TEXT NOT NULL
 metadata_json JSONB NOT NULL
 created_at TIMESTAMPTZ NOT NULL
-UNIQUE (organization_id, id)
-UNIQUE (organization_id, document_id, version)
-UNIQUE (organization_id, document_id, source_content_sha256)
-FK organization_id -> organizations
-FK (organization_id, document_id) -> documents
+UNIQUE (tenant_id, id)
+UNIQUE (tenant_id, document_id, version)
+UNIQUE (tenant_id, document_id, source_content_sha256)
+FK tenant_id -> tenants
+FK (tenant_id, document_id) -> documents
 CHECK source_content_sha256 ~ '^[0-9a-f]{64}$'
 CHECK char_length(normalized_text) <= 2000000
 ```
@@ -587,7 +587,7 @@ The document capability locks the Document row before allocating a version. Same
 Owned by Connector:
 
 ```text
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 connector_id UUID NOT NULL
 connector_credential_pair_id UUID NOT NULL
 document_id UUID NOT NULL
@@ -595,11 +595,11 @@ connector_item_id UUID NOT NULL
 retrieval_eligible BOOLEAN NOT NULL
 first_indexed_at TIMESTAMPTZ NOT NULL
 last_indexed_at TIMESTAMPTZ NOT NULL
-PRIMARY KEY (organization_id, connector_credential_pair_id, document_id)
-FK organization_id -> organizations
-FK (organization_id, connector_credential_pair_id, connector_id) -> connector_credential_pairs
-FK (organization_id, connector_item_id, connector_id) -> connector_items
-FK (organization_id, document_id) -> documents
+PRIMARY KEY (tenant_id, connector_credential_pair_id, document_id)
+FK tenant_id -> tenants
+FK (tenant_id, connector_credential_pair_id, connector_id) -> connector_credential_pairs
+FK (tenant_id, connector_item_id, connector_id) -> connector_items
+FK (tenant_id, document_id) -> documents
 ```
 
 Indexes support Pair document count/list, item removal, and reverse cleanup by Document. ConnectorItem mutation is Connector-scoped; Pair mappings determine which operational sources expose a Document.
@@ -608,7 +608,7 @@ Indexes support Pair document count/list, item removal, and reverse cleanup by D
 
 ```text
 id UUID PK
-organization_id UUID NOT NULL
+tenant_id UUID NOT NULL
 target_connector_id UUID NOT NULL
 target_pair_id UUID
 target_item_id UUID
@@ -622,18 +622,18 @@ completed_at TIMESTAMPTZ
 error_code VARCHAR(100)
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
-FK organization_id -> organizations
+FK tenant_id -> tenants
 ```
 
-Operations are REMOVE_ITEM and DELETE_SOURCE. Target IDs are retained evidence, not foreign keys, because successful cleanup hard-deletes target rows while the result remains queryable. A stable `target_key` plus unique `(organization_id, operation, target_key)` enforces one cleanup record per target. The command looks up this evidence before locking a possibly deleted target, so retry after a lost response returns the original CleanupAttemptId even when the target is DELETING or already gone.
+Operations are REMOVE_ITEM and DELETE_SOURCE. Target IDs are retained evidence, not foreign keys, because successful cleanup hard-deletes target rows while the result remains queryable. A stable `target_key` plus unique `(tenant_id, operation, target_key)` enforces one cleanup record per target. The command looks up this evidence before locking a possibly deleted target, so retry after a lost response returns the original CleanupAttemptId even when the target is DELETING or already gone.
 ## Transaction and concurrency flows
 
 ### Create FILE Connector
 
 One API transaction:
 
-1. lock and resolve current active Organization OWNER so deactivation cannot overtake the transaction;
-2. lock or insert deterministic Organization NO_AUTH Credential;
+1. lock and resolve current active Tenant OWNER so deactivation cannot overtake the transaction;
+2. lock or insert deterministic Tenant NO_AUTH Credential;
 3. insert Connector;
 4. insert PUBLIC Pair in NOT_STARTED while holding the Connector row as owner of the Pair set;
 5. return Pair-keyed source view.
@@ -642,10 +642,10 @@ One API transaction:
 
 The API reads at most 10 MiB and computes SHA-256 before opening the write transaction. One transaction:
 
-1. lock and resolve active Organization OWNER;
+1. lock and resolve active Tenant OWNER;
 2. resolve the selected Pair, then lock Connector followed by Pair;
 3. require FILE + NO_AUTH + PUBLIC and Pair not DELETING;
-4. insert or resolve ConnectorItem by `(organization, connector, hash)`;
+4. insert or resolve ConnectorItem by `(tenant, connector, hash)`;
 5. insert or resolve immutable ConnectorItemVersion by content hash;
 6. if this Pair already has an attempt/mapping for the version, return that Pair-specific outcome idempotently;
 7. otherwise allocate Pair-wide pair_sequence under the Pair lock and insert NOT_STARTED IndexAttempt for the selected Pair + existing/new item version;
@@ -658,7 +658,7 @@ No parser or media detector runs in the API request. Filename is display metadat
 
 ### Reindex one item
 
-`POST /api/sources/{sourceId}/items/{itemId}/index-attempts` reindexes that item's current version through the operational Pair represented by sourceId. One transaction locks active Organization lifecycle, Connector, Pair, item/current version, then:
+`POST /api/sources/{sourceId}/items/{itemId}/index-attempts` reindexes that item's current version through the operational Pair represented by sourceId. One transaction locks active Tenant lifecycle, Connector, Pair, item/current version, then:
 
 1. rejects Connector/Pair/item DELETING;
 2. returns the existing NOT_STARTED/IN_PROGRESS attempt for the same Pair + current item version when present;
@@ -669,17 +669,17 @@ No parser or media detector runs in the API request. Filename is display metadat
 MEM-35 has no Pair-wide reindex-all command. Bulk reindex requires its own bounded job contract and is deferred.
 ### Claim and reclaim work
 
-The scheduler first reads a bounded ordered list of candidate IDs without taking row locks. For each candidate it opens a short transaction, locks the candidate Organization lifecycle, Connector, and Pair in global order, then attempts `SELECT ... FOR UPDATE SKIP LOCKED` on that exact attempt with the eligible-state predicate. If another worker changed or locked it, the candidate is skipped.
+The scheduler first reads a bounded ordered list of candidate IDs without taking row locks. For each candidate it opens a short transaction, locks the candidate Tenant lifecycle, Connector, and Pair in global order, then attempts `SELECT ... FOR UPDATE SKIP LOCKED` on that exact attempt with the eligible-state predicate. If another worker changed or locked it, the candidate is skipped.
 
-Eligibility is NOT_STARTED with `available_at <= now()` or IN_PROGRESS with expired `lease_expires_at`. Inactive Organization work becomes CANCELLED while holding the lifecycle lock. Otherwise claim writes a fresh random claim_token, worker identity, claim/start time, and two-minute lease. Reclaim keeps the history row but replaces the token; a late worker cannot finalize.
+Eligibility is NOT_STARTED with `available_at <= now()` or IN_PROGRESS with expired `lease_expires_at`. Inactive Tenant work becomes CANCELLED while holding the lifecycle lock. Otherwise claim writes a fresh random claim_token, worker identity, claim/start time, and two-minute lease. Reclaim keeps the history row but replaces the token; a late worker cannot finalize.
 ### Extract outside transaction
 
 The worker loads bounded bytes, closes the database transaction/connection, then starts one bounded child JVM to detect and extract. It never holds row locks or a database connection while Tika parses. The extraction deadline is shorter than the claim lease; timeout or shutdown forcibly terminates the child process, while an abrupt worker/process crash leaves the attempt reclaimable.
 ### Finalize success
-One transaction reads the attempt identity without locking, then locks active Organization lifecycle, Connector, Pair, attempt, ConnectorItem, current item version, Document, and mappings in the shared stable order. It requires:
+One transaction reads the attempt identity without locking, then locks active Tenant lifecycle, Connector, Pair, attempt, ConnectorItem, current item version, Document, and mappings in the shared stable order. It requires:
 
 1. attempt remains IN_PROGRESS and claim_token matches;
-2. owning Organization remains active;
+2. owning Tenant remains active;
 3. Pair is not DELETING;
 4. ConnectorItem is not DELETING and still points to this version;
 5. item version is still current and no greater pair_sequence exists for the same Pair + item version.
@@ -701,15 +701,15 @@ If a deletion/removal guard fails, the attempt becomes CANCELLED and no Document
 One transaction requires the current claim token, records bounded safe error code/detail, marks the attempt FAILED, marks the item FAILED only when this is its latest version/attempt, and recomputes Pair status under the Pair lock. Binary bytes, extracted text, stack traces, sensitive filenames, and provider secrets never enter error fields. A stale token changes nothing.
 ### Item removal and Pair deletion
 
-Every mutating transaction uses one lock order: Organization lifecycle, Connector, affected Pair rows sorted by UUID, index/cleanup attempts sorted by UUID, ConnectorItem, item version, Document, then mappings.
+Every mutating transaction uses one lock order: Tenant lifecycle, Connector, affected Pair rows sorted by UUID, index/cleanup attempts sorted by UUID, ConnectorItem, item version, Document, then mappings.
 
-Removing an item locks active Organization lifecycle, Connector, affected Pairs, attempts, item/version, Document, then mappings. If Connector or its only FILE Pair is DELETING, it returns the existing DELETE_SOURCE CleanupAttemptId and creates no child task. Otherwise it marks the item DELETING, invalidates nonterminal claim tokens, marks mappings retrieval-ineligible, recomputes Pair aggregates, marks Document INELIGIBLE, and inserts or resolves one idempotent REMOVE_ITEM cleanup attempt.
+Removing an item locks active Tenant lifecycle, Connector, affected Pairs, attempts, item/version, Document, then mappings. If Connector or its only FILE Pair is DELETING, it returns the existing DELETE_SOURCE CleanupAttemptId and creates no child task. Otherwise it marks the item DELETING, invalidates nonterminal claim tokens, marks mappings retrieval-ineligible, recomputes Pair aggregates, marks Document INELIGIBLE, and inserts or resolves one idempotent REMOVE_ITEM cleanup attempt.
 
 Pair deletion uses the same order and additionally locks every nonterminal REMOVE_ITEM cleanup attempt for the Connector. For the final FILE Pair it marks Connector DELETING, changes Pair to DELETING, invalidates index/cleanup claim tokens, marks subordinate item cleanups SUPERSEDED, makes mappings ineligible, recomputes aggregate state, marks Documents with no other live mappings INELIGIBLE, and inserts or resolves one DELETE_SOURCE cleanup attempt. The source-delete command always returns the existing/new CleanupAttemptId.
 
-Claim transactions select a bounded batch with `FOR UPDATE OF attempt SKIP LOCKED` (or the single-table cleanup equivalent), assign a fresh random token per row, and commit before extraction. Execution requires the current token. Lease reclaim replaces the token, so a stale worker cannot finalize. Cleanup remains allowed after Organization deactivation; missing targets adopted by broader cleanup become SUPERSEDED rather than stranded.
+Claim transactions select a bounded batch with `FOR UPDATE OF attempt SKIP LOCKED` (or the single-table cleanup equivalent), assign a fresh random token per row, and commit before extraction. Execution requires the current token. Lease reclaim replaces the token, so a stale worker cannot finalize. Cleanup remains allowed after Tenant deactivation; missing targets adopted by broader cleanup become SUPERSEDED rather than stranded.
 
-REMOVE_ITEM removes mappings and item attempts, recomputes Pair aggregates, and deletes versions/binary/item. For every removed mapping it hard-deletes unreferenced Document/version content under the Document lock. DELETE_SOURCE performs the same per-mapping check before removing Pair attempts/Pair. If another Pair remains, ConnectorItems survive; if none remains, it removes items then Connector. Concurrent Pair creation requires Connector lock, so future final-Pair decisions serialize. Cleanup cannot create mappings, Documents, or access and remains allowed after Organization deactivation.
+REMOVE_ITEM removes mappings and item attempts, recomputes Pair aggregates, and deletes versions/binary/item. For every removed mapping it hard-deletes unreferenced Document/version content under the Document lock. DELETE_SOURCE performs the same per-mapping check before removing Pair attempts/Pair. If another Pair remains, ConnectorItems survive; if none remains, it removes items then Connector. Concurrent Pair creation requires Connector lock, so future final-Pair decisions serialize. Cleanup cannot create mappings, Documents, or access and remains allowed after Tenant deactivation.
 ## File extraction boundary
 
 Use Apache Tika 4.0.0 inside the worker, not the API. Pin only `tika-core`, PDF, Microsoft, and text parser modules; detection uses content plus resource metadata and extension never overrides detected type.
@@ -760,14 +760,14 @@ Upload is one multipart file per request. The synchronous response may fail only
 
 List/detail responses expose safe type, status, access, pending-work flag, last success, document count, item/attempt summaries, and safe error code. They never expose configuration secrets, binary bytes, extracted text, claims, or raw parser failures.
 
-Identity projection adds SOURCES_MANAGE only for active Organization OWNER. Backend authority still resolves durable membership for every command.
+Identity projection adds SOURCES_MANAGE only for active Tenant OWNER. Backend authority still resolves durable membership for every command.
 
 Sources UI follows the Onyx interaction model: connector type, fixed NO_AUTH credential context, connector configuration, PUBLIC access, then a Pair-keyed status page/card. It polls Pair detail while indexing. The delete command returns CleanupAttemptId; the UI treats SUCCEEDED and SUPERSEDED as terminal success and FAILED as terminal failure, after which Pair not-found is expected for successful source deletion. No WebSocket/SSE infrastructure is introduced.
 ## Security and access
 
-All persistence reads and writes include authorized Organization ID. A missing or foreign Pair, Connector, or item returns a safe not-found outcome without revealing existence. OWNER management authority is separate from PUBLIC read clearance. PRIVATE and SYNC are rejected until their prerequisites exist.
+All persistence reads and writes include authorized Tenant ID. A missing or foreign Pair, Connector, or item returns a safe not-found outcome without revealing existence. OWNER management authority is separate from PUBLIC read clearance. PRIVATE and SYNC are rejected until their prerequisites exist.
 
-Connector exposes SourceDocumentAccessResolver accepting ActorId and DocumentId. For PUBLIC, it resolves current active Organization membership and one live retrieval-eligible Pair mapping; it does not require source-management authority. Retrieval has no endpoint in MEM-35, but this public connector contract makes persisted access executable without introducing a connector/document/ingestion cycle.
+Connector exposes SourceDocumentAccessResolver accepting ActorId and DocumentId. For PUBLIC, it resolves current active Tenant membership and one live retrieval-eligible Pair mapping; it does not require source-management authority. Retrieval has no endpoint in MEM-35, but this public connector contract makes persisted access executable without introducing a connector/document/ingestion cycle.
 
 Multipart handling applies request limits and filename normalization for display only. Detected media type is authoritative: valid allowed bytes are accepted even when the extension is missing or misleading. Unsupported detected type becomes an asynchronous failed IndexAttempt. Request bodies and extracted content are never logged.
 

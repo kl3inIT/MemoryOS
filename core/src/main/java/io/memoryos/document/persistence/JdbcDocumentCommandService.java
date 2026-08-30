@@ -3,7 +3,7 @@ package io.memoryos.document.persistence;
 import io.memoryos.document.DocumentCommandService;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -30,12 +30,12 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
     @Override
     @Transactional
     public DocumentId publish(
-            OrganizationId organizationId,
+            TenantId tenantId,
             @Nullable DocumentId existingDocumentId,
             DocumentContent extraction,
             String sourceSha256
     ) {
-        Objects.requireNonNull(organizationId, "organizationId must not be null");
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
         Objects.requireNonNull(extraction, "content must not be null");
         Objects.requireNonNull(sourceSha256, "sourceSha256 must not be null");
         DocumentId documentId = existingDocumentId == null
@@ -43,19 +43,19 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
                 : existingDocumentId;
         if (existingDocumentId == null) {
             jdbcClient.sql("""
-                            INSERT INTO documents (id, organization_id, status)
-                            VALUES (:id, :organizationId, 'ELIGIBLE')
+                            INSERT INTO documents (id, tenant_id, status)
+                            VALUES (:id, :tenantId, 'ELIGIBLE')
                             """)
                     .param("id", documentId.value())
-                    .param("organizationId", organizationId.value())
+                    .param("tenantId", tenantId.value())
                     .update();
         } else {
             boolean locked = jdbcClient.sql("""
                             SELECT id FROM documents
-                            WHERE organization_id = :organizationId AND id = :id
+                            WHERE tenant_id = :tenantId AND id = :id
                             FOR UPDATE
                             """)
-                    .param("organizationId", organizationId.value())
+                    .param("tenantId", tenantId.value())
                     .param("id", documentId.value())
                     .query(UUID.class)
                     .optional()
@@ -65,11 +65,11 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
             }
             boolean sameContent = jdbcClient.sql("""
                             SELECT COUNT(*) FROM document_versions
-                            WHERE organization_id = :organizationId
+                            WHERE tenant_id = :tenantId
                               AND document_id = :documentId
                               AND source_content_sha256 = :sha256
                             """)
-                    .param("organizationId", organizationId.value())
+                    .param("tenantId", tenantId.value())
                     .param("documentId", documentId.value())
                     .param("sha256", sourceSha256)
                     .query(Integer.class)
@@ -78,9 +78,9 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
                 jdbcClient.sql("""
                                 UPDATE documents
                                 SET status = 'ELIGIBLE', updated_at = CURRENT_TIMESTAMP
-                                WHERE organization_id = :organizationId AND id = :documentId
+                                WHERE tenant_id = :tenantId AND id = :documentId
                                 """)
-                        .param("organizationId", organizationId.value())
+                        .param("tenantId", tenantId.value())
                         .param("documentId", documentId.value())
                         .update();
                 return documentId;
@@ -90,24 +90,24 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
         Long versionNumber = jdbcClient.sql("""
                         SELECT COALESCE(MAX(version_number), 0) + 1
                         FROM document_versions
-                        WHERE organization_id = :organizationId AND document_id = :documentId
+                        WHERE tenant_id = :tenantId AND document_id = :documentId
                         """)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("documentId", documentId.value())
                 .query(Long.class)
                 .single();
         UUID versionId = UUID.randomUUID();
         jdbcClient.sql("""
                         INSERT INTO document_versions (
-                            id, organization_id, document_id, version_number,
+                            id, tenant_id, document_id, version_number,
                             title, media_type, normalized_text, source_content_sha256, metadata_json
                         ) VALUES (
-                            :id, :organizationId, :documentId, :versionNumber,
+                            :id, :tenantId, :documentId, :versionNumber,
                             :title, :mediaType, :normalizedText, :sha256, :metadata
                         )
                         """)
                 .param("id", versionId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("documentId", documentId.value())
                 .param("versionNumber", versionNumber)
                 .param("title", truncate(extraction.title(), 255))
@@ -120,10 +120,10 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
                         UPDATE documents
                         SET status = 'ELIGIBLE', current_version_id = :versionId,
                             updated_at = CURRENT_TIMESTAMP
-                        WHERE organization_id = :organizationId AND id = :documentId
+                        WHERE tenant_id = :tenantId AND id = :documentId
                         """)
                 .param("versionId", versionId)
-                .param("organizationId", organizationId.value())
+                .param("tenantId", tenantId.value())
                 .param("documentId", documentId.value())
                 .update();
         return documentId;
@@ -131,36 +131,36 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
 
     @Override
     @Transactional
-    public void removeUnreferenced(OrganizationId organizationId, java.util.List<DocumentId> documentIds) {
+    public void removeUnreferenced(TenantId tenantId, java.util.List<DocumentId> documentIds) {
         for (DocumentId documentId : documentIds) {
             int references = jdbcClient.sql("""
                             SELECT COUNT(*) FROM documents_by_connector_credential_pair
-                            WHERE organization_id = :organizationId AND document_id = :documentId
+                            WHERE tenant_id = :tenantId AND document_id = :documentId
                             """)
-                    .param("organizationId", organizationId.value())
+                    .param("tenantId", tenantId.value())
                     .param("documentId", documentId.value())
                     .query(Integer.class)
                     .single();
             if (references == 0) {
                 jdbcClient.sql("""
                                 UPDATE documents SET current_version_id = NULL, status = 'INELIGIBLE'
-                                WHERE organization_id = :organizationId AND id = :documentId
+                                WHERE tenant_id = :tenantId AND id = :documentId
                                 """)
-                        .param("organizationId", organizationId.value())
+                        .param("tenantId", tenantId.value())
                         .param("documentId", documentId.value())
                         .update();
                 jdbcClient.sql("""
                                 DELETE FROM document_versions
-                                WHERE organization_id = :organizationId AND document_id = :documentId
+                                WHERE tenant_id = :tenantId AND document_id = :documentId
                                 """)
-                        .param("organizationId", organizationId.value())
+                        .param("tenantId", tenantId.value())
                         .param("documentId", documentId.value())
                         .update();
                 jdbcClient.sql("""
                                 DELETE FROM documents
-                                WHERE organization_id = :organizationId AND id = :documentId
+                                WHERE tenant_id = :tenantId AND id = :documentId
                                 """)
-                        .param("organizationId", organizationId.value())
+                        .param("tenantId", tenantId.value())
                         .param("documentId", documentId.value())
                         .update();
             }

@@ -7,7 +7,7 @@ import java.time.Instant;
 @Schema(name = "CurrentInvitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record CurrentInvitationResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-        String organizationDisplayName,
+        String tenantDisplayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         Instant expiresAt,
         @Schema(pattern = "^/invite/continue", requiredMode = Schema.RequiredMode.REQUIRED)

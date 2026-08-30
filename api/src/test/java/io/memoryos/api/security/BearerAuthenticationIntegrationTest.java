@@ -84,10 +84,15 @@ class BearerAuthenticationIntegrationTest {
         registry.add("spring.security.oauth2.client.provider.memoryos.user-info-uri",
                 () -> ISSUER + "/userinfo");
         registry.add("spring.security.oauth2.client.provider.memoryos.user-name-attribute", () -> "sub");
-        registry.add("memoryos.initial-organization.owner-subject", () -> "startup-owner");
-        registry.add("memoryos.initial-organization.slug", () -> "test");
-        registry.add("memoryos.initial-organization.display-name", () -> "Test");
-        registry.add("memoryos.initial-organization.change-reference", () -> "TEST-JWT-BOOTSTRAP");
+        registry.add(
+                "arconia.multitenancy.resolution.fixed.tenant-identifier",
+                () -> "10000000-0000-0000-0000-000000000024"
+        );
+        registry.add("memoryos.initial-tenant.id", () -> "10000000-0000-0000-0000-000000000024");
+        registry.add("memoryos.initial-tenant.owner-subject", () -> "startup-owner");
+        registry.add("memoryos.initial-tenant.slug", () -> "test");
+        registry.add("memoryos.initial-tenant.display-name", () -> "Test");
+        registry.add("memoryos.initial-tenant.change-reference", () -> "TEST-JWT-BOOTSTRAP");
     }
 
     @Autowired
@@ -205,18 +210,18 @@ class BearerAuthenticationIntegrationTest {
     }
 
     @Test
-    void returnsEmptyOrganizationAuthorityForBoundActorWithoutMembership() throws Exception {
+    void returnsEmptyTenantAuthorityForBoundActorWithoutMembership() throws Exception {
         var response = request(token(validClaims(BOUND_SUBJECT), SIGNING_KEY));
 
         assertEquals(200, response.statusCode());
         assertEquals(
-                "{\"actorId\":\"" + ACTOR_ID + "\",\"organization\":null,\"capabilities\":[]}",
+                "{\"actorId\":\"" + ACTOR_ID + "\",\"tenant\":null,\"capabilities\":[]}",
                 response.body()
         );
     }
 
     @Test
-    void returnsDurableOrganizationAuthorityForBoundOwner() throws Exception {
+    void returnsDurableTenantAuthorityForBoundOwner() throws Exception {
         UUID ownerActorId = jdbcClient.sql("""
                         SELECT actor_id FROM external_identity_bindings
                         WHERE issuer = :issuer AND subject = 'startup-owner'
@@ -229,11 +234,34 @@ class BearerAuthenticationIntegrationTest {
 
         assertEquals(200, response.statusCode());
         assertEquals(
-                "{\"actorId\":\"" + ownerActorId + "\",\"organization\":{\"displayName\":\"Test\","
+                "{\"actorId\":\"" + ownerActorId + "\",\"tenant\":{\"displayName\":\"Test\","
                         + "\"role\":\"OWNER\"},\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]}",
                 response.body()
         );
     }
+
+    @Test
+    void ignoresTenantHeadersAndUsesTheFixedDeploymentTenant() throws Exception {
+        var request = HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + port + "/api/identity/me"))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + token(validClaims("startup-owner"), SIGNING_KEY))
+                .header("X-TenantId", "20000000-0000-0000-0000-000000000024")
+                .build();
+
+        var response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        assertEquals(
+                "Test",
+                io.swagger.v3.core.util.Json.mapper()
+                        .readTree(response.body())
+                        .path("tenant")
+                        .path("displayName")
+                        .textValue()
+        );
+    }
+
     @Test
     void rejectsOversizedMultipartAtTheServletBoundary() throws Exception {
         String boundary = "----MemoryOSUploadBoundary";

@@ -13,8 +13,8 @@ public final class SourceException extends BusinessException {
         return new SourceException(
                 "SOURCE_NOT_OWNER",
                 FailureCategory.NOT_PERMITTED,
-                "Only an active Organization owner can manage sources.",
-                "source command denied because actor is not an active Organization owner"
+                "Only an active Tenant owner can manage sources.",
+                "source command denied because actor is not an active Tenant owner"
         );
     }
 
@@ -23,7 +23,7 @@ public final class SourceException extends BusinessException {
                 "SOURCE_NOT_FOUND",
                 FailureCategory.NOT_FOUND,
                 "The source or item is unavailable.",
-                "source resource was not found in the authorized Organization"
+                "source resource was not found in the authorized Tenant"
         );
     }
 

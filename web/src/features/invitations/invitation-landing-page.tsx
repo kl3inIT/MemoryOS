@@ -37,11 +37,11 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
       </div>
       <p className="font-secondary-action text-content-muted">MEMORYOS INVITATION</p>
       <h1 className="mt-3 max-w-xl font-heading-h2 text-content-primary">
-        Join {invitation.data.organizationDisplayName}
+        Join {invitation.data.tenantDisplayName}
       </h1>
       <p className="mt-3 max-w-lg font-main-content-body text-content-secondary">
         Sign in or create your local account. Once your verified email matches, MemoryOS will add
-        you to the Organization and take you to the application.
+        you to the Tenant and take you to the application.
       </p>
 
       <div className="mt-7 flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-subtle px-4 py-3">
@@ -49,7 +49,7 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
         <div>
           <p className="font-main-ui-action text-content-primary">Your access is scoped</p>
           <p className="mt-1 font-secondary-body text-content-muted">
-            This invitation grants Organization member access. It does not grant administration
+            This invitation grants Tenant member access. It does not grant administration
             permissions.
           </p>
         </div>
@@ -86,7 +86,7 @@ function InvitationFailure({ reason }: { reason: string }) {
           <Link to="/">Go to MemoryOS</Link>
         </Button>
         <Button asChild size="lg" prominence="secondary">
-          <a href="mailto:?subject=MemoryOS invitation help">Ask an Organization owner</a>
+          <a href="mailto:?subject=MemoryOS invitation help">Ask a Tenant owner</a>
         </Button>
       </div>
     </InvitationFrame>
@@ -127,13 +127,13 @@ function failureCopy(reason: string) {
     return {
       title: "Sign-in was not completed",
       description:
-        "Nothing was added to the Organization. Open the invitation link and try signing in again.",
+        "Nothing was added to the Tenant. Open the invitation link and try signing in again.",
     };
   }
   return {
     title: "This invitation is no longer available",
     description:
-      "The link may have expired, been revoked, rotated, or already used. Ask an Organization owner for a fresh invitation.",
+      "The link may have expired, been revoked, rotated, or already used. Ask a Tenant owner for a fresh invitation.",
   };
 }
 

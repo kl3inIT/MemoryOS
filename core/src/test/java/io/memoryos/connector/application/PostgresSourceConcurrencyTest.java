@@ -20,8 +20,8 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentCommandService;
 import io.memoryos.identity.ActorId;
-import io.memoryos.organization.persistence.JdbcOrganizationAccessResolver;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
+import io.memoryos.tenant.TenantId;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
@@ -70,7 +69,7 @@ class PostgresSourceConcurrencyTest {
     private ActorId owner;
     private JdbcConnectorCleanupPort cleanup;
 
-    private UUID organizationId;
+    private UUID tenantId;
 
     @BeforeEach
     void migrateAndSeed() throws Exception {
@@ -87,30 +86,31 @@ class PostgresSourceConcurrencyTest {
                     new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
                     new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
                     new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                    new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql")
+                    new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
+                    new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
             ).populate(connection);
         }
         jdbcClient = JdbcClient.create(dataSource);
         transactionManager = new DataSourceTransactionManager(dataSource);
         objectMapper = new ObjectMapper();
-        organizationId = UUID.randomUUID();
+        tenantId = UUID.randomUUID();
         UUID actorId = UUID.randomUUID();
         jdbcClient.sql("INSERT INTO actors (id) VALUES (:id)").param("id", actorId).update();
         jdbcClient.sql("""
-                        INSERT INTO organizations (
+                        INSERT INTO tenants (
                             id, slug, display_name, status, bootstrap_reference
                         ) VALUES (
                             :id, 'source-concurrency', 'Source concurrency', 'ACTIVE', 'MEM-35-TEST'
                         )
                         """)
-                .param("id", organizationId)
+                .param("id", tenantId)
                 .update();
         jdbcClient.sql("""
-                        INSERT INTO organization_memberships (
-                            organization_id, actor_id, role, status
-                        ) VALUES (:organizationId, :actorId, 'OWNER', 'ACTIVE')
+                        INSERT INTO tenant_memberships (
+                            tenant_id, actor_id, role, status
+                        ) VALUES (:tenantId, :actorId, 'OWNER', 'ACTIVE')
                         """)
-                .param("organizationId", organizationId)
+                .param("tenantId", tenantId)
                 .param("actorId", actorId)
                 .update();
         owner = new ActorId(actorId);
@@ -154,7 +154,7 @@ class PostgresSourceConcurrencyTest {
     }
 
     @Test
-    void staleWorkerTokenCannotCompleteAfterLeaseReclaimAndTenantFksFailClosed() throws Exception {
+    void staleWorkerTokenCannotCompleteAfterLeaseReclaim() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Lease").source().id();
         byte[] content = "lease content".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
@@ -171,48 +171,18 @@ class PostgresSourceConcurrencyTest {
         assertNotEquals(stale.claimToken(), current.claimToken());
         DocumentId documentId = new DocumentId(UUID.randomUUID());
         jdbcClient.sql("""
-                        INSERT INTO documents (id, organization_id, status)
-                        VALUES (:id, :organizationId, 'ELIGIBLE')
+                        INSERT INTO documents (id, tenant_id, status)
+                        VALUES (:id, :tenantId, 'ELIGIBLE')
                         """)
                 .param("id", documentId.value())
-                .param("organizationId", organizationId)
+                .param("tenantId", tenantId)
                 .update();
         assertFalse(attempts.complete(stale, documentId));
         assertTrue(attempts.complete(current, documentId));
         assertEquals(1L, count("documents_by_connector_credential_pair"));
 
-        UUID foreignOrganization = UUID.randomUUID();
-        UUID foreignCredential = UUID.randomUUID();
-        jdbcClient.sql("""
-                        INSERT INTO organizations (id, slug, display_name, status, bootstrap_reference)
-                        VALUES (:id, 'foreign', 'Foreign', 'ACTIVE', 'MEM-35-TEST')
-                        """)
-                .param("id", foreignOrganization)
-                .update();
-        jdbcClient.sql("""
-                        INSERT INTO credentials (id, organization_id, credential_kind, status)
-                        VALUES (:id, :organizationId, 'NO_AUTH', 'ACTIVE')
-                        """)
-                .param("id", foreignCredential)
-                .param("organizationId", foreignOrganization)
-                .update();
-        UUID connectorId = jdbcClient.sql("SELECT id FROM connectors WHERE organization_id = :organizationId")
-                .param("organizationId", organizationId)
-                .query(UUID.class)
-                .single();
-        assertThrows(DataAccessException.class, () -> jdbcClient.sql("""
-                        INSERT INTO connector_credential_pairs (
-                            id, organization_id, connector_id, credential_id, access_type, status
-                        ) VALUES (
-                            :id, :organizationId, :connectorId, :credentialId, 'PUBLIC', 'NOT_STARTED'
-                        )
-                        """)
-                .param("id", UUID.randomUUID())
-                .param("organizationId", organizationId)
-                .param("connectorId", connectorId)
-                .param("credentialId", foreignCredential)
-                .update());
     }
+
     @Test
     void uploadRejectsAnItemWhoseRemovalIsPending() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Deleting item").source().id();
@@ -233,7 +203,7 @@ class PostgresSourceConcurrencyTest {
     void persistsExtractionMetadataWithTheDocumentVersion() {
         var documents = new JdbcDocumentCommandService(jdbcClient, objectMapper);
         documents.publish(
-                new OrganizationId(organizationId),
+                new TenantId(tenantId),
                 null,
                 new DocumentContent(
                         "text/plain",
@@ -316,16 +286,16 @@ class PostgresSourceConcurrencyTest {
     }
 
     @Test
-    void inactiveOrganizationCancelsPendingIndexWorkWithoutPublishing() throws Exception {
+    void inactiveTenantCancelsPendingIndexWorkWithoutPublishing() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Inactive").source().id();
         byte[] content = "inactive content".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         service.upload(owner, sourceId, "inactive.txt", content, sha256);
         jdbcClient.sql("""
-                        UPDATE organizations SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
-                        WHERE id = :organizationId
+                        UPDATE tenants SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
+                        WHERE id = :tenantId
                         """)
-                .param("organizationId", organizationId)
+                .param("tenantId", tenantId)
                 .update();
 
         assertTrue(attempts.claim(1).isEmpty());
@@ -347,7 +317,7 @@ class PostgresSourceConcurrencyTest {
                 new JdbcIndexAttemptRepository(jdbcClient, sourceDocuments),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
-                new JdbcOrganizationAccessResolver(jdbcClient)
+                new JdbcTenantAccessResolver(jdbcClient)
         );
         return transactionalProxy(target, transactionManager);
     }
@@ -362,7 +332,7 @@ class PostgresSourceConcurrencyTest {
         }
 
         @Override
-        public SourcePair lock(OrganizationId organizationId, SourceId sourceId) {
+        public SourcePair lock(TenantId tenantId, SourceId sourceId) {
             lockReached.countDown();
             try {
                 if (!allowLock.await(5, TimeUnit.SECONDS)) {
@@ -372,7 +342,7 @@ class PostgresSourceConcurrencyTest {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("interrupted while coordinating the source lock", exception);
             }
-            return super.lock(organizationId, sourceId);
+            return super.lock(tenantId, sourceId);
         }
 
         private boolean awaitLock() throws InterruptedException {

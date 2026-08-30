@@ -11,6 +11,7 @@ import io.memoryos.ingestion.IndexingCoordinator;
 import io.memoryos.ingestion.SourceContentExtractor;
 
 import java.util.Objects;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +56,7 @@ public class DefaultIndexingCoordinator implements IndexingCoordinator {
             var extraction = extractor.extract(work.content(), work.filename());
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
-                        work.organizationId(),
+                        work.tenantId(),
                         indexingPort.findMappedDocument(work).orElse(null),
                         new DocumentContent(
                                 extraction.mediaType(),
@@ -94,6 +95,7 @@ public class DefaultIndexingCoordinator implements IndexingCoordinator {
             }
         }
     }
+
     private static final class StaleIndexClaimException extends RuntimeException {
     }
 

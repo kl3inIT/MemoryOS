@@ -26,18 +26,17 @@ import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.persistence.JdbcInvitationRepository;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationService;
-import io.memoryos.organization.InitialOrganizationBootstrapRequest;
-import io.memoryos.organization.InitialOrganizationBootstrapper;
-import io.memoryos.organization.OrganizationMembershipProvisioner;
-import io.memoryos.organization.application.DefaultInitialOrganizationBootstrapper;
-import io.memoryos.organization.persistence.JdbcOrganizationBootstrapRepository;
-import io.memoryos.organization.persistence.JdbcOrganizationMembershipProvisioner;
+import io.memoryos.tenant.InitialTenantBootstrapRequest;
+import io.memoryos.tenant.InitialTenantBootstrapper;
+import io.memoryos.tenant.TenantId;
+import io.memoryos.tenant.TenantMembershipProvisioner;
+import io.memoryos.tenant.application.DefaultInitialTenantBootstrapper;
+import io.memoryos.tenant.persistence.JdbcTenantBootstrapRepository;
+import io.memoryos.tenant.persistence.JdbcTenantMembershipProvisioner;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.time.Instant;
@@ -70,7 +69,7 @@ class DefaultInvitationServiceTest {
     private Connection keepAlive;
     private MutableClock clock;
     private InvitationService invitations;
-    private InitialOrganizationBootstrapper bootstrapper;
+    private InitialTenantBootstrapper bootstrapper;
     private ActorId ownerActorId;
     private List<String> provisionedEmails;
     private RuntimeException provisioningFailure;
@@ -90,7 +89,9 @@ class DefaultInvitationServiceTest {
                 new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
                 new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
                 new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql")
+                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
+                new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
+                new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
         ).populate(keepAlive);
 
         jdbcClient = JdbcClient.create(dataSource);
@@ -101,16 +102,16 @@ class DefaultInvitationServiceTest {
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
-        var bootstrapRepository = new JdbcOrganizationBootstrapRepository(jdbcClient);
+        var bootstrapRepository = new JdbcTenantBootstrapRepository(jdbcClient);
         bootstrapper = transactionalProxy(
-                new DefaultInitialOrganizationBootstrapper(bootstrapRepository, resolver, registrar),
-                InitialOrganizationBootstrapper.class,
+                new DefaultInitialTenantBootstrapper(bootstrapRepository, resolver, registrar),
+                InitialTenantBootstrapper.class,
                 transactionManager
         );
         ownerActorId = bootstrapper.bootstrap(bootstrapRequest()).ownerActorId();
         var membershipProvisioner = transactionalProxy(
-                new JdbcOrganizationMembershipProvisioner(jdbcClient),
-                OrganizationMembershipProvisioner.class,
+                new JdbcTenantMembershipProvisioner(jdbcClient),
+                TenantMembershipProvisioner.class,
                 transactionManager
         );
         provisionedEmails = new ArrayList<>();
@@ -171,7 +172,7 @@ class DefaultInvitationServiceTest {
         );
 
         assertEquals(IdentityProvisioningFailureReason.PROVIDER_UNAVAILABLE, failure.reason());
-        assertEquals(0L, count("organization_invitations"));
+        assertEquals(0L, count("tenant_invitations"));
         assertEquals(List.of(), provisionedEmails);
     }
 
@@ -218,7 +219,7 @@ class DefaultInvitationServiceTest {
         invitations.issue(ownerActorId, "second@example.com");
         var expectedIds = jdbcClient.sql("""
                         SELECT id
-                        FROM organization_invitations
+                        FROM tenant_invitations
                         ORDER BY id
                         """)
                 .query(UUID.class)
@@ -251,7 +252,7 @@ class DefaultInvitationServiceTest {
 
         assertEquals(InvitationFailureReason.NOT_OWNER, notOwner.reason());
         assertEquals(InvitationFailureReason.INVALID_EMAIL, invalidEmail.reason());
-        assertEquals(0L, count("organization_invitations"));
+        assertEquals(0L, count("tenant_invitations"));
     }
 
     @Test
@@ -303,7 +304,7 @@ class DefaultInvitationServiceTest {
 
         var replacement = invitations.issue(ownerActorId, "member@example.com");
         assertNotEquals(expired.invitation().id(), replacement.invitation().id());
-        assertEquals(2L, count("organization_invitations"));
+        assertEquals(2L, count("tenant_invitations"));
     }
 
     @Test
@@ -314,7 +315,7 @@ class DefaultInvitationServiceTest {
 
         ActorId member = invitations.accept(new InvitationAcceptance(
                 continuation.invitationId(),
-                continuation.organizationId(),
+                continuation.tenantId(),
                 identity,
                 "Member@Example.com",
                 true
@@ -327,7 +328,7 @@ class DefaultInvitationServiceTest {
                 .param("issuer", ISSUER)
                 .query(UUID.class)
                 .single());
-        assertEquals("MEMBER", organizationMembershipRole(member));
+        assertEquals("MEMBER", tenantMembershipRole(member));
         var accepted = invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst();
         assertEquals(InvitationStatus.ACCEPTED, accepted.status());
         assertEquals(member, accepted.acceptedActorId());
@@ -337,7 +338,7 @@ class DefaultInvitationServiceTest {
                         InvitationException.class,
                         () -> invitations.accept(new InvitationAcceptance(
                                 continuation.invitationId(),
-                                continuation.organizationId(),
+                                continuation.tenantId(),
                                 identity,
                                 "member@example.com",
                                 true
@@ -358,7 +359,7 @@ class DefaultInvitationServiceTest {
                 )
         );
 
-        assertEquals("MEMBER", organizationMembershipRole(member));
+        assertEquals("MEMBER", tenantMembershipRole(member));
         assertEquals(
                 InvitationStatus.ACCEPTED,
                 invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status()
@@ -379,7 +380,7 @@ class DefaultInvitationServiceTest {
     }
 
     @Test
-    void rejectsAmbiguousOrUnverifiedActivationWithoutContinuation() {
+    void rejectsUnverifiedOrUninvitedActivationWithoutContinuation() {
         invitations.issue(ownerActorId, "member@example.com");
 
         InvitationException unverified = assertThrows(
@@ -389,41 +390,6 @@ class DefaultInvitationServiceTest {
                                 new ExternalIdentity(ISSUER, "unverified"),
                                 "member@example.com",
                                 false
-                        )
-                )
-        );
-        UUID secondOrganizationId = UUID.randomUUID();
-        jdbcClient.sql("""
-                        INSERT INTO organizations (id, slug, display_name, status, bootstrap_reference)
-                        VALUES (:id, 'second', 'Second', 'ACTIVE', 'TEST-SECOND')
-                        """)
-                .param("id", secondOrganizationId)
-                .update();
-        jdbcClient.sql("""
-                        INSERT INTO organization_invitations (
-                            id, organization_id, normalized_email, open_email_key,
-                            secret_digest, status, created_by_actor_id, created_at,
-                            updated_at, expires_at
-                        )
-                        VALUES (
-                            :id, :organizationId, 'member@example.com', 'member@example.com',
-                            :digest, 'PENDING', :actorId, :now, :now, :expiresAt
-                        )
-                        """)
-                .param("id", UUID.randomUUID())
-                .param("organizationId", secondOrganizationId)
-                .param("digest", "0".repeat(64))
-                .param("actorId", ownerActorId.value())
-                .param("now", OffsetDateTime.ofInstant(START, ZoneOffset.UTC))
-                .param("expiresAt", OffsetDateTime.ofInstant(START.plus(Duration.ofHours(72)), ZoneOffset.UTC))
-                .update();
-        InvitationException ambiguous = assertThrows(
-                InvitationException.class,
-                () -> invitations.acceptVerifiedEmail(
-                        new VerifiedEmailInvitationAcceptance(
-                                new ExternalIdentity(ISSUER, "ambiguous"),
-                                "member@example.com",
-                                true
                         )
                 )
         );
@@ -439,7 +405,6 @@ class DefaultInvitationServiceTest {
         );
 
         assertEquals(InvitationFailureReason.EMAIL_NOT_VERIFIED, unverified.reason());
-        assertEquals(InvitationFailureReason.INVITATION_NOT_AVAILABLE, ambiguous.reason());
         assertEquals(InvitationFailureReason.INVITATION_NOT_AVAILABLE, noMatch.reason());
         assertEquals(1L, count("external_identity_bindings"));
         assertEquals(InvitationStatus.PENDING, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
@@ -451,7 +416,7 @@ class DefaultInvitationServiceTest {
         var continuation = invitations.intake(issued.plaintextSecret());
         invitations.accept(new InvitationAcceptance(
                 continuation.invitationId(),
-                continuation.organizationId(),
+                continuation.tenantId(),
                 new ExternalIdentity(ISSUER, "replay-member"),
                 "member@example.com",
                 true
@@ -461,7 +426,7 @@ class DefaultInvitationServiceTest {
 
         assertFalse(replay.created());
         assertEquals(ownerActorId, replay.ownerActorId());
-        assertEquals(2L, count("organization_memberships"));
+        assertEquals(2L, count("tenant_memberships"));
     }
 
     @Test
@@ -474,7 +439,7 @@ class DefaultInvitationServiceTest {
                 InvitationException.class,
                 () -> invitations.accept(new InvitationAcceptance(
                         continuation.invitationId(),
-                        continuation.organizationId(),
+                        continuation.tenantId(),
                         identity,
                         "member@example.com",
                         false
@@ -484,7 +449,7 @@ class DefaultInvitationServiceTest {
                 InvitationException.class,
                 () -> invitations.accept(new InvitationAcceptance(
                         continuation.invitationId(),
-                        continuation.organizationId(),
+                        continuation.tenantId(),
                         identity,
                         "other@example.com",
                         true
@@ -499,7 +464,7 @@ class DefaultInvitationServiceTest {
     }
 
     @Test
-    void rejectsAnIdentityThatAlreadyHasOrganizationAuthority() {
+    void rejectsAnIdentityThatAlreadyHasTenantAuthority() {
         var issued = invitations.issue(ownerActorId, "owner@example.com");
         var continuation = invitations.intake(issued.plaintextSecret());
 
@@ -507,7 +472,7 @@ class DefaultInvitationServiceTest {
                 InvitationException.class,
                 () -> invitations.accept(new InvitationAcceptance(
                         continuation.invitationId(),
-                        continuation.organizationId(),
+                        continuation.tenantId(),
                         new ExternalIdentity(ISSUER, "initial-owner"),
                         "owner@example.com",
                         true
@@ -515,7 +480,7 @@ class DefaultInvitationServiceTest {
         );
 
         assertEquals(InvitationFailureReason.IDENTITY_CONFLICT, conflict.reason());
-        assertEquals(1L, count("organization_memberships"));
+        assertEquals(1L, count("tenant_memberships"));
     }
 
     @Test
@@ -524,7 +489,7 @@ class DefaultInvitationServiceTest {
         var continuation = invitations.intake(issued.plaintextSecret());
         var acceptance = new InvitationAcceptance(
                 continuation.invitationId(),
-                continuation.organizationId(),
+                continuation.tenantId(),
                 new ExternalIdentity(ISSUER, "concurrent-member"),
                 "member@example.com",
                 true
@@ -562,7 +527,7 @@ class DefaultInvitationServiceTest {
 
         assertEquals(2L, count("actors"));
         assertEquals(2L, count("external_identity_bindings"));
-        assertEquals(2L, count("organization_memberships"));
+        assertEquals(2L, count("tenant_memberships"));
         assertEquals("ACCEPTED", scalar("status"));
     }
 
@@ -576,8 +541,8 @@ class DefaultInvitationServiceTest {
         return invitations.accept(acceptance);
     }
 
-    private String organizationMembershipRole(ActorId actorId) {
-        return jdbcClient.sql("SELECT role FROM organization_memberships WHERE actor_id = :actorId")
+    private String tenantMembershipRole(ActorId actorId) {
+        return jdbcClient.sql("SELECT role FROM tenant_memberships WHERE actor_id = :actorId")
                 .param("actorId", actorId.value())
                 .query(String.class)
                 .single();
@@ -587,8 +552,9 @@ class DefaultInvitationServiceTest {
         return jdbcClient.sql("SELECT COUNT(*) FROM " + table).query(Long.class).single();
     }
 
-    private static InitialOrganizationBootstrapRequest bootstrapRequest() {
-        return new InitialOrganizationBootstrapRequest(
+    private static InitialTenantBootstrapRequest bootstrapRequest() {
+        return new InitialTenantBootstrapRequest(
+                new TenantId(UUID.fromString("10000000-0000-0000-0000-000000000024")),
                 new ExternalIdentity(ISSUER, "initial-owner"),
                 "tasco",
                 "Tasco",
@@ -598,7 +564,7 @@ class DefaultInvitationServiceTest {
 
     private String scalar(String column) {
         return jdbcClient.sql(
-                        "SELECT " + column + " FROM organization_invitations ORDER BY created_at DESC LIMIT 1"
+                        "SELECT " + column + " FROM tenant_invitations ORDER BY created_at DESC LIMIT 1"
                 )
                 .query(String.class)
                 .single();
@@ -606,7 +572,7 @@ class DefaultInvitationServiceTest {
 
     private boolean databaseContains(String value) {
         return jdbcClient.sql("""
-                        SELECT COUNT(*) FROM organization_invitations
+                        SELECT COUNT(*) FROM tenant_invitations
                         WHERE secret_digest = :value OR normalized_email = :value
                         """)
                 .param("value", value)

@@ -1,6 +1,6 @@
 package io.memoryos.document;
 
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.util.List;
 
@@ -9,11 +9,11 @@ import org.jspecify.annotations.Nullable;
 public interface DocumentCommandService {
 
     DocumentId publish(
-            OrganizationId organizationId,
+            TenantId tenantId,
             @Nullable DocumentId existingDocumentId,
             DocumentContent content,
             String sourceSha256
     );
 
-    void removeUnreferenced(OrganizationId organizationId, List<DocumentId> documentIds);
+    void removeUnreferenced(TenantId tenantId, List<DocumentId> documentIds);
 }

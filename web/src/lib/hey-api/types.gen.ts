@@ -86,7 +86,7 @@ export type InvitationPage = {
 };
 
 export type CurrentInvitation = {
-    organizationDisplayName: string;
+    tenantDisplayName: string;
     expiresAt: string;
     continueUrl: string;
 };
@@ -97,22 +97,22 @@ export type CurrentIdentity = {
      */
     actorId: string;
     /**
-     * Active Organization context, or null when the actor has no active Organization membership.
+     * Active Tenant context, or null when the actor has no active Tenant membership.
      */
-    organization: CurrentOrganization | null;
+    tenant: CurrentTenant | null;
     /**
      * Canonical capabilities backed by current server enforcement.
      */
     capabilities: Array<'INVITATIONS_MANAGE' | 'SOURCES_MANAGE'>;
 };
 
-export type CurrentOrganization = {
+export type CurrentTenant = {
     /**
-     * Display name of the actor's active Organization.
+     * Display name of the actor's active Tenant.
      */
     displayName: string;
     /**
-     * Stable Organization membership role used for presentation.
+     * Stable Tenant membership role used for presentation.
      */
     role: 'OWNER' | 'MEMBER';
 };
@@ -307,7 +307,7 @@ export type ListInvitationsErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Organization owner
+     * The actor is not an active Tenant owner
      */
     403: ApiProblem;
 };
@@ -346,7 +346,7 @@ export type CreateInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Organization owner or the same-origin header is missing
+     * The actor is not an active Tenant owner or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -394,7 +394,7 @@ export type RotateInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Organization owner or the same-origin header is missing
+     * The actor is not an active Tenant owner or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -438,7 +438,7 @@ export type RevokeInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Organization owner or the same-origin header is missing
+     * The actor is not an active Tenant owner or the same-origin header is missing
      */
     403: ApiProblem;
     /**

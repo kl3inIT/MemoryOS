@@ -6,7 +6,7 @@ public enum InvitationFailureReason {
     NOT_OWNER(
             "INVITATION_NOT_OWNER",
             FailureCategory.NOT_PERMITTED,
-            "An active Organization owner is required."
+            "An active Tenant owner is required."
     ),
     INVALID_EMAIL(
             "INVITATION_INVALID_EMAIL",
@@ -36,7 +36,7 @@ public enum InvitationFailureReason {
     IDENTITY_CONFLICT(
             "INVITATION_IDENTITY_CONFLICT",
             FailureCategory.CONFLICT,
-            "This identity already has Organization authority."
+            "This identity already has Tenant authority."
     );
 
     private final String code;
