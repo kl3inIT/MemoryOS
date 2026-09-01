@@ -28,36 +28,6 @@ reviews:
     - "!**/*.md"
     - "!gradlew"
     - "!gradlew.bat"
-  path_instructions:
-    - path: "core/src/main/java/**/*.java"
-      instructions: >-
-        Enforce Spring Modulith capability boundaries. Capability-owned persistence must stay under
-        that capability's persistence package and must not be imported by another capability.
-        Flag any path that can expose unauthorized content, metadata, title, citation, or ranking signals.
-    - path: "core/src/test/java/**/*.java"
-      instructions: >-
-        Require tests to defend observable architecture or security contracts and to fail for a plausible regression.
-        Reject source-text assertions and implementation-detail tests.
-    - path: "api/**"
-      instructions: >-
-        Keep API code as a thin HTTP composition root. Flag business logic, capability-owned persistence,
-        credentials, or provider-specific logic placed in this module.
-    - path: "worker/**"
-      instructions: >-
-        Keep worker code as a thin background-processing composition root. Flag in-process assumptions that
-        prevent durable jobs, retries, or independent deployment once processing is introduced.
-    - path: "**/*.gradle.kts"
-      instructions: >-
-        Verify the dependency direction core <- api and core <- worker, Java 25 compatibility, reproducible builds,
-        and that core never depends on a deployable module.
-    - path: ".github/**"
-      instructions: >-
-        Verify least-privilege permissions, pinned current action majors, valid Dependabot ecosystems,
-        and that CI runs the complete architecture and test gate.
-    - path: ".omp/**"
-      instructions: >-
-        Treat these as project-local agent settings. Reject credentials, non-local MCP endpoints added without reason,
-        global side effects, or instructions contradicting repository architecture.
   auto_review:
     enabled: true
     auto_incremental_review: true

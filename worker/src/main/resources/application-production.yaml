@@ -1,0 +1,20 @@
+db-scheduler:
+  scheduler-name: ${MEMORYOS_SCHEDULER_NAME}
+
+spring:
+  data:
+    redis:
+      host: ${MEMORYOS_REDIS_HOST}
+      port: ${MEMORYOS_REDIS_PORT}
+      username: ${MEMORYOS_REDIS_USERNAME}
+      password: ${MEMORYOS_REDIS_PASSWORD}
+      connect-timeout: ${MEMORYOS_REDIS_CONNECT_TIMEOUT}
+      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT}
+      ssl:
+        enabled: ${MEMORYOS_REDIS_SSL_ENABLED}
+      lettuce:
+        pool:
+          max-active: ${MEMORYOS_REDIS_POOL_MAX_ACTIVE}
+          max-idle: ${MEMORYOS_REDIS_POOL_MAX_IDLE}
+          min-idle: ${MEMORYOS_REDIS_POOL_MIN_IDLE}
+          max-wait: ${MEMORYOS_REDIS_POOL_MAX_WAIT}

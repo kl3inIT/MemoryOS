@@ -46,10 +46,22 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
 | `MEMORYOS_WORKER_BATCH_SIZE` | No | Bounded index/cleanup claim batch; default `8`, runtime-clamped to `1..32`. |
-| `MEMORYOS_WORKER_IDLE_DELAY` | No | Delay between scheduled claim loops; default `1s`. |
-| `SPRING_PROFILES_ACTIVE` | No | `development` in Infisical `dev`; `staging` on the server. Selects logging policy only, not alternate business behavior. |
+| `MEMORYOS_WORKER_IDLE_DELAY` | No | Delay between scheduled claim loops; default `1s` until the Redis consumer cutover. |
+| `MEMORYOS_REDIS_HOST` | No | Required production Redis endpoint used only by the worker. Development/tests may use Arconia Redis Dev Services. |
+| `MEMORYOS_REDIS_PORT` | No | Redis endpoint port; default `6379`. |
+| `MEMORYOS_REDIS_USERNAME` | No | Redis ACL username; staging currently uses `default`. |
+| `MEMORYOS_REDIS_PASSWORD` | Yes | Redis ACL password consumed only by the worker; keep it in Infisical and never in the staging environment file. |
+| `MEMORYOS_REDIS_SSL_ENABLED` | No | Must match the managed Redis endpoint; staging defaults to `true`. |
+| `MEMORYOS_REDIS_CONNECT_TIMEOUT` | No | Bounded Redis connection timeout; staging default `2s`. |
+| `MEMORYOS_REDIS_COMMAND_TIMEOUT` | No | Bounded Redis command timeout; staging default `2s`. |
+| `MEMORYOS_REDIS_POOL_MAX_ACTIVE` | No | Maximum worker Redis connections; staging default `8`. |
+| `MEMORYOS_REDIS_POOL_MAX_IDLE` | No | Maximum idle worker Redis connections; staging default `8`. |
+| `MEMORYOS_REDIS_POOL_MIN_IDLE` | No | Minimum idle worker Redis connections; staging default `0`. |
+| `MEMORYOS_REDIS_POOL_MAX_WAIT` | No | Bounded wait for a pooled Redis connection; staging default `2s`. |
+| `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
+| `SPRING_PROFILES_ACTIVE` | No | `development` for managed local development. Hardened Compose forces the worker `production` profile so Redis and scheduler identity have no localhost/anonymous fallback. |
 
-`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, and the `MEMORYOS_WORKER_*` tuning keys are optional. Keep them out of Infisical until an environment has an approved reason to override the checked-in `72h`, `30m`, `8081`, `8`, and `1s` defaults.
+`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, the current PostgreSQL worker-loop tuning keys, and Redis timeout/pool tuning keys are optional. Keep them out of Infisical until an environment has an approved reason to override checked-in defaults; production Redis identity, authentication, TLS, and scheduler-name values are required.
 
 ## OMP code intelligence and debugging
 
@@ -151,7 +163,7 @@ Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`,
 
 ## Run the hardened staging stack
 
-MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mailbox and OAuth2 Proxy, API, persistence-backed FILE indexing worker, and web. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. API runs Flyway before becoming healthy; worker depends on that health and uses the same managed MemoryOS database credential. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume.
+MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mailbox and OAuth2 Proxy, API, the FILE indexing worker, and web. Redis is a separately managed execution-transport dependency. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. Keep `MEMORYOS_REDIS_PASSWORD` in Infisical rather than that file. API runs Flyway before becoming healthy; worker depends on that health, uses the same managed MemoryOS database credential, and requires Redis plus db-scheduler readiness. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume.
 
 ### Publish the staging application
 
@@ -264,7 +276,7 @@ Before the first V6 deployment:
 1. Stop API and worker writers.
 2. Capture the `memoryos` custom-format dump, restore list, SHA-256 manifest, Flyway history, and Organization-era row counts; copy verified evidence off-host.
 3. Restore into an isolated rehearsal database and run the exact cutover API image.
-4. Confirm V6 is the latest successful migration; all active tables, columns, constraints, and indexes use Tenant terminology; all prior UUIDs and row counts are preserved.
+4. Confirm V7 is the latest successful migration; V6 preserves Tenant terminology, UUIDs, and row counts, while V7 adds only the scheduler control-plane table and indexes.
 5. Confirm exactly one `deployment_slot = 1` Tenant exists and its UUID equals `MEMORYOS_TENANT_ID`.
 6. Start the worker, complete owner login, call `/api/identity/me` with no `X-TenantId`, and repeat with a conflicting `X-TenantId`; both successful responses must project the configured Tenant and retain membership authorization.
 
@@ -287,7 +299,7 @@ The singleton bootstrap row serializes concurrent replicas, while `tenants.deplo
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health through the web gateway |
 | `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable Actor plus nullable Tenant projection and capabilities |
-| `GET http://127.0.0.1:8081/actuator/health/readiness` | Worker container/internal diagnostics | Worker datasource and claim-loop readiness |
+| `GET http://127.0.0.1:8081/actuator/health/readiness` | Worker container/internal diagnostics | Worker datasource, Redis, and db-scheduler readiness |
 | `GET /` | No browser session | Sign-in state with `/oauth2/authorization/memoryos` action |
 | `GET /` | Initial owner after Keycloak login | Authenticated `New Session` application shell |
 | `GET /access-not-provisioned` | Public browser route | Accessible `ACCESS_NOT_PROVISIONED` explanation |
@@ -302,7 +314,9 @@ Start API first so Flyway completes, then run the persistent worker with the sam
 infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :worker:bootRun --no-daemon
 ```
 
-The worker serves readiness on port `8081` by default and continuously claims bounded index/cleanup batches. It does not exit while healthy. Stop it with the normal process signal; graceful shutdown stops new scheduling and allows Spring to close the datasource and in-flight task infrastructure. Provider parsing and extracted content are never logged.
+The worker serves readiness on port `8081` by default. db-scheduler persistently owns the recurring Redis stream/group topology task; the current business executor still claims bounded index/cleanup batches directly from PostgreSQL until the single MEM-43/MEM-44/MEM-51 relay-consumer-cutover increment replaces it. Development/test mode may provision isolated Redis through Arconia Dev Services when no explicit connection is supplied. MEM-42 keeps one externally managed PostgreSQL datasource because API and worker require one authority database and PostgreSQL Dev Services has no shared discovery. Its cross-application reuse path is not the repository default because it needs per-developer Testcontainers opt-in, identical configuration hashes, and manual cleanup. A later tooling increment may replace local PostgreSQL with one API-owned fixed-port Dev Service while the worker remains a client. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values. Stop the worker with the normal process signal; graceful shutdown stops new scheduling and waits at most 30 seconds for the scheduler before Spring closes the datasource and in-flight task infrastructure. Provider parsing, extracted content, Redis credentials, and operation payloads are never logged.
+
+API and worker enable Spring Boot virtual threads and JVM keep-alive by default. The db-scheduler execution executor creates one named virtual thread per control task; the scheduler's two execution slots, datasource pool, and Redis pool remain the resource bounds. Do not add a virtual-thread pool, duplicate semaphore around the datasource pool, or global carrier-pool tuning. Netty event loops and scheduler/datasource housekeeping remain platform threads by design. Diagnose production contention with JFR `jdk.VirtualThreadPinned` and `jdk.VirtualThreadSubmitFailed` events or a `jcmd <pid> Thread.dump_to_file -format=json <file>` dump before changing concurrency.
 
 ## Repository verification
 

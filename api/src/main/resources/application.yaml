@@ -8,6 +8,11 @@ arconia:
 spring:
   application:
     name: memoryos-api
+  main:
+    keep-alive: true
+  threads:
+    virtual:
+      enabled: true
   mvc:
     problemdetails:
       enabled: true

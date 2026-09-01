@@ -11,9 +11,9 @@ MemoryOS is a controlled Spring Modulith monolith with four flat Gradle modules:
 | `core` | Complete capability implementations: contracts, transactions, and capability-owned persistence | Must not depend on an adapter or deployable |
 | `connector` | Shared provider integration bundle; current `provider.file` adapter carries Tika 4 | Depends only on public `core` APIs |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root | Depends on `core`; MEM-35 excludes `connector`/Tika |
-| `worker` | Persistence-backed indexing/cleanup composition root | Depends on `core` and selects `connector` at runtime |
+| `worker` | PostgreSQL-backed execution and control-plane composition root | Depends on `core`, selects `connector` at runtime, and alone composes Redis/db-scheduler |
 
-`api` and `worker` are separate deployables. API owns Flyway migrations and durable source commands. Worker starts after API health, claims leased index/cleanup work, extracts outside database transactions, and token-guardedly finalizes or reclaims work.
+`api` and `worker` are separate deployables. API owns Flyway migrations and durable source commands. Worker starts after API health, claims leased index/cleanup work, extracts outside database transactions, and token-guardedly finalizes or reclaims work. The current business executor still polls PostgreSQL directly; Redis Streams carry no business work until the relay and consumer cutover.
 
 `web/` is a separate production deployable built with Vite, React, TanStack Router, TanStack Query, Tailwind CSS, and generated Hey API clients. It is not a Gradle module or a reusable package. The Nginx runtime serves immutable assets and owns the browser origin; Spring remains the API, OAuth2, session, and authorization runtime.
 
@@ -29,13 +29,13 @@ The web design system remains local to the single application. `styles/tokens.cs
 
 `tenant` depends only on `identity`. `invitation` depends on public `identity` and `tenant`. `document` depends only on `tenant`. `connector` depends on public `identity`, `tenant`, and `document`; it owns Connector/Credential/Pair/item and Pair/Document provenance. `ingestion` depends on public `connector`, `document`, and `tenant` APIs and owns asynchronous orchestration. Spring Modulith and ArchUnit reject cycles, cross-capability persistence imports, deployable dependencies, and provider imports of capability internals.
 
-`api` scans `io.memoryos`, so capability implementations register through Spring stereotypes. API composes Arconia Web fixed Tenant resolution and verifies the configured UUID against active Tenant persistence. Worker scans worker plus connector/document/ingestion and required Tenant persistence packages without loading API/security or Arconia composition; durable index and cleanup records carry the explicit `TenantId` used by every worker repository predicate.
+`api` scans `io.memoryos`, so capability implementations register through Spring stereotypes. API composes Arconia Web fixed Tenant resolution and verifies the configured UUID against active Tenant persistence. Worker scans worker plus connector/document/ingestion and required Tenant persistence packages without loading API/security or Arconia composition; durable index and cleanup records carry the explicit `TenantId` used by every worker repository predicate. Redis and db-scheduler are worker composition concerns, not capability dependencies.
 
 Audit is intentionally absent until a real evidence consumer defines attribution, transaction, retention, access, and export semantics. See [ADR 0003](docs/decisions/0003-defer-audit-until-evidence-consumer.md).
 
 ## Persistence and startup
 
-Flyway owns six migrations:
+Flyway owns seven migrations:
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
 - `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
@@ -43,8 +43,17 @@ Flyway owns six migrations:
 - `V4__collapse_workspace_into_organization.sql`: removes the default-Workspace layer and makes Organization the direct historical owner.
 - `V5__create_file_source_and_document_schema.sql`: historical Organization-scoped Connector/Credential/Pair/item/attempt/Document/provenance/cleanup state.
 - `V6__cut_over_organization_to_tenant.sql`: renames the active schema to Tenant, preserves UUIDs and composite ownership, and enforces one `deployment_slot = 1` Tenant row.
+- `V7__create_scheduler_control_plane.sql`: db-scheduler's PostgreSQL control-plane table and execution/heartbeat indexes; it contains no Tenant or business-operation authority.
 
 API startup requires datasource, OIDC, confidential browser-client, and initial Tenant configuration including `MEMORYOS_TENANT_ID`. After migration, an `ApplicationRunner` locks the singleton bootstrap row, resolves or creates the exact owner binding, inserts or verifies the configured Tenant UUID, grants Tenant `OWNER`, and publishes the same UUID. Concurrent replicas serialize on that row. Identical configuration replays; UUID, owner, authority, lifecycle, or descriptive drift fails startup.
+
+The worker composes a two-thread db-scheduler runtime over the shared PostgreSQL database. Its first recurring control task, `memoryos-redis-execution-topology-reconcile-v1`, idempotently ensures versioned ingestion and cleanup Redis Streams plus consumer groups. The `scheduled_tasks` row provides cluster-safe ownership, heartbeat, recovery, and success/failure evidence for that bounded task. Redis readiness, datasource readiness, and db-scheduler readiness are all required for worker readiness; API health remains independent of Redis.
+
+Both deployables run on Java 25 with Spring Boot virtual threads enabled and `spring.main.keep-alive=true`. Spring-managed request, asynchronous-task, and scheduling execution uses virtual threads. db-scheduler uses a named virtual thread per control-task execution while its configured `threads = 2` remains the durable-work concurrency bound. Long-lived coordination threads—db-scheduler due polling/housekeeping, Lettuce/Netty event loops, and datasource housekeeping—remain library-managed platform threads. Database and Redis connection pools continue to bound downstream resource concurrency; virtual threads do not replace those limits.
+
+Arconia Redis Dev Services supplies isolated development/test Redis only. MEM-42 does not add Arconia PostgreSQL Dev Services because API and worker require one shared authority database and the PostgreSQL service offers no shared discovery. Cross-application container reuse exists but depends on per-developer Testcontainers opt-in, identical configuration hashes, and manual cleanup, so it is not the checked-in runtime contract. A later tooling increment may adopt one API-owned fixed-port PostgreSQL Dev Service with worker-as-client lifecycle; PostgreSQL integration tests retain explicit isolated containers where exact migration or multi-instance control matters. The production worker requires explicit authenticated Redis connection, TLS, timeout, pool, and unique scheduler-name configuration. Production artifacts exclude Arconia Dev Services and Testcontainers.
+
+The next execution change is one non-separable vertical cutover spanning MEM-43 relay, MEM-44 consumers, and MEM-51 fencing/drain/removal. Those work packages may be tracked separately, but they must share one increment and production delivery: a relay without consumers accumulates unused delivery, consumers beside the current poller risk dual execution, and poller removal is unsafe before both exist.
 
 ## Authentication
 
@@ -88,7 +97,7 @@ Keycloak is the fixed browser credential store and enterprise OIDC/SAML broker. 
 
 ## Deployment
 
-The hardened deployment Compose project owns `memoryos-postgres`, `shared-keycloak`, `memoryos-mailpit`, `memoryos-mailpit-oauth2-proxy`, `memoryos-api`, `memoryos-worker`, and `memoryos-web`. API and worker use separate image targets from the layered backend Dockerfile; worker starts only after API health, exposes readiness internally, runs read-only with bounded temporary storage, and has explicit CPU/memory and shutdown limits.
+The hardened deployment Compose project owns `memoryos-postgres`, `shared-keycloak`, `memoryos-mailpit`, `memoryos-mailpit-oauth2-proxy`, `memoryos-api`, `memoryos-worker`, and `memoryos-web`. API and worker use separate image targets from the layered backend Dockerfile; worker starts only after API health, connects to the separately managed Redis endpoint, exposes datasource/Redis/db-scheduler readiness internally, runs read-only with bounded temporary storage, and has explicit CPU/memory and shutdown limits.
 
 The staging application origin is `https://memoryos.72-62-193-33.nip.io`, terminated by Nginx Proxy Manager and forwarded to `memoryos-web:8080`. The confidential `memoryos-web` client retains the matching HTTPS callback, `/invite/activate` action return, root, and web origin with S256 PKCE; staging's secure JDBC-session cookie is therefore exercised over HTTPS rather than a loopback development rewrite.
 

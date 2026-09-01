@@ -7,10 +7,13 @@ springdoc = "3.0.3"
 keycloak-admin-client = "26.0.12"
 tika = "4.0.0"
 arconia = "0.30.0"
+db-scheduler = "16.12.0"
 
 [libraries]
 arconia-bom = { module = "io.arconia:arconia-bom", version.ref = "arconia" }
 arconia-multitenancy-web = { module = "io.arconia:arconia-multitenancy-web-spring-boot-starter" }
+arconia-dev-services-redis = { module = "io.arconia:arconia-dev-services-redis" }
+db-scheduler-spring-boot4 = { module = "com.github.kagkarlsson:db-scheduler-spring-boot-4-starter", version.ref = "db-scheduler" }
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 spring-modulith-api = { module = "org.springframework.modulith:spring-modulith-api" }
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
@@ -19,6 +22,8 @@ spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-depe
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
+spring-boot-restclient = { module = "org.springframework.boot:spring-boot-restclient" }
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 springdoc-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-api", version.ref = "springdoc" }
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
@@ -36,6 +41,7 @@ postgresql = { module = "org.postgresql:postgresql" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 h2 = { module = "com.h2database:h2" }
+commons-pool2 = { module = "org.apache.commons:commons-pool2" }
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 keycloak-admin-client = { module = "org.keycloak:keycloak-admin-client", version.ref = "keycloak-admin-client" }
 tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }

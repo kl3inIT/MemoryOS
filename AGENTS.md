@@ -28,9 +28,9 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
-- [MEM-24 — Self-hosted single-Tenant backend cutover](docs/increments/active/mem-24-tenant-cutover/design.md)
-- [MEM-38 — Destructive confirmations and async feedback](docs/increments/active/mem-38-destructive-confirmations/design.md)
 - [MEM-35 — Tenant-owned FILE connectors](docs/increments/active/mem-35-file-connectors/design.md)
+- [MEM-42 — Redis execution runtime](docs/increments/active/mem-42-redis-runtime/design.md)
+- [MEM-45 — db-scheduler control plane](docs/increments/active/mem-45-db-scheduler-control-plane/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
