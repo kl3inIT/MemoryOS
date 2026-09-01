@@ -19,7 +19,6 @@ import org.springframework.http.HttpStatus;
                 "db-scheduler.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis",
                 "arconia.dev.services.redis.enabled=false",
-                "memoryos.redis.topology-initial-delay=0s",
                 "memoryos.redis.topology-interval=1h",
                 "spring.datasource.url=jdbc:h2:mem:redis-unavailable;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
                 "spring.datasource.username=sa",
@@ -27,6 +26,7 @@ import org.springframework.http.HttpStatus;
                 "spring.data.redis.host=127.0.0.1",
                 "spring.data.redis.port=1",
                 "spring.data.redis.password=redis-readiness-secret",
+                "spring.data.redis.ssl.enabled=true",
                 "spring.data.redis.connect-timeout=100ms",
                 "spring.data.redis.timeout=100ms",
                 "spring.data.redis.repositories.enabled=false"

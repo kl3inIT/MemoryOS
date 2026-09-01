@@ -30,7 +30,7 @@ Only `:worker` composes db-scheduler. `:api` remains Flyway owner and has no sch
 The first real recurring task is:
 
 ```text
-memoryos-redis-topology-ensure
+memoryos-redis-execution-topology-reconcile-v1
   -> ensure ingestion stream/group
   -> ensure cleanup stream/group
   -> return quickly

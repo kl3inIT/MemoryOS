@@ -7,30 +7,15 @@ import io.memoryos.ingestion.IndexingCoordinator;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIndexingCoordinator;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@EnableConfigurationProperties({WorkerProperties.class, RedisExecutionProperties.class})
+@EnableConfigurationProperties(WorkerProperties.class)
 @Configuration(proxyBeanMethods = false)
 class WorkerConfiguration {
-
-    @Bean
-    @ConditionalOnProperty(
-            name = "memoryos.redis.topology-enabled",
-            havingValue = "true",
-            matchIfMissing = true
-    )
-    RedisExecutionTopology redisExecutionTopology(
-            StringRedisTemplate redis,
-            RedisExecutionProperties properties
-    ) {
-        return new RedisExecutionTopology(redis, properties);
-    }
 
     @Bean
     IndexingCoordinator indexingCoordinator(

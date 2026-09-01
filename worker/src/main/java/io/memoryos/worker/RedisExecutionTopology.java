@@ -21,8 +21,8 @@ final class RedisExecutionTopology {
     void reconcileTopology() {
         try {
             ensureTopology();
-        } catch (RuntimeException exception) {
-            throw new RedisTopologyUnavailableException();
+        } catch (DataAccessException exception) {
+            throw new RedisTopologyUnavailableException(exception);
         }
     }
 
@@ -67,8 +67,8 @@ final class RedisExecutionTopology {
 
     private static final class RedisTopologyUnavailableException extends RuntimeException {
 
-        private RedisTopologyUnavailableException() {
-            super("Redis execution topology is unavailable");
+        private RedisTopologyUnavailableException(DataAccessException cause) {
+            super("Redis execution topology is unavailable", cause);
         }
     }
 }

@@ -66,11 +66,10 @@ memoryos:
     idle-delay: ${MEMORYOS_WORKER_IDLE_DELAY:1s}
   redis:
     topology-enabled: true
-    topology-initial-delay: 0s
     topology-interval: 30s
     ingestion:
-      stream: memoryos:work:ingestion
-      group: memoryos-ingestion-workers
+      stream: memoryos:execution:ingestion:operations:v1
+      group: memoryos:execution:ingestion:workers:v1
     cleanup:
-      stream: memoryos:work:cleanup
-      group: memoryos-cleanup-workers
+      stream: memoryos:execution:cleanup:operations:v1
+      group: memoryos:execution:cleanup:workers:v1

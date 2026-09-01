@@ -11,5 +11,7 @@
 | API/worker Spring task executors and the real db-scheduler topology execution use virtual threads while scheduler concurrency remains bounded | `ApiApplicationSmokeTest.applicationTaskExecutorUsesVirtualThreads`, `WorkerApplicationSmokeTest.contextLoadsWithPersistenceRuntimeAndSchedulingDisabled`, and `ControlPlaneIntegrationTest.registersExecutesAndRecoversTheTopologyControlTask` |
 | Flyway V7 creates the exact db-scheduler table and indexes against real PostgreSQL | `SchedulerSchemaMigrationTest` |
 | Redis unavailability makes worker readiness unavailable without changing PostgreSQL business state | `RedisUnavailableReadinessIntegrationTest` |
+| Redis credentials require TLS at startup; rejected configuration does not expose credentials | `RedisTransportSecurityConfigurationTest` |
+| Disabling topology avoids binding topology-only settings, while expected Redis access failure is translated without masking programming failures | `WorkerApplicationSmokeTest` and `RedisExecutionTopologyTest` |
 | Provider adapter imports only public capability APIs | `ProviderDependencyRulesTest` |
 | Worker starts with JDBC/provider composition and scheduling disabled in smoke context | `WorkerApplicationSmokeTest` |

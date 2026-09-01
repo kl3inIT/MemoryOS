@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "memoryos.redis.topology-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the worker reconciles the Redis execution stream and consumer-group topology.",
+      "defaultValue": true
+    }
+  ]
+}

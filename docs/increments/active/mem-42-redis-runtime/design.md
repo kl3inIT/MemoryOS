@@ -34,7 +34,7 @@ Only `:worker` receives Spring Data Redis because it will host db-scheduler rela
 :worker     Redis connection, topology and future relay/consumers
 ```
 
-Arconia Redis Dev Services is `testAndDevelopmentOnly` in `:worker`. The production runtime classpath and image contain neither Arconia Dev Services nor Testcontainers. Arconia PostgreSQL Dev Services is intentionally not added: the API and worker processes require the same authority database, and PostgreSQL Dev Services cannot provide shared-service discovery across them. Local development retains one externally managed datasource; PostgreSQL integration tests retain isolated explicit containers.
+Arconia Redis Dev Services is `testAndDevelopmentOnly` in `:worker`. The production runtime classpath and image contain neither Arconia Dev Services nor Testcontainers. MEM-42 does not add Arconia PostgreSQL Dev Services because API and worker require one shared authority database and PostgreSQL Dev Services has no shared discovery. Cross-application reuse was rejected as the repository default because it requires per-developer Testcontainers opt-in, identical configuration hashes, and manual cleanup. A later tooling increment may introduce an API-owned fixed-port service lifecycle; PostgreSQL integration tests retain isolated explicit containers where exact control matters.
 
 ## Runtime configuration
 
@@ -60,12 +60,12 @@ MEM-42 reserves only implemented workload names:
 
 | Workload | Stream | Consumer group |
 | --- | --- | --- |
-| Ingestion | `memoryos:work:ingestion` | `memoryos-ingestion-workers` |
-| Cleanup | `memoryos:work:cleanup` | `memoryos-cleanup-workers` |
+| Ingestion | `memoryos:execution:ingestion:operations:v1` | `memoryos:execution:ingestion:workers:v1` |
+| Cleanup | `memoryos:execution:cleanup:operations:v1` | `memoryos:execution:cleanup:workers:v1` |
 
-Names are deployment-stable and contain no Tenant, connector, filename, content, credential, or secret text. Consumer identity is supplied by worker instance configuration in MEM-44; it is not part of the stream key.
+Names are deployment-stable, version the wire contract, and contain no Tenant, connector, filename, content, credential, or secret text. Consumer identity is supplied by worker instance configuration in MEM-44; it is not part of the stream key.
 
-A worker composition component idempotently ensures both streams and groups with MKSTREAM semantics. `BUSYGROUP` is success. Redis connection/authentication failure is bounded, logged without secrets, and leaves application readiness down without fabricating domain failure.
+A worker composition component idempotently ensures both streams and groups with MKSTREAM semantics. `BUSYGROUP` is success. Expected Redis access failure is translated to one bounded safe diagnostic and leaves application readiness down without fabricating domain failure; programming and configuration failures propagate instead of being retried as transport outages.
 
 ## Smoke contract
 

@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "db-scheduler.enabled", havingValue = "true", matchIfMissing = true)
 class ControlPlaneConfiguration {
-    static final String REDIS_TOPOLOGY_TASK = "memoryos-redis-topology-ensure";
+    static final String REDIS_TOPOLOGY_TASK = "memoryos-redis-execution-topology-reconcile-v1";
     static final String DB_SCHEDULER_TASK_EXECUTOR = "dbSchedulerTaskExecutor";
 
     @Bean(name = DB_SCHEDULER_TASK_EXECUTOR, defaultCandidate = false, destroyMethod = "close")

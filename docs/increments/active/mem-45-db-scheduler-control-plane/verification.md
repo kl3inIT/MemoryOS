@@ -1,6 +1,6 @@
 # MEM-45 verification: db-scheduler control plane
 
-Verified on 2026-08-30.
+Verified on 2026-09-01.
 
 ## Persistence evidence
 
@@ -14,7 +14,7 @@ Verified on 2026-08-30.
 
 | Contract | Evidence |
 | --- | --- |
-| The first production task is real, bounded, and recurring | Worker startup registers `memoryos-redis-topology-ensure` with a fixed delay and executes it against real Redis/PostgreSQL in `ControlPlaneIntegrationTest`. |
+| The first production task is real, bounded, and recurring | Worker startup registers `memoryos-redis-execution-topology-reconcile-v1` with a fixed delay and executes it against real Redis/PostgreSQL in `ControlPlaneIntegrationTest`. |
 | Recurring state persists success evidence | `registersExecutesAndRecoversTheTopologyControlTask` waits for the scheduler row's `last_success`, verifies both Redis groups, and observes repeat execution after recovery. |
 | Dead ownership is recovered | The test writes a picked execution with owner `terminated-scheduler` and an expired heartbeat. Runtime logs show `DeadExecutionHandler$ReviveDeadExecution`, after which the task executes successfully. |
 | Two replicas cannot run one recurring identity concurrently | `twoSchedulersNeverExecuteOneRecurringTaskConcurrently` starts two independent scheduler instances against one PostgreSQL database and asserts one execution with maximum concurrency `1`. |
@@ -35,10 +35,10 @@ Verified on 2026-08-30.
 
 ## Static and repository gates
 
-- JetBrains inspections with warnings enabled reported no findings in changed Java, Kotlin DSL, TOML, or YAML files, including the virtual-thread executor and both application configurations.
+- JetBrains inspections with warnings enabled reported no findings in changed Java, Kotlin DSL, TOML, YAML, or configuration-metadata files, including the virtual-thread executor and both application configurations.
 - V7's only IDE warning was `No data sources are configured`; the real PostgreSQL Flyway test verifies the SQL and exact schema. No warning was suppressed in source.
-- Final `./gradlew.bat clean check --no-daemon` completed successfully on the virtual-thread head: 23 actionable tasks, 14 executed, 8 from cache, and 1 up-to-date.
-- `./gradlew.bat :worker:bootJar --no-daemon` completed successfully; archive inspection verified the production dependency set.
+- Final `./gradlew.bat clean check --no-daemon` completed successfully: 23 actionable tasks, 14 executed, and 9 from cache. The 38 generated test-suite reports contain 141 tests with no skips, failures, or errors.
+- `./gradlew.bat :worker:bootJar --no-daemon` completed successfully; archive inspection verified Spring Data Redis, Lettuce, and db-scheduler 16.12.0 are present while Arconia Dev Services and Testcontainers are absent.
 
 ## Deliberate boundary
 

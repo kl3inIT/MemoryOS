@@ -28,7 +28,6 @@ import org.springframework.http.HttpStatus;
                 "memoryos.worker.enabled=false",
                 "db-scheduler.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis",
-                "memoryos.redis.topology-initial-delay=1h",
                 "memoryos.redis.ingestion.stream=memoryos:test:work:ingestion",
                 "memoryos.redis.ingestion.group=memoryos-test-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:work:cleanup",
