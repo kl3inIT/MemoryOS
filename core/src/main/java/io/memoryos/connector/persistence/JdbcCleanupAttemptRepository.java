@@ -6,14 +6,10 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
-import io.memoryos.tenant.TenantId;
-import io.memoryos.document.DocumentCommandService;
+import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
+import io.memoryos.tenant.TenantId;
 
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -24,20 +20,30 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
+public class JdbcCleanupAttemptRepository implements ConnectorCleanupPort {
 
-    private static final int MAX_BATCH = 32;
+    private static final String CLAIM_CANDIDATES = """
+            SELECT id FROM connector_cleanup_attempts
+            WHERE status = 'NOT_STARTED'
+               OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
+            ORDER BY created_at, id
+            LIMIT :limit
+            FOR UPDATE SKIP LOCKED
+            """;
 
     private final JdbcClient jdbcClient;
+    private final JdbcSourceRepository sources;
     private final JdbcSourceDocumentRepository sourceDocuments;
-    private final DocumentCommandService documents;
+    private final DocumentCommandPort documents;
 
-    public JdbcConnectorCleanupPort(
+    public JdbcCleanupAttemptRepository(
             JdbcClient jdbcClient,
+            JdbcSourceRepository sources,
             JdbcSourceDocumentRepository sourceDocuments,
-            DocumentCommandService documents
+            DocumentCommandPort documents
     ) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+        this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
         this.documents = Objects.requireNonNull(documents, "documents must not be null");
     }
@@ -45,48 +51,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
     @Override
     @Transactional
     public List<CleanupWork> claim(int batchSize) {
-        int limit = Math.clamp(batchSize, 1, MAX_BATCH);
-        Instant now = Instant.now();
-        List<UUID> candidates = jdbcClient.sql("""
-                        SELECT id FROM connector_cleanup_attempts
-                        WHERE status = 'NOT_STARTED'
-                           OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
-                        ORDER BY created_at, id
-                        LIMIT :limit
-                        FOR UPDATE SKIP LOCKED
-                        """)
-                .param("now", sqlTime(now))
-                .param("limit", limit)
-                .query(UUID.class)
-                .list();
-        List<CleanupWork> claimed = new ArrayList<>(Math.min(limit, candidates.size()));
-        for (UUID candidate : candidates) {
-            if (claimed.size() == limit) {
-                break;
-            }
-            UUID token = UUID.randomUUID();
-            int updated = jdbcClient.sql("""
-                            UPDATE connector_cleanup_attempts
-                            SET status = 'IN_PROGRESS', claim_token = :token,
-                                lease_expires_at = :leaseExpiresAt,
-                                started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
-                                error_code = NULL
-                            WHERE id = :id
-                              AND (
-                                  status = 'NOT_STARTED'
-                                  OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
-                              )
-                            """)
-                    .param("token", token)
-                    .param("leaseExpiresAt", sqlTime(now.plusSeconds(120)))
-                    .param("id", candidate)
-                    .param("now", sqlTime(now))
-                    .update();
-            if (updated == 1) {
-                claimed.add(load(candidate, token));
-            }
-        }
-        return List.copyOf(claimed);
+        return WorkLeases.claim(jdbcClient, "connector_cleanup_attempts", CLAIM_CANDIDATES, batchSize, this::load);
     }
 
     @Override
@@ -95,12 +60,10 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
         if (!ownsClaim(work)) {
             return false;
         }
-        if (work.type() == SourceOperationType.REMOVE_ITEM) {
-            removeItem(work);
-        } else if (work.type() == SourceOperationType.DELETE_SOURCE) {
-            deleteSource(work);
-        } else {
-            throw new IllegalStateException("unsupported cleanup operation: " + work.type());
+        switch (work.type()) {
+            case REMOVE_ITEM -> removeItem(work);
+            case DELETE_SOURCE -> deleteSource(work);
+            default -> throw new IllegalStateException("unsupported cleanup operation: " + work.type());
         }
         return complete(work, "SUCCEEDED", null);
     }
@@ -108,7 +71,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
     @Override
     @Transactional
     public boolean fail(CleanupWork work, String errorCode) {
-        return complete(work, "FAILED", safeErrorCode(errorCode));
+        return complete(work, "FAILED", WorkLeases.safeErrorCode(errorCode));
     }
 
     private CleanupWork load(UUID operationId, UUID token) {
@@ -125,7 +88,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                             new SourceOperationId(resultSet.getObject("id", UUID.class)),
                             new TenantId(resultSet.getObject("tenant_id", UUID.class)),
                             SourceOperationType.valueOf(resultSet.getString("operation")),
-                            resultSet.getObject("target_pair_id", UUID.class),
+                            new SourceId(resultSet.getObject("target_pair_id", UUID.class)),
                             itemId == null ? null : new SourceItemId(itemId),
                             token
                     );
@@ -150,11 +113,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
 
     private void removeItem(CleanupWork work) {
         SourceItemId itemId = Objects.requireNonNull(work.itemId(), "REMOVE_ITEM requires itemId");
-        List<UUID> documentIds = sourceDocuments.removeItemMappings(
-                work.tenantId(),
-                new SourceId(work.sourceId()),
-                itemId
-        );
+        List<UUID> documentIds = sourceDocuments.removeItemMappings(work.tenantId(), work.sourceId(), itemId);
         jdbcClient.sql("""
                         DELETE FROM index_attempts
                         WHERE tenant_id = :tenantId
@@ -162,7 +121,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                           AND connector_item_id = :itemId
                         """)
                 .param("tenantId", work.tenantId().value())
-                .param("pairId", work.sourceId())
+                .param("pairId", work.sourceId().value())
                 .param("itemId", itemId.value())
                 .update();
         jdbcClient.sql("""
@@ -186,11 +145,8 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                 .param("tenantId", work.tenantId().value())
                 .param("itemId", itemId.value())
                 .update();
-        documents.removeUnreferenced(
-                work.tenantId(),
-                documentIds.stream().map(DocumentId::new).toList()
-        );
-        recomputePair(work.tenantId(), work.sourceId());
+        documents.removeUnreferenced(work.tenantId(), documentIds.stream().map(DocumentId::new).toList());
+        sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
     }
 
     private void deleteSource(CleanupWork work) {
@@ -199,7 +155,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                         WHERE tenant_id = :tenantId AND id = :pairId
                         """)
                 .param("tenantId", work.tenantId().value())
-                .param("pairId", work.sourceId())
+                .param("pairId", work.sourceId().value())
                 .query(UUID.class)
                 .optional()
                 .orElse(null);
@@ -207,17 +163,14 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
             complete(work, "SUPERSEDED", null);
             return;
         }
-        List<UUID> documentIds = sourceDocuments.removeSourceMappings(
-                work.tenantId(),
-                new SourceId(work.sourceId())
-        );
+        List<UUID> documentIds = sourceDocuments.removeSourceMappings(work.tenantId(), work.sourceId());
         jdbcClient.sql("""
                         DELETE FROM index_attempts
                         WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                         """)
                 .param("tenantId", work.tenantId().value())
-                .param("pairId", work.sourceId())
+                .param("pairId", work.sourceId().value())
                 .update();
         jdbcClient.sql("""
                         UPDATE connector_items SET current_version_id = NULL
@@ -245,7 +198,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                         WHERE tenant_id = :tenantId AND id = :pairId
                         """)
                 .param("tenantId", work.tenantId().value())
-                .param("pairId", work.sourceId())
+                .param("pairId", work.sourceId().value())
                 .update();
         jdbcClient.sql("""
                         DELETE FROM connectors
@@ -254,37 +207,7 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                 .param("tenantId", work.tenantId().value())
                 .param("connectorId", connectorId)
                 .update();
-        documents.removeUnreferenced(
-                work.tenantId(),
-                documentIds.stream().map(DocumentId::new).toList()
-        );
-    }
-
-
-    private void recomputePair(TenantId tenantId, UUID sourceId) {
-        long documents = jdbcClient.sql("""
-                        SELECT COUNT(*) FROM documents_by_connector_credential_pair
-                        WHERE tenant_id = :tenantId
-                          AND connector_credential_pair_id = :pairId
-                          AND retrieval_eligible = TRUE
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("pairId", sourceId)
-                .query(Long.class)
-                .single();
-        jdbcClient.sql("""
-                        UPDATE connector_credential_pairs
-                        SET document_count = :documentCount,
-                            status = CASE WHEN :documentCount > 0 THEN 'ACTIVE' ELSE 'NOT_STARTED' END,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE tenant_id = :tenantId
-                          AND id = :pairId
-                          AND status <> 'DELETING'
-                        """)
-                .param("documentCount", documents)
-                .param("tenantId", tenantId.value())
-                .param("pairId", sourceId)
-                .update();
+        documents.removeUnreferenced(work.tenantId(), documentIds.stream().map(DocumentId::new).toList());
     }
 
     private boolean complete(CleanupWork work, String status, String errorCode) {
@@ -305,17 +228,5 @@ public class JdbcConnectorCleanupPort implements ConnectorCleanupPort {
                 .param("token", work.claimToken())
                 .update();
         return updated == 1;
-    }
-
-    private static String safeErrorCode(String value) {
-        Objects.requireNonNull(value, "errorCode must not be null");
-        if (!value.matches("[A-Z][A-Z0-9_]{0,63}")) {
-            throw new IllegalArgumentException("errorCode must be a stable uppercase token");
-        }
-        return value;
-    }
-
-    private static OffsetDateTime sqlTime(Instant instant) {
-        return OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 }

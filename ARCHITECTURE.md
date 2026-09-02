@@ -57,15 +57,14 @@ The next execution change is one non-separable vertical cutover spanning MEM-43 
 
 ## Authentication
 
-The API composes three ordered security chains:
+The API composes two ordered security chains:
 
-1. Browser application API (`/api/identity/me`, `/api/invitations/**`, `/api/sources/**`, and `/api/source-operations/**`): existing JDBC-backed browser sessions or bound bearer identities; the redacted current-invitation lookup is public but reads only an existing session.
-2. Remaining `/api/**`: stateless OAuth2 Resource Server bearer authentication.
-3. Browser routes: invitation intake/continuation plus OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
+1. Browser application API (`/api/**`): existing JDBC-backed browser sessions or bound bearer identities, never creating a session; the redacted current-invitation lookup is public but reads only an existing session. A Spring MVC interceptor additionally rejects every unsafe `/api/**` request that lacks the same-origin mutation header.
+2. Browser routes: invitation intake/continuation plus OAuth2 Login Authorization Code + PKCE with JDBC-backed sessions.
 
 Both authentication modes validate provider tokens, then resolve exact `(issuer, subject)` to `ActorId`. Bearer requests with no binding fail `401`. Ordinary browser login requires active Tenant authority unless a pending invitation authorizes admission. Both invitation paths enter the same locked transaction that binds the identity, grants Tenant `MEMBER`, and consumes the invitation before the `ActorId`-only session is persisted. Arconia request context never substitutes for membership or capability authorization.
 
-On successful browser login, Spring Security session-fixation protection rotates the session ID. The callback replaces `OAuth2AuthenticationToken` with `ActorSessionAuthenticationToken`, explicitly saves a security context whose serializable principal contains only `ActorId`, and uses a discarding authorized-client repository. Provider access, refresh, and raw ID-token state is not retained in Spring Session.
+On successful browser login, Spring Security session-fixation protection rotates the session ID. The callback replaces `OAuth2AuthenticationToken` with an `ActorAuthenticationToken` carrying no credentials, explicitly saves a security context whose serializable principal contains only `ActorId`, and uses a discarding authorized-client repository. Provider access, refresh, and raw ID-token state is not retained in Spring Session.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |

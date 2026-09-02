@@ -1,6 +1,8 @@
 package io.memoryos.ingestion;
 
+import io.memoryos.document.DocumentContent;
+
 public interface SourceContentExtractor {
 
-    ExtractionResult extract(byte[] content, String filename) throws ExtractionException;
+    DocumentContent extract(byte[] content, String filename) throws ExtractionException;
 }

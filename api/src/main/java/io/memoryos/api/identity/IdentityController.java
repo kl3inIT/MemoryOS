@@ -57,7 +57,7 @@ final class IdentityController {
     ) {
         return CurrentIdentityResponse.from(
                 identityContext.actorId().value(),
-                tenantAccessResolver.findSessionAuthority(identityContext.actorId()).orElse(null)
+                tenantAccessResolver.findActiveMembership(identityContext.actorId()).orElse(null)
         );
     }
 

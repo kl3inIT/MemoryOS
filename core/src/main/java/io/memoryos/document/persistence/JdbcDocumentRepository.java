@@ -1,28 +1,35 @@
 package io.memoryos.document.persistence;
 
-import io.memoryos.document.DocumentCommandService;
+import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.tenant.TenantId;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
-
-import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-public class JdbcDocumentCommandService implements DocumentCommandService {
+public class JdbcDocumentRepository implements DocumentCommandPort {
+
+    private static final String UNREFERENCED = """
+            NOT EXISTS (
+                SELECT 1 FROM documents_by_connector_credential_pair mapping
+                WHERE mapping.tenant_id = :tenantId AND mapping.document_id = %s
+            )
+            """;
 
     private final JdbcClient jdbcClient;
     private final ObjectMapper objectMapper;
 
-    public JdbcDocumentCommandService(JdbcClient jdbcClient, ObjectMapper objectMapper) {
+    public JdbcDocumentRepository(JdbcClient jdbcClient, ObjectMapper objectMapper) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     }
@@ -32,11 +39,11 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
     public DocumentId publish(
             TenantId tenantId,
             @Nullable DocumentId existingDocumentId,
-            DocumentContent extraction,
+            DocumentContent content,
             String sourceSha256
     ) {
         Objects.requireNonNull(tenantId, "tenantId must not be null");
-        Objects.requireNonNull(extraction, "content must not be null");
+        Objects.requireNonNull(content, "content must not be null");
         Objects.requireNonNull(sourceSha256, "sourceSha256 must not be null");
         DocumentId documentId = existingDocumentId == null
                 ? new DocumentId(UUID.randomUUID())
@@ -110,11 +117,11 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
                 .param("tenantId", tenantId.value())
                 .param("documentId", documentId.value())
                 .param("versionNumber", versionNumber)
-                .param("title", truncate(extraction.title(), 255))
-                .param("mediaType", truncate(extraction.mediaType(), 160))
-                .param("normalizedText", extraction.normalizedText())
+                .param("title", truncate(content.title(), 255))
+                .param("mediaType", truncate(content.mediaType(), 160))
+                .param("normalizedText", content.normalizedText())
                 .param("sha256", sourceSha256)
-                .param("metadata", objectMapper.writeValueAsString(extraction.metadata()))
+                .param("metadata", objectMapper.writeValueAsString(content.metadata()))
                 .update();
         jdbcClient.sql("""
                         UPDATE documents
@@ -131,40 +138,32 @@ public class JdbcDocumentCommandService implements DocumentCommandService {
 
     @Override
     @Transactional
-    public void removeUnreferenced(TenantId tenantId, java.util.List<DocumentId> documentIds) {
-        for (DocumentId documentId : documentIds) {
-            int references = jdbcClient.sql("""
-                            SELECT COUNT(*) FROM documents_by_connector_credential_pair
-                            WHERE tenant_id = :tenantId AND document_id = :documentId
-                            """)
-                    .param("tenantId", tenantId.value())
-                    .param("documentId", documentId.value())
-                    .query(Integer.class)
-                    .single();
-            if (references == 0) {
-                jdbcClient.sql("""
-                                UPDATE documents SET current_version_id = NULL, status = 'INELIGIBLE'
-                                WHERE tenant_id = :tenantId AND id = :documentId
-                                """)
-                        .param("tenantId", tenantId.value())
-                        .param("documentId", documentId.value())
-                        .update();
-                jdbcClient.sql("""
-                                DELETE FROM document_versions
-                                WHERE tenant_id = :tenantId AND document_id = :documentId
-                                """)
-                        .param("tenantId", tenantId.value())
-                        .param("documentId", documentId.value())
-                        .update();
-                jdbcClient.sql("""
-                                DELETE FROM documents
-                                WHERE tenant_id = :tenantId AND id = :documentId
-                                """)
-                        .param("tenantId", tenantId.value())
-                        .param("documentId", documentId.value())
-                        .update();
-            }
+    public void removeUnreferenced(TenantId tenantId, List<DocumentId> documentIds) {
+        if (documentIds.isEmpty()) {
+            return;
         }
+        List<UUID> ids = documentIds.stream().map(DocumentId::value).toList();
+        jdbcClient.sql("""
+                        UPDATE documents SET current_version_id = NULL, status = 'INELIGIBLE'
+                        WHERE tenant_id = :tenantId AND id IN (:ids) AND
+                        """ + UNREFERENCED.formatted("documents.id"))
+                .param("tenantId", tenantId.value())
+                .param("ids", ids)
+                .update();
+        jdbcClient.sql("""
+                        DELETE FROM document_versions
+                        WHERE tenant_id = :tenantId AND document_id IN (:ids) AND
+                        """ + UNREFERENCED.formatted("document_versions.document_id"))
+                .param("tenantId", tenantId.value())
+                .param("ids", ids)
+                .update();
+        jdbcClient.sql("""
+                        DELETE FROM documents
+                        WHERE tenant_id = :tenantId AND id IN (:ids) AND
+                        """ + UNREFERENCED.formatted("documents.id"))
+                .param("tenantId", tenantId.value())
+                .param("ids", ids)
+                .update();
     }
 
     private static String truncate(String value, int limit) {

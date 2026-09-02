@@ -1,7 +1,7 @@
 package io.memoryos.api.identity.contract;
 
 import io.memoryos.tenant.TenantMembershipRole;
-import io.memoryos.tenant.TenantSessionAuthority;
+import io.memoryos.tenant.TenantMembership;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(name = "CurrentTenant", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
@@ -18,10 +18,10 @@ public record CurrentTenantResponse(
         TenantMembershipRole role
 ) {
 
-    public static CurrentTenantResponse from(TenantSessionAuthority authority) {
+    public static CurrentTenantResponse from(TenantMembership membership) {
         return new CurrentTenantResponse(
-                authority.tenantDisplayName(),
-                authority.role()
+                membership.tenantDisplayName(),
+                membership.role()
         );
     }
 }

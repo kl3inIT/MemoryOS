@@ -4,6 +4,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.TestDatabase;
 import io.memoryos.tenant.TenantId;
 
 import java.time.OffsetDateTime;
@@ -12,48 +13,18 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresInvitationRepositoryReadConcurrencyTest {
 
-    private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
-    ).asCompatibleSubstituteFor("postgres");
-
-    @Container
-    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
-            .withDatabaseName("memoryos")
-            .withUsername("memoryos")
-            .withPassword("memoryos");
-
     @Test
     void readOnlyLookupsDoNotWaitForLifecycleRowLock() throws Exception {
-        var dataSource = new DriverManagerDataSource(
-                POSTGRES.getJdbcUrl(),
-                POSTGRES.getUsername(),
-                POSTGRES.getPassword()
-        );
-        try (var connection = dataSource.getConnection()) {
-            new ResourceDatabasePopulator(
-                    new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                    new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                    new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                    new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                    new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
-            ).populate(connection);
-        }
+        var dataSource = TestDatabase.freshPostgres();
 
         var jdbcClient = JdbcClient.create(dataSource);
         var repository = new JdbcInvitationRepository(jdbcClient);

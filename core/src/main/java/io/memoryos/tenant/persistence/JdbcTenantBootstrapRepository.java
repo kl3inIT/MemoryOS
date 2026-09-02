@@ -74,12 +74,9 @@ public class JdbcTenantBootstrapRepository {
         return jdbcClient.sql(COUNT_TENANTS).query(Long.class).single();
     }
 
-    public int insertTenant(
-            TenantId tenantId,
-            InitialTenantBootstrapRequest request
-    ) {
+    public int insertTenant(InitialTenantBootstrapRequest request) {
         return jdbcClient.sql(INSERT_TENANT)
-                .param("id", tenantId.value())
+                .param("id", request.tenantId().value())
                 .param("slug", request.tenantSlug())
                 .param("displayName", request.tenantDisplayName())
                 .param("bootstrapReference", request.operatorChangeReference())

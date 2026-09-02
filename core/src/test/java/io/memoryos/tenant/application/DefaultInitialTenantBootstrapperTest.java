@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.TestDatabase;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
 import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
@@ -28,15 +29,9 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
-import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class DefaultInitialTenantBootstrapperTest {
@@ -56,24 +51,17 @@ class DefaultInitialTenantBootstrapperTest {
         } catch (SQLException exception) {
             throw new IllegalStateException("failed to keep the in-memory database open", exception);
         }
-        new ResourceDatabasePopulator(
-                new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
-        ).populate(keepAlive);
+        TestDatabase.migrations().populate(keepAlive);
 
         jdbcClient = JdbcClient.create(dataSource);
         var transactionManager = new DataSourceTransactionManager(dataSource);
         var resolver = new JdbcExternalIdentityResolver(jdbcClient);
-        var registrar = transactionalProxy(
+        var registrar = TestDatabase.transactionalProxy(
                 new JdbcExternalIdentityRegistrar(jdbcClient, resolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
-        bootstrapper = transactionalProxy(
+        bootstrapper = TestDatabase.transactionalProxy(
                 new DefaultInitialTenantBootstrapper(
                         new JdbcTenantBootstrapRepository(jdbcClient),
                         resolver,
@@ -258,21 +246,6 @@ class DefaultInitialTenantBootstrapperTest {
                         """)
                 .query(Long.class)
                 .single());
-    }
-
-    private static <T> T transactionalProxy(
-            T target,
-            Class<T> contract,
-            PlatformTransactionManager transactionManager
-    ) {
-        var interceptor = new TransactionInterceptor();
-        interceptor.setTransactionManager(transactionManager);
-        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
-        var proxyFactory = new ProxyFactory();
-        proxyFactory.setTarget(target);
-        proxyFactory.setInterfaces(contract);
-        proxyFactory.addAdvice(interceptor);
-        return contract.cast(proxyFactory.getProxy());
     }
 
     private static InitialTenantBootstrapRequest request() {

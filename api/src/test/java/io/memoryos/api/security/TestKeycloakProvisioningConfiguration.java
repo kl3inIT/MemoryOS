@@ -1,6 +1,6 @@
 package io.memoryos.api.security;
 
-import io.memoryos.identity.KeycloakInvitationProvisioner;
+import io.memoryos.identity.KeycloakRecipientProvisioner;
 import io.memoryos.identity.KeycloakRecipientProvisioning;
 
 import java.util.Objects;
@@ -14,7 +14,7 @@ class TestKeycloakProvisioningConfiguration {
 
     @Bean
     @Primary
-    KeycloakInvitationProvisioner testKeycloakInvitationProvisioner() {
+    KeycloakRecipientProvisioner testKeycloakRecipientProvisioner() {
         return (email, expiresAt) -> {
             Objects.requireNonNull(email);
             Objects.requireNonNull(expiresAt);

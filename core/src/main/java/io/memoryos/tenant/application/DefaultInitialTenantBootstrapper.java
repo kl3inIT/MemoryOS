@@ -56,10 +56,7 @@ public class DefaultInitialTenantBootstrapper implements InitialTenantBootstrapp
 
         ActorId ownerActorId = identityRegistrar.resolveOrCreate(request.ownerIdentity());
 
-        requireOne(
-                bootstrapRepository.insertTenant(tenantId, request),
-                "create initial tenant"
-        );
+        requireOne(bootstrapRepository.insertTenant(request), "create initial tenant");
         requireOne(
                 bootstrapRepository.insertTenantOwner(tenantId, ownerActorId),
                 "grant tenant owner"

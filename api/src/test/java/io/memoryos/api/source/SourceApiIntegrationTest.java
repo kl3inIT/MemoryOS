@@ -1,4 +1,4 @@
-package io.memoryos.api.security;
+package io.memoryos.api.source;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -15,11 +15,12 @@ import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentId;
 import io.memoryos.connector.ConnectorIndexingPort;
-import io.memoryos.document.DocumentCommandService;
+import io.memoryos.api.security.ActorAuthenticationToken;
+import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.IdentityContext;
 import io.memoryos.ingestion.SourceContentExtractor;
-import io.memoryos.ingestion.application.DefaultIndexingCoordinator;
+import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -80,7 +81,7 @@ class SourceApiIntegrationTest {
     private ConnectorCleanupPort cleanupPort;
 
     @Autowired
-    private DocumentCommandService documents;
+    private DocumentCommandPort documents;
 
     @Autowired
     private SourceContentExtractor extractor;
@@ -88,8 +89,8 @@ class SourceApiIntegrationTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
-    private ActorSessionAuthenticationToken owner;
-    private ActorSessionAuthenticationToken member;
+    private ActorAuthenticationToken owner;
+    private ActorAuthenticationToken member;
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
@@ -289,8 +290,8 @@ class SourceApiIntegrationTest {
         coordinator().processAvailable(8);
     }
 
-    private DefaultIndexingCoordinator coordinator() {
-        return new DefaultIndexingCoordinator(
+    private DefaultIngestionCoordinator coordinator() {
+        return new DefaultIngestionCoordinator(
                 indexingPort,
                 cleanupPort,
                 documents,
@@ -309,8 +310,8 @@ class SourceApiIntegrationTest {
                 .single();
     }
 
-    private static ActorSessionAuthenticationToken token(UUID actorId) {
-        return new ActorSessionAuthenticationToken(new IdentityContext(new ActorId(actorId)));
+    private static ActorAuthenticationToken token(UUID actorId) {
+        return new ActorAuthenticationToken(new IdentityContext(new ActorId(actorId)));
     }
 
     private static HttpServer startIdentityServer() {

@@ -14,15 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DefaultSourceDocumentAccessResolver implements SourceDocumentAccessResolver {
 
-    private final TenantAccessResolver tenants;
-    private final JdbcSourceDocumentRepository documents;
+    private final TenantAccessResolver tenantAccess;
+    private final JdbcSourceDocumentRepository sourceDocuments;
 
     public DefaultSourceDocumentAccessResolver(
-            TenantAccessResolver tenants,
-            JdbcSourceDocumentRepository documents
+            TenantAccessResolver tenantAccess,
+            JdbcSourceDocumentRepository sourceDocuments
     ) {
-        this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
-        this.documents = Objects.requireNonNull(documents, "documents must not be null");
+        this.tenantAccess = Objects.requireNonNull(tenantAccess, "tenantAccess must not be null");
+        this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
     }
 
     @Override
@@ -30,8 +30,8 @@ public class DefaultSourceDocumentAccessResolver implements SourceDocumentAccess
     public boolean canRead(ActorId actorId, DocumentId documentId) {
         Objects.requireNonNull(actorId, "actorId must not be null");
         Objects.requireNonNull(documentId, "documentId must not be null");
-        return tenants.findActiveTenant(actorId)
-                .map(tenantId -> documents.hasEligibleMapping(tenantId, documentId))
+        return tenantAccess.findActiveTenant(actorId)
+                .map(tenantId -> sourceDocuments.hasEligibleMapping(tenantId, documentId))
                 .orElse(false);
     }
 }

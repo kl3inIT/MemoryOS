@@ -9,13 +9,9 @@ import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.document.DocumentId;
 import io.memoryos.tenant.TenantId;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -29,17 +25,40 @@ import org.springframework.transaction.annotation.Transactional;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
 
-    private static final int MAX_BATCH = 32;
+    private static final String CLAIM_CANDIDATES = """
+            SELECT attempt.id
+            FROM index_attempts attempt
+            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+            JOIN connector_credential_pairs pair
+              ON pair.tenant_id = attempt.tenant_id
+             AND pair.id = attempt.connector_credential_pair_id
+            JOIN connector_items item
+              ON item.tenant_id = attempt.tenant_id
+             AND item.id = attempt.connector_item_id
+            WHERE tenant.status = 'ACTIVE'
+              AND pair.status <> 'DELETING'
+              AND item.status <> 'DELETING'
+              AND (
+                  attempt.status = 'NOT_STARTED'
+                  OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now)
+              )
+            ORDER BY attempt.created_at, attempt.id
+            LIMIT :limit
+            FOR UPDATE OF attempt SKIP LOCKED
+            """;
 
     private final JdbcClient jdbcClient;
-    private final JdbcSourceDocumentRepository documents;
+    private final JdbcSourceRepository sources;
+    private final JdbcSourceDocumentRepository sourceDocuments;
 
     public JdbcIndexAttemptRepository(
             JdbcClient jdbcClient,
-            JdbcSourceDocumentRepository documents
+            JdbcSourceRepository sources,
+            JdbcSourceDocumentRepository sourceDocuments
     ) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
-        this.documents = Objects.requireNonNull(documents, "documents must not be null");
+        this.sources = Objects.requireNonNull(sources, "sources must not be null");
+        this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
     }
 
     public Optional<SourceOperationView> findLive(
@@ -134,16 +153,18 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .optional();
     }
 
-    public List<SourceOperationView> list(TenantId tenantId, SourceId sourceId) {
+    public List<SourceOperationView> list(TenantId tenantId, SourceId sourceId, int limit) {
         return jdbcClient.sql("""
                         SELECT id, status, created_at, completed_at, error_code
                         FROM index_attempts
                         WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                         ORDER BY pair_sequence DESC
+                        LIMIT :limit
                         """)
                 .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
+                .param("limit", limit)
                 .query((resultSet, ignored) -> operation(resultSet))
                 .list();
     }
@@ -185,7 +206,6 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     @Override
     @Transactional
     public List<IndexWork> claim(int batchSize) {
-        int limit = Math.clamp(batchSize, 1, MAX_BATCH);
         jdbcClient.sql("""
                         UPDATE index_attempts
                         SET status = 'CANCELLED',
@@ -199,67 +219,13 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                           )
                         """)
                 .update();
-        Instant now = Instant.now();
-        List<UUID> candidates = jdbcClient.sql("""
-                        SELECT attempt.id
-                        FROM index_attempts attempt
-                        JOIN tenants tenant ON tenant.id = attempt.tenant_id
-                        JOIN connector_credential_pairs pair
-                          ON pair.tenant_id = attempt.tenant_id
-                         AND pair.id = attempt.connector_credential_pair_id
-                        JOIN connector_items item
-                          ON item.tenant_id = attempt.tenant_id
-                         AND item.id = attempt.connector_item_id
-                        WHERE tenant.status = 'ACTIVE'
-                          AND pair.status <> 'DELETING'
-                          AND item.status <> 'DELETING'
-                          AND (
-                              attempt.status = 'NOT_STARTED'
-                              OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now)
-                          )
-                        ORDER BY attempt.created_at, attempt.id
-                        LIMIT :limit
-                        FOR UPDATE OF attempt SKIP LOCKED
-                        """)
-                .param("now", sqlTime(now))
-                .param("limit", limit)
-                .query(UUID.class)
-                .list();
-        List<IndexWork> claimed = new ArrayList<>(Math.min(limit, candidates.size()));
-        for (UUID candidate : candidates) {
-            if (claimed.size() == limit) {
-                break;
-            }
-            UUID token = UUID.randomUUID();
-            int updated = jdbcClient.sql("""
-                            UPDATE index_attempts
-                            SET status = 'IN_PROGRESS',
-                                claim_token = :token,
-                                lease_expires_at = :leaseExpiresAt,
-                                started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
-                                error_code = NULL
-                            WHERE id = :id
-                              AND (
-                                  status = 'NOT_STARTED'
-                                  OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
-                              )
-                            """)
-                    .param("token", token)
-                    .param("leaseExpiresAt", sqlTime(now.plusSeconds(120)))
-                    .param("id", candidate)
-                    .param("now", sqlTime(now))
-                    .update();
-            if (updated == 1) {
-                claimed.add(load(candidate, token));
-            }
-        }
-        return List.copyOf(claimed);
+        return WorkLeases.claim(jdbcClient, "index_attempts", CLAIM_CANDIDATES, batchSize, this::load);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<DocumentId> findMappedDocument(IndexWork work) {
-        return documents.findMappedDocument(work);
+        return sourceDocuments.findMappedDocument(work);
     }
 
     @Override
@@ -284,7 +250,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         if (updated != 1) {
             return false;
         }
-        documents.publishMapping(work, documentId);
+        sourceDocuments.publishMapping(work, documentId);
         jdbcClient.sql("""
                         UPDATE connector_items
                         SET status = 'INDEXED', updated_at = CURRENT_TIMESTAMP
@@ -293,14 +259,14 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .param("tenantId", work.tenantId().value())
                 .param("itemId", work.itemId().value())
                 .update();
-        recomputePair(work.tenantId(), work.sourceId());
+        sources.recomputeStatus(work.tenantId(), work.sourceId(), true);
         return true;
     }
 
     @Override
     @Transactional
     public boolean fail(IndexWork work, String errorCode) {
-        String safeCode = safeErrorCode(errorCode);
+        String safeCode = WorkLeases.safeErrorCode(errorCode);
         int updated = jdbcClient.sql("""
                         UPDATE index_attempts
                         SET status = 'FAILED', completed_at = CURRENT_TIMESTAMP,
@@ -326,7 +292,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                     .param("tenantId", work.tenantId().value())
                     .param("itemId", work.itemId().value())
                     .update();
-            recomputePair(work.tenantId(), work.sourceId());
+            sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
         }
         return updated == 1;
     }
@@ -338,7 +304,6 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                attempt.connector_id,
                                attempt.connector_credential_pair_id,
                                attempt.connector_item_id,
-                               attempt.connector_item_version_id,
                                version.filename,
                                version.content_bytes,
                                version.content_sha256
@@ -356,7 +321,6 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         resultSet.getObject("connector_id", UUID.class),
                         new SourceId(resultSet.getObject("connector_credential_pair_id", UUID.class)),
                         new SourceItemId(resultSet.getObject("connector_item_id", UUID.class)),
-                        resultSet.getObject("connector_item_version_id", UUID.class),
                         token,
                         resultSet.getString("filename"),
                         resultSet.getBytes("content_bytes"),
@@ -417,63 +381,6 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .update();
     }
 
-    private void recomputePair(TenantId tenantId, SourceId sourceId) {
-        int nonterminal = jdbcClient.sql("""
-                        SELECT COUNT(*) FROM index_attempts
-                        WHERE tenant_id = :tenantId
-                          AND connector_credential_pair_id = :pairId
-                          AND status IN ('NOT_STARTED', 'IN_PROGRESS')
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("pairId", sourceId.value())
-                .query(Integer.class)
-                .single();
-        long documentCount = jdbcClient.sql("""
-                        SELECT COUNT(*) FROM documents_by_connector_credential_pair
-                        WHERE tenant_id = :tenantId
-                          AND connector_credential_pair_id = :pairId
-                          AND retrieval_eligible = TRUE
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("pairId", sourceId.value())
-                .query(Long.class)
-                .single();
-        String latestError = jdbcClient.sql("""
-                        SELECT error_code FROM index_attempts
-                        WHERE tenant_id = :tenantId
-                          AND connector_credential_pair_id = :pairId
-                          AND status = 'FAILED'
-                        ORDER BY pair_sequence DESC
-                        FETCH FIRST 1 ROW ONLY
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("pairId", sourceId.value())
-                .query(String.class)
-                .optional()
-                .orElse(null);
-        String status = nonterminal > 0
-                ? "INDEXING"
-                : documentCount > 0 ? "ACTIVE" : latestError == null ? "NOT_STARTED" : "FAILED";
-        jdbcClient.sql("""
-                        UPDATE connector_credential_pairs
-                        SET status = CASE WHEN status = 'DELETING' THEN 'DELETING' ELSE :status END,
-                            document_count = :documentCount,
-                            last_succeeded_at = CASE
-                                WHEN :documentCount > 0 THEN CURRENT_TIMESTAMP
-                                ELSE last_succeeded_at
-                            END,
-                            error_code = :errorCode,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE tenant_id = :tenantId AND id = :pairId
-                        """)
-                .param("status", status)
-                .param("documentCount", documentCount)
-                .param("errorCode", latestError)
-                .param("tenantId", tenantId.value())
-                .param("pairId", sourceId.value())
-                .update();
-    }
-
     private static SourceOperationView operation(ResultSet resultSet) throws SQLException {
         return new SourceOperationView(
                 new SourceOperationId(resultSet.getObject("id", UUID.class)),
@@ -483,17 +390,5 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 JdbcSourceRepository.instant(resultSet, "completed_at"),
                 resultSet.getString("error_code")
         );
-    }
-
-    private static String safeErrorCode(String value) {
-        Objects.requireNonNull(value, "errorCode must not be null");
-        if (!value.matches("[A-Z][A-Z0-9_]{0,63}")) {
-            throw new IllegalArgumentException("errorCode must be a stable uppercase token");
-        }
-        return value;
-    }
-
-    private static OffsetDateTime sqlTime(Instant instant) {
-        return OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 }

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.TestDatabase;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
@@ -31,6 +32,7 @@ import io.memoryos.tenant.InitialTenantBootstrapper;
 import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.TenantMembershipProvisioner;
 import io.memoryos.tenant.application.DefaultInitialTenantBootstrapper;
+import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
 import io.memoryos.tenant.persistence.JdbcTenantBootstrapRepository;
 import io.memoryos.tenant.persistence.JdbcTenantMembershipProvisioner;
 
@@ -49,15 +51,10 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
-import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class DefaultInvitationServiceTest {
@@ -85,31 +82,24 @@ class DefaultInvitationServiceTest {
         } catch (SQLException exception) {
             throw new IllegalStateException("failed to keep the in-memory database open", exception);
         }
-        new ResourceDatabasePopulator(
-                new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
-        ).populate(keepAlive);
+        TestDatabase.migrations().populate(keepAlive);
 
         jdbcClient = JdbcClient.create(dataSource);
         PlatformTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
         var resolver = new JdbcExternalIdentityResolver(jdbcClient);
-        var registrar = transactionalProxy(
+        var registrar = TestDatabase.transactionalProxy(
                 new JdbcExternalIdentityRegistrar(jdbcClient, resolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
         var bootstrapRepository = new JdbcTenantBootstrapRepository(jdbcClient);
-        bootstrapper = transactionalProxy(
+        bootstrapper = TestDatabase.transactionalProxy(
                 new DefaultInitialTenantBootstrapper(bootstrapRepository, resolver, registrar),
                 InitialTenantBootstrapper.class,
                 transactionManager
         );
         ownerActorId = bootstrapper.bootstrap(bootstrapRequest()).ownerActorId();
-        var membershipProvisioner = transactionalProxy(
+        var membershipProvisioner = TestDatabase.transactionalProxy(
                 new JdbcTenantMembershipProvisioner(jdbcClient),
                 TenantMembershipProvisioner.class,
                 transactionManager
@@ -117,10 +107,11 @@ class DefaultInvitationServiceTest {
         provisionedEmails = new ArrayList<>();
         provisioningFailure = null;
         clock = new MutableClock(START);
-        invitations = transactionalProxy(
+        invitations = TestDatabase.transactionalProxy(
                 new DefaultInvitationService(
                         new JdbcInvitationRepository(jdbcClient),
                         registrar,
+                        new JdbcTenantAccessResolver(jdbcClient),
                         membershipProvisioner,
                         (email, expiresAt) -> {
                             if (provisioningFailure != null) {
@@ -262,12 +253,12 @@ class DefaultInvitationServiceTest {
                 InvitationException.class,
                 () -> invitations.issue(ownerActorId, "MEMBER@example.com")
         );
-        assertEquals(InvitationFailureReason.INVITATION_CONFLICT, duplicate.reason());
+        assertEquals(InvitationFailureReason.CONFLICT, duplicate.reason());
 
         var rotated = invitations.rotate(ownerActorId, original.invitation().id());
         assertNotEquals(original.plaintextSecret(), rotated.plaintextSecret());
         assertEquals(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.NOT_AVAILABLE,
                 assertThrows(
                         InvitationException.class,
                         () -> invitations.intake(original.plaintextSecret())
@@ -280,7 +271,7 @@ class DefaultInvitationServiceTest {
         invitations.revoke(ownerActorId, rotated.invitation().id());
         assertEquals(InvitationStatus.REVOKED, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
         assertEquals(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.NOT_AVAILABLE,
                 assertThrows(
                         InvitationException.class,
                         () -> invitations.intake(rotated.plaintextSecret())
@@ -295,7 +286,7 @@ class DefaultInvitationServiceTest {
 
         assertEquals(InvitationStatus.EXPIRED, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
         assertEquals(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.NOT_AVAILABLE,
                 assertThrows(
                         InvitationException.class,
                         () -> invitations.intake(expired.plaintextSecret())
@@ -333,7 +324,7 @@ class DefaultInvitationServiceTest {
         assertEquals(InvitationStatus.ACCEPTED, accepted.status());
         assertEquals(member, accepted.acceptedActorId());
         assertEquals(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.NOT_AVAILABLE,
                 assertThrows(
                         InvitationException.class,
                         () -> invitations.accept(new InvitationAcceptance(
@@ -365,7 +356,7 @@ class DefaultInvitationServiceTest {
                 invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status()
         );
         assertEquals(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
+                InvitationFailureReason.NOT_AVAILABLE,
                 assertThrows(
                         InvitationException.class,
                         () -> invitations.acceptVerifiedEmail(
@@ -405,7 +396,7 @@ class DefaultInvitationServiceTest {
         );
 
         assertEquals(InvitationFailureReason.EMAIL_NOT_VERIFIED, unverified.reason());
-        assertEquals(InvitationFailureReason.INVITATION_NOT_AVAILABLE, noMatch.reason());
+        assertEquals(InvitationFailureReason.NOT_AVAILABLE, noMatch.reason());
         assertEquals(1L, count("external_identity_bindings"));
         assertEquals(InvitationStatus.PENDING, invitations.list(ownerActorId, InvitationQuery.defaults()).items().getFirst().status());
     }
@@ -512,7 +503,7 @@ class DefaultInvitationServiceTest {
                 } catch (ExecutionException exception) {
                     if (exception.getCause() instanceof InvitationException invitationException
                             && invitationException.reason()
-                            == InvitationFailureReason.INVITATION_NOT_AVAILABLE) {
+                            == InvitationFailureReason.NOT_AVAILABLE) {
                         unavailable++;
                     } else if (exception.getCause() instanceof CannotAcquireLockException) {
                         unavailable++;
@@ -578,21 +569,6 @@ class DefaultInvitationServiceTest {
                 .param("value", value)
                 .query(Long.class)
                 .single() != 0;
-    }
-
-    private static <T> T transactionalProxy(
-            T target,
-            Class<T> contract,
-            PlatformTransactionManager transactionManager
-    ) {
-        var interceptor = new TransactionInterceptor();
-        interceptor.setTransactionManager(transactionManager);
-        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
-        var proxyFactory = new ProxyFactory();
-        proxyFactory.setTarget(target);
-        proxyFactory.setInterfaces(contract);
-        proxyFactory.addAdvice(interceptor);
-        return contract.cast(proxyFactory.getProxy());
     }
 
 }

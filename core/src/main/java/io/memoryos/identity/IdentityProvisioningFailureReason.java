@@ -1,8 +1,9 @@
 package io.memoryos.identity;
 
 import io.memoryos.FailureCategory;
+import io.memoryos.FailureReason;
 
-public enum IdentityProvisioningFailureReason {
+public enum IdentityProvisioningFailureReason implements FailureReason {
     ACCOUNT_CONFLICT(
             "IDENTITY_PROVISIONING_ACCOUNT_CONFLICT",
             FailureCategory.CONFLICT,
@@ -24,14 +25,17 @@ public enum IdentityProvisioningFailureReason {
         this.message = message;
     }
 
+    @Override
     public String code() {
         return code;
     }
 
+    @Override
     public FailureCategory category() {
         return category;
     }
 
+    @Override
     public String message() {
         return message;
     }

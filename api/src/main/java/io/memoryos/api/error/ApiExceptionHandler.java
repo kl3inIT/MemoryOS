@@ -4,9 +4,9 @@ import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
 
 import java.net.URI;
-import java.util.Locale;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -33,6 +33,7 @@ final class ApiExceptionHandler {
         problem.setProperty("code", exception.code());
         return problem;
     }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ProblemDetail handleMaxUploadSize() {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
@@ -44,7 +45,6 @@ final class ApiExceptionHandler {
         problem.setProperty("code", "SOURCE_UPLOAD_TOO_LARGE");
         return problem;
     }
-
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleRequestValidation(MethodArgumentNotValidException exception) {
@@ -90,7 +90,7 @@ final class ApiExceptionHandler {
             case NOT_PERMITTED -> HttpStatus.FORBIDDEN;
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT -> HttpStatus.CONFLICT;
-            case UNAVAILABLE -> HttpStatus.GONE;
+            case GONE -> HttpStatus.GONE;
             case SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
@@ -101,7 +101,7 @@ final class ApiExceptionHandler {
             case NOT_PERMITTED -> "Not permitted";
             case NOT_FOUND -> "Not found";
             case CONFLICT -> "Conflict";
-            case UNAVAILABLE -> "Unavailable";
+            case GONE -> "Unavailable";
             case SERVICE_UNAVAILABLE -> "Service unavailable";
         };
     }
@@ -120,5 +120,4 @@ final class ApiExceptionHandler {
             field = field == null || field.isBlank() ? "argument" : field;
         }
     }
-
 }

@@ -62,7 +62,7 @@ class ApiExceptionHandlerTest {
             case NOT_PERMITTED -> HttpStatus.FORBIDDEN;
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT -> HttpStatus.CONFLICT;
-            case UNAVAILABLE -> HttpStatus.GONE;
+            case GONE -> HttpStatus.GONE;
             case SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
@@ -73,7 +73,7 @@ class ApiExceptionHandlerTest {
             case NOT_PERMITTED -> "Not permitted";
             case NOT_FOUND -> "Not found";
             case CONFLICT -> "Conflict";
-            case UNAVAILABLE -> "Unavailable";
+            case GONE -> "Unavailable";
             case SERVICE_UNAVAILABLE -> "Service unavailable";
         };
     }
