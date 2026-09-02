@@ -17,7 +17,7 @@ import { Brand } from "@/components/brand";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
-import { useCan } from "@/features/identity/application-session-context";
+import { useAdminAccess } from "@/features/identity/application-session-context";
 import { cn } from "@/lib/utils";
 
 export type AppShellArea = "app" | "admin";
@@ -48,10 +48,8 @@ function SidebarContents({
   mobile = false,
 }: SidebarContentsProps) {
   const appArea = area === "app";
-  const canManageInvitations = useCan("INVITATIONS_MANAGE");
-  const canManageSources = useCan("SOURCES_MANAGE");
-  const canAccessAdmin = canManageInvitations || canManageSources;
-  const adminEntryPath = canManageSources ? "/admin" : "/admin/invitations";
+  const { canManageInvitations, canManageSources, canAccessAdmin, adminEntryPath } =
+    useAdminAccess();
 
   return (
     <div className="flex h-full min-h-0 flex-col">

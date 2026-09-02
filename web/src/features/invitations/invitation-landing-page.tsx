@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, CircleAlert, Clock3, ShieldCheck, UserRoundCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
 import { getCurrentInvitationOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 
 export function InvitationLandingPage({ reason }: { reason?: string }) {
@@ -63,7 +64,7 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
       </Button>
       <p className="mt-4 flex items-center gap-1.5 font-secondary-body text-content-muted">
         <Clock3 className="size-3.5" aria-hidden="true" />
-        Link expires {formatDate(invitation.data.expiresAt)}
+        Link expires {formatInvitationDate(invitation.data.expiresAt)}
       </p>
     </InvitationFrame>
   );
@@ -135,11 +136,4 @@ function failureCopy(reason: string) {
     description:
       "The link may have expired, been revoked, rotated, or already used. Ask a Tenant owner for a fresh invitation.",
   };
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

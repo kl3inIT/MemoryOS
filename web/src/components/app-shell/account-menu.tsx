@@ -4,7 +4,10 @@ import { Popover } from "radix-ui";
 import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useTheme } from "@/features/theme/theme-context";
-import { useApplicationSession, useCan } from "@/features/identity/application-session-context";
+import {
+  useAdminAccess,
+  useApplicationSession,
+} from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 
 const logoutLocationHeader = "X-MemoryOS-Logout-Location";
@@ -19,7 +22,7 @@ export function AccountMenu({
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const { tenant } = useApplicationSession();
-  const canAccessAdmin = useCan("INVITATIONS_MANAGE");
+  const { canAccessAdmin, adminEntryPath } = useAdminAccess();
   const membershipLabel = tenant.role === "OWNER" ? "Tenant owner" : "Tenant member";
   const initials = tenant.displayName
     .trim()
@@ -84,7 +87,7 @@ export function AccountMenu({
             </MenuItem>
             {canAccessAdmin ? (
               <MenuItem
-                to="/admin"
+                to={adminEntryPath}
                 icon={<Settings2 className="size-4.5" />}
                 onClick={() => {
                   setMenuOpen(false);

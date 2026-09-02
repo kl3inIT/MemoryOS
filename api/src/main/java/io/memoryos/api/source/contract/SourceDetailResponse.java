@@ -5,7 +5,7 @@ import io.memoryos.connector.SourceDetail;
 import java.util.List;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(name = "SourceDetailResponse", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
+@Schema(name = "SourceDetail", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record SourceDetailResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         SourceSummaryResponse source,

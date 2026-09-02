@@ -32,16 +32,16 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
   );
 }
 
-export function RoutePending() {
+export function RoutePending({ label = "Loading page" }: { label?: string }) {
   return (
     <main
       className="flex min-h-svh items-center justify-center bg-background p-6"
-      aria-label="Loading page"
+      aria-label={label}
     >
       <div className="flex w-56 flex-col items-center gap-5">
         <Brand compact />
         <Skeleton className="h-px w-full rounded-none" />
-        <p className="text-xs font-medium text-muted-foreground">Loading page</p>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
       </div>
     </main>
   );

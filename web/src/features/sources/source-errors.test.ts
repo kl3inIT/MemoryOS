@@ -4,7 +4,7 @@ import {
   SourceActionError,
   sourceMutationError,
   sourceStatusMessage,
-} from "@/features/knowledge/source-errors";
+} from "@/features/sources/source-errors";
 import { ApiError } from "@/lib/api";
 
 describe("source error presentation", () => {

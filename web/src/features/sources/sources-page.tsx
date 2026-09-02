@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { actionVariants } from "@/components/ui/action-styles";
 import { Input } from "@/components/ui/input";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createFileSourceMutation,
@@ -18,7 +19,7 @@ import {
   uploadSourceItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getSourceOperation } from "@/lib/hey-api/sdk.gen";
-import type { SourceItemResponse, SourceSummaryResponse } from "@/lib/hey-api/types.gen";
+import type { SourceItem, SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { SourceActionError, sourceMutationError, sourceStatusMessage } from "./source-errors";
 
@@ -106,7 +107,7 @@ export function SourcesPage() {
     }
   }
 
-  async function reindex(item: SourceItemResponse) {
+  async function reindex(item: SourceItem) {
     if (!selectedId || !item.id) return;
     setError(null);
     try {
@@ -120,7 +121,7 @@ export function SourcesPage() {
     }
   }
 
-  async function remove(item: SourceItemResponse) {
+  async function removeSelectedItem(item: SourceItem) {
     if (!selectedId || !item.id) throw new Error("Source item is unavailable");
     setError(null);
     await removeItem.mutateAsync({
@@ -143,7 +144,7 @@ export function SourcesPage() {
     throw new SourceActionError("cleanup-timeout");
   }
 
-  async function removeSource() {
+  async function deleteSelectedSource() {
     if (!selectedId) throw new Error("Source is unavailable");
     setError(null);
     cleanupController.current?.abort();
@@ -270,7 +271,7 @@ export function SourcesPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-heading-h3 text-content-primary">{detail.source.name}</h2>
-                    <Status status={detail.source.status} />
+                    <SourceStatusBadge status={detail.source.status} />
                   </div>
                   <p className="mt-2 font-secondary-body text-content-muted">
                     FILE · PUBLIC · {detail.source.documentCount ?? 0} indexed documents
@@ -296,7 +297,7 @@ export function SourcesPage() {
                   description={`Deleting “${detail.source.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
                   confirmLabel="Delete source"
                   pendingLabel="Deleting source"
-                  onConfirm={removeSource}
+                  onConfirm={deleteSelectedSource}
                   errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
                 />
               </div>
@@ -384,7 +385,7 @@ export function SourcesPage() {
                             description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
                             confirmLabel="Remove file"
                             pendingLabel="Removing file"
-                            onConfirm={() => remove(item)}
+                            onConfirm={() => removeSelectedItem(item)}
                             errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
                           />
                         </div>
@@ -406,7 +407,7 @@ function SourceCard({
   selected,
   onSelect,
 }: {
-  source: SourceSummaryResponse;
+  source: SourceSummary;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -425,7 +426,7 @@ function SourceCard({
         <span className="truncate text-sm font-medium text-content-primary">
           {source.name ?? "FILE source"}
         </span>
-        <Status status={source.status} />
+        <SourceStatusBadge status={source.status} />
       </span>
       <span className="mt-2 block font-secondary-body text-content-muted">
         {source.documentCount ?? 0} documents
@@ -434,21 +435,16 @@ function SourceCard({
   );
 }
 
-function Status({ status }: { status?: string }) {
-  const active = status === "ACTIVE";
-  const failed = status === "FAILED";
+const sourceStatusTones: Partial<Record<string, StatusTone>> = {
+  ACTIVE: "success",
+  FAILED: "danger",
+};
+
+function SourceStatusBadge({ status }: { status?: string }) {
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide uppercase ${
-        active
-          ? "bg-status-success-surface text-status-success-content"
-          : failed
-            ? "bg-status-danger-surface text-status-danger-content"
-            : "bg-status-info-surface text-status-info-content"
-      }`}
-    >
+    <StatusBadge tone={(status && sourceStatusTones[status]) || "info"}>
       {status ?? "NOT_STARTED"}
-    </span>
+    </StatusBadge>
   );
 }
 

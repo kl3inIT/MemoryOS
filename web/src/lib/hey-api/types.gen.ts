@@ -4,7 +4,7 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type SourceItemResponse = {
+export type SourceItem = {
     id: string;
     filename: string;
     sha256: string;
@@ -15,7 +15,7 @@ export type SourceItemResponse = {
     errorCode: string | null;
 };
 
-export type SourceOperationResponse = {
+export type SourceOperation = {
     id: string;
     type: string;
     status: string;
@@ -24,21 +24,21 @@ export type SourceOperationResponse = {
     errorCode: string | null;
 };
 
-export type SourceUploadResponse = {
-    item: SourceItemResponse;
-    operation: SourceOperationResponse;
+export type SourceUpload = {
+    item: SourceItem;
+    operation: SourceOperation;
 };
 
 export type CreateFileSourceRequest = {
     name: string;
 };
 
-export type SourceDetailResponse = {
-    source: SourceSummaryResponse;
-    items: Array<SourceItemResponse>;
+export type SourceDetail = {
+    source: SourceSummary;
+    items: Array<SourceItem>;
 };
 
-export type SourceSummaryResponse = {
+export type SourceSummary = {
     id: string;
     name: string;
     type: string;
@@ -157,7 +157,7 @@ export type ListSourceItemsResponses = {
     /**
      * OK
      */
-    200: Array<SourceItemResponse>;
+    200: Array<SourceItem>;
 };
 
 export type ListSourceItemsResponse = ListSourceItemsResponses[keyof ListSourceItemsResponses];
@@ -183,7 +183,7 @@ export type UploadSourceItemResponses = {
     /**
      * Accepted
      */
-    202: SourceUploadResponse;
+    202: SourceUpload;
 };
 
 export type UploadSourceItemResponse = UploadSourceItemResponses[keyof UploadSourceItemResponses];
@@ -208,7 +208,7 @@ export type RemoveSourceItemResponses = {
     /**
      * Accepted
      */
-    202: SourceOperationResponse;
+    202: SourceOperation;
 };
 
 export type RemoveSourceItemResponse = RemoveSourceItemResponses[keyof RemoveSourceItemResponses];
@@ -233,7 +233,7 @@ export type ReindexSourceItemResponses = {
     /**
      * Accepted
      */
-    202: SourceOperationResponse;
+    202: SourceOperation;
 };
 
 export type ReindexSourceItemResponse = ReindexSourceItemResponses[keyof ReindexSourceItemResponses];
@@ -257,7 +257,7 @@ export type DeleteSourceResponses = {
     /**
      * Accepted
      */
-    202: SourceOperationResponse;
+    202: SourceOperation;
 };
 
 export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceResponses];
@@ -279,7 +279,7 @@ export type CreateFileSourceResponses = {
     /**
      * Created
      */
-    201: SourceDetailResponse;
+    201: SourceDetail;
 };
 
 export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFileSourceResponses];
@@ -469,7 +469,7 @@ export type ListSourcesResponses = {
     /**
      * OK
      */
-    200: Array<SourceSummaryResponse>;
+    200: Array<SourceSummary>;
 };
 
 export type ListSourcesResponse = ListSourcesResponses[keyof ListSourcesResponses];
@@ -487,7 +487,7 @@ export type GetSourceResponses = {
     /**
      * OK
      */
-    200: SourceDetailResponse;
+    200: SourceDetail;
 };
 
 export type GetSourceResponse = GetSourceResponses[keyof GetSourceResponses];
@@ -507,7 +507,7 @@ export type ListSourceIndexAttemptsResponses = {
     /**
      * OK
      */
-    200: Array<SourceOperationResponse>;
+    200: Array<SourceOperation>;
 };
 
 export type ListSourceIndexAttemptsResponse = ListSourceIndexAttemptsResponses[keyof ListSourceIndexAttemptsResponses];
@@ -525,7 +525,7 @@ export type GetSourceOperationResponses = {
     /**
      * OK
      */
-    200: SourceOperationResponse;
+    200: SourceOperation;
 };
 
 export type GetSourceOperationResponse = GetSourceOperationResponses[keyof GetSourceOperationResponses];

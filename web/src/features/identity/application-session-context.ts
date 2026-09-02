@@ -17,3 +17,15 @@ export function useApplicationSession() {
 export function useCan(capability: ApplicationCapability) {
   return useApplicationSession().capabilities.includes(capability);
 }
+
+/** The single product rule for who may enter administration and where the entry lands. */
+export function useAdminAccess() {
+  const canManageInvitations = useCan("INVITATIONS_MANAGE");
+  const canManageSources = useCan("SOURCES_MANAGE");
+  return {
+    canManageInvitations,
+    canManageSources,
+    canAccessAdmin: canManageInvitations || canManageSources,
+    adminEntryPath: canManageSources ? "/admin" : "/admin/invitations",
+  } as const;
+}
