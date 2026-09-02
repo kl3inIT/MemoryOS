@@ -12,8 +12,7 @@ if [ -n "${MEMORYOS_REDIS_TLS_CA_FILE:-}" ]; then
     test -r "$MEMORYOS_REDIS_TLS_CA_FILE"
     staged_ca=/tmp/memoryos-redis-ca.crt
     cp "$MEMORYOS_REDIS_TLS_CA_FILE" "$staged_ca"
-    chown memoryos:memoryos "$staged_ca"
-    chmod 0400 "$staged_ca"
+    chmod 0444 "$staged_ca"
     MEMORYOS_REDIS_TLS_CA_CERTIFICATE=file:$staged_ca
     export MEMORYOS_REDIS_TLS_CA_CERTIFICATE
 fi
