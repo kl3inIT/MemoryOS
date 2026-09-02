@@ -1,0 +1,68 @@
+name: memoryos-local-tools
+
+services:
+  pgweb:
+    image: ${MEMORYOS_PGWEB_IMAGE:-sosedoff/pgweb:0.17.0@sha256:a5256d416e2e8b92d69a4459058e3eca33a9f075d8325491644411d0bc3bd70b}
+    container_name: memoryos-local-pgweb
+    command:
+      - --host=host.docker.internal
+      - --port=55432
+      - --user=${MEMORYOS_LOCAL_POSTGRES_USERNAME:-arconia}
+      - --pass=${MEMORYOS_LOCAL_POSTGRES_PASSWORD:-arconia}
+      - --db=${MEMORYOS_LOCAL_POSTGRES_DATABASE:-arconia}
+      - --ssl=disable
+      - --readonly
+      - --lock-session
+      - --no-ssh
+      - --query-timeout=${MEMORYOS_PGWEB_QUERY_TIMEOUT_SECONDS:-30}
+      - --skip-open
+    ports:
+      - 127.0.0.1:${MEMORYOS_PGWEB_PROXY_HOST_PORT:-18026}:8081
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/bin/curl", "--fail", "--silent", "http://127.0.0.1:8081/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  redisinsight:
+    image: ${MEMORYOS_REDISINSIGHT_IMAGE:-redis/redisinsight:3.8.0@sha256:b5e19ee240abef6edb435871b90ff8a210995422e8e018ab61c0339d318a1f84}
+    container_name: memoryos-local-redisinsight
+    environment:
+      RI_ACCEPT_TERMS_AND_CONDITIONS: "true"
+      RI_DATABASE_MANAGEMENT: "false"
+      RI_ENCRYPTION_KEY: ${MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY:?Set MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY}
+      RI_REDIS_HOST: host.docker.internal
+      RI_REDIS_PORT: "56379"
+      RI_REDIS_ALIAS: MemoryOS local execution
+      RI_REDIS_TLS: "false"
+    ports:
+      - 127.0.0.1:${MEMORYOS_REDISINSIGHT_PROXY_HOST_PORT:-18027}:5540
+    volumes:
+      - memoryos_local_redisinsight:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:5540/api/health/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+volumes:
+  memoryos_local_redisinsight:
+    name: memoryos-local-redisinsight-data
