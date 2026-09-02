@@ -28,7 +28,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/SourceItemResponse"
+                  $ref: "#/components/schemas/SourceItem"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -70,7 +70,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceUploadResponse"
+                $ref: "#/components/schemas/SourceUpload"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -107,7 +107,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceOperationResponse"
+                $ref: "#/components/schemas/SourceOperation"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -144,7 +144,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceOperationResponse"
+                $ref: "#/components/schemas/SourceOperation"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -175,7 +175,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceOperationResponse"
+                $ref: "#/components/schemas/SourceOperation"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -206,7 +206,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceDetailResponse"
+                $ref: "#/components/schemas/SourceDetail"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -448,7 +448,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/SourceSummaryResponse"
+                  $ref: "#/components/schemas/SourceSummary"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -471,7 +471,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceDetailResponse"
+                $ref: "#/components/schemas/SourceDetail"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -505,7 +505,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/SourceOperationResponse"
+                  $ref: "#/components/schemas/SourceOperation"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -528,7 +528,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceOperationResponse"
+                $ref: "#/components/schemas/SourceOperation"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -574,7 +574,7 @@ paths:
       - bearerAuth: []
 components:
   schemas:
-    SourceItemResponse:
+    SourceItem:
       type: object
       additionalProperties: false
       properties:
@@ -611,7 +611,7 @@ components:
       - sizeBytes
       - status
       - uploadedAt
-    SourceOperationResponse:
+    SourceOperation:
       type: object
       additionalProperties: false
       properties:
@@ -641,14 +641,14 @@ components:
       - id
       - status
       - type
-    SourceUploadResponse:
+    SourceUpload:
       type: object
       additionalProperties: false
       properties:
         item:
-          $ref: "#/components/schemas/SourceItemResponse"
+          $ref: "#/components/schemas/SourceItem"
         operation:
-          $ref: "#/components/schemas/SourceOperationResponse"
+          $ref: "#/components/schemas/SourceOperation"
       required:
       - item
       - operation
@@ -662,20 +662,20 @@ components:
           minLength: 0
       required:
       - name
-    SourceDetailResponse:
+    SourceDetail:
       type: object
       additionalProperties: false
       properties:
         source:
-          $ref: "#/components/schemas/SourceSummaryResponse"
+          $ref: "#/components/schemas/SourceSummary"
         items:
           type: array
           items:
-            $ref: "#/components/schemas/SourceItemResponse"
+            $ref: "#/components/schemas/SourceItem"
       required:
       - items
       - source
-    SourceSummaryResponse:
+    SourceSummary:
       type: object
       additionalProperties: false
       properties:

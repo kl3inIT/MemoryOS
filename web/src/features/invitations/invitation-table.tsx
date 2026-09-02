@@ -10,6 +10,7 @@ import {
 import { ArrowDown, ArrowUp, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { TextButton } from "@/components/ui/text-button";
 import type {
   InvitationListSearch,
@@ -25,11 +26,11 @@ const invitationTableFeatures = tableFeatures({
 });
 const columnHelper = createColumnHelper<typeof invitationTableFeatures, Invitation>();
 
-const statusStyles: Record<Invitation["status"], string> = {
-  PENDING: "bg-status-warning-surface text-status-warning-content",
-  ACCEPTED: "bg-status-success-surface text-status-success-content",
-  EXPIRED: "bg-status-info-surface text-status-info-content",
-  REVOKED: "bg-status-info-surface text-content-muted",
+const statusTones: Record<Invitation["status"], StatusTone> = {
+  PENDING: "warning",
+  ACCEPTED: "success",
+  EXPIRED: "info",
+  REVOKED: "neutral",
 };
 
 export type InvitationPendingAction = "rotate" | "revoke";
@@ -61,14 +62,9 @@ const columns = columnHelper.columns([
     header: "Status",
     enableSorting: false,
     cell: ({ row }) => (
-      <span
-        className={cn(
-          "inline-flex rounded-full px-2 py-0.5 font-figure-small-label tracking-wide",
-          statusStyles[row.original.status],
-        )}
-      >
+      <StatusBadge tone={statusTones[row.original.status]}>
         {statusLabel(row.original.status)}
-      </span>
+      </StatusBadge>
     ),
   }),
   columnHelper.accessor("createdAt", {

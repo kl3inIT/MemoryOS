@@ -8,7 +8,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(name = "SourceSummaryResponse", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
+@Schema(name = "SourceSummary", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record SourceSummaryResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         UUID id,

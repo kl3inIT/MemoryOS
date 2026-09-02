@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { Brand } from "@/components/brand";
+import { RoutePending } from "@/components/states/route-states";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -10,7 +11,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export function SignInScreen() {
   return (
@@ -131,16 +131,5 @@ export function SessionErrorScreen({ onRetry }: { onRetry: () => void }) {
 }
 
 export function SessionLoadingScreen() {
-  return (
-    <main
-      className="flex min-h-svh items-center justify-center bg-background p-6"
-      aria-label="Opening MemoryOS"
-    >
-      <div className="flex w-56 flex-col items-center gap-5">
-        <Brand compact />
-        <Skeleton className="h-px w-full rounded-none" />
-        <p className="text-xs font-medium text-muted-foreground">Opening MemoryOS</p>
-      </div>
-    </main>
-  );
+  return <RoutePending label="Opening MemoryOS" />;
 }
