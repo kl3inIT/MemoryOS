@@ -52,7 +52,7 @@ The first staging attempt exposed a real realm-policy mismatch: `registrationEma
 
 CodeRabbit identified that fail-closed validation alone would leave a stale role holder authorized if a prior deployment had granted the dedicated role. Live staging verification temporarily granted `memoryos-inspector` to an ordinary acceptance user, reran reconciliation, and then observed only the initial owner in `roles/memoryos-inspector/users`. Reconciliation now removes every non-owner grant and re-reads role membership before enforcing exactly one owner assignment.
 
-OAuth2 Proxy configuration requires `memoryos-inspector` independently for both tools and uses separate client secrets, cookie secrets, and cookie names. Actual positive initial-owner login and negative ordinary-user denial cannot be claimed until this reviewed change is deployed and Keycloak/Nginx Proxy Manager are reconciled on staging. The external `/apps/memoryos-pgweb` stack must remain stopped but intact until that gate passes.
+Both public origins redirected to the `memoryos` realm with exact callbacks and `code_challenge_method=S256`. The existing initial owner authenticated successfully into pgweb and Redis Insight. A temporary verified realm user without `memoryos-inspector` completed authentication but received OAuth2 Proxy `403 Forbidden`; the user was deleted immediately afterward. The external `/apps/memoryos-pgweb` Compose containers were removed during cutover while its configuration remains intact for rollback.
 
 ## Static, test, and artifact gates
 
