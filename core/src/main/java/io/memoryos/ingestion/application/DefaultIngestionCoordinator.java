@@ -4,33 +4,31 @@ import io.memoryos.connector.CleanupWork;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.IndexWork;
-import io.memoryos.document.DocumentCommandService;
-import io.memoryos.document.DocumentContent;
+import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.IndexingCoordinator;
+import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.SourceContentExtractor;
 
 import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.springframework.transaction.support.TransactionTemplate;
 
-public class DefaultIndexingCoordinator implements IndexingCoordinator {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultIndexingCoordinator.class);
+public class DefaultIngestionCoordinator implements IngestionCoordinator {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultIngestionCoordinator.class);
 
     private final ConnectorIndexingPort indexingPort;
     private final ConnectorCleanupPort cleanupPort;
-    private final DocumentCommandService documents;
+    private final DocumentCommandPort documents;
     private final SourceContentExtractor extractor;
     private final TransactionTemplate transactions;
 
-    public DefaultIndexingCoordinator(
+    public DefaultIngestionCoordinator(
             ConnectorIndexingPort indexingPort,
             ConnectorCleanupPort cleanupPort,
-            DocumentCommandService documents,
+            DocumentCommandPort documents,
             SourceContentExtractor extractor,
             TransactionTemplate transactions
     ) {
@@ -53,17 +51,12 @@ public class DefaultIndexingCoordinator implements IndexingCoordinator {
 
     private void processIndex(IndexWork work) {
         try {
-            var extraction = extractor.extract(work.content(), work.filename());
+            var content = extractor.extract(work.content(), work.filename());
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
                         work.tenantId(),
                         indexingPort.findMappedDocument(work).orElse(null),
-                        new DocumentContent(
-                                extraction.mediaType(),
-                                extraction.title(),
-                                extraction.normalizedText(),
-                                extraction.metadata()
-                        ),
+                        content,
                         work.sha256()
                 );
                 if (!indexingPort.complete(work, documentId)) {
@@ -98,5 +91,4 @@ public class DefaultIndexingCoordinator implements IndexingCoordinator {
 
     private static final class StaleIndexClaimException extends RuntimeException {
     }
-
 }

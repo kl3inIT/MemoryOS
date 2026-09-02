@@ -97,7 +97,7 @@ public class JdbcSourceItemRepository {
         return new ItemVersion(itemId, versionId);
     }
 
-    public ItemVersion currentVersion(
+    public ItemVersion lockCurrentVersion(
             TenantId tenantId,
             JdbcSourceRepository.SourcePair pair,
             SourceItemId itemId

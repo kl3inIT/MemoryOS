@@ -41,7 +41,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis",
                 "memoryos.worker.enabled=true",
                 "memoryos.worker.batch-size=4",
-                "memoryos.worker.idle-delay=25ms"
+                "memoryos.worker.poll-delay=25ms"
         }
 )
 @Testcontainers(disabledWithoutDocker = true)
@@ -108,7 +108,8 @@ class WorkerFileProcessingIntegrationTest {
         var sourceId = sources.createFileSource(OWNER, "Worker knowledge").source().id();
         byte[] content = "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        var upload = sources.upload(OWNER, sourceId, "worker.txt", content, sha256);
+        var upload = sources.upload(OWNER, sourceId, "worker.txt", content);
+        assertEquals(sha256, upload.item().sha256());
 
         await(() -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());

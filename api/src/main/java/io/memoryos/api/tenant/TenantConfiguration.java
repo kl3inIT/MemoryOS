@@ -1,13 +1,13 @@
-package io.memoryos.api.security;
+package io.memoryos.api.tenant;
 
 import io.arconia.multitenancy.core.exceptions.TenantVerificationException;
 import io.arconia.multitenancy.core.tenantdetails.TenantVerifier;
 
 import io.memoryos.identity.ExternalIdentity;
-import io.memoryos.tenant.TenantAccessResolver;
-import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.InitialTenantBootstrapRequest;
 import io.memoryos.tenant.InitialTenantBootstrapper;
+import io.memoryos.tenant.TenantAccessResolver;
+import io.memoryos.tenant.TenantId;
 
 import java.util.UUID;
 
@@ -17,9 +17,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Wires the fixed-Tenant runtime: the Arconia tenant verifier and the idempotent initial-Tenant bootstrap.
+ */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(MemoryOsInitialTenantProperties.class)
-class TenantCapabilityConfiguration {
+@EnableConfigurationProperties(InitialTenantProperties.class)
+class TenantConfiguration {
+
     @Bean
     TenantVerifier tenantVerifier(TenantAccessResolver accessResolver) {
         return tenantIdentifier -> {
@@ -35,11 +39,10 @@ class TenantCapabilityConfiguration {
         };
     }
 
-
     @Bean
     ApplicationRunner initialTenantBootstrapRunner(
             InitialTenantBootstrapper bootstrapper,
-            MemoryOsInitialTenantProperties properties,
+            InitialTenantProperties properties,
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer
     ) {
         return ignored -> bootstrapper.bootstrap(new InitialTenantBootstrapRequest(

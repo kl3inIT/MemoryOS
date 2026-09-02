@@ -173,6 +173,62 @@ public class JdbcSourceRepository {
                 .update();
     }
 
+    /**
+     * Re-derives the pair's status, document count, and latest error from its attempts and mappings.
+     * A pair that is DELETING keeps that status; {@code indexSucceeded} also stamps {@code last_succeeded_at}.
+     */
+    public void recomputeStatus(TenantId tenantId, SourceId sourceId, boolean indexSucceeded) {
+        jdbcClient.sql("""
+                        UPDATE connector_credential_pairs
+                        SET document_count = (
+                                SELECT COUNT(*) FROM documents_by_connector_credential_pair mapping
+                                WHERE mapping.tenant_id = :tenantId
+                                  AND mapping.connector_credential_pair_id = :pairId
+                                  AND mapping.retrieval_eligible = TRUE
+                            ),
+                            error_code = (
+                                SELECT attempt.error_code FROM index_attempts attempt
+                                WHERE attempt.tenant_id = :tenantId
+                                  AND attempt.connector_credential_pair_id = :pairId
+                                  AND attempt.status = 'FAILED'
+                                ORDER BY attempt.pair_sequence DESC
+                                LIMIT 1
+                            ),
+                            status = CASE
+                                WHEN status = 'DELETING' THEN 'DELETING'
+                                WHEN EXISTS (
+                                    SELECT 1 FROM index_attempts attempt
+                                    WHERE attempt.tenant_id = :tenantId
+                                      AND attempt.connector_credential_pair_id = :pairId
+                                      AND attempt.status IN ('NOT_STARTED', 'IN_PROGRESS')
+                                ) THEN 'INDEXING'
+                                WHEN EXISTS (
+                                    SELECT 1 FROM documents_by_connector_credential_pair mapping
+                                    WHERE mapping.tenant_id = :tenantId
+                                      AND mapping.connector_credential_pair_id = :pairId
+                                      AND mapping.retrieval_eligible = TRUE
+                                ) THEN 'ACTIVE'
+                                WHEN EXISTS (
+                                    SELECT 1 FROM index_attempts attempt
+                                    WHERE attempt.tenant_id = :tenantId
+                                      AND attempt.connector_credential_pair_id = :pairId
+                                      AND attempt.status = 'FAILED'
+                                ) THEN 'FAILED'
+                                ELSE 'NOT_STARTED'
+                            END,
+                            last_succeeded_at = CASE
+                                WHEN :indexSucceeded THEN CURRENT_TIMESTAMP
+                                ELSE last_succeeded_at
+                            END,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE tenant_id = :tenantId AND id = :pairId
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("pairId", sourceId.value())
+                .param("indexSucceeded", indexSucceeded)
+                .update();
+    }
+
     private void lockTenant(TenantId tenantId) {
         boolean active = jdbcClient.sql("""
                         SELECT id FROM tenants

@@ -4,10 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.TestDatabase;
 import io.memoryos.identity.ActorId;
 import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.TenantMembershipRole;
-import io.memoryos.tenant.TenantSessionAuthority;
+import io.memoryos.tenant.TenantMembership;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -17,9 +18,7 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class JdbcTenantAccessResolverTest {
@@ -39,14 +38,7 @@ class JdbcTenantAccessResolverTest {
         } catch (SQLException exception) {
             throw new IllegalStateException("failed to keep the in-memory database open", exception);
         }
-        new ResourceDatabasePopulator(
-                new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
-        ).populate(keepAlive);
+        TestDatabase.migrations().populate(keepAlive);
         jdbcClient = JdbcClient.create(dataSource);
         resolver = new JdbcTenantAccessResolver(jdbcClient);
     }
@@ -57,28 +49,28 @@ class JdbcTenantAccessResolverTest {
     }
 
     @Test
-    void resolvesActiveOwnerAuthority() {
+    void resolvesActiveOwnerMembership() {
         var actorId = actor();
         var tenantId = tenant();
         persistAuthority(actorId, tenantId, TenantMembershipRole.OWNER);
 
         assertEquals(
-                new TenantSessionAuthority(
+                new TenantMembership(
                         tenantId,
                         "Tasco",
                         TenantMembershipRole.OWNER
                 ),
-                resolver.findSessionAuthority(actorId).orElseThrow()
+                resolver.findActiveMembership(actorId).orElseThrow()
         );
     }
 
     @Test
-    void resolvesActiveMemberAuthority() {
+    void resolvesActiveMemberMembership() {
         var actorId = actor();
         var tenantId = tenant();
         persistAuthority(actorId, tenantId, TenantMembershipRole.MEMBER);
 
-        assertEquals(TenantMembershipRole.MEMBER, resolver.findSessionAuthority(actorId).orElseThrow().role());
+        assertEquals(TenantMembershipRole.MEMBER, resolver.findActiveMembership(actorId).orElseThrow().role());
     }
 
     @Test
@@ -88,11 +80,11 @@ class JdbcTenantAccessResolverTest {
         persistAuthority(actorId, tenantId, TenantMembershipRole.OWNER);
 
         updateStatus("tenant_memberships", "INACTIVE", "tenant_id", tenantId.value());
-        assertTrue(resolver.findSessionAuthority(actorId).isEmpty());
+        assertTrue(resolver.findActiveMembership(actorId).isEmpty());
         updateStatus("tenant_memberships", "ACTIVE", "tenant_id", tenantId.value());
 
         updateStatus("tenants", "INACTIVE", "id", tenantId.value());
-        assertTrue(resolver.findSessionAuthority(actorId).isEmpty());
+        assertTrue(resolver.findActiveMembership(actorId).isEmpty());
         updateStatus("tenants", "ACTIVE", "id", tenantId.value());
     }
 

@@ -1,7 +1,7 @@
 package io.memoryos.api.identity.contract;
 
 import io.memoryos.tenant.TenantMembershipRole;
-import io.memoryos.tenant.TenantSessionAuthority;
+import io.memoryos.tenant.TenantMembership;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -32,12 +32,12 @@ public record CurrentIdentityResponse(
 
     public static CurrentIdentityResponse from(
             UUID actorId,
-            @Nullable TenantSessionAuthority authority
+            @Nullable TenantMembership membership
     ) {
         return new CurrentIdentityResponse(
                 actorId,
-                authority == null ? null : CurrentTenantResponse.from(authority),
-                authority != null && authority.role() == TenantMembershipRole.OWNER
+                membership == null ? null : CurrentTenantResponse.from(membership),
+                membership != null && membership.role() == TenantMembershipRole.OWNER
                         ? List.of(
                         CurrentIdentityCapability.INVITATIONS_MANAGE,
                         CurrentIdentityCapability.SOURCES_MANAGE

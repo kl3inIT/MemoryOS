@@ -10,7 +10,6 @@ public record IndexWork(
         UUID connectorId,
         SourceId sourceId,
         SourceItemId itemId,
-        UUID itemVersionId,
         UUID claimToken,
         String filename,
         byte[] content,

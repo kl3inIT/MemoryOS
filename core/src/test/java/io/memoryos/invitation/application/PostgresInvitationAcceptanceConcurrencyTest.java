@@ -10,7 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
-import io.memoryos.identity.KeycloakInvitationProvisioner;
+import io.memoryos.TestDatabase;
+import io.memoryos.identity.KeycloakRecipientProvisioner;
 import io.memoryos.identity.KeycloakRecipientProvisioning;
 import io.memoryos.identity.persistence.JdbcExternalIdentityRegistrar;
 import io.memoryos.identity.persistence.JdbcExternalIdentityResolver;
@@ -21,10 +22,10 @@ import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationService;
 import io.memoryos.tenant.InitialTenantBootstrapRequest;
 import io.memoryos.tenant.InitialTenantBootstrapper;
-import io.memoryos.tenant.InvitationAuthority;
 import io.memoryos.tenant.InvitationTarget;
 import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.TenantMembershipProvisioner;
+import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
 import io.memoryos.tenant.application.DefaultInitialTenantBootstrapper;
 import io.memoryos.tenant.persistence.JdbcTenantBootstrapRepository;
 import io.memoryos.tenant.persistence.JdbcTenantMembershipProvisioner;
@@ -42,35 +43,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.locks.LockSupport;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
-import org.springframework.transaction.interceptor.TransactionInterceptor;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresInvitationAcceptanceConcurrencyTest {
 
-    private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
-    ).asCompatibleSubstituteFor("postgres");
-
-    @Container
-    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
-            .withDatabaseName("memoryos")
-            .withUsername("memoryos")
-            .withPassword("memoryos");
-
-    private static final KeycloakInvitationProvisioner EXISTING_VERIFIED_RECIPIENT =
+    private static final KeycloakRecipientProvisioner EXISTING_VERIFIED_RECIPIENT =
             (email, expiresAt) -> {
                 Objects.requireNonNull(email);
                 Objects.requireNonNull(expiresAt);
@@ -79,37 +61,23 @@ class PostgresInvitationAcceptanceConcurrencyTest {
 
     @Test
     void concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember() throws Exception {
-        var dataSource = new DriverManagerDataSource(
-                POSTGRES.getJdbcUrl(),
-                POSTGRES.getUsername(),
-                POSTGRES.getPassword()
-        );
-        try (var connection = dataSource.getConnection()) {
-            new ResourceDatabasePopulator(
-                    new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                    new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                    new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                    new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                    new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
-            ).populate(connection);
-        }
-
+        var dataSource = TestDatabase.freshPostgres();
         var jdbcClient = JdbcClient.create(dataSource);
         var transactionManager = new DataSourceTransactionManager(dataSource);
         var resolver = new JdbcExternalIdentityResolver(jdbcClient);
-        var registrar = transactionalProxy(
+        var tenantAccess = new JdbcTenantAccessResolver(jdbcClient);
+        var registrar = TestDatabase.transactionalProxy(
                 new JdbcExternalIdentityRegistrar(jdbcClient, resolver),
                 ExternalIdentityRegistrar.class,
                 transactionManager
         );
-        var normalProvisioner = transactionalProxy(
+        var normalProvisioner = TestDatabase.transactionalProxy(
                 new JdbcTenantMembershipProvisioner(jdbcClient),
                 TenantMembershipProvisioner.class,
                 transactionManager
         );
         var bootstrapRepository = new JdbcTenantBootstrapRepository(jdbcClient);
-        InitialTenantBootstrapper bootstrapper = transactionalProxy(
+        InitialTenantBootstrapper bootstrapper = TestDatabase.transactionalProxy(
                 new DefaultInitialTenantBootstrapper(bootstrapRepository, resolver, registrar),
                 InitialTenantBootstrapper.class,
                 transactionManager
@@ -131,10 +99,11 @@ class PostgresInvitationAcceptanceConcurrencyTest {
         );
         Clock clock = Clock.fixed(Instant.parse("2026-08-21T10:00:00Z"), ZoneOffset.UTC);
         var invitationRepository = new JdbcInvitationRepository(jdbcClient);
-        var issuer = transactionalProxy(
+        var issuer = TestDatabase.transactionalProxy(
                 new DefaultInvitationService(
                         invitationRepository,
                         registrar,
+                        tenantAccess,
                         normalProvisioner,
                         EXISTING_VERIFIED_RECIPIENT,
                         clock,
@@ -143,10 +112,11 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 InvitationService.class,
                 transactionManager
         );
-        var firstService = transactionalProxy(
+        var firstService = TestDatabase.transactionalProxy(
                 new DefaultInvitationService(
                         invitationRepository,
                         registrar,
+                        tenantAccess,
                         blockingProvisioner,
                         EXISTING_VERIFIED_RECIPIENT,
                         clock,
@@ -155,10 +125,11 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 InvitationService.class,
                 transactionManager
         );
-        var secondService = transactionalProxy(
+        var secondService = TestDatabase.transactionalProxy(
                 new DefaultInvitationService(
                         invitationRepository,
                         registrar,
+                        tenantAccess,
                         normalProvisioner,
                         EXISTING_VERIFIED_RECIPIENT,
                         clock,
@@ -198,7 +169,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                             exception.getCause()
                     );
                     assertEquals(
-                            InvitationFailureReason.INVITATION_NOT_AVAILABLE,
+                            InvitationFailureReason.NOT_AVAILABLE,
                             invitationException.reason()
                     );
                 }
@@ -227,11 +198,6 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             CountDownLatch release
     ) {
         return new TenantMembershipProvisioner() {
-            @Override
-            public Optional<InvitationAuthority> findInvitationAuthority(ActorId actorId) {
-                return delegate.findInvitationAuthority(actorId);
-            }
-
             @Override
             public Optional<InvitationTarget> findActiveInvitationTarget(TenantId tenantId) {
                 return delegate.findActiveInvitationTarget(tenantId);
@@ -275,21 +241,6 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             }
         } while (System.nanoTime() < deadline);
         return false;
-    }
-
-    private static <T> T transactionalProxy(
-            T target,
-            Class<T> contract,
-            PlatformTransactionManager transactionManager
-    ) {
-        var interceptor = new TransactionInterceptor();
-        interceptor.setTransactionManager(transactionManager);
-        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
-        var proxyFactory = new ProxyFactory();
-        proxyFactory.setTarget(target);
-        proxyFactory.setInterfaces(contract);
-        proxyFactory.addAdvice(interceptor);
-        return contract.cast(proxyFactory.getProxy());
     }
 
     private static void assertDigestLookupUsesIndex(

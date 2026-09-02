@@ -12,15 +12,9 @@ public interface SourceManagementService {
 
     SourceDetail getSource(ActorId actorId, SourceId sourceId);
 
-    List<SourceOperationView> listIndexOperations(ActorId actorId, SourceId sourceId);
+    List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit);
 
-    SourceUploadResult upload(
-            ActorId actorId,
-            SourceId sourceId,
-            String filename,
-            byte[] content,
-            String sha256
-    );
+    SourceUploadResult upload(ActorId actorId, SourceId sourceId, String filename, byte[] content);
 
     SourceOperationView reindex(ActorId actorId, SourceId sourceId, SourceItemId itemId);
 

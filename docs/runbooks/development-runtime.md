@@ -46,7 +46,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
 | `MEMORYOS_WORKER_BATCH_SIZE` | No | Bounded index/cleanup claim batch; default `8`, runtime-clamped to `1..32`. |
-| `MEMORYOS_WORKER_IDLE_DELAY` | No | Delay between scheduled claim loops; default `1s` until the Redis consumer cutover. |
+| `MEMORYOS_WORKER_POLL_DELAY` | No | Fixed delay between scheduled claim loops, busy or idle; default `1s` until the Redis consumer cutover. |
 | `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development is supplied by worker-owned Arconia Redis Dev Services. |
 | `MEMORYOS_REDIS_PORT` | No | Staging Redis TLS port `6379`; development host port `56379`. |
 | `MEMORYOS_REDIS_USERNAME` | No | Staging worker ACL username `memoryos-worker`. |

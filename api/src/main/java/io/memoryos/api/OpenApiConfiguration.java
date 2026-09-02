@@ -1,5 +1,6 @@
 package io.memoryos.api;
 
+import io.memoryos.api.security.BrowserMutation;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
@@ -11,14 +12,18 @@ import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.parameters.HeaderParameter;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import org.springdoc.core.customizers.OperationCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.bind.annotation.PostMapping;
 
 @Configuration(proxyBeanMethods = false)
 @OpenAPIDefinition(
@@ -49,6 +54,7 @@ class OpenApiConfiguration {
         return GroupedOpenApi.builder()
                 .group("browser")
                 .pathsToMatch("/api/**")
+                .addOperationCustomizer(browserMutationHeader())
                 .addOpenApiCustomizer(openApi -> {
                     if (openApi.getComponents() == null) {
                         openApi.setComponents(new Components());
@@ -57,6 +63,23 @@ class OpenApiConfiguration {
                     configureNullableCurrentTenant(openApi.getComponents());
                 })
                 .build();
+    }
+
+    /** Documents the header the mutation interceptor enforces on every unsafe API operation. */
+    private static OperationCustomizer browserMutationHeader() {
+        return (operation, handlerMethod) -> {
+            if (handlerMethod.hasMethodAnnotation(PostMapping.class)) {
+                List<io.swagger.v3.oas.models.parameters.Parameter> parameters =
+                        operation.getParameters() == null ? new ArrayList<>() : operation.getParameters();
+                parameters.addFirst(new HeaderParameter()
+                        .name(BrowserMutation.HEADER)
+                        .description(BrowserMutation.DESCRIPTION)
+                        .required(true)
+                        .schema(new StringSchema().addEnumItem(BrowserMutation.VALUE)));
+                operation.setParameters(parameters);
+            }
+            return operation;
+        };
     }
 
     private static void configureNullableCurrentTenant(Components components) {

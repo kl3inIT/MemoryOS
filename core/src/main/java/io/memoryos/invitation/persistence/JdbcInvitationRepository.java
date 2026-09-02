@@ -1,9 +1,10 @@
 package io.memoryos.invitation.persistence;
 
 import io.memoryos.identity.ActorId;
-import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationQuery;
 import io.memoryos.invitation.InvitationSort;
+import io.memoryos.invitation.InvitationStatus;
+import io.memoryos.invitation.InvitationView;
 import io.memoryos.tenant.TenantId;
 
 import java.sql.ResultSet;
@@ -199,7 +200,7 @@ public class JdbcInvitationRepository {
         return statement.query(Long.class).single();
     }
 
-    public List<InvitationRow> findPage(TenantId tenantId, InvitationQuery query) {
+    public List<InvitationView> findPage(TenantId tenantId, InvitationQuery query) {
         var statement = jdbcClient.sql(
                         SELECT_INVITATION_PAGE
                                 + filterClause(query)
@@ -215,43 +216,43 @@ public class JdbcInvitationRepository {
         if (query.email() != null) {
             statement = statement.param("email", query.email());
         }
-        return statement.query((resultSet, ignored) -> row(resultSet)).list();
+        return statement.query((resultSet, ignored) -> invitation(resultSet)).list();
     }
 
-    public Optional<InvitationRow> find(TenantId tenantId, UUID invitationId) {
+    public Optional<InvitationView> find(TenantId tenantId, UUID invitationId) {
         return jdbcClient.sql(SELECT_INVITATION)
                 .param("tenantId", tenantId.value())
                 .param("invitationId", invitationId)
-                .query((resultSet, ignored) -> row(resultSet))
+                .query((resultSet, ignored) -> invitation(resultSet))
                 .optional();
     }
 
-    public Optional<InvitationRow> findLocked(TenantId tenantId, UUID invitationId) {
+    public Optional<InvitationView> findLocked(TenantId tenantId, UUID invitationId) {
         return jdbcClient.sql(LOCK_INVITATION)
                 .param("tenantId", tenantId.value())
                 .param("invitationId", invitationId)
-                .query((resultSet, ignored) -> row(resultSet))
+                .query((resultSet, ignored) -> invitation(resultSet))
                 .optional();
     }
 
-    public Optional<InvitationRow> findByDigest(String digest) {
+    public Optional<InvitationView> findByDigest(String digest) {
         return jdbcClient.sql(SELECT_INVITATION_BY_DIGEST)
                 .param("digest", digest)
-                .query((resultSet, ignored) -> row(resultSet))
+                .query((resultSet, ignored) -> invitation(resultSet))
                 .optional();
     }
 
-    public List<InvitationRow> findLockedPendingByEmail(String email, Instant now) {
+    public List<InvitationView> findLockedPendingByEmail(String email, Instant now) {
         return jdbcClient.sql(LOCK_PENDING_INVITATION_BY_EMAIL)
                 .param("email", email)
                 .param("now", sqlTime(now))
-                .query((resultSet, ignored) -> row(resultSet))
+                .query((resultSet, ignored) -> invitation(resultSet))
                 .list();
     }
 
-    public int rotate(InvitationRow invitation, String digest, Instant expiresAt, Instant now) {
+    public int rotate(InvitationView invitation, String digest, Instant expiresAt, Instant now) {
         return jdbcClient.sql(ROTATE_INVITATION)
-                .param("tenantId", invitation.tenantId())
+                .param("tenantId", invitation.tenantId().value())
                 .param("invitationId", invitation.id())
                 .param("digest", digest)
                 .param("expiresAt", sqlTime(expiresAt))
@@ -259,18 +260,18 @@ public class JdbcInvitationRepository {
                 .update();
     }
 
-    public int revoke(InvitationRow invitation, ActorId actorId, Instant now) {
+    public int revoke(InvitationView invitation, ActorId actorId, Instant now) {
         return jdbcClient.sql(REVOKE_INVITATION)
-                .param("tenantId", invitation.tenantId())
+                .param("tenantId", invitation.tenantId().value())
                 .param("invitationId", invitation.id())
                 .param("actorId", actorId.value())
                 .param("now", sqlTime(now))
                 .update();
     }
 
-    public int accept(InvitationRow invitation, ActorId actorId, Instant now) {
+    public int accept(InvitationView invitation, ActorId actorId, Instant now) {
         return jdbcClient.sql(ACCEPT_INVITATION)
-                .param("tenantId", invitation.tenantId())
+                .param("tenantId", invitation.tenantId().value())
                 .param("invitationId", invitation.id())
                 .param("actorId", actorId.value())
                 .param("now", sqlTime(now))
@@ -297,15 +298,16 @@ public class JdbcInvitationRepository {
         };
     }
 
-    private static InvitationRow row(ResultSet resultSet) throws SQLException {
-        return new InvitationRow(
+    private static InvitationView invitation(ResultSet resultSet) throws SQLException {
+        UUID acceptedActorId = resultSet.getObject("accepted_by_actor_id", UUID.class);
+        return new InvitationView(
                 resultSet.getObject("id", UUID.class),
-                resultSet.getObject("tenant_id", UUID.class),
+                new TenantId(resultSet.getObject("tenant_id", UUID.class)),
                 resultSet.getString("normalized_email"),
                 InvitationStatus.valueOf(resultSet.getString("status")),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("expires_at").toInstant(),
-                resultSet.getObject("accepted_by_actor_id", UUID.class),
+                acceptedActorId == null ? null : new ActorId(acceptedActorId),
                 instant(resultSet, "accepted_at"),
                 instant(resultSet, "revoked_at")
         );

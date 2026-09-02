@@ -2,10 +2,10 @@ package io.memoryos.worker;
 
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
-import io.memoryos.document.DocumentCommandService;
-import io.memoryos.ingestion.IndexingCoordinator;
+import io.memoryos.document.DocumentCommandPort;
+import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.SourceContentExtractor;
-import io.memoryos.ingestion.application.DefaultIndexingCoordinator;
+import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -18,14 +18,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 class WorkerConfiguration {
 
     @Bean
-    IndexingCoordinator indexingCoordinator(
+    IngestionCoordinator ingestionCoordinator(
             ConnectorIndexingPort indexingPort,
             ConnectorCleanupPort cleanupPort,
-            DocumentCommandService documents,
+            DocumentCommandPort documents,
             SourceContentExtractor extractor,
             PlatformTransactionManager transactionManager
     ) {
-        return new DefaultIndexingCoordinator(
+        return new DefaultIngestionCoordinator(
                 indexingPort,
                 cleanupPort,
                 documents,

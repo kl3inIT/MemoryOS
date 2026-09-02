@@ -2,22 +2,12 @@ package io.memoryos.identity;
 
 import io.memoryos.BusinessException;
 
-import java.util.Objects;
-
 public final class IdentityProvisioningException extends BusinessException {
 
     private final IdentityProvisioningFailureReason reason;
 
-    public IdentityProvisioningException(
-            IdentityProvisioningFailureReason reason,
-            String diagnosticMessage
-    ) {
-        super(
-                requireReason(reason).code(),
-                reason.category(),
-                reason.message(),
-                diagnosticMessage
-        );
+    public IdentityProvisioningException(IdentityProvisioningFailureReason reason, String diagnosticMessage) {
+        super(reason, diagnosticMessage);
         this.reason = reason;
     }
 
@@ -26,23 +16,11 @@ public final class IdentityProvisioningException extends BusinessException {
             String diagnosticMessage,
             Throwable cause
     ) {
-        super(
-                requireReason(reason).code(),
-                reason.category(),
-                reason.message(),
-                diagnosticMessage,
-                cause
-        );
+        super(reason, diagnosticMessage, cause);
         this.reason = reason;
     }
 
     public IdentityProvisioningFailureReason reason() {
         return reason;
-    }
-
-    private static IdentityProvisioningFailureReason requireReason(
-            IdentityProvisioningFailureReason reason
-    ) {
-        return Objects.requireNonNull(reason, "reason must not be null");
     }
 }

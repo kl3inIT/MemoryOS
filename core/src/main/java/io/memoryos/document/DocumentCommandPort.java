@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-public interface DocumentCommandService {
+public interface DocumentCommandPort {
 
     DocumentId publish(
             TenantId tenantId,

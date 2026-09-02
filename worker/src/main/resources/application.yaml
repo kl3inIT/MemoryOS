@@ -63,7 +63,7 @@ memoryos:
   worker:
     enabled: true
     batch-size: ${MEMORYOS_WORKER_BATCH_SIZE:8}
-    idle-delay: ${MEMORYOS_WORKER_IDLE_DELAY:1s}
+    poll-delay: ${MEMORYOS_WORKER_POLL_DELAY:1s}
   redis:
     topology-enabled: true
     topology-interval: 30s

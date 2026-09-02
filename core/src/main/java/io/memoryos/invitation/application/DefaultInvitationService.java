@@ -2,9 +2,9 @@ package io.memoryos.invitation.application;
 
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
-import io.memoryos.identity.KeycloakInvitationProvisioner;
-import io.memoryos.identity.KeycloakRecipientProvisioning;
 import io.memoryos.identity.ExternalIdentityRegistrar;
+import io.memoryos.identity.KeycloakRecipientProvisioner;
+import io.memoryos.identity.KeycloakRecipientProvisioning;
 import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationContinuation;
 import io.memoryos.invitation.InvitationDelivery;
@@ -17,13 +17,13 @@ import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.IssuedInvitation;
 import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
-import io.memoryos.invitation.persistence.InvitationRow;
 import io.memoryos.invitation.persistence.JdbcInvitationRepository;
-import io.memoryos.tenant.InvitationAuthority;
 import io.memoryos.tenant.InvitationTarget;
+import io.memoryos.tenant.TenantAccessResolver;
 import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.TenantMembershipProvisioner;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -32,8 +32,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -52,8 +52,9 @@ public class DefaultInvitationService implements InvitationService {
 
     private final JdbcInvitationRepository invitationRepository;
     private final ExternalIdentityRegistrar identityRegistrar;
+    private final TenantAccessResolver tenantAccess;
     private final TenantMembershipProvisioner membershipProvisioner;
-    private final KeycloakInvitationProvisioner keycloakProvisioner;
+    private final KeycloakRecipientProvisioner keycloakProvisioner;
     private final Clock clock;
     private final Duration timeToLive;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -62,13 +63,15 @@ public class DefaultInvitationService implements InvitationService {
     public DefaultInvitationService(
             JdbcInvitationRepository invitationRepository,
             ExternalIdentityRegistrar identityRegistrar,
+            TenantAccessResolver tenantAccess,
             TenantMembershipProvisioner membershipProvisioner,
-            KeycloakInvitationProvisioner keycloakProvisioner,
+            KeycloakRecipientProvisioner keycloakProvisioner,
             @Value("${memoryos.invitation.time-to-live:PT72H}") Duration timeToLive
     ) {
         this(
                 invitationRepository,
                 identityRegistrar,
+                tenantAccess,
                 membershipProvisioner,
                 keycloakProvisioner,
                 Clock.systemUTC(),
@@ -79,8 +82,9 @@ public class DefaultInvitationService implements InvitationService {
     DefaultInvitationService(
             JdbcInvitationRepository invitationRepository,
             ExternalIdentityRegistrar identityRegistrar,
+            TenantAccessResolver tenantAccess,
             TenantMembershipProvisioner membershipProvisioner,
-            KeycloakInvitationProvisioner keycloakProvisioner,
+            KeycloakRecipientProvisioner keycloakProvisioner,
             Clock clock,
             Duration timeToLive
     ) {
@@ -89,6 +93,7 @@ public class DefaultInvitationService implements InvitationService {
                 "invitationRepository must not be null"
         );
         this.identityRegistrar = Objects.requireNonNull(identityRegistrar, "identityRegistrar must not be null");
+        this.tenantAccess = Objects.requireNonNull(tenantAccess, "tenantAccess must not be null");
         this.membershipProvisioner = Objects.requireNonNull(
                 membershipProvisioner,
                 "membershipProvisioner must not be null"
@@ -104,10 +109,10 @@ public class DefaultInvitationService implements InvitationService {
     @Override
     @Transactional
     public IssuedInvitation issue(ActorId ownerActorId, String email) {
-        InvitationAuthority owner = ownerContext(ownerActorId);
+        TenantId tenantId = ownedTenant(ownerActorId);
         String normalizedEmail = normalizeEmail(email);
         Instant now = clock.instant();
-        invitationRepository.expirePending(owner.tenantId(), normalizedEmail, now);
+        invitationRepository.expirePending(tenantId, normalizedEmail, now);
 
         UUID invitationId = UUID.randomUUID();
         String plaintextSecret = newSecret();
@@ -115,7 +120,7 @@ public class DefaultInvitationService implements InvitationService {
         try {
             requireOne(invitationRepository.insert(
                     invitationId,
-                    owner.tenantId(),
+                    tenantId,
                     normalizedEmail,
                     digest(plaintextSecret),
                     ownerActorId,
@@ -123,7 +128,11 @@ public class DefaultInvitationService implements InvitationService {
                     expiresAt
             ), "create invitation");
         } catch (DataIntegrityViolationException exception) {
-            throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, "an open invitation already exists for this email", exception);
+            throw new InvitationException(
+                    InvitationFailureReason.CONFLICT,
+                    "an open invitation already exists for this email",
+                    exception
+            );
         }
 
         KeycloakRecipientProvisioning provisioning = keycloakProvisioner.provision(
@@ -133,7 +142,7 @@ public class DefaultInvitationService implements InvitationService {
         return new IssuedInvitation(
                 new InvitationView(
                         invitationId,
-                        owner.tenantId(),
+                        tenantId,
                         normalizedEmail,
                         InvitationStatus.PENDING,
                         now,
@@ -151,14 +160,11 @@ public class DefaultInvitationService implements InvitationService {
     @Transactional
     public InvitationPage list(ActorId ownerActorId, InvitationQuery query) {
         Objects.requireNonNull(query, "query must not be null");
-        InvitationAuthority owner = ownerContext(ownerActorId);
-        invitationRepository.expirePending(owner.tenantId(), clock.instant());
-        long totalItems = invitationRepository.count(owner.tenantId(), query);
-        var items = invitationRepository.findPage(owner.tenantId(), query).stream()
-                .map(DefaultInvitationService::view)
-                .toList();
+        TenantId tenantId = ownedTenant(ownerActorId);
+        invitationRepository.expirePending(tenantId, clock.instant());
+        long totalItems = invitationRepository.count(tenantId, query);
         return new InvitationPage(
-                items,
+                invitationRepository.findPage(tenantId, query),
                 query.page(),
                 query.size(),
                 totalItems,
@@ -169,7 +175,7 @@ public class DefaultInvitationService implements InvitationService {
     @Override
     @Transactional
     public IssuedInvitation rotate(ActorId ownerActorId, UUID invitationId) {
-        InvitationRow invitation = pendingOwnedInvitation(ownerActorId, invitationId);
+        InvitationView invitation = pendingOwnedInvitation(ownerActorId, invitationId);
         Instant now = clock.instant();
         String plaintextSecret = newSecret();
         Instant expiresAt = now.plus(timeToLive);
@@ -179,11 +185,21 @@ public class DefaultInvitationService implements InvitationService {
                     "rotate invitation"
             );
         } catch (DataIntegrityViolationException exception) {
-            throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, "could not rotate invitation", exception);
+            throw new InvitationException(InvitationFailureReason.CONFLICT, "could not rotate invitation", exception);
         }
 
         return new IssuedInvitation(
-                view(invitation, expiresAt),
+                new InvitationView(
+                        invitation.id(),
+                        invitation.tenantId(),
+                        invitation.email(),
+                        invitation.status(),
+                        invitation.createdAt(),
+                        expiresAt,
+                        invitation.acceptedActorId(),
+                        invitation.acceptedAt(),
+                        invitation.revokedAt()
+                ),
                 plaintextSecret,
                 InvitationDelivery.RECOVERY_LINK_ONLY
         );
@@ -192,7 +208,7 @@ public class DefaultInvitationService implements InvitationService {
     @Override
     @Transactional
     public void revoke(ActorId ownerActorId, UUID invitationId) {
-        InvitationRow invitation = pendingOwnedInvitation(ownerActorId, invitationId);
+        InvitationView invitation = pendingOwnedInvitation(ownerActorId, invitationId);
         requireOne(
                 invitationRepository.revoke(invitation, ownerActorId, clock.instant()),
                 "revoke invitation"
@@ -205,7 +221,7 @@ public class DefaultInvitationService implements InvitationService {
         if (plaintextSecret == null || plaintextSecret.isBlank()) {
             throw notAvailable();
         }
-        InvitationRow invitation = invitationRepository.findByDigest(digest(plaintextSecret))
+        InvitationView invitation = invitationRepository.findByDigest(digest(plaintextSecret))
                 .orElseThrow(DefaultInvitationService::notAvailable);
         requireAvailable(invitation);
         return continuation(invitation, activeTarget(invitation));
@@ -216,7 +232,7 @@ public class DefaultInvitationService implements InvitationService {
     public InvitationContinuation resume(UUID invitationId, TenantId tenantId) {
         Objects.requireNonNull(invitationId, "invitationId must not be null");
         Objects.requireNonNull(tenantId, "tenantId must not be null");
-        InvitationRow invitation = invitationRepository.find(tenantId, invitationId)
+        InvitationView invitation = invitationRepository.find(tenantId, invitationId)
                 .orElseThrow(DefaultInvitationService::notAvailable);
         requireAvailable(invitation);
         return continuation(invitation, activeTarget(invitation));
@@ -232,7 +248,7 @@ public class DefaultInvitationService implements InvitationService {
         requireVerifiedEmail(acceptance.emailVerified());
 
         String normalizedEmail = normalizeEmail(acceptance.email());
-        InvitationRow invitation = lock(acceptance.tenantId(), acceptance.invitationId());
+        InvitationView invitation = lock(acceptance.tenantId(), acceptance.invitationId());
         requireAvailable(invitation);
         return acceptLocked(invitation, acceptance.externalIdentity(), normalizedEmail);
     }
@@ -245,20 +261,20 @@ public class DefaultInvitationService implements InvitationService {
         requireVerifiedEmail(acceptance.emailVerified());
 
         String normalizedEmail = normalizeEmail(acceptance.email());
-        List<InvitationRow> invitations = invitationRepository.findLockedPendingByEmail(
+        List<InvitationView> invitations = invitationRepository.findLockedPendingByEmail(
                 normalizedEmail,
                 clock.instant()
         );
         if (invitations.size() != 1) {
             throw notAvailable();
         }
-        InvitationRow invitation = invitations.getFirst();
+        InvitationView invitation = invitations.getFirst();
         requireAvailable(invitation);
         return acceptLocked(invitation, acceptance.externalIdentity(), normalizedEmail);
     }
 
     private ActorId acceptLocked(
-            InvitationRow invitation,
+            InvitationView invitation,
             ExternalIdentity externalIdentity,
             String normalizedEmail
     ) {
@@ -273,7 +289,10 @@ public class DefaultInvitationService implements InvitationService {
         try {
             ActorId actorId = identityRegistrar.resolveOrCreateLocked(externalIdentity);
             if (membershipProvisioner.hasAnyMembership(actorId)) {
-                throw identityConflict();
+                throw new InvitationException(
+                        InvitationFailureReason.IDENTITY_CONFLICT,
+                        "identity already has Tenant authority"
+                );
             }
             membershipProvisioner.grantMember(target.tenantId(), actorId);
             requireOne(
@@ -290,34 +309,34 @@ public class DefaultInvitationService implements InvitationService {
         }
     }
 
-    private InvitationAuthority ownerContext(ActorId actorId) {
+    private TenantId ownedTenant(ActorId actorId) {
         Objects.requireNonNull(actorId, "actorId must not be null");
-        return membershipProvisioner.findInvitationAuthority(actorId)
-                .orElseThrow(() -> new InvitationException(InvitationFailureReason.NOT_OWNER, "an active Tenant owner is required"));
+        return tenantAccess.findActiveOwnerTenant(actorId)
+                .orElseThrow(() -> new InvitationException(
+                        InvitationFailureReason.NOT_OWNER,
+                        "an active Tenant owner is required"
+                ));
     }
 
-    private InvitationRow pendingOwnedInvitation(ActorId ownerActorId, UUID invitationId) {
+    private InvitationView pendingOwnedInvitation(ActorId ownerActorId, UUID invitationId) {
         Objects.requireNonNull(invitationId, "invitationId must not be null");
-        InvitationAuthority owner = ownerContext(ownerActorId);
-        InvitationRow invitation = lock(owner.tenantId(), invitationId);
+        InvitationView invitation = lock(ownedTenant(ownerActorId), invitationId);
         requireAvailable(invitation);
         return invitation;
     }
 
-    private InvitationRow lock(TenantId tenantId, UUID invitationId) {
+    private InvitationView lock(TenantId tenantId, UUID invitationId) {
         return invitationRepository.findLocked(tenantId, invitationId)
                 .orElseThrow(DefaultInvitationService::notAvailable);
     }
 
-    private InvitationTarget activeTarget(InvitationRow invitation) {
-        return membershipProvisioner.findActiveInvitationTarget(
-                        new TenantId(invitation.tenantId())
-                )
+    private InvitationTarget activeTarget(InvitationView invitation) {
+        return membershipProvisioner.findActiveInvitationTarget(invitation.tenantId())
                 .orElseThrow(DefaultInvitationService::notAvailable);
     }
 
     private static InvitationContinuation continuation(
-            InvitationRow invitation,
+            InvitationView invitation,
             InvitationTarget target
     ) {
         return new InvitationContinuation(
@@ -325,24 +344,6 @@ public class DefaultInvitationService implements InvitationService {
                 target.tenantId(),
                 target.tenantDisplayName(),
                 invitation.expiresAt()
-        );
-    }
-
-    private static InvitationView view(InvitationRow invitation) {
-        return view(invitation, invitation.expiresAt());
-    }
-
-    private static InvitationView view(InvitationRow invitation, Instant expiresAt) {
-        return new InvitationView(
-                invitation.id(),
-                new TenantId(invitation.tenantId()),
-                invitation.email(),
-                invitation.status(),
-                invitation.createdAt(),
-                expiresAt,
-                invitation.acceptedActorId() == null ? null : new ActorId(invitation.acceptedActorId()),
-                invitation.acceptedAt(),
-                invitation.revokedAt()
         );
     }
 
@@ -393,14 +394,14 @@ public class DefaultInvitationService implements InvitationService {
     private static String digest(String plaintextSecret) {
         try {
             byte[] value = MessageDigest.getInstance("SHA-256")
-                    .digest(plaintextSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    .digest(plaintextSecret.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(value);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
     }
 
-    private void requireAvailable(InvitationRow invitation) {
+    private void requireAvailable(InvitationView invitation) {
         if (invitation.status() != InvitationStatus.PENDING
                 || !invitation.expiresAt().isAfter(clock.instant())) {
             throw notAvailable();
@@ -409,16 +410,14 @@ public class DefaultInvitationService implements InvitationService {
 
     private static void requireOne(int updated, String operation) {
         if (updated != 1) {
-            throw new InvitationException(InvitationFailureReason.INVITATION_CONFLICT, operation + " affected " + updated + " rows");
+            throw new InvitationException(
+                    InvitationFailureReason.CONFLICT,
+                    operation + " affected " + updated + " rows"
+            );
         }
     }
 
     private static InvitationException notAvailable() {
-        return new InvitationException(InvitationFailureReason.INVITATION_NOT_AVAILABLE, "invitation is not available");
+        return new InvitationException(InvitationFailureReason.NOT_AVAILABLE, "invitation is not available");
     }
-
-    private static InvitationException identityConflict() {
-        return new InvitationException(InvitationFailureReason.IDENTITY_CONFLICT, "identity already has Tenant authority");
-    }
-
 }

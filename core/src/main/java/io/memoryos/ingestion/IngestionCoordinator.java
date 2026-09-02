@@ -1,6 +1,6 @@
 package io.memoryos.ingestion;
 
-public interface IndexingCoordinator {
+public interface IngestionCoordinator {
 
     void processAvailable(int batchSize);
 }
