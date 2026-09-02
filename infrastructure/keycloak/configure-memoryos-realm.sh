@@ -338,7 +338,7 @@ upsert_mapper() {
         fi
     fi
 }
-ensure_inspector_role_and_user() {
+ensure_inspector_role_for_initial_owner() {
     if ! "$KCADM" get "roles/memoryos-inspector" \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" >/dev/null 2>&1; then
@@ -352,69 +352,29 @@ ensure_inspector_role_and_user() {
                 -f - >/dev/null
     fi
 
-    rows=$("$KCADM" get users \
-        --config "$CONFIG_FILE" \
-        -r "$TARGET_REALM" \
-        -q exact=true \
-        -q username=admin \
-        --fields id,username)
-    matches=$(printf '%s\n' "$rows" | jq -c '[.[] | select(.username == "admin")]')
-    count=$(printf '%s\n' "$matches" | jq -r 'length')
-    if [ "$count" -gt 1 ]; then
-        echo "duplicate realm-local admin username" >&2
+    if [ -z "${INITIAL_OWNER_UUID:-}" ]; then
+        echo "initial owner must be provisioned before assigning memoryos-inspector" >&2
         exit 1
-    fi
-    INSPECTOR_USER_UUID=$(printf '%s\n' "$matches" | jq -r '.[0].id // empty')
-    action=existing
-    if [ -z "$INSPECTOR_USER_UUID" ]; then
-        : "${MEMORYOS_INSPECTOR_ADMIN_EMAIL:?MEMORYOS_INSPECTOR_ADMIN_EMAIL is required when creating the realm-local admin}"
-        : "${MEMORYOS_INSPECTOR_ADMIN_PASSWORD:?MEMORYOS_INSPECTOR_ADMIN_PASSWORD is required when creating the realm-local admin}"
-        jq -cn '{
-            username: "admin",
-            email: env.MEMORYOS_INSPECTOR_ADMIN_EMAIL,
-            emailVerified: true,
-            enabled: true,
-            credentials: [{
-                type: "password",
-                value: env.MEMORYOS_INSPECTOR_ADMIN_PASSWORD,
-                temporary: false
-            }]
-        }' |
-            "$KCADM" create users \
-                --config "$CONFIG_FILE" \
-                -r "$TARGET_REALM" \
-                -f - >/dev/null
-        rows=$("$KCADM" get users \
-            --config "$CONFIG_FILE" \
-            -r "$TARGET_REALM" \
-            -q exact=true \
-            -q username=admin \
-            --fields id,username)
-        INSPECTOR_USER_UUID=$(printf '%s\n' "$rows" | jq -r '[.[] | select(.username == "admin")][0].id // empty')
-        if [ -z "$INSPECTOR_USER_UUID" ]; then
-            echo "realm-local admin creation did not converge" >&2
-            exit 1
-        fi
-        action=created
     fi
 
     "$KCADM" add-roles \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
-        --uid "$INSPECTOR_USER_UUID" \
+        --uid "$INITIAL_OWNER_UUID" \
         --rolename memoryos-inspector >/dev/null
 
     assigned_users=$("$KCADM" get "roles/memoryos-inspector/users" \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
         --fields id,username)
+    assigned_count=$(printf '%s\n' "$assigned_users" | jq -r 'length')
     unexpected_count=$(printf '%s\n' "$assigned_users" |
-        jq -r --arg expected "$INSPECTOR_USER_UUID" '[.[] | select(.id != $expected)] | length')
-    if [ "$unexpected_count" -ne 0 ]; then
-        echo "memoryos-inspector must be assigned only to the realm-local admin user" >&2
+        jq -r --arg expected "$INITIAL_OWNER_UUID" '[.[] | select(.id != $expected)] | length')
+    if [ "$assigned_count" -ne 1 ] || [ "$unexpected_count" -ne 0 ]; then
+        echo "memoryos-inspector must be assigned only to the initial owner" >&2
         exit 1
     fi
-    echo "role=memoryos-inspector user=admin action=$action"
+    echo "role=memoryos-inspector user=$MEMORYOS_INITIAL_OWNER_USERNAME action=assigned"
 }
 
 grant_inspector_role_to_client() {
@@ -474,7 +434,7 @@ cp "$SCRIPT_DIR/memoryos-user-provisioner-client.json" "$PROVISIONER_CLIENT_FILE
 
 
 provision_initial_owner
-ensure_inspector_role_and_user
+ensure_inspector_role_for_initial_owner
 upsert_client memoryos-integration "$SCRIPT_DIR/memoryos-client.json"
 
 upsert_mapper memoryos-api-audience memoryos-audience-mapper.json

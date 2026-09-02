@@ -36,8 +36,8 @@
 
 - [x] Preserve and reconcile the `memoryos-pgweb` confidential client with exact callback and PKCE S256.
 - [x] Add a separate `memoryos-redisinsight` confidential client and cookie boundary.
-- [x] Reconcile realm role `memoryos-inspector` and assign it only to the realm-local `admin` user.
-- [x] Require external user bootstrap fields only when realm-local `admin` creation is necessary; do not expose the master realm.
+- [x] Reconcile realm role `memoryos-inspector` and assign it only to the realm-local initial owner.
+- [x] Reuse the existing initial owner credential and remain compatible with the realm's email-as-username policy; do not expose the master realm.
 - [x] Update the Keycloak verification path for positive inspector and negative ordinary-user authorization.
 
 ## Verification
@@ -46,7 +46,7 @@
 - [x] Prove production output contains no inspection or Mailpit services and no inspection ports.
 - [x] Exercise fixed-port API/worker development services without duplicate PostgreSQL or Redis containers.
 - [ ] Exercise pgweb and Redis Insight health through their OAuth proxies.
-- [ ] Prove realm-local `admin` access and denial for a user lacking `memoryos-inspector`.
+- [ ] Prove initial-owner access and denial for a user lacking `memoryos-inspector`.
 - [x] Prove pgweb write denial and Redis ACL write/admin denial while read-only inspection succeeds.
 - [x] Inspect changed Java, Kotlin DSL, YAML, properties, and XML files with JetBrains warnings enabled, then compile.
 - [x] Run the repository gate after focused runtime verification.
