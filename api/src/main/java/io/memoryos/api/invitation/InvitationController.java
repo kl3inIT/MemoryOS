@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.memoryos.api.invitation.contract.CreateInvitationRequest;
 import io.memoryos.api.invitation.contract.CurrentInvitationResponse;
 import io.memoryos.api.invitation.contract.InvitationPageResponse;
-import io.memoryos.api.invitation.contract.InvitationDeliveryResponse;
 import io.memoryos.api.invitation.contract.InvitationResponse;
 import io.memoryos.api.invitation.contract.IssuedInvitationResponse;
 import io.memoryos.identity.IdentityContext;
@@ -19,12 +18,11 @@ import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.InvitationPage;
 import io.memoryos.invitation.InvitationQuery;
-import io.memoryos.invitation.InvitationSort;
 import io.memoryos.invitation.InvitationService;
+import io.memoryos.invitation.InvitationSort;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.IssuedInvitation;
-import io.memoryos.tenant.TenantId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -38,9 +36,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -50,8 +47,6 @@ import org.springframework.web.server.ResponseStatusException;
 @Tag(name = "Invitations")
 final class InvitationController {
 
-    static final String BROWSER_REQUEST_HEADER = "X-MemoryOS-CSRF";
-    static final String BROWSER_REQUEST_VALUE = "1";
     private static final String API_PROBLEM_SCHEMA = "#/components/schemas/ApiProblem";
 
     private final InvitationService invitations;
@@ -174,13 +169,6 @@ final class InvitationController {
     @PostMapping
     IssuedInvitationResponse create(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
-            @Parameter(
-                    name = BROWSER_REQUEST_HEADER,
-                    description = "Same-origin non-simple request guard for browser-session mutations.",
-                    required = true,
-                    schema = @Schema(allowableValues = BROWSER_REQUEST_VALUE)
-            )
-            @RequestHeader(value = BROWSER_REQUEST_HEADER, required = false) String browserRequest,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @Content(
@@ -190,7 +178,6 @@ final class InvitationController {
             )
             @RequestBody CreateInvitationRequest request
     ) {
-        requireBrowserMutation(browserRequest);
         return issued(invitations.issue(identityContext.actorId(), request.email()));
     }
 
@@ -234,17 +221,9 @@ final class InvitationController {
     @PostMapping("/{invitationId}/rotate")
     IssuedInvitationResponse rotate(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
-            @Parameter(
-                    name = BROWSER_REQUEST_HEADER,
-                    description = "Same-origin non-simple request guard for browser-session mutations.",
-                    required = true,
-                    schema = @Schema(allowableValues = BROWSER_REQUEST_VALUE)
-            )
-            @RequestHeader(value = BROWSER_REQUEST_HEADER, required = false) String browserRequest,
             @Parameter(description = "Invitation identifier.", required = true)
             @PathVariable UUID invitationId
     ) {
-        requireBrowserMutation(browserRequest);
         return issued(invitations.rotate(identityContext.actorId(), invitationId));
     }
 
@@ -282,17 +261,9 @@ final class InvitationController {
     @PostMapping("/{invitationId}/revoke")
     void revoke(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
-            @Parameter(
-                    name = BROWSER_REQUEST_HEADER,
-                    description = "Same-origin non-simple request guard for browser-session mutations.",
-                    required = true,
-                    schema = @Schema(allowableValues = BROWSER_REQUEST_VALUE)
-            )
-            @RequestHeader(value = BROWSER_REQUEST_HEADER, required = false) String browserRequest,
             @Parameter(description = "Invitation identifier.", required = true)
             @PathVariable UUID invitationId
     ) {
-        requireBrowserMutation(browserRequest);
         invitations.revoke(identityContext.actorId(), invitationId);
     }
 
@@ -322,36 +293,31 @@ final class InvitationController {
             HttpServletResponse response
     ) {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        var session = request.getSession(false);
-        var state = session == null
-                ? null
-                : session.getAttribute(InvitationSessionState.ATTRIBUTE);
-        if (!(state instanceof InvitationSessionState invitationState)) {
-            throw unavailable();
+        var state = InvitationSessionState.read(request);
+        if (state == null) {
+            throw new InvitationException(
+                    InvitationFailureReason.NOT_AVAILABLE,
+                    "invitation continuation is not available"
+            );
         }
         try {
-            var continuation = invitations.resume(
-                    invitationState.invitationId(),
-                    new TenantId(invitationState.tenantId())
-            );
+            var continuation = invitations.resume(state.invitationId(), state.tenant());
             return new CurrentInvitationResponse(
                     continuation.tenantDisplayName(),
                     continuation.expiresAt(),
                     "/invite/continue"
             );
         } catch (InvitationException exception) {
-            session.removeAttribute(InvitationSessionState.ATTRIBUTE);
+            InvitationSessionState.clear(request);
             throw exception;
         }
     }
 
-    private static IssuedInvitationResponse issued(
-            IssuedInvitation invitation
-    ) {
+    private static IssuedInvitationResponse issued(IssuedInvitation invitation) {
         return new IssuedInvitationResponse(
                 response(invitation.invitation()),
                 "/invite/" + invitation.plaintextSecret(),
-                InvitationDeliveryResponse.valueOf(invitation.delivery().name())
+                invitation.delivery()
         );
     }
 
@@ -379,18 +345,4 @@ final class InvitationController {
                 invitation.revokedAt()
         );
     }
-
-    private static void requireBrowserMutation(String browserRequest) {
-        if (!BROWSER_REQUEST_VALUE.equals(browserRequest)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "same-origin browser request required");
-        }
-    }
-
-    private static InvitationException unavailable() {
-        return new InvitationException(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
-                "invitation continuation is not available"
-        );
-    }
-
 }

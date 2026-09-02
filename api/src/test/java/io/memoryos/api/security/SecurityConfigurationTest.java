@@ -7,8 +7,7 @@ import org.junit.jupiter.api.Test;
 
 class SecurityConfigurationTest {
 
-    private static final MemoryOsIdentityProperties IDENTITY_PROPERTIES =
-            new MemoryOsIdentityProperties("memoryos-api");
+    private static final IdentityProperties IDENTITY_PROPERTIES = new IdentityProperties("memoryos-api");
 
     private final SecurityConfiguration configuration = new SecurityConfiguration();
 

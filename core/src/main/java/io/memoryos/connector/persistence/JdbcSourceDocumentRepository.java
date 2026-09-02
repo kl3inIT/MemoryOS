@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -20,6 +21,9 @@ public class JdbcSourceDocumentRepository {
 
     private final JdbcClient jdbcClient;
 
+    public JdbcSourceDocumentRepository(JdbcClient jdbcClient) {
+        this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+    }
 
     public boolean hasEligibleMapping(TenantId tenantId, DocumentId documentId) {
         return jdbcClient.sql("""
@@ -48,10 +52,6 @@ public class JdbcSourceDocumentRepository {
                 .single() != 0;
     }
 
-    public JdbcSourceDocumentRepository(JdbcClient jdbcClient) {
-        this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
-    }
-
     public Optional<DocumentId> findMappedDocument(IndexWork work) {
         return jdbcClient.sql("""
                         SELECT document_id FROM documents_by_connector_credential_pair
@@ -68,18 +68,20 @@ public class JdbcSourceDocumentRepository {
     }
 
     public void publishMapping(IndexWork work, DocumentId documentId) {
-        int existing = jdbcClient.sql("""
-                        SELECT COUNT(*) FROM documents_by_connector_credential_pair
+        int updated = jdbcClient.sql("""
+                        UPDATE documents_by_connector_credential_pair
+                        SET document_id = :documentId, retrieval_eligible = TRUE,
+                            last_indexed_at = CURRENT_TIMESTAMP
                         WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
                           AND connector_item_id = :itemId
                         """)
+                .param("documentId", documentId.value())
                 .param("tenantId", work.tenantId().value())
                 .param("pairId", work.sourceId().value())
                 .param("itemId", work.itemId().value())
-                .query(Integer.class)
-                .single();
-        if (existing == 0) {
+                .update();
+        if (updated == 0) {
             jdbcClient.sql("""
                             INSERT INTO documents_by_connector_credential_pair (
                                 tenant_id, connector_id, connector_credential_pair_id,
@@ -95,21 +97,7 @@ public class JdbcSourceDocumentRepository {
                     .param("documentId", documentId.value())
                     .param("itemId", work.itemId().value())
                     .update();
-            return;
         }
-        jdbcClient.sql("""
-                        UPDATE documents_by_connector_credential_pair
-                        SET document_id = :documentId, retrieval_eligible = TRUE,
-                            last_indexed_at = CURRENT_TIMESTAMP
-                        WHERE tenant_id = :tenantId
-                          AND connector_credential_pair_id = :pairId
-                          AND connector_item_id = :itemId
-                        """)
-                .param("documentId", documentId.value())
-                .param("tenantId", work.tenantId().value())
-                .param("pairId", work.sourceId().value())
-                .param("itemId", work.itemId().value())
-                .update();
     }
 
     public void invalidateItem(TenantId tenantId, SourceId sourceId, SourceItemId itemId) {
@@ -173,7 +161,7 @@ public class JdbcSourceDocumentRepository {
     private List<UUID> documentIds(
             TenantId tenantId,
             SourceId sourceId,
-            SourceItemId itemId
+            @Nullable SourceItemId itemId
     ) {
         var statement = jdbcClient.sql(itemId == null ? """
                         SELECT document_id FROM documents_by_connector_credential_pair

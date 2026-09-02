@@ -25,7 +25,7 @@ Bearer authentication validates JWT signature, exact configured issuer, configur
 
 Browser authentication validates the OIDC Authorization Code + PKCE callback, then resolves the same exact pair. The actor must also have active Tenant authority. The callback replaces the provider principal with an application principal containing only `ActorId`, explicitly overwrites the HTTP-session security context, and discards the authorized client. Unknown or unauthorized identities receive `ACCESS_NOT_PROVISIONED` and no durable authenticated session.
 
-The exact current-identity endpoint accepts either a bound bearer identity or an `ActorSessionAuthenticationToken` restored from the JDBC-backed browser session. Its higher-priority security chain may read an existing session but never saves bearer authentication into one. Every other `/api/**` endpoint remains stateless and bearer-only.
+Every `/api/**` endpoint accepts either a bound bearer identity or an `ActorAuthenticationToken` restored from the JDBC-backed browser session. The API security chain may read an existing session but never creates one and never saves bearer authentication into one.
 
 `GET /api/identity/me` composes the Identity-owned `ActorId` with the Tenant-owned durable presentation/authority projection:
 

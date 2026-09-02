@@ -1,16 +1,15 @@
 package io.memoryos.api.security;
 
-import io.memoryos.identity.ExternalIdentity;
+import io.memoryos.api.invitation.InvitationSessionState;
 import io.memoryos.identity.ActorId;
+import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.identity.IdentityContext;
-import io.memoryos.api.invitation.InvitationSessionState;
 import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.InvitationService;
 import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
-import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.TenantAccessResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -85,13 +84,9 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             }
         }
 
-        var session = request.getSession(false);
-        if (session != null) {
-            session.removeAttribute(InvitationSessionState.ATTRIBUTE);
-            session.removeAttribute(InvitationSessionState.ACTIVATION_ATTRIBUTE);
-        }
+        InvitationSessionState.clear(request);
         var securityContext = SecurityContextHolder.createEmptyContext();
-        securityContext.setAuthentication(new ActorSessionAuthenticationToken(new IdentityContext(actorId)));
+        securityContext.setAuthentication(new ActorAuthenticationToken(new IdentityContext(actorId)));
         SecurityContextHolder.setContext(securityContext);
         securityContextRepository.saveContext(securityContext, request, response);
         redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
@@ -103,20 +98,14 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             OidcUser oidcUser,
             ExternalIdentity externalIdentity
     ) throws IOException {
-        var session = request.getSession(false);
-        Object continuationAttribute = session == null
-                ? null
-                : session.getAttribute(InvitationSessionState.ATTRIBUTE);
-        boolean activationFlow = session != null
-                && Boolean.TRUE.equals(
-                session.getAttribute(InvitationSessionState.ACTIVATION_ATTRIBUTE)
-        );
+        var continuation = InvitationSessionState.read(request);
+        boolean activationFlow = InvitationSessionState.isActivation(request);
 
         try {
-            if (continuationAttribute instanceof InvitationSessionState invitationState) {
+            if (continuation != null) {
                 return invitationService.accept(new InvitationAcceptance(
-                        invitationState.invitationId(),
-                        new TenantId(invitationState.tenantId()),
+                        continuation.invitationId(),
+                        continuation.tenant(),
                         externalIdentity,
                         oidcUser.getClaimAsString("email"),
                         Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
@@ -130,7 +119,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                     )
             );
         } catch (InvitationException exception) {
-            if (continuationAttribute instanceof InvitationSessionState || activationFlow) {
+            if (continuation != null || activationFlow) {
                 rejectInvitation(
                         request,
                         response,
@@ -169,8 +158,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         return switch (reason) {
             case EMAIL_NOT_VERIFIED -> "email-not-verified";
             case EMAIL_MISMATCH -> "email-mismatch";
-            case NOT_OWNER, INVALID_EMAIL, INVITATION_CONFLICT,
-                 INVITATION_NOT_AVAILABLE, IDENTITY_CONFLICT -> "not-available";
+            case NOT_OWNER, INVALID_EMAIL, CONFLICT, NOT_AVAILABLE, IDENTITY_CONFLICT -> "not-available";
         };
     }
 }

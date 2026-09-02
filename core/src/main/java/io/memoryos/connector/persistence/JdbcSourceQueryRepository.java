@@ -41,6 +41,36 @@ public class JdbcSourceQueryRepository {
              AND connector.id = pair.connector_id
             """;
 
+    private static final String ITEM_SELECT = """
+            SELECT item.id,
+                   version.filename,
+                   item.content_sha256,
+                   version.size_bytes,
+                   item.status,
+                   item.created_at,
+                   attempt.id AS attempt_id,
+                   attempt.error_code
+            FROM connector_credential_pairs pair
+            JOIN connector_items item
+              ON item.tenant_id = pair.tenant_id
+             AND item.connector_id = pair.connector_id
+            JOIN connector_item_versions version
+              ON version.tenant_id = item.tenant_id
+             AND version.id = item.current_version_id
+            LEFT JOIN index_attempts attempt
+              ON attempt.tenant_id = pair.tenant_id
+             AND attempt.connector_credential_pair_id = pair.id
+             AND attempt.connector_item_id = item.id
+             AND attempt.pair_sequence = (
+                 SELECT MAX(latest.pair_sequence)
+                 FROM index_attempts latest
+                 WHERE latest.tenant_id = pair.tenant_id
+                   AND latest.connector_credential_pair_id = pair.id
+                   AND latest.connector_item_id = item.id
+             )
+            WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+            """;
+
     private final JdbcClient jdbcClient;
 
     public JdbcSourceQueryRepository(JdbcClient jdbcClient) {
@@ -57,8 +87,8 @@ public class JdbcSourceQueryRepository {
                 .list();
     }
 
-    public SourceDetail detail(TenantId tenantId, SourceId sourceId) {
-        SourceSummary source = jdbcClient.sql(SOURCE_SELECT + """
+    public SourceSummary summary(TenantId tenantId, SourceId sourceId) {
+        return jdbcClient.sql(SOURCE_SELECT + """
                         WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
                         """)
                 .param("tenantId", tenantId.value())
@@ -66,51 +96,30 @@ public class JdbcSourceQueryRepository {
                 .query(JdbcSourceQueryRepository::summary)
                 .optional()
                 .orElseThrow(SourceException::notFound);
-        return new SourceDetail(source, items(tenantId, sourceId));
     }
 
-    public SourceItemView item(TenantId tenantId, SourceId sourceId, SourceItemId itemId) {
-        return items(tenantId, sourceId).stream()
-                .filter(item -> item.id().equals(itemId))
-                .findFirst()
-                .orElseThrow(SourceException::notFound);
-    }
-
-    private List<SourceItemView> items(TenantId tenantId, SourceId sourceId) {
-        return jdbcClient.sql("""
-                        SELECT item.id,
-                               version.filename,
-                               item.content_sha256,
-                               version.size_bytes,
-                               item.status,
-                               item.created_at,
-                               attempt.id AS attempt_id,
-                               attempt.error_code
-                        FROM connector_credential_pairs pair
-                        JOIN connector_items item
-                          ON item.tenant_id = pair.tenant_id
-                         AND item.connector_id = pair.connector_id
-                        JOIN connector_item_versions version
-                          ON version.tenant_id = item.tenant_id
-                         AND version.id = item.current_version_id
-                        LEFT JOIN index_attempts attempt
-                          ON attempt.tenant_id = pair.tenant_id
-                         AND attempt.connector_credential_pair_id = pair.id
-                         AND attempt.connector_item_id = item.id
-                         AND attempt.pair_sequence = (
-                             SELECT MAX(latest.pair_sequence)
-                             FROM index_attempts latest
-                             WHERE latest.tenant_id = pair.tenant_id
-                               AND latest.connector_credential_pair_id = pair.id
-                               AND latest.connector_item_id = item.id
-                         )
-                        WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+    public SourceDetail detail(TenantId tenantId, SourceId sourceId) {
+        SourceSummary source = summary(tenantId, sourceId);
+        List<SourceItemView> items = jdbcClient.sql(ITEM_SELECT + """
                         ORDER BY item.created_at, item.id
                         """)
                 .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .query(JdbcSourceQueryRepository::item)
                 .list();
+        return new SourceDetail(source, items);
+    }
+
+    public SourceItemView item(TenantId tenantId, SourceId sourceId, SourceItemId itemId) {
+        return jdbcClient.sql(ITEM_SELECT + """
+                          AND item.id = :itemId
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("pairId", sourceId.value())
+                .param("itemId", itemId.value())
+                .query(JdbcSourceQueryRepository::item)
+                .optional()
+                .orElseThrow(SourceException::notFound);
     }
 
     private static SourceSummary summary(ResultSet resultSet, int ignored) throws SQLException {

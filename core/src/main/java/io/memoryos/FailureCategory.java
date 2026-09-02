@@ -5,6 +5,6 @@ public enum FailureCategory {
     NOT_PERMITTED,
     NOT_FOUND,
     CONFLICT,
-    UNAVAILABLE,
+    GONE,
     SERVICE_UNAVAILABLE
 }

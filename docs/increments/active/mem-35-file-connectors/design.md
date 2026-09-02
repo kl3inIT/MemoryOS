@@ -212,7 +212,7 @@ core/src/main/java/io/memoryos/
 │   ├── DocumentId.java
 │   ├── DocumentVersionId.java
 │   ├── DocumentStatus.java
-│   ├── DocumentCommandService.java
+│   ├── DocumentCommandPort.java
 │   ├── DocumentQuery.java
 │   ├── application/
 │   └── persistence/
@@ -581,7 +581,7 @@ CHECK source_content_sha256 ~ '^[0-9a-f]{64}$'
 CHECK char_length(normalized_text) <= 2000000
 ```
 
-The document capability locks the Document row before allocating a version. Same-content concurrency is resolved inside DocumentCommandService through the content-hash uniqueness constraint; full FILE finalization is additionally Pair-serialized.
+The document capability locks the Document row before allocating a version. Same-content concurrency is resolved inside DocumentCommandPort through the content-hash uniqueness constraint; full FILE finalization is additionally Pair-serialized.
 ### `documents_by_connector_credential_pair`
 
 Owned by Connector:

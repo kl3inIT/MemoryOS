@@ -36,6 +36,14 @@ public abstract class BusinessException extends RuntimeException {
         this.safeMessage = requireText(safeMessage, "safeMessage");
     }
 
+    protected BusinessException(FailureReason reason, String diagnosticMessage) {
+        this(requireReason(reason).code(), reason.category(), reason.message(), diagnosticMessage);
+    }
+
+    protected BusinessException(FailureReason reason, String diagnosticMessage, Throwable cause) {
+        this(requireReason(reason).code(), reason.category(), reason.message(), diagnosticMessage, cause);
+    }
+
     public String code() {
         return code;
     }
@@ -46,6 +54,10 @@ public abstract class BusinessException extends RuntimeException {
 
     public String safeMessage() {
         return safeMessage;
+    }
+
+    private static FailureReason requireReason(FailureReason reason) {
+        return Objects.requireNonNull(reason, "reason must not be null");
     }
 
     private static String requireCode(String value) {

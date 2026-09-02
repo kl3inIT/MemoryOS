@@ -27,7 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class KeycloakInvitationRecipientProvisionerTest {
+class AdminClientKeycloakRecipientProvisionerTest {
 
     private static final String EMAIL = "member@example.com";
 
@@ -184,8 +184,8 @@ class KeycloakInvitationRecipientProvisionerTest {
         assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(2)) < 0);
     }
 
-    private AdminClientKeycloakInvitationProvisioner provisioner(Duration readTimeout) {
-        return new AdminClientKeycloakInvitationProvisioner(
+    private AdminClientKeycloakRecipientProvisioner provisioner(Duration readTimeout) {
+        return new AdminClientKeycloakRecipientProvisioner(new KeycloakAdminProperties(
                 serverUrl(),
                 "memoryos",
                 "memoryos-user-provisioner",
@@ -195,7 +195,7 @@ class KeycloakInvitationRecipientProvisionerTest {
                 Duration.ofSeconds(1),
                 Duration.ofSeconds(1),
                 readTimeout
-        );
+        ));
     }
 
     private void handle(HttpExchange exchange) throws IOException {

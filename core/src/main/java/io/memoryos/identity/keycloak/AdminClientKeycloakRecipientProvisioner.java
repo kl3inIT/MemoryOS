@@ -4,7 +4,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import io.memoryos.identity.IdentityProvisioningException;
 import io.memoryos.identity.IdentityProvisioningFailureReason;
-import io.memoryos.identity.KeycloakInvitationProvisioner;
+import io.memoryos.identity.KeycloakRecipientProvisioner;
 import io.memoryos.identity.KeycloakRecipientProvisioning;
 import jakarta.annotation.PreDestroy;
 import jakarta.ws.rs.ProcessingException;
@@ -30,20 +30,18 @@ import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.admin.client.spi.ResteasyClientClassicProvider;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
 @Service
-
-final class AdminClientKeycloakInvitationProvisioner
-        implements KeycloakInvitationProvisioner, AutoCloseable {
+final class AdminClientKeycloakRecipientProvisioner
+        implements KeycloakRecipientProvisioner, AutoCloseable {
 
     static final String MEMORYOS_PROVISIONED_ATTRIBUTE = "memoryos.provisioned";
     private static final String TRUE = "true";
     private static final String VERIFY_EMAIL = "VERIFY_EMAIL";
     private static final String UPDATE_PASSWORD = "UPDATE_PASSWORD";
     private static final List<String> ACTIVATION_ACTIONS = List.of(VERIFY_EMAIL, UPDATE_PASSWORD);
-    private static final Duration MAXIMUM_CLIENT_TIMEOUT = Duration.ofSeconds(30);
 
     private final Keycloak keycloak;
     private final String realm;
@@ -52,45 +50,19 @@ final class AdminClientKeycloakInvitationProvisioner
     private final Clock clock;
 
     @Autowired
-    AdminClientKeycloakInvitationProvisioner(
-            @Value("${memoryos.identity.keycloak.admin.server-url}") String serverUrl,
-            @Value("${memoryos.identity.keycloak.admin.realm}") String realm,
-            @Value("${memoryos.identity.keycloak.admin.client-id}") String adminClientId,
-            @Value("${memoryos.identity.keycloak.admin.client-secret}") String adminClientSecret,
-            @Value("${memoryos.identity.keycloak.admin.action-client-id}") String actionClientId,
-            @Value("${memoryos.identity.keycloak.admin.action-redirect-uri}") String actionRedirectUri,
-            @Value("${memoryos.identity.keycloak.admin.connect-timeout:PT2S}") Duration connectTimeout,
-            @Value("${memoryos.identity.keycloak.admin.connection-request-timeout:PT1S}") Duration connectionRequestTimeout,
-            @Value("${memoryos.identity.keycloak.admin.read-timeout:PT5S}") Duration readTimeout
-    ) {
-        this(
-                createClient(
-                        serverUrl,
-                        realm,
-                        adminClientId,
-                        adminClientSecret,
-                        connectTimeout,
-                        connectionRequestTimeout,
-                        readTimeout
-                ),
-                realm,
-                actionClientId,
-                actionRedirectUri,
-                Clock.systemUTC()
-        );
+    AdminClientKeycloakRecipientProvisioner(KeycloakAdminProperties properties) {
+        this(createClient(properties), properties, Clock.systemUTC());
     }
 
-    AdminClientKeycloakInvitationProvisioner(
+    AdminClientKeycloakRecipientProvisioner(
             Keycloak keycloak,
-            String realm,
-            String actionClientId,
-            String actionRedirectUri,
+            KeycloakAdminProperties properties,
             Clock clock
     ) {
         this.keycloak = Objects.requireNonNull(keycloak, "keycloak must not be null");
-        this.realm = requireText(realm, "realm");
-        this.actionClientId = requireText(actionClientId, "actionClientId");
-        this.actionRedirectUri = requireText(actionRedirectUri, "actionRedirectUri");
+        this.realm = properties.realm();
+        this.actionClientId = properties.actionClientId();
+        this.actionRedirectUri = properties.actionRedirectUri();
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -99,16 +71,16 @@ final class AdminClientKeycloakInvitationProvisioner
             String normalizedEmail,
             Instant actionExpiresAt
     ) {
-        String email = requireText(normalizedEmail, "normalizedEmail");
+        Assert.hasText(normalizedEmail, "normalizedEmail must not be blank");
         Objects.requireNonNull(actionExpiresAt, "actionExpiresAt must not be null");
 
         try {
             UsersResource users = keycloak.realm(realm).users();
-            UserRepresentation existing = findExact(users, email);
+            UserRepresentation existing = findExact(users, normalizedEmail);
             if (existing != null) {
                 return provisionExisting(users, existing, actionExpiresAt);
             }
-            return createAndActivate(users, email, actionExpiresAt);
+            return createAndActivate(users, normalizedEmail, actionExpiresAt);
         } catch (ProcessingException | WebApplicationException exception) {
             throw providerUnavailable(exception);
         }
@@ -213,48 +185,21 @@ final class AdminClientKeycloakInvitationProvisioner
     }
 
     @SuppressWarnings("resource")
-    private static Keycloak createClient(
-            String serverUrl,
-            String realm,
-            String clientId,
-            String clientSecret,
-            Duration connectTimeout,
-            Duration connectionRequestTimeout,
-            Duration readTimeout
-    ) {
+    private static Keycloak createClient(KeycloakAdminProperties properties) {
         Client restClient = ResteasyClientClassicProvider.createClientBuilder()
-                .connectTimeout(timeoutMillis(connectTimeout, "connectTimeout"), MILLISECONDS)
-                .connectionCheckoutTimeout(
-                        timeoutMillis(connectionRequestTimeout, "connectionRequestTimeout"),
-                        MILLISECONDS
-                )
-                .readTimeout(timeoutMillis(readTimeout, "readTimeout"), MILLISECONDS)
+                .connectTimeout(properties.connectTimeout().toMillis(), MILLISECONDS)
+                .connectionCheckoutTimeout(properties.connectionRequestTimeout().toMillis(), MILLISECONDS)
+                .readTimeout(properties.readTimeout().toMillis(), MILLISECONDS)
                 .build()
                 .register(JacksonProvider.class, 100);
         return KeycloakBuilder.builder()
-                .serverUrl(requireText(serverUrl, "serverUrl"))
-                .realm(requireText(realm, "realm"))
+                .serverUrl(properties.serverUrl())
+                .realm(properties.realm())
                 .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-                .clientId(requireText(clientId, "clientId"))
-                .clientSecret(requireText(clientSecret, "clientSecret"))
+                .clientId(properties.clientId())
+                .clientSecret(properties.clientSecret())
                 .resteasyClient(restClient)
                 .build();
-    }
-
-    private static long timeoutMillis(Duration value, String field) {
-        Objects.requireNonNull(value, field + " must not be null");
-        if (value.isZero() || value.isNegative() || value.compareTo(MAXIMUM_CLIENT_TIMEOUT) > 0) {
-            throw new IllegalArgumentException(field + " must be greater than zero and at most 30 seconds");
-        }
-        return value.toMillis();
-    }
-
-    private static String requireText(String value, String field) {
-        Objects.requireNonNull(value, field + " must not be null");
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
-        return value;
     }
 
     private static IdentityProvisioningException accountConflict(String diagnosticMessage) {

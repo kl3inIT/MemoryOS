@@ -10,7 +10,8 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
-import io.memoryos.connector.persistence.JdbcConnectorCleanupPort;
+import io.memoryos.TestDatabase;
+import io.memoryos.connector.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceItemRepository;
@@ -18,14 +19,12 @@ import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
-import io.memoryos.document.persistence.JdbcDocumentCommandService;
+import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.identity.ActorId;
 import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
 import io.memoryos.tenant.TenantId;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.UUID;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -34,31 +33,15 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import tools.jackson.databind.ObjectMapper;
-import org.springframework.aop.framework.ProxyFactory;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-class PostgresSourceConcurrencyTest {
-
-    private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
-    ).asCompatibleSubstituteFor("postgres");
-
-    @Container
-    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
-            .withDatabaseName("memoryos")
-            .withUsername("memoryos")
-            .withPassword("memoryos");
+class PostgresSourceLifecycleTest {
 
     private JdbcClient jdbcClient;
     private DriverManagerDataSource dataSource;
@@ -67,29 +50,13 @@ class PostgresSourceConcurrencyTest {
     private SourceManagementService service;
     private JdbcIndexAttemptRepository attempts;
     private ActorId owner;
-    private JdbcConnectorCleanupPort cleanup;
+    private JdbcCleanupAttemptRepository cleanup;
 
     private UUID tenantId;
 
     @BeforeEach
     void migrateAndSeed() throws Exception {
-        dataSource = new DriverManagerDataSource(
-                POSTGRES.getJdbcUrl(),
-                POSTGRES.getUsername(),
-                POSTGRES.getPassword()
-        );
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-            statement.execute("DROP SCHEMA public CASCADE");
-            statement.execute("CREATE SCHEMA public");
-            new ResourceDatabasePopulator(
-                    new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                    new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                    new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                    new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                    new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                    new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
-            ).populate(connection);
-        }
+        dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         transactionManager = new DataSourceTransactionManager(dataSource);
         objectMapper = new ObjectMapper();
@@ -115,11 +82,12 @@ class PostgresSourceConcurrencyTest {
                 .update();
         owner = new ActorId(actorId);
 
+        var sourceRepository = new JdbcSourceRepository(jdbcClient);
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
-        attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceDocuments);
-        var documentCommands = new JdbcDocumentCommandService(jdbcClient, objectMapper);
-        cleanup = new JdbcConnectorCleanupPort(jdbcClient, sourceDocuments, documentCommands);
-        service = service(new JdbcSourceRepository(jdbcClient));
+        attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments);
+        var documents = new JdbcDocumentRepository(jdbcClient, objectMapper);
+        cleanup = new JdbcCleanupAttemptRepository(jdbcClient, sourceRepository, sourceDocuments, documents);
+        service = service(sourceRepository);
     }
 
     @Test
@@ -139,10 +107,9 @@ class PostgresSourceConcurrencyTest {
     void duplicateUploadConvergesOnOneItemVersionAndAttempt() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Files").source().id();
         byte[] content = "same MemoryOS content".getBytes(StandardCharsets.UTF_8);
-        String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> service.upload(owner, sourceId, "first.txt", content, sha256));
-            var second = executor.submit(() -> service.upload(owner, sourceId, "second.txt", content, sha256));
+            var first = executor.submit(() -> service.upload(owner, sourceId, "first.txt", content));
+            var second = executor.submit(() -> service.upload(owner, sourceId, "second.txt", content));
             var firstResult = first.get();
             var secondResult = second.get();
             assertEquals(firstResult.item().id(), secondResult.item().id());
@@ -157,8 +124,7 @@ class PostgresSourceConcurrencyTest {
     void staleWorkerTokenCannotCompleteAfterLeaseReclaim() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Lease").source().id();
         byte[] content = "lease content".getBytes(StandardCharsets.UTF_8);
-        String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        service.upload(owner, sourceId, "lease.txt", content, sha256);
+        service.upload(owner, sourceId, "lease.txt", content);
         var stale = attempts.claim(1).getFirst();
         jdbcClient.sql("""
                         UPDATE index_attempts
@@ -187,13 +153,12 @@ class PostgresSourceConcurrencyTest {
     void uploadRejectsAnItemWhoseRemovalIsPending() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Deleting item").source().id();
         byte[] content = "pending removal".getBytes(StandardCharsets.UTF_8);
-        String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        var upload = service.upload(owner, sourceId, "pending.txt", content, sha256);
+        var upload = service.upload(owner, sourceId, "pending.txt", content);
         service.removeItem(owner, sourceId, upload.item().id());
 
         SourceException exception = assertThrows(
                 SourceException.class,
-                () -> service.upload(owner, sourceId, "duplicate.txt", content, sha256)
+                () -> service.upload(owner, sourceId, "duplicate.txt", content)
         );
 
         assertEquals("SOURCE_CONFLICT", exception.code());
@@ -201,7 +166,7 @@ class PostgresSourceConcurrencyTest {
 
     @Test
     void persistsExtractionMetadataWithTheDocumentVersion() {
-        var documents = new JdbcDocumentCommandService(jdbcClient, objectMapper);
+        var documents = new JdbcDocumentRepository(jdbcClient, objectMapper);
         documents.publish(
                 new TenantId(tenantId),
                 null,
@@ -225,8 +190,7 @@ class PostgresSourceConcurrencyTest {
     void removeRechecksSourceDeletionAfterWaitingForTheSourceLock() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Cleanup race").source().id();
         byte[] content = "cleanup race".getBytes(StandardCharsets.UTF_8);
-        String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        var upload = service.upload(owner, sourceId, "race.txt", content, sha256);
+        var upload = service.upload(owner, sourceId, "race.txt", content);
         var coordinatedRepository = new CoordinatedSourceRepository(jdbcClient);
         SourceManagementService coordinatedService = service(coordinatedRepository);
 
@@ -258,8 +222,7 @@ class PostgresSourceConcurrencyTest {
     void concurrentReindexAndCleanupLeaseReclaimRemainSingleFlight() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Single flight").source().id();
         byte[] content = "single flight".getBytes(StandardCharsets.UTF_8);
-        String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        var upload = service.upload(owner, sourceId, "single.txt", content, sha256);
+        var upload = service.upload(owner, sourceId, "single.txt", content);
         var initialWork = attempts.claim(1).getFirst();
         assertTrue(attempts.fail(initialWork, "SOURCE_EXTRACTION_TIMEOUT"));
 
@@ -289,8 +252,7 @@ class PostgresSourceConcurrencyTest {
     void inactiveTenantCancelsPendingIndexWorkWithoutPublishing() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Inactive").source().id();
         byte[] content = "inactive content".getBytes(StandardCharsets.UTF_8);
-        String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        service.upload(owner, sourceId, "inactive.txt", content, sha256);
+        service.upload(owner, sourceId, "inactive.txt", content);
         jdbcClient.sql("""
                         UPDATE tenants SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
                         WHERE id = :tenantId
@@ -314,12 +276,12 @@ class PostgresSourceConcurrencyTest {
         var target = new DefaultSourceManagementService(
                 sourceRepository,
                 new JdbcSourceItemRepository(jdbcClient),
-                new JdbcIndexAttemptRepository(jdbcClient, sourceDocuments),
+                new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 new JdbcTenantAccessResolver(jdbcClient)
         );
-        return transactionalProxy(target, transactionManager);
+        return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }
 
     private static final class CoordinatedSourceRepository extends JdbcSourceRepository {
@@ -358,17 +320,4 @@ class PostgresSourceConcurrencyTest {
         return jdbcClient.sql("SELECT COUNT(*) FROM " + table).query(Long.class).single();
     }
 
-    private static SourceManagementService transactionalProxy(
-            DefaultSourceManagementService target,
-            DataSourceTransactionManager manager
-    ) {
-        var factory = new ProxyFactory(target);
-        var interceptor = new org.springframework.transaction.interceptor.TransactionInterceptor();
-        interceptor.setTransactionManager(manager);
-        interceptor.setTransactionAttributeSource(
-                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()
-        );
-        factory.addAdvice(interceptor);
-        return (SourceManagementService) factory.getProxy();
-    }
 }

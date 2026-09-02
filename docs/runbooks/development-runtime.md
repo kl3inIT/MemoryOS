@@ -46,7 +46,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
 | `MEMORYOS_WORKER_BATCH_SIZE` | No | Bounded index/cleanup claim batch; default `8`, runtime-clamped to `1..32`. |
-| `MEMORYOS_WORKER_IDLE_DELAY` | No | Delay between scheduled claim loops; default `1s` until the Redis consumer cutover. |
+| `MEMORYOS_WORKER_POLL_DELAY` | No | Fixed delay between scheduled claim loops, busy or idle; default `1s` until the Redis consumer cutover. |
 | `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development is supplied by worker-owned Arconia Redis Dev Services. |
 | `MEMORYOS_REDIS_PORT` | No | Staging Redis TLS port `6379`; development host port `56379`. |
 | `MEMORYOS_REDIS_USERNAME` | No | Staging worker ACL username `memoryos-worker`. |
@@ -177,7 +177,7 @@ Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18
 
 ## Run the hardened staging stack
 
-MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. The same file-backed worker password starts Redis and is mounted into the worker, avoiding a duplicated secret value. API runs Flyway before becoming healthy; worker depends on API and Redis health and requires datasource/Redis/db-scheduler readiness. PostgreSQL creates isolated `memoryos` and `keycloak` databases only on an empty volume.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns the stable Tenant ID, slug, display name, bootstrap change reference, and non-secret worker tuning; Infisical continues to own database, identity, and browser secrets. The same file-backed worker password starts Redis and is mounted into the worker, avoiding a duplicated secret value. API runs Flyway before becoming healthy; worker depends on API and Redis health and requires datasource/Redis/db-scheduler readiness. PostgreSQL creates isolated `memoryos` and `keycloak` databases only on an empty volume.
 
 ### Publish the staging application
 

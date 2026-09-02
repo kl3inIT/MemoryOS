@@ -6,19 +6,21 @@ import java.util.Optional;
 
 public interface TenantAccessResolver {
 
-    boolean hasActiveTenant(ActorId actorId);
-
     boolean isActiveTenant(TenantId tenantId);
 
+    Optional<TenantMembership> findActiveMembership(ActorId actorId);
+
+    default boolean hasActiveTenant(ActorId actorId) {
+        return findActiveMembership(actorId).isPresent();
+    }
+
     default Optional<TenantId> findActiveTenant(ActorId actorId) {
-        return findSessionAuthority(actorId).map(TenantSessionAuthority::tenantId);
+        return findActiveMembership(actorId).map(TenantMembership::tenantId);
     }
 
     default Optional<TenantId> findActiveOwnerTenant(ActorId actorId) {
-        return findSessionAuthority(actorId)
-                .filter(authority -> authority.role() == TenantMembershipRole.OWNER)
-                .map(TenantSessionAuthority::tenantId);
+        return findActiveMembership(actorId)
+                .filter(membership -> membership.role() == TenantMembershipRole.OWNER)
+                .map(TenantMembership::tenantId);
     }
-
-    Optional<TenantSessionAuthority> findSessionAuthority(ActorId actorId);
 }

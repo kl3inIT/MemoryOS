@@ -20,6 +20,9 @@ import io.memoryos.identity.ActorId;
 import io.memoryos.tenant.TenantAccessResolver;
 import io.memoryos.tenant.TenantId;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -35,27 +38,24 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final JdbcSourceRepository sources;
     private final JdbcSourceItemRepository items;
     private final JdbcIndexAttemptRepository attempts;
-    private final JdbcSourceDocumentRepository documents;
+    private final JdbcSourceDocumentRepository sourceDocuments;
     private final JdbcSourceQueryRepository queries;
-    private final TenantAccessResolver tenantAccessResolver;
+    private final TenantAccessResolver tenantAccess;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
             JdbcSourceItemRepository items,
             JdbcIndexAttemptRepository attempts,
-            JdbcSourceDocumentRepository documents,
+            JdbcSourceDocumentRepository sourceDocuments,
             JdbcSourceQueryRepository queries,
-            TenantAccessResolver tenantAccessResolver
+            TenantAccessResolver tenantAccess
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
         this.attempts = Objects.requireNonNull(attempts, "attempts must not be null");
-        this.documents = Objects.requireNonNull(documents, "documents must not be null");
+        this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
         this.queries = Objects.requireNonNull(queries, "queries must not be null");
-        this.tenantAccessResolver = Objects.requireNonNull(
-                tenantAccessResolver,
-                "tenantAccessResolver must not be null"
-        );
+        this.tenantAccess = Objects.requireNonNull(tenantAccess, "tenantAccess must not be null");
     }
 
     @Override
@@ -80,30 +80,24 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<SourceOperationView> listIndexOperations(ActorId actorId, SourceId sourceId) {
+    public List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit) {
         TenantId tenantId = requireOwner(actorId);
-        queries.detail(tenantId, requireSourceId(sourceId));
-        return attempts.list(tenantId, sourceId);
+        queries.summary(tenantId, requireSourceId(sourceId));
+        return attempts.list(tenantId, sourceId, limit);
     }
 
     @Override
     @Transactional
-    public SourceUploadResult upload(
-            ActorId actorId,
-            SourceId sourceId,
-            String filename,
-            byte[] content,
-            String sha256
-    ) {
+    public SourceUploadResult upload(ActorId actorId, SourceId sourceId, String filename, byte[] content) {
         TenantId tenantId = requireOwner(actorId);
         requireContent(content);
-        var pair = mutable(sources.lock(tenantId, requireSourceId(sourceId)));
+        var pair = requireMutable(sources.lock(tenantId, requireSourceId(sourceId)));
         var version = items.resolveOrCreate(
                 tenantId,
                 pair,
                 requireFilename(filename),
                 content,
-                requireSha256(sha256)
+                sha256(content)
         );
         SourceOperationView operation = attempts.findLive(tenantId, sourceId, version)
                 .orElseGet(() -> attempts.create(tenantId, pair, version));
@@ -114,8 +108,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Transactional
     public SourceOperationView reindex(ActorId actorId, SourceId sourceId, SourceItemId itemId) {
         TenantId tenantId = requireOwner(actorId);
-        var pair = mutable(sources.lock(tenantId, requireSourceId(sourceId)));
-        var version = items.currentVersion(
+        var pair = requireMutable(sources.lock(tenantId, requireSourceId(sourceId)));
+        var version = items.lockCurrentVersion(
                 tenantId,
                 pair,
                 Objects.requireNonNull(itemId, "itemId must not be null")
@@ -156,10 +150,10 @@ public class DefaultSourceManagementService implements SourceManagementService {
         if (existing.isPresent()) {
             return existing.get();
         }
-        var mutablePair = mutable(pair);
-        items.currentVersion(tenantId, mutablePair, requiredItemId);
+        var mutablePair = requireMutable(pair);
+        items.lockCurrentVersion(tenantId, mutablePair, requiredItemId);
         items.markDeleting(tenantId, mutablePair, requiredItemId);
-        documents.invalidateItem(tenantId, requiredSourceId, requiredItemId);
+        sourceDocuments.invalidateItem(tenantId, requiredSourceId, requiredItemId);
         attempts.cancelForItem(tenantId, requiredSourceId, requiredItemId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
@@ -187,7 +181,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
             return existing.get();
         }
         sources.markDeleting(tenantId, pair);
-        documents.invalidateSource(tenantId, requiredSourceId);
+        sourceDocuments.invalidateSource(tenantId, requiredSourceId);
         attempts.cancelForSource(tenantId, requiredSourceId);
         sources.supersedeItemCleanups(tenantId, requiredSourceId);
         return sources.createCleanup(
@@ -212,11 +206,11 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     private TenantId requireOwner(ActorId actorId) {
         Objects.requireNonNull(actorId, "actorId must not be null");
-        return tenantAccessResolver.findActiveOwnerTenant(actorId)
+        return tenantAccess.findActiveOwnerTenant(actorId)
                 .orElseThrow(SourceException::notOwner);
     }
 
-    private static JdbcSourceRepository.SourcePair mutable(JdbcSourceRepository.SourcePair pair) {
+    private static JdbcSourceRepository.SourcePair requireMutable(JdbcSourceRepository.SourcePair pair) {
         if (pair.status() == SourceStatus.DELETING) {
             throw SourceException.conflict("source is deleting");
         }
@@ -262,11 +256,11 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return normalized;
     }
 
-    private static String requireSha256(String sha256) {
-        Objects.requireNonNull(sha256, "sha256 must not be null");
-        if (!sha256.matches("[0-9a-f]{64}")) {
-            throw new IllegalArgumentException("sha256 must be lowercase hexadecimal");
+    private static String sha256(byte[] content) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
-        return sha256;
     }
 }

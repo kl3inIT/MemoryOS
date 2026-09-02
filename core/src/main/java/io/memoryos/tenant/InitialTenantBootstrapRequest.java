@@ -5,6 +5,8 @@ import io.memoryos.identity.ExternalIdentity;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import org.springframework.util.Assert;
+
 public record InitialTenantBootstrapRequest(
         TenantId tenantId,
         ExternalIdentity ownerIdentity,
@@ -18,22 +20,11 @@ public record InitialTenantBootstrapRequest(
     public InitialTenantBootstrapRequest {
         Objects.requireNonNull(tenantId, "tenantId must not be null");
         Objects.requireNonNull(ownerIdentity, "ownerIdentity must not be null");
-        requireTenantSlug(tenantSlug);
-        requireText(tenantDisplayName, "tenantDisplayName");
-        requireText(operatorChangeReference, "operatorChangeReference");
-    }
-
-    private static void requireTenantSlug(String value) {
-        requireText(value, "tenantSlug");
-        if (!SLUG.matcher(value).matches()) {
+        Assert.hasText(tenantSlug, "tenantSlug must not be blank");
+        if (!SLUG.matcher(tenantSlug).matches()) {
             throw new IllegalArgumentException("tenantSlug must be a lowercase DNS-style slug");
         }
-    }
-
-    private static void requireText(String value, String field) {
-        Objects.requireNonNull(value, field + " must not be null");
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
+        Assert.hasText(tenantDisplayName, "tenantDisplayName must not be blank");
+        Assert.hasText(operatorChangeReference, "operatorChangeReference must not be blank");
     }
 }

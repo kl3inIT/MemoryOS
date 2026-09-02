@@ -1,8 +1,8 @@
 package io.memoryos.provider.file;
 
+import io.memoryos.document.DocumentContent;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
-import io.memoryos.ingestion.ExtractionResult;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -70,7 +70,7 @@ final class TikaExtractionProcess {
         }
     }
 
-    static ExtractionResult readResponse(Path path) throws IOException, ExtractionException {
+    static DocumentContent readResponse(Path path) throws IOException, ExtractionException {
         try (var input = new DataInputStream(Files.newInputStream(path))) {
             if (!input.readBoolean()) {
                 ExtractionFailure failure = ExtractionFailure.valueOf(readString(input));
@@ -87,7 +87,7 @@ final class TikaExtractionProcess {
             for (int index = 0; index < metadataSize; index++) {
                 metadata.put(readString(input), readString(input));
             }
-            return new ExtractionResult(mediaType, title, normalizedText, metadata);
+            return new DocumentContent(mediaType, title, normalizedText, metadata);
         }
     }
 
@@ -102,7 +102,7 @@ final class TikaExtractionProcess {
         }
     }
 
-    private static ExtractionResult extract(byte[] content, String filename) throws ExtractionException {
+    private static DocumentContent extract(byte[] content, String filename) throws ExtractionException {
         var tika = new Tika();
         var parser = new AutoDetectParser();
         try {
@@ -123,7 +123,7 @@ final class TikaExtractionProcess {
             if (title == null || title.isBlank()) {
                 title = filename;
             }
-            return new ExtractionResult(mediaType, title, normalize(handler.toString()), Map.of());
+            return new DocumentContent(mediaType, title, normalize(handler.toString()), Map.of());
         } catch (EncryptedDocumentException exception) {
             throw new ExtractionException(ExtractionFailure.ENCRYPTED, "encrypted documents are not supported", exception);
         } catch (WriteLimitReachedException exception) {
@@ -150,7 +150,7 @@ final class TikaExtractionProcess {
                 .strip();
     }
 
-    private static void writeSuccess(Path path, ExtractionResult result) throws IOException {
+    private static void writeSuccess(Path path, DocumentContent result) throws IOException {
         try (var output = new DataOutputStream(Files.newOutputStream(path))) {
             output.writeBoolean(true);
             writeString(output, result.mediaType());

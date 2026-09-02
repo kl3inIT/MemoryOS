@@ -31,7 +31,7 @@ final class JwtToActorAuthenticationConverter implements Converter<Jwt, Abstract
         var identity = new ExternalIdentity(issuer.toString(), subject);
         var actorId = identityResolver.resolve(identity)
                 .orElseThrow(() -> invalidToken("Authenticated identity is not bound to a MemoryOS actor"));
-        return new MemoryOsAuthenticationToken(jwt, new IdentityContext(actorId));
+        return new ActorAuthenticationToken(new IdentityContext(actorId), jwt);
     }
 
     private static OAuth2AuthenticationException invalidToken(String description) {
