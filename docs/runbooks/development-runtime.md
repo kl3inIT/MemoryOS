@@ -50,7 +50,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development is supplied by worker-owned Arconia Redis Dev Services. |
 | `MEMORYOS_REDIS_PORT` | No | Staging Redis TLS port `6379`; development host port `56379`. |
 | `MEMORYOS_REDIS_USERNAME` | No | Staging worker ACL username `memoryos-worker`. |
-| `MEMORYOS_REDIS_PASSWORD` | Yes | Worker ACL password in Infisical; it must equal the mode-`0600` `MEMORYOS_REDIS_WORKER_PASSWORD_FILE` used to start staging Redis. |
+| `MEMORYOS_REDIS_PASSWORD` | Yes | Worker ACL password. Staging overrides any Infisical value from the mode-`0600` `MEMORYOS_REDIS_WORKER_PASSWORD_FILE` mounted into the worker; other production deployments supply it through their managed secret source. |
 | `MEMORYOS_REDIS_SSL_ENABLED` | No | `true` in staging. `application-staging.yaml` trusts only the mounted Redis CA through the `memoryos-redis` SSL bundle. |
 | `MEMORYOS_REDIS_CONNECT_TIMEOUT` | No | Bounded Redis connection timeout; staging default `2s`. |
 | `MEMORYOS_REDIS_COMMAND_TIMEOUT` | No | Bounded Redis command timeout; staging default `2s`. |
@@ -177,7 +177,7 @@ Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18
 
 ## Run the hardened staging stack
 
-MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. Keep the worker Redis password in Infisical and make it equal the generated worker password file. API runs Flyway before becoming healthy; worker depends on API and Redis health and requires datasource/Redis/db-scheduler readiness. PostgreSQL creates isolated `memoryos` and `keycloak` databases only on an empty volume.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. The same file-backed worker password starts Redis and is mounted into the worker, avoiding a duplicated secret value. API runs Flyway before becoming healthy; worker depends on API and Redis health and requires datasource/Redis/db-scheduler readiness. PostgreSQL creates isolated `memoryos` and `keycloak` databases only on an empty volume.
 
 ### Publish the staging application
 
@@ -232,7 +232,7 @@ Use `https://memoryos-mail.72-62-193-33.nip.io` for normal browser access and `h
 
 The repository-owned staging overlay replaces the active external pgweb runtime while preserving client `memoryos-pgweb`, role `memoryos_pgweb`, database `memoryos`, and public origin `https://memoryos-db.72-62-193-33.nip.io`. `postgres-inspector-bootstrap` idempotently sets `default_transaction_read_only=on`, grants current and future table/sequence `SELECT`, and writes a mode-`0600` pgpass file into a private volume. pgweb adds its own read-only guard, locks the database session, disables SSH, and bounds queries. Its raw port is private; only `memoryos-pgweb-oauth2-proxy` reaches the proxy network and loopback port `18026`.
 
-Before the first staging start, run `infrastructure/inspection/provision-staging-secrets.sh`. Copy its generated Redis worker password to Infisical without printing it and load only the pgweb/Redis Insight client secrets into the controlled Keycloak reconciliation shell. Redis passwords, Redis Insight encryption key, cookie secrets, and TLS material remain file-backed Compose secrets. The script preserves complete secret sets, warns 30 days before certificate expiry, supports explicit coordinated rotation through `MEMORYOS_REDIS_TLS_ROTATE=true`, refuses incomplete TLS material, and prints no secret values.
+Before the first staging start, run `infrastructure/inspection/provision-staging-secrets.sh`. Redis and the worker consume the same generated worker-password file; load only the pgweb/Redis Insight client secrets into the controlled Keycloak reconciliation shell. Redis passwords, Redis Insight encryption key, cookie secrets, and TLS material remain file-backed Compose secrets. The script preserves complete secret sets, warns 30 days before certificate expiry, supports explicit coordinated rotation through `MEMORYOS_REDIS_TLS_ROTATE=true`, refuses incomplete TLS material, and prints no secret values.
 
 Redis starts with TLS, `default` disabled, a namespace-bounded worker ACL, and a separate read-only `memoryos-inspector` ACL. Redis Insight stores encrypted state, cannot add/edit/delete connections, and receives only the preconfigured TLS connection. Its raw port is private; only `memoryos-redisinsight-oauth2-proxy` reaches the proxy network and loopback port `18027`.
 

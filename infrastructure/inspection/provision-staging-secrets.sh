@@ -121,4 +121,4 @@ openssl verify -CAfile "$REDIS_DIRECTORY/ca.crt" "$REDIS_DIRECTORY/server.crt" >
 openssl x509 -in "$REDIS_DIRECTORY/server.crt" -noout -checkend 86400 >/dev/null
 
 echo "inspection staging secrets ready"
-echo "copy the worker password to Infisical and export the generated client, inspector, and encryption values only for reconciliation/deployment"
+echo "mount generated values only through declared Compose secrets; load OAuth client values only into controlled Keycloak reconciliation"

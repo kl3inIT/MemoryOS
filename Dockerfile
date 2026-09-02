@@ -37,6 +37,7 @@ RUN addgroup -S -g 1654 memoryos \
 WORKDIR /application
 COPY --from=build /usr/local/bin/infisical /usr/local/bin/infisical
 COPY --chmod=0755 api/src/main/docker/api-entrypoint.sh /usr/local/bin/memoryos-entrypoint
+COPY --chmod=0755 api/src/main/docker/application-launcher.sh /usr/local/bin/memoryos-launcher
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \

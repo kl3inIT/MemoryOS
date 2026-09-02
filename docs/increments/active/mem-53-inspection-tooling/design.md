@@ -98,7 +98,7 @@ OAuth2 Proxy requires the `memoryos-inspector` role. A normal MemoryOS user can 
 - Redis Insight joins only its proxy and Redis inspection networks;
 - raw tool ports are not published in staging;
 - proxy ports bind to loopback for an operator-controlled upstream tunnel;
-- staging tool credentials, cookie secrets, encryption keys, Redis ACL passwords, and TLS material are file-backed Compose secrets; client secret values enter only the controlled Keycloak reconciliation shell;
+- staging tool credentials, cookie secrets, encryption keys, Redis ACL passwords, and TLS material are file-backed Compose secrets; Redis and the worker share one worker-password file, while OAuth client secret values enter only the controlled Keycloak reconciliation shell;
 - no staging or production secret receives a checked-in default;
 - production Compose and production application artifacts contain no Arconia Dev Services or inspection services.
 

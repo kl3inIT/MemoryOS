@@ -43,4 +43,4 @@ exec infisical run \
     --projectId="$INFISICAL_PROJECT_ID" \
     --env="$INFISICAL_ENVIRONMENT" \
     -- \
-    su -p -s /bin/sh memoryos -c 'unset INFISICAL_TOKEN; exec java -jar "$MEMORYOS_APPLICATION_JAR"'
+    /usr/local/bin/memoryos-launcher
