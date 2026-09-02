@@ -11,7 +11,7 @@
 
 ## Environment boundaries
 
-Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. `SPRING_PROFILES_ACTIVE=development` selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, and claims are not expanded into logs.
+Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. Arconia reads `META-INF/arconia-bootstrap.properties` and activates only `development` in `bootRun`: the API owns PostgreSQL on fixed host port `55432`, while the worker connects to that database and owns Redis on fixed host port `56379`. The profile selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, and claims are not expanded into logs.
 
 Start a local API without exporting secret values:
 
@@ -47,11 +47,11 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
 | `MEMORYOS_WORKER_BATCH_SIZE` | No | Bounded index/cleanup claim batch; default `8`, runtime-clamped to `1..32`. |
 | `MEMORYOS_WORKER_IDLE_DELAY` | No | Delay between scheduled claim loops; default `1s` until the Redis consumer cutover. |
-| `MEMORYOS_REDIS_HOST` | No | Required production Redis endpoint used only by the worker. Development/tests may use Arconia Redis Dev Services. |
-| `MEMORYOS_REDIS_PORT` | No | Redis endpoint port; default `6379`. |
-| `MEMORYOS_REDIS_USERNAME` | No | Redis ACL username; staging currently uses `default`. |
-| `MEMORYOS_REDIS_PASSWORD` | Yes | Redis ACL password consumed only by the worker; keep it in Infisical and never in the staging environment file. |
-| `MEMORYOS_REDIS_SSL_ENABLED` | No | Must match the managed Redis endpoint; staging defaults to `true`. |
+| `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development is supplied by worker-owned Arconia Redis Dev Services. |
+| `MEMORYOS_REDIS_PORT` | No | Staging Redis TLS port `6379`; development host port `56379`. |
+| `MEMORYOS_REDIS_USERNAME` | No | Staging worker ACL username `memoryos-worker`. |
+| `MEMORYOS_REDIS_PASSWORD` | Yes | Worker ACL password in Infisical; it must equal the mode-`0600` `MEMORYOS_REDIS_WORKER_PASSWORD_FILE` used to start staging Redis. |
+| `MEMORYOS_REDIS_SSL_ENABLED` | No | `true` in staging. `application-staging.yaml` trusts only the mounted Redis CA through the `memoryos-redis` SSL bundle. |
 | `MEMORYOS_REDIS_CONNECT_TIMEOUT` | No | Bounded Redis connection timeout; staging default `2s`. |
 | `MEMORYOS_REDIS_COMMAND_TIMEOUT` | No | Bounded Redis command timeout; staging default `2s`. |
 | `MEMORYOS_REDIS_POOL_MAX_ACTIVE` | No | Maximum worker Redis connections; staging default `8`. |
@@ -59,7 +59,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_REDIS_POOL_MIN_IDLE` | No | Minimum idle worker Redis connections; staging default `0`. |
 | `MEMORYOS_REDIS_POOL_MAX_WAIT` | No | Bounded wait for a pooled Redis connection; staging default `2s`. |
 | `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
-| `SPRING_PROFILES_ACTIVE` | No | `development` for managed local development. Hardened Compose forces the worker `production` profile so Redis and scheduler identity have no localhost/anonymous fallback. |
+| `SPRING_PROFILES_ACTIVE` | No | Arconia `bootRun` activates `development` from the bootstrap properties file. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
 `MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, the current PostgreSQL worker-loop tuning keys, and Redis timeout/pool tuning keys are optional. Keep them out of Infisical until an environment has an approved reason to override checked-in defaults; production Redis identity, authentication, TLS, and scheduler-name values are required.
 
@@ -81,7 +81,7 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web` and `memoryos-mailpit` with Authorization Code and mandatory S256 PKCE, and creates confidential service-account client `memoryos-user-provisioner`. The browser client retains the exact Spring callback plus exact `/invite/activate` action return. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, and `memoryos-redisinsight` with Authorization Code and mandatory S256 PKCE, and creates confidential service-account client `memoryos-user-provisioner`. It creates realm role `memoryos-inspector`, assigns it only to the realm-local username `admin`, and exposes that role only to the two inspection clients. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
 
 Required operator environment:
 
@@ -98,6 +98,12 @@ MEMORYOS_BROWSER_CLIENT_SECRET
 MEMORYOS_BROWSER_REDIRECT_URI # one exact HTTPS callback, or one loopback callback for local verification
 MEMORYOS_MAILPIT_PUBLIC_URL # exact HTTPS nip.io origin
 MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
+MEMORYOS_PGWEB_PUBLIC_URL # exact HTTPS origin
+MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
+MEMORYOS_REDISINSIGHT_PUBLIC_URL # exact HTTPS origin
+MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
+MEMORYOS_INSPECTOR_ADMIN_EMAIL # only if the memoryos realm has no realm-local admin
+MEMORYOS_INSPECTOR_ADMIN_PASSWORD # only if creating that realm-local admin
 MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_SMTP_HOST
 MEMORYOS_KEYCLOAK_SMTP_PORT # defaults to 587
@@ -110,7 +116,7 @@ MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 ```
 
-Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; set `KEYCLOAK_ADMIN_REALM` only when using a different deployment-managed administrative realm. Its account needs realm, user, role-mapping, and client management permissions required by the script; do not grant the owner or invited members those permissions. Set `MEMORYOS_BROWSER_REDIRECT_URI` to one exact deployment callback and `MEMORYOS_MAILPIT_PUBLIC_URL` to the exact HTTPS nip.io origin; reconciliation derives and registers the exact `/invite/activate` return, while wildcards and non-loopback HTTP origins remain rejected. Store the same provisioner secret in the operator's mode-`0600` staging environment and both Infisical `dev` and `staging` as `MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET`.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set both inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. If the realm-local user `admin` already exists, the script preserves its credential and assigns only `memoryos-inspector`; if absent, externally supply its email and bootstrap password. The pgweb and Redis Insight client/cookie secrets remain separate. Store client secrets outside Git and mount the matching files into OAuth2 Proxy.
 
 If a future invitee email is already owned by an unrelated unverified Keycloak user, invitation issue fails closed. An operator must inspect that exact user in the `memoryos` realm, confirm ownership out of band, and delete or repair it through the Keycloak admin console before retrying. MemoryOS never takes over or deletes the account automatically.
 
@@ -131,9 +137,8 @@ $env:MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL = "http://127.0.0.1:18180"
 $env:MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET = "<load from managed runtime secret>"
 $env:MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI = "http://127.0.0.1:8080/invite/activate"
 
-$env:MEMORYOS_DATABASE_URL = "jdbc:postgresql://127.0.0.1:15555/memoryos"
-$env:MEMORYOS_DATABASE_USERNAME = "memoryos_app"
-$env:MEMORYOS_DATABASE_PASSWORD = "<load from managed runtime secret>"
+# Do not set MEMORYOS_DATABASE_* for local bootRun. The API-owned PostgreSQL
+# Dev Service supplies arconia/arconia/arconia on fixed host port 55432.
 
 $env:MEMORYOS_TENANT_ID = "<stable deployment Tenant UUID>"
 $env:MEMORYOS_INITIAL_OWNER_SUBJECT = "<stable Keycloak user ID>"
@@ -145,6 +150,8 @@ $env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
 
 .\gradlew.bat :api:bootRun
 ```
+
+The API process owns the PostgreSQL Dev Service lifecycle. Start it before the worker and stop it last. The worker development profile connects to `jdbc:postgresql://localhost:55432/arconia` and never creates a second PostgreSQL container. Arconia 0.30 fixed ports are published by Testcontainers on Docker's host interfaces; keep the developer firewall enabled when the machine is on a non-private network.
 
 Production HTTPS keeps `MEMORYOS_SESSION_COOKIE_SECURE` unset so it defaults to `true`.
 
@@ -161,9 +168,18 @@ pnpm dev
 
 Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to `MEMORYOS_API_URL`, which defaults to `http://127.0.0.1:18080`. Open the exact loopback origin registered in Keycloak so the generated callback uses the same host. The loopback-only development proxy removes the production `Secure` attribute from response cookies because local verification uses HTTP; it preserves every other cookie attribute. Production Nginx never performs this rewrite.
 
+Optional read-only local viewers connect to the fixed Dev Service ports and bind only to loopback:
+
+```powershell
+$env:MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY = "<local persistent random value>"
+docker compose -f infrastructure/deployment/compose.local-tools.yaml up -d --wait
+```
+
+Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18027`. The local pgweb uses Arconia's disposable development credentials and read-only mode. Local Redis has no credential; Redis Insight database management remains disabled.
+
 ## Run the hardened staging stack
 
-MemoryOS Compose owns PostgreSQL, shared Keycloak, the staging-only Mailpit mailbox and OAuth2 Proxy, API, the FILE indexing worker, and web. Redis is a separately managed execution-transport dependency. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git for the current server and load every required managed value. Keep `MEMORYOS_REDIS_PASSWORD` in Infisical rather than that file. API runs Flyway before becoming healthy; worker depends on that health, uses the same managed MemoryOS database credential, and requires Redis plus db-scheduler readiness. The PostgreSQL service creates isolated `memoryos` and `keycloak` databases only on an empty volume.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. Keep the worker Redis password in Infisical and make it equal the generated worker password file. API runs Flyway before becoming healthy; worker depends on API and Redis health and requires datasource/Redis/db-scheduler readiness. PostgreSQL creates isolated `memoryos` and `keycloak` databases only on an empty volume.
 
 ### Publish the staging application
 
@@ -214,11 +230,15 @@ ssh -o ExitOnForwardFailure=yes -N -L 18025:127.0.0.1:18025 <operator>@<memoryos
 
 Use `https://memoryos-mail.72-62-193-33.nip.io` for normal browser access and `http://127.0.0.1:18025` only through the tunnel. Mailpit evidence proves Keycloak email generation and verification-link handling in staging; it does not prove public-domain deliverability, SPF, DKIM, DMARC, or provider retry behavior.
 
-### Run the protected database viewer
+### Run the protected inspection tools
 
-The separately deployed `/apps/memoryos-pgweb` stack uses `memoryos-postgres:5432/memoryos` over the external declaration of the existing `memoryos-internal` network. It must not use the legacy `zeromail-postgres` container or `shared-postgres` alias. Its dedicated `memoryos_pgweb` role has `CONNECT`, schema `USAGE`, and `SELECT` only; `default_transaction_read_only=on` remains a second guard. The pgweb service joins only its private backend and `memoryos-internal`; its OAuth2 Proxy joins the private backend and public proxy network.
+The repository-owned staging overlay replaces the active external pgweb runtime while preserving client `memoryos-pgweb`, role `memoryos_pgweb`, database `memoryos`, and public origin `https://memoryos-db.72-62-193-33.nip.io`. `postgres-inspector-bootstrap` idempotently sets `default_transaction_read_only=on`, grants current and future table/sequence `SELECT`, and writes a mode-`0600` pgpass file into a private volume. pgweb adds its own read-only guard, locks the database session, disables SSH, and bounds queries. Its raw port is private; only `memoryos-pgweb-oauth2-proxy` reaches the proxy network and loopback port `18026`.
 
-Run `/apps/memoryos-pgweb/provision.py` after changing its database target. The provisioner preserves existing database/OIDC/cookie secrets, creates or updates `memoryos_pgweb` in the current PostgreSQL container, grants read-only access to current and future `memoryos_app` tables/sequences, and reconciles the existing `memoryos-pgweb` S256 client through the current `memoryos-shared-keycloak` container. Recreate the stack with its mode-`0600` environment file and verify that `https://memoryos-db.72-62-193-33.nip.io` still enters the Keycloak authorization flow.
+Before the first staging start, run `infrastructure/inspection/provision-staging-secrets.sh`. Copy its generated Redis worker password to Infisical without printing it and load only the pgweb/Redis Insight client secrets into the controlled Keycloak reconciliation shell. Redis passwords, Redis Insight encryption key, cookie secrets, and TLS material remain file-backed Compose secrets. The script preserves complete secret sets, warns 30 days before certificate expiry, supports explicit coordinated rotation through `MEMORYOS_REDIS_TLS_ROTATE=true`, refuses incomplete TLS material, and prints no secret values.
+
+Redis starts with TLS, `default` disabled, a namespace-bounded worker ACL, and a separate read-only `memoryos-inspector` ACL. Redis Insight stores encrypted state, cannot add/edit/delete connections, and receives only the preconfigured TLS connection. Its raw port is private; only `memoryos-redisinsight-oauth2-proxy` reaches the proxy network and loopback port `18027`.
+
+Both proxies require realm role `memoryos-inspector`. Verify realm-local `admin` can enter each tool and an ordinary MemoryOS user receives denial. Then prove pgweb rejects a write transaction and the Redis inspector rejects both `XADD` and `CONFIG`. Keep `/apps/memoryos-pgweb` stopped but intact for rollback until this acceptance passes.
 
 Build immutable API and web images from the same reviewed commit and tag both with the full source SHA:
 
@@ -232,16 +252,18 @@ Validate and start:
 ```text
 docker compose \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   config --quiet
 
 docker compose \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   up -d --wait
 ```
 
-Only `memoryos-web` and shared Keycloak join the external proxy network. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`. Shared Keycloak keeps `orgmemory-keycloak`, `memoryos-keycloak`, and `keycloak` aliases while public issuers remain under `https://auth.kl3in.tech`.
+Only shared Keycloak, web, and the three OAuth2 Proxies join the external proxy network; Mailpit, pgweb, and Redis Insight remain on private backends. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`, while the inspection proxies also bind loopback ports `18026` and `18027`. Shared Keycloak keeps `orgmemory-keycloak`, `memoryos-keycloak`, and `keycloak` aliases while public issuers remain under `https://auth.kl3in.tech`.
 
 For local database access:
 
@@ -314,7 +336,7 @@ Start API first so Flyway completes, then run the persistent worker with the sam
 infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :worker:bootRun --no-daemon
 ```
 
-The worker serves readiness on port `8081` by default. db-scheduler persistently owns the recurring Redis stream/group topology task; the current business executor still claims bounded index/cleanup batches directly from PostgreSQL until the single MEM-43/MEM-44/MEM-51 relay-consumer-cutover increment replaces it. Development/test mode may provision isolated Redis through Arconia Dev Services when no explicit connection is supplied. MEM-42 keeps one externally managed PostgreSQL datasource because API and worker require one authority database and PostgreSQL Dev Services has no shared discovery. Its cross-application reuse path is not the repository default because it needs per-developer Testcontainers opt-in, identical configuration hashes, and manual cleanup. A later tooling increment may replace local PostgreSQL with one API-owned fixed-port Dev Service while the worker remains a client. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values. Stop the worker with the normal process signal; graceful shutdown stops new scheduling and waits at most 30 seconds for the scheduler before Spring closes the datasource and in-flight task infrastructure. Provider parsing, extracted content, Redis credentials, and operation payloads are never logged.
+The worker serves readiness on port `8081` by default. db-scheduler persistently owns the recurring Redis stream/group topology task; the current business executor still claims bounded index/cleanup batches directly from PostgreSQL until the single MEM-43/MEM-44/MEM-51 relay-consumer-cutover increment replaces it. In development, worker-owned Arconia Redis Dev Services uses fixed host port `56379`, while the worker connects to the API-owned PostgreSQL Dev Service on `55432`. Tests retain their isolated container contracts. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values. Stop the worker before the API so graceful scheduler shutdown completes while the shared database remains available.
 
 API and worker enable Spring Boot virtual threads and JVM keep-alive by default. The db-scheduler execution executor creates one named virtual thread per control task; the scheduler's two execution slots, datasource pool, and Redis pool remain the resource bounds. Do not add a virtual-thread pool, duplicate semaphore around the datasource pool, or global carrier-pool tuning. Netty event loops and scheduler/datasource housekeeping remain platform threads by design. Diagnose production contention with JFR `jdk.VirtualThreadPinned` and `jdk.VirtualThreadSubmitFailed` events or a `jcmd <pid> Thread.dump_to_file -format=json <file>` dump before changing concurrency.
 

@@ -37,7 +37,7 @@ Until MemoryOS holds external durable user data or a release milestone explicitl
 
 ## Operations
 
-- MemoryOS-owned PostgreSQL deployment: `infrastructure/deployment/compose.production.yaml`.
+- MemoryOS-owned PostgreSQL deployment: `infrastructure/deployment/compose.base.yaml` plus the selected environment overlay.
 - Isolated application database/user: `memoryos` / `memoryos_app`.
 - Isolated shared-Keycloak database/user: `keycloak` / `keycloak`; neither role has cross-database `CONNECT`.
 - Runtime passwords remain managed values outside Git. Never record them in files, commands, logs, Linear, or verification evidence.

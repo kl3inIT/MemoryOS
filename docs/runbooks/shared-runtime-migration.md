@@ -4,7 +4,7 @@ This runbook moves the MemoryOS application database and the shared Keycloak dat
 
 ## Preconditions
 
-- Use the exact reviewed MemoryOS commit and its `infrastructure/deployment/compose.production.yaml`.
+- Use the exact reviewed MemoryOS commit and its `infrastructure/deployment/compose.base.yaml` plus `compose.staging.yaml`.
 - Load staging values from managed storage into a mode-`0600` environment file outside Git.
 - Keep source PostgreSQL, source databases, and rollback archives unchanged until post-cutover approval.
 - Confirm at least twice the combined on-disk size of the `memoryos` and `keycloak` databases is free for dumps, restore, and rollback.
@@ -17,7 +17,8 @@ Required deployment values are listed in [`staging.env.example`](../../infrastru
 ```text
 docker compose \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   config --quiet
 ```
 
@@ -26,7 +27,8 @@ On a disposable empty volume, start PostgreSQL and confirm the bootstrap creates
 ```text
 docker compose \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   up -d --wait postgres
 
 docker exec memoryos-postgres psql \
@@ -80,7 +82,8 @@ Start only the target PostgreSQL service against the final production volume:
 ```text
 docker compose \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   up -d --wait postgres
 ```
 
@@ -130,7 +133,8 @@ The MemoryOS Compose service owns the container lifecycle but does not provision
 ```text
 docker compose \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   up -d --wait shared-keycloak
 ```
 
@@ -159,7 +163,8 @@ Then start the complete stack:
 ```text
 docker compose \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   up -d --wait
 ```
 
@@ -173,7 +178,8 @@ The recurring backup profile creates custom-format archives, restore lists, and 
 docker compose \
   --profile ops \
   --env-file /apps/memoryos/.env.staging \
-  -f infrastructure/deployment/compose.production.yaml \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
   run --rm postgres-backup
 ```
 

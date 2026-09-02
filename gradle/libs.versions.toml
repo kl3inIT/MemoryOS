@@ -13,6 +13,7 @@ db-scheduler = "16.12.0"
 arconia-bom = { module = "io.arconia:arconia-bom", version.ref = "arconia" }
 arconia-multitenancy-web = { module = "io.arconia:arconia-multitenancy-web-spring-boot-starter" }
 arconia-dev-services-redis = { module = "io.arconia:arconia-dev-services-redis" }
+arconia-dev-services-postgresql = { module = "io.arconia:arconia-dev-services-postgresql" }
 db-scheduler-spring-boot4 = { module = "com.github.kagkarlsson:db-scheduler-spring-boot-4-starter", version.ref = "db-scheduler" }
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 spring-modulith-api = { module = "org.springframework.modulith:spring-modulith-api" }

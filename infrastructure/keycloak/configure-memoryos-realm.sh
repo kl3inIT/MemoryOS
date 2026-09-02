@@ -16,6 +16,10 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${MEMORYOS_MAILPIT_PUBLIC_URL:?MEMORYOS_MAILPIT_PUBLIC_URL is required}"
 : "${MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET:?MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET is required}"
 : "${MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET:?MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET is required}"
+: "${MEMORYOS_PGWEB_PUBLIC_URL:?MEMORYOS_PGWEB_PUBLIC_URL is required}"
+: "${MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET:?MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET is required}"
+: "${MEMORYOS_REDISINSIGHT_PUBLIC_URL:?MEMORYOS_REDISINSIGHT_PUBLIC_URL is required}"
+: "${MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET:?MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_HOST:?MEMORYOS_KEYCLOAK_SMTP_HOST is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_FROM:?MEMORYOS_KEYCLOAK_SMTP_FROM is required}"
 MEMORYOS_KEYCLOAK_SMTP_PORT=${MEMORYOS_KEYCLOAK_SMTP_PORT:-587}
@@ -90,7 +94,20 @@ case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
         exit 1
         ;;
 esac
-
+for inspector_url in "$MEMORYOS_PGWEB_PUBLIC_URL" "$MEMORYOS_REDISINSIGHT_PUBLIC_URL"; do
+    case "$inspector_url" in
+        *'*'* | */oauth2/callback | */)
+            echo "inspection public URLs must be exact HTTPS origins without wildcards, callbacks, or trailing slashes" >&2
+            exit 1
+            ;;
+        https://*)
+            ;;
+        *)
+            echo "inspection public URLs must use HTTPS" >&2
+            exit 1
+            ;;
+    esac
+done
 
 
 command -v jq >/dev/null 2>&1 || {
@@ -99,13 +116,23 @@ command -v jq >/dev/null 2>&1 || {
 }
 umask 077
 export MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
+export MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
+export MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
 
 CONFIG_FILE=$(mktemp)
 BROWSER_CLIENT_FILE=$(mktemp)
 MAILPIT_CLIENT_FILE=$(mktemp)
+PGWEB_CLIENT_FILE=$(mktemp)
+REDISINSIGHT_CLIENT_FILE=$(mktemp)
 PROVISIONER_CLIENT_FILE=$(mktemp)
 cleanup() {
-    rm -f "$CONFIG_FILE" "$BROWSER_CLIENT_FILE" "$MAILPIT_CLIENT_FILE" "$PROVISIONER_CLIENT_FILE"
+    rm -f \
+        "$CONFIG_FILE" \
+        "$BROWSER_CLIENT_FILE" \
+        "$MAILPIT_CLIENT_FILE" \
+        "$PGWEB_CLIENT_FILE" \
+        "$REDISINSIGHT_CLIENT_FILE" \
+        "$PROVISIONER_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -311,6 +338,110 @@ upsert_mapper() {
         fi
     fi
 }
+ensure_inspector_role_and_user() {
+    if ! "$KCADM" get "roles/memoryos-inspector" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" >/dev/null 2>&1; then
+        jq -cn '{
+            name: "memoryos-inspector",
+            description: "Read-only access to MemoryOS staging inspection tools"
+        }' |
+            "$KCADM" create roles \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f - >/dev/null
+    fi
+
+    rows=$("$KCADM" get users \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -q exact=true \
+        -q username=admin \
+        --fields id,username)
+    matches=$(printf '%s\n' "$rows" | jq -c '[.[] | select(.username == "admin")]')
+    count=$(printf '%s\n' "$matches" | jq -r 'length')
+    if [ "$count" -gt 1 ]; then
+        echo "duplicate realm-local admin username" >&2
+        exit 1
+    fi
+    INSPECTOR_USER_UUID=$(printf '%s\n' "$matches" | jq -r '.[0].id // empty')
+    action=existing
+    if [ -z "$INSPECTOR_USER_UUID" ]; then
+        : "${MEMORYOS_INSPECTOR_ADMIN_EMAIL:?MEMORYOS_INSPECTOR_ADMIN_EMAIL is required when creating the realm-local admin}"
+        : "${MEMORYOS_INSPECTOR_ADMIN_PASSWORD:?MEMORYOS_INSPECTOR_ADMIN_PASSWORD is required when creating the realm-local admin}"
+        jq -cn '{
+            username: "admin",
+            email: env.MEMORYOS_INSPECTOR_ADMIN_EMAIL,
+            emailVerified: true,
+            enabled: true,
+            credentials: [{
+                type: "password",
+                value: env.MEMORYOS_INSPECTOR_ADMIN_PASSWORD,
+                temporary: false
+            }]
+        }' |
+            "$KCADM" create users \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f - >/dev/null
+        rows=$("$KCADM" get users \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -q exact=true \
+            -q username=admin \
+            --fields id,username)
+        INSPECTOR_USER_UUID=$(printf '%s\n' "$rows" | jq -r '[.[] | select(.username == "admin")][0].id // empty')
+        if [ -z "$INSPECTOR_USER_UUID" ]; then
+            echo "realm-local admin creation did not converge" >&2
+            exit 1
+        fi
+        action=created
+    fi
+
+    "$KCADM" add-roles \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --uid "$INSPECTOR_USER_UUID" \
+        --rolename memoryos-inspector >/dev/null
+
+    assigned_users=$("$KCADM" get "roles/memoryos-inspector/users" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --fields id,username)
+    unexpected_count=$(printf '%s\n' "$assigned_users" |
+        jq -r --arg expected "$INSPECTOR_USER_UUID" '[.[] | select(.id != $expected)] | length')
+    if [ "$unexpected_count" -ne 0 ]; then
+        echo "memoryos-inspector must be assigned only to the realm-local admin user" >&2
+        exit 1
+    fi
+    echo "role=memoryos-inspector user=admin action=$action"
+}
+
+grant_inspector_role_to_client() {
+    role=$("$KCADM" get "roles/memoryos-inspector" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --fields id,name)
+    role_payload=$(printf '%s\n' "$role" |
+        jq -c '[{id: .id, name: .name}]')
+    printf '%s\n' "$role_payload" |
+        "$KCADM" create "clients/$CLIENT_UUID/scope-mappings/realm" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f - >/dev/null
+
+    scoped_roles=$("$KCADM" get "clients/$CLIENT_UUID/scope-mappings/realm" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --fields id,name)
+    scoped_names=$(printf '%s\n' "$scoped_roles" |
+        jq -cS '[.[].name] | sort')
+    if [ "$scoped_names" != '["memoryos-inspector"]' ]; then
+        echo "inspection clients must expose only memoryos-inspector" >&2
+        exit 1
+    fi
+}
+
 
 jq --arg redirectUri "$MEMORYOS_BROWSER_REDIRECT_URI" \
     --arg activationUri "$MEMORYOS_BROWSER_PUBLIC_URL/invite/activate" \
@@ -327,10 +458,23 @@ jq --arg publicUrl "$MEMORYOS_MAILPIT_PUBLIC_URL" \
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-mailpit-client.json" >"$MAILPIT_CLIENT_FILE"
+jq --arg publicUrl "$MEMORYOS_PGWEB_PUBLIC_URL" \
+    '.rootUrl = $publicUrl
+     | .redirectUris = [$publicUrl + "/oauth2/callback"]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
+    "$SCRIPT_DIR/memoryos-pgweb-client.json" >"$PGWEB_CLIENT_FILE"
+jq --arg publicUrl "$MEMORYOS_REDISINSIGHT_PUBLIC_URL" \
+    '.rootUrl = $publicUrl
+     | .redirectUris = [$publicUrl + "/oauth2/callback"]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
+    "$SCRIPT_DIR/memoryos-redisinsight-client.json" >"$REDISINSIGHT_CLIENT_FILE"
 cp "$SCRIPT_DIR/memoryos-user-provisioner-client.json" "$PROVISIONER_CLIENT_FILE"
 
 
 provision_initial_owner
+ensure_inspector_role_and_user
 upsert_client memoryos-integration "$SCRIPT_DIR/memoryos-client.json"
 
 upsert_mapper memoryos-api-audience memoryos-audience-mapper.json
@@ -390,3 +534,21 @@ jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |
         -r "$TARGET_REALM" \
         -f - >/dev/null
 echo "client=memoryos-mailpit secret=updated"
+
+upsert_client memoryos-pgweb "$PGWEB_CLIENT_FILE"
+jq -cn '{secret: env.MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$CLIENT_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -f - >/dev/null
+grant_inspector_role_to_client
+echo "client=memoryos-pgweb secret=updated role=memoryos-inspector"
+
+upsert_client memoryos-redisinsight "$REDISINSIGHT_CLIENT_FILE"
+jq -cn '{secret: env.MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$CLIENT_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -f - >/dev/null
+grant_inspector_role_to_client
+echo "client=memoryos-redisinsight secret=updated role=memoryos-inspector"

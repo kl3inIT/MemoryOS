@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-08-30.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-01.
 
 ## Delivered
 
@@ -25,14 +25,15 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | MEM-37 | Command-style invitation revocation and consumer-facing Identity/Invitations OpenAPI taxonomy | [Design](increments/completed/mem-37-command-style-invitation-revoke/design.md) · [Verification](increments/completed/mem-37-command-style-invitation-revoke/verification.md) · [PR #38](https://github.com/kl3inIT/MemoryOS/pull/38) |
 | MEM-27 | Onyx/Opal-informed semantic interaction tokens, action prominence, shared control sizes, and enforced disabled/pending behavior across the production frontend | [Design](increments/completed/mem-27-frontend-interaction-contracts/design.md) · [Verification](increments/completed/mem-27-frontend-interaction-contracts/verification.md) · [PR #40](https://github.com/kl3inIT/MemoryOS/pull/40) |
 | MEM-38 | Accessible destructive confirmations with bounded pending, failure, retry, cleanup, and focus-restoration behavior | [Design](increments/completed/mem-38-destructive-confirmations/design.md) · [Verification](increments/completed/mem-38-destructive-confirmations/verification.md) |
+| MEM-42 | Worker-owned Redis execution foundation with versioned stream topology, fail-closed readiness, TLS-safe credentials, and no change to PostgreSQL operation authority | [Design](increments/completed/mem-42-redis-runtime/design.md) · [Verification](increments/completed/mem-42-redis-runtime/verification.md) · [PR #43](https://github.com/kl3inIT/MemoryOS/pull/43) |
+| MEM-45 | PostgreSQL-backed db-scheduler control plane with Flyway-owned schema, singleton recurring execution, dead-owner recovery, and bounded virtual-thread tasks | [Design](increments/completed/mem-45-db-scheduler-control-plane/design.md) · [Verification](increments/completed/mem-45-db-scheduler-control-plane/verification.md) · [PR #43](https://github.com/kl3inIT/MemoryOS/pull/43) |
 
 ## Active
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-35](https://linear.app/memory-os/issue/MEM-35/establish-organization-owned-file-connectors-and-document-boundary) | Establish the Onyx-aligned Tenant-owned Connector/Credential/Pair/Document boundary through a production FILE source and persistence-backed indexing worker | [Design](increments/active/mem-35-file-connectors/design.md) · [Plan](increments/active/mem-35-file-connectors/plan.md) · [Verification](increments/active/mem-35-file-connectors/verification.md) |
-| [MEM-42](https://linear.app/memory-os/issue/MEM-42/provision-redis-consistently-across-development-test-and-production) | Establish the real Redis Streams runtime boundary for worker/control-plane delivery without changing PostgreSQL operation authority | [Design](increments/active/mem-42-redis-runtime/design.md) · [Plan](increments/active/mem-42-redis-runtime/plan.md) · [Verification](increments/active/mem-42-redis-runtime/verification.md) |
-| [MEM-45](https://linear.app/memory-os/issue/MEM-45/run-durable-control-plane-tasks-with-db-scheduler) | Establish db-scheduler as the PostgreSQL-backed cluster-safe owner of bounded recurring control tasks | [Design](increments/active/mem-45-db-scheduler-control-plane/design.md) · [Plan](increments/active/mem-45-db-scheduler-control-plane/plan.md) · [Verification](increments/active/mem-45-db-scheduler-control-plane/verification.md) |
+| [MEM-53](https://linear.app/memory-os/issue/MEM-53/consolidate-local-and-staging-inspection-tooling) | Consolidate API-owned local PostgreSQL, worker-owned local Redis, and read-only SSO-protected staging inspection surfaces | [Design](increments/active/mem-53-inspection-tooling/design.md) · [Plan](increments/active/mem-53-inspection-tooling/plan.md) · [Verification](increments/active/mem-53-inspection-tooling/verification.md) |
 
 ## Candidate increments
 

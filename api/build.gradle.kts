@@ -19,6 +19,8 @@ dependencies {
     implementation(libs.spring.boot.starter.session.jdbc)
     runtimeOnly(libs.flyway.database.postgresql)
     runtimeOnly(libs.postgresql)
+    testAndDevelopmentOnly(platform(libs.arconia.bom))
+    testAndDevelopmentOnly(libs.arconia.dev.services.postgresql)
 
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(project(":connector"))
@@ -31,6 +33,7 @@ dependencies {
 }
 
 tasks.named<Test>("test") {
+    systemProperty("arconia.dev.services.postgresql.enabled", "false")
     inputs.file(rootProject.file("openapi.yml"))
     inputs.property(
         "memoryosOpenApiWrite",
