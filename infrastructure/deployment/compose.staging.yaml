@@ -41,8 +41,10 @@ services:
       MEMORYOS_REDIS_USERNAME: memoryos-worker
       MEMORYOS_REDIS_SSL_ENABLED: "true"
       MEMORYOS_REDIS_TLS_CA_CERTIFICATE: file:/run/secrets/redis_tls_ca
+      MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_worker_password
     secrets:
       - redis_tls_ca
+      - redis_worker_password
     depends_on:
       redis:
         condition: service_healthy
