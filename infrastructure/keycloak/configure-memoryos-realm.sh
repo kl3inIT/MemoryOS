@@ -367,6 +367,23 @@ ensure_inspector_role_for_initial_owner() {
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
         --fields id,username)
+    unexpected_ids=$(printf '%s\n' "$assigned_users" |
+        jq -r --arg expected "$INITIAL_OWNER_UUID" '.[] | select(.id != $expected) | .id')
+    if [ -n "$unexpected_ids" ]; then
+        printf '%s\n' "$unexpected_ids" |
+            while IFS= read -r unexpected_id; do
+                [ -n "$unexpected_id" ] || continue
+                "$KCADM" remove-roles \
+                    --config "$CONFIG_FILE" \
+                    -r "$TARGET_REALM" \
+                    --uid "$unexpected_id" \
+                    --rolename memoryos-inspector >/dev/null
+            done
+        assigned_users=$("$KCADM" get "roles/memoryos-inspector/users" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            --fields id,username)
+    fi
     assigned_count=$(printf '%s\n' "$assigned_users" | jq -r 'length')
     unexpected_count=$(printf '%s\n' "$assigned_users" |
         jq -r --arg expected "$INITIAL_OWNER_UUID" '[.[] | select(.id != $expected)] | length')

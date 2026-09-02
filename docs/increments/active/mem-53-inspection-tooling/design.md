@@ -87,7 +87,7 @@ Write, keyspace-administration, ACL, CONFIG, MODULE, SCRIPT, FUNCTION, and conne
 
 pgweb and Redis Insight use separate confidential Keycloak clients, callback URLs, client secrets, OAuth2 Proxy cookie secrets, and cookie names. Both use Authorization Code flow with PKCE S256 through OAuth2 Proxy's Keycloak provider.
 
-A realm-local role `memoryos-inspector` is assigned only to the reconciled initial owner. Reusing the existing owner preserves its credential and remains compatible with the realm's email-as-username policy; no second privileged local account is created. The master realm and master bootstrap administrator are never exposed to inspection clients.
+A realm-local role `memoryos-inspector` is assigned only to the reconciled initial owner. Reusing the existing owner preserves its credential and remains compatible with the realm's email-as-username policy; no second privileged local account is created. Reconciliation revokes stale grants of this dedicated role from every other realm user before enforcing the single-owner invariant. The master realm and master bootstrap administrator are never exposed to inspection clients.
 
 OAuth2 Proxy requires the `memoryos-inspector` role. A normal MemoryOS user can authenticate to the realm but cannot reach either tool.
 

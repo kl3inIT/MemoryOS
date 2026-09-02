@@ -48,6 +48,8 @@ A live Keycloak 26.5.2 staging reconciliation exercised the complete existing-ow
 
 The first staging attempt exposed a real realm-policy mismatch: `registrationEmailAsUsername=true` normalizes a newly created `admin` username to its email, so the original exact-username convergence check could never pass. The partially created unprivileged user was removed. Reconciliation now reuses the existing initial owner, preserves its credential, and converges without creating a second privileged account.
 
+CodeRabbit identified that fail-closed validation alone would leave a stale role holder authorized if a prior deployment had granted the dedicated role. Live staging verification temporarily granted `memoryos-inspector` to an ordinary acceptance user, reran reconciliation, and then observed only the initial owner in `roles/memoryos-inspector/users`. Reconciliation now removes every non-owner grant and re-reads role membership before enforcing exactly one owner assignment.
+
 OAuth2 Proxy configuration requires `memoryos-inspector` independently for both tools and uses separate client secrets, cookie secrets, and cookie names. Actual positive initial-owner login and negative ordinary-user denial cannot be claimed until this reviewed change is deployed and Keycloak/Nginx Proxy Manager are reconciled on staging. The external `/apps/memoryos-pgweb` stack must remain stopped but intact until that gate passes.
 
 ## Static, test, and artifact gates
