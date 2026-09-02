@@ -87,7 +87,7 @@ Write, keyspace-administration, ACL, CONFIG, MODULE, SCRIPT, FUNCTION, and conne
 
 pgweb and Redis Insight use separate confidential Keycloak clients, callback URLs, client secrets, OAuth2 Proxy cookie secrets, and cookie names. Both use Authorization Code flow with PKCE S256 through OAuth2 Proxy's Keycloak provider.
 
-A realm-local role `memoryos-inspector` is assigned only to the realm-local user named `admin`. The bootstrap reconciles that user when present. If the realm-local user must be created, its email and temporary/bootstrap password must be supplied externally; the repository does not commit `admin123` or any replacement credential. The master realm and master bootstrap administrator are never exposed to inspection clients.
+A realm-local role `memoryos-inspector` is assigned only to the reconciled initial owner. Reusing the existing owner preserves its credential and remains compatible with the realm's email-as-username policy; no second privileged local account is created. Reconciliation revokes stale grants of this dedicated role from every other realm user before enforcing the single-owner invariant. The master realm and master bootstrap administrator are never exposed to inspection clients.
 
 OAuth2 Proxy requires the `memoryos-inspector` role. A normal MemoryOS user can authenticate to the realm but cannot reach either tool.
 
@@ -118,7 +118,7 @@ The existing external `/apps/memoryos-pgweb` deployment remains stopped, not del
 - compile affected modules;
 - start the development API and worker and prove fixed shared PostgreSQL/Redis ports without duplicate service containers;
 - start staging Compose and exercise tool health through each OAuth proxy;
-- prove realm-local `admin` is accepted and a user without `memoryos-inspector` is denied;
+- prove the realm-local initial owner is accepted and a user without `memoryos-inspector` is denied;
 - prove pgweb cannot write to the MemoryOS database;
 - prove the Redis inspector principal can inspect stream state but cannot write or administer Redis;
 - prove production Compose contains no Mailpit, pgweb, Redis Insight, OAuth inspection proxy, or raw inspection port;

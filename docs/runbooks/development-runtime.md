@@ -81,7 +81,7 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, and `memoryos-redisinsight` with Authorization Code and mandatory S256 PKCE, and creates confidential service-account client `memoryos-user-provisioner`. It creates realm role `memoryos-inspector`, assigns it only to the realm-local username `admin`, and exposes that role only to the two inspection clients. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, and `memoryos-redisinsight` with Authorization Code and mandatory S256 PKCE, and creates confidential service-account client `memoryos-user-provisioner`. It creates realm role `memoryos-inspector`, assigns it only to that realm-local initial owner, and exposes that role only to the two inspection clients. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
 
 Required operator environment:
 
@@ -102,8 +102,6 @@ MEMORYOS_PGWEB_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
 MEMORYOS_REDISINSIGHT_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
-MEMORYOS_INSPECTOR_ADMIN_EMAIL # only if the memoryos realm has no realm-local admin
-MEMORYOS_INSPECTOR_ADMIN_PASSWORD # only if creating that realm-local admin
 MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_SMTP_HOST
 MEMORYOS_KEYCLOAK_SMTP_PORT # defaults to 587
@@ -116,7 +114,7 @@ MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 ```
 
-Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set both inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. If the realm-local user `admin` already exists, the script preserves its credential and assigns only `memoryos-inspector`; if absent, externally supply its email and bootstrap password. The pgweb and Redis Insight client/cookie secrets remain separate. Store client secrets outside Git and mount the matching files into OAuth2 Proxy.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set both inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb and Redis Insight client/cookie secrets remain separate. Store client secrets outside Git and mount the matching files into OAuth2 Proxy.
 
 If a future invitee email is already owned by an unrelated unverified Keycloak user, invitation issue fails closed. An operator must inspect that exact user in the `memoryos` realm, confirm ownership out of band, and delete or repair it through the Keycloak admin console before retrying. MemoryOS never takes over or deletes the account automatically.
 
