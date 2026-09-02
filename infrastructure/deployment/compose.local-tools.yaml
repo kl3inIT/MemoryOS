@@ -4,6 +4,8 @@ services:
   pgweb:
     image: ${MEMORYOS_PGWEB_IMAGE:-sosedoff/pgweb:0.17.0@sha256:a5256d416e2e8b92d69a4459058e3eca33a9f075d8325491644411d0bc3bd70b}
     container_name: memoryos-local-pgweb
+    extra_hosts:
+      - host.docker.internal:host-gateway
     command:
       - --host=host.docker.internal
       - --port=55432
@@ -36,6 +38,8 @@ services:
   redisinsight:
     image: ${MEMORYOS_REDISINSIGHT_IMAGE:-redis/redisinsight:3.8.0@sha256:b5e19ee240abef6edb435871b90ff8a210995422e8e018ab61c0339d318a1f84}
     container_name: memoryos-local-redisinsight
+    extra_hosts:
+      - host.docker.internal:host-gateway
     environment:
       RI_ACCEPT_TERMS_AND_CONDITIONS: "true"
       RI_DATABASE_MANAGEMENT: "false"

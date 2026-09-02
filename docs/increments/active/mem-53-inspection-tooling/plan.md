@@ -20,7 +20,7 @@
 
 - [x] Extract environment-independent PostgreSQL, Keycloak, API, worker, web, volumes, and networks into `compose.base.yaml`.
 - [x] Reduce `compose.production.yaml` to a no-tools production overlay.
-- [x] Add `compose.staging.yaml` for Mailpit, Redis, inspector bootstrap, pgweb, Redis Insight, and both OAuth2 Proxies.
+- [x] Add `compose.staging.yaml` for Mailpit, ACL-provisioned TLS Redis, PostgreSQL inspector bootstrap, pgweb, Redis Insight, and both OAuth2 Proxies.
 - [x] Add standalone loopback-only `compose.local-tools.yaml` for fixed host Dev Service ports.
 - [x] Keep raw staging tool services private and expose only loopback OAuth proxy endpoints `18026` and `18027`.
 
@@ -30,7 +30,7 @@
 - [x] Configure pgweb with readonly, session lock, SSH denial, passfile, bounded queries, and no browser auto-open.
 - [x] Add idempotent Redis ACL bootstrap for a namespace-bounded read-only inspection principal.
 - [x] Configure persistent encrypted Redis Insight with database management disabled and a preconfigured Redis connection.
-- [x] Require all staging tool credentials, client secrets, cookie secrets, and encryption keys through environment boundaries without committed defaults.
+- [x] Require all staging tool credentials, client secrets, cookie secrets, and encryption keys through file-backed or controlled reconciliation boundaries without committed defaults.
 
 ## Keycloak SSO
 

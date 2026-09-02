@@ -418,11 +418,28 @@ ensure_inspector_role_and_user() {
 }
 
 grant_inspector_role_to_client() {
-    "$KCADM" add-roles \
+    role=$("$KCADM" get "roles/memoryos-inspector" \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
-        --cid "$CLIENT_UUID" \
-        --rolename memoryos-inspector >/dev/null
+        --fields id,name)
+    role_payload=$(printf '%s\n' "$role" |
+        jq -c '[{id: .id, name: .name}]')
+    printf '%s\n' "$role_payload" |
+        "$KCADM" create "clients/$CLIENT_UUID/scope-mappings/realm" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f - >/dev/null
+
+    scoped_roles=$("$KCADM" get "clients/$CLIENT_UUID/scope-mappings/realm" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --fields id,name)
+    scoped_names=$(printf '%s\n' "$scoped_roles" |
+        jq -cS '[.[].name] | sort')
+    if [ "$scoped_names" != '["memoryos-inspector"]' ]; then
+        echo "inspection clients must expose only memoryos-inspector" >&2
+        exit 1
+    fi
 }
 
 

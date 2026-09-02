@@ -302,6 +302,7 @@ services:
       - --cookie-expire=1h
       - --session-cookie-minimal=true
       - --reverse-proxy=true
+      - --trusted-proxy-ip=${MEMORYOS_PROXY_TRUSTED_CIDR:-172.21.0.0/16}
       - --skip-provider-button=true
       - --pass-basic-auth=false
       - --pass-user-headers=false
@@ -331,52 +332,35 @@ services:
         reservations:
           memory: 32m
 
-  redis-inspector-bootstrap:
-    image: ${MEMORYOS_REDIS_IMAGE:-redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232}
-    container_name: memoryos-redis-inspector-bootstrap
-    entrypoint:
-      - /bin/sh
-      - /inspection-tools/provision-inspector-acl.sh
-    secrets:
-      - redis_admin_password
-      - redis_inspector_password
-      - redis_tls_ca
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - redis-inspection
-    volumes:
-      - ../redis/provision-inspector-acl.sh:/inspection-tools/provision-inspector-acl.sh:ro
-    restart: "no"
-    read_only: true
-    tmpfs:
-      - /tmp:size=8m,mode=1777
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
 
   redisinsight:
     <<: *staging-service-defaults
     image: ${MEMORYOS_REDISINSIGHT_IMAGE:-redis/redisinsight:3.8.0@sha256:b5e19ee240abef6edb435871b90ff8a210995422e8e018ab61c0339d318a1f84}
     container_name: memoryos-redisinsight
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - /redis-tools/start-redisinsight.sh
+    cap_add:
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
     environment:
       RI_ACCEPT_TERMS_AND_CONDITIONS: "true"
       RI_DATABASE_MANAGEMENT: "false"
-      RI_ENCRYPTION_KEY: ${MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY:?Set MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY}
       RI_REDIS_HOST: redis
       RI_REDIS_PORT: "6379"
       RI_REDIS_ALIAS: MemoryOS staging execution
       RI_REDIS_USERNAME: memoryos-inspector
-      RI_REDIS_PASSWORD: ${MEMORYOS_REDIS_INSPECTOR_PASSWORD:?Set MEMORYOS_REDIS_INSPECTOR_PASSWORD}
       RI_REDIS_TLS: "true"
       RI_REDIS_TLS_CA_PATH: /run/secrets/redis_tls_ca
     secrets:
+      - redis_inspector_password
       - redis_tls_ca
+      - redisinsight_encryption_key
     depends_on:
-      redis-inspector-bootstrap:
-        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     networks:
       redis-inspection:
         aliases:
@@ -386,6 +370,7 @@ services:
           - redisinsight
     volumes:
       - memoryos_redisinsight:/data
+      - ../redis/start-redisinsight.sh:/redis-tools/start-redisinsight.sh:ro
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777
@@ -430,6 +415,7 @@ services:
       - --cookie-expire=1h
       - --session-cookie-minimal=true
       - --reverse-proxy=true
+      - --trusted-proxy-ip=${MEMORYOS_PROXY_TRUSTED_CIDR:-172.21.0.0/16}
       - --skip-provider-button=true
       - --pass-basic-auth=false
       - --pass-user-headers=false
@@ -503,6 +489,8 @@ secrets:
     file: ${MEMORYOS_REDIS_WORKER_PASSWORD_FILE:?Set MEMORYOS_REDIS_WORKER_PASSWORD_FILE}
   redis_inspector_password:
     file: ${MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE:?Set MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE}
+  redisinsight_encryption_key:
+    file: ${MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY_FILE:?Set MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY_FILE}
   redis_tls_ca:
     file: ${MEMORYOS_REDIS_TLS_CA_FILE:?Set MEMORYOS_REDIS_TLS_CA_FILE}
   redis_tls_certificate:

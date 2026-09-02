@@ -3,6 +3,15 @@ set -eu
 
 INSPECTION_DIRECTORY=${MEMORYOS_INSPECTION_SECRET_DIRECTORY:-/apps/memoryos/secrets/inspection}
 REDIS_DIRECTORY=${MEMORYOS_REDIS_SECRET_DIRECTORY:-/apps/memoryos/secrets/redis}
+ROTATE_TLS=${MEMORYOS_REDIS_TLS_ROTATE:-false}
+case "$ROTATE_TLS" in
+    true | false)
+        ;;
+    *)
+        echo "MEMORYOS_REDIS_TLS_ROTATE must be true or false" >&2
+        exit 1
+        ;;
+esac
 umask 077
 mkdir -p "$INSPECTION_DIRECTORY" "$REDIS_DIRECTORY"
 chmod 0700 "$INSPECTION_DIRECTORY" "$REDIS_DIRECTORY"
@@ -49,7 +58,7 @@ for path in \
     fi
 done
 
-if [ "$TLS_COUNT" -eq 0 ]; then
+if [ "$TLS_COUNT" -eq 0 ] || [ "$ROTATE_TLS" = true ]; then
     TEMPORARY_DIRECTORY=$(mktemp -d)
     cleanup() {
         rm -rf "$TEMPORARY_DIRECTORY"
@@ -102,6 +111,9 @@ EOF
     install -m 0600 "$TEMPORARY_DIRECTORY/server.key" "$REDIS_DIRECTORY/server.key"
 elif [ "$TLS_COUNT" -ne 4 ]; then
     echo "refusing to replace an incomplete Redis TLS secret set in $REDIS_DIRECTORY" >&2
+    exit 1
+elif ! openssl x509 -in "$REDIS_DIRECTORY/server.crt" -noout -checkend 2592000 >/dev/null; then
+    echo "Redis TLS certificate expires within 30 days; rerun with MEMORYOS_REDIS_TLS_ROTATE=true and redeploy all Redis clients" >&2
     exit 1
 fi
 

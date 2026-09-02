@@ -26,7 +26,7 @@ production
 `compose.staging.yaml` adds:
 
 - Mailpit and staging mail configuration;
-- read-only PostgreSQL and Redis inspector bootstrap jobs;
+- read-only PostgreSQL inspector bootstrap and ACL-provisioned TLS Redis;
 - pgweb and Redis Insight on private inspection networks;
 - one OAuth2 Proxy per tool;
 - loopback bindings `127.0.0.1:18026` for pgweb and `127.0.0.1:18027` for Redis Insight.
@@ -81,7 +81,7 @@ PING HELLO INFO DBSIZE SCAN TYPE TTL GET MEMORY
 COMMAND INFO; CLIENT SETNAME/SETINFO; XINFO XRANGE XLEN XPENDING
 ```
 
-Write, keyspace-administration, ACL, CONFIG, MODULE, SCRIPT, FUNCTION, and connection-killing commands remain denied. The ACL bootstrap is idempotent and receives credentials only through the environment boundary.
+Write, keyspace-administration, ACL, CONFIG, MODULE, SCRIPT, FUNCTION, and connection-killing commands remain denied. The Redis entrypoint reconstructs the complete hashed ACL from file-backed credentials on every start, so restart or rotation cannot leave a divergent mutable user definition.
 
 ## Authentication and authorization
 
@@ -98,7 +98,7 @@ OAuth2 Proxy requires the `memoryos-inspector` role. A normal MemoryOS user can 
 - Redis Insight joins only its proxy and Redis inspection networks;
 - raw tool ports are not published in staging;
 - proxy ports bind to loopback for an operator-controlled upstream tunnel;
-- tool credentials, client secrets, cookie secrets, encryption keys, and Redis ACL passwords remain required environment values;
+- staging tool credentials, cookie secrets, encryption keys, Redis ACL passwords, and TLS material are file-backed Compose secrets; client secret values enter only the controlled Keycloak reconciliation shell;
 - no staging or production secret receives a checked-in default;
 - production Compose and production application artifacts contain no Arconia Dev Services or inspection services.
 

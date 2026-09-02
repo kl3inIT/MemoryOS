@@ -17,7 +17,7 @@ Arconia 0.30 has no fixed-port bind-address property. Docker inspection showed T
 
 - Base+staging, base+production, and local-tool Compose combinations each completed `config --quiet` with validation-only values.
 - Base+production rendered exactly `postgres`, `shared-keycloak`, `api`, `worker`, and `web`; it contained no Mailpit, Redis inspector, pgweb, Redis Insight, or inspection OAuth proxy.
-- Base+staging rendered Mailpit, TLS Redis, both idempotent inspector bootstrap jobs, pgweb, Redis Insight, and separate OAuth2 Proxies in addition to the base runtime.
+- Base+staging rendered Mailpit, ACL-provisioned TLS Redis, the idempotent PostgreSQL inspector bootstrap, pgweb, Redis Insight, and separate OAuth2 Proxies in addition to the base runtime.
 - Rendered staging configuration reported no published ports for pgweb or Redis Insight. Only their proxies published `127.0.0.1:18026` and `127.0.0.1:18027`; raw tools joined only their private backend networks, while proxies alone also joined `proxy`.
 - Rendered worker configuration retained its API-health dependency, added Redis-health dependency, selected `production,staging`, mounted only the Redis CA, and configured the `memoryos-worker` TLS connection.
 - Pinned image digests are recorded for pgweb 0.17.0, Redis Insight 3.8.0, Redis 8.2.1 Alpine, and OAuth2 Proxy 7.15.3.
@@ -26,11 +26,11 @@ Arconia 0.30 has no fixed-port bind-address property. Docker inspection showed T
 
 | Contract | Evidence |
 | --- | --- |
-| Secret provisioning is bounded and idempotent | The Linux provisioner ran twice over the same directories, preserved the complete set, verified the generated Redis certificate against its CA, and printed no secret values. |
+| Secret provisioning is bounded, idempotent, and rotatable | The Linux provisioner ran twice over the same directories, preserved the complete set, and verified the Redis certificate against its CA. An explicit `MEMORYOS_REDIS_TLS_ROTATE=true` run replaced the certificate with a different SHA-256 value. The script prints no secret values and otherwise fails 30 days before expiry with the required coordinated rotation command. |
 | PostgreSQL inspection is read-only | A disposable base+staging runtime created `memoryos_pgweb`, reran the bootstrap over the existing role, and started pgweb under the Compose security constraints. pgweb returned HTTP `200`. The role reported `current_user=memoryos_pgweb` and `transaction_read_only=on`; `CREATE TABLE` failed with `cannot execute CREATE TABLE in a read-only transaction`. |
-| Redis transport is TLS and inspector ACL is persistent | A disposable base+staging runtime started Redis with plaintext port disabled, TLS on `6379`, default user disabled, hashed ACL credentials, and successful inspector reconciliation. Restart reconstruction is sourced from the mounted secret files rather than mutable container state. |
+| Redis transport is TLS and inspector ACL is persistent | A disposable base+staging runtime started Redis with plaintext port disabled, TLS on `6379`, default user disabled, and hashed administrator, worker, and inspector ACL credentials. Every restart reconstructs that single ACL source from mounted secret files rather than mutable container state. |
 | Redis inspection can read but cannot mutate/administer | `memoryos-inspector` read a seeded `memoryos:execution:*` stream through `XRANGE`. `XADD` returned `NOPERM`; `CONFIG GET` returned `NOPERM`. The ACL also denies unrestricted key patterns and all commands not explicitly listed. |
-| Redis Insight starts with the checked-in restrictions | Redis Insight returned `200 {"status":"up"}` from `/api/health/` under the Compose read-only filesystem/capability constraints. Its API reported the preconfigured `memoryos-inspector` connection with TLS enabled and password material present; Compose supplies the documented persistent encryption key and disables database management. |
+| Redis Insight starts with the checked-in restrictions | Redis Insight returned `200 {"status":"up"}` from `/api/health/` under the Compose read-only filesystem/capability constraints. Docker metadata contained neither `RI_REDIS_PASSWORD` nor `RI_ENCRYPTION_KEY`; the root wrapper read both files, dropped to UID `1000`, and the application API reported the preconfigured TLS connection while database management remained disabled. |
 
 ## Keycloak reconciliation evidence
 
@@ -39,7 +39,7 @@ Arconia 0.30 has no fixed-port bind-address property. Docker inspection showed T
 A disposable Linux `kcadm` double exercised the complete existing-user reconciliation path. It observed:
 
 - one `memoryos-inspector` user-role grant, targeted only to realm-local user UUID `uuid-admin`;
-- client scope grants only to `memoryos-pgweb` and `memoryos-redisinsight`;
+- exact realm-role scope mappings posted only to `clients/<pgweb-or-redisinsight-uuid>/scope-mappings/realm`, each with role ID/name `role-inspector` / `memoryos-inspector`;
 - separate confidential clients with `fullScopeAllowed=false`;
 - exact callbacks `https://pgweb.example.test/oauth2/callback` and `https://redis.example.test/oauth2/callback`;
 - mandatory S256 PKCE on both clients;
