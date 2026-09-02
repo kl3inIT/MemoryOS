@@ -109,6 +109,7 @@ class WorkerFileProcessingIntegrationTest {
         byte[] content = "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         var upload = sources.upload(OWNER, sourceId, "worker.txt", content);
+        assertEquals(sha256, upload.item().sha256());
 
         await(() -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
