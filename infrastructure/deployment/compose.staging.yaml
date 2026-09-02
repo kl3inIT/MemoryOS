@@ -29,6 +29,10 @@ services:
   api:
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      MEMORYOS_TENANT_ID: ${MEMORYOS_TENANT_ID:?Set MEMORYOS_TENANT_ID}
+      MEMORYOS_TENANT_SLUG: ${MEMORYOS_TENANT_SLUG:?Set MEMORYOS_TENANT_SLUG}
+      MEMORYOS_TENANT_DISPLAY_NAME: ${MEMORYOS_TENANT_DISPLAY_NAME:?Set MEMORYOS_TENANT_DISPLAY_NAME}
+      MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE:?Set MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
     depends_on:
       postgres-inspector-bootstrap:
         condition: service_completed_successfully
@@ -40,8 +44,15 @@ services:
       MEMORYOS_REDIS_PORT: "6379"
       MEMORYOS_REDIS_USERNAME: memoryos-worker
       MEMORYOS_REDIS_SSL_ENABLED: "true"
-      MEMORYOS_REDIS_TLS_CA_CERTIFICATE: file:/run/secrets/redis_tls_ca
+      MEMORYOS_REDIS_TLS_CA_FILE: /run/secrets/redis_tls_ca
       MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_worker_password
+      MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
+      MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
+      MEMORYOS_REDIS_POOL_MAX_ACTIVE: ${MEMORYOS_REDIS_POOL_MAX_ACTIVE:-8}
+      MEMORYOS_REDIS_POOL_MAX_IDLE: ${MEMORYOS_REDIS_POOL_MAX_IDLE:-8}
+      MEMORYOS_REDIS_POOL_MIN_IDLE: ${MEMORYOS_REDIS_POOL_MIN_IDLE:-0}
+      MEMORYOS_REDIS_POOL_MAX_WAIT: ${MEMORYOS_REDIS_POOL_MAX_WAIT:-2s}
+      MEMORYOS_SCHEDULER_NAME: ${MEMORYOS_SCHEDULER_NAME:-memoryos-worker-staging-1}
     secrets:
       - redis_tls_ca
       - redis_worker_password
@@ -148,10 +159,12 @@ services:
     <<: *staging-service-defaults
     image: ${MEMORYOS_REDIS_IMAGE:-redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232}
     container_name: memoryos-redis
+    user: "0:0"
     entrypoint:
       - /bin/sh
       - /redis-tools/start-staging-redis.sh
     cap_add:
+      - DAC_OVERRIDE
       - CHOWN
       - SETGID
       - SETUID
@@ -227,6 +240,7 @@ services:
     cap_drop:
       - ALL
     cap_add:
+      - DAC_OVERRIDE
       - CHOWN
 
   pgweb:
@@ -285,6 +299,7 @@ services:
     <<: *staging-service-defaults
     image: ${MEMORYOS_OAUTH2_PROXY_IMAGE:?Set MEMORYOS_OAUTH2_PROXY_IMAGE}
     container_name: memoryos-pgweb-oauth2-proxy
+    user: "${MEMORYOS_PGWEB_UID:-1000}:${MEMORYOS_PGWEB_GID:-1000}"
     command:
       - --http-address=0.0.0.0:4180
       - --provider=keycloak-oidc
@@ -398,6 +413,7 @@ services:
     <<: *staging-service-defaults
     image: ${MEMORYOS_OAUTH2_PROXY_IMAGE:?Set MEMORYOS_OAUTH2_PROXY_IMAGE}
     container_name: memoryos-redisinsight-oauth2-proxy
+    user: "${MEMORYOS_PGWEB_UID:-1000}:${MEMORYOS_PGWEB_GID:-1000}"
     command:
       - --http-address=0.0.0.0:4180
       - --provider=keycloak-oidc
