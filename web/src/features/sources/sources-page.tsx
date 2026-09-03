@@ -42,6 +42,7 @@ const terminalOperationStatuses: Record<string, true> = {
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
 type PendingFinalize = {
+  sourceId: string;
   uploadId: string;
   filename: string;
 };
@@ -151,7 +152,11 @@ export function SourcesPage() {
         });
       } catch (cause) {
         if (!controller.signal.aborted) {
-          setPendingFinalize({ uploadId: authorization.uploadId, filename: file.name });
+          setPendingFinalize({
+            sourceId: selectedId,
+            uploadId: authorization.uploadId,
+            filename: file.name,
+          });
           setUploadPhase("finalize-retry");
           setError(
             `${sourceMutationError(cause, "upload")} The file reached object storage; retry finalization without uploading it again.`,
@@ -184,14 +189,15 @@ export function SourcesPage() {
   }
 
   async function retryFinalize() {
-    if (!selectedId || !pendingFinalize) return;
+    if (!pendingFinalize) return;
+    const pending = pendingFinalize;
     setError(null);
     const controller = new AbortController();
     uploadController.current = controller;
     setUploadPhase("finalizing");
     try {
       await finalizeUpload.mutateAsync({
-        path: { sourceId: selectedId, uploadId: pendingFinalize.uploadId },
+        path: { sourceId: pending.sourceId, uploadId: pending.uploadId },
         headers: sameOriginMutationHeaders,
         signal: controller.signal,
       });
@@ -199,7 +205,7 @@ export function SourcesPage() {
       setFile(null);
       if (fileInput.current) fileInput.current.value = "";
       setUploadPhase("idle");
-      await refresh(selectedId);
+      await refresh(pending.sourceId);
     } catch (cause) {
       if (controller.signal.aborted) {
         setUploadPhase("finalize-retry");

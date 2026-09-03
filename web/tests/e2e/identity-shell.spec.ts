@@ -533,6 +533,11 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     lastSucceededAt: null,
     errorCode: null,
   };
+  const otherSource = {
+    ...source,
+    id: "25f8cb72-2628-4d75-bcf1-8f6cda95a120",
+    name: "Support notes",
+  };
   const items: Array<Record<string, unknown>> = [];
   const mutationHeaders: string[] = [];
   const apiUploadBodies: Array<Buffer | null> = [];
@@ -543,6 +548,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   let removeAttempts = 0;
   let finalizeAttempts = 0;
   let objectStoragePuts = 0;
+  let includeOtherSource = true;
   let storedBytes: Buffer | null = null;
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -597,7 +603,9 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(sourceDeleted ? [] : source.name ? [source] : []),
+        body: JSON.stringify(
+          sourceDeleted ? [] : [source, ...(includeOtherSource ? [otherSource] : [])],
+        ),
       });
       return;
     }
@@ -615,6 +623,14 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         status: sourceDeleted ? 404 : 200,
         contentType: "application/json",
         body: sourceDeleted ? "{}" : JSON.stringify({ source, items }),
+      });
+      return;
+    }
+    if (request.method() === "GET" && path === `/api/sources/${otherSource.id}`) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ source: otherSource, items: [] }),
       });
       return;
     }
@@ -645,7 +661,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     }
     if (
       request.method() === "POST" &&
-      path.endsWith("/uploads/ac15afe3-88b3-4627-a737-51d8c4c1b290/finalize")
+      path === `/api/sources/${source.id}/uploads/ac15afe3-88b3-4627-a737-51d8c4c1b290/finalize`
     ) {
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
       apiUploadBodies.push(request.postDataBuffer());
@@ -658,6 +674,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         });
         return;
       }
+      includeOtherSource = false;
       source.status = "ACTIVE";
       source.documentCount = 1;
       items.push({
@@ -762,7 +779,10 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page.getByRole("alert")).toContainText(
     "The file reached object storage; retry finalization without uploading it again.",
   );
+  await page.getByText(otherSource.name, { exact: true }).click();
+  await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
   await page.getByRole("button", { name: "Retry finalization" }).click();
+  await page.getByText(source.name, { exact: true }).click();
   await expect(page.getByText("knowledge.txt")).toBeVisible();
   expect(objectStoragePuts).toBe(1);
   expect(storedBytes).toEqual(uploadedFile);

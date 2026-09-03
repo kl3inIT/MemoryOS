@@ -58,6 +58,12 @@ public class DefaultConnectorCleanupService implements ConnectorCleanupPort {
     public Optional<CleanupWork> claim(TenantId tenantId, SourceOperationId operationId, UUID deliveryId) {
         return attempts.claim(tenantId, operationId, deliveryId);
     }
+    @Override
+    @Transactional
+    public boolean renew(CleanupWork work) {
+        return attempts.renew(work);
+    }
+
 
     @Override
     @Transactional

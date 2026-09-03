@@ -23,6 +23,9 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -30,6 +33,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class DefaultObjectUploadService implements ObjectUploadService, ObjectUploadCleanupPort {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultObjectUploadService.class);
+
     private final JdbcStoredObjectRepository objects;
     private final JdbcObjectUploadRepository uploads;
     private final ObjectStorage storage;
@@ -81,7 +86,7 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
         try {
             return new ObjectUploadAuthorization(uploadId, storage.authorizeUpload(key, specification.constraints()));
         } catch (ObjectStorageException exception) {
-            throw ObjectUploadException.storageUnavailable(exception.code());
+            throw ObjectUploadException.storageUnavailable(exception.code(), exception);
         }
     }
 
@@ -126,9 +131,9 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
             ));
             if (exception.code() == ObjectStorageFailureCode.NOT_FOUND
                     || exception.code() == ObjectStorageFailureCode.PRECONDITION_FAILED) {
-                throw ObjectUploadException.integrityMismatch();
+                throw ObjectUploadException.integrityMismatch(exception);
             }
-            throw ObjectUploadException.storageUnavailable(exception.code());
+            throw ObjectUploadException.storageUnavailable(exception.code(), exception);
         } catch (RuntimeException exception) {
             if (!(exception instanceof ObjectUploadException)) {
                 transactions.executeWithoutResult(_ -> uploads.releaseVerification(
@@ -176,14 +181,23 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
         ));
         int completed = 0;
         for (var row : Objects.requireNonNull(claimed)) {
-            StoredObjectReference reference = objects.find(row.tenantId(), row.storedObjectId())
-                    .orElseThrow(ObjectUploadException::notFound);
-            storage.delete(reference.key());
-            transactions.executeWithoutResult(_ -> {
-                uploads.expireClaimed(row);
-                objects.remove(row.tenantId(), row.storedObjectId());
-            });
-            completed++;
+            try {
+                StoredObjectReference reference = objects.find(row.tenantId(), row.storedObjectId())
+                        .orElseThrow(ObjectUploadException::notFound);
+                storage.delete(reference.key());
+                transactions.executeWithoutResult(_ -> {
+                    uploads.expireClaimed(row);
+                    objects.remove(row.tenantId(), row.storedObjectId());
+                });
+                completed++;
+            } catch (RuntimeException exception) {
+                LOGGER.warn(
+                        "Abandoned object upload cleanup failed; the claim will be retried after lease expiry: tenant={}, upload={}",
+                        row.tenantId().value(),
+                        row.uploadId().value(),
+                        exception
+                );
+            }
         }
         return completed;
     }

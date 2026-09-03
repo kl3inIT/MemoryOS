@@ -5,7 +5,13 @@ root_password="$(cat /run/secrets/minio_root_password)"
 api_secret="$(cat /run/secrets/minio_api_secret_key)"
 worker_secret="$(cat /run/secrets/minio_worker_secret_key)"
 
-until mc alias set memoryos "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${root_password}" >/dev/null 2>&1; do
+attempt=1
+while ! mc alias set memoryos "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${root_password}" >/dev/null 2>&1; do
+  if [ "${attempt}" -ge 30 ]; then
+    echo "MinIO bootstrap could not authenticate after ${attempt} attempts" >&2
+    exit 1
+  fi
+  attempt=$((attempt + 1))
   sleep 2
 done
 

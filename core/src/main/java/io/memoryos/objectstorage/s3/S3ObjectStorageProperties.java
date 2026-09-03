@@ -22,7 +22,7 @@ public record S3ObjectStorageProperties(
 ) {
     public S3ObjectStorageProperties {
         requireHttpEndpoint(serviceEndpoint, "serviceEndpoint");
-        requireHttpEndpoint(uploadEndpoint, "uploadEndpoint");
+        requireBrowserUploadEndpoint(uploadEndpoint);
         requireText(region, "region");
         requireText(bucket, "bucket");
         requireText(accessKey, "accessKey");
@@ -42,6 +42,20 @@ public record S3ObjectStorageProperties(
             throw new IllegalArgumentException(name + " must be an absolute HTTP endpoint");
         }
     }
+    private static void requireBrowserUploadEndpoint(URI value) {
+        requireHttpEndpoint(value, "uploadEndpoint");
+        if ("http".equals(value.getScheme()) && !isLoopback(value.getHost())) {
+            throw new IllegalArgumentException("uploadEndpoint must use HTTPS unless it targets loopback");
+        }
+    }
+
+    private static boolean isLoopback(String host) {
+        return "localhost".equalsIgnoreCase(host)
+                || "::1".equals(host)
+                || "[::1]".equals(host)
+                || host.startsWith("127.");
+    }
+
 
     private static void requireText(String value, String name) {
         Objects.requireNonNull(value, name + " must not be null");

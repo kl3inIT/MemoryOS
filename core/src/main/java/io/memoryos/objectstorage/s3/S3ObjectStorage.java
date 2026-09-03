@@ -97,6 +97,7 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
                     .bucket(bucket)
                     .key(key.value())
                     .contentType(constraints.mediaType())
+                    .contentLength(constraints.sizeBytes())
                     .checksumSHA256(constraints.checksum().base64())
                     .build();
             var signed = presigner.presignPutObject(PutObjectPresignRequest.builder()
@@ -105,7 +106,7 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
                     .build());
             Map<String, String> headers = new LinkedHashMap<>();
             signed.signedHeaders().forEach((name, values) -> {
-                if (!"host".equalsIgnoreCase(name)) {
+                if (!"host".equalsIgnoreCase(name) && !"content-length".equalsIgnoreCase(name)) {
                     headers.put(name, String.join(",", values));
                 }
             });

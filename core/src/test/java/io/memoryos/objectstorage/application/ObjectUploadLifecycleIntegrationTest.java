@@ -136,6 +136,7 @@ class ObjectUploadLifecycleIntegrationTest {
         );
 
         assertEquals("OBJECT_UPLOAD_STORAGE_UNAVAILABLE", unavailable.code());
+        assertInstanceOf(ObjectStorageException.class, unavailable.getCause());
         assertEquals("PENDING", uploadStatus(authorization.uploadId().value()));
         var verified = uploads.verify(tenantId, authorization.uploadId());
         uploads.adopt(tenantId, authorization.uploadId(), verified.token());
@@ -158,18 +159,20 @@ class ObjectUploadLifecycleIntegrationTest {
     }
 
     @Test
-    void transientDeleteFailureIsRetriedOnlyAfterCleanupLeaseExpiry() {
-        var authorization = uploads.initiate(tenantId, SPECIFICATION);
+    void oneDeleteFailureDoesNotAbortLaterRowsAndIsRetriedAfterCleanupLeaseExpiry() {
+        uploads.initiate(tenantId, SPECIFICATION);
+        uploads.initiate(tenantId, SPECIFICATION);
         clock.advance(Duration.ofMinutes(6));
         storage.failNextDelete();
 
-        assertThrows(IllegalStateException.class, uploads::cleanupAbandoned);
-        assertEquals("CLEANING", uploadStatus(authorization.uploadId().value()));
+        assertEquals(1, uploads.cleanupAbandoned());
+        assertEquals(1, uploadCount("CLEANING"));
+        assertEquals(1, uploadCount("EXPIRED"));
 
         clock.advance(Duration.ofMinutes(2));
         assertEquals(1, uploads.cleanupAbandoned());
-        assertEquals(1, storage.deleteCount());
-        assertEquals("EXPIRED", uploadStatus(authorization.uploadId().value()));
+        assertEquals(2, storage.deleteCount());
+        assertEquals(2, uploadCount("EXPIRED"));
     }
 
     @Test
@@ -198,6 +201,13 @@ class ObjectUploadLifecycleIntegrationTest {
                 .query(String.class)
                 .single();
     }
+    private int uploadCount(String status) {
+        return jdbcClient.sql("SELECT COUNT(*) FROM object_uploads WHERE status = :status")
+                .param("status", status)
+                .query(Integer.class)
+                .single();
+    }
+
 
     private static final class MutableClock extends Clock {
         private final AtomicReference<Instant> now;

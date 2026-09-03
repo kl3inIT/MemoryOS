@@ -4,11 +4,11 @@
 
 `objectstorage` owns Tenant-scoped immutable object metadata, generic browser-upload authorization, verification claims, adoption, discard, and pre-adoption cleanup. Its public `ObjectStorage` port uses only `ObjectKey`, `UploadConstraints`, `UploadAuthorization`, `ObjectMetadata`, and streaming `ObjectContent`; AWS SDK and MinIO types remain inside `objectstorage.s3`.
 
-`S3ObjectStorage` is the first provider adapter. It is configured with separate service and browser-upload endpoints, static service credentials, region, bucket, path-style behavior, bounded HTTP timeouts, and a bounded authorization lifetime. MinIO is the verified S3 implementation, not a type in the capability contract.
+`S3ObjectStorage` is the first provider adapter. It is configured with separate service and browser-upload endpoints, static service credentials, region, bucket, path-style behavior, bounded HTTP timeouts, and a bounded authorization lifetime. The browser endpoint requires HTTPS except for explicit loopback development/test addresses. The internal service endpoint may use plain HTTP only inside the private single-host Docker bridge; adding speculative MinIO PKI there would not protect browser traffic. MinIO is the verified S3 implementation, not a type in the capability contract.
 
 ## Object and upload lifecycle
 
-Every initiated upload creates one `STAGED` `StoredObject` and one generic `ObjectUpload` before returning authorization. Object keys are server-generated and Tenant-partitioned. The signed PUT binds the immutable key, media type, and SHA-256 checksum; the browser cannot choose a bucket or key. Size is verified from provider metadata during finalization because browsers cannot set `Content-Length` directly.
+Every initiated upload creates one `STAGED` `StoredObject` and one generic `ObjectUpload` before returning authorization. Object keys are server-generated and Tenant-partitioned. The signed PUT binds the immutable key, media type, SHA-256 checksum, and declared `Content-Length`; the browser cannot choose a bucket or key. Browsers supply `Content-Length` automatically, so it is signed but omitted from the client-managed required-header map. Size is also verified from provider metadata during finalization.
 
 Upload states are `PENDING`, `VERIFYING`, `VERIFIED`, `ADOPTED`, `DISCARDED`, `CLEANING`, and `EXPIRED`. Verification uses a token and lease, performs provider inspection outside a database transaction, and compares the actual key-bound size, media type, and SHA-256 with durable declared metadata. Adoption or discard requires the current verification token and an unexpired adoption deadline. A completed adoption is capability-owned and never selected by generic abandoned-upload cleanup.
 
@@ -16,7 +16,7 @@ Expected missing or mismatched uploaded content returns `OBJECT_UPLOAD_INTEGRITY
 
 ## Cleanup and readiness
 
-The generic reaper claims only expired pre-adoption uploads and discarded duplicate objects. `CLEANING` plus a token and lease fences cleanup from verification/adoption. Provider deletion precedes token-guarded metadata removal and is idempotent; a transient failure leaves the cleanup claim recoverable after its lease.
+The generic reaper claims only expired pre-adoption uploads and discarded duplicate objects. `CLEANING` plus a token and lease fences cleanup from verification/adoption. Provider deletion precedes token-guarded metadata removal and is idempotent; a row failure remains recoverable after its lease without aborting later claimed rows.
 
 After adoption, the owning capability controls deletion. Connector invalidates provenance, marks the `StoredObject` `DELETE_PENDING`, deletes the provider object, then removes upload associations, versions/items, and object metadata in one claim-fenced transaction. Retried provider deletion and `DELETE_PENDING` marking are idempotent.
 

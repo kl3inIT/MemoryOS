@@ -264,11 +264,11 @@ The command requires an active Tenant OWNER and an active FILE Pair. The generic
 
 Object storage first commits `StoredObject(STAGED)` and `ObjectUpload(PENDING)`. Connector then persists `SourceUploadLink(sourceId, objectUploadId)` after revalidating the source; only after that association commits does the API return the authorization. A failure between those steps produces a generic abandoned object upload that the reaper can remove, never an unowned ConnectorItem.
 
-`ObjectUploadService` calls `ObjectStorage.authorizeUpload` and returns `ObjectUploadAuthorization`. The authorization is scoped to exactly one key, method, expiry, content type, and `x-amz-checksum-sha256` value. The browser receives no object-store credential, bucket listing permission, read permission, or stable object URL. Reissuance retains the same upload, object identity, key, integrity declaration, and original maximum lifetime.
+`ObjectUploadService` calls `ObjectStorage.authorizeUpload` and returns `ObjectUploadAuthorization`. The authorization is scoped to exactly one key, method, expiry, content type, `x-amz-checksum-sha256` value, and `Content-Length`. The browser receives no object-store credential, bucket listing permission, read permission, or stable object URL. Reissuance retains the same upload, object identity, key, integrity declaration, and original maximum lifetime.
 
 ### Phase 2: direct upload
 
-The browser performs one PUT directly to the authorization URI with exactly the required headers. UI state distinguishes upload progress, cancellation, expired authorization, object-provider rejection, and API finalization failure. A provider transport retry does not create another ConnectorItem and does not claim finalization succeeded.
+The browser performs one PUT directly to the authorization URI with exactly the required client-managed headers. The browser supplies the signed `Content-Length` automatically; application code neither sets nor exposes that forbidden header. UI state distinguishes upload progress, cancellation, expired authorization, object-provider rejection, and API finalization failure. Finalize retry retains the initiating `sourceId` and never emits another provider PUT.
 
 The MinIO bucket is private. CORS permits only configured MemoryOS origins, PUT/preflight methods, and required content/checksum headers. Presigned URIs are short-lived bearer capabilities and are excluded from logs, telemetry, error payloads, durable browser state, and query caches.
 
@@ -293,7 +293,7 @@ Pair-scoped duplicate-content convergence remains unchanged. The bytes are uploa
 
 Index claims carry `StoredObjectId` and `ObjectKey`, not cloned `byte[]`. `DefaultIngestionCoordinator` opens `ObjectContent` outside claim/finalization transactions. The FILE adapter streams bounded content into temporary storage for the isolated Tika child JVM; the API and worker no longer hydrate raw content from JDBC BYTEA.
 
-The token-fenced claim, lease renewal, stale-completion rejection, extraction failure taxonomy, Redis acknowledgement, and supersession rules stay unchanged. An `ACTIVE` object remains retained after extraction so parser, chunker, or embedding rebuilds can reprocess the original source later.
+The token-fenced claim, scheduled lease renewal for both index and cleanup work, stale-completion rejection, extraction failure taxonomy, Redis acknowledgement, and supersession rules stay unchanged. An `ACTIVE` object remains retained after extraction so parser, chunker, or embedding rebuilds can reprocess the original source later.
 
 ### Item and source cleanup
 
@@ -417,7 +417,7 @@ MinIO is added with a pinned image, durable volume, health check, private bucket
 
 API credentials permit signing PUT for the configured prefix and reading metadata required by finalize. Worker credentials permit GET and DELETE for controlled keys. Production secret values remain in deployment-owned mode-`0600` files mounted only into bootstrap and the matching application; repository configuration contains only paths and non-secret identity names. Bucket creation and policy reconciliation are deployment responsibilities, never application startup side effects.
 
-Configuration separates the internal service endpoint used by API/worker SDK clients from the browser-reachable upload endpoint used by the presigner. The signed host must equal the host reached by the browser and be preserved by any ingress proxy; one endpoint cannot represent both `minio:9000` container networking and a public HTTPS origin. Shared settings cover region, bucket, path-style access, TLS, connection/read timeouts, and authorization lifetime.
+Configuration separates the internal service endpoint used by API/worker SDK clients from the browser-reachable upload endpoint used by the presigner. The signed browser host must equal the host reached by the browser, use HTTPS except for loopback development/tests, and be preserved by any ingress proxy. The private single-host Docker bridge may use `http://minio:9000` for the internal SDK endpoint without adding speculative internal PKI. Shared settings cover region, bucket, path-style access, connection/read timeouts, and authorization lifetime.
 
 Deployment provisions a private sentinel object. API and worker readiness use object-scoped inspection of that sentinel with their runtime credentials; readiness never lists the bucket, creates objects, or mutates policy.
 

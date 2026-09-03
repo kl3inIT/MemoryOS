@@ -13,6 +13,8 @@ import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.UploadConstraints;
 
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -48,7 +50,10 @@ class S3ObjectStorageIntegrationTest {
 
     @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
-            DockerImageName.parse("minio/minio:RELEASE.2025-04-22T22-12-26Z")
+            DockerImageName.parse(
+                    "minio/minio:RELEASE.2025-04-22T22-12-26Z"
+                            + "@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
+            )
     )
             .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
             .withEnv("MINIO_API_CORS_ALLOW_ORIGIN", "http://localhost:4173")
@@ -141,6 +146,41 @@ class S3ObjectStorageIntegrationTest {
             );
         }
     }
+    @Test
+    void rejectsContentLargerThanTheSignedSize() throws Exception {
+        byte[] content = "oversized".getBytes(StandardCharsets.UTF_8);
+        var checksum = new ContentSha256(
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content))
+        );
+        var key = new ObjectKey(
+                "raw/10000000-0000-0000-0000-000000000052/50000000-0000-0000-0000-000000000052"
+        );
+
+        try (var storage = storage(Duration.ofMinutes(5))) {
+            var authorization = storage.authorizeUpload(
+                    key,
+                    new UploadConstraints(content.length - 1L, "text/plain", checksum)
+            );
+            assertFalse(authorization.requiredHeaders().keySet().stream()
+                    .anyMatch("content-length"::equalsIgnoreCase));
+            assertTrue(URLDecoder.decode(authorization.uri().getRawQuery(), StandardCharsets.UTF_8)
+                    .contains("content-length"));
+
+            var request = HttpRequest.newBuilder(authorization.uri());
+            authorization.requiredHeaders().forEach(request::header);
+            var response = HTTP.send(
+                    request.PUT(HttpRequest.BodyPublishers.ofByteArray(content)).build(),
+                    HttpResponse.BodyHandlers.discarding()
+            );
+
+            assertEquals(403, response.statusCode());
+            assertEquals(
+                    ObjectStorageFailureCode.NOT_FOUND,
+                    assertThrows(ObjectStorageException.class, () -> storage.inspect(key)).code()
+            );
+        }
+    }
+
 
     @Test
     void presignsVerifiesStreamsAndIdempotentlyDeletesObjects() throws Exception {
@@ -158,6 +198,8 @@ class S3ObjectStorageIntegrationTest {
             assertFalse(authorization.requiredHeaders().keySet().stream().anyMatch("host"::equalsIgnoreCase));
             assertTrue(authorization.requiredHeaders().keySet().stream()
                     .anyMatch("x-amz-checksum-sha256"::equalsIgnoreCase));
+            assertFalse(authorization.requiredHeaders().keySet().stream()
+                    .anyMatch("content-length"::equalsIgnoreCase));
 
             var request = HttpRequest.newBuilder(authorization.uri());
             authorization.requiredHeaders().forEach(request::header);

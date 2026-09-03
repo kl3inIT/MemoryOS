@@ -24,8 +24,8 @@ public record InitiateSourceUploadRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "10485760")
         long sizeBytes,
         @NotBlank
-        @Pattern(regexp = "[0-9a-f]{64}")
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, pattern = "[0-9a-f]{64}")
+        @Pattern(regexp = "^[0-9a-f]{64}$")
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, pattern = "^[0-9a-f]{64}$")
         String sha256
 ) {
     public ObjectUploadSpecification toSpecification() {

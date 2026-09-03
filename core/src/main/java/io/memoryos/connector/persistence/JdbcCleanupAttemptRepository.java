@@ -32,6 +32,16 @@ public class JdbcCleanupAttemptRepository {
                 this::load
         );
     }
+    public boolean renew(CleanupWork work) {
+        return WorkLeases.renew(
+                jdbcClient,
+                "connector_cleanup_attempts",
+                work.tenantId().value(),
+                work.operationId().value(),
+                work.claimToken()
+        );
+    }
+
 
     public boolean retry(CleanupWork work, String errorCode, int maxAttempts, Duration backoff) {
         return WorkLeases.retry(

@@ -138,6 +138,12 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     private void processCleanup(CleanupWork work) {
+        ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
+                () -> renewCleanupLease(work),
+                LEASE_RENEWAL_SECONDS,
+                LEASE_RENEWAL_SECONDS,
+                TimeUnit.SECONDS
+        );
         try {
             for (var object : cleanupPort.objects(work)) {
                 storedObjects.markDeletePending(work.tenantId(), object.object().id());
@@ -155,6 +161,16 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             )) {
                 LOGGER.debug("Ignored stale cleanup failure");
             }
+        } finally {
+            renewal.cancel(false);
+        }
+    }
+
+    private void renewCleanupLease(CleanupWork work) {
+        try {
+            cleanupPort.renew(work);
+        } catch (RuntimeException exception) {
+            LOGGER.warn("Cleanup processing lease renewal failed; the next interval will retry");
         }
     }
 
