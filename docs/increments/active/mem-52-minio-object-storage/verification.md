@@ -12,7 +12,7 @@ Verified locally on 2026-09-03 from the active MEM-52 branch.
 
 ## Object storage and lifecycle
 
-- `S3ObjectStorageIntegrationTest` passed against digest-pinned `minio/minio:RELEASE.2025-04-22T22-12-26Z`: signed size/checksum/type, oversized/altered-content rejection, authorization expiry, metadata inspection, streaming reads, sentinel probing, configured-origin CORS, untrusted-origin rejection, and idempotent delete. `S3ObjectStoragePropertiesTest` accepted loopback HTTP and rejected an external cleartext browser-upload endpoint.
+- `S3ObjectStorageIntegrationTest` passed against digest-pinned `minio/minio:RELEASE.2025-04-22T22-12-26Z`: signed size/checksum/type, oversized/altered-content rejection, authorization expiry, metadata inspection, streaming reads, bounded sentinel reads, configured-origin CORS, untrusted-origin rejection, and idempotent delete. `S3ObjectStoragePropertiesTest` accepted loopback HTTP and rejected an external cleartext browser-upload endpoint.
 - `ObjectUploadLifecycleIntegrationTest` passed against PostgreSQL: wrong-Tenant lookup, integrity mismatch/retry with preserved provider cause, adoption replay rejection, adopted retention, expired pre-adoption cleanup, per-row deletion failure isolation/recovery, and verification/cleanup fencing.
 - `PostgresSourceLifecycleTest` passed: duplicate convergence, finalized-receipt replay, discarded-object reaping, adopted-object removal, and restrictive-FK cleanup.
 - `SourceApiIntegrationTest`, `BearerAuthenticationIntegrationTest`, and `OpenApiContractTest` passed for OWNER authorization, initiate/finalize JSON commands, anchored SHA-256 validation, and the committed browser contract.

@@ -419,7 +419,7 @@ API credentials permit signing PUT for the configured prefix and reading metadat
 
 Configuration separates the internal service endpoint used by API/worker SDK clients from the browser-reachable upload endpoint used by the presigner. The signed browser host must equal the host reached by the browser, use HTTPS except for loopback development/tests, and be preserved by any ingress proxy. The private single-host Docker bridge may use `http://minio:9000` for the internal SDK endpoint without adding speculative internal PKI. Shared settings cover region, bucket, path-style access, connection/read timeouts, and authorization lifetime.
 
-Deployment provisions a private sentinel object. API and worker readiness use object-scoped inspection of that sentinel with their runtime credentials; readiness never lists the bucket, creates objects, or mutates policy.
+Deployment provisions a private sentinel object. API and worker readiness open at most a one-byte range from that sentinel with their runtime credentials; readiness never lists the bucket, downloads the full object, creates objects, or mutates policy.
 
 ## Clean cutover
 
