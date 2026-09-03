@@ -1,13 +1,19 @@
 package io.memoryos.connector;
 
 import io.memoryos.document.DocumentId;
+import io.memoryos.tenant.TenantId;
 
-import java.util.List;
+import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface ConnectorIndexingPort {
 
-    List<IndexWork> claim(int batchSize);
+    Optional<IndexWork> claim(TenantId tenantId, SourceOperationId operationId, UUID deliveryId);
+
+    boolean renew(IndexWork work);
+
+    boolean retry(IndexWork work, String errorCode, int maxAttempts, Duration backoff);
 
     Optional<DocumentId> findMappedDocument(IndexWork work);
 

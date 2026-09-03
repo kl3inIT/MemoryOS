@@ -6,11 +6,25 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+import io.memoryos.TestDatabase;
 import io.memoryos.connector.SourceException;
-import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
-import io.memoryos.TestDatabase;
+import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
@@ -21,42 +35,32 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.identity.ActorId;
-import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
+import io.memoryos.ingestion.OperationDelivery;
+import io.memoryos.ingestion.OperationDispatchPort;
+import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
 import io.memoryos.tenant.TenantId;
-
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
 import tools.jackson.databind.ObjectMapper;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresSourceLifecycleTest {
 
     private JdbcClient jdbcClient;
-    private DriverManagerDataSource dataSource;
     private DataSourceTransactionManager transactionManager;
     private ObjectMapper objectMapper;
     private SourceManagementService service;
     private JdbcIndexAttemptRepository attempts;
     private ActorId owner;
     private JdbcCleanupAttemptRepository cleanup;
+    private OperationDispatchPort operationDispatch;
 
     private UUID tenantId;
 
     @BeforeEach
     void migrateAndSeed() throws Exception {
-        dataSource = TestDatabase.freshPostgres();
+        var dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         transactionManager = new DataSourceTransactionManager(dataSource);
         objectMapper = new ObjectMapper();
@@ -87,6 +91,11 @@ class PostgresSourceLifecycleTest {
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments);
         var documents = new JdbcDocumentRepository(jdbcClient, objectMapper);
         cleanup = new JdbcCleanupAttemptRepository(jdbcClient, sourceRepository, sourceDocuments, documents);
+        operationDispatch = TestDatabase.transactionalProxy(
+                new JdbcOperationDispatchRepository(jdbcClient),
+                OperationDispatchPort.class,
+                transactionManager
+        );
         service = service(sourceRepository);
     }
 
@@ -121,11 +130,114 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void staleWorkerTokenCannotCompleteAfterLeaseReclaim() throws Exception {
+    void concurrentRelayClaimsOnceAndRediscoveryRepublishesFromPostgres() throws Exception {
+        SourceId sourceId = service.createFileSource(owner, "Relay").source().id();
+        var upload = service.upload(owner, sourceId, "relay.txt", "relay content".getBytes(StandardCharsets.UTF_8));
+
+        int claimed;
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> operationDispatch.claim(OperationWorkload.INGESTION, 1));
+            var second = executor.submit(() -> operationDispatch.claim(OperationWorkload.INGESTION, 1));
+            claimed = first.get().size() + second.get().size();
+        }
+        assertEquals(1, claimed);
+        assertEquals(1, jdbcClient.sql("SELECT dispatch_attempts FROM index_attempts")
+                .query(Integer.class)
+                .single());
+
+        jdbcClient.sql("""
+                        UPDATE index_attempts
+                        SET dispatch_token = NULL,
+                            dispatch_lease_expires_at = NULL,
+                            next_dispatch_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                        WHERE id = :operationId
+                        """)
+                .param("operationId", upload.operation().id().value())
+                .update();
+        OperationDelivery rediscovered = dispatch(OperationWorkload.INGESTION);
+        assertEquals(2, jdbcClient.sql("SELECT dispatch_attempts FROM index_attempts")
+                .query(Integer.class)
+                .single());
+        assertEquals(new TenantId(tenantId), rediscovered.tenantId());
+    }
+
+    @Test
+    void transportFailureDefersWithoutFailingTheOperation() {
+        SourceId sourceId = service.createFileSource(owner, "Transport").source().id();
+        service.upload(owner, sourceId, "transport.txt", "transport".getBytes(StandardCharsets.UTF_8));
+        var claim = operationDispatch.claim(OperationWorkload.INGESTION, 1).getFirst();
+
+        assertTrue(operationDispatch.defer(
+                claim,
+                "REDIS_TRANSPORT_UNAVAILABLE",
+                Duration.ofHours(1)
+        ));
+        assertTrue(operationDispatch.claim(OperationWorkload.INGESTION, 1).isEmpty());
+        assertEquals(
+                "NOT_STARTED:REDIS_TRANSPORT_UNAVAILABLE",
+                jdbcClient.sql("SELECT status || ':' || last_transport_error FROM index_attempts")
+                        .query(String.class)
+                        .single()
+        );
+    }
+
+    @Test
+    void unexpectedProcessingFailureRetriesThenTerminatesDurably() {
+        SourceId sourceId = service.createFileSource(owner, "Retry").source().id();
+        service.upload(owner, sourceId, "retry.txt", "retry".getBytes(StandardCharsets.UTF_8));
+
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            if (attempt > 1) {
+                jdbcClient.sql("""
+                                UPDATE index_attempts
+                                SET next_dispatch_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                                WHERE connector_credential_pair_id = :sourceId
+                                """)
+                        .param("sourceId", sourceId.value())
+                        .update();
+            }
+            OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
+            var work = attempts.claim(
+                    delivery.tenantId(),
+                    delivery.operationId(),
+                    delivery.deliveryId()
+            ).orElseThrow();
+            assertTrue(attempts.retry(
+                    work,
+                    "SOURCE_EXTRACTION_INTERNAL",
+                    3,
+                    Duration.ofHours(1)
+            ));
+        }
+
+        assertEquals(
+                "FAILED:3",
+                jdbcClient.sql("SELECT status || ':' || processing_attempts FROM index_attempts")
+                        .query(String.class)
+                        .single()
+        );
+        assertEquals(
+                "FAILED",
+                jdbcClient.sql("""
+                                SELECT status FROM connector_credential_pairs
+                                WHERE id = :sourceId
+                                """)
+                        .param("sourceId", sourceId.value())
+                        .query(String.class)
+                        .single()
+        );
+    }
+
+
+    @Test
+    void staleWorkerTokenCannotCompleteAfterLeaseReclaim() {
         SourceId sourceId = service.createFileSource(owner, "Lease").source().id();
         byte[] content = "lease content".getBytes(StandardCharsets.UTF_8);
         service.upload(owner, sourceId, "lease.txt", content);
-        var stale = attempts.claim(1).getFirst();
+        OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
+        var stale = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
+        assertTrue(attempts.renew(stale));
+        assertFalse(operationDispatch.reclaimable(delivery));
         jdbcClient.sql("""
                         UPDATE index_attempts
                         SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
@@ -133,7 +245,12 @@ class PostgresSourceLifecycleTest {
                         """)
                 .param("id", stale.operationId().value())
                 .update();
-        var current = attempts.claim(1).getFirst();
+        assertTrue(operationDispatch.reclaimable(delivery));
+        var current = attempts.claim(
+                delivery.tenantId(),
+                delivery.operationId(),
+                delivery.deliveryId()
+        ).orElseThrow();
         assertNotEquals(stale.claimToken(), current.claimToken());
         DocumentId documentId = new DocumentId(UUID.randomUUID());
         jdbcClient.sql("""
@@ -150,7 +267,7 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void uploadRejectsAnItemWhoseRemovalIsPending() throws Exception {
+    void uploadRejectsAnItemWhoseRemovalIsPending() {
         SourceId sourceId = service.createFileSource(owner, "Deleting item").source().id();
         byte[] content = "pending removal".getBytes(StandardCharsets.UTF_8);
         var upload = service.upload(owner, sourceId, "pending.txt", content);
@@ -223,7 +340,12 @@ class PostgresSourceLifecycleTest {
         SourceId sourceId = service.createFileSource(owner, "Single flight").source().id();
         byte[] content = "single flight".getBytes(StandardCharsets.UTF_8);
         var upload = service.upload(owner, sourceId, "single.txt", content);
-        var initialWork = attempts.claim(1).getFirst();
+        OperationDelivery initialDelivery = dispatch(OperationWorkload.INGESTION);
+        var initialWork = attempts.claim(
+                initialDelivery.tenantId(),
+                initialDelivery.operationId(),
+                initialDelivery.deliveryId()
+        ).orElseThrow();
         assertTrue(attempts.fail(initialWork, "SOURCE_EXTRACTION_TIMEOUT"));
 
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -234,7 +356,12 @@ class PostgresSourceLifecycleTest {
         assertEquals(2L, count("index_attempts"));
 
         service.deleteSource(owner, sourceId);
-        var staleCleanup = cleanup.claim(1).getFirst();
+        OperationDelivery cleanupDelivery = dispatch(OperationWorkload.CLEANUP);
+        var staleCleanup = cleanup.claim(
+                cleanupDelivery.tenantId(),
+                cleanupDelivery.operationId(),
+                cleanupDelivery.deliveryId()
+        ).orElseThrow();
         jdbcClient.sql("""
                         UPDATE connector_cleanup_attempts
                         SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
@@ -242,14 +369,18 @@ class PostgresSourceLifecycleTest {
                         """)
                 .param("id", staleCleanup.operationId().value())
                 .update();
-        var currentCleanup = cleanup.claim(1).getFirst();
+        var currentCleanup = cleanup.claim(
+                cleanupDelivery.tenantId(),
+                cleanupDelivery.operationId(),
+                cleanupDelivery.deliveryId()
+        ).orElseThrow();
         assertNotEquals(staleCleanup.claimToken(), currentCleanup.claimToken());
         assertFalse(cleanup.fail(staleCleanup, "SOURCE_CLEANUP_INTERNAL"));
         assertTrue(cleanup.fail(currentCleanup, "SOURCE_CLEANUP_INTERNAL"));
     }
 
     @Test
-    void inactiveTenantCancelsPendingIndexWorkWithoutPublishing() throws Exception {
+    void inactiveTenantCancelsPendingIndexWorkWithoutPublishing() {
         SourceId sourceId = service.createFileSource(owner, "Inactive").source().id();
         byte[] content = "inactive content".getBytes(StandardCharsets.UTF_8);
         service.upload(owner, sourceId, "inactive.txt", content);
@@ -260,7 +391,7 @@ class PostgresSourceLifecycleTest {
                 .param("tenantId", tenantId)
                 .update();
 
-        assertTrue(attempts.claim(1).isEmpty());
+        assertTrue(operationDispatch.claim(OperationWorkload.INGESTION, 1).isEmpty());
         assertEquals(
                 "CANCELLED",
                 jdbcClient.sql("SELECT status FROM index_attempts")
@@ -269,6 +400,10 @@ class PostgresSourceLifecycleTest {
         );
         assertEquals(0L, count("documents"));
         assertEquals(0L, count("documents_by_connector_credential_pair"));
+    }
+
+    private OperationDelivery dispatch(OperationWorkload workload) {
+        return operationDispatch.claim(workload, 1).getFirst().delivery();
     }
 
     private SourceManagementService service(JdbcSourceRepository sourceRepository) {

@@ -68,8 +68,9 @@ class RedisExecutionTopologyIntegrationTest {
         var operations = redis.opsForStream();
         var recordId = operations.add(properties.ingestion().stream(), Map.of(
                 "tenant_id", UUID.randomUUID().toString(),
-                "operation_kind", "INDEX",
-                "operation_id", UUID.randomUUID().toString()
+                "operation_kind", "INGESTION",
+                "operation_id", UUID.randomUUID().toString(),
+                "delivery_id", UUID.randomUUID().toString()
         ));
         assertNotNull(recordId);
 

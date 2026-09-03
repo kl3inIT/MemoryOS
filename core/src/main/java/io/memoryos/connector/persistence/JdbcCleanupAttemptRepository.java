@@ -10,8 +10,10 @@ import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.tenant.TenantId;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -22,14 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcCleanupAttemptRepository implements ConnectorCleanupPort {
 
-    private static final String CLAIM_CANDIDATES = """
-            SELECT id FROM connector_cleanup_attempts
-            WHERE status = 'NOT_STARTED'
-               OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
-            ORDER BY created_at, id
-            LIMIT :limit
-            FOR UPDATE SKIP LOCKED
-            """;
 
     private final JdbcClient jdbcClient;
     private final JdbcSourceRepository sources;
@@ -50,8 +44,35 @@ public class JdbcCleanupAttemptRepository implements ConnectorCleanupPort {
 
     @Override
     @Transactional
-    public List<CleanupWork> claim(int batchSize) {
-        return WorkLeases.claim(jdbcClient, "connector_cleanup_attempts", CLAIM_CANDIDATES, batchSize, this::load);
+    public Optional<CleanupWork> claim(
+            TenantId tenantId,
+            SourceOperationId operationId,
+            UUID deliveryId
+    ) {
+        return WorkLeases.claim(
+                jdbcClient,
+                "connector_cleanup_attempts",
+                tenantId.value(),
+                operationId.value(),
+                deliveryId,
+                this::load
+        );
+    }
+
+
+    @Override
+    @Transactional
+    public boolean retry(CleanupWork work, String errorCode, int maxAttempts, Duration backoff) {
+        return WorkLeases.retry(
+                jdbcClient,
+                "connector_cleanup_attempts",
+                work.tenantId().value(),
+                work.operationId().value(),
+                work.claimToken(),
+                errorCode,
+                maxAttempts,
+                backoff
+        ) != WorkLeases.RetryOutcome.STALE;
     }
 
     @Override

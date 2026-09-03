@@ -19,12 +19,15 @@ import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.IdentityContext;
+import io.memoryos.ingestion.OperationDispatchPort;
+import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,6 +82,9 @@ class SourceApiIntegrationTest {
 
     @Autowired
     private ConnectorCleanupPort cleanupPort;
+
+    @Autowired
+    private OperationDispatchPort operationDispatch;
 
     @Autowired
     private DocumentCommandPort documents;
@@ -176,7 +182,7 @@ class SourceApiIntegrationTest {
         String itemId = io.swagger.v3.core.util.Json.mapper().readTree(uploadBody)
                 .path("item").path("id").textValue();
 
-        processAvailableWork();
+        processDispatchedWork();
         UUID documentId = jdbcClient.sql("""
                         SELECT document_id FROM documents_by_connector_credential_pair
                         WHERE connector_credential_pair_id = :sourceId
@@ -207,7 +213,7 @@ class SourceApiIntegrationTest {
                 member.getPrincipal().actorId(),
                 new DocumentId(documentId)
         ));
-        processAvailableWork();
+        processDispatchedWork();
         mockMvc.perform(get("/api/sources/{sourceId}", sourceId).with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty());
@@ -220,7 +226,7 @@ class SourceApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String deleteOperationId = io.swagger.v3.core.util.Json.mapper().readTree(deleteBody)
                 .path("id").textValue();
-        processAvailableWork();
+        processDispatchedWork();
         mockMvc.perform(post("/api/sources/{sourceId}/delete", sourceId)
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1"))
@@ -286,18 +292,21 @@ class SourceApiIntegrationTest {
 
     }
 
-    private void processAvailableWork() {
-        coordinator().processAvailable(8);
-    }
-
-    private DefaultIngestionCoordinator coordinator() {
-        return new DefaultIngestionCoordinator(
-                indexingPort,
-                cleanupPort,
-                documents,
-                extractor,
-                new TransactionTemplate(transactionManager)
-        );
+    private void processDispatchedWork() {
+        try (var leaseScheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new DefaultIngestionCoordinator(
+                    indexingPort,
+                    cleanupPort,
+                    documents,
+                    extractor,
+                    new TransactionTemplate(transactionManager),
+                    leaseScheduler
+            );
+            for (OperationWorkload workload : OperationWorkload.values()) {
+                operationDispatch.claim(workload, 8)
+                        .forEach(claim -> coordinator.process(claim.delivery()));
+            }
+        }
     }
 
     private UUID ownerActorId() {

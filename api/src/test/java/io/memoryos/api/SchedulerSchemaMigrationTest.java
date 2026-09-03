@@ -33,7 +33,7 @@ class SchedulerSchemaMigrationTest {
                 .locations("classpath:db/migration")
                 .load();
 
-        assertEquals(7, flyway.migrate().migrationsExecuted);
+        assertEquals(8, flyway.migrate().migrationsExecuted);
 
         var dataSource = new DriverManagerDataSource(
                 POSTGRES.getJdbcUrl(),
@@ -58,6 +58,24 @@ class SchedulerSchemaMigrationTest {
                         WHERE schemaname = 'public'
                           AND tablename = 'scheduled_tasks'
                           AND indexname LIKE 'ix_scheduled_tasks_%'
+                        """)
+                .query(Integer.class)
+                .single());
+        assertEquals(9, jdbcClient.sql("""
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'index_attempts'
+                          AND column_name IN (
+                              'delivery_id',
+                              'dispatch_token',
+                              'dispatch_lease_expires_at',
+                              'redis_message_id',
+                              'next_dispatch_at',
+                              'dispatched_at',
+                              'dispatch_attempts',
+                              'processing_attempts',
+                              'last_transport_error'
+                          )
                         """)
                 .query(Integer.class)
                 .single());

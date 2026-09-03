@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-01.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-03.
 
 ## Delivered
 
@@ -27,21 +27,21 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | MEM-38 | Accessible destructive confirmations with bounded pending, failure, retry, cleanup, and focus-restoration behavior | [Design](increments/completed/mem-38-destructive-confirmations/design.md) · [Verification](increments/completed/mem-38-destructive-confirmations/verification.md) |
 | MEM-42 | Worker-owned Redis execution foundation with versioned stream topology, fail-closed readiness, TLS-safe credentials, and no change to PostgreSQL operation authority | [Design](increments/completed/mem-42-redis-runtime/design.md) · [Verification](increments/completed/mem-42-redis-runtime/verification.md) · [PR #43](https://github.com/kl3inIT/MemoryOS/pull/43) |
 | MEM-45 | PostgreSQL-backed db-scheduler control plane with Flyway-owned schema, singleton recurring execution, dead-owner recovery, and bounded virtual-thread tasks | [Design](increments/completed/mem-45-db-scheduler-control-plane/design.md) · [Verification](increments/completed/mem-45-db-scheduler-control-plane/verification.md) · [PR #43](https://github.com/kl3inIT/MemoryOS/pull/43) |
+| MEM-35 | Tenant-owned FILE Connector/Credential/Pair/Item/Document boundary with PostgreSQL-authoritative durable indexing and cleanup | [Design](increments/completed/mem-35-file-connectors/design.md) · [Verification](increments/completed/mem-35-file-connectors/verification.md) · [PR #39](https://github.com/kl3inIT/MemoryOS/pull/39) |
+| MEM-53 | API-owned local PostgreSQL, worker-owned local Redis, and read-only SSO-protected staging inspection surfaces | [Design](increments/completed/mem-53-inspection-tooling/design.md) · [Verification](increments/completed/mem-53-inspection-tooling/verification.md) · [PR #56](https://github.com/kl3inIT/MemoryOS/pull/56) · [hardening PRs #57–59 and #62](https://github.com/kl3inIT/MemoryOS/pull/62) |
 
 ## Active
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
-| [MEM-35](https://linear.app/memory-os/issue/MEM-35/establish-organization-owned-file-connectors-and-document-boundary) | Establish the Onyx-aligned Tenant-owned Connector/Credential/Pair/Document boundary through a production FILE source and persistence-backed indexing worker | [Design](increments/active/mem-35-file-connectors/design.md) · [Plan](increments/active/mem-35-file-connectors/plan.md) · [Verification](increments/active/mem-35-file-connectors/verification.md) |
-| [MEM-53](https://linear.app/memory-os/issue/MEM-53/consolidate-local-and-staging-inspection-tooling) | Consolidate API-owned local PostgreSQL, worker-owned local Redis, and read-only SSO-protected staging inspection surfaces | [Design](increments/active/mem-53-inspection-tooling/design.md) · [Plan](increments/active/mem-53-inspection-tooling/plan.md) · [Verification](increments/active/mem-53-inspection-tooling/verification.md) |
+| [MEM-43](https://linear.app/memory-os/issue/MEM-43/dispatch-durable-postgresql-operations-to-redis-streams) + [MEM-44](https://linear.app/memory-os/issue/MEM-44/operate-tenant-aware-redis-stream-workers-safely) + [MEM-51](https://linear.app/memory-os/issue/MEM-51/cut-over-the-postgresql-polling-worker-to-redis-dispatch-safely) | Cut over durable PostgreSQL index/cleanup operations to bounded Redis relay and consumer-group execution with identifier-scoped fencing, dual-evidence reclaim, rediscovery, and no direct business poller | [Design](increments/active/mem-43-44-51-redis-execution-cutover/design.md) · [Plan](increments/active/mem-43-44-51-redis-execution-cutover/plan.md) · [Verification](increments/active/mem-43-44-51-redis-execution-cutover/verification.md) |
 
 ## Candidate increments
 
 These are sequencing signals, not commitments or independently deployable slices.
 
-1. [MEM-43](https://linear.app/memory-os/issue/MEM-43/dispatch-durable-postgresql-operations-to-redis-streams) + [MEM-44](https://linear.app/memory-os/issue/MEM-44/operate-tenant-aware-redis-stream-workers-safely) + [MEM-51](https://linear.app/memory-os/issue/MEM-51/cut-over-the-postgresql-polling-worker-to-redis-dispatch-safely) — one Redis operation-execution cutover increment and PR: relay durable PostgreSQL operations without an outbox, consume them with explicit-Tenant fenced claims/renewal/reclaim, drain the old epoch, and remove direct polling. The three Linear issues are work packages, not separately shippable runtime states.
-2. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Tenant-owned Google Drive connections.
-3. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Tenant-scoped Google Docs with source ACL evidence.
-4. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
+1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Tenant-owned Google Drive connections.
+2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Tenant-scoped Google Docs with source ACL evidence.
+3. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
 
 Create or link an issue and add an active increment record before implementation begins.

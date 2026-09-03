@@ -45,8 +45,8 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Tenant and compared on every bootstrap. It is not a per-deploy release label and must not be changed casually. |
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
-| `MEMORYOS_WORKER_BATCH_SIZE` | No | Bounded index/cleanup claim batch; default `8`, runtime-clamped to `1..32`. |
-| `MEMORYOS_WORKER_POLL_DELAY` | No | Fixed delay between scheduled claim loops, busy or idle; default `1s` until the Redis consumer cutover. |
+| `MEMORYOS_WORKER_INGESTION_BATCH_SIZE` | No | Bounded ingestion relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
+| `MEMORYOS_WORKER_CLEANUP_BATCH_SIZE` | No | Independently bounded cleanup relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
 | `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development is supplied by worker-owned Arconia Redis Dev Services. |
 | `MEMORYOS_REDIS_PORT` | No | Staging Redis TLS port `6379`; development host port `56379`. |
 | `MEMORYOS_REDIS_USERNAME` | No | Staging worker ACL username `memoryos-worker`. |
@@ -61,7 +61,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
 | `SPRING_PROFILES_ACTIVE` | No | Arconia `bootRun` activates `development` from the bootstrap properties file. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
-`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, the current PostgreSQL worker-loop tuning keys, and Redis timeout/pool tuning keys are optional. Keep them out of Infisical until an environment has an approved reason to override checked-in defaults; production Redis identity, authentication, TLS, and scheduler-name values are required.
+`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of Infisical until an environment has an approved reason to override checked-in defaults; production Redis identity, authentication, TLS, and scheduler-name values are required.
 
 ## OMP code intelligence and debugging
 
@@ -334,7 +334,7 @@ Start API first so Flyway completes, then run the persistent worker with the sam
 infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :worker:bootRun --no-daemon
 ```
 
-The worker serves readiness on port `8081` by default. db-scheduler persistently owns the recurring Redis stream/group topology task; the current business executor still claims bounded index/cleanup batches directly from PostgreSQL until the single MEM-43/MEM-44/MEM-51 relay-consumer-cutover increment replaces it. In development, worker-owned Arconia Redis Dev Services uses fixed host port `56379`, while the worker connects to the API-owned PostgreSQL Dev Service on `55432`. Tests retain their isolated container contracts. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values. Stop the worker before the API so graceful scheduler shutdown completes while the shared database remains available.
+The worker serves readiness on port `8081` by default. db-scheduler persistently owns topology plus separate ingestion and cleanup relay tasks. Relays publish identifier-only deliveries from PostgreSQL authority into workload-specific Redis Streams; fixed consumer-group loops claim the authoritative operation by identifier, renew long indexing leases, finalize durably, then acknowledge and delete the transport record. Redis pending reclaim also requires an expired or absent PostgreSQL processing lease, and bounded rediscovery repairs nonterminal work after stream loss. In development, worker-owned Arconia Redis Dev Services uses fixed host port `56379`, while the worker connects to the API-owned PostgreSQL Dev Service on `55432`. Tests retain their isolated container contracts. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values. Stop the worker before the API so consumers and db-scheduler can shut down while the shared database remains available.
 
 API and worker enable Spring Boot virtual threads and JVM keep-alive by default. The db-scheduler execution executor creates one named virtual thread per control task; the scheduler's two execution slots, datasource pool, and Redis pool remain the resource bounds. Do not add a virtual-thread pool, duplicate semaphore around the datasource pool, or global carrier-pool tuning. Netty event loops and scheduler/datasource housekeeping remain platform threads by design. Diagnose production contention with JFR `jdk.VirtualThreadPinned` and `jdk.VirtualThreadSubmitFailed` events or a `jcmd <pid> Thread.dump_to_file -format=json <file>` dump before changing concurrency.
 

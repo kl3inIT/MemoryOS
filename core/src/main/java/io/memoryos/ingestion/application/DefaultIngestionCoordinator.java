@@ -7,9 +7,14 @@ import io.memoryos.connector.IndexWork;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.IngestionCoordinator;
+import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.SourceContentExtractor;
 
+import java.time.Duration;
 import java.util.Objects;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,38 +23,59 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class DefaultIngestionCoordinator implements IngestionCoordinator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultIngestionCoordinator.class);
+    private static final int MAX_PROCESSING_ATTEMPTS = 3;
+    private static final Duration RETRY_BACKOFF = Duration.ofSeconds(5);
+    private static final long LEASE_RENEWAL_SECONDS = 30;
 
     private final ConnectorIndexingPort indexingPort;
     private final ConnectorCleanupPort cleanupPort;
     private final DocumentCommandPort documents;
     private final SourceContentExtractor extractor;
     private final TransactionTemplate transactions;
+    private final ScheduledExecutorService leaseScheduler;
 
     public DefaultIngestionCoordinator(
             ConnectorIndexingPort indexingPort,
             ConnectorCleanupPort cleanupPort,
             DocumentCommandPort documents,
             SourceContentExtractor extractor,
-            TransactionTemplate transactions
+            TransactionTemplate transactions,
+            ScheduledExecutorService leaseScheduler
     ) {
         this.indexingPort = Objects.requireNonNull(indexingPort, "indexingPort must not be null");
         this.cleanupPort = Objects.requireNonNull(cleanupPort, "cleanupPort must not be null");
         this.documents = Objects.requireNonNull(documents, "documents must not be null");
         this.extractor = Objects.requireNonNull(extractor, "extractor must not be null");
         this.transactions = Objects.requireNonNull(transactions, "transactions must not be null");
+        this.leaseScheduler = Objects.requireNonNull(leaseScheduler, "leaseScheduler must not be null");
     }
 
     @Override
-    public void processAvailable(int batchSize) {
-        for (IndexWork work : indexingPort.claim(batchSize)) {
-            processIndex(work);
-        }
-        for (CleanupWork work : cleanupPort.claim(batchSize)) {
-            processCleanup(work);
+    public void process(OperationDelivery delivery) {
+        Objects.requireNonNull(delivery, "delivery must not be null");
+        switch (delivery.workload()) {
+            case INGESTION -> indexingPort.claim(
+                            delivery.tenantId(),
+                            delivery.operationId(),
+                            delivery.deliveryId()
+                    )
+                    .ifPresent(this::processIndex);
+            case CLEANUP -> cleanupPort.claim(
+                            delivery.tenantId(),
+                            delivery.operationId(),
+                            delivery.deliveryId()
+                    )
+                    .ifPresent(this::processCleanup);
         }
     }
 
     private void processIndex(IndexWork work) {
+        ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
+                () -> indexingPort.renew(work),
+                LEASE_RENEWAL_SECONDS,
+                LEASE_RENEWAL_SECONDS,
+                TimeUnit.SECONDS
+        );
         try {
             var content = extractor.extract(work.content(), work.filename());
             transactions.executeWithoutResult(ignored -> {
@@ -71,9 +97,16 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 LOGGER.debug("Ignored stale typed extraction failure");
             }
         } catch (RuntimeException exception) {
-            if (!indexingPort.fail(work, "SOURCE_EXTRACTION_INTERNAL")) {
+            if (!indexingPort.retry(
+                    work,
+                    "SOURCE_EXTRACTION_INTERNAL",
+                    MAX_PROCESSING_ATTEMPTS,
+                    RETRY_BACKOFF
+            )) {
                 LOGGER.debug("Ignored stale internal extraction failure");
             }
+        } finally {
+            renewal.cancel(false);
         }
     }
 
@@ -83,7 +116,12 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 LOGGER.debug("Ignored stale cleanup completion");
             }
         } catch (RuntimeException exception) {
-            if (!cleanupPort.fail(work, "SOURCE_CLEANUP_INTERNAL")) {
+            if (!cleanupPort.retry(
+                    work,
+                    "SOURCE_CLEANUP_INTERNAL",
+                    MAX_PROCESSING_ATTEMPTS,
+                    RETRY_BACKOFF
+            )) {
                 LOGGER.debug("Ignored stale cleanup failure");
             }
         }

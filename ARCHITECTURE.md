@@ -11,9 +11,9 @@ MemoryOS is a controlled Spring Modulith monolith with four flat Gradle modules:
 | `core` | Complete capability implementations: contracts, transactions, and capability-owned persistence | Must not depend on an adapter or deployable |
 | `connector` | Shared provider integration bundle; current `provider.file` adapter carries Tika 4 | Depends only on public `core` APIs |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root | Depends on `core`; MEM-35 excludes `connector`/Tika |
-| `worker` | PostgreSQL-backed execution and control-plane composition root | Depends on `core`, selects `connector` at runtime, and alone composes Redis/db-scheduler |
+| `worker` | PostgreSQL-authoritative Redis Stream execution and control-plane composition root | Depends on `core`, selects `connector` at runtime, and alone composes Redis/db-scheduler |
 
-`api` and `worker` are separate deployables. API owns Flyway migrations and durable source commands. Worker starts after API health, claims leased index/cleanup work, extracts outside database transactions, and token-guardedly finalizes or reclaims work. The current business executor still polls PostgreSQL directly; Redis Streams carry no business work until the relay and consumer cutover.
+`api` and `worker` are separate deployables. API owns Flyway migrations and durable source commands. API transactions commit index/cleanup operations without contacting Redis. Worker db-scheduler relays eligible identifiers from PostgreSQL into workload-specific Redis Streams; fixed consumer-group loops reload and token-claim each authoritative operation, extract outside database transactions, renew long processing leases, and finalize durably before manual acknowledgement. PostgreSQL remains business authority; Redis is rebuildable delivery state.
 
 `web/` is a separate production deployable built with Vite, React, TanStack Router, TanStack Query, Tailwind CSS, and generated Hey API clients. It is not a Gradle module or a reusable package. The Nginx runtime serves immutable assets and owns the browser origin; Spring remains the API, OAuth2, session, and authorization runtime.
 
@@ -35,7 +35,7 @@ Audit is intentionally absent until a real evidence consumer defines attribution
 
 ## Persistence and startup
 
-Flyway owns seven migrations:
+Flyway owns eight migrations:
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
 - `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
@@ -44,16 +44,17 @@ Flyway owns seven migrations:
 - `V5__create_file_source_and_document_schema.sql`: historical Organization-scoped Connector/Credential/Pair/item/attempt/Document/provenance/cleanup state.
 - `V6__cut_over_organization_to_tenant.sql`: renames the active schema to Tenant, preserves UUIDs and composite ownership, and enforces one `deployment_slot = 1` Tenant row.
 - `V7__create_scheduler_control_plane.sql`: db-scheduler's PostgreSQL control-plane table and execution/heartbeat indexes; it contains no Tenant or business-operation authority.
+- `V8__cut_over_operations_to_redis_streams.sql`: adds stable delivery identity, dispatch claims/evidence, rediscovery timing, transport diagnostics, and processing-attempt counters to index and cleanup operations; it removes direct-poller claim indexes.
 
 API startup requires datasource, OIDC, confidential browser-client, and initial Tenant configuration including `MEMORYOS_TENANT_ID`. After migration, an `ApplicationRunner` locks the singleton bootstrap row, resolves or creates the exact owner binding, inserts or verifies the configured Tenant UUID, grants Tenant `OWNER`, and publishes the same UUID. Concurrent replicas serialize on that row. Identical configuration replays; UUID, owner, authority, lifecycle, or descriptive drift fails startup.
 
-The worker composes a two-thread db-scheduler runtime over the shared PostgreSQL database. Its first recurring control task, `memoryos-redis-execution-topology-reconcile-v1`, idempotently ensures versioned ingestion and cleanup Redis Streams plus consumer groups. The `scheduled_tasks` row provides cluster-safe ownership, heartbeat, recovery, and success/failure evidence for that bounded task. Redis readiness, datasource readiness, and db-scheduler readiness are all required for worker readiness; API health remains independent of Redis.
+The worker composes a two-thread db-scheduler control plane over the shared PostgreSQL database. `memoryos-redis-execution-topology-reconcile-v1` idempotently ensures the versioned ingestion and cleanup Redis Streams plus consumer groups. Separate recurring ingestion and cleanup relay tasks claim bounded dispatch batches and publish identifier-only messages. The `scheduled_tasks` rows provide cluster-safe ownership, heartbeat, recovery, and success/failure evidence for those control tasks. Redis readiness, datasource readiness, and db-scheduler readiness are all required for worker readiness; API health remains independent of Redis.
 
-Both deployables run on Java 25 with Spring Boot virtual threads enabled and `spring.main.keep-alive=true`. Spring-managed request, asynchronous-task, and scheduling execution uses virtual threads. db-scheduler uses a named virtual thread per control-task execution while its configured `threads = 2` remains the durable-work concurrency bound. Long-lived coordination threads—db-scheduler due polling/housekeeping, Lettuce/Netty event loops, and datasource housekeeping—remain library-managed platform threads. Database and Redis connection pools continue to bound downstream resource concurrency; virtual threads do not replace those limits.
+Both deployables run on Java 25 with Spring Boot virtual threads enabled and `spring.main.keep-alive=true`. Spring-managed request, asynchronous-task, and scheduling execution uses virtual threads. db-scheduler uses a named virtual thread per control-task execution while its configured `threads = 2` bounds concurrent control work. The worker owns one long-lived consumer loop per workload and a virtual thread per claimed delivery; workload batch sizes plus database and Redis connection pools bound downstream concurrency. Long-lived db-scheduler polling/housekeeping, Lettuce/Netty event loops, and datasource housekeeping remain library-managed platform threads.
 
 Arconia's bootstrap profile is `development` for both deployables. The development API alone owns PostgreSQL Dev Services on fixed host port `55432`; the worker connects to that shared authority database and alone owns Redis Dev Services on fixed host port `56379`. Tests retain isolated containers where exact migration or multi-instance control matters, and no cross-application Testcontainers reuse contract exists. Arconia's fixed-port API delegates host binding to Testcontainers, which currently publishes on Docker's host interfaces rather than a configurable loopback address; these services are development-only and require the developer host firewall on non-private networks. Production artifacts exclude Arconia Dev Services and Testcontainers.
 
-The next execution change is one non-separable vertical cutover spanning MEM-43 relay, MEM-44 consumers, and MEM-51 fencing/drain/removal. Those work packages may be tracked separately, but they must share one increment and production delivery: a relay without consumers accumulates unused delivery, consumers beside the current poller risk dual execution, and poller removal is unsafe before both exist.
+Execution has one cut-over path: PostgreSQL operation → db-scheduler relay → workload Redis Stream/group → identifier-scoped PostgreSQL claim and lease → durable terminal transition → XACK/XDEL. Dispatch evidence rediscoveries rebuild nonterminal work after Redis loss; a message is reclaimed only when Redis idle time and PostgreSQL lease state both permit it. No direct PostgreSQL business poller, alternate dispatcher, execution-mode switch, or compatibility path remains.
 
 ## Authentication
 

@@ -10,6 +10,7 @@ import io.memoryos.connector.SourceOperationView;
 import io.memoryos.document.DocumentId;
 import io.memoryos.tenant.TenantId;
 
+import java.time.Duration;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -25,27 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
 
-    private static final String CLAIM_CANDIDATES = """
-            SELECT attempt.id
-            FROM index_attempts attempt
-            JOIN tenants tenant ON tenant.id = attempt.tenant_id
-            JOIN connector_credential_pairs pair
-              ON pair.tenant_id = attempt.tenant_id
-             AND pair.id = attempt.connector_credential_pair_id
-            JOIN connector_items item
-              ON item.tenant_id = attempt.tenant_id
-             AND item.id = attempt.connector_item_id
-            WHERE tenant.status = 'ACTIVE'
-              AND pair.status <> 'DELETING'
-              AND item.status <> 'DELETING'
-              AND (
-                  attempt.status = 'NOT_STARTED'
-                  OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now)
-              )
-            ORDER BY attempt.created_at, attempt.id
-            LIMIT :limit
-            FOR UPDATE OF attempt SKIP LOCKED
-            """;
 
     private final JdbcClient jdbcClient;
     private final JdbcSourceRepository sources;
@@ -205,21 +185,50 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
 
     @Override
     @Transactional
-    public List<IndexWork> claim(int batchSize) {
-        jdbcClient.sql("""
-                        UPDATE index_attempts
-                        SET status = 'CANCELLED',
-                            claim_token = NULL,
-                            lease_expires_at = NULL,
-                            error_code = 'SOURCE_TENANT_INACTIVE',
-                            completed_at = CURRENT_TIMESTAMP
-                        WHERE status IN ('NOT_STARTED', 'IN_PROGRESS')
-                          AND tenant_id IN (
-                              SELECT id FROM tenants WHERE status <> 'ACTIVE'
-                          )
-                        """)
-                .update();
-        return WorkLeases.claim(jdbcClient, "index_attempts", CLAIM_CANDIDATES, batchSize, this::load);
+    public Optional<IndexWork> claim(
+            TenantId tenantId,
+            SourceOperationId operationId,
+            UUID deliveryId
+    ) {
+        return WorkLeases.claim(
+                jdbcClient,
+                "index_attempts",
+                tenantId.value(),
+                operationId.value(),
+                deliveryId,
+                this::load
+        );
+    }
+
+    @Override
+    @Transactional
+    public boolean renew(IndexWork work) {
+        return WorkLeases.renew(
+                jdbcClient,
+                "index_attempts",
+                work.tenantId().value(),
+                work.operationId().value(),
+                work.claimToken()
+        );
+    }
+
+    @Override
+    @Transactional
+    public boolean retry(IndexWork work, String errorCode, int maxAttempts, Duration backoff) {
+        WorkLeases.RetryOutcome outcome = WorkLeases.retry(
+                jdbcClient,
+                "index_attempts",
+                work.tenantId().value(),
+                work.operationId().value(),
+                work.claimToken(),
+                errorCode,
+                maxAttempts,
+                backoff
+        );
+        if (outcome == WorkLeases.RetryOutcome.EXHAUSTED) {
+            markAggregateFailed(work);
+        }
+        return outcome != WorkLeases.RetryOutcome.STALE;
     }
 
     @Override
@@ -282,19 +291,23 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .param("claimToken", work.claimToken())
                 .update();
         if (updated == 1) {
-            jdbcClient.sql("""
-                            UPDATE connector_items
-                            SET status = 'FAILED', updated_at = CURRENT_TIMESTAMP
-                            WHERE tenant_id = :tenantId
-                              AND id = :itemId
-                              AND status <> 'DELETING'
-                            """)
-                    .param("tenantId", work.tenantId().value())
-                    .param("itemId", work.itemId().value())
-                    .update();
-            sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
+            markAggregateFailed(work);
         }
         return updated == 1;
+    }
+
+    private void markAggregateFailed(IndexWork work) {
+        jdbcClient.sql("""
+                        UPDATE connector_items
+                        SET status = 'FAILED', updated_at = CURRENT_TIMESTAMP
+                        WHERE tenant_id = :tenantId
+                          AND id = :itemId
+                          AND status <> 'DELETING'
+                        """)
+                .param("tenantId", work.tenantId().value())
+                .param("itemId", work.itemId().value())
+                .update();
+        sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
     }
 
     private IndexWork load(UUID attemptId, UUID token) {

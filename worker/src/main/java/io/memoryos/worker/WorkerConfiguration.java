@@ -7,15 +7,22 @@ import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@EnableConfigurationProperties(WorkerProperties.class)
 @Configuration(proxyBeanMethods = false)
 class WorkerConfiguration {
+    @Bean(destroyMethod = "close")
+    ScheduledExecutorService claimLeaseScheduler() {
+        return Executors.newSingleThreadScheduledExecutor(
+                Thread.ofVirtual().name("memoryos-claim-lease-", 0).factory()
+        );
+    }
 
     @Bean
     IngestionCoordinator ingestionCoordinator(
@@ -23,14 +30,16 @@ class WorkerConfiguration {
             ConnectorCleanupPort cleanupPort,
             DocumentCommandPort documents,
             SourceContentExtractor extractor,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            ScheduledExecutorService claimLeaseScheduler
     ) {
         return new DefaultIngestionCoordinator(
                 indexingPort,
                 cleanupPort,
                 documents,
                 extractor,
-                new TransactionTemplate(transactionManager)
+                new TransactionTemplate(transactionManager),
+                claimLeaseScheduler
         );
     }
 }
