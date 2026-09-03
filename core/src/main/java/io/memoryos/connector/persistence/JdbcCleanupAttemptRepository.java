@@ -119,17 +119,19 @@ public class JdbcCleanupAttemptRepository implements ConnectorCleanupPort {
 
     private boolean ownsClaim(CleanupWork work) {
         return jdbcClient.sql("""
-                        SELECT COUNT(*) FROM connector_cleanup_attempts
+                        SELECT id FROM connector_cleanup_attempts
                         WHERE tenant_id = :tenantId
                           AND id = :id
                           AND status = 'IN_PROGRESS'
                           AND claim_token = :token
+                        FOR UPDATE
                         """)
                 .param("tenantId", work.tenantId().value())
                 .param("id", work.operationId().value())
                 .param("token", work.claimToken())
-                .query(Integer.class)
-                .single() == 1;
+                .query(UUID.class)
+                .optional()
+                .isPresent();
     }
 
     private void removeItem(CleanupWork work) {

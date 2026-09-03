@@ -30,7 +30,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
     private static final Pattern ERROR_CODE = Pattern.compile("[A-Z][A-Z0-9_]{0,63}");
 
     private static final String INDEX_CANDIDATES = """
-            SELECT attempt.id
+            SELECT attempt.id, attempt.tenant_id
             FROM index_attempts attempt
             JOIN tenants tenant ON tenant.id = attempt.tenant_id
             JOIN connector_credential_pairs pair
@@ -54,7 +54,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             """;
 
     private static final String CLEANUP_CANDIDATES = """
-            SELECT id
+            SELECT id, tenant_id
             FROM connector_cleanup_attempts
             WHERE next_dispatch_at <= :now
               AND (dispatch_token IS NULL OR dispatch_lease_expires_at < :now)
@@ -78,17 +78,17 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
     public List<DispatchClaim> claim(OperationWorkload workload, int batchSize) {
         Objects.requireNonNull(workload, "workload must not be null");
         Instant now = Instant.now();
-        if (workload == OperationWorkload.INGESTION) {
-            cancelInactiveTenantIndexing();
-        }
         int limit = Math.clamp(batchSize, 1, MAX_BATCH);
-        List<UUID> candidates = jdbcClient.sql(candidateSql(workload))
+        List<DispatchCandidate> candidates = jdbcClient.sql(candidateSql(workload))
                 .param("now", sqlTime(now))
                 .param("limit", limit)
-                .query(UUID.class)
+                .query((resultSet, _) -> new DispatchCandidate(
+                        resultSet.getObject("id", UUID.class),
+                        resultSet.getObject("tenant_id", UUID.class)
+                ))
                 .list();
         List<DispatchClaim> claims = new ArrayList<>(candidates.size());
-        for (UUID operationId : candidates) {
+        for (DispatchCandidate candidate : candidates) {
             UUID token = UUID.randomUUID();
             UUID deliveryId = UUID.randomUUID();
             int updated = jdbcClient.sql("UPDATE " + table(workload) + """
@@ -98,17 +98,27 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                                 delivery_id = :deliveryId,
                                 dispatch_attempts = dispatch_attempts + 1,
                                 last_transport_error = NULL
-                            WHERE id = :operationId
+                            WHERE tenant_id = :tenantId
+                              AND id = :operationId
                               AND (dispatch_token IS NULL OR dispatch_lease_expires_at < :now)
                             """)
                     .param("token", token)
                     .param("leaseExpiresAt", sqlTime(now.plus(DISPATCH_LEASE)))
                     .param("deliveryId", deliveryId)
-                    .param("operationId", operationId)
+                    .param("tenantId", candidate.tenantId())
+                    .param("operationId", candidate.operationId())
                     .param("now", sqlTime(now))
                     .update();
             if (updated == 1) {
-                claims.add(load(workload, operationId, deliveryId, token));
+                claims.add(new DispatchClaim(
+                        new OperationDelivery(
+                                new TenantId(candidate.tenantId()),
+                                workload,
+                                new SourceOperationId(candidate.operationId()),
+                                deliveryId
+                        ),
+                        token
+                ));
             }
         }
         return List.copyOf(claims);
@@ -191,38 +201,22 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                 .single() == 0;
     }
 
-    private DispatchClaim load(
-            OperationWorkload workload,
-            UUID operationId,
-            UUID deliveryId,
-            UUID token
-    ) {
-        return jdbcClient.sql("SELECT tenant_id FROM " + table(workload) + """
-                        
-                        WHERE id = :operationId
-                          AND delivery_id = :deliveryId
-                          AND dispatch_token = :token
-                        """)
-                .param("operationId", operationId)
-                .param("deliveryId", deliveryId)
-                .param("token", token)
-                .query(UUID.class)
-                .optional()
-                .map(tenantId -> new DispatchClaim(
-                        new OperationDelivery(
-                                new TenantId(tenantId),
-                                workload,
-                                new SourceOperationId(operationId),
-                                deliveryId
-                        ),
-                        token
-                ))
-                .orElseThrow();
-    }
 
-    private void cancelInactiveTenantIndexing() {
-        jdbcClient.sql("""
-                        UPDATE index_attempts
+    @Override
+    @Transactional
+    public int cancelInactiveTenantIndexing(int batchSize) {
+        return jdbcClient.sql("""
+                        WITH cancellation_candidates AS (
+                            SELECT attempt.id
+                            FROM index_attempts attempt
+                            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+                            WHERE attempt.status IN ('NOT_STARTED', 'IN_PROGRESS')
+                              AND tenant.status <> 'ACTIVE'
+                            ORDER BY attempt.created_at, attempt.id
+                            LIMIT :limit
+                            FOR UPDATE OF attempt SKIP LOCKED
+                        )
+                        UPDATE index_attempts attempt
                         SET status = 'CANCELLED',
                             claim_token = NULL,
                             lease_expires_at = NULL,
@@ -230,12 +224,14 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                             dispatch_lease_expires_at = NULL,
                             error_code = 'SOURCE_TENANT_INACTIVE',
                             completed_at = CURRENT_TIMESTAMP
-                        WHERE status IN ('NOT_STARTED', 'IN_PROGRESS')
-                          AND tenant_id IN (
-                              SELECT id FROM tenants WHERE status <> 'ACTIVE'
-                          )
+                        FROM cancellation_candidates candidate
+                        WHERE attempt.id = candidate.id
                         """)
+                .param("limit", Math.clamp(batchSize, 1, MAX_BATCH))
                 .update();
+    }
+
+    private record DispatchCandidate(UUID operationId, UUID tenantId) {
     }
 
     private static String table(OperationWorkload workload) {

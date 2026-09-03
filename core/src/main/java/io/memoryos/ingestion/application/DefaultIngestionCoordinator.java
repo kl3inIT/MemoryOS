@@ -71,7 +71,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
 
     private void processIndex(IndexWork work) {
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
-                () -> indexingPort.renew(work),
+                () -> renewIndexLease(work),
                 LEASE_RENEWAL_SECONDS,
                 LEASE_RENEWAL_SECONDS,
                 TimeUnit.SECONDS
@@ -107,6 +107,14 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             }
         } finally {
             renewal.cancel(false);
+        }
+    }
+
+    private void renewIndexLease(IndexWork work) {
+        try {
+            indexingPort.renew(work);
+        } catch (RuntimeException exception) {
+            LOGGER.warn("Index processing lease renewal failed; the next interval will retry");
         }
     }
 

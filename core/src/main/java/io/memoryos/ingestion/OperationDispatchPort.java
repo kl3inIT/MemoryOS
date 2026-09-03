@@ -7,6 +7,8 @@ public interface OperationDispatchPort {
 
     List<DispatchClaim> claim(OperationWorkload workload, int batchSize);
 
+    int cancelInactiveTenantIndexing(int batchSize);
+
     boolean recordPublished(DispatchClaim claim, String redisMessageId, Duration rediscoveryDelay);
 
     boolean defer(DispatchClaim claim, String errorCode, Duration backoff);

@@ -384,6 +384,7 @@ class PostgresSourceLifecycleTest {
         SourceId sourceId = service.createFileSource(owner, "Inactive").source().id();
         byte[] content = "inactive content".getBytes(StandardCharsets.UTF_8);
         service.upload(owner, sourceId, "inactive.txt", content);
+        service.upload(owner, sourceId, "second.txt", "second".getBytes(StandardCharsets.UTF_8));
         jdbcClient.sql("""
                         UPDATE tenants SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
                         WHERE id = :tenantId
@@ -391,11 +392,25 @@ class PostgresSourceLifecycleTest {
                 .param("tenantId", tenantId)
                 .update();
 
-        assertTrue(operationDispatch.claim(OperationWorkload.INGESTION, 1).isEmpty());
+        assertEquals(1, operationDispatch.cancelInactiveTenantIndexing(1));
         assertEquals(
-                "CANCELLED",
-                jdbcClient.sql("SELECT status FROM index_attempts")
-                        .query(String.class)
+                1,
+                jdbcClient.sql("SELECT COUNT(*) FROM index_attempts WHERE status = 'CANCELLED'")
+                        .query(Integer.class)
+                        .single()
+        );
+        assertEquals(
+                1,
+                jdbcClient.sql("SELECT COUNT(*) FROM index_attempts WHERE status = 'NOT_STARTED'")
+                        .query(Integer.class)
+                        .single()
+        );
+        assertTrue(operationDispatch.claim(OperationWorkload.INGESTION, 1).isEmpty());
+        assertEquals(1, operationDispatch.cancelInactiveTenantIndexing(1));
+        assertEquals(
+                2,
+                jdbcClient.sql("SELECT COUNT(*) FROM index_attempts WHERE status = 'CANCELLED'")
+                        .query(Integer.class)
                         .single()
         );
         assertEquals(0L, count("documents"));

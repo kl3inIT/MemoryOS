@@ -27,12 +27,13 @@ Verified locally on 2026-09-03. Exact pull-request head CI and merge-SHA evidenc
 
 ## Implemented evidence
 
-- `PostgresSourceLifecycleTest` runs the production V1–V8 migration sequence against PostgreSQL and proves concurrent relay exclusion, rediscovery, transport deferral, inactive-Tenant cancellation, token-fenced renewal/completion, reclaim lease evidence, and bounded retry exhaustion.
+- `PostgresSourceLifecycleTest` runs the production V1–V8 migration sequence against PostgreSQL and proves concurrent relay exclusion, rediscovery, transport deferral, separately bounded inactive-Tenant cancellation, token-fenced renewal/completion, reclaim lease evidence, and bounded retry exhaustion.
 - `RedisOperationRelayTest` proves identifier-only records, bounded per-workload pressure, cleanup isolation from ingestion saturation, Redis transport deferral, and the publish-succeeded/evidence-write-failed duplicate boundary.
 - `WorkerFileProcessingIntegrationTest.redisStreamsIndexRemoveAndDeleteOneRealFile` starts the worker composition against real PostgreSQL and Redis, deletes and rebuilds the ingestion stream, republishes from durable dispatch intent, reclaims an abandoned PEL entry, durably indexes/removes/deletes, completes cleanup after Tenant deactivation, and consumes a duplicate terminal delivery without reprocessing.
 - `RedisExecutionTopologyIntegrationTest`, `RedisUnavailableReadinessIntegrationTest`, `ControlPlaneIntegrationTest`, and `WorkerApplicationSmokeTest` cover topology, fail-closed readiness, persistent recurring control tasks, and the production composition boundary.
 - `SchedulerSchemaMigrationTest` executes all eight Flyway migrations against PostgreSQL and verifies the scheduler schema plus V8 dispatch/processing columns.
 - IntelliJ inspections ran with warnings enabled for every changed Java, SQL, YAML, properties, XML, and Kotlin DSL file. Remaining warnings are limited to fixed internal table-name SQL that the IDE cannot resolve across the enum-controlled repository boundary, datasource-less migration inspection, and the conventional public Spring Boot launcher.
+- Manual CodeRabbit review completed with eight findings. Applied renewal exception containment, a separate bounded cancellation task, redundant dispatch reload removal, the complete migration fixture, and cleanup row-lock fencing; retained the transactional cross-dialect index migration, sanitized logs, and unique-stream Arconia Redis test isolation with explicit rationale.
 - `gradlew clean check --no-daemon` passed across all server modules.
-- `docker build --target worker --tag memoryos-worker:mem43-cutover .` built the layered production worker image; local manifest list `sha256:baefa5a865df54626cc3b4396532187c24d3e6f94eb11bd4d40c6acb5039d663`.
+- `docker build --target worker --tag memoryos-worker:mem43-cutover .` built the layered production worker image; local manifest list `sha256:fc3295033bca7965f0ca98ed0462d33d0a1330423756f3d866ccb0403d69a6a1`.
 - Source and configuration search finds no `IngestionWorker`, `WorkerProperties`, direct batch-claim coordinator, `MEMORYOS_WORKER_POLL_DELAY`, or `MEMORYOS_WORKER_BATCH_SIZE` path.
