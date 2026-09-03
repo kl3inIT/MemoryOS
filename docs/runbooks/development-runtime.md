@@ -44,7 +44,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_TENANT_DISPLAY_NAME` | No | Display name for that Tenant; startup rejects drift after bootstrap. |
 | `MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Tenant and compared on every bootstrap. It is not a per-deploy release label and must not be changed casually. |
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
-| `MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT` | No | Internal API/worker S3 endpoint. Compose fixes it to `http://minio:9000`; local development uses its explicitly started MinIO endpoint. |
+| `MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT` | No | Internal API/worker S3 endpoint. Compose fixes it to the unambiguous `http://memoryos-minio:9000` service alias; local development uses its explicitly started MinIO endpoint. |
 | `MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT` | No | Browser-reachable endpoint used only when signing PUT URLs. Its origin must match MinIO CORS and web `connect-src`. |
 | `MEMORYOS_OBJECT_STORAGE_BUCKET` | No | Private deployment bucket; default `memoryos`. Bootstrap, API, and worker must agree exactly. |
 | `MEMORYOS_OBJECT_STORAGE_ACCESS_KEY` | Sensitive identifier | Service identity. Staging Compose assigns distinct `memoryos-api` and `memoryos-worker` values. |
