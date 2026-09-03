@@ -6,7 +6,7 @@
 | Authorization expiry prevents object creation | `S3ObjectStorageIntegrationTest.expiredAuthorizationCannotCreateAnObject` |
 | Browser upload endpoints require HTTPS except for loopback development/test addresses; internal private-bridge service HTTP remains separate configuration | `S3ObjectStoragePropertiesTest` |
 | Inspect and streaming open return the persisted SHA-256 metadata; deletion is idempotent and missing objects are typed | `S3ObjectStorageIntegrationTest.presignsVerifiesStreamsAndIdempotentlyDeletesObjects` |
-| Readiness probes one sentinel without bucket listing or checksum metadata | `S3ObjectStorageIntegrationTest.probesAReadinessSentinelWithoutRequiringUploadChecksumMetadata`, `ObjectStorageHealthIndicator` |
+| Readiness opens a bounded sentinel range without bucket listing or upload-checksum metadata | `S3ObjectStorageIntegrationTest.probesAReadinessSentinelWithoutRequiringUploadChecksumMetadata`, `ObjectStorageHealthIndicator`, staging least-privilege smoke |
 | MinIO CORS admits the configured browser origin and signed PUT headers but not an untrusted origin | `S3ObjectStorageIntegrationTest.allowsOnlyTheConfiguredBrowserOriginToSendSignedUploadHeaders` |
 | Wrong-Tenant access, metadata mismatch, retry, adoption replay, and adopted-object retention are enforced in PostgreSQL | `ObjectUploadLifecycleIntegrationTest.tenantIsolationIntegrityRetryAndReplayAreEnforced` |
 | Provider inspection failures return a stable service-unavailable upload error and release verification for retry | `ObjectUploadLifecycleIntegrationTest.providerInspectionFailureReturnsAStableRetryableUploadError` |

@@ -162,12 +162,20 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
 
     void verifyReadable(ObjectKey key) {
         Objects.requireNonNull(key, "key must not be null");
-        try {
-            client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key.value()).build());
+        try (var response = client.getObject(GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(key.value())
+                .range("bytes=0-0")
+                .build())) {
+            if (response.read() < 0) {
+                throw new ObjectStorageException(ObjectStorageFailureCode.PRECONDITION_FAILED, false, null);
+            }
         } catch (NoSuchKeyException exception) {
             throw new ObjectStorageException(ObjectStorageFailureCode.NOT_FOUND, false, exception);
         } catch (S3Exception | SdkClientException exception) {
             throw translate(exception);
+        } catch (IOException exception) {
+            throw new ObjectStorageException(ObjectStorageFailureCode.UNAVAILABLE, true, exception);
         }
     }
 
