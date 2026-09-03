@@ -4,14 +4,16 @@
 | --- | --- |
 | TXT, Markdown, PDF, and DOCX bytes are detected/extracted despite misleading extensions | `TikaSourceContentExtractorTest` |
 | Unsupported, encrypted, malformed, and write-limit content returns typed failures; timeout terminates the child process and extractor close remains bounded | `TikaSourceContentExtractorTest` failure and lifecycle matrix |
-| PostgreSQL `SKIP LOCKED` claim plus expired lease issues a new token and rejects stale completion | `PostgresSourceLifecycleTest.staleWorkerTokenCannotCompleteAfterLeaseReclaim` |
-| Real scheduled worker carries each durable record's `TenantId` through indexing, removal, and deletion on PostgreSQL, including cleanup after Tenant deactivation | `IngestionWorkerTest.clampsTheBatchAndDelegatesAvailableWork` and `WorkerFileProcessingIntegrationTest.schedulerIndexesRemovesAndDeletesOneRealFile` |
-| Redis execution topology is idempotent and supports identifier-only XADD → consumer-group delivery → PEL → XACK against real Redis | `RedisExecutionTopologyIntegrationTest` |
-| PostgreSQL persists the recurring topology control task, revives dead ownership, and prevents concurrent execution across two scheduler instances | `ControlPlaneIntegrationTest` |
-| API/worker Spring task executors and the real db-scheduler topology execution use virtual threads while scheduler concurrency remains bounded | `ApiApplicationSmokeTest.applicationTaskExecutorUsesVirtualThreads`, `WorkerApplicationSmokeTest.contextLoadsWithPersistenceRuntimeAndSchedulingDisabled`, and `ControlPlaneIntegrationTest.registersExecutesAndRecoversTheTopologyControlTask` |
-| Flyway V7 creates the exact db-scheduler table and indexes against real PostgreSQL | `SchedulerSchemaMigrationTest` |
-| Redis unavailability makes worker readiness unavailable without changing PostgreSQL business state | `RedisUnavailableReadinessIntegrationTest` |
+| PostgreSQL `SKIP LOCKED` dispatch claims exclude concurrent relays and rediscover nonterminal operations; a separate bounded cancellation transaction terminates inactive-Tenant indexing; transport failures never change business state | `PostgresSourceLifecycleTest.concurrentRelayClaimsOnceAndRediscoveryRepublishesFromPostgres`, `transportFailureDefersWithoutFailingTheOperation`, and `inactiveTenantCancelsPendingIndexWorkWithoutPublishing` |
+| Identifier-scoped processing claims renew only the current token, reject stale completion, expose lease state to reclaim, and terminal-fail exhausted unexpected retries | `PostgresSourceLifecycleTest.staleWorkerTokenCannotCompleteAfterLeaseReclaim` and `unexpectedProcessingFailureRetriesThenTerminatesDurably` |
+| Relay messages contain only Tenant/workload/operation/delivery identifiers; stream pressure is bounded independently by workload; Redis and evidence-write failures leave durable work deferred | `RedisOperationRelayTest` |
+| Redis topology is idempotent and supports identifier-only XADD → consumer-group delivery → PEL → XACK against real Redis | `RedisExecutionTopologyIntegrationTest` |
+| The real worker repairs a deleted stream from PostgreSQL rediscovery, reclaims an abandoned pending delivery, indexes/removes/deletes one file, handles cleanup after Tenant deactivation, and ACKs terminal duplicates without reprocessing | `WorkerFileProcessingIntegrationTest.redisStreamsIndexRemoveAndDeleteOneRealFile` |
+| PostgreSQL persists topology, bounded inactive-Tenant cancellation, and both relay control tasks; dead ownership revives and scheduler instances cannot execute one recurring task concurrently | `ControlPlaneIntegrationTest` |
+| API/worker Spring task executors and real db-scheduler execution use virtual threads while configured workload, scheduler, datasource, and Redis bounds remain effective | `ApiApplicationSmokeTest`, `WorkerApplicationSmokeTest`, and `ControlPlaneIntegrationTest` |
+| Flyway V7 creates the db-scheduler control plane and V8 creates the Redis dispatch/processing evidence against real PostgreSQL | `SchedulerSchemaMigrationTest` |
+| API source commands commit against PostgreSQL without a Redis dependency | `SourceApiIntegrationTest` |
+| Redis unavailability makes worker readiness unavailable without changing PostgreSQL operation authority | `RedisUnavailableReadinessIntegrationTest` |
 | Redis credentials require TLS at startup; rejected configuration does not expose credentials | `RedisTransportSecurityConfigurationTest` |
-| Disabling topology avoids binding topology-only settings, while expected Redis access failure is translated without masking programming failures | `WorkerApplicationSmokeTest` and `RedisExecutionTopologyTest` |
+| The worker composition contains the Redis consumer and no direct PostgreSQL polling executor or poll-delay configuration | `WorkerApplicationSmokeTest`, full source/configuration review, and worker runtime integration |
 | Provider adapter imports only public capability APIs | `ProviderDependencyRulesTest` |
-| Worker starts with JDBC/provider composition and scheduling disabled in smoke context | `WorkerApplicationSmokeTest` |

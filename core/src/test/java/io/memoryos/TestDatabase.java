@@ -16,6 +16,7 @@ import org.testcontainers.utility.DockerImageName;
  * Shared database fixtures for core tests: the pinned PostgreSQL container (started once per test JVM and
  * reaped by Testcontainers), the production migration grammar, and transactional proxies for services.
  */
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "resource"})
 public final class TestDatabase {
 
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
@@ -27,7 +28,9 @@ public final class TestDatabase {
     private TestDatabase() {
     }
 
-    /** The current production schema: every migration in order. */
+    /**
+     * The current production schema: every migration in order.
+     */
     public static ResourceDatabasePopulator migrations() {
         return new ResourceDatabasePopulator(
                 new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
@@ -35,11 +38,15 @@ public final class TestDatabase {
                 new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
                 new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
                 new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql")
+                new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql"),
+                new ClassPathResource("db/migration/V7__create_scheduler_control_plane.sql"),
+                new ClassPathResource("db/migration/V8__cut_over_operations_to_redis_streams.sql")
         );
     }
 
-    /** Resets the shared PostgreSQL container's public schema and applies {@link #migrations()}. */
+    /**
+     * Resets the shared PostgreSQL container's public schema and applies {@link #migrations()}.
+     */
     public static DriverManagerDataSource freshPostgres() throws SQLException {
         PostgreSQLContainer container = postgres();
         var dataSource = new DriverManagerDataSource(

@@ -13,6 +13,7 @@ import java.util.HexFormat;
 import java.util.concurrent.locks.LockSupport;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,9 +23,14 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.springframework.data.redis.connection.stream.Consumer;
+import org.springframework.data.redis.connection.stream.ReadOffset;
+import org.springframework.data.redis.connection.stream.StreamOffset;
+import org.springframework.data.redis.connection.stream.StreamReadOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 @SpringBootTest(
@@ -36,18 +42,36 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V3__create_organization_invitations.sql,"
                         + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
                         + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
-                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql",
-                "db-scheduler.enabled=false",
-                "management.endpoint.health.group.readiness.include=readinessState,db,redis",
+                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
+                        + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
+                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql",
+                "db-scheduler.enabled=true",
+                "db-scheduler.scheduler-name=redis-cutover-integration",
+                "db-scheduler.polling-interval=50ms",
+                "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "memoryos.worker.enabled=true",
-                "memoryos.worker.batch-size=4",
-                "memoryos.worker.poll-delay=25ms"
+                "memoryos.redis.relay-interval=50ms",
+                "memoryos.redis.rediscovery-delay=750ms",
+                "memoryos.redis.transport-backoff=100ms",
+                "memoryos.redis.consumer-block=100ms",
+                "memoryos.redis.reclaim-interval=250ms",
+                "memoryos.redis.reclaim-idle=500ms",
+                "memoryos.redis.ingestion.stream=memoryos:test:cutover:ingestion",
+                "memoryos.redis.ingestion.group=memoryos-test-cutover-ingestion",
+                "memoryos.redis.ingestion.batch-size=4",
+                "memoryos.redis.cleanup.stream=memoryos:test:cutover:cleanup",
+                "memoryos.redis.cleanup.group=memoryos-test-cutover-cleanup",
+                "memoryos.redis.cleanup.batch-size=4"
         }
 )
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked"})
 class WorkerFileProcessingIntegrationTest {
 
+    private static final String INGESTION_STREAM = "memoryos:test:cutover:ingestion";
+    private static final String INGESTION_GROUP = "memoryos-test-cutover-ingestion";
+    private static final String CLEANUP_STREAM = "memoryos:test:cutover:cleanup";
+    private static final String CLEANUP_GROUP = "memoryos-test-cutover-cleanup";
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
             "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
     ).asCompatibleSubstituteFor("postgres");
@@ -70,6 +94,15 @@ class WorkerFileProcessingIntegrationTest {
 
     @Autowired
     private SourceManagementService sources;
+
+    @Autowired
+    private StringRedisTemplate redis;
+
+    @Autowired
+    private RedisStreamWorker worker;
+
+    @Autowired
+    private RedisExecutionTopology topology;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -104,15 +137,65 @@ class WorkerFileProcessingIntegrationTest {
 
     @Test
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
-    void schedulerIndexesRemovesAndDeletesOneRealFile() throws Exception {
+    void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
+        worker.stop();
         var sourceId = sources.createFileSource(OWNER, "Worker knowledge").source().id();
         byte[] content = "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         var upload = sources.upload(OWNER, sourceId, "worker.txt", content);
         assertEquals(sha256, upload.item().sha256());
+        await(() -> redis.opsForStream().size(INGESTION_STREAM) == 1L);
+        redis.delete(INGESTION_STREAM);
+        topology.reconcileTopology();
+        assertEquals(0L, redis.opsForStream().size(INGESTION_STREAM));
+        await(() -> redis.opsForStream().size(INGESTION_STREAM) == 1L);
+        var abandoned = redis.opsForStream().read(
+                Consumer.from(INGESTION_GROUP, "abandoned-consumer"),
+                StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
+                StreamOffset.create(INGESTION_STREAM, ReadOffset.lastConsumed())
+        );
+        assertEquals(1, abandoned.size());
+        assertEquals(
+                1L,
+                redis.opsForStream().pending(INGESTION_STREAM, INGESTION_GROUP).getTotalPendingMessages()
+        );
+        LockSupport.parkNanos(Duration.ofMillis(600).toNanos());
+        worker.start();
 
         await(() -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
+        assertEquals(
+                2,
+                jdbcClient.sql("SELECT dispatch_attempts FROM index_attempts WHERE id = :id")
+                        .param("id", upload.operation().id().value())
+                        .query(Integer.class)
+                        .single()
+        );
+        assertEquals(
+                0L,
+                redis.opsForStream().pending(
+                        INGESTION_STREAM,
+                        INGESTION_GROUP
+                ).getTotalPendingMessages()
+        );
+        UUID deliveryId = jdbcClient.sql("SELECT delivery_id FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value())
+                .query(UUID.class)
+                .single();
+        redis.opsForStream().add(INGESTION_STREAM, Map.of(
+                "tenant_id", TENANT_ID.toString(),
+                "operation_kind", "INGESTION",
+                "operation_id", upload.operation().id().value().toString(),
+                "delivery_id", deliveryId.toString()
+        ));
+        await(() -> redis.opsForStream().size(INGESTION_STREAM) == 0L);
+        assertEquals(
+                1,
+                jdbcClient.sql("SELECT processing_attempts FROM index_attempts WHERE id = :id")
+                        .param("id", upload.operation().id().value())
+                        .query(Integer.class)
+                        .single()
+        );
 
         sources.removeItem(OWNER, sourceId, upload.item().id());
         await(() -> sources.getSource(OWNER, sourceId).items().isEmpty());
@@ -140,6 +223,13 @@ class WorkerFileProcessingIntegrationTest {
                         .param("sourceId", sourceId.value())
                         .query(String.class)
                         .single()
+        );
+        assertEquals(
+                0L,
+                redis.opsForStream().pending(
+                        CLEANUP_STREAM,
+                        CLEANUP_GROUP
+                ).getTotalPendingMessages()
         );
     }
 

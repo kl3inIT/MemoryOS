@@ -45,12 +45,20 @@ import org.springframework.test.context.DynamicPropertySource;
         properties = {
                 "memoryos.worker.enabled=false",
                 "memoryos.redis.topology-interval=1h",
+                "memoryos.redis.relay-interval=100ms",
                 "memoryos.redis.ingestion.stream=memoryos:test:control:ingestion",
                 "memoryos.redis.ingestion.group=memoryos-test-control-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:control:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-control-cleanup-workers",
                 "spring.sql.init.mode=always",
-                "spring.sql.init.schema-locations=classpath:db/migration/V7__create_scheduler_control_plane.sql",
+                "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
+                        + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
+                        + "classpath:db/migration/V3__create_organization_invitations.sql,"
+                        + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
+                        + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
+                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
+                        + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
+                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql",
                 "spring.data.redis.repositories.enabled=false",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=mem45-integration",
@@ -100,9 +108,12 @@ class ControlPlaneIntegrationTest {
 
     @Test
     void registersExecutesAndRecoversTheTopologyControlTask() {
-        await(() -> successfulExecutionTime() != null);
+        await(() -> successfulExecutionTime(ControlPlaneConfiguration.REDIS_TOPOLOGY_TASK) != null
+                && successfulExecutionTime(ControlPlaneConfiguration.INACTIVE_INDEX_CANCELLATION_TASK) != null
+                && successfulExecutionTime(ControlPlaneConfiguration.INGESTION_RELAY_TASK) != null
+                && successfulExecutionTime(ControlPlaneConfiguration.CLEANUP_RELAY_TASK) != null);
         assertTrue(topologyTaskRanOnVirtualThread.get());
-        Instant firstSuccess = successfulExecutionTime();
+        Instant firstSuccess = successfulExecutionTime(ControlPlaneConfiguration.REDIS_TOPOLOGY_TASK);
         assertTrue(groupExists(redisProperties.ingestion()));
         assertTrue(groupExists(redisProperties.cleanup()));
         assertEquals(
@@ -123,7 +134,7 @@ class ControlPlaneIntegrationTest {
                 .update();
 
         await(() -> {
-            Instant recoveredSuccess = successfulExecutionTime();
+            Instant recoveredSuccess = successfulExecutionTime(ControlPlaneConfiguration.REDIS_TOPOLOGY_TASK);
             return recoveredSuccess != null && recoveredSuccess.isAfter(firstSuccess);
         });
     }
@@ -173,12 +184,12 @@ class ControlPlaneIntegrationTest {
                 .build();
     }
 
-    private Instant successfulExecutionTime() {
+    private Instant successfulExecutionTime(String taskName) {
         return jdbcClient.sql("""
                         SELECT last_success FROM scheduled_tasks
                         WHERE task_name = :taskName
                         """)
-                .param("taskName", ControlPlaneConfiguration.REDIS_TOPOLOGY_TASK)
+                .param("taskName", taskName)
                 .query(Instant.class)
                 .optional()
                 .orElse(null);

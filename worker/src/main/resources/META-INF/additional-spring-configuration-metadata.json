@@ -1,22 +1,10 @@
 {
   "properties": [
     {
-      "name": "memoryos.redis.topology-enabled",
-      "type": "java.lang.Boolean",
-      "description": "Whether the worker reconciles the Redis execution stream and consumer-group topology.",
-      "defaultValue": true
-    },
-    {
       "name": "memoryos.worker.enabled",
       "type": "java.lang.Boolean",
-      "description": "Whether the scheduled ingestion worker claims and processes durable index and cleanup work.",
+      "description": "Whether Redis Stream consumers process durable ingestion and cleanup operations.",
       "defaultValue": true
-    },
-    {
-      "name": "memoryos.worker.poll-delay",
-      "type": "java.time.Duration",
-      "description": "Fixed delay between the end of one claim loop and the start of the next, busy or idle.",
-      "defaultValue": "1s"
     }
   ]
 }

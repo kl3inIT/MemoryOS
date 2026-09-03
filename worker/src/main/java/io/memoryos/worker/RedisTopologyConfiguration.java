@@ -1,17 +1,12 @@
 package io.memoryos.worker;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import io.memoryos.ingestion.OperationDispatchPort;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(
-        name = "memoryos.redis.topology-enabled",
-        havingValue = "true",
-        matchIfMissing = true
-)
 @EnableConfigurationProperties(RedisExecutionProperties.class)
 class RedisTopologyConfiguration {
 
@@ -21,5 +16,15 @@ class RedisTopologyConfiguration {
             RedisExecutionProperties properties
     ) {
         return new RedisExecutionTopology(redis, properties);
+    }
+
+    @Bean
+    RedisOperationRelay redisOperationRelay(
+            StringRedisTemplate redis,
+            OperationDispatchPort dispatch,
+            RedisExecutionProperties properties,
+            RedisExecutionMetrics metrics
+    ) {
+        return new RedisOperationRelay(redis, dispatch, properties, metrics);
     }
 }

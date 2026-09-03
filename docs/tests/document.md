@@ -4,5 +4,5 @@
 | --- | --- |
 | Successful extraction publishes one eligible Document/version/mapping | `SourceApiIntegrationTest` and `WorkerFileProcessingIntegrationTest` |
 | Failed/stale work cannot publish current content | `PostgresSourceLifecycleTest` stale-token scenario |
-| Item removal removes final unreferenced Document/version | API lifecycle and scheduled worker integration |
+| Item removal removes final unreferenced Document/version | API lifecycle and Redis-stream worker integration |
 | Normalized text and SHA constraints execute in V5 | H2 full-context migration plus PostgreSQL concurrency suite |

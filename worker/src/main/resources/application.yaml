@@ -62,14 +62,20 @@ management:
 memoryos:
   worker:
     enabled: true
-    batch-size: ${MEMORYOS_WORKER_BATCH_SIZE:8}
-    poll-delay: ${MEMORYOS_WORKER_POLL_DELAY:1s}
   redis:
-    topology-enabled: true
     topology-interval: 30s
+    relay-interval: 1s
+    rediscovery-delay: 2m
+    transport-backoff: 5s
+    consumer-block: 2s
+    reclaim-interval: 10s
+    reclaim-idle: 2m
+    max-stream-depth: 1000
     ingestion:
       stream: memoryos:execution:ingestion:operations:v1
       group: memoryos:execution:ingestion:workers:v1
+      batch-size: ${MEMORYOS_WORKER_INGESTION_BATCH_SIZE:8}
     cleanup:
       stream: memoryos:execution:cleanup:operations:v1
       group: memoryos:execution:cleanup:workers:v1
+      batch-size: ${MEMORYOS_WORKER_CLEANUP_BATCH_SIZE:8}

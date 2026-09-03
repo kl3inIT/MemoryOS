@@ -28,8 +28,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
-- [MEM-35 — Tenant-owned FILE connectors](docs/increments/active/mem-35-file-connectors/design.md)
-- [MEM-53 — Local and staging inspection tooling](docs/increments/active/mem-53-inspection-tooling/design.md)
+- [MEM-43/MEM-44/MEM-51 — Redis operation execution cutover](docs/increments/active/mem-43-44-51-redis-execution-cutover/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 

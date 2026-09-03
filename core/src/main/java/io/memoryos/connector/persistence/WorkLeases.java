@@ -4,9 +4,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.regex.Pattern;
@@ -14,11 +13,10 @@ import java.util.regex.Pattern;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * Shared lease mechanics for the worker-claimed attempt tables.
+ * Shared token-fenced processing lease mechanics for the attempt tables.
  */
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 final class WorkLeases {
-
-    static final int MAX_BATCH = 32;
 
     private static final Duration LEASE = Duration.ofSeconds(120);
     private static final Pattern ERROR_CODE = Pattern.compile("[A-Z][A-Z0-9_]{0,63}");
@@ -26,51 +24,141 @@ final class WorkLeases {
     private WorkLeases() {
     }
 
-    /**
-     * Claims up to {@code batchSize} rows of {@code table}. {@code candidateSql} must select claimable
-     * ids with {@code :now} and {@code :limit} parameters and lock them with {@code FOR UPDATE SKIP LOCKED};
-     * each candidate is then leased with a fresh claim token and loaded through {@code load}.
-     */
-    static <W> List<W> claim(
+    static <W> Optional<W> claim(
             JdbcClient jdbcClient,
             String table,
-            String candidateSql,
-            int batchSize,
+            UUID tenantId,
+            UUID operationId,
+            UUID deliveryId,
             BiFunction<UUID, UUID, W> load
     ) {
-        int limit = Math.clamp(batchSize, 1, MAX_BATCH);
         Instant now = Instant.now();
-        List<UUID> candidates = jdbcClient.sql(candidateSql)
-                .param("now", sqlTime(now))
-                .param("limit", limit)
-                .query(UUID.class)
-                .list();
-        List<W> claimed = new ArrayList<>(candidates.size());
-        for (UUID candidate : candidates) {
-            UUID token = UUID.randomUUID();
-            int updated = jdbcClient.sql("UPDATE " + table + """
+        UUID token = UUID.randomUUID();
+        int updated = jdbcClient.sql("UPDATE " + table + """
 
-                            SET status = 'IN_PROGRESS',
-                                claim_token = :token,
-                                lease_expires_at = :leaseExpiresAt,
-                                started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
-                                error_code = NULL
-                            WHERE id = :id
-                              AND (
-                                  status = 'NOT_STARTED'
-                                  OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
-                              )
-                            """)
-                    .param("token", token)
-                    .param("leaseExpiresAt", sqlTime(now.plus(LEASE)))
-                    .param("id", candidate)
-                    .param("now", sqlTime(now))
-                    .update();
-            if (updated == 1) {
-                claimed.add(load.apply(candidate, token));
-            }
+                        SET status = 'IN_PROGRESS',
+                            claim_token = :token,
+                            lease_expires_at = :leaseExpiresAt,
+                            started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+                            processing_attempts = processing_attempts + 1,
+                            error_code = NULL
+                        WHERE tenant_id = :tenantId
+                          AND id = :operationId
+                          AND delivery_id = :deliveryId
+                          AND (
+                              status = 'NOT_STARTED'
+                              OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
+                          )
+                        """)
+                .param("token", token)
+                .param("leaseExpiresAt", sqlTime(now.plus(LEASE)))
+                .param("tenantId", tenantId)
+                .param("operationId", operationId)
+                .param("deliveryId", deliveryId)
+                .param("now", sqlTime(now))
+                .update();
+        return updated == 1 ? Optional.of(load.apply(operationId, token)) : Optional.empty();
+    }
+
+    static boolean renew(
+            JdbcClient jdbcClient,
+            String table,
+            UUID tenantId,
+            UUID operationId,
+            UUID claimToken
+    ) {
+        return jdbcClient.sql("UPDATE " + table + """
+
+                        SET lease_expires_at = :leaseExpiresAt
+                        WHERE tenant_id = :tenantId
+                          AND id = :operationId
+                          AND status = 'IN_PROGRESS'
+                          AND claim_token = :claimToken
+                        """)
+                .param("leaseExpiresAt", sqlTime(Instant.now().plus(LEASE)))
+                .param("tenantId", tenantId)
+                .param("operationId", operationId)
+                .param("claimToken", claimToken)
+                .update() == 1;
+    }
+
+    static RetryOutcome retry(
+            JdbcClient jdbcClient,
+            String table,
+            UUID tenantId,
+            UUID operationId,
+            UUID claimToken,
+            String errorCode,
+            int maxAttempts,
+            Duration backoff
+    ) {
+        if (maxAttempts < 1) {
+            throw new IllegalArgumentException("maxAttempts must be positive");
         }
-        return List.copyOf(claimed);
+        Objects.requireNonNull(backoff, "backoff must not be null");
+        if (backoff.isNegative() || backoff.isZero()) {
+            throw new IllegalArgumentException("backoff must be positive");
+        }
+        Integer attempts = jdbcClient.sql("SELECT processing_attempts FROM " + table + """
+
+                        WHERE tenant_id = :tenantId
+                          AND id = :operationId
+                          AND status = 'IN_PROGRESS'
+                          AND claim_token = :claimToken
+                        FOR UPDATE
+                        """)
+                .param("tenantId", tenantId)
+                .param("operationId", operationId)
+                .param("claimToken", claimToken)
+                .query(Integer.class)
+                .optional()
+                .orElse(null);
+        if (attempts == null) {
+            return RetryOutcome.STALE;
+        }
+        String safeCode = safeErrorCode(errorCode);
+        if (attempts >= maxAttempts) {
+            jdbcClient.sql("UPDATE " + table + """
+
+                            SET status = 'FAILED',
+                                claim_token = NULL,
+                                lease_expires_at = NULL,
+                                completed_at = CURRENT_TIMESTAMP,
+                                error_code = :errorCode
+                            WHERE tenant_id = :tenantId
+                              AND id = :operationId
+                              AND claim_token = :claimToken
+                            """)
+                    .param("errorCode", safeCode)
+                    .param("tenantId", tenantId)
+                    .param("operationId", operationId)
+                    .param("claimToken", claimToken)
+                    .update();
+            return RetryOutcome.EXHAUSTED;
+        }
+        jdbcClient.sql("UPDATE " + table + """
+
+                        SET status = 'NOT_STARTED',
+                            claim_token = NULL,
+                            lease_expires_at = NULL,
+                            delivery_id = NULL,
+                            redis_message_id = NULL,
+                            dispatched_at = NULL,
+                            dispatch_token = NULL,
+                            dispatch_lease_expires_at = NULL,
+                            next_dispatch_at = :nextDispatchAt,
+                            error_code = :errorCode
+                        WHERE tenant_id = :tenantId
+                          AND id = :operationId
+                          AND claim_token = :claimToken
+                        """)
+                .param("nextDispatchAt", sqlTime(Instant.now().plus(backoff)))
+                .param("errorCode", safeCode)
+                .param("tenantId", tenantId)
+                .param("operationId", operationId)
+                .param("claimToken", claimToken)
+                .update();
+        return RetryOutcome.RETRY_SCHEDULED;
     }
 
     static String safeErrorCode(String value) {
@@ -83,5 +171,11 @@ final class WorkLeases {
 
     static OffsetDateTime sqlTime(Instant instant) {
         return OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
+    }
+
+    enum RetryOutcome {
+        STALE,
+        RETRY_SCHEDULED,
+        EXHAUSTED
     }
 }
