@@ -6,6 +6,7 @@ import io.memoryos.ingestion.ExtractionFailure;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.InputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.tika.Tika;
@@ -62,11 +64,18 @@ final class TikaExtractionProcess {
         }
     }
 
-    static void writeRequest(Path path, byte[] content, String filename) throws IOException {
+    static void writeRequest(Path path, InputStream content, long sizeBytes, String filename) throws IOException {
+        Objects.requireNonNull(content, "content must not be null");
+        if (sizeBytes < 1 || sizeBytes > MAX_REQUEST_BYTES) {
+            throw new IOException("invalid extraction request size");
+        }
         try (var output = new DataOutputStream(Files.newOutputStream(path))) {
             writeString(output, filename);
-            output.writeInt(content.length);
-            output.write(content);
+            output.writeInt(Math.toIntExact(sizeBytes));
+            long copied = content.transferTo(output);
+            if (copied != sizeBytes) {
+                throw new IOException("extraction content size changed while streaming");
+            }
         }
     }
 

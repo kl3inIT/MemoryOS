@@ -1,6 +1,9 @@
 package io.memoryos.connector;
 
 import io.memoryos.identity.ActorId;
+import io.memoryos.objectstorage.ObjectUploadAuthorization;
+import io.memoryos.objectstorage.ObjectUploadId;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 
 import java.util.List;
 
@@ -14,7 +17,13 @@ public interface SourceManagementService {
 
     List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit);
 
-    SourceUploadResult upload(ActorId actorId, SourceId sourceId, String filename, byte[] content);
+    ObjectUploadAuthorization initiateUpload(
+            ActorId actorId,
+            SourceId sourceId,
+            ObjectUploadSpecification specification
+    );
+
+    SourceUploadReceipt finalizeUpload(ActorId actorId, SourceId sourceId, ObjectUploadId uploadId);
 
     SourceOperationView reindex(ActorId actorId, SourceId sourceId, SourceItemId itemId);
 

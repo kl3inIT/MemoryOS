@@ -4,6 +4,23 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type InitiateSourceUploadRequest = {
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    sha256: string;
+};
+
+export type SourceUploadAuthorization = {
+    uploadId: string;
+    method: string;
+    uploadUrl: string;
+    requiredHeaders: {
+        [key: string]: string;
+    };
+    expiresAt: string;
+};
+
 export type SourceItem = {
     id: string;
     filename: string;
@@ -24,7 +41,7 @@ export type SourceOperation = {
     errorCode: string | null;
 };
 
-export type SourceUpload = {
+export type SourceUploadReceipt = {
     item: SourceItem;
     operation: SourceOperation;
 };
@@ -144,28 +161,8 @@ export type ApiProblem = {
     code?: string;
 };
 
-export type ListSourceItemsData = {
-    body?: never;
-    path: {
-        sourceId: string;
-    };
-    query?: never;
-    url: '/api/sources/{sourceId}/items';
-};
-
-export type ListSourceItemsResponses = {
-    /**
-     * OK
-     */
-    200: Array<SourceItem>;
-};
-
-export type ListSourceItemsResponse = ListSourceItemsResponses[keyof ListSourceItemsResponses];
-
-export type UploadSourceItemData = {
-    body: {
-        file: Blob | File;
-    };
+export type InitiateSourceUploadData = {
+    body: InitiateSourceUploadRequest;
     headers: {
         /**
          * Same-origin non-simple request guard for browser-session mutations.
@@ -176,17 +173,42 @@ export type UploadSourceItemData = {
         sourceId: string;
     };
     query?: never;
-    url: '/api/sources/{sourceId}/items';
+    url: '/api/sources/{sourceId}/uploads';
 };
 
-export type UploadSourceItemResponses = {
+export type InitiateSourceUploadResponses = {
+    /**
+     * Created
+     */
+    201: SourceUploadAuthorization;
+};
+
+export type InitiateSourceUploadResponse = InitiateSourceUploadResponses[keyof InitiateSourceUploadResponses];
+
+export type FinalizeSourceUploadData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+        uploadId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/uploads/{uploadId}/finalize';
+};
+
+export type FinalizeSourceUploadResponses = {
     /**
      * Accepted
      */
-    202: SourceUpload;
+    202: SourceUploadReceipt;
 };
 
-export type UploadSourceItemResponse = UploadSourceItemResponses[keyof UploadSourceItemResponses];
+export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof FinalizeSourceUploadResponses];
 
 export type RemoveSourceItemData = {
     body?: never;
@@ -491,6 +513,24 @@ export type GetSourceResponses = {
 };
 
 export type GetSourceResponse = GetSourceResponses[keyof GetSourceResponses];
+
+export type ListSourceItemsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items';
+};
+
+export type ListSourceItemsResponses = {
+    /**
+     * OK
+     */
+    200: Array<SourceItem>;
+};
+
+export type ListSourceItemsResponse = ListSourceItemsResponses[keyof ListSourceItemsResponses];
 
 export type ListSourceIndexAttemptsData = {
     body?: never;

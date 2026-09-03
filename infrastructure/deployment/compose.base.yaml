@@ -105,6 +105,90 @@ services:
         max-size: 5m
         max-file: "2"
 
+  minio:
+    <<: *service-defaults
+    image: ${MEMORYOS_MINIO_IMAGE:-minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e}
+    container_name: memoryos-minio
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - >-
+        export MINIO_ROOT_PASSWORD="$$(cat /run/secrets/minio_root_password)";
+        exec minio server /data --address :9000 --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MEMORYOS_MINIO_ROOT_USER:-memoryos-root}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MEMORYOS_OBJECT_STORAGE_BROWSER_ORIGIN:?Set MEMORYOS_OBJECT_STORAGE_BROWSER_ORIGIN}
+    secrets:
+      - minio_root_password
+    ports:
+      - 127.0.0.1:${MEMORYOS_MINIO_HOST_PORT:-19000}:9000
+    networks:
+      memoryos-internal:
+        aliases:
+          - minio
+          - memoryos-minio
+      proxy:
+        aliases:
+          - minio
+          - memoryos-minio
+    volumes:
+      - memoryos_minio:/data
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://127.0.0.1:9000/minio/health/ready
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 768m
+        reservations:
+          memory: 256m
+
+  minio-bootstrap:
+    image: ${MEMORYOS_MINIO_MC_IMAGE:-minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3}
+    container_name: memoryos-minio-bootstrap
+    entrypoint:
+      - /bootstrap/bootstrap.sh
+    environment:
+      MC_CONFIG_DIR: /tmp/mc
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MEMORYOS_MINIO_ROOT_USER:-memoryos-root}
+      MINIO_BUCKET: ${MEMORYOS_OBJECT_STORAGE_BUCKET:-memoryos}
+      MINIO_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
+      MINIO_API_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_API_ACCESS_KEY:-memoryos-api}
+      MINIO_WORKER_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_WORKER_ACCESS_KEY:-memoryos-worker}
+    secrets:
+      - minio_root_password
+      - minio_api_secret_key
+      - minio_worker_secret_key
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - memoryos-internal
+    volumes:
+      - ../minio/bootstrap.sh:/bootstrap/bootstrap.sh:ro
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   shared-keycloak:
     <<: *service-defaults
     image: ${MEMORYOS_SHARED_KEYCLOAK_IMAGE:?Set MEMORYOS_SHARED_KEYCLOAK_IMAGE}
@@ -181,14 +265,24 @@ services:
       - DAC_OVERRIDE
       - SETGID
       - SETUID
+    environment:
+      MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT: http://minio:9000
+      MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT:?Set MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT}
+      MEMORYOS_OBJECT_STORAGE_BUCKET: ${MEMORYOS_OBJECT_STORAGE_BUCKET:-memoryos}
+      MEMORYOS_OBJECT_STORAGE_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_API_ACCESS_KEY:-memoryos-api}
+      MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_api_secret_key
+      MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
     secrets:
       - source: memoryos_infisical_bootstrap
         target: memoryos_infisical_bootstrap
+      - minio_api_secret_key
     depends_on:
       postgres:
         condition: service_healthy
       shared-keycloak:
         condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
     ports:
       - 127.0.0.1:${MEMORYOS_API_HOST_PORT:-18080}:8080
     networks:
@@ -230,9 +324,17 @@ services:
       - DAC_OVERRIDE
       - SETGID
       - SETUID
+    environment:
+      MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT: http://minio:9000
+      MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT:?Set MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT}
+      MEMORYOS_OBJECT_STORAGE_BUCKET: ${MEMORYOS_OBJECT_STORAGE_BUCKET:-memoryos}
+      MEMORYOS_OBJECT_STORAGE_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_WORKER_ACCESS_KEY:-memoryos-worker}
+      MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_worker_secret_key
+      MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
     secrets:
       - source: memoryos_infisical_bootstrap
         target: memoryos_infisical_bootstrap
+      - minio_worker_secret_key
     depends_on:
       api:
         condition: service_healthy
@@ -270,6 +372,8 @@ services:
     <<: *service-defaults
     image: ${MEMORYOS_WEB_IMAGE:?Set MEMORYOS_WEB_IMAGE}
     container_name: memoryos-web
+    environment:
+      MEMORYOS_OBJECT_STORAGE_CONNECT_SRC: ${MEMORYOS_OBJECT_STORAGE_CONNECT_SRC:?Set MEMORYOS_OBJECT_STORAGE_CONNECT_SRC}
     depends_on:
       api:
         condition: service_healthy
@@ -319,7 +423,15 @@ networks:
 secrets:
   memoryos_infisical_bootstrap:
     file: ${MEMORYOS_INFISICAL_BOOTSTRAP_FILE:?Set MEMORYOS_INFISICAL_BOOTSTRAP_FILE}
+  minio_root_password:
+    file: ${MEMORYOS_MINIO_ROOT_PASSWORD_FILE:-/apps/memoryos/secrets/minio/root-password.txt}
+  minio_api_secret_key:
+    file: ${MEMORYOS_MINIO_API_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/api-secret-key.txt}
+  minio_worker_secret_key:
+    file: ${MEMORYOS_MINIO_WORKER_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/worker-secret-key.txt}
 
 volumes:
   memoryos_postgres:
     name: ${MEMORYOS_POSTGRES_VOLUME:-memoryos-postgres-data}
+  memoryos_minio:
+    name: ${MEMORYOS_MINIO_VOLUME:-memoryos-minio-data}

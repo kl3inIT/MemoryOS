@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,10 +22,28 @@ import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.objectstorage.ObjectStorageFailureCode;
+import io.memoryos.objectstorage.StoredObjectRegistry;
+import io.memoryos.objectstorage.UploadAuthorization;
+import io.memoryos.objectstorage.UploadConstraints;
 
+import java.io.ByteArrayInputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.AfterAll;
@@ -35,9 +52,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.http.MediaType;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -61,6 +81,7 @@ import org.springframework.transaction.support.TransactionTemplate;
         "spring.datasource.password="
 })
 @AutoConfigureMockMvc
+@Import(SourceApiIntegrationTest.StorageTestConfiguration.class)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class SourceApiIntegrationTest {
 
@@ -94,6 +115,12 @@ class SourceApiIntegrationTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private InMemoryObjectStorage objectStorage;
+
+    @Autowired
+    private StoredObjectRegistry storedObjects;
 
     private ActorAuthenticationToken owner;
     private ActorAuthenticationToken member;
@@ -165,14 +192,26 @@ class SourceApiIntegrationTest {
         String sourceId = io.swagger.v3.core.util.Json.mapper().readTree(sourceBody)
                 .path("source").path("id").textValue();
 
-        var file = new MockMultipartFile(
-                "file",
-                "knowledge.txt",
-                MediaType.TEXT_PLAIN_VALUE,
-                "MemoryOS FILE connector content".getBytes(UTF_8)
-        );
-        String uploadBody = mockMvc.perform(multipart("/api/sources/{sourceId}/items", sourceId)
-                        .file(file)
+        byte[] file = "MemoryOS FILE connector content".getBytes(UTF_8);
+        String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file));
+        String authorizationBody = mockMvc.perform(post("/api/sources/{sourceId}/uploads", sourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"filename":"knowledge.txt","mediaType":"text/plain","sizeBytes":%d,"sha256":"%s"}
+                                """.formatted(file.length, checksum)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.method").value("PUT"))
+                .andReturn().getResponse().getContentAsString();
+        var authorization = io.swagger.v3.core.util.Json.mapper().readTree(authorizationBody);
+        String uploadId = authorization.path("uploadId").textValue();
+        objectStorage.put(URI.create(authorization.path("uploadUrl").textValue()), file);
+        String uploadBody = mockMvc.perform(post(
+                        "/api/sources/{sourceId}/uploads/{uploadId}/finalize",
+                        sourceId,
+                        uploadId
+                )
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isAccepted())
@@ -277,18 +316,17 @@ class SourceApiIntegrationTest {
                         .content("{"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").doesNotExist());
-        var oversized = new MockMultipartFile(
-                "file",
-                "oversized.txt",
-                MediaType.TEXT_PLAIN_VALUE,
-                new byte[10 * 1024 * 1024 + 1]
-        );
-        mockMvc.perform(multipart("/api/sources/{sourceId}/items", sourceId)
-                        .file(oversized)
+        mockMvc.perform(post("/api/sources/{sourceId}/uploads", sourceId)
                         .with(authentication(owner))
-                        .header("X-MemoryOS-CSRF", "1"))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"filename":"oversized.txt","mediaType":"text/plain",
+                                 "sizeBytes":10485761,
+                                 "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                                """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
 
     }
 
@@ -299,6 +337,8 @@ class SourceApiIntegrationTest {
                     cleanupPort,
                     documents,
                     extractor,
+                    objectStorage,
+                    storedObjects,
                     new TransactionTemplate(transactionManager),
                     leaseScheduler
             );
@@ -349,6 +389,114 @@ class SourceApiIntegrationTest {
             return server;
         } catch (Exception exception) {
             throw new IllegalStateException("Could not start local identity server", exception);
+        }
+    }
+    @TestConfiguration(proxyBeanMethods = false)
+    static class StorageTestConfiguration {
+        @Bean
+        @Primary
+        InMemoryObjectStorage testObjectStorage() {
+            return new InMemoryObjectStorage();
+        }
+    }
+
+    static final class InMemoryObjectStorage implements ObjectStorage {
+        private final AtomicLong sequence = new AtomicLong();
+        private final Map<URI, Entry> authorizations = new ConcurrentHashMap<>();
+        private final Map<ObjectKey, Entry> objects = new ConcurrentHashMap<>();
+
+        @Override
+        public UploadAuthorization authorizeUpload(ObjectKey key, UploadConstraints constraints) {
+            URI uri = URI.create("https://uploads.example.test/" + sequence.incrementAndGet());
+            Entry entry = new Entry(constraints);
+            authorizations.put(uri, entry);
+            objects.put(key, entry);
+            return new UploadAuthorization(
+                    "PUT",
+                    uri,
+                    Map.of(
+                            "content-type", constraints.mediaType(),
+                            "x-amz-checksum-sha256", constraints.checksum().base64()
+                    ),
+                    Instant.now().plusSeconds(600)
+            );
+        }
+
+        void put(URI uri, byte[] content) {
+            Entry entry = authorizations.get(uri);
+            if (entry == null) {
+                throw new IllegalArgumentException("unknown upload authorization");
+            }
+            ContentSha256 checksum = checksum(content);
+            if (content.length != entry.constraints.sizeBytes()
+                    || !checksum.equals(entry.constraints.checksum())) {
+                throw new IllegalArgumentException("uploaded bytes do not match authorization");
+            }
+            entry.content = content.clone();
+        }
+
+        @Override
+        public ObjectMetadata inspect(ObjectKey key) {
+            Entry entry = requireEntry(key);
+            return new ObjectMetadata(
+                    entry.content.length,
+                    entry.constraints.mediaType(),
+                    checksum(entry.content)
+            );
+        }
+
+        @Override
+        public ObjectContent open(ObjectKey key) {
+            Entry entry = requireEntry(key);
+            ObjectMetadata metadata = inspect(key);
+            ByteArrayInputStream input = new ByteArrayInputStream(entry.content.clone());
+            return new ObjectContent() {
+                @Override
+                public ObjectMetadata metadata() {
+                    return metadata;
+                }
+
+                @Override
+                public ByteArrayInputStream inputStream() {
+                    return input;
+                }
+
+                @Override
+                public void close() {
+                }
+            };
+        }
+
+        @Override
+        public void delete(ObjectKey key) {
+            objects.remove(key);
+        }
+
+        private Entry requireEntry(ObjectKey key) {
+            Entry entry = objects.get(key);
+            if (entry == null || entry.content == null) {
+                throw new ObjectStorageException(ObjectStorageFailureCode.NOT_FOUND, false, null);
+            }
+            return entry;
+        }
+
+        private static ContentSha256 checksum(byte[] content) {
+            try {
+                return new ContentSha256(HexFormat.of().formatHex(
+                        MessageDigest.getInstance("SHA-256").digest(content)
+                ));
+            } catch (java.security.NoSuchAlgorithmException exception) {
+                throw new IllegalStateException(exception);
+            }
+        }
+
+        private static final class Entry {
+            private final UploadConstraints constraints;
+            private volatile byte[] content;
+
+            private Entry(UploadConstraints constraints) {
+                this.constraints = constraints;
+            }
         }
     }
 }

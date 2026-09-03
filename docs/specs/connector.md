@@ -8,13 +8,13 @@ FILE is the only implemented provider. One active Tenant OWNER creates and manag
 
 ## Application and persistence boundary
 
-`DefaultSourceManagementService` owns authorization, validation, orchestration, transaction boundaries, transition decisions, and typed failures. It injects concrete `JdbcSourceRepository`, `JdbcSourceItemRepository`, `JdbcIndexAttemptRepository`, `JdbcSourceDocumentRepository`, and `JdbcSourceQueryRepository`. Application code contains no SQL, row mapping, locks, claims, or bulk updates; single internal JDBC implementations have no repository interfaces.
+`DefaultSourceManagementService` owns authorization, validation, upload adoption, orchestration, transaction boundaries, transition decisions, and typed failures. It injects concrete Connector persistence repositories plus the public `ObjectUploadService`; Connector persistence never imports object-storage persistence. `JdbcSourceUploadRepository` binds a generic upload to one Pair and persists its finalized item/version/attempt receipt. Application code contains no SQL, row mapping, locks, claims, or bulk updates; single internal JDBC implementations have no repository interfaces.
 
 ## File and operation lifecycle
 
-One upload contains 1 byte–10 MiB, normalizes the display filename, computes lowercase SHA-256 before persistence, stores immutable bytes in PostgreSQL, and creates or resolves one Pair-specific NOT_STARTED index attempt. Duplicate bytes in one FILE Pair converge on one item/version/live attempt. Detection and extraction never run in the API transaction.
+A FILE upload declares 1 byte–10 MiB, a normalized display filename, media type, and lowercase SHA-256. The API commits a Pair-bound generic upload intent, returns a provider-neutral presigned PUT authorization, and receives no file bytes. Finalization verifies provider metadata outside the Connector transaction, then adopts a new immutable `StoredObject` or discards a duplicate staged object. Duplicate content in one FILE Pair converges on one item/version/live attempt. A finalized receipt makes lost-response replay idempotent. Detection and extraction never run in the API transaction.
 
-Reindex is idempotent while work is nonterminal. Item removal and source deletion are explicit POST commands that immediately invalidate retrieval mappings and return durable cleanup operations. Cleanup results remain queryable after target deletion; `SUCCEEDED` and `SUPERSEDED` are terminal success states.
+Reindex is idempotent while work is nonterminal. Item removal and source deletion are explicit POST commands that immediately invalidate retrieval mappings and return durable cleanup operations. Connector owns adopted FILE-object cleanup: provider deletion is completed before upload associations, versions/items, object metadata, and unreferenced Documents are removed in dependency order. Cleanup results remain queryable after target deletion; `SUCCEEDED` and `SUPERSEDED` are terminal success states.
 
 ## Access
 

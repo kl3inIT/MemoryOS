@@ -1,11 +1,18 @@
 package io.memoryos.worker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceStatus;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.identity.ActorId;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
@@ -15,14 +22,26 @@ import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.Map;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.ReadOffset;
 import org.springframework.data.redis.connection.stream.StreamOffset;
@@ -44,7 +63,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
                         + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
                         + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
-                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql",
+                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
+                        + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
@@ -65,7 +85,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
         }
 )
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked"})
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
 class WorkerFileProcessingIntegrationTest {
 
     private static final String INGESTION_STREAM = "memoryos:test:cutover:ingestion";
@@ -81,6 +101,21 @@ class WorkerFileProcessingIntegrationTest {
             .withDatabaseName("memoryos")
             .withUsername("memoryos")
             .withPassword("memoryos");
+
+    @Container
+    private static final GenericContainer<?> MINIO = new GenericContainer<>(
+            DockerImageName.parse(
+                    "minio/minio:RELEASE.2025-04-22T22-12-26Z"
+                            + "@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
+            )
+    )
+            .withEnv("MINIO_ROOT_USER", "memoryos-test")
+            .withEnv("MINIO_ROOT_PASSWORD", "memoryos-test-secret")
+            .withCommand("server", "/data")
+            .withExposedPorts(9000)
+            .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000));
+
+    private static final String OBJECT_BUCKET = "memoryos-test";
 
     private static final ActorId OWNER = new ActorId(
             UUID.fromString("ac009796-bf52-4d3b-b619-acbde4e46717")
@@ -109,6 +144,21 @@ class WorkerFileProcessingIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("memoryos.object-storage.s3.service-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
+        registry.add("memoryos.object-storage.s3.upload-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
+        registry.add("memoryos.object-storage.s3.region", () -> "us-east-1");
+        registry.add("memoryos.object-storage.s3.bucket", () -> OBJECT_BUCKET);
+        registry.add("memoryos.object-storage.s3.access-key", () -> "memoryos-test");
+        registry.add("memoryos.object-storage.s3.secret-key", () -> "memoryos-test-secret");
+        registry.add("memoryos.object-storage.s3.path-style-access", () -> "true");
+        registry.add("memoryos.object-storage.s3.authorization-lifetime", () -> "10m");
+    }
+
+    @BeforeAll
+    static void createObjectBucket() {
+        try (S3Client client = s3Client()) {
+            client.createBucket(CreateBucketRequest.builder().bucket(OBJECT_BUCKET).build());
+        }
     }
 
 
@@ -142,8 +192,37 @@ class WorkerFileProcessingIntegrationTest {
         var sourceId = sources.createFileSource(OWNER, "Worker knowledge").source().id();
         byte[] content = "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        var upload = sources.upload(OWNER, sourceId, "worker.txt", content);
+        var authorization = sources.initiateUpload(
+                OWNER,
+                sourceId,
+                new ObjectUploadSpecification(
+                        "worker.txt",
+                        "text/plain",
+                        content.length,
+                        new ContentSha256(sha256)
+                )
+        );
+        HttpRequest.Builder uploadRequest = HttpRequest.newBuilder(authorization.authorization().uri());
+        authorization.authorization().requiredHeaders().forEach(uploadRequest::header);
+        HttpResponse<Void> uploadResponse;
+        try (HttpClient httpClient = HttpClient.newHttpClient()) {
+            uploadResponse = httpClient.send(
+                    uploadRequest.PUT(HttpRequest.BodyPublishers.ofByteArray(content)).build(),
+                    HttpResponse.BodyHandlers.discarding()
+            );
+        }
+        assertEquals(200, uploadResponse.statusCode());
+        var upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
         assertEquals(sha256, upload.item().sha256());
+        String objectKey = jdbcClient.sql("""
+                        SELECT object.object_key
+                        FROM connector_item_versions version
+                        JOIN stored_objects object ON object.id = version.stored_object_id
+                        WHERE version.connector_item_id = :itemId
+                        """)
+                .param("itemId", upload.item().id().value())
+                .query(String.class)
+                .single();
         await(() -> redis.opsForStream().size(INGESTION_STREAM) == 1L);
         redis.delete(INGESTION_STREAM);
         topology.reconcileTopology();
@@ -199,6 +278,16 @@ class WorkerFileProcessingIntegrationTest {
 
         sources.removeItem(OWNER, sourceId, upload.item().id());
         await(() -> sources.getSource(OWNER, sourceId).items().isEmpty());
+        assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM stored_objects").query(Long.class).single());
+        assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM object_uploads").query(Long.class).single());
+        assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM source_uploads").query(Long.class).single());
+        try (S3Client client = s3Client()) {
+            S3Exception missing = assertThrows(
+                    S3Exception.class,
+                    () -> client.headObject(HeadObjectRequest.builder().bucket(OBJECT_BUCKET).key(objectKey).build())
+            );
+            assertEquals(404, missing.statusCode());
+        }
 
         sources.deleteSource(OWNER, sourceId);
         jdbcClient.sql("""
@@ -232,6 +321,22 @@ class WorkerFileProcessingIntegrationTest {
                 ).getTotalPendingMessages()
         );
     }
+    private static String minioEndpoint() {
+        return "http://" + MINIO.getHost() + ":" + MINIO.getMappedPort(9000);
+    }
+    private static S3Client s3Client() {
+        return S3Client.builder()
+                .endpointOverride(URI.create(minioEndpoint()))
+                .region(Region.US_EAST_1)
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create("memoryos-test", "memoryos-test-secret")
+                ))
+                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+                .httpClient(UrlConnectionHttpClient.create())
+                .build();
+    }
+
+
 
     private static void await(BooleanSupplier condition) {
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();

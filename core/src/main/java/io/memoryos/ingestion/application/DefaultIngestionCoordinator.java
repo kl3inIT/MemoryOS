@@ -9,6 +9,8 @@ import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.SourceContentExtractor;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.StoredObjectRegistry;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -31,6 +33,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     private final ConnectorCleanupPort cleanupPort;
     private final DocumentCommandPort documents;
     private final SourceContentExtractor extractor;
+    private final ObjectStorage storage;
+    private final StoredObjectRegistry storedObjects;
     private final TransactionTemplate transactions;
     private final ScheduledExecutorService leaseScheduler;
 
@@ -39,6 +43,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             ConnectorCleanupPort cleanupPort,
             DocumentCommandPort documents,
             SourceContentExtractor extractor,
+            ObjectStorage storage,
+            StoredObjectRegistry storedObjects,
             TransactionTemplate transactions,
             ScheduledExecutorService leaseScheduler
     ) {
@@ -46,6 +52,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         this.cleanupPort = Objects.requireNonNull(cleanupPort, "cleanupPort must not be null");
         this.documents = Objects.requireNonNull(documents, "documents must not be null");
         this.extractor = Objects.requireNonNull(extractor, "extractor must not be null");
+        this.storage = Objects.requireNonNull(storage, "storage must not be null");
+        this.storedObjects = Objects.requireNonNull(storedObjects, "storedObjects must not be null");
         this.transactions = Objects.requireNonNull(transactions, "transactions must not be null");
         this.leaseScheduler = Objects.requireNonNull(leaseScheduler, "leaseScheduler must not be null");
     }
@@ -77,13 +85,24 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 TimeUnit.SECONDS
         );
         try {
-            var content = extractor.extract(work.content(), work.filename());
+            var expected = work.object().metadata();
+            final io.memoryos.document.DocumentContent content;
+            try (var objectContent = storage.open(work.object().key())) {
+                if (!expected.equals(objectContent.metadata())) {
+                    throw new IllegalStateException("stored object metadata changed after adoption");
+                }
+                content = extractor.extract(
+                        objectContent.inputStream(),
+                        expected.sizeBytes(),
+                        work.object().filename()
+                );
+            }
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
                         work.tenantId(),
                         indexingPort.findMappedDocument(work).orElse(null),
                         content,
-                        work.sha256()
+                        expected.checksum().value()
                 );
                 if (!indexingPort.complete(work, documentId)) {
                     throw new StaleIndexClaimException();
@@ -119,7 +138,17 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     private void processCleanup(CleanupWork work) {
+        ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
+                () -> renewCleanupLease(work),
+                LEASE_RENEWAL_SECONDS,
+                LEASE_RENEWAL_SECONDS,
+                TimeUnit.SECONDS
+        );
         try {
+            for (var object : cleanupPort.objects(work)) {
+                storedObjects.markDeletePending(work.tenantId(), object.object().id());
+                storage.delete(object.object().key());
+            }
             if (!cleanupPort.execute(work)) {
                 LOGGER.debug("Ignored stale cleanup completion");
             }
@@ -132,6 +161,16 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             )) {
                 LOGGER.debug("Ignored stale cleanup failure");
             }
+        } finally {
+            renewal.cancel(false);
+        }
+    }
+
+    private void renewCleanupLease(CleanupWork work) {
+        try {
+            cleanupPort.renew(work);
+        } catch (RuntimeException exception) {
+            LOGGER.warn("Cleanup processing lease renewal failed; the next interval will retry");
         }
     }
 

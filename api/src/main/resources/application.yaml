@@ -16,10 +16,6 @@ spring:
   mvc:
     problemdetails:
       enabled: true
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 11MB
   datasource:
     url: ${MEMORYOS_DATABASE_URL}
     username: ${MEMORYOS_DATABASE_USERNAME}
@@ -94,3 +90,22 @@ memoryos:
     slug: ${MEMORYOS_TENANT_SLUG}
     display-name: ${MEMORYOS_TENANT_DISPLAY_NAME}
     change-reference: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
+  object-storage:
+    upload:
+      lifetime: ${MEMORYOS_OBJECT_UPLOAD_LIFETIME:15m}
+      verification-lease: ${MEMORYOS_OBJECT_UPLOAD_VERIFICATION_LEASE:30s}
+      adoption-timeout: ${MEMORYOS_OBJECT_UPLOAD_ADOPTION_TIMEOUT:5m}
+      cleanup-lease: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_LEASE:1m}
+      cleanup-batch-size: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_BATCH_SIZE:16}
+    s3:
+      service-endpoint: ${MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT}
+      upload-endpoint: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT}
+      region: ${MEMORYOS_OBJECT_STORAGE_REGION:us-east-1}
+      bucket: ${MEMORYOS_OBJECT_STORAGE_BUCKET:memoryos}
+      access-key: ${MEMORYOS_OBJECT_STORAGE_ACCESS_KEY}
+      secret-key: ${MEMORYOS_OBJECT_STORAGE_SECRET_KEY}
+      path-style-access: ${MEMORYOS_OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+      readiness-key: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:system/readiness}
+      authorization-lifetime: ${MEMORYOS_OBJECT_UPLOAD_AUTHORIZATION_LIFETIME:10m}
+      connect-timeout: ${MEMORYOS_OBJECT_STORAGE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${MEMORYOS_OBJECT_STORAGE_READ_TIMEOUT:30s}

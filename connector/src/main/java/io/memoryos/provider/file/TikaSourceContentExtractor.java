@@ -6,6 +6,7 @@ import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.ingestion.SourceContentExtractor;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +41,7 @@ public final class TikaSourceContentExtractor implements SourceContentExtractor,
     }
 
     @Override
-    public DocumentContent extract(byte[] content, String filename) throws ExtractionException {
+    public DocumentContent extract(InputStream content, long sizeBytes, String filename) throws ExtractionException {
         Objects.requireNonNull(content, "content must not be null");
         Objects.requireNonNull(filename, "filename must not be null");
         if (closed.get()) {
@@ -57,7 +58,7 @@ public final class TikaSourceContentExtractor implements SourceContentExtractor,
             Path arguments = directory.resolve("java.args");
             Path request = directory.resolve("request.bin");
             Path response = directory.resolve("response.bin");
-            TikaExtractionProcess.writeRequest(request, content, filename);
+            TikaExtractionProcess.writeRequest(request, content, sizeBytes, filename);
             writeArgumentFile(arguments, request, response);
             process = startProcess(arguments);
             processes.add(process);

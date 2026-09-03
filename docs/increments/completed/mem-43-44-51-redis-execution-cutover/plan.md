@@ -38,4 +38,4 @@
 - [x] Inspect every changed Java, SQL, YAML, properties, XML, and Kotlin DSL file with warnings enabled.
 - [x] Run focused tests, `clean check`, production image builds, and an actual worker runtime smoke test.
 - [x] Consolidate architecture, ingestion specification, verification matrix, configuration, runbook, and roadmap facts.
-- [ ] Merge one reviewed head and record exact-SHA CI and runtime evidence on MEM-43, MEM-44, and MEM-51.
+- [x] Merge reviewed head `06de291f74529a2ca1245c200e4b5a196197f222` through PR #63, verify main at merge SHA `7d12e127fbbd387b561f516f4918e17930397f47`, and record exact-SHA CI/runtime evidence on MEM-43, MEM-44, and MEM-51.

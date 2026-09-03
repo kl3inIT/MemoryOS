@@ -7,7 +7,9 @@ import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
 
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.objectstorage.ObjectUploadCleanupPort;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,6 +26,7 @@ class ControlPlaneConfiguration {
     static final String INACTIVE_INDEX_CANCELLATION_TASK = "memoryos-inactive-index-cancellation-v1";
     static final String INGESTION_RELAY_TASK = "memoryos-redis-ingestion-relay-v1";
     static final String CLEANUP_RELAY_TASK = "memoryos-redis-cleanup-relay-v1";
+    static final String ABANDONED_OBJECT_UPLOAD_CLEANUP_TASK = "memoryos-abandoned-object-upload-cleanup-v1";
     static final String DB_SCHEDULER_TASK_EXECUTOR = "dbSchedulerTaskExecutor";
 
     @Bean(name = DB_SCHEDULER_TASK_EXECUTOR, defaultCandidate = false, destroyMethod = "close")
@@ -79,5 +82,19 @@ class ControlPlaneConfiguration {
     ) {
         return Tasks.recurring(CLEANUP_RELAY_TASK, FixedDelay.of(properties.relayInterval()))
                 .execute((_, _) -> relay.relay(OperationWorkload.CLEANUP));
+    }
+
+    @Bean
+    AbandonedObjectUploadCleanupTask abandonedObjectUploadCleanupTask(ObjectUploadCleanupPort cleanup) {
+        return new AbandonedObjectUploadCleanupTask(cleanup);
+    }
+
+    @Bean
+    RecurringTask<Void> abandonedObjectUploadCleanupRecurringTask(AbandonedObjectUploadCleanupTask cleanup) {
+        return Tasks.recurring(
+                        ABANDONED_OBJECT_UPLOAD_CLEANUP_TASK,
+                        FixedDelay.of(Duration.ofMinutes(1))
+                )
+                .execute((_, _) -> cleanup.execute());
     }
 }

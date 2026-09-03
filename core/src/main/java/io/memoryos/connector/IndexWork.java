@@ -1,5 +1,6 @@
 package io.memoryos.connector;
 
+import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.tenant.TenantId;
 
 import java.util.UUID;
@@ -11,16 +12,6 @@ public record IndexWork(
         SourceId sourceId,
         SourceItemId itemId,
         UUID claimToken,
-        String filename,
-        byte[] content,
-        String sha256
+        StoredObjectReference object
 ) {
-    public IndexWork {
-        content = content.clone();
-    }
-
-    @Override
-    public byte[] content() {
-        return content.clone();
-    }
 }

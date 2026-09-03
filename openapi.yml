@@ -7,36 +7,12 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
-  /api/sources/{sourceId}/items:
-    get:
-      tags:
-      - Sources
-      summary: List current source items
-      operationId: listSourceItems
-      parameters:
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SourceItem"
-      security:
-      - bearerAuth: []
-      - browserSession: []
+  /api/sources/{sourceId}/uploads:
     post:
       tags:
       - Sources
-      summary: Upload one bounded FILE source item
-      operationId: uploadSourceItem
+      summary: Authorize one direct FILE source upload
+      operationId: initiateSourceUpload
       parameters:
       - name: X-MemoryOS-CSRF
         in: header
@@ -54,23 +30,54 @@ paths:
           format: uuid
       requestBody:
         content:
-          multipart/form-data:
+          application/json:
             schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-              required:
-              - file
+              $ref: "#/components/schemas/InitiateSourceUploadRequest"
         required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceUploadAuthorization"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/uploads/{uploadId}/finalize:
+    post:
+      tags:
+      - Sources
+      summary: Verify and adopt one direct FILE source upload
+      operationId: finalizeSourceUpload
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: uploadId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       responses:
         "202":
           description: Accepted
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceUpload"
+                $ref: "#/components/schemas/SourceUploadReceipt"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -475,6 +482,31 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/items:
+    get:
+      tags:
+      - Sources
+      summary: List current source items
+      operationId: listSourceItems
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceItem"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/index-attempts:
     get:
       tags:
@@ -574,6 +606,57 @@ paths:
       - bearerAuth: []
 components:
   schemas:
+    InitiateSourceUploadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        filename:
+          type: string
+          maxLength: 255
+          minLength: 0
+        mediaType:
+          type: string
+          maxLength: 160
+          minLength: 0
+        sizeBytes:
+          type: integer
+          format: int64
+          maximum: 10485760
+          minimum: 1
+        sha256:
+          type: string
+          minLength: 1
+          pattern: "^[0-9a-f]{64}$"
+      required:
+      - filename
+      - mediaType
+      - sha256
+      - sizeBytes
+    SourceUploadAuthorization:
+      type: object
+      additionalProperties: false
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        method:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - method
+      - requiredHeaders
+      - uploadId
+      - uploadUrl
     SourceItem:
       type: object
       additionalProperties: false
@@ -641,7 +724,7 @@ components:
       - id
       - status
       - type
-    SourceUpload:
+    SourceUploadReceipt:
       type: object
       additionalProperties: false
       properties:

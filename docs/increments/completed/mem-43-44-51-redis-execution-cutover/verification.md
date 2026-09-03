@@ -1,6 +1,6 @@
 # MEM-43/MEM-44/MEM-51 verification matrix: Redis operation execution cutover
 
-Verified locally on 2026-09-03. Exact pull-request head CI and merge-SHA evidence remain the final delivery gate.
+Verified locally and after merge on 2026-09-03.
 
 | Requirement | Evidence |
 | --- | --- |
@@ -37,3 +37,5 @@ Verified locally on 2026-09-03. Exact pull-request head CI and merge-SHA evidenc
 - `gradlew clean check --no-daemon` passed across all server modules.
 - `docker build --target worker --tag memoryos-worker:mem43-cutover .` built the layered production worker image; local manifest list `sha256:fc3295033bca7965f0ca98ed0462d33d0a1330423756f3d866ccb0403d69a6a1`.
 - Source and configuration search finds no `IngestionWorker`, `WorkerProperties`, direct batch-claim coordinator, `MEMORYOS_WORKER_POLL_DELAY`, or `MEMORYOS_WORKER_BATCH_SIZE` path.
+- PR #63 reviewed head `06de291f74529a2ca1245c200e4b5a196197f222` merged as `7d12e127fbbd387b561f516f4918e17930397f47`; exact merge-SHA main CI run `33714154193` passed backend, frontend, frontend-image, and backend-image jobs.
+- The production worker image was exercised against isolated PostgreSQL 17.11 and Redis 8.2.1: readiness was `UP`, a seeded `DELETE_SOURCE` cleanup completed through relay, consumer, guarded finalization, XACK, and XDEL, the operation reached `SUPERSEDED` with one dispatch and processing attempt, and the stream and pending-entry list were empty. All smoke infrastructure was removed afterward.

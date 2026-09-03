@@ -34,6 +34,12 @@ describe("source error presentation", () => {
       "This source is already changing. Refresh the source and try again.",
     );
     expect(
+      sourceMutationError(
+        new ApiError(503, { code: "OBJECT_UPLOAD_STORAGE_UNAVAILABLE" }),
+        "upload",
+      ),
+    ).toBe("Object storage is temporarily unavailable. Retry the upload.");
+    expect(
       sourceMutationError(new ApiError(500, { code: "SOURCE_PROVIDER_RATE_LIMITED" }), "reindex"),
     ).toBe(
       "The source operation could not be completed. Error reference: SOURCE_PROVIDER_RATE_LIMITED.",

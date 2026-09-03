@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
@@ -532,11 +533,23 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     lastSucceededAt: null,
     errorCode: null,
   };
+  const otherSource = {
+    ...source,
+    id: "25f8cb72-2628-4d75-bcf1-8f6cda95a120",
+    name: "Support notes",
+  };
   const items: Array<Record<string, unknown>> = [];
   const mutationHeaders: string[] = [];
+  const apiUploadBodies: Array<Buffer | null> = [];
+  const uploadedFile = Buffer.from("MemoryOS browser source");
+  const checksum = createHash("sha256").update(uploadedFile).digest("hex");
+  const checksumBase64 = createHash("sha256").update(uploadedFile).digest("base64");
   let sourceDeleted = false;
   let removeAttempts = 0;
-
+  let finalizeAttempts = 0;
+  let objectStoragePuts = 0;
+  let includeOtherSource = true;
+  let storedBytes: Buffer | null = null;
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
       status: 200,
@@ -559,6 +572,30 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       }),
     });
   });
+  await page.route("https://objects.example.test/**", async (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "PUT",
+          "access-control-allow-headers": "content-type,x-amz-checksum-sha256",
+        },
+      });
+      return;
+    }
+    expect(request.method()).toBe("PUT");
+    expect(request.headers()["content-type"]).toBe("text/plain");
+    expect(request.headers()["x-amz-checksum-sha256"]).toBe(checksumBase64);
+    objectStoragePuts += 1;
+    storedBytes = request.postDataBuffer();
+    await route.fulfill({
+      status: 200,
+      headers: { "access-control-allow-origin": "*" },
+    });
+  });
+
   await page.route("**/api/sources**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -566,7 +603,9 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(sourceDeleted ? [] : source.name ? [source] : []),
+        body: JSON.stringify(
+          sourceDeleted ? [] : [source, ...(includeOtherSource ? [otherSource] : [])],
+        ),
       });
       return;
     }
@@ -587,15 +626,62 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       });
       return;
     }
-    if (request.method() === "POST" && path === `/api/sources/${source.id}/items`) {
+    if (request.method() === "GET" && path === `/api/sources/${otherSource.id}`) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ source: otherSource, items: [] }),
+      });
+      return;
+    }
+    if (request.method() === "POST" && path === `/api/sources/${source.id}/uploads`) {
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      apiUploadBodies.push(request.postDataBuffer());
+      expect(request.postDataJSON()).toEqual({
+        filename: "knowledge.txt",
+        mediaType: "text/plain",
+        sizeBytes: uploadedFile.length,
+        sha256: checksum,
+      });
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          uploadId: "ac15afe3-88b3-4627-a737-51d8c4c1b290",
+          method: "PUT",
+          uploadUrl: "https://objects.example.test/memoryos/raw/upload",
+          requiredHeaders: {
+            "content-type": "text/plain",
+            "x-amz-checksum-sha256": checksumBase64,
+          },
+          expiresAt: "2026-08-27T10:10:00Z",
+        }),
+      });
+      return;
+    }
+    if (
+      request.method() === "POST" &&
+      path === `/api/sources/${source.id}/uploads/ac15afe3-88b3-4627-a737-51d8c4c1b290/finalize`
+    ) {
+      mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      apiUploadBodies.push(request.postDataBuffer());
+      finalizeAttempts += 1;
+      if (finalizeAttempts === 1) {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/problem+json",
+          body: JSON.stringify({ title: "Unavailable", status: 503 }),
+        });
+        return;
+      }
+      includeOtherSource = false;
       source.status = "ACTIVE";
       source.documentCount = 1;
       items.push({
         id: "71923275-0c07-44e0-9537-1f4f67259dc7",
         filename: "knowledge.txt",
-        sha256: "a".repeat(64),
-        sizeBytes: 24,
+        sha256: checksum,
+        sizeBytes: uploadedFile.length,
         status: "INDEXED",
         uploadedAt: "2026-08-27T10:00:00Z",
         latestOperationId: "3aca91f5-53e8-4c9b-8e3a-1afedbd4a18f",
@@ -686,10 +772,21 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file").setInputFiles({
     name: "knowledge.txt",
     mimeType: "text/plain",
-    buffer: Buffer.from("MemoryOS browser source"),
+    buffer: uploadedFile,
   });
   await page.getByRole("button", { name: "Upload file" }).click();
+  await expect(page.getByRole("button", { name: "Retry finalization" })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText(
+    "The file reached object storage; retry finalization without uploading it again.",
+  );
+  await page.getByText(otherSource.name, { exact: true }).click();
+  await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
+  await page.getByRole("button", { name: "Retry finalization" }).click();
+  await page.getByText(source.name, { exact: true }).click();
   await expect(page.getByText("knowledge.txt")).toBeVisible();
+  expect(objectStoragePuts).toBe(1);
+  expect(storedBytes).toEqual(uploadedFile);
+  expect(apiUploadBodies.some((body) => body?.equals(uploadedFile))).toBe(false);
   await page.getByRole("button", { name: "Reindex" }).click();
   await expect(page.getByRole("alert")).toHaveText(
     "The source cannot accept that operation right now.",
@@ -744,5 +841,5 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   ).toBeVisible();
   await confirmation.getByRole("button", { name: "Delete source" }).click();
   await expect(page.getByText("No sources connected")).toBeVisible();
-  expect(mutationHeaders).toEqual(["1", "1", "1", "1", "1", "1"]);
+  expect(mutationHeaders).toEqual(["1", "1", "1", "1", "1", "1", "1", "1"]);
 });
