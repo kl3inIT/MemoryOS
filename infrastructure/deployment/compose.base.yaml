@@ -164,6 +164,7 @@ services:
     cap_add:
       - DAC_OVERRIDE
     entrypoint:
+      - /bin/sh
       - /bootstrap/bootstrap.sh
     environment:
       MC_CONFIG_DIR: /tmp/mc
