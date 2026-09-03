@@ -3,67 +3,33 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createFileSource, createInvitation, deleteSource, getCurrentIdentity, getCurrentInvitation, getSource, getSourceOperation, listInvitations, listSourceIndexAttempts, listSourceItems, listSources, type Options, reindexSourceItem, removeSourceItem, revokeInvitation, rotateInvitation, uploadSourceItem } from '../sdk.gen';
-import type { CreateFileSourceData, CreateFileSourceResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeleteSourceData, DeleteSourceResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveSourceItemData, RemoveSourceItemResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, UploadSourceItemData, UploadSourceItemResponse } from '../types.gen';
+import { createFileSource, createInvitation, deleteSource, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getSource, getSourceOperation, initiateSourceUpload, listInvitations, listSourceIndexAttempts, listSourceItems, listSources, type Options, reindexSourceItem, removeSourceItem, revokeInvitation, rotateInvitation } from '../sdk.gen';
+import type { CreateFileSourceData, CreateFileSourceResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveSourceItemData, RemoveSourceItemResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse } from '../types.gen';
 
-export type QueryKey<TOptions extends Options> = [
-    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
-        _id: string;
-        _infinite?: boolean;
-        tags?: ReadonlyArray<string>;
-    }
-];
-
-const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
-    QueryKey<TOptions>[0]
-] => {
-    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
-    if (infinite) {
-        params._infinite = infinite;
-    }
-    if (tags) {
-        params.tags = tags;
-    }
-    if (options?.body) {
-        params.body = options.body;
-    }
-    if (options?.headers) {
-        params.headers = options.headers;
-    }
-    if (options?.path) {
-        params.path = options.path;
-    }
-    if (options?.query) {
-        params.query = options.query;
-    }
-    return [params];
+/**
+ * Authorize one direct FILE source upload
+ */
+export const initiateSourceUploadMutation = (options?: Partial<Options<InitiateSourceUploadData>>): UseMutationOptions<InitiateSourceUploadResponse, DefaultError, Options<InitiateSourceUploadData>> => {
+    const mutationOptions: UseMutationOptions<InitiateSourceUploadResponse, DefaultError, Options<InitiateSourceUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await initiateSourceUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };
 
-export const listSourceItemsQueryKey = (options: Options<ListSourceItemsData>) => createQueryKey('listSourceItems', options);
-
 /**
- * List current source items
+ * Verify and adopt one direct FILE source upload
  */
-export const listSourceItemsOptions = (options: Options<ListSourceItemsData>) => queryOptions<ListSourceItemsResponse, DefaultError, ListSourceItemsResponse, ReturnType<typeof listSourceItemsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listSourceItems({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listSourceItemsQueryKey(options)
-});
-
-/**
- * Upload one bounded FILE source item
- */
-export const uploadSourceItemMutation = (options?: Partial<Options<UploadSourceItemData>>): UseMutationOptions<UploadSourceItemResponse, DefaultError, Options<UploadSourceItemData>> => {
-    const mutationOptions: UseMutationOptions<UploadSourceItemResponse, DefaultError, Options<UploadSourceItemData>> = {
+export const finalizeSourceUploadMutation = (options?: Partial<Options<FinalizeSourceUploadData>>): UseMutationOptions<FinalizeSourceUploadResponse, DefaultError, Options<FinalizeSourceUploadData>> => {
+    const mutationOptions: UseMutationOptions<FinalizeSourceUploadResponse, DefaultError, Options<FinalizeSourceUploadData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await uploadSourceItem({
+            const { data } = await finalizeSourceUpload({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -140,6 +106,39 @@ export const createFileSourceMutation = (options?: Partial<Options<CreateFileSou
         }
     };
     return mutationOptions;
+};
+
+export type QueryKey<TOptions extends Options> = [
+    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
+        _id: string;
+        _infinite?: boolean;
+        tags?: ReadonlyArray<string>;
+    }
+];
+
+const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
+    QueryKey<TOptions>[0]
+] => {
+    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
+    if (infinite) {
+        params._infinite = infinite;
+    }
+    if (tags) {
+        params.tags = tags;
+    }
+    if (options?.body) {
+        params.body = options.body;
+    }
+    if (options?.headers) {
+        params.headers = options.headers;
+    }
+    if (options?.path) {
+        params.path = options.path;
+    }
+    if (options?.query) {
+        params.query = options.query;
+    }
+    return [params];
 };
 
 export const listInvitationsQueryKey = (options?: Options<ListInvitationsData>) => createQueryKey('listInvitations', options);
@@ -304,6 +303,24 @@ export const getSourceOptions = (options: Options<GetSourceData>) => queryOption
         return data;
     },
     queryKey: getSourceQueryKey(options)
+});
+
+export const listSourceItemsQueryKey = (options: Options<ListSourceItemsData>) => createQueryKey('listSourceItems', options);
+
+/**
+ * List current source items
+ */
+export const listSourceItemsOptions = (options: Options<ListSourceItemsData>) => queryOptions<ListSourceItemsResponse, DefaultError, ListSourceItemsResponse, ReturnType<typeof listSourceItemsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourceItems({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourceItemsQueryKey(options)
 });
 
 export const listSourceIndexAttemptsQueryKey = (options: Options<ListSourceIndexAttemptsData>) => createQueryKey('listSourceIndexAttempts', options);

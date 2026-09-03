@@ -65,6 +65,8 @@ class OpenApiContractTest {
             "/api/sources/{sourceId}/delete",
             "/api/sources/{sourceId}/index-attempts",
             "/api/sources/{sourceId}/items",
+            "/api/sources/{sourceId}/uploads",
+            "/api/sources/{sourceId}/uploads/{uploadId}/finalize",
             "/api/sources/{sourceId}/items/{itemId}/index-attempts",
             "/api/sources/{sourceId}/items/{itemId}/remove"
     );

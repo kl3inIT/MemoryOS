@@ -8,8 +8,13 @@ keycloak-admin-client = "26.0.12"
 tika = "4.0.0"
 arconia = "0.30.0"
 db-scheduler = "16.12.0"
+aws-sdk = "2.54.11"
 
 [libraries]
+aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
+aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
+aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
+aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
 arconia-bom = { module = "io.arconia:arconia-bom", version.ref = "arconia" }
 arconia-multitenancy-web = { module = "io.arconia:arconia-multitenancy-web-spring-boot-starter" }
 arconia-dev-services-redis = { module = "io.arconia:arconia-dev-services-redis" }

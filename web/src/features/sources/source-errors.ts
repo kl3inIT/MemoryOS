@@ -4,6 +4,9 @@ type SourceMutation = "create" | "upload" | "reindex" | "remove-item" | "delete-
 type SourceActionFailure = "cleanup-failed" | "cleanup-timeout" | "invalid-cleanup-response";
 
 const statusMessages: Record<string, string> = {
+  OBJECT_UPLOAD_INTEGRITY_MISMATCH:
+    "Object storage did not receive the declared file. Start the upload again.",
+  OBJECT_UPLOAD_STORAGE_UNAVAILABLE: "Object storage is temporarily unavailable. Retry the upload.",
   SOURCE_TENANT_INACTIVE:
     "Processing paused because this Tenant is inactive. Contact an administrator.",
   SOURCE_EXTRACTION_UNSUPPORTED: "This file type could not be extracted.",

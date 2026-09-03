@@ -6,10 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.net.URI;
 import java.time.Duration;
+import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.Map;
+import java.util.HexFormat;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -21,6 +28,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import io.memoryos.TestDatabase;
+import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
@@ -31,9 +39,30 @@ import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
+import io.memoryos.connector.SourceUploadReceipt;
+import io.memoryos.connector.persistence.JdbcSourceUploadRepository;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.objectstorage.ObjectStorageFailureCode;
+import io.memoryos.objectstorage.ObjectUploadAuthorization;
+import io.memoryos.objectstorage.ObjectUploadCleanupPort;
+import io.memoryos.objectstorage.ObjectUploadService;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
+import io.memoryos.objectstorage.StoredObjectRegistry;
+import io.memoryos.objectstorage.UploadAuthorization;
+import io.memoryos.objectstorage.UploadConstraints;
+import io.memoryos.objectstorage.application.DefaultObjectUploadService;
+import io.memoryos.objectstorage.application.DefaultStoredObjectRegistry;
+import io.memoryos.objectstorage.application.ObjectUploadProperties;
+import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
+import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.identity.ActorId;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
@@ -53,8 +82,13 @@ class PostgresSourceLifecycleTest {
     private SourceManagementService service;
     private JdbcIndexAttemptRepository attempts;
     private ActorId owner;
-    private JdbcCleanupAttemptRepository cleanup;
+    private ConnectorCleanupPort cleanup;
     private OperationDispatchPort operationDispatch;
+    private InMemoryObjectStorage objectStorage;
+    private ObjectUploadService objectUploads;
+    private ObjectUploadCleanupPort objectUploadCleanup;
+    private StoredObjectRegistry storedObjects;
+    private JdbcSourceUploadRepository sourceUploads;
 
     private UUID tenantId;
 
@@ -90,7 +124,42 @@ class PostgresSourceLifecycleTest {
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments);
         var documents = new JdbcDocumentRepository(jdbcClient, objectMapper);
-        cleanup = new JdbcCleanupAttemptRepository(jdbcClient, sourceRepository, sourceDocuments, documents);
+        sourceUploads = new JdbcSourceUploadRepository(jdbcClient);
+        objectStorage = new InMemoryObjectStorage();
+        var storedObjectRepository = new JdbcStoredObjectRepository(jdbcClient);
+        var objectUploadService = new DefaultObjectUploadService(
+                storedObjectRepository,
+                new JdbcObjectUploadRepository(jdbcClient),
+                objectStorage,
+                new ObjectUploadProperties(
+                        Duration.ofMinutes(15),
+                        Duration.ofSeconds(30),
+                        Duration.ofMinutes(5),
+                        Duration.ofMinutes(1),
+                        16
+                ),
+                transactionManager
+        );
+        objectUploads = objectUploadService;
+        objectUploadCleanup = objectUploadService;
+        storedObjects = TestDatabase.transactionalProxy(
+                new DefaultStoredObjectRegistry(storedObjectRepository),
+                StoredObjectRegistry.class,
+                transactionManager
+        );
+        cleanup = TestDatabase.transactionalProxy(
+                new DefaultConnectorCleanupService(
+                        new JdbcCleanupAttemptRepository(jdbcClient),
+                        sourceRepository,
+                        sourceDocuments,
+                        sourceUploads,
+                        documents,
+                        objectUploads,
+                        storedObjects
+                ),
+                ConnectorCleanupPort.class,
+                transactionManager
+        );
         operationDispatch = TestDatabase.transactionalProxy(
                 new JdbcOperationDispatchRepository(jdbcClient),
                 OperationDispatchPort.class,
@@ -117,8 +186,8 @@ class PostgresSourceLifecycleTest {
         SourceId sourceId = service.createFileSource(owner, "Files").source().id();
         byte[] content = "same MemoryOS content".getBytes(StandardCharsets.UTF_8);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> service.upload(owner, sourceId, "first.txt", content));
-            var second = executor.submit(() -> service.upload(owner, sourceId, "second.txt", content));
+            var first = executor.submit(() -> upload(owner, sourceId, "first.txt", content));
+            var second = executor.submit(() -> upload(owner, sourceId, "second.txt", content));
             var firstResult = first.get();
             var secondResult = second.get();
             assertEquals(firstResult.item().id(), secondResult.item().id());
@@ -130,9 +199,61 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
+    void finalizeReplayReturnsThePersistedReceiptWithoutAdoptingTwice() {
+        SourceId sourceId = service.createFileSource(owner, "Lost response").source().id();
+        byte[] content = "lost finalize response".getBytes(StandardCharsets.UTF_8);
+        ObjectUploadAuthorization authorization = service.initiateUpload(
+                owner,
+                sourceId,
+                new ObjectUploadSpecification("lost.txt", "text/plain", content.length, checksum(content))
+        );
+        objectStorage.put(authorization.authorization().uri(), content);
+
+        SourceUploadReceipt first = service.finalizeUpload(owner, sourceId, authorization.uploadId());
+        SourceUploadReceipt replay = service.finalizeUpload(owner, sourceId, authorization.uploadId());
+
+        assertEquals(first, replay);
+        assertEquals(1L, count("source_uploads"));
+        assertEquals(1L, count("object_uploads"));
+        assertEquals(1L, count("stored_objects"));
+    }
+
+    @Test
+    void duplicateDiscardAndAdoptedRemovalReleaseEveryObjectReference() {
+        SourceId sourceId = service.createFileSource(owner, "Duplicate cleanup").source().id();
+        byte[] content = "duplicate cleanup content".getBytes(StandardCharsets.UTF_8);
+        SourceUploadReceipt first = upload(owner, sourceId, "first.txt", content);
+        SourceUploadReceipt duplicate = upload(owner, sourceId, "duplicate.txt", content);
+        assertEquals(first.item().id(), duplicate.item().id());
+
+        assertEquals(1, objectUploadCleanup.cleanupAbandoned());
+        assertEquals(1L, count("stored_objects"));
+        assertEquals(2L, count("object_uploads"));
+
+        service.removeItem(owner, sourceId, first.item().id());
+        OperationDelivery delivery = dispatch(OperationWorkload.CLEANUP);
+        var work = cleanup.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
+        cleanup.objects(work).forEach(object -> {
+            storedObjects.markDeletePending(work.tenantId(), object.object().id());
+            objectStorage.delete(object.object().key());
+        });
+        assertTrue(cleanup.execute(work));
+
+        assertEquals(0L, count("connector_items"));
+        assertEquals(0L, count("connector_item_versions"));
+        assertEquals(0L, count("stored_objects"));
+        assertEquals(1L, count("object_uploads"));
+        assertEquals(
+                "EXPIRED",
+                jdbcClient.sql("SELECT status FROM object_uploads").query(String.class).single()
+        );
+        assertEquals(0L, count("source_uploads"));
+    }
+
+    @Test
     void concurrentRelayClaimsOnceAndRediscoveryRepublishesFromPostgres() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Relay").source().id();
-        var upload = service.upload(owner, sourceId, "relay.txt", "relay content".getBytes(StandardCharsets.UTF_8));
+        var upload = upload(owner, sourceId, "relay.txt", "relay content".getBytes(StandardCharsets.UTF_8));
 
         int claimed;
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -164,7 +285,7 @@ class PostgresSourceLifecycleTest {
     @Test
     void transportFailureDefersWithoutFailingTheOperation() {
         SourceId sourceId = service.createFileSource(owner, "Transport").source().id();
-        service.upload(owner, sourceId, "transport.txt", "transport".getBytes(StandardCharsets.UTF_8));
+        upload(owner, sourceId, "transport.txt", "transport".getBytes(StandardCharsets.UTF_8));
         var claim = operationDispatch.claim(OperationWorkload.INGESTION, 1).getFirst();
 
         assertTrue(operationDispatch.defer(
@@ -184,7 +305,7 @@ class PostgresSourceLifecycleTest {
     @Test
     void unexpectedProcessingFailureRetriesThenTerminatesDurably() {
         SourceId sourceId = service.createFileSource(owner, "Retry").source().id();
-        service.upload(owner, sourceId, "retry.txt", "retry".getBytes(StandardCharsets.UTF_8));
+        upload(owner, sourceId, "retry.txt", "retry".getBytes(StandardCharsets.UTF_8));
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             if (attempt > 1) {
@@ -233,7 +354,7 @@ class PostgresSourceLifecycleTest {
     void staleWorkerTokenCannotCompleteAfterLeaseReclaim() {
         SourceId sourceId = service.createFileSource(owner, "Lease").source().id();
         byte[] content = "lease content".getBytes(StandardCharsets.UTF_8);
-        service.upload(owner, sourceId, "lease.txt", content);
+        upload(owner, sourceId, "lease.txt", content);
         OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
         var stale = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
         assertTrue(attempts.renew(stale));
@@ -270,12 +391,12 @@ class PostgresSourceLifecycleTest {
     void uploadRejectsAnItemWhoseRemovalIsPending() {
         SourceId sourceId = service.createFileSource(owner, "Deleting item").source().id();
         byte[] content = "pending removal".getBytes(StandardCharsets.UTF_8);
-        var upload = service.upload(owner, sourceId, "pending.txt", content);
+        var upload = upload(owner, sourceId, "pending.txt", content);
         service.removeItem(owner, sourceId, upload.item().id());
 
         SourceException exception = assertThrows(
                 SourceException.class,
-                () -> service.upload(owner, sourceId, "duplicate.txt", content)
+                () -> upload(owner, sourceId, "duplicate.txt", content)
         );
 
         assertEquals("SOURCE_CONFLICT", exception.code());
@@ -307,7 +428,7 @@ class PostgresSourceLifecycleTest {
     void removeRechecksSourceDeletionAfterWaitingForTheSourceLock() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Cleanup race").source().id();
         byte[] content = "cleanup race".getBytes(StandardCharsets.UTF_8);
-        var upload = service.upload(owner, sourceId, "race.txt", content);
+        var upload = upload(owner, sourceId, "race.txt", content);
         var coordinatedRepository = new CoordinatedSourceRepository(jdbcClient);
         SourceManagementService coordinatedService = service(coordinatedRepository);
 
@@ -339,7 +460,7 @@ class PostgresSourceLifecycleTest {
     void concurrentReindexAndCleanupLeaseReclaimRemainSingleFlight() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Single flight").source().id();
         byte[] content = "single flight".getBytes(StandardCharsets.UTF_8);
-        var upload = service.upload(owner, sourceId, "single.txt", content);
+        var upload = upload(owner, sourceId, "single.txt", content);
         OperationDelivery initialDelivery = dispatch(OperationWorkload.INGESTION);
         var initialWork = attempts.claim(
                 initialDelivery.tenantId(),
@@ -383,8 +504,8 @@ class PostgresSourceLifecycleTest {
     void inactiveTenantCancelsPendingIndexWorkWithoutPublishing() {
         SourceId sourceId = service.createFileSource(owner, "Inactive").source().id();
         byte[] content = "inactive content".getBytes(StandardCharsets.UTF_8);
-        service.upload(owner, sourceId, "inactive.txt", content);
-        service.upload(owner, sourceId, "second.txt", "second".getBytes(StandardCharsets.UTF_8));
+        upload(owner, sourceId, "inactive.txt", content);
+        upload(owner, sourceId, "second.txt", "second".getBytes(StandardCharsets.UTF_8));
         jdbcClient.sql("""
                         UPDATE tenants SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
                         WHERE id = :tenantId
@@ -421,6 +542,32 @@ class PostgresSourceLifecycleTest {
         return operationDispatch.claim(workload, 1).getFirst().delivery();
     }
 
+    private SourceUploadReceipt upload(
+            ActorId actor,
+            SourceId sourceId,
+            String filename,
+            byte[] content
+    ) {
+        ContentSha256 checksum = checksum(content);
+        ObjectUploadAuthorization authorization = service.initiateUpload(
+                actor,
+                sourceId,
+                new ObjectUploadSpecification(filename, "text/plain", content.length, checksum)
+        );
+        objectStorage.put(authorization.authorization().uri(), content);
+        return service.finalizeUpload(actor, sourceId, authorization.uploadId());
+    }
+
+    private static ContentSha256 checksum(byte[] content) {
+        try {
+            return new ContentSha256(HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(content)
+            ));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
     private SourceManagementService service(JdbcSourceRepository sourceRepository) {
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         var target = new DefaultSourceManagementService(
@@ -429,9 +576,104 @@ class PostgresSourceLifecycleTest {
                 new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
-                new JdbcTenantAccessResolver(jdbcClient)
+                sourceUploads,
+                objectUploads,
+                new JdbcTenantAccessResolver(jdbcClient),
+                transactionManager
         );
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
+    }
+
+    private static final class InMemoryObjectStorage implements ObjectStorage {
+        private final AtomicLong sequence = new AtomicLong();
+        private final Map<URI, Entry> authorizations = new ConcurrentHashMap<>();
+        private final Map<ObjectKey, Entry> objects = new ConcurrentHashMap<>();
+
+        @Override
+        public UploadAuthorization authorizeUpload(ObjectKey key, UploadConstraints constraints) {
+            URI uri = URI.create("https://uploads.example.test/" + sequence.incrementAndGet());
+            Entry entry = new Entry(constraints);
+            authorizations.put(uri, entry);
+            objects.put(key, entry);
+            return new UploadAuthorization(
+                    "PUT",
+                    uri,
+                    Map.of(
+                            "content-type", constraints.mediaType(),
+                            "x-amz-checksum-sha256", constraints.checksum().base64()
+                    ),
+                    Instant.now().plus(Duration.ofMinutes(10))
+            );
+        }
+
+        void put(URI uri, byte[] content) {
+            Entry entry = authorizations.get(uri);
+            if (entry == null) {
+                throw new IllegalArgumentException("unknown upload authorization");
+            }
+            ContentSha256 checksum = checksum(content);
+            if (content.length != entry.constraints.sizeBytes()
+                    || !checksum.equals(entry.constraints.checksum())) {
+                throw new IllegalArgumentException("uploaded content did not match authorization");
+            }
+            entry.content = content.clone();
+        }
+
+        @Override
+        public ObjectMetadata inspect(ObjectKey key) {
+            Entry entry = requireEntry(key);
+            return new ObjectMetadata(
+                    entry.content.length,
+                    entry.constraints.mediaType(),
+                    checksum(entry.content)
+            );
+        }
+
+        @Override
+        public ObjectContent open(ObjectKey key) {
+            Entry entry = requireEntry(key);
+            byte[] content = entry.content.clone();
+            ObjectMetadata metadata = inspect(key);
+            return new ObjectContent() {
+                private final ByteArrayInputStream input = new ByteArrayInputStream(content);
+
+                @Override
+                public ObjectMetadata metadata() {
+                    return metadata;
+                }
+
+                @Override
+                public ByteArrayInputStream inputStream() {
+                    return input;
+                }
+
+                @Override
+                public void close() {
+                }
+            };
+        }
+
+        @Override
+        public void delete(ObjectKey key) {
+            objects.remove(key);
+        }
+
+        private Entry requireEntry(ObjectKey key) {
+            Entry entry = objects.get(key);
+            if (entry == null || entry.content == null) {
+                throw new ObjectStorageException(ObjectStorageFailureCode.NOT_FOUND, false, null);
+            }
+            return entry;
+        }
+
+        private static final class Entry {
+            private final UploadConstraints constraints;
+            private volatile byte[] content;
+
+            private Entry(UploadConstraints constraints) {
+                this.constraints = constraints;
+            }
+        }
     }
 
     private static final class CoordinatedSourceRepository extends JdbcSourceRepository {

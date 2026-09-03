@@ -18,18 +18,18 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
 - Node.js 24 with Corepack; `web/package.json` pins pnpm.
-- Docker with the Compose plugin for the hardened PostgreSQL, shared Keycloak, API, indexing worker, and web deployment stack.
+- Docker with the Compose plugin for the hardened PostgreSQL, private MinIO, shared Keycloak, API, indexing worker, and web deployment stack.
 
 ## Modules and capabilities
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Six closed capability implementations, transactions, persistence, and architecture rules |
+| `core` | Seven closed capability implementations, transactions, persistence, the provider-neutral object-storage contract, and its S3 adapter |
 | `connector` | Shared provider adapter bundle; current FILE adapter uses Apache Tika 4 |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root |
 | `worker` | Persistence-backed indexing and cleanup composition root |
 
-Current core capabilities are `identity`, `tenant`, `invitation`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `identity`, `tenant`, `invitation`, `objectstorage`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 storage adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 
@@ -73,13 +73,13 @@ pnpm generate:api
 
 Run the OpenAPI contract test again without the write flag, then run `pnpm check`. Normal runtime configuration does not expose springdoc API-doc endpoints.
 
-The API and worker images are built from [`Dockerfile`](Dockerfile) and inject the explicitly selected Infisical environment before Spring Boot starts; the browser image is built from [`web/Dockerfile`](web/Dockerfile). Deployment is composed explicitly from [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay. The base owns PostgreSQL, the Keycloak runtime shared with OrgMemory, API, worker, and web. Staging adds Mailpit, TLS Redis, read-only pgweb and Redis Insight, and SSO proxies; production adds no inspection tools. Developer `bootRun` processes use Arconia's `development` profile: API owns PostgreSQL on fixed host port `55432`, worker connects to it and owns Redis on fixed host port `56379`, and optional loopback tools use [`compose.local-tools.yaml`](infrastructure/deployment/compose.local-tools.yaml).
+The API and worker images are built from [`Dockerfile`](Dockerfile) and inject the explicitly selected Infisical environment before Spring Boot starts; the browser image is built from [`web/Dockerfile`](web/Dockerfile). Deployment is composed explicitly from [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay. The base owns PostgreSQL, private MinIO and its idempotent bucket/policy bootstrap, the Keycloak runtime shared with OrgMemory, API, worker, and web. Distinct file-mounted MinIO credentials constrain API to signed PUT/inspection and worker to read/delete; both probe one private sentinel. Staging adds Mailpit, TLS Redis, read-only pgweb and Redis Insight, and SSO proxies; production adds no inspection tools. Developer `bootRun` processes use Arconia's `development` profile for PostgreSQL/Redis but require an explicitly configured object-storage endpoint and credentials.
 
-The staging application is available at `https://memoryos.72-62-193-33.nip.io`; Keycloak retains the matching exact HTTPS callback and `/invite/activate` action return for `memoryos-web`.
+The staging application is available at `https://memoryos.72-62-193-33.nip.io`; Keycloak retains the matching exact HTTPS callback and `/invite/activate` action return for `memoryos-web`. The configured object-storage origin routes directly to MinIO and must match the presigning endpoint, MinIO CORS allowlist, and web CSP.
 
 ## Current runtime behavior
 
-API startup runs Flyway through V6, transactionally bootstraps or verifies the configured Tenant UUID and initial owner, and binds Arconia Web fixed Tenant context around HTTP requests. The worker starts after migrated API health, claims durable leased work, carries each work record's explicit `TenantId` through JDBC predicates, uses the FILE/Tika adapter for bounded detection and extraction, and token-guardedly publishes or cleans Document state.
+API startup runs Flyway through V9, transactionally bootstraps or verifies the configured Tenant UUID and initial owner, and binds Arconia Web fixed Tenant context around HTTP requests. Source upload initiation returns a checksum-bound presigned PUT; finalization verifies MinIO metadata and adopts or discards the staged object. The worker starts after migrated API health, claims durable leased work, carries each work record's explicit `TenantId` through JDBC predicates, streams immutable object content through the FILE/Tika adapter for bounded detection/extraction, and token-guardedly publishes or cleans Document and object state.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
@@ -89,10 +89,10 @@ API startup runs Flyway through V6, transactionally bootstraps or verifies the c
 | `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
 | `GET /invite/activate` | Public Keycloak action return | Starts browser OAuth2 login without carrying invitation correlation |
-| `/api/sources/**` | Active Tenant owner | Create/list/detail/upload/reindex/remove/delete FILE sources; mutations use POST commands |
+| `/api/sources/**` | Active Tenant owner | Create/list/detail, initiate/finalize browser-direct FILE upload, reindex, remove, and delete; mutations use POST commands |
 | `/api/source-operations/**` | Active Tenant owner | Poll durable index and cleanup operations |
 
-The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitation](docs/specs/invitation.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
+The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitation](docs/specs/invitation.md), [object storage](docs/specs/object-storage.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
 
 ## Engineering policies
 

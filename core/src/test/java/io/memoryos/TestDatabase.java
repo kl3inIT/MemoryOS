@@ -40,7 +40,8 @@ public final class TestDatabase {
                 new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
                 new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql"),
                 new ClassPathResource("db/migration/V7__create_scheduler_control_plane.sql"),
-                new ClassPathResource("db/migration/V8__cut_over_operations_to_redis_streams.sql")
+                new ClassPathResource("db/migration/V8__cut_over_operations_to_redis_streams.sql"),
+                new ClassPathResource("db/migration/V9__cut_over_file_content_to_object_storage.sql")
         );
     }
 

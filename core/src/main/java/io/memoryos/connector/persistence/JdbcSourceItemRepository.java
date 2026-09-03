@@ -2,6 +2,7 @@ package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceItemId;
+import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.tenant.TenantId;
 
 import java.util.Objects;
@@ -24,8 +25,7 @@ public class JdbcSourceItemRepository {
             TenantId tenantId,
             JdbcSourceRepository.SourcePair pair,
             String filename,
-            byte[] content,
-            String sha256
+            StoredObjectReference object
     ) {
         var existing = jdbcClient.sql("""
                         SELECT item.id AS item_id, version.id AS version_id, item.status
@@ -39,14 +39,15 @@ public class JdbcSourceItemRepository {
                         """)
                 .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
-                .param("sha256", sha256)
+                .param("sha256", object.metadata().checksum().value())
                 .query((resultSet, ignored) -> {
                     if ("DELETING".equals(resultSet.getString("status"))) {
                         throw SourceException.conflict("source item is deleting");
                     }
                     return new ItemVersion(
                             new SourceItemId(resultSet.getObject("item_id", UUID.class)),
-                            resultSet.getObject("version_id", UUID.class)
+                            resultSet.getObject("version_id", UUID.class),
+                            false
                     );
                 })
                 .optional();
@@ -66,15 +67,15 @@ public class JdbcSourceItemRepository {
                 .param("id", itemId.value())
                 .param("tenantId", tenantId.value())
                 .param("connectorId", pair.connectorId())
-                .param("sha256", sha256)
+                .param("sha256", object.metadata().checksum().value())
                 .update();
         jdbcClient.sql("""
                         INSERT INTO connector_item_versions (
                             id, tenant_id, connector_id, connector_item_id,
-                            revision_number, filename, content_bytes, content_sha256, size_bytes
+                            revision_number, filename, stored_object_id, content_sha256, size_bytes
                         ) VALUES (
                             :id, :tenantId, :connectorId, :itemId,
-                            1, :filename, :content, :sha256, :sizeBytes
+                            1, :filename, :storedObjectId, :sha256, :sizeBytes
                         )
                         """)
                 .param("id", versionId)
@@ -82,9 +83,9 @@ public class JdbcSourceItemRepository {
                 .param("connectorId", pair.connectorId())
                 .param("itemId", itemId.value())
                 .param("filename", filename)
-                .param("content", content)
-                .param("sha256", sha256)
-                .param("sizeBytes", content.length)
+                .param("storedObjectId", object.id().value())
+                .param("sha256", object.metadata().checksum().value())
+                .param("sizeBytes", object.metadata().sizeBytes())
                 .update();
         jdbcClient.sql("""
                         UPDATE connector_items SET current_version_id = :versionId
@@ -94,7 +95,7 @@ public class JdbcSourceItemRepository {
                 .param("tenantId", tenantId.value())
                 .param("itemId", itemId.value())
                 .update();
-        return new ItemVersion(itemId, versionId);
+        return new ItemVersion(itemId, versionId, true);
     }
 
     public ItemVersion lockCurrentVersion(
@@ -119,7 +120,8 @@ public class JdbcSourceItemRepository {
                     }
                     return new ItemVersion(
                             new SourceItemId(resultSet.getObject("id", UUID.class)),
-                            resultSet.getObject("current_version_id", UUID.class)
+                            resultSet.getObject("current_version_id", UUID.class),
+                            false
                     );
                 })
                 .optional()
@@ -146,6 +148,6 @@ public class JdbcSourceItemRepository {
         }
     }
 
-    public record ItemVersion(SourceItemId itemId, UUID versionId) {
+    public record ItemVersion(SourceItemId itemId, UUID versionId, boolean created) {
     }
 }

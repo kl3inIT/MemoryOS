@@ -11,7 +11,7 @@
 
 ## Environment boundaries
 
-Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. Arconia reads `META-INF/arconia-bootstrap.properties` and activates only `development` in `bootRun`: the API owns PostgreSQL on fixed host port `55432`, while the worker connects to that database and owns Redis on fixed host port `56379`. The profile selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, and claims are not expanded into logs.
+Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. Arconia reads `META-INF/arconia-bootstrap.properties` and activates only `development` in `bootRun`: the API owns PostgreSQL on fixed host port `55432`, while the worker connects to that database and owns Redis on fixed host port `56379`. Object storage is intentionally not synthesized by Arconia: both processes use the same explicitly configured S3/MinIO service, bucket, and sentinel, with a browser-reachable upload endpoint. The profile selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, claims, and presigned query strings are not expanded into logs.
 
 Start a local API without exporting secret values:
 
@@ -23,7 +23,7 @@ Infisical `staging` is the only server environment. It has its own shared copy o
 
 The server bootstrap file is outside Git with mode `0600` and contains only `INFISICAL_DOMAIN`, `INFISICAL_PROJECT_ID`, `INFISICAL_ENVIRONMENT=staging`, `INFISICAL_CLIENT_ID`, and `INFISICAL_CLIENT_SECRET`. The API entrypoint exchanges those Universal Auth credentials for a 15-minute access token, unsets the client credentials, injects the selected environment, and drops permanently to UID/GID 1654 before Java starts. The staging identity has project `viewer` access only. The current self-hosted Infisical plan rejects trusted-IP restrictions, so compensate with the narrow role, a 90-day client-secret TTL, lockout, owner-only server storage, and scheduled rotation.
 
-### Infisical application key audit
+### Runtime application key audit
 
 | Key | Secret | Runtime effect and environment rule |
 | --- | --- | --- |
@@ -44,6 +44,14 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_TENANT_DISPLAY_NAME` | No | Display name for that Tenant; startup rejects drift after bootstrap. |
 | `MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE` | No | Stable operator provenance persisted on the initial Tenant and compared on every bootstrap. It is not a per-deploy release label and must not be changed casually. |
 | `MEMORYOS_SESSION_COOKIE_SECURE` | No | `true` on HTTPS staging; `false` only for localhost HTTP development. |
+| `MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT` | No | Internal API/worker S3 endpoint. Compose fixes it to `http://minio:9000`; local development uses its explicitly started MinIO endpoint. |
+| `MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT` | No | Browser-reachable endpoint used only when signing PUT URLs. Its origin must match MinIO CORS and web `connect-src`. |
+| `MEMORYOS_OBJECT_STORAGE_BUCKET` | No | Private deployment bucket; default `memoryos`. Bootstrap, API, and worker must agree exactly. |
+| `MEMORYOS_OBJECT_STORAGE_ACCESS_KEY` | Sensitive identifier | Service identity. Staging Compose assigns distinct `memoryos-api` and `memoryos-worker` values. |
+| `MEMORYOS_OBJECT_STORAGE_SECRET_KEY` | Yes | S3 service secret. Staging overrides any managed environment value from the service-specific mounted secret file before Java starts. |
+| `MEMORYOS_OBJECT_STORAGE_READINESS_KEY` | No | Private sentinel key; default `system/readiness`. Bootstrap provisions it and both deployables inspect it without listing. |
+| `MEMORYOS_OBJECT_UPLOAD_AUTHORIZATION_LIFETIME` | No | Presigned PUT lifetime; default `10m`, maximum one hour. |
+| `MEMORYOS_OBJECT_UPLOAD_LIFETIME` | No | Maximum unadopted upload lifetime before generic cleanup; default `15m`. |
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
 | `MEMORYOS_WORKER_INGESTION_BATCH_SIZE` | No | Bounded ingestion relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
 | `MEMORYOS_WORKER_CLEANUP_BATCH_SIZE` | No | Independently bounded cleanup relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
@@ -61,7 +69,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
 | `SPRING_PROFILES_ACTIVE` | No | Arconia `bootRun` activates `development` from the bootstrap properties file. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
-`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of Infisical until an environment has an approved reason to override checked-in defaults; production Redis identity, authentication, TLS, and scheduler-name values are required.
+`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
 
 ## OMP code intelligence and debugging
 
@@ -138,6 +146,13 @@ $env:MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI = "http://127.0.0.1:8080/invite
 # Do not set MEMORYOS_DATABASE_* for local bootRun. The API-owned PostgreSQL
 # Dev Service supplies arconia/arconia/arconia on fixed host port 55432.
 
+$env:MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT = "http://127.0.0.1:19000"
+$env:MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT = "http://127.0.0.1:19000"
+$env:MEMORYOS_OBJECT_STORAGE_BUCKET = "memoryos"
+$env:MEMORYOS_OBJECT_STORAGE_ACCESS_KEY = "<local MinIO access key>"
+$env:MEMORYOS_OBJECT_STORAGE_SECRET_KEY = "<load from managed runtime secret>"
+$env:MEMORYOS_OBJECT_STORAGE_READINESS_KEY = "system/readiness"
+
 $env:MEMORYOS_TENANT_ID = "<stable deployment Tenant UUID>"
 $env:MEMORYOS_INITIAL_OWNER_SUBJECT = "<stable Keycloak user ID>"
 $env:MEMORYOS_TENANT_SLUG = "tasco"
@@ -177,7 +192,37 @@ Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18
 
 ## Run the hardened staging stack
 
-MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns the stable Tenant ID, slug, display name, bootstrap change reference, and non-secret worker tuning; Infisical continues to own database, identity, and browser secrets. The same file-backed worker password starts Redis and is mounted into the worker, avoiding a duplicated secret value. API runs Flyway before becoming healthy; worker depends on API and Redis health and requires datasource/Redis/db-scheduler readiness. PostgreSQL creates isolated `memoryos` and `keycloak` databases only on an empty volume.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns stable identifiers, exact public origins, secret-file paths, and non-secret tuning; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, avoiding duplicated secret values. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
+
+### Provision staging object storage
+
+Before the first start, create the three MinIO secrets without printing them:
+
+```text
+infrastructure/minio/provision-secrets.sh /apps/memoryos/secrets/minio
+```
+
+The command is idempotent, refuses a partial set, and enforces mode `0600`. `minio-bootstrap` creates the private bucket, API/worker policies, users, and readiness sentinel, then authenticates both service identities against that sentinel. It uses only `/tmp` for `mc` state and may run again safely. API receives the API secret file; worker receives the worker secret file.
+
+Configure Nginx Proxy Manager for the exact object origin:
+
+```text
+domain=memoryos-objects.72-62-193-33.nip.io
+scheme=http
+forward-host=memoryos-minio
+forward-port=9000
+websockets=false
+block-exploits=true
+force-ssl=true
+http2=true
+hsts=true
+certificate=Let's Encrypt for the exact domain
+```
+
+The public origin must equal `MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT` and `MEMORYOS_OBJECT_STORAGE_CONNECT_SRC`; the application origin must equal `MEMORYOS_OBJECT_STORAGE_BROWSER_ORIGIN`. Do not expose the MinIO console or root credential.
+
+V9 is an approved early-project destructive cutover: it drops `connector_item_versions.content_bytes` and requires an empty/reset application database before deployment. Do not apply it over retained FILE rows. The rollback boundary is the whole release—stop API/worker/web, restore the pre-V9 PostgreSQL backup, restore the matching pre-cutover images, and leave the new private bucket unreachable. There is no dual-write, BYTEA fallback, reverse object-to-BYTEA migration, or mixed-version rolling deployment.
+
 
 ### Publish the staging application
 

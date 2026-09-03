@@ -1,16 +1,18 @@
 package io.memoryos.api.source;
 
 import io.memoryos.api.source.contract.CreateFileSourceRequest;
+import io.memoryos.api.source.contract.InitiateSourceUploadRequest;
 import io.memoryos.api.source.contract.SourceDetailResponse;
 import io.memoryos.api.source.contract.SourceItemResponse;
 import io.memoryos.api.source.contract.SourceOperationResponse;
 import io.memoryos.api.source.contract.SourceSummaryResponse;
-import io.memoryos.api.source.contract.SourceUploadResponse;
-import io.memoryos.connector.SourceException;
+import io.memoryos.api.source.contract.SourceUploadAuthorizationResponse;
+import io.memoryos.api.source.contract.SourceUploadReceiptResponse;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.identity.IdentityContext;
+import io.memoryos.objectstorage.ObjectUploadId;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,9 +21,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
-
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,10 +33,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/sources")
@@ -107,26 +104,33 @@ final class SourceController {
                 .toList();
     }
 
-    @Operation(operationId = "uploadSourceItem", summary = "Upload one bounded FILE source item")
-    @PostMapping(value = "/{sourceId}/items", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    SourceUploadResponse upload(
+    @Operation(operationId = "initiateSourceUpload", summary = "Authorize one direct FILE source upload")
+    @PostMapping(value = "/{sourceId}/uploads", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    SourceUploadAuthorizationResponse initiateUpload(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
             @PathVariable UUID sourceId,
-            @RequestPart("file") @NotNull MultipartFile file
+            @Valid @RequestBody InitiateSourceUploadRequest request
     ) {
-        byte[] content;
-        try {
-            content = file.getBytes();
-        } catch (IOException exception) {
-            throw SourceException.invalid("The uploaded file could not be read.", "multipart file read failed");
-        }
-        String filename = file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename();
-        return SourceUploadResponse.from(sources.upload(
+        return SourceUploadAuthorizationResponse.from(sources.initiateUpload(
                 identityContext.actorId(),
                 new SourceId(sourceId),
-                filename,
-                content
+                request.toSpecification()
+        ));
+    }
+
+    @Operation(operationId = "finalizeSourceUpload", summary = "Verify and adopt one direct FILE source upload")
+    @PostMapping("/{sourceId}/uploads/{uploadId}/finalize")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    SourceUploadReceiptResponse finalizeUpload(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @PathVariable UUID sourceId,
+            @PathVariable UUID uploadId
+    ) {
+        return SourceUploadReceiptResponse.from(sources.finalizeUpload(
+                identityContext.actorId(),
+                new SourceId(sourceId),
+                new ObjectUploadId(uploadId)
         ));
     }
 

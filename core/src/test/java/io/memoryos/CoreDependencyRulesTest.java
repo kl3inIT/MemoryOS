@@ -17,6 +17,7 @@ class CoreDependencyRulesTest {
             "identity",
             "tenant",
             "invitation",
+            "objectstorage",
             "connector",
             "document",
             "ingestion"

@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DatabaseZap, FileText, LoaderCircle, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import {
+  DatabaseZap,
+  FileText,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -10,23 +19,31 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createFileSourceMutation,
   deleteSourceMutation,
+  finalizeSourceUploadMutation,
   getSourceOptions,
   getSourceQueryKey,
+  initiateSourceUploadMutation,
   listSourcesOptions,
   listSourcesQueryKey,
   reindexSourceItemMutation,
   removeSourceItemMutation,
-  uploadSourceItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getSourceOperation } from "@/lib/hey-api/sdk.gen";
 import type { SourceItem, SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { SourceActionError, sourceMutationError, sourceStatusMessage } from "./source-errors";
+import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 
 const terminalOperationStatuses: Record<string, true> = {
   SUCCEEDED: true,
   SUPERSEDED: true,
   FAILED: true,
+};
+type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
+
+type PendingFinalize = {
+  uploadId: string;
+  filename: string;
 };
 
 export function SourcesPage() {
@@ -42,11 +59,18 @@ export function SourcesPage() {
   const [sourceName, setSourceName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [pendingFinalize, setPendingFinalize] = useState<PendingFinalize | null>(null);
   const [cleanupPending, setCleanupPending] = useState(false);
+  const uploadController = useRef<AbortController | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const cleanupController = useRef<AbortController | null>(null);
 
   useEffect(
     () => () => {
+      uploadController.current?.abort();
+      uploadController.current = null;
       cleanupController.current?.abort();
       cleanupController.current = null;
     },
@@ -62,7 +86,8 @@ export function SourcesPage() {
   });
 
   const createSource = useMutation(createFileSourceMutation());
-  const uploadItem = useMutation(uploadSourceItemMutation());
+  const initiateUpload = useMutation(initiateSourceUploadMutation());
+  const finalizeUpload = useMutation(finalizeSourceUploadMutation());
   const reindexItem = useMutation(reindexSourceItemMutation());
   const removeItem = useMutation(removeSourceItemMutation());
   const deleteSource = useMutation(deleteSourceMutation());
@@ -94,16 +119,99 @@ export function SourcesPage() {
   async function submitFile() {
     if (!selectedId || !file) return;
     setError(null);
+    setPendingFinalize(null);
+    uploadController.current?.abort();
+    const controller = new AbortController();
+    uploadController.current = controller;
+    setUploadPhase("preparing");
+    setUploadProgress(0);
+
     try {
-      await uploadItem.mutateAsync({
+      const checksum = await sha256(file, controller.signal);
+      const authorization = await initiateUpload.mutateAsync({
         path: { sourceId: selectedId },
         headers: sameOriginMutationHeaders,
-        body: { file },
+        body: {
+          filename: file.name,
+          mediaType: file.type || "application/octet-stream",
+          sizeBytes: file.size,
+          sha256: checksum,
+        },
+        signal: controller.signal,
       });
+
+      setUploadPhase("uploading");
+      await putAuthorizedObject(authorization, file, controller.signal, setUploadProgress);
+      setUploadPhase("finalizing");
+      try {
+        await finalizeUpload.mutateAsync({
+          path: { sourceId: selectedId, uploadId: authorization.uploadId },
+          headers: sameOriginMutationHeaders,
+          signal: controller.signal,
+        });
+      } catch (cause) {
+        if (!controller.signal.aborted) {
+          setPendingFinalize({ uploadId: authorization.uploadId, filename: file.name });
+          setUploadPhase("finalize-retry");
+          setError(
+            `${sourceMutationError(cause, "upload")} The file reached object storage; retry finalization without uploading it again.`,
+          );
+          return;
+        }
+      }
+      controller.signal.throwIfAborted();
+
       setFile(null);
+      if (fileInput.current) fileInput.current.value = "";
+      setUploadPhase("idle");
       await refresh(selectedId);
     } catch (cause) {
-      setError(sourceMutationError(cause, "upload"));
+      setUploadPhase("idle");
+      if (controller.signal.aborted) {
+        setError("Upload cancelled. The unfinished object will expire automatically.");
+      } else if (cause instanceof DirectUploadError) {
+        setError(
+          cause.status === 403
+            ? "Object storage rejected the upload. Its authorization may have expired; start the upload again."
+            : "Object storage could not accept the file. Check the connection and try again.",
+        );
+      } else {
+        setError(sourceMutationError(cause, "upload"));
+      }
+    } finally {
+      if (uploadController.current === controller) uploadController.current = null;
+    }
+  }
+
+  async function retryFinalize() {
+    if (!selectedId || !pendingFinalize) return;
+    setError(null);
+    const controller = new AbortController();
+    uploadController.current = controller;
+    setUploadPhase("finalizing");
+    try {
+      await finalizeUpload.mutateAsync({
+        path: { sourceId: selectedId, uploadId: pendingFinalize.uploadId },
+        headers: sameOriginMutationHeaders,
+        signal: controller.signal,
+      });
+      setPendingFinalize(null);
+      setFile(null);
+      if (fileInput.current) fileInput.current.value = "";
+      setUploadPhase("idle");
+      await refresh(selectedId);
+    } catch (cause) {
+      if (controller.signal.aborted) {
+        setUploadPhase("finalize-retry");
+        setError("Finalization cancelled. Retry to finish without uploading the file again.");
+      } else {
+        setUploadPhase("finalize-retry");
+        setError(
+          `${sourceMutationError(cause, "upload")} The file remains in object storage; retry finalization without uploading it again.`,
+        );
+      }
+    } finally {
+      if (uploadController.current === controller) uploadController.current = null;
     }
   }
 
@@ -171,9 +279,10 @@ export function SourcesPage() {
   }
 
   const detail = sourceQuery.data;
+  const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const busy =
     createSource.isPending ||
-    uploadItem.isPending ||
+    uploadBusy ||
     reindexItem.isPending ||
     removeItem.isPending ||
     deleteSource.isPending;
@@ -303,29 +412,90 @@ export function SourcesPage() {
               </div>
 
               <form
-                className="flex flex-col gap-3 border-b border-border-subtle bg-surface-subtle p-5 sm:flex-row sm:items-center sm:p-6"
+                className="border-b border-border-subtle bg-surface-subtle p-5 sm:p-6"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void submitFile();
+                  void (pendingFinalize ? retryFinalize() : submitFile());
                 }}
               >
-                <label className="min-w-0 flex-1">
-                  <span className="sr-only">Choose PDF, DOCX, TXT, or Markdown file</span>
-                  <Input
-                    type="file"
-                    accept=".pdf,.docx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                    className="bg-surface-raised"
-                  />
-                </label>
-                <Button
-                  type="submit"
-                  pending={uploadItem.isPending}
-                  disabled={!file || busy || detail.source.status === "DELETING"}
-                >
-                  <Upload />
-                  Upload file
-                </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Choose PDF, DOCX, TXT, or Markdown file</span>
+                    <Input
+                      ref={fileInput}
+                      type="file"
+                      accept=".pdf,.docx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      disabled={uploadPhase !== "idle"}
+                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                      className="bg-surface-raised"
+                    />
+                  </label>
+                  <Button
+                    type="submit"
+                    pending={uploadBusy}
+                    disabled={
+                      (!file && !pendingFinalize) || busy || detail.source.status === "DELETING"
+                    }
+                  >
+                    <Upload />
+                    {pendingFinalize ? "Retry finalization" : "Upload file"}
+                  </Button>
+                  {uploadPhase !== "idle" ? (
+                    <Button
+                      type="button"
+                      prominence="secondary"
+                      onClick={() => {
+                        if (uploadPhase === "finalize-retry") {
+                          setPendingFinalize(null);
+                          setUploadPhase("idle");
+                          setFile(null);
+                          if (fileInput.current) fileInput.current.value = "";
+                          setError(
+                            "Finalization cancelled. The unfinished object will expire automatically.",
+                          );
+                        } else {
+                          uploadController.current?.abort(
+                            new DOMException("Upload cancelled", "AbortError"),
+                          );
+                        }
+                      }}
+                    >
+                      <X />
+                      Cancel
+                    </Button>
+                  ) : null}
+                </div>
+                {uploadPhase !== "idle" ? (
+                  <div className="mt-3" aria-live="polite">
+                    <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
+                      <span>
+                        {uploadPhase === "preparing"
+                          ? "Calculating SHA-256 before authorization"
+                          : uploadPhase === "uploading"
+                            ? "Uploading directly to object storage"
+                            : uploadPhase === "finalizing"
+                              ? "Verifying and registering the stored file"
+                              : `${pendingFinalize?.filename ?? "File"} is stored but not finalized`}
+                      </span>
+                      {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
+                    </div>
+                    {uploadPhase === "uploading" ? (
+                      <div
+                        role="progressbar"
+                        aria-label="Direct upload progress"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={uploadProgress}
+                        className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
+                      >
+                        <div
+                          className="h-full rounded-full bg-content-primary transition-[width] duration-150"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </form>
 
               <div className="p-5 sm:p-6">

@@ -23,6 +23,15 @@ subprojects {
 
         tasks.withType<Test>().configureEach {
             useJUnitPlatform()
+            systemProperty("memoryos.object-storage.s3.service-endpoint", "http://127.0.0.1:1")
+            systemProperty("memoryos.object-storage.s3.upload-endpoint", "http://127.0.0.1:1")
+            systemProperty("memoryos.object-storage.s3.region", "us-east-1")
+            systemProperty("memoryos.object-storage.s3.bucket", "memoryos-test")
+            systemProperty("memoryos.object-storage.s3.access-key", "test-access-key")
+            systemProperty("memoryos.object-storage.s3.secret-key", "test-secret-key")
+            systemProperty("memoryos.object-storage.s3.path-style-access", "true")
+            systemProperty("memoryos.object-storage.s3.readiness-key", "system/readiness")
+            systemProperty("management.health.object-storage.enabled", "false")
         }
     }
 }

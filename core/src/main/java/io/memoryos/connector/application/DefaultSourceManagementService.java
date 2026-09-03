@@ -10,37 +10,42 @@ import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceSummary;
-import io.memoryos.connector.SourceUploadResult;
+import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
+import io.memoryos.connector.persistence.JdbcSourceUploadRepository;
 import io.memoryos.identity.ActorId;
+import io.memoryos.objectstorage.ObjectUploadAuthorization;
+import io.memoryos.objectstorage.ObjectUploadId;
+import io.memoryos.objectstorage.ObjectUploadService;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.tenant.TenantAccessResolver;
 import io.memoryos.tenant.TenantId;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DefaultSourceManagementService implements SourceManagementService {
-
-    public static final int MAX_FILE_BYTES = 10 * 1024 * 1024;
 
     private final JdbcSourceRepository sources;
     private final JdbcSourceItemRepository items;
     private final JdbcIndexAttemptRepository attempts;
     private final JdbcSourceDocumentRepository sourceDocuments;
     private final JdbcSourceQueryRepository queries;
+    private final JdbcSourceUploadRepository sourceUploads;
+    private final ObjectUploadService objectUploads;
     private final TenantAccessResolver tenantAccess;
+    private final TransactionTemplate transactions;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -48,14 +53,22 @@ public class DefaultSourceManagementService implements SourceManagementService {
             JdbcIndexAttemptRepository attempts,
             JdbcSourceDocumentRepository sourceDocuments,
             JdbcSourceQueryRepository queries,
-            TenantAccessResolver tenantAccess
+            JdbcSourceUploadRepository sourceUploads,
+            ObjectUploadService objectUploads,
+            TenantAccessResolver tenantAccess,
+            PlatformTransactionManager transactionManager
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
         this.attempts = Objects.requireNonNull(attempts, "attempts must not be null");
         this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
         this.queries = Objects.requireNonNull(queries, "queries must not be null");
+        this.sourceUploads = Objects.requireNonNull(sourceUploads, "sourceUploads must not be null");
+        this.objectUploads = Objects.requireNonNull(objectUploads, "objectUploads must not be null");
         this.tenantAccess = Objects.requireNonNull(tenantAccess, "tenantAccess must not be null");
+        this.transactions = new TransactionTemplate(
+                Objects.requireNonNull(transactionManager, "transactionManager must not be null")
+        );
     }
 
     @Override
@@ -87,21 +100,79 @@ public class DefaultSourceManagementService implements SourceManagementService {
     }
 
     @Override
-    @Transactional
-    public SourceUploadResult upload(ActorId actorId, SourceId sourceId, String filename, byte[] content) {
+    public ObjectUploadAuthorization initiateUpload(
+            ActorId actorId,
+            SourceId sourceId,
+            ObjectUploadSpecification specification
+    ) {
         TenantId tenantId = requireOwner(actorId);
-        requireContent(content);
-        var pair = requireMutable(sources.lock(tenantId, requireSourceId(sourceId)));
-        var version = items.resolveOrCreate(
-                tenantId,
-                pair,
-                requireFilename(filename),
-                content,
-                sha256(content)
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        Objects.requireNonNull(specification, "specification must not be null");
+        ObjectUploadSpecification normalized = new ObjectUploadSpecification(
+                requireFilename(specification.filename()),
+                specification.mediaType(),
+                specification.sizeBytes(),
+                specification.checksum()
         );
-        SourceOperationView operation = attempts.findLive(tenantId, sourceId, version)
-                .orElseGet(() -> attempts.create(tenantId, pair, version));
-        return new SourceUploadResult(queries.item(tenantId, sourceId, version.itemId()), operation);
+        ObjectUploadAuthorization authorization = objectUploads.initiate(tenantId, normalized);
+        transactions.executeWithoutResult(_ -> {
+            requireMutable(sources.lock(tenantId, requiredSourceId));
+            sourceUploads.create(tenantId, requiredSourceId, authorization.uploadId());
+        });
+        return authorization;
+    }
+
+    @Override
+    public SourceUploadReceipt finalizeUpload(
+            ActorId actorId,
+            SourceId sourceId,
+            ObjectUploadId uploadId
+    ) {
+        TenantId tenantId = requireOwner(actorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        ObjectUploadId requiredUploadId = Objects.requireNonNull(uploadId, "uploadId must not be null");
+        SourceUploadReceipt existing = receipt(tenantId, requiredSourceId, requiredUploadId);
+        if (existing != null) {
+            return existing;
+        }
+        if (!sourceUploads.exists(tenantId, requiredSourceId, requiredUploadId)) {
+            throw SourceException.notFound();
+        }
+        var verified = objectUploads.verify(tenantId, requiredUploadId);
+        return Objects.requireNonNull(transactions.execute(_ -> {
+            var pair = sources.lock(tenantId, requiredSourceId);
+            SourceUploadReceipt concurrent = receipt(tenantId, requiredSourceId, requiredUploadId);
+            if (concurrent != null) {
+                return concurrent;
+            }
+            var mutablePair = requireMutable(pair);
+            var version = items.resolveOrCreate(
+                    tenantId,
+                    mutablePair,
+                    verified.object().filename(),
+                    verified.object()
+            );
+            if (version.created()) {
+                objectUploads.adopt(tenantId, requiredUploadId, verified.token());
+            } else {
+                objectUploads.discard(tenantId, requiredUploadId, verified.token());
+            }
+            SourceOperationView operation = attempts.findLive(tenantId, requiredSourceId, version)
+                    .orElseGet(() -> attempts.create(tenantId, pair, version));
+            if (!sourceUploads.complete(
+                    tenantId,
+                    requiredSourceId,
+                    requiredUploadId,
+                    version,
+                    operation.id()
+            )) {
+                throw SourceException.conflict("source upload receipt was concurrently finalized");
+            }
+            return new SourceUploadReceipt(
+                    queries.item(tenantId, requiredSourceId, version.itemId()),
+                    operation
+            );
+        }));
     }
 
     @Override
@@ -204,6 +275,19 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 .orElseThrow(SourceException::notFound);
     }
 
+    private SourceUploadReceipt receipt(
+            TenantId tenantId,
+            SourceId sourceId,
+            ObjectUploadId uploadId
+    ) {
+        return sourceUploads.findReceipt(tenantId, sourceId, uploadId)
+                .map(ids -> new SourceUploadReceipt(
+                        queries.item(tenantId, sourceId, ids.itemId()),
+                        attempts.findById(tenantId, ids.operationId()).orElseThrow()
+                ))
+                .orElse(null);
+    }
+
     private TenantId requireOwner(ActorId actorId) {
         Objects.requireNonNull(actorId, "actorId must not be null");
         return tenantAccess.findActiveOwnerTenant(actorId)
@@ -221,15 +305,6 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return Objects.requireNonNull(sourceId, "sourceId must not be null");
     }
 
-    private static void requireContent(byte[] content) {
-        Objects.requireNonNull(content, "content must not be null");
-        if (content.length == 0 || content.length > MAX_FILE_BYTES) {
-            throw SourceException.invalid(
-                    "Upload one file between 1 byte and 10 MiB.",
-                    "uploaded content was empty or exceeded 10 MiB"
-            );
-        }
-    }
 
     private static String requireName(String name) {
         Objects.requireNonNull(name, "name must not be null");
@@ -256,11 +331,4 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return normalized;
     }
 
-    private static String sha256(byte[] content) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
-    }
 }

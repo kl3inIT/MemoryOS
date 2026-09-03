@@ -7,6 +7,11 @@ import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.StoredObjectId;
+import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.document.DocumentId;
 import io.memoryos.tenant.TenantId;
 
@@ -317,13 +322,20 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                attempt.connector_id,
                                attempt.connector_credential_pair_id,
                                attempt.connector_item_id,
-                               version.filename,
-                               version.content_bytes,
-                               version.content_sha256
+                               object.id AS stored_object_id,
+                               object.object_key,
+                               object.filename,
+                               object.size_bytes,
+                               object.declared_media_type,
+                               object.content_sha256
                         FROM index_attempts attempt
                         JOIN connector_item_versions version
                           ON version.tenant_id = attempt.tenant_id
                          AND version.id = attempt.connector_item_version_id
+                        JOIN stored_objects object
+                          ON object.tenant_id = version.tenant_id
+                         AND object.id = version.stored_object_id
+                         AND object.state = 'ACTIVE'
                         WHERE attempt.id = :id AND attempt.claim_token = :token
                         """)
                 .param("id", attemptId)
@@ -335,9 +347,16 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         new SourceId(resultSet.getObject("connector_credential_pair_id", UUID.class)),
                         new SourceItemId(resultSet.getObject("connector_item_id", UUID.class)),
                         token,
-                        resultSet.getString("filename"),
-                        resultSet.getBytes("content_bytes"),
-                        resultSet.getString("content_sha256")
+                        new StoredObjectReference(
+                                new StoredObjectId(resultSet.getObject("stored_object_id", UUID.class)),
+                                new ObjectKey(resultSet.getString("object_key")),
+                                resultSet.getString("filename"),
+                                new ObjectMetadata(
+                                        resultSet.getLong("size_bytes"),
+                                        resultSet.getString("declared_media_type"),
+                                        new ContentSha256(resultSet.getString("content_sha256"))
+                                )
+                        )
                 ))
                 .single();
     }

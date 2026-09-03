@@ -6,6 +6,8 @@ import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.StoredObjectRegistry;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,6 +32,8 @@ class WorkerConfiguration {
             ConnectorCleanupPort cleanupPort,
             DocumentCommandPort documents,
             SourceContentExtractor extractor,
+            ObjectStorage storage,
+            StoredObjectRegistry storedObjects,
             PlatformTransactionManager transactionManager,
             ScheduledExecutorService claimLeaseScheduler
     ) {
@@ -38,6 +42,8 @@ class WorkerConfiguration {
                 cleanupPort,
                 documents,
                 extractor,
+                storage,
+                storedObjects,
                 new TransactionTemplate(transactionManager),
                 claimLeaseScheduler
         );

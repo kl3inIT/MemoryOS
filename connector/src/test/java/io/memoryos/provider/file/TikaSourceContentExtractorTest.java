@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.document.DocumentContent;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -30,11 +32,11 @@ class TikaSourceContentExtractorTest {
     @Test
     void extractsUtf8TextAndMarkdownWithoutTrustingTheExtension() throws Exception {
         try (var extractor = new TikaSourceContentExtractor()) {
-            var text = extractor.extract("MemoryOS plain text".getBytes(StandardCharsets.UTF_8), "wrong.pdf");
+            var text = extract(extractor, "MemoryOS plain text".getBytes(StandardCharsets.UTF_8), "wrong.pdf");
             assertEquals("text/plain", text.mediaType());
             assertTrue(text.normalizedText().contains("MemoryOS plain text"));
 
-            var markdown = extractor.extract("# MemoryOS\nConnector content".getBytes(StandardCharsets.UTF_8), "notes.md");
+            var markdown = extract(extractor, "# MemoryOS\nConnector content".getBytes(StandardCharsets.UTF_8), "notes.md");
             assertTrue(markdown.mediaType().startsWith("text/"));
             assertTrue(markdown.normalizedText().contains("Connector content"));
         }
@@ -43,11 +45,11 @@ class TikaSourceContentExtractorTest {
     @Test
     void extractsPdfAndDocxVisibleText() throws Exception {
         try (var extractor = new TikaSourceContentExtractor()) {
-            var pdf = extractor.extract(pdf(), "document.bin");
+            var pdf = extract(extractor, pdf(), "document.bin");
             assertEquals("application/pdf", pdf.mediaType());
             assertTrue(pdf.normalizedText().contains("MemoryOS PDF content"));
 
-            var docx = extractor.extract(docx(), "document.bin");
+            var docx = extract(extractor, docx(), "document.bin");
             assertEquals(
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     docx.mediaType()
@@ -61,7 +63,7 @@ class TikaSourceContentExtractorTest {
         try (var extractor = new TikaSourceContentExtractor()) {
             ExtractionException exception = assertThrows(
                     ExtractionException.class,
-                    () -> extractor.extract(new byte[]{0x50, 0x4b, 0x03, 0x04}, "archive.zip")
+                    () -> extract(extractor, new byte[]{0x50, 0x4b, 0x03, 0x04}, "archive.zip")
             );
             assertEquals(ExtractionFailure.UNSUPPORTED, exception.failure());
         }
@@ -72,7 +74,7 @@ class TikaSourceContentExtractorTest {
         try (var extractor = new TikaSourceContentExtractor(Duration.ZERO)) {
             ExtractionException timeout = assertThrows(
                     ExtractionException.class,
-                    () -> extractor.extract("content".getBytes(StandardCharsets.UTF_8), "timeout.txt")
+                    () -> extract(extractor, "content".getBytes(StandardCharsets.UTF_8), "timeout.txt")
             );
             assertEquals(ExtractionFailure.TIMEOUT, timeout.failure());
         }
@@ -80,26 +82,20 @@ class TikaSourceContentExtractorTest {
         try (var extractor = new TikaSourceContentExtractor()) {
             ExtractionException encrypted = assertThrows(
                     ExtractionException.class,
-                    () -> extractor.extract(encryptedPdf(), "encrypted.pdf")
+                    () -> extract(extractor, encryptedPdf(), "encrypted.pdf")
             );
             assertEquals(ExtractionFailure.ENCRYPTED, encrypted.failure());
 
             byte[] validPdf = pdf();
             ExtractionException malformed = assertThrows(
                     ExtractionException.class,
-                    () -> extractor.extract(
-                            Arrays.copyOf(validPdf, validPdf.length / 2),
-                            "truncated.pdf"
-                    )
+                    () -> extract(extractor, Arrays.copyOf(validPdf, validPdf.length / 2), "truncated.pdf")
             );
             assertEquals(ExtractionFailure.MALFORMED, malformed.failure());
 
             ExtractionException limited = assertThrows(
                     ExtractionException.class,
-                    () -> extractor.extract(
-                            "x".repeat(2_000_100).getBytes(StandardCharsets.UTF_8),
-                            "large.txt"
-                    )
+                    () -> extract(extractor, "x".repeat(2_000_100).getBytes(StandardCharsets.UTF_8), "large.txt")
             );
             assertEquals(ExtractionFailure.WRITE_LIMIT, limited.failure());
         }
@@ -109,7 +105,7 @@ class TikaSourceContentExtractorTest {
         try (var extractor = new TikaSourceContentExtractor(Duration.ofMillis(1))) {
             ExtractionException timeout = assertThrows(
                     ExtractionException.class,
-                    () -> extractor.extract(pdf(), "timeout.pdf")
+                    () -> extract(extractor, pdf(), "timeout.pdf")
             );
 
             assertEquals(ExtractionFailure.TIMEOUT, timeout.failure());
@@ -117,6 +113,14 @@ class TikaSourceContentExtractorTest {
         }
     }
 
+
+    private static DocumentContent extract(
+            TikaSourceContentExtractor extractor,
+            byte[] content,
+            String filename
+    ) throws ExtractionException {
+        return extractor.extract(new ByteArrayInputStream(content), content.length, filename);
+    }
 
     private static byte[] pdf() throws Exception {
         try (var document = new PDDocument(); var output = new ByteArrayOutputStream()) {

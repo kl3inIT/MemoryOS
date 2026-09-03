@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication(scanBasePackages = {
         "io.memoryos.worker",
         "io.memoryos.connector",
+        "io.memoryos.objectstorage",
         "io.memoryos.document",
         "io.memoryos.ingestion",
         "io.memoryos.tenant.persistence"

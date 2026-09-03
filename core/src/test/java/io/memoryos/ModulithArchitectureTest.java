@@ -15,6 +15,7 @@ class ModulithArchitectureTest {
             "identity",
             "tenant",
             "invitation",
+            "objectstorage",
             "connector",
             "document",
             "ingestion"
