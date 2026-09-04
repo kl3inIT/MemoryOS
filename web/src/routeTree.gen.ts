@@ -16,6 +16,9 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated.admin.invitations'
+import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
+import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
+import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -52,6 +55,24 @@ const AuthenticatedAdminInvitationsRoute =
     path: '/invitations',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSourcesNewRoute =
+  AuthenticatedAdminSourcesNewRouteImport.update({
+    id: '/sources/new',
+    path: '/sources/new',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSourcesNewIndexRoute =
+  AuthenticatedAdminSourcesNewIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
+  } as any)
+const AuthenticatedAdminSourcesNewFileRoute =
+  AuthenticatedAdminSourcesNewFileRouteImport.update({
+    id: '/file',
+    path: '/file',
+    getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -60,6 +81,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
+  '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesByTo {
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
@@ -67,6 +91,8 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
+  '/admin/sources/new': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,6 +103,9 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
+  '/_authenticated/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,6 +116,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/invitations'
     | '/admin/'
+    | '/admin/sources/new'
+    | '/admin/sources/new/file'
+    | '/admin/sources/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/access-not-provisioned'
@@ -94,6 +126,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/invitations'
     | '/admin'
+    | '/admin/sources/new/file'
+    | '/admin/sources/new'
   id:
     | '__root__'
     | '/_authenticated'
@@ -103,6 +137,9 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/admin/invitations'
     | '/_authenticated/admin/'
+    | '/_authenticated/admin/sources/new'
+    | '/_authenticated/admin/sources/new/file'
+    | '/_authenticated/admin/sources/new/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -162,17 +199,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminInvitationsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/sources/new': {
+      id: '/_authenticated/admin/sources/new'
+      path: '/sources/new'
+      fullPath: '/admin/sources/new'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sources/new/': {
+      id: '/_authenticated/admin/sources/new/'
+      path: '/'
+      fullPath: '/admin/sources/new/'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
+    '/_authenticated/admin/sources/new/file': {
+      id: '/_authenticated/admin/sources/new/file'
+      path: '/file'
+      fullPath: '/admin/sources/new/file'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewFileRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
   }
 }
+
+interface AuthenticatedAdminSourcesNewRouteChildren {
+  AuthenticatedAdminSourcesNewFileRoute: typeof AuthenticatedAdminSourcesNewFileRoute
+  AuthenticatedAdminSourcesNewIndexRoute: typeof AuthenticatedAdminSourcesNewIndexRoute
+}
+
+const AuthenticatedAdminSourcesNewRouteChildren: AuthenticatedAdminSourcesNewRouteChildren =
+  {
+    AuthenticatedAdminSourcesNewFileRoute:
+      AuthenticatedAdminSourcesNewFileRoute,
+    AuthenticatedAdminSourcesNewIndexRoute:
+      AuthenticatedAdminSourcesNewIndexRoute,
+  }
+
+const AuthenticatedAdminSourcesNewRouteWithChildren =
+  AuthenticatedAdminSourcesNewRoute._addFileChildren(
+    AuthenticatedAdminSourcesNewRouteChildren,
+  )
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminInvitationsRoute: typeof AuthenticatedAdminInvitationsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedAdminSourcesNewRoute: typeof AuthenticatedAdminSourcesNewRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminInvitationsRoute: AuthenticatedAdminInvitationsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedAdminSourcesNewRoute:
+    AuthenticatedAdminSourcesNewRouteWithChildren,
 }
 
 const AuthenticatedAdminRouteWithChildren =

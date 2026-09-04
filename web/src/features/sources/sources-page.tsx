@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   DatabaseZap,
   FileText,
@@ -9,7 +10,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { actionVariants } from "@/components/ui/action-styles";
@@ -17,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
-  createFileSourceMutation,
   deleteSourceMutation,
   finalizeSourceUploadMutation,
   getSourceOptions,
@@ -33,6 +33,7 @@ import type { SourceItem, SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { SourceActionError, sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
+import { findSourceProvider } from "./source-provider-catalog";
 
 const terminalOperationStatuses: Record<string, true> = {
   SUCCEEDED: true,
@@ -48,6 +49,8 @@ type PendingFinalize = {
 };
 
 export function SourcesPage() {
+  const search = useSearch({ from: "/_authenticated/admin/" });
+  const navigate = useNavigate({ from: "/admin" });
   const queryClient = useQueryClient();
   const sourcesQuery = useQuery({
     ...listSourcesOptions(),
@@ -56,8 +59,6 @@ export function SourcesPage() {
       query.state.data?.some((source) => source.pendingWork) ? 1_500 : false,
   });
   const sources = sourcesQuery.data ?? [];
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const [sourceName, setSourceName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
@@ -78,7 +79,7 @@ export function SourcesPage() {
     [],
   );
 
-  const selectedId = selectedSourceId ?? sources[0]?.id ?? null;
+  const selectedId = search.sourceId ?? sources[0]?.id ?? null;
   const sourceQuery = useQuery({
     ...getSourceOptions({ path: { sourceId: selectedId ?? "" } }),
     enabled: Boolean(selectedId),
@@ -86,7 +87,6 @@ export function SourcesPage() {
     refetchInterval: (query) => (query.state.data?.source?.pendingWork ? 1_500 : false),
   });
 
-  const createSource = useMutation(createFileSourceMutation());
   const initiateUpload = useMutation(initiateSourceUploadMutation());
   const finalizeUpload = useMutation(finalizeSourceUploadMutation());
   const reindexItem = useMutation(reindexSourceItemMutation());
@@ -97,23 +97,6 @@ export function SourcesPage() {
     await queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
     if (sourceId) {
       await queryClient.invalidateQueries({ queryKey: getSourceQueryKey({ path: { sourceId } }) });
-    }
-  }
-
-  async function submitSource() {
-    const name = sourceName.trim();
-    if (!name) return;
-    setError(null);
-    try {
-      const created = await createSource.mutateAsync({
-        body: { name },
-        headers: sameOriginMutationHeaders,
-      });
-      setSourceName("");
-      setSelectedSourceId(created.source?.id ?? null);
-      await refresh(created.source?.id);
-    } catch (cause) {
-      setError(sourceMutationError(cause, "create"));
     }
   }
 
@@ -274,7 +257,10 @@ export function SourcesPage() {
       await refresh(selectedId);
       const completed = await waitForCleanup(operation.id, controller.signal);
       if (completed.status === "FAILED") throw new SourceActionError("cleanup-failed");
-      setSelectedSourceId(null);
+      await navigate({
+        search: (current) => ({ ...current, sourceId: undefined }),
+        replace: true,
+      });
       await refresh();
     } finally {
       if (cleanupController.current === controller) {
@@ -287,11 +273,7 @@ export function SourcesPage() {
   const detail = sourceQuery.data;
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const busy =
-    createSource.isPending ||
-    uploadBusy ||
-    reindexItem.isPending ||
-    removeItem.isPending ||
-    deleteSource.isPending;
+    uploadBusy || reindexItem.isPending || removeItem.isPending || deleteSource.isPending;
 
   return (
     <section className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
@@ -303,30 +285,12 @@ export function SourcesPage() {
             Upload durable Tenant knowledge. Extraction runs asynchronously in the worker.
           </p>
         </div>
-        <form
-          className="flex w-full max-w-md gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submitSource();
-          }}
-        >
-          <Input
-            aria-label="Source name"
-            value={sourceName}
-            maxLength={120}
-            onChange={(event) => setSourceName(event.target.value)}
-            placeholder="e.g. Product documentation"
-            className="min-w-0 flex-1"
-          />
-          <Button
-            type="submit"
-            pending={createSource.isPending}
-            disabled={!sourceName.trim() || createSource.isPending}
-          >
+        <Button asChild>
+          <Link to="/admin/sources/new">
             <Plus />
-            Add FILE source
-          </Button>
-        </form>
+            Add source
+          </Link>
+        </Button>
       </header>
 
       {error ? (
@@ -350,15 +314,26 @@ export function SourcesPage() {
           ) : sources.length === 0 ? (
             <EmptyState
               title="No sources connected"
-              detail="Create a FILE source, then upload its first document."
-            />
+              detail="Choose a source type, then connect its first instance."
+            >
+              <Button asChild size="sm" className="mt-4">
+                <Link to="/admin/sources/new">
+                  <Plus />
+                  Add source
+                </Link>
+              </Button>
+            </EmptyState>
           ) : (
             sources.map((source) => (
               <SourceCard
                 key={source.id}
                 source={source}
                 selected={source.id === selectedId}
-                onSelect={() => setSelectedSourceId(source.id ?? null)}
+                onSelect={() =>
+                  void navigate({
+                    search: (current) => ({ ...current, sourceId: source.id }),
+                  })
+                }
               />
             ))
           )}
@@ -389,7 +364,8 @@ export function SourcesPage() {
                     <SourceStatusBadge status={detail.source.status} />
                   </div>
                   <p className="mt-2 font-secondary-body text-content-muted">
-                    FILE · PUBLIC · {detail.source.documentCount ?? 0} indexed documents
+                    {findSourceProvider(detail.source.type)?.name ?? detail.source.type} ·{" "}
+                    {detail.source.access} · {detail.source.documentCount ?? 0} indexed documents
                   </p>
                   {detail.source.errorCode ? (
                     <p className="mt-2 text-sm text-status-danger-content">
@@ -587,6 +563,8 @@ function SourceCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const provider = findSourceProvider(source.type);
+  const ProviderIcon = provider?.icon ?? DatabaseZap;
   return (
     <button
       type="button"
@@ -598,14 +576,21 @@ function SourceCard({
         selected && "border-focus-ring bg-surface-sunken",
       )}
     >
-      <span className="flex items-center justify-between gap-3">
-        <span className="truncate text-sm font-medium text-content-primary">
-          {source.name ?? "FILE source"}
+      <span className="flex items-start gap-3">
+        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-secondary">
+          <ProviderIcon className="size-4" aria-hidden="true" />
         </span>
-        <SourceStatusBadge status={source.status} />
-      </span>
-      <span className="mt-2 block font-secondary-body text-content-muted">
-        {source.documentCount ?? 0} documents
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-3">
+            <span className="truncate text-sm font-medium text-content-primary">
+              {source.name ?? `${source.type} source`}
+            </span>
+            <SourceStatusBadge status={source.status} />
+          </span>
+          <span className="mt-2 block font-secondary-body text-content-muted">
+            {provider?.name ?? source.type} · {source.documentCount ?? 0} documents
+          </span>
+        </span>
       </span>
     </button>
   );
@@ -633,7 +618,15 @@ function LoadingLabel({ label }: { label: string }) {
   );
 }
 
-function EmptyState({ title, detail }: { title: string; detail: string }) {
+function EmptyState({
+  title,
+  detail,
+  children,
+}: {
+  title: string;
+  detail: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="py-8 text-center">
       <span className="mx-auto mb-4 grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
@@ -641,6 +634,7 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
       </span>
       <h3 className="font-heading-h3 text-content-primary">{title}</h3>
       <p className="mx-auto mt-2 max-w-md font-main-ui-body text-content-muted">{detail}</p>
+      {children}
     </div>
   );
 }

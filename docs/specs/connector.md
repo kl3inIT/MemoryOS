@@ -6,6 +6,12 @@ Connector owns Tenant-scoped Connector, NO_AUTH Credential, ConnectorCredentialP
 
 FILE is the only implemented provider. One active Tenant OWNER creates and manages it. Creation serializes on the Tenant row, creates or reuses exactly one NO_AUTH Credential, and creates one PUBLIC Pair. Members cannot manage Sources.
 
+## Browser product model
+
+The browser separates implemented Source types from configured Source instances. `/admin` lists configured Sources; `/admin/sources/new` is the implemented-provider catalog; and a provider-owned setup flow creates one Source before returning to its detail. The reusable wizard shell owns ordered progress and navigation but no provider fields or validation. FILE supplies only one `configuration` step. Unimplemented providers, placeholder steps, persistence concepts, and “coming soon” tiles are not product surfaces.
+
+Source selection is URL-owned through `sourceId`, so creation, direct navigation, and browser history select one deterministic configured Source. This browser navigation contract introduces no provider registry or additional HTTP resource.
+
 ## Application and persistence boundary
 
 `DefaultSourceManagementService` owns authorization, validation, upload adoption, orchestration, transaction boundaries, transition decisions, and typed failures. It injects concrete Connector persistence repositories plus the public `ObjectUploadService`; Connector persistence never imports object-storage persistence. `JdbcSourceUploadRepository` binds a generic upload to one Pair and persists its finalized item/version/attempt receipt. Application code contains no SQL, row mapping, locks, claims, or bulk updates; single internal JDBC implementations have no repository interfaces.

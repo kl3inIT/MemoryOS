@@ -24,6 +24,16 @@ Verified locally on 2026-09-03 from the active MEM-52 branch.
 - `direct-upload.test.ts` covered browser SHA-256, required-header transport, progress, provider rejection, and cancellation.
 - Production `api`, `worker`, and `web` images built successfully. A running production web image returned `200` with `connect-src 'self' http://localhost:19000` substituted into its CSP.
 
+## Source catalog and setup correction
+
+- The authoritative Onyx checkout under `.tmp/onyx/` confirmed two separate surfaces: provider metadata tiles at `/admin/add-connector`, followed by a provider-specific setup shell. MemoryOS adopts that information architecture without copying Onyx's deprecated numeric `FormContext` or FILE-specific skip logic.
+- The persistent administration shell now contains `/admin/sources/new` as a nested catalog leaf and `/admin/sources/new/file` as a provider setup leaf. A typed `SourceSetupWizard` owns progress and navigation while FILE supplies its single real `configuration` step. Successful creation returns to `/admin?sourceId={createdSourceId}`.
+- The complete Chromium Playwright suite passed: 15 tests, including provider catalog selection, disabled-until-valid FILE configuration, guarded creation, URL-selected detail, browser back/forward, direct PUT/finalize retry, item removal, Source deletion, and denied member deep links without protected Source requests.
+- A headless Chromium visual smoke rendered and captured the empty configured-Source page, provider catalog, populated FILE wizard, and created Source detail. The observed final URL selected the exact created Source ID.
+- `pnpm check` passed generated API stability, the pinned Playwright image check, warning-free lint, formatting, TypeScript, 44 unit tests, generated route-tree stability, production build, and emitted-font checks. `./gradlew.bat clean check --no-daemon` passed all 23 actionable repository tasks after Docker Desktop was started; the immediately prior attempt failed only because no Docker daemon was available.
+- JetBrains MCP was not mounted for this correction, so no new IDE-clean claim is made. LSP reported no diagnostics for the changed product TypeScript and route files. Its standalone Playwright-file context lacked the repository's Node globals, while the authoritative project `tsc -b` and Playwright compilation both passed.
+- CodeRabbit's single review pass found two valid edge cases. Blank/whitespace `sourceId` values are now trimmed to no selection, and the wizard takes a synchronous completion lock before awaiting provider creation. The FILE browser scenario fires two same-tick clicks against a delayed creation response and observes exactly one create request.
+
 ## Deployment
 
 - `docker compose -f infrastructure/deployment/compose.base.yaml config -q` passed with required deployment values.

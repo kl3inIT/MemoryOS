@@ -44,6 +44,9 @@ Implementation is complete and under repository/runtime verification. Checkboxes
 - [x] Expose truthful progress, cancellation, expiry, provider rejection, and finalize-retry states.
 - [x] Restrict browser `connect-src` and MinIO CORS to configured origins and required headers/methods.
 - [x] Prove through browser network observation that file bytes never traverse MemoryOS API.
+- [x] Separate configured Sources from the implemented Source-type catalog and replace inline FILE creation with `Add source`.
+- [x] Add a typed provider-owned setup wizard shell; FILE supplies one real `configuration` step without placeholder credential, review, or advanced steps.
+- [x] Add nested catalog and FILE setup routes while preserving the administration shell, URL-owned Source selection, and deterministic post-create navigation.
 
 ## Deployment and operations
 
@@ -59,5 +62,6 @@ Implementation is complete and under repository/runtime verification. Checkboxes
 - [x] Exercise the production Source path from object-upload initiation through indexing, remove/delete cleanup, and abandoned-object cleanup with PostgreSQL, MinIO, and Redis.
 - [x] Inspect every non-deleted changed file through JetBrains MCP with warnings enabled, fix actionable findings, and record intentional retained diagnostics.
 - [x] Run focused tests, architecture checks, `clean check`, frontend checks, production image builds, and browser/runtime smoke.
+- [x] Extend the FILE Source Playwright scenario across catalog selection, wizard creation, URL-selected detail, direct upload/finalize retry, remove, and delete.
 - [x] Consolidate architecture, Object Storage/Connector/Ingestion specs, verification matrices, runtime configuration, runbooks, roadmap, and Linear scope.
 - [ ] Merge one reviewed head, verify exact merge-SHA CI, close MEM-52, and unblock MEM-9.
