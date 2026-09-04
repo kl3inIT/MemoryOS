@@ -49,6 +49,8 @@ Implementation is complete and under repository/runtime verification. Checkboxes
 - [x] Replace URL-selected master-detail with a full-width configured-Source list and dedicated Source detail route.
 - [x] Compact the provider catalog to Onyx-aligned icon-and-label tiles grouped under nonempty categories.
 - [x] Align the generic provider-owned wizard with Onyx's lightweight progress rail, centered configuration body, and navigation row.
+- [x] Match Onyx provider grouping with expandable semantic table row groups, aggregate totals, explicit columns, and per-Source Manage actions.
+- [x] Retain failed-finalization recovery above Source routes so list/other-detail navigation returns to the initiating Source without another PUT.
 
 ## Deployment and operations
 

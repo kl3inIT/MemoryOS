@@ -63,7 +63,7 @@ export function SourceSetupWizard<StepId extends string>({
   }
 
   return (
-    <section className="mx-auto w-full max-w-4xl px-5 py-8 sm:px-8 sm:py-12">
+    <section className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
       <Link
         to="/admin/sources/new"
         className="inline-flex items-center gap-2 font-secondary-action text-content-secondary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -72,52 +72,57 @@ export function SourceSetupWizard<StepId extends string>({
         Source catalog
       </Link>
 
-      <div className="mx-auto mt-7 max-w-3xl">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-raised text-content-primary ring-1 ring-border-subtle">
-            <ProviderIcon className="size-5" aria-hidden="true" />
-          </span>
-          <h1 className="font-heading-h3 text-content-primary">{provider.name}</h1>
-        </div>
+      <div className="mt-7 grid gap-8 lg:grid-cols-[12rem_minmax(0,1fr)]">
+        <aside>
+          <div className="flex items-center gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-raised text-content-primary ring-1 ring-border-subtle">
+              <ProviderIcon className="size-4" aria-hidden="true" />
+            </span>
+            <span className="text-sm font-medium text-content-primary">{provider.name}</span>
+          </div>
 
-        <ol aria-label="Setup progress" className="mt-6 flex">
-          {steps.map((step, index) => {
-            const active = index === currentIndex;
-            const complete = index < currentIndex;
-            return (
-              <li
-                key={step.id}
-                aria-current={active ? "step" : undefined}
-                className="relative flex min-w-0 flex-1 items-center gap-2 pr-3 last:flex-none last:pr-0"
-              >
-                <span
-                  className={`relative z-10 grid size-5 shrink-0 place-items-center rounded-full border ${
-                    active || complete
-                      ? "border-content-primary bg-content-primary text-surface-base"
-                      : "border-border-default bg-surface-base text-content-muted"
-                  }`}
-                  aria-hidden="true"
+          <ol aria-label="Setup progress" className="mt-5">
+            {steps.map((step, index) => {
+              const active = index === currentIndex;
+              const complete = index < currentIndex;
+              return (
+                <li
+                  key={step.id}
+                  aria-current={active ? "step" : undefined}
+                  className="relative flex h-9 items-center gap-3"
                 >
-                  {complete ? <Check className="size-3" /> : null}
-                </span>
-                <span
-                  className={`truncate text-sm ${
-                    active ? "font-medium text-content-primary" : "text-content-muted"
-                  }`}
-                >
-                  {step.label}
-                </span>
-                {index < steps.length - 1 ? (
-                  <span className="mx-2 h-px min-w-6 flex-1 bg-border-subtle" aria-hidden="true" />
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
+                  {index < steps.length - 1 ? (
+                    <span
+                      className="absolute top-[1.375rem] left-[0.3125rem] h-5 w-px bg-border-subtle"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span
+                    className={`relative z-10 grid size-3 shrink-0 place-items-center rounded-full border ${
+                      active || complete
+                        ? "border-content-primary bg-content-primary text-surface-base"
+                        : "border-border-default bg-surface-base"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {complete ? <Check className="size-2" /> : null}
+                  </span>
+                  <span
+                    className={`truncate text-sm ${
+                      active ? "font-medium text-content-primary" : "text-content-muted"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </aside>
 
-        <main className="mt-5 overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
+        <main className="min-w-0 max-w-3xl overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
           <header className="border-b border-border-subtle px-5 py-6 sm:px-7">
-            <h2 className="font-heading-h2 text-content-primary">{activeStep.title}</h2>
+            <h1 className="font-heading-h2 text-content-primary">{activeStep.title}</h1>
             <p className="mt-2 max-w-2xl font-main-ui-body text-content-secondary">
               {activeStep.description}
             </p>
@@ -140,19 +145,40 @@ export function SourceSetupWizard<StepId extends string>({
               </p>
             ) : null}
 
-            <footer className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-4 sm:px-7">
-              {currentIndex === 0 ? (
-                <Button asChild prominence="tertiary" disabled={pending}>
-                  <Link to="/admin/sources/new">Back</Link>
-                </Button>
-              ) : (
-                <Button prominence="tertiary" onClick={previousStep} disabled={pending}>
-                  Back
-                </Button>
-              )}
-              <Button type="submit" pending={pending} disabled={!activeStep.canContinue || pending}>
-                {isLastStep ? (activeStep.completionLabel ?? "Connect source") : "Continue"}
-              </Button>
+            <footer className="grid grid-cols-3 items-center gap-3 border-t border-border-subtle px-5 py-4 sm:px-7">
+              <div className="justify-self-start">
+                {currentIndex === 0 ? (
+                  <Button asChild prominence="tertiary" disabled={pending}>
+                    <Link to="/admin/sources/new">Previous</Link>
+                  </Button>
+                ) : (
+                  <Button prominence="tertiary" onClick={previousStep} disabled={pending}>
+                    Previous
+                  </Button>
+                )}
+              </div>
+              <div className="justify-self-center">
+                {isLastStep ? (
+                  <Button
+                    type="submit"
+                    pending={pending}
+                    disabled={!activeStep.canContinue || pending}
+                  >
+                    {activeStep.completionLabel ?? "Create"}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="justify-self-end">
+                {!isLastStep ? (
+                  <Button
+                    type="submit"
+                    pending={pending}
+                    disabled={!activeStep.canContinue || pending}
+                  >
+                    Continue
+                  </Button>
+                ) : null}
+              </div>
             </footer>
           </form>
         </main>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Files, LoaderCircle, Plus } from "lucide-react";
+import { ChevronDown, Files, LoaderCircle, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
@@ -71,72 +72,158 @@ export function SourcesPage() {
 }
 
 function SourceList({ sources }: { sources: SourceSummary[] }) {
+  const groups = useMemo(() => groupSources(sources), [sources]);
+  const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(() => new Set());
+
+  function toggle(type: string) {
+    setCollapsedTypes((current) => {
+      const next = new Set(current);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }
+
   return (
-    <div className="mt-6 overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
-      <div
-        aria-hidden="true"
-        className="hidden grid-cols-[minmax(0,1.5fr)_minmax(8rem,0.7fr)_auto_6rem_1.5rem] items-center gap-5 border-b border-border-subtle bg-surface-subtle px-4 py-2.5 font-secondary-body text-content-muted md:grid"
-      >
-        <span>Source</span>
-        <span>Last indexed</span>
-        <span>Status</span>
-        <span className="text-right">Documents</span>
-        <span />
-      </div>
-      <ul aria-label="Connected sources" className="divide-y divide-border-subtle">
-        {sources.map((source) => (
-          <SourceRow key={source.id} source={source} />
+    <div className="mt-6 overflow-x-auto rounded-xl border border-border-subtle bg-surface-raised">
+      <table className="w-full min-w-[48rem] border-collapse">
+        <caption className="sr-only">Connected sources</caption>
+        <thead className="border-b border-border-subtle bg-surface-subtle text-left">
+          <tr>
+            <th scope="col" className="px-4 py-3 font-secondary-action text-content-secondary">
+              Name
+            </th>
+            <th scope="col" className="px-4 py-3 font-secondary-action text-content-secondary">
+              Last indexed
+            </th>
+            <th scope="col" className="px-4 py-3 font-secondary-action text-content-secondary">
+              Status
+            </th>
+            <th
+              scope="col"
+              className="px-4 py-3 text-right font-secondary-action text-content-secondary"
+            >
+              Documents
+            </th>
+            <th scope="col" className="px-4 py-3 text-right">
+              <span className="sr-only">Manage</span>
+            </th>
+          </tr>
+        </thead>
+        {groups.map((group) => (
+          <SourceGroupBody
+            key={group.type}
+            group={group}
+            collapsed={collapsedTypes.has(group.type)}
+            onToggle={() => toggle(group.type)}
+          />
         ))}
-      </ul>
+      </table>
     </div>
   );
 }
 
-function SourceRow({ source }: { source: SourceSummary }) {
-  const provider = findSourceProvider(source.type);
+type SourceGroup = {
+  type: string;
+  sources: SourceSummary[];
+};
+
+function SourceGroupBody({
+  group,
+  collapsed,
+  onToggle,
+}: {
+  group: SourceGroup;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const provider = findSourceProvider(group.type);
   const ProviderIcon = provider?.icon ?? Files;
+  const documentCount = group.sources.reduce((total, source) => total + source.documentCount, 0);
   return (
-    <li>
-      <Link
-        to="/admin/sources/$sourceId"
-        params={{ sourceId: source.id }}
-        className="group grid min-h-16 grid-cols-[minmax(0,1fr)_auto_1.25rem] items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring md:grid-cols-[minmax(0,1.5fr)_minmax(8rem,0.7fr)_auto_6rem_1.5rem] md:gap-5"
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-secondary group-hover:bg-surface-raised">
-            <ProviderIcon className="size-4" aria-hidden="true" />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-content-primary">
-              {source.name}
+    <tbody className="divide-y divide-border-subtle">
+      <tr className="bg-surface-subtle/40">
+        <th scope="rowgroup" colSpan={5} className="p-0 text-left">
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            onClick={onToggle}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          >
+            <ProviderIcon className="size-4 text-content-secondary" aria-hidden="true" />
+            <span className="text-sm font-medium text-content-primary">
+              {provider?.name ?? group.type}
             </span>
-            <span className="mt-0.5 block font-secondary-body text-content-muted">
-              {provider?.name ?? source.type}
+            <span className="font-secondary-body text-content-muted">
+              {group.sources.length} {group.sources.length === 1 ? "source" : "sources"} ·{" "}
+              {documentCount} documents
             </span>
-          </span>
-        </span>
-        <span className="hidden font-secondary-body text-content-muted md:block">
-          <LastIndexed value={source.lastSucceededAt} />
-        </span>
-        <SourceStatusBadge status={source.status} />
-        <span className="hidden text-right text-sm tabular-nums text-content-secondary md:block">
-          {source.documentCount}
-        </span>
-        <ArrowRight
-          className="size-4 text-content-muted transition-transform group-hover:translate-x-0.5 group-hover:text-content-primary"
-          aria-hidden="true"
-        />
-      </Link>
-    </li>
+            <ChevronDown
+              className={`ml-auto size-4 text-content-muted transition-transform ${
+                collapsed ? "-rotate-90" : ""
+              }`}
+              aria-hidden="true"
+            />
+          </button>
+        </th>
+      </tr>
+      {!collapsed
+        ? group.sources.map((source) => <SourceRow key={source.id} source={source} />)
+        : null}
+    </tbody>
   );
 }
+
+function SourceRow({ source }: { source: SourceSummary }) {
+  return (
+    <tr id={`source-${source.id}`} className="align-middle hover:bg-surface-subtle/50">
+      <td className="px-4 py-3">
+        <Link
+          to="/admin/sources/$sourceId"
+          params={{ sourceId: source.id }}
+          className="text-sm font-medium text-content-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        >
+          {source.name}
+        </Link>
+      </td>
+      <td className="px-4 py-3 font-secondary-body text-content-muted">
+        <LastIndexed value={source.lastSucceededAt} />
+      </td>
+      <td className="px-4 py-3">
+        <SourceStatusBadge status={source.status} />
+      </td>
+      <td className="px-4 py-3 text-right text-sm tabular-nums text-content-secondary">
+        {source.documentCount}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <Button asChild prominence="tertiary" size="sm">
+          <Link to="/admin/sources/$sourceId" params={{ sourceId: source.id }}>
+            Manage
+          </Link>
+        </Button>
+      </td>
+    </tr>
+  );
+}
+
+function groupSources(sources: SourceSummary[]) {
+  const groups = new Map<string, SourceSummary[]>();
+  for (const source of sources) {
+    const group = groups.get(source.type);
+    if (group) group.push(source);
+    else groups.set(source.type, [source]);
+  }
+  return Array.from(groups, ([type, groupedSources]) => ({ type, sources: groupedSources }));
+}
+
+const sourceDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 function LastIndexed({ value }: { value: string | null }) {
   if (!value) return <>Never</>;
   const date = new Date(value);
   return (
     <time dateTime={value} title={date.toLocaleString()}>
-      {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date)}
+      {sourceDateFormatter.format(date)}
     </time>
   );
 }

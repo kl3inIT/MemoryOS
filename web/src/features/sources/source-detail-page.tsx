@@ -31,6 +31,7 @@ import { SourceActionError, sourceMutationError, sourceStatusMessage } from "./s
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { SourceStatusBadge } from "./source-status-badge";
 import { findSourceProvider } from "./source-provider-catalog";
+import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 
 const terminalOperationStatuses: Record<string, true> = {
   SUCCEEDED: true,
@@ -39,23 +40,18 @@ const terminalOperationStatuses: Record<string, true> = {
 };
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
-type PendingFinalize = {
-  sourceId: string;
-  uploadId: string;
-  filename: string;
-};
-
 export function SourceDetailPage() {
   const { sourceId: selectedId } = useParams({
     from: "/_authenticated/admin/sources/$sourceId",
   });
   const navigate = useNavigate({ from: "/admin/sources/$sourceId" });
   const queryClient = useQueryClient();
+  const { pendingFinalize, setPendingFinalize } = useSourceUploadRecovery();
+  const activePendingFinalize = pendingFinalize?.sourceId === selectedId ? pendingFinalize : null;
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [pendingFinalize, setPendingFinalize] = useState<PendingFinalize | null>(null);
   const [cleanupPending, setCleanupPending] = useState(false);
   const uploadController = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -91,9 +87,8 @@ export function SourceDetailPage() {
   }
 
   async function submitFile() {
-    if (!selectedId || !file) return;
+    if (!selectedId || !file || pendingFinalize) return;
     setError(null);
-    setPendingFinalize(null);
     uploadController.current?.abort();
     const controller = new AbortController();
     uploadController.current = controller;
@@ -162,8 +157,8 @@ export function SourceDetailPage() {
   }
 
   async function retryFinalize() {
-    if (!pendingFinalize) return;
-    const pending = pendingFinalize;
+    if (!activePendingFinalize) return;
+    const pending = activePendingFinalize;
     setError(null);
     const controller = new AbortController();
     uploadController.current = controller;
@@ -280,6 +275,19 @@ export function SourceDetailPage() {
         </p>
       ) : null}
 
+      {pendingFinalize && !activePendingFinalize ? (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-content-secondary">
+            {pendingFinalize.filename} is stored and still needs finalization.
+          </p>
+          <Button asChild size="sm" prominence="secondary">
+            <Link to="/admin/sources/$sourceId" params={{ sourceId: pendingFinalize.sourceId }}>
+              Return to pending upload
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+
       <main className="mt-6 min-w-0 overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised">
         {sourceQuery.isPending && !detail ? (
           <div className="px-6 py-16">
@@ -331,7 +339,7 @@ export function SourceDetailPage() {
               className="border-b border-border-subtle bg-surface-subtle p-5 sm:p-6"
               onSubmit={(event) => {
                 event.preventDefault();
-                void (pendingFinalize ? retryFinalize() : submitFile());
+                void (activePendingFinalize ? retryFinalize() : submitFile());
               }}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -341,7 +349,7 @@ export function SourceDetailPage() {
                     ref={fileInput}
                     type="file"
                     accept=".pdf,.docx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    disabled={uploadPhase !== "idle"}
+                    disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
                     onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                     className="bg-surface-raised"
                   />
@@ -350,18 +358,21 @@ export function SourceDetailPage() {
                   type="submit"
                   pending={uploadBusy}
                   disabled={
-                    (!file && !pendingFinalize) || busy || detail.source.status === "DELETING"
+                    (!file && !activePendingFinalize) ||
+                    Boolean(pendingFinalize && !activePendingFinalize) ||
+                    busy ||
+                    detail.source.status === "DELETING"
                   }
                 >
                   <Upload />
-                  {pendingFinalize ? "Retry finalization" : "Upload file"}
+                  {activePendingFinalize ? "Retry finalization" : "Upload file"}
                 </Button>
-                {uploadPhase !== "idle" ? (
+                {uploadPhase !== "idle" || activePendingFinalize ? (
                   <Button
                     type="button"
                     prominence="secondary"
                     onClick={() => {
-                      if (uploadPhase === "finalize-retry") {
+                      if (activePendingFinalize) {
                         setPendingFinalize(null);
                         setUploadPhase("idle");
                         setFile(null);
@@ -381,7 +392,7 @@ export function SourceDetailPage() {
                   </Button>
                 ) : null}
               </div>
-              {uploadPhase !== "idle" ? (
+              {uploadPhase !== "idle" || activePendingFinalize ? (
                 <div className="mt-3" aria-live="polite">
                   <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
                     <span>
@@ -391,7 +402,7 @@ export function SourceDetailPage() {
                           ? "Uploading directly to object storage"
                           : uploadPhase === "finalizing"
                             ? "Verifying and registering the stored file"
-                            : `${pendingFinalize?.filename ?? "File"} is stored but not finalized`}
+                            : `${activePendingFinalize?.filename ?? "File"} is stored but not finalized`}
                     </span>
                     {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
                   </div>

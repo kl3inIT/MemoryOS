@@ -788,10 +788,14 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   });
 
   await page.goto("/admin");
-  const sourceList = page.getByRole("list", { name: "Connected sources" });
-  const supportSource = sourceList.getByRole("link", { name: /Support notes/ });
+  const sourceTable = page.getByRole("table", { name: "Connected sources" });
+  const fileGroup = sourceTable.getByRole("button", { name: /Files 1 source · 0 documents/ });
+  const supportSource = sourceTable.getByRole("link", { name: otherSource.name, exact: true });
+  await expect(fileGroup).toHaveAttribute("aria-expanded", "true");
+  await fileGroup.click();
+  await expect(supportSource).toBeHidden();
+  await fileGroup.click();
   await expect(supportSource).toBeVisible();
-  await expect(page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file")).toHaveCount(0);
   await supportSource.click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${otherSource.id}$`));
   await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
@@ -835,6 +839,15 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page.getByRole("alert")).toContainText(
     "The file reached object storage; retry finalization without uploading it again.",
   );
+  await page.getByRole("link", { name: "Sources", exact: true }).last().click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await page
+    .getByRole("table", { name: "Connected sources" })
+    .getByRole("link", { name: otherSource.name, exact: true })
+    .click();
+  await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
+  await page.getByRole("link", { name: "Return to pending upload" }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await page.getByRole("button", { name: "Retry finalization" }).click();
   await expect(page.getByText("knowledge.txt")).toBeVisible();
   expect(objectStoragePuts).toBe(1);
