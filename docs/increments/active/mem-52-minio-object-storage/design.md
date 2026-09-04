@@ -20,6 +20,25 @@ The strongest reusable Onyx lifecycle is indexing staging: connector-generated r
 
 MemoryOS keeps those invariants: opaque application identity, metadata/byte separation, explicit staging/adoption, and orphan cleanup. It intentionally does not copy Onyx's API-proxied `UploadFile` path, global backend factory, provider location leakage, startup bucket creation, PostgreSQL compatibility backend, or mixed metadata/provider-I/O responsibility.
 
+## Browser source discovery and setup
+
+Onyx separates available connector types from configured connector instances: `/admin/add-connector` renders provider metadata tiles, then the selected provider owns its setup steps. MemoryOS adopts that information architecture without copying Onyx's deprecated numeric `FormContext` or FILE-specific step skipping.
+
+The public browser vocabulary remains provider-neutral:
+
+- a **Source type** is an implemented provider that can create Sources, such as `FILE`;
+- a **Source** is one configured Tenant-owned instance, such as “Product documentation”;
+- Connector, Credential, and Pair remain internal persistence and orchestration concepts.
+
+`/admin` lists configured Sources and owns Source detail, uploads, indexing, and cleanup. `/admin/sources/new` lists only implemented Source types. Selecting FILE opens `/admin/sources/new/file`; successful creation returns to `/admin?sourceId={createdSourceId}` so the new Source is selected deterministically and browser history preserves selection.
+
+Setup uses a typed `SourceSetupWizard` shell. Each provider supplies its own ordered step identifiers, labels, content, validation, and completion action. The shell owns progress semantics, navigation, and accessible step state; it does not know provider-specific fields. FILE currently has one meaningful `configuration` step, so the UI renders one step rather than inventing credential, review, or advanced steps. A later Google Drive increment can supply authorization and configuration steps through the same shell when that runtime exists.
+
+The nested TanStack route shape is explicit: `_authenticated.admin.sources.new.tsx` renders an `Outlet`, `_authenticated.admin.sources.new.index.tsx` is the catalog leaf, and `_authenticated.admin.sources.new.file.tsx` is the FILE setup leaf. The persistent administration `AppShell` remains mounted across the flow.
+
+Provider discovery is a small typed browser metadata list, not a speculative backend registry. Search, popularity ranking, categories without content, unavailable-provider tiles, and “coming soon” connectors remain absent until multiple implemented providers make them useful.
+
+
 ## Naming model
 
 `FileStore` is not used in MemoryOS Java code. It collides conceptually with `java.nio.file.FileStore` and obscures the split between durable metadata and external provider I/O. The enterprise vocabulary is:

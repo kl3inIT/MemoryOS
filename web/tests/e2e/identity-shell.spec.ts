@@ -66,6 +66,7 @@ test("hides owner UI and blocks member administration deep links without request
   page,
 }) => {
   let invitationRequests = 0;
+  let sourceRequests = 0;
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
       status: 200,
@@ -75,6 +76,10 @@ test("hides owner UI and blocks member administration deep links without request
   });
   await page.route("**/api/invitations*", async (route) => {
     invitationRequests += 1;
+    await route.fulfill({ status: 403 });
+  });
+  await page.route("**/api/sources**", async (route) => {
+    sourceRequests += 1;
     await route.fulfill({ status: 403 });
   });
 
@@ -90,6 +95,16 @@ test("hides owner UI and blocks member administration deep links without request
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
   expect(invitationRequests).toBe(0);
+
+  await page.goto("/admin?sourceId=15f8cb72-2628-4d75-bcf1-8f6cda95a120");
+  await expect(
+    page.getByRole("heading", { name: "You don’t have access to this area." }),
+  ).toBeVisible();
+  await page.goto("/admin/sources/new/file");
+  await expect(
+    page.getByRole("heading", { name: "You don’t have access to this area." }),
+  ).toBeVisible();
+  expect(sourceRequests).toBe(0);
 });
 
 test("signs out from the account menu with the same-origin guard", async ({ page }) => {
@@ -545,6 +560,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   const checksum = createHash("sha256").update(uploadedFile).digest("hex");
   const checksumBase64 = createHash("sha256").update(uploadedFile).digest("base64");
   let sourceDeleted = false;
+  let sourceCreated = false;
   let removeAttempts = 0;
   let finalizeAttempts = 0;
   let objectStoragePuts = 0;
@@ -604,13 +620,17 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(
-          sourceDeleted ? [] : [source, ...(includeOtherSource ? [otherSource] : [])],
+          sourceDeleted
+            ? []
+            : [...(sourceCreated ? [source] : []), ...(includeOtherSource ? [otherSource] : [])],
         ),
       });
       return;
     }
     if (request.method() === "POST" && path === "/api/sources/file") {
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
+      expect(request.postDataJSON()).toEqual({ name: source.name });
+      sourceCreated = true;
       await route.fulfill({
         status: 201,
         contentType: "application/json",
@@ -765,8 +785,29 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   });
 
   await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
+  await page.getByRole("link", { name: "Add source" }).first().click();
+  await expect(page).toHaveURL(/\/admin\/sources\/new\/?$/);
+  await expect(page.getByRole("heading", { name: "Add a source" })).toBeVisible();
+
+  const fileProvider = page.getByRole("link", { name: /Files Upload PDF, DOCX, TXT/ });
+  await expect(fileProvider).toHaveCount(1);
+  await fileProvider.click();
+  await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
+  await expect(page.getByRole("heading", { name: "Name this file source" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Setup progress" })).toContainText("Configuration");
+
+  const createSource = page.getByRole("button", { name: "Create source" });
+  await expect(createSource).toBeDisabled();
   await page.getByRole("textbox", { name: "Source name" }).fill(source.name);
-  await page.getByRole("button", { name: "Add FILE source" }).click();
+  await createSource.click();
+  await expect(page).toHaveURL(new RegExp(`/admin\\?sourceId=${source.id}$`));
+  await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/admin\\?sourceId=${source.id}$`));
   await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
 
   await page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file").setInputFiles({
