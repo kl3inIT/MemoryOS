@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SourceProvider } from "./source-provider-catalog";
@@ -33,6 +33,7 @@ export function SourceSetupWizard<StepId extends string>({
   pending = false,
   error,
 }: SourceSetupWizardProps<StepId>) {
+  const completionInFlight = useRef(false);
   const currentIndex = Math.max(
     0,
     steps.findIndex((step) => step.id === activeStepId),
@@ -47,13 +48,18 @@ export function SourceSetupWizard<StepId extends string>({
   }
 
   async function submit() {
-    if (!activeStep.canContinue || pending) return;
+    if (!activeStep.canContinue || pending || completionInFlight.current) return;
     const next = steps[currentIndex + 1];
     if (next) {
       onActiveStepChange(next.id);
       return;
     }
-    await onComplete();
+    completionInFlight.current = true;
+    try {
+      await onComplete();
+    } finally {
+      completionInFlight.current = false;
+    }
   }
 
   return (

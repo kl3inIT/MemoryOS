@@ -3,10 +3,6 @@ export type SourceListSearch = {
 };
 
 export function validateSourceListSearch(search: Record<string, unknown>): SourceListSearch {
-  return {
-    sourceId:
-      typeof search.sourceId === "string" && search.sourceId.length > 0
-        ? search.sourceId
-        : undefined,
-  };
+  const sourceId = typeof search.sourceId === "string" ? search.sourceId.trim() : "";
+  return { sourceId: sourceId || undefined };
 }

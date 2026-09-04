@@ -561,6 +561,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   const checksumBase64 = createHash("sha256").update(uploadedFile).digest("base64");
   let sourceDeleted = false;
   let sourceCreated = false;
+  let createAttempts = 0;
   let removeAttempts = 0;
   let finalizeAttempts = 0;
   let objectStoragePuts = 0;
@@ -628,9 +629,11 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       return;
     }
     if (request.method() === "POST" && path === "/api/sources/file") {
+      createAttempts += 1;
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
       expect(request.postDataJSON()).toEqual({ name: source.name });
       sourceCreated = true;
+      await page.waitForTimeout(100);
       await route.fulfill({
         status: 201,
         contentType: "application/json",
@@ -784,7 +787,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     await route.fulfill({ status: 405 });
   });
 
-  await page.goto("/admin");
+  await page.goto("/admin?sourceId=%20%20");
   await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
   await page.getByRole("link", { name: "Add source" }).first().click();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/?$/);
@@ -800,9 +803,13 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   const createSource = page.getByRole("button", { name: "Create source" });
   await expect(createSource).toBeDisabled();
   await page.getByRole("textbox", { name: "Source name" }).fill(source.name);
-  await createSource.click();
+  await createSource.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
   await expect(page).toHaveURL(new RegExp(`/admin\\?sourceId=${source.id}$`));
   await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
+  expect(createAttempts).toBe(1);
 
   await page.goBack();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);

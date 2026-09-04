@@ -32,6 +32,7 @@ Verified locally on 2026-09-03 from the active MEM-52 branch.
 - A headless Chromium visual smoke rendered and captured the empty configured-Source page, provider catalog, populated FILE wizard, and created Source detail. The observed final URL selected the exact created Source ID.
 - `pnpm check` passed generated API stability, the pinned Playwright image check, warning-free lint, formatting, TypeScript, 44 unit tests, generated route-tree stability, production build, and emitted-font checks. `./gradlew.bat clean check --no-daemon` passed all 23 actionable repository tasks after Docker Desktop was started; the immediately prior attempt failed only because no Docker daemon was available.
 - JetBrains MCP was not mounted for this correction, so no new IDE-clean claim is made. LSP reported no diagnostics for the changed product TypeScript and route files. Its standalone Playwright-file context lacked the repository's Node globals, while the authoritative project `tsc -b` and Playwright compilation both passed.
+- CodeRabbit's single review pass found two valid edge cases. Blank/whitespace `sourceId` values are now trimmed to no selection, and the wizard takes a synchronous completion lock before awaiting provider creation. The FILE browser scenario fires two same-tick clicks against a delayed creation response and observes exactly one create request.
 
 ## Deployment
 
