@@ -72,8 +72,8 @@ export function CreateFileSourcePage() {
       });
       await queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
       await navigate({
-        to: "/admin",
-        search: { sourceId: created.source.id },
+        to: "/admin/sources/$sourceId",
+        params: { sourceId: created.source.id },
       });
     } catch (cause) {
       setError(sourceMutationError(cause, "create"));

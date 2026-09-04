@@ -72,19 +72,16 @@ export function SourceSetupWizard<StepId extends string>({
         Source catalog
       </Link>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside className="border-b border-border-subtle bg-surface-subtle p-5 sm:p-6 lg:border-r lg:border-b-0">
+      <div className="mt-7 grid gap-8 lg:grid-cols-[12rem_minmax(0,1fr)]">
+        <aside>
           <div className="flex items-center gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-border-subtle bg-surface-raised text-content-primary">
-              <ProviderIcon className="size-5" aria-hidden="true" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-raised text-content-primary ring-1 ring-border-subtle">
+              <ProviderIcon className="size-4" aria-hidden="true" />
             </span>
-            <div className="min-w-0">
-              <p className="font-secondary-body text-content-muted">Source type</p>
-              <p className="truncate font-heading-h3 text-content-primary">{provider.name}</p>
-            </div>
+            <span className="text-sm font-medium text-content-primary">{provider.name}</span>
           </div>
 
-          <ol aria-label="Setup progress" className="mt-7 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          <ol aria-label="Setup progress" className="mt-5">
             {steps.map((step, index) => {
               const active = index === currentIndex;
               const complete = index < currentIndex;
@@ -92,33 +89,40 @@ export function SourceSetupWizard<StepId extends string>({
                 <li
                   key={step.id}
                   aria-current={active ? "step" : undefined}
-                  className={`flex items-start gap-3 rounded-xl px-3 py-3 ${
-                    active ? "bg-surface-raised text-content-primary" : "text-content-muted"
-                  }`}
+                  className="relative flex h-9 items-center gap-3"
                 >
+                  {index < steps.length - 1 ? (
+                    <span
+                      className="absolute top-[1.375rem] left-[0.3125rem] h-5 w-px bg-border-subtle"
+                      aria-hidden="true"
+                    />
+                  ) : null}
                   <span
-                    className={`grid size-7 shrink-0 place-items-center rounded-lg border font-secondary-action tabular-nums ${
+                    className={`relative z-10 grid size-3 shrink-0 place-items-center rounded-full border ${
                       active || complete
-                        ? "border-border-default bg-surface-sunken text-content-primary"
-                        : "border-border-subtle"
+                        ? "border-content-primary bg-content-primary text-surface-base"
+                        : "border-border-default bg-surface-base"
                     }`}
                     aria-hidden="true"
                   >
-                    {complete ? <Check className="size-3.5" /> : index + 1}
+                    {complete ? <Check className="size-2" /> : null}
                   </span>
-                  <span className="pt-1 text-sm font-medium">{step.label}</span>
+                  <span
+                    className={`truncate text-sm ${
+                      active ? "font-medium text-content-primary" : "text-content-muted"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
                 </li>
               );
             })}
           </ol>
         </aside>
 
-        <main className="min-w-0">
-          <header className="border-b border-border-subtle px-5 py-6 sm:px-8 sm:py-8">
-            <p className="font-secondary-action text-content-muted">
-              Step {currentIndex + 1} of {steps.length}
-            </p>
-            <h1 className="mt-2 font-heading-h2 text-content-primary">{activeStep.title}</h1>
+        <main className="min-w-0 max-w-3xl overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
+          <header className="border-b border-border-subtle px-5 py-6 sm:px-7">
+            <h1 className="font-heading-h2 text-content-primary">{activeStep.title}</h1>
             <p className="mt-2 max-w-2xl font-main-ui-body text-content-secondary">
               {activeStep.description}
             </p>
@@ -130,30 +134,51 @@ export function SourceSetupWizard<StepId extends string>({
               void submit();
             }}
           >
-            <div className="px-5 py-6 sm:px-8 sm:py-8">{activeStep.content}</div>
+            <div className="px-5 py-6 sm:px-7">{activeStep.content}</div>
 
             {error ? (
               <p
                 role="alert"
-                className="mx-5 mb-5 rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content sm:mx-8"
+                className="mx-5 mb-5 rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content sm:mx-7"
               >
                 {error}
               </p>
             ) : null}
 
-            <footer className="flex items-center justify-between gap-3 border-t border-border-subtle bg-surface-subtle px-5 py-4 sm:px-8">
-              {currentIndex === 0 ? (
-                <Button asChild prominence="tertiary" disabled={pending}>
-                  <Link to="/admin/sources/new">Back</Link>
-                </Button>
-              ) : (
-                <Button prominence="tertiary" onClick={previousStep} disabled={pending}>
-                  Back
-                </Button>
-              )}
-              <Button type="submit" pending={pending} disabled={!activeStep.canContinue || pending}>
-                {isLastStep ? (activeStep.completionLabel ?? "Connect source") : "Continue"}
-              </Button>
+            <footer className="grid grid-cols-3 items-center gap-3 border-t border-border-subtle px-5 py-4 sm:px-7">
+              <div className="justify-self-start">
+                {currentIndex === 0 ? (
+                  <Button asChild prominence="tertiary" disabled={pending}>
+                    <Link to="/admin/sources/new">Previous</Link>
+                  </Button>
+                ) : (
+                  <Button prominence="tertiary" onClick={previousStep} disabled={pending}>
+                    Previous
+                  </Button>
+                )}
+              </div>
+              <div className="justify-self-center">
+                {isLastStep ? (
+                  <Button
+                    type="submit"
+                    pending={pending}
+                    disabled={!activeStep.canContinue || pending}
+                  >
+                    {activeStep.completionLabel ?? "Create"}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="justify-self-end">
+                {!isLastStep ? (
+                  <Button
+                    type="submit"
+                    pending={pending}
+                    disabled={!activeStep.canContinue || pending}
+                  >
+                    Continue
+                  </Button>
+                ) : null}
+              </div>
             </footer>
           </form>
         </main>

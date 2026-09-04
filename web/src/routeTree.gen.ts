@@ -16,6 +16,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated.admin.invitations'
+import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from './routes/_authenticated.admin.sources.$sourceId'
 import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
 import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
 import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
@@ -55,6 +56,12 @@ const AuthenticatedAdminInvitationsRoute =
     path: '/invitations',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSourcesSourceIdRoute =
+  AuthenticatedAdminSourcesSourceIdRouteImport.update({
+    id: '/sources/$sourceId',
+    path: '/sources/$sourceId',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminSourcesNewRoute =
   AuthenticatedAdminSourcesNewRouteImport.update({
     id: '/sources/new',
@@ -81,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
@@ -91,6 +99,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -103,6 +112,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/invitations'
     | '/admin/'
+    | '/admin/sources/$sourceId'
     | '/admin/sources/new'
     | '/admin/sources/new/file'
     | '/admin/sources/new/'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/invitations'
     | '/admin'
+    | '/admin/sources/$sourceId'
     | '/admin/sources/new/file'
     | '/admin/sources/new'
   id:
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/admin/invitations'
     | '/_authenticated/admin/'
+    | '/_authenticated/admin/sources/$sourceId'
     | '/_authenticated/admin/sources/new'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/'
@@ -199,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminInvitationsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/sources/$sourceId': {
+      id: '/_authenticated/admin/sources/$sourceId'
+      path: '/sources/$sourceId'
+      fullPath: '/admin/sources/$sourceId'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesSourceIdRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/sources/new': {
       id: '/_authenticated/admin/sources/new'
       path: '/sources/new'
@@ -244,12 +264,15 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminInvitationsRoute: typeof AuthenticatedAdminInvitationsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute
   AuthenticatedAdminSourcesNewRoute: typeof AuthenticatedAdminSourcesNewRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminInvitationsRoute: AuthenticatedAdminInvitationsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedAdminSourcesSourceIdRoute:
+    AuthenticatedAdminSourcesSourceIdRoute,
   AuthenticatedAdminSourcesNewRoute:
     AuthenticatedAdminSourcesNewRouteWithChildren,
 }

@@ -46,7 +46,11 @@ Implementation is complete and under repository/runtime verification. Checkboxes
 - [x] Prove through browser network observation that file bytes never traverse MemoryOS API.
 - [x] Separate configured Sources from the implemented Source-type catalog and replace inline FILE creation with `Add source`.
 - [x] Add a typed provider-owned setup wizard shell; FILE supplies one real `configuration` step without placeholder credential, review, or advanced steps.
-- [x] Add nested catalog and FILE setup routes while preserving the administration shell, URL-owned Source selection, and deterministic post-create navigation.
+- [x] Replace URL-selected master-detail with a full-width configured-Source list and dedicated Source detail route.
+- [x] Compact the provider catalog to Onyx-aligned icon-and-label tiles grouped under nonempty categories.
+- [x] Align the generic provider-owned wizard with Onyx's lightweight progress rail, centered configuration body, and navigation row.
+- [x] Match Onyx provider grouping with expandable semantic table row groups, aggregate totals, explicit columns, and per-Source Manage actions.
+- [x] Retain failed-finalization recovery above Source routes so list/other-detail navigation returns to the initiating Source without another PUT.
 
 ## Deployment and operations
 
@@ -62,6 +66,6 @@ Implementation is complete and under repository/runtime verification. Checkboxes
 - [x] Exercise the production Source path from object-upload initiation through indexing, remove/delete cleanup, and abandoned-object cleanup with PostgreSQL, MinIO, and Redis.
 - [x] Inspect every non-deleted changed file through JetBrains MCP with warnings enabled, fix actionable findings, and record intentional retained diagnostics.
 - [x] Run focused tests, architecture checks, `clean check`, frontend checks, production image builds, and browser/runtime smoke.
-- [x] Extend the FILE Source Playwright scenario across catalog selection, wizard creation, URL-selected detail, direct upload/finalize retry, remove, and delete.
+- [x] Extend the FILE Source Playwright scenario across list navigation, compact catalog selection, wizard creation, dedicated detail, direct upload/finalize retry, remove, and delete.
 - [x] Consolidate architecture, Object Storage/Connector/Ingestion specs, verification matrices, runtime configuration, runbooks, roadmap, and Linear scope.
 - [ ] Merge one reviewed head, verify exact merge-SHA CI, close MEM-52, and unblock MEM-9.

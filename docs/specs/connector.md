@@ -8,9 +8,9 @@ FILE is the only implemented provider. One active Tenant OWNER creates and manag
 
 ## Browser product model
 
-The browser separates implemented Source types from configured Source instances. `/admin` lists configured Sources; `/admin/sources/new` is the implemented-provider catalog; and a provider-owned setup flow creates one Source before returning to its detail. The reusable wizard shell owns ordered progress and navigation but no provider fields or validation. FILE supplies only one `configuration` step. Unimplemented providers, placeholder steps, persistence concepts, and “coming soon” tiles are not product surfaces.
+The browser separates implemented Source types from configured Source instances. `/admin` is a semantic configured-Source table without an embedded detail pane: expandable provider summary rows expose Source/document totals, and Source rows expose Name, Last indexed, Status, Documents, and Manage before navigating to `/admin/sources/{sourceId}`. `/admin/sources/new` groups implemented providers into compact icon-and-label tiles, and a provider-owned setup flow creates one Source before returning to its dedicated detail route. The reusable wizard shell owns a vertical progress rail and three-column Previous/Create/Continue navigation but no provider fields or validation. FILE supplies only one `configuration` step. Unimplemented providers, placeholder steps, persistence concepts, and “coming soon” tiles are not product surfaces.
 
-Source selection is URL-owned through `sourceId`, so creation, direct navigation, and browser history select one deterministic configured Source. This browser navigation contract introduces no provider registry or additional HTTP resource.
+Source identity is route-owned through the detail path parameter, so creation, direct navigation, and browser history address one deterministic configured Source. Pending finalization state lives above the Source routes and retains only the initiating Source/upload identifiers plus filename, never the presigned URI or bytes. Navigation to another Source exposes a return link; retry occurs against the initiating Source and emits no second provider PUT. This browser navigation contract introduces no provider registry or additional HTTP resource.
 
 ## Application and persistence boundary
 

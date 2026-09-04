@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { useCan } from "@/features/identity/application-session-context";
+import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-recovery-provider";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
@@ -20,7 +21,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
         adminPage={invitationsSelected ? "invitations" : "sources"}
         pageTitle={invitationsSelected ? "Invitations" : "Sources"}
       >
-        <Outlet />
+        <SourceUploadRecoveryProvider>
+          <Outlet />
+        </SourceUploadRecoveryProvider>
       </AppShell>
     );
   },
