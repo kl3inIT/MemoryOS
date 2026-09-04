@@ -30,13 +30,13 @@ The public browser vocabulary remains provider-neutral:
 - a **Source** is one configured Tenant-owned instance, such as “Product documentation”;
 - Connector, Credential, and Pair remain internal persistence and orchestration concepts.
 
-`/admin` lists configured Sources and owns Source detail, uploads, indexing, and cleanup. `/admin/sources/new` lists only implemented Source types. Selecting FILE opens `/admin/sources/new/file`; successful creation returns to `/admin?sourceId={createdSourceId}` so the new Source is selected deterministically and browser history preserves selection.
+`/admin` is a full-width configured-Source list and contains no selected detail pane. Each compact row carries only provider, name, last successful indexing time, status, and document count, then navigates to `/admin/sources/{sourceId}` for uploads, indexing, cleanup, and destructive actions. `/admin/sources/new` lists only implemented Source types. Selecting FILE opens `/admin/sources/new/file`; successful creation returns to the dedicated detail route for the created Source.
 
-Setup uses a typed `SourceSetupWizard` shell. Each provider supplies its own ordered step identifiers, labels, content, validation, and completion action. The shell owns progress semantics, navigation, and accessible step state; it does not know provider-specific fields. FILE currently has one meaningful `configuration` step, so the UI renders one step rather than inventing credential, review, or advanced steps. A later Google Drive increment can supply authorization and configuration steps through the same shell when that runtime exists.
+Setup uses a typed `SourceSetupWizard` shell. Each provider supplies its own ordered step identifiers, labels, content, validation, and completion action. The shell owns a lightweight progress rail and navigation row; it does not know provider-specific fields. FILE currently has one meaningful `configuration` step, so the UI renders one step rather than inventing credential, review, or advanced steps. A later Google Drive increment can supply authorization and configuration steps through the same shell when that runtime exists.
 
-The nested TanStack route shape is explicit: `_authenticated.admin.sources.new.tsx` renders an `Outlet`, `_authenticated.admin.sources.new.index.tsx` is the catalog leaf, and `_authenticated.admin.sources.new.file.tsx` is the FILE setup leaf. The persistent administration `AppShell` remains mounted across the flow.
+The TanStack route shape is explicit: `_authenticated.admin.sources.new.tsx` renders an `Outlet`, `_authenticated.admin.sources.new.index.tsx` is the catalog leaf, `_authenticated.admin.sources.new.file.tsx` is the FILE setup leaf, and `_authenticated.admin.sources.$sourceId.tsx` is the configured-Source detail leaf. The persistent administration `AppShell` remains mounted across the flow.
 
-Provider discovery is a small typed browser metadata list, not a speculative backend registry. Search, popularity ranking, categories without content, unavailable-provider tiles, and “coming soon” connectors remain absent until multiple implemented providers make them useful.
+Provider discovery uses small Onyx-aligned icon-and-label tiles grouped under nonempty provider categories. FILE appears exactly once under `Popular` while it is the sole implementation. Search, descriptions inside tiles, unavailable-provider tiles, and “coming soon” connectors remain absent until multiple implemented providers make them useful.
 
 
 ## Naming model

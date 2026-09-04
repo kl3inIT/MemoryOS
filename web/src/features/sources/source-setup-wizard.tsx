@@ -63,7 +63,7 @@ export function SourceSetupWizard<StepId extends string>({
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
+    <section className="mx-auto w-full max-w-4xl px-5 py-8 sm:px-8 sm:py-12">
       <Link
         to="/admin/sources/new"
         className="inline-flex items-center gap-2 font-secondary-action text-content-secondary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -72,53 +72,52 @@ export function SourceSetupWizard<StepId extends string>({
         Source catalog
       </Link>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside className="border-b border-border-subtle bg-surface-subtle p-5 sm:p-6 lg:border-r lg:border-b-0">
-          <div className="flex items-center gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-border-subtle bg-surface-raised text-content-primary">
-              <ProviderIcon className="size-5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="font-secondary-body text-content-muted">Source type</p>
-              <p className="truncate font-heading-h3 text-content-primary">{provider.name}</p>
-            </div>
-          </div>
+      <div className="mx-auto mt-7 max-w-3xl">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-raised text-content-primary ring-1 ring-border-subtle">
+            <ProviderIcon className="size-5" aria-hidden="true" />
+          </span>
+          <h1 className="font-heading-h3 text-content-primary">{provider.name}</h1>
+        </div>
 
-          <ol aria-label="Setup progress" className="mt-7 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-            {steps.map((step, index) => {
-              const active = index === currentIndex;
-              const complete = index < currentIndex;
-              return (
-                <li
-                  key={step.id}
-                  aria-current={active ? "step" : undefined}
-                  className={`flex items-start gap-3 rounded-xl px-3 py-3 ${
-                    active ? "bg-surface-raised text-content-primary" : "text-content-muted"
+        <ol aria-label="Setup progress" className="mt-6 flex">
+          {steps.map((step, index) => {
+            const active = index === currentIndex;
+            const complete = index < currentIndex;
+            return (
+              <li
+                key={step.id}
+                aria-current={active ? "step" : undefined}
+                className="relative flex min-w-0 flex-1 items-center gap-2 pr-3 last:flex-none last:pr-0"
+              >
+                <span
+                  className={`relative z-10 grid size-5 shrink-0 place-items-center rounded-full border ${
+                    active || complete
+                      ? "border-content-primary bg-content-primary text-surface-base"
+                      : "border-border-default bg-surface-base text-content-muted"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {complete ? <Check className="size-3" /> : null}
+                </span>
+                <span
+                  className={`truncate text-sm ${
+                    active ? "font-medium text-content-primary" : "text-content-muted"
                   }`}
                 >
-                  <span
-                    className={`grid size-7 shrink-0 place-items-center rounded-lg border font-secondary-action tabular-nums ${
-                      active || complete
-                        ? "border-border-default bg-surface-sunken text-content-primary"
-                        : "border-border-subtle"
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {complete ? <Check className="size-3.5" /> : index + 1}
-                  </span>
-                  <span className="pt-1 text-sm font-medium">{step.label}</span>
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
+                  {step.label}
+                </span>
+                {index < steps.length - 1 ? (
+                  <span className="mx-2 h-px min-w-6 flex-1 bg-border-subtle" aria-hidden="true" />
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
 
-        <main className="min-w-0">
-          <header className="border-b border-border-subtle px-5 py-6 sm:px-8 sm:py-8">
-            <p className="font-secondary-action text-content-muted">
-              Step {currentIndex + 1} of {steps.length}
-            </p>
-            <h1 className="mt-2 font-heading-h2 text-content-primary">{activeStep.title}</h1>
+        <main className="mt-5 overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
+          <header className="border-b border-border-subtle px-5 py-6 sm:px-7">
+            <h2 className="font-heading-h2 text-content-primary">{activeStep.title}</h2>
             <p className="mt-2 max-w-2xl font-main-ui-body text-content-secondary">
               {activeStep.description}
             </p>
@@ -130,18 +129,18 @@ export function SourceSetupWizard<StepId extends string>({
               void submit();
             }}
           >
-            <div className="px-5 py-6 sm:px-8 sm:py-8">{activeStep.content}</div>
+            <div className="px-5 py-6 sm:px-7">{activeStep.content}</div>
 
             {error ? (
               <p
                 role="alert"
-                className="mx-5 mb-5 rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content sm:mx-8"
+                className="mx-5 mb-5 rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content sm:mx-7"
               >
                 {error}
               </p>
             ) : null}
 
-            <footer className="flex items-center justify-between gap-3 border-t border-border-subtle bg-surface-subtle px-5 py-4 sm:px-8">
+            <footer className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-4 sm:px-7">
               {currentIndex === 0 ? (
                 <Button asChild prominence="tertiary" disabled={pending}>
                   <Link to="/admin/sources/new">Back</Link>

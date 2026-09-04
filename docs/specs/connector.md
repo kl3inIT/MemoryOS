@@ -8,9 +8,9 @@ FILE is the only implemented provider. One active Tenant OWNER creates and manag
 
 ## Browser product model
 
-The browser separates implemented Source types from configured Source instances. `/admin` lists configured Sources; `/admin/sources/new` is the implemented-provider catalog; and a provider-owned setup flow creates one Source before returning to its detail. The reusable wizard shell owns ordered progress and navigation but no provider fields or validation. FILE supplies only one `configuration` step. Unimplemented providers, placeholder steps, persistence concepts, and “coming soon” tiles are not product surfaces.
+The browser separates implemented Source types from configured Source instances. `/admin` is a configured-Source list without an embedded detail pane; each row navigates to `/admin/sources/{sourceId}`. `/admin/sources/new` groups implemented providers into compact icon-and-label tiles, and a provider-owned setup flow creates one Source before returning to its dedicated detail route. The reusable wizard shell owns a lightweight progress rail and navigation but no provider fields or validation. FILE supplies only one `configuration` step. Unimplemented providers, placeholder steps, persistence concepts, and “coming soon” tiles are not product surfaces.
 
-Source selection is URL-owned through `sourceId`, so creation, direct navigation, and browser history select one deterministic configured Source. This browser navigation contract introduces no provider registry or additional HTTP resource.
+Source identity is route-owned through the detail path parameter, so creation, direct navigation, and browser history address one deterministic configured Source. This browser navigation contract introduces no provider registry or additional HTTP resource.
 
 ## Application and persistence boundary
 

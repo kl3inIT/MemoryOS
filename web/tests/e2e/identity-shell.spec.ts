@@ -96,7 +96,7 @@ test("hides owner UI and blocks member administration deep links without request
   ).toBeVisible();
   expect(invitationRequests).toBe(0);
 
-  await page.goto("/admin?sourceId=15f8cb72-2628-4d75-bcf1-8f6cda95a120");
+  await page.goto("/admin/sources/15f8cb72-2628-4d75-bcf1-8f6cda95a120");
   await expect(
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
@@ -787,13 +787,21 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     await route.fulfill({ status: 405 });
   });
 
-  await page.goto("/admin?sourceId=%20%20");
+  await page.goto("/admin");
+  const sourceList = page.getByRole("list", { name: "Connected sources" });
+  const supportSource = sourceList.getByRole("link", { name: /Support notes/ });
+  await expect(supportSource).toBeVisible();
+  await expect(page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file")).toHaveCount(0);
+  await supportSource.click();
+  await expect(page).toHaveURL(new RegExp(`/admin/sources/${otherSource.id}$`));
   await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/admin$/);
   await page.getByRole("link", { name: "Add source" }).first().click();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/?$/);
   await expect(page.getByRole("heading", { name: "Add a source" })).toBeVisible();
 
-  const fileProvider = page.getByRole("link", { name: /Files Upload PDF, DOCX, TXT/ });
+  const fileProvider = page.getByRole("link", { name: "Files", exact: true });
   await expect(fileProvider).toHaveCount(1);
   await fileProvider.click();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
@@ -807,14 +815,14 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     button.click();
     button.click();
   });
-  await expect(page).toHaveURL(new RegExp(`/admin\\?sourceId=${source.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
   expect(createAttempts).toBe(1);
 
   await page.goBack();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await page.goForward();
-  await expect(page).toHaveURL(new RegExp(`/admin\\?sourceId=${source.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
 
   await page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file").setInputFiles({
@@ -827,10 +835,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page.getByRole("alert")).toContainText(
     "The file reached object storage; retry finalization without uploading it again.",
   );
-  await page.getByText(otherSource.name, { exact: true }).click();
-  await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
   await page.getByRole("button", { name: "Retry finalization" }).click();
-  await page.getByText(source.name, { exact: true }).click();
   await expect(page.getByText("knowledge.txt")).toBeVisible();
   expect(objectStoragePuts).toBe(1);
   expect(storedBytes).toEqual(uploadedFile);
@@ -888,6 +893,6 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     ),
   ).toBeVisible();
   await confirmation.getByRole("button", { name: "Delete source" }).click();
-  await expect(page.getByText("No sources connected")).toBeVisible();
+  await expect(page.getByText("No sources yet")).toBeVisible();
   expect(mutationHeaders).toEqual(["1", "1", "1", "1", "1", "1", "1", "1"]);
 });

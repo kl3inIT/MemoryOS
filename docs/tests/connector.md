@@ -10,5 +10,5 @@
 | Every live source association carries `tenant_id`, and the schema rejects a second Tenant | `DefaultInitialTenantBootstrapperTest.databaseRejectsASecondTenant`, V6 migration, and source repository tests |
 | PUBLIC mapping grants owner/member and invalidates immediately on remove | `SourceApiIntegrationTest.indexesAndCleansUpOneFileThroughTheAuthorizedApi` |
 | Browser initiation → direct object PUT → finalize, truthful retry, remove/delete, and durable polling drive Source state without sending bytes through the API | `identity-shell.spec.ts` FILE source scenario |
-| Browser separates configured Sources from the implemented-provider catalog, runs the provider-owned FILE configuration step, returns to URL-selected detail, and preserves navigation history | `identity-shell.spec.ts` FILE source scenario |
+| Browser separates the full-width configured-Source list from dedicated detail, renders the compact implemented-provider catalog, runs the provider-owned FILE configuration step, and preserves route history | `identity-shell.spec.ts` FILE source scenario |
 | Application has no SQL/JdbcClient and persistence remains capability-owned | `CoreDependencyRulesTest`, Modulith verification, and IDE inspection |
