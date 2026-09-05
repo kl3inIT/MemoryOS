@@ -1,0 +1,20 @@
+{
+  "clientId": "memoryos-minio-console",
+  "name": "MemoryOS MinIO Console",
+  "description": "Confidential Authorization Code client for owner-only staging object inspection",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "publicClient": false,
+  "clientAuthenticatorType": "client-secret",
+  "bearerOnly": false,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "frontchannelLogout": true,
+  "fullScopeAllowed": false,
+  "rootUrl": "",
+  "baseUrl": "/",
+  "redirectUris": [],
+  "webOrigins": []
+}

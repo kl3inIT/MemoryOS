@@ -113,11 +113,7 @@ services:
       - DAC_OVERRIDE
     entrypoint:
       - /bin/sh
-      - -c
-    command:
-      - >-
-        export MINIO_ROOT_PASSWORD="$$(cat /run/secrets/minio_root_password)";
-        exec minio server /data --address :9000 --console-address :9001
+      - /minio-tools/start-minio.sh
     environment:
       MINIO_ROOT_USER: ${MEMORYOS_MINIO_ROOT_USER:-memoryos-root}
       MINIO_API_CORS_ALLOW_ORIGIN: ${MEMORYOS_OBJECT_STORAGE_BROWSER_ORIGIN:?Set MEMORYOS_OBJECT_STORAGE_BROWSER_ORIGIN}
@@ -136,6 +132,7 @@ services:
           - memoryos-minio
     volumes:
       - memoryos_minio:/data
+      - ../minio/start-minio.sh:/minio-tools/start-minio.sh:ro
     healthcheck:
       test:
         - CMD
