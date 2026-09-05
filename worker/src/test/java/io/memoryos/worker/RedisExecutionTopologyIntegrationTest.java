@@ -55,6 +55,18 @@ class RedisExecutionTopologyIntegrationTest {
 
     @SuppressWarnings("unchecked")
     @Test
+    void idleStreamReadReturnsNormallyWithProductionBlockDuration() {
+        topology.ensureTopology();
+        var records = redis.opsForStream().read(
+                Consumer.from(properties.cleanup().group(), "idle-regression"),
+                StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
+                StreamOffset.create(properties.cleanup().stream(), ReadOffset.lastConsumed())
+        );
+        assertTrue(records == null || records.isEmpty());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
     void createsGroupsAndAcknowledgesIdentifierOnlyDelivery() {
         topology.ensureTopology();
         topology.ensureTopology();
