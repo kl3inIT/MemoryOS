@@ -842,34 +842,27 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(fileProvider).toHaveCount(1);
   await fileProvider.click();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
-  await expect(page.getByRole("heading", { name: "Name this file source" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Setup progress" })).toContainText("Configuration");
+  await expect(page.getByRole("heading", { name: "Add file source" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Setup progress" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
 
-  const createSource = page.getByRole("button", { name: "Create source" });
+  const createSource = page.getByRole("button", { name: "Upload and create" });
   await expect(createSource).toBeDisabled();
   await page.getByRole("textbox", { name: "Source name" }).fill(source.name);
-  await createSource.evaluate((button: HTMLButtonElement) => {
-    button.click();
-    button.click();
-  });
-  await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
-  await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
-  expect(createAttempts).toBe(1);
-
-  await page.goBack();
-  await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
-  await page.goForward();
-  await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
-  await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
-
+  await expect(createSource).toBeDisabled();
   await page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file").setInputFiles({
     name: "knowledge.txt",
     mimeType: "text/plain",
     buffer: uploadedFile,
   });
-  await page.getByRole("button", { name: "Upload file" }).click();
+  await createSource.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await expect(page.getByRole("button", { name: "Retry finalization" })).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText(
+  expect(createAttempts).toBe(1);
+  await expect(page.getByRole("status")).toContainText(
     "The file reached object storage; retry finalization without uploading it again.",
   );
   await page.getByRole("link", { name: "Sources", exact: true }).last().click();
