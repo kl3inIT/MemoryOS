@@ -136,7 +136,9 @@ final class RedisStreamWorker implements SmartLifecycle {
                     processBatch(settings, workload, records, executor);
                 }
             } catch (DataAccessException exception) {
-                LOGGER.warn("Redis stream transport is unavailable for {}", workload);
+                Throwable cause = exception.getMostSpecificCause();
+                LOGGER.warn("Redis stream operation failed for {} ({}; cause={})",
+                        workload, exception.getClass().getSimpleName(), cause.getClass().getSimpleName());
                 pause(properties.transportBackoff());
             } catch (RuntimeException exception) {
                 LOGGER.error("Redis stream loop failed safely for {}", workload);

@@ -351,7 +351,7 @@ export function SourceDetailPage() {
                     accept=".pdf,.docx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
                     onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                    className="bg-surface-raised"
+                    className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
                   />
                 </label>
                 <Button

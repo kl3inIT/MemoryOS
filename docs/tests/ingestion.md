@@ -2,6 +2,7 @@
 
 | Contract | Evidence |
 | --- | --- |
+| An idle stream read using the production 2-second BLOCK returns normally within the default 5-second client timeout | `RedisExecutionTopologyIntegrationTest.idleStreamReadReturnsNormallyWithProductionBlockDuration` |
 | TXT, Markdown, PDF, and DOCX bytes are detected/extracted despite misleading extensions | `TikaSourceContentExtractorTest` |
 | Unsupported, encrypted, malformed, and write-limit content returns typed failures; timeout terminates the child process and extractor close remains bounded | `TikaSourceContentExtractorTest` failure and lifecycle matrix |
 | PostgreSQL `SKIP LOCKED` dispatch claims exclude concurrent relays and rediscover nonterminal operations; a separate bounded cancellation transaction terminates inactive-Tenant indexing; transport failures never change business state | `PostgresSourceLifecycleTest.concurrentRelayClaimsOnceAndRediscoveryRepublishesFromPostgres`, `transportFailureDefersWithoutFailingTheOperation`, and `inactiveTenantCancelsPendingIndexWorkWithoutPublishing` |

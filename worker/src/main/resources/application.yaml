@@ -17,7 +17,7 @@ spring:
       username: ${MEMORYOS_REDIS_USERNAME:}
       password: ${MEMORYOS_REDIS_PASSWORD:}
       connect-timeout: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:2s}
-      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:2s}
+      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:5s}
       ssl:
         enabled: ${MEMORYOS_REDIS_SSL_ENABLED:false}
       lettuce:
