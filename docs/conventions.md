@@ -108,3 +108,8 @@ Domain Story and Consumer
 - `ARCHITECTURE.md` states what exists. `docs/vision.md` states intended outcomes. ADRs state accepted rationale. Guidelines state reusable policy. Specs state capability contracts. Increment documents state change-local design and progress.
 - Update documents in the same change that makes them true.
 - Do not mark an increment completed or move it from `active/` until verification passes and the pull request is merged.
+
+## Observability
+
+Follow the [logging and telemetry policy](guidelines/observability.md) for event fields,
+levels, sensitive content, durable correlation, sampling and metric cardinality.

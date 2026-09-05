@@ -4,6 +4,7 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
@@ -124,13 +125,14 @@ public class JdbcSourceRepository {
             SourceId sourceId,
             @Nullable SourceItemId itemId
     ) {
+        var trace = SourceOperationTraceContext.current();
         jdbcClient.sql("""
                         INSERT INTO connector_cleanup_attempts (
                             id, tenant_id, operation, target_key,
-                            target_pair_id, target_item_id, status
+                            target_pair_id, target_item_id, status, origin_trace_id, origin_span_id
                         ) VALUES (
                             :id, :tenantId, :operation, :targetKey,
-                            :pairId, :itemId, 'NOT_STARTED'
+                            :pairId, :itemId, 'NOT_STARTED', :originTraceId, :originSpanId
                         )
                         """)
                 .param("id", operationId.value())
@@ -139,6 +141,8 @@ public class JdbcSourceRepository {
                 .param("targetKey", targetKey)
                 .param("pairId", sourceId.value())
                 .param("itemId", itemId == null ? null : itemId.value())
+                .param("originTraceId", trace == null ? null : trace.traceId())
+                .param("originSpanId", trace == null ? null : trace.spanId())
                 .update();
         return findCleanupById(tenantId, operationId).orElseThrow();
     }

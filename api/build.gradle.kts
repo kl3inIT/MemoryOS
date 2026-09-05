@@ -4,10 +4,17 @@ plugins {
     alias(libs.plugins.spring.dependency.management)
 }
 
+// Keep the SDK aligned with the instrumentation train; Boot still owns autoconfiguration.
+extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
+
 dependencies {
     implementation(project(":core"))
     implementation(platform(libs.arconia.bom))
+    implementation(platform(libs.otel.instrumentation.bom))
     implementation(libs.arconia.multitenancy.web)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.otel.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.validation)
@@ -43,4 +50,8 @@ tasks.named<Test>("test") {
 
 springBoot {
     mainClass = "io.memoryos.api.MemoryOsApiApplication"
+}
+
+sourceSets.main {
+    resources.srcDir(rootProject.file("config/observability"))
 }

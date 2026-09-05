@@ -6,6 +6,8 @@ arconia:
         tenant-identifier: ${MEMORYOS_TENANT_ID}
 
 spring:
+  config:
+    import: classpath:memoryos-observability.yaml
   application:
     name: memoryos-api
   main:

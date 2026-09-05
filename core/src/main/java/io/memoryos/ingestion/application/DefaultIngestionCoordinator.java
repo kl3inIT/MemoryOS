@@ -84,6 +84,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 LEASE_RENEWAL_SECONDS,
                 TimeUnit.SECONDS
         );
+        LOGGER.atInfo().addKeyValue("event", "ingestion.started")
+                .addKeyValue("operation_id", work.operationId().value()).log("Indexing started");
         try {
             var expected = work.object().metadata();
             final io.memoryos.document.DocumentContent content;
@@ -108,21 +110,37 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     throw new StaleIndexClaimException();
                 }
             });
+            LOGGER.atInfo().addKeyValue("event", "ingestion.completed")
+                    .addKeyValue("operation_id", work.operationId().value()).log("Indexing completed");
         } catch (StaleIndexClaimException exception) {
             indexingPort.supersede(work);
-            LOGGER.debug("Rolled back stale index publication");
+            LOGGER.atDebug().addKeyValue("event", "ingestion.publication.stale")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .log("Rolled back stale index publication");
         } catch (ExtractionException exception) {
+            LOGGER.atWarn().addKeyValue("event", "ingestion.extraction.failed")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .addKeyValue("error_code", "SOURCE_EXTRACTION_" + exception.failure().name())
+                    .log("Extraction failed");
             if (!indexingPort.fail(work, "SOURCE_EXTRACTION_" + exception.failure().name())) {
-                LOGGER.debug("Ignored stale typed extraction failure");
+                LOGGER.atDebug().addKeyValue("event", "ingestion.extraction.failure.stale")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .log("Ignored stale typed extraction failure");
             }
         } catch (RuntimeException exception) {
+            LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .addKeyValue("error_type", exception.getClass().getName())
+                    .log("Indexing failed; applying retry policy");
             if (!indexingPort.retry(
                     work,
                     "SOURCE_EXTRACTION_INTERNAL",
                     MAX_PROCESSING_ATTEMPTS,
                     RETRY_BACKOFF
             )) {
-                LOGGER.debug("Ignored stale internal extraction failure");
+                LOGGER.atDebug().addKeyValue("event", "ingestion.retry.stale")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .log("Ignored stale internal extraction failure");
             }
         } finally {
             renewal.cancel(false);
@@ -133,7 +151,9 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         try {
             indexingPort.renew(work);
         } catch (RuntimeException exception) {
-            LOGGER.warn("Index processing lease renewal failed; the next interval will retry");
+            LOGGER.atWarn().addKeyValue("event", "ingestion.lease.renewal_failed")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .log("Index processing lease renewal failed; the next interval will retry");
         }
     }
 
@@ -150,16 +170,24 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 storage.delete(object.object().key());
             }
             if (!cleanupPort.execute(work)) {
-                LOGGER.debug("Ignored stale cleanup completion");
+                LOGGER.atDebug().addKeyValue("event", "cleanup.completion.stale")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .log("Ignored stale cleanup completion");
             }
         } catch (RuntimeException exception) {
+            LOGGER.atWarn().addKeyValue("event", "cleanup.retry.requested")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .addKeyValue("error_type", exception.getClass().getName())
+                    .log("Cleanup failed; applying retry policy");
             if (!cleanupPort.retry(
                     work,
                     "SOURCE_CLEANUP_INTERNAL",
                     MAX_PROCESSING_ATTEMPTS,
                     RETRY_BACKOFF
             )) {
-                LOGGER.debug("Ignored stale cleanup failure");
+                LOGGER.atDebug().addKeyValue("event", "cleanup.retry.stale")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .log("Ignored stale cleanup failure");
             }
         } finally {
             renewal.cancel(false);
@@ -170,7 +198,9 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         try {
             cleanupPort.renew(work);
         } catch (RuntimeException exception) {
-            LOGGER.warn("Cleanup processing lease renewal failed; the next interval will retry");
+            LOGGER.atWarn().addKeyValue("event", "cleanup.lease.renewal_failed")
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .log("Cleanup processing lease renewal failed; the next interval will retry");
         }
     }
 
