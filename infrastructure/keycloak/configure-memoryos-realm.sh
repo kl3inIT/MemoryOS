@@ -20,6 +20,8 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET:?MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET is required}"
 : "${MEMORYOS_REDISINSIGHT_PUBLIC_URL:?MEMORYOS_REDISINSIGHT_PUBLIC_URL is required}"
 : "${MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET:?MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET is required}"
+: "${MEMORYOS_MINIO_CONSOLE_PUBLIC_URL:?MEMORYOS_MINIO_CONSOLE_PUBLIC_URL is required}"
+: "${MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET:?MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_HOST:?MEMORYOS_KEYCLOAK_SMTP_HOST is required}"
 : "${MEMORYOS_KEYCLOAK_SMTP_FROM:?MEMORYOS_KEYCLOAK_SMTP_FROM is required}"
 MEMORYOS_KEYCLOAK_SMTP_PORT=${MEMORYOS_KEYCLOAK_SMTP_PORT:-587}
@@ -94,7 +96,7 @@ case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
         exit 1
         ;;
 esac
-for inspector_url in "$MEMORYOS_PGWEB_PUBLIC_URL" "$MEMORYOS_REDISINSIGHT_PUBLIC_URL"; do
+for inspector_url in "$MEMORYOS_PGWEB_PUBLIC_URL" "$MEMORYOS_REDISINSIGHT_PUBLIC_URL" "$MEMORYOS_MINIO_CONSOLE_PUBLIC_URL"; do
     case "$inspector_url" in
         *'*'* | */oauth2/callback | */)
             echo "inspection public URLs must be exact HTTPS origins without wildcards, callbacks, or trailing slashes" >&2
@@ -118,12 +120,14 @@ umask 077
 export MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
 export MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
 export MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
+export MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET
 
 CONFIG_FILE=$(mktemp)
 BROWSER_CLIENT_FILE=$(mktemp)
 MAILPIT_CLIENT_FILE=$(mktemp)
 PGWEB_CLIENT_FILE=$(mktemp)
 REDISINSIGHT_CLIENT_FILE=$(mktemp)
+MINIO_CONSOLE_CLIENT_FILE=$(mktemp)
 PROVISIONER_CLIENT_FILE=$(mktemp)
 cleanup() {
     rm -f \
@@ -132,6 +136,7 @@ cleanup() {
         "$MAILPIT_CLIENT_FILE" \
         "$PGWEB_CLIENT_FILE" \
         "$REDISINSIGHT_CLIENT_FILE" \
+        "$MINIO_CONSOLE_CLIENT_FILE" \
         "$PROVISIONER_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
@@ -330,10 +335,11 @@ upsert_mapper() {
         if [ "$current_contract" = "$desired_contract" ]; then
             echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=unchanged"
         else
-            "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
-                --config "$CONFIG_FILE" \
-                -r "$TARGET_REALM" \
-                -f "$SCRIPT_DIR/$MAPPER_FILE" >/dev/null
+            jq --arg id "$MAPPER_UUID" '.id = $id' "$SCRIPT_DIR/$MAPPER_FILE" |
+                "$KCADM" update "clients/$CLIENT_UUID/protocol-mappers/models/$MAPPER_UUID" \
+                    --config "$CONFIG_FILE" \
+                    -r "$TARGET_REALM" \
+                    -f - >/dev/null
             echo "client=$CLIENT_ID mapper=$MAPPER_NAME action=updated"
         fi
     fi
@@ -447,6 +453,12 @@ jq --arg publicUrl "$MEMORYOS_REDISINSIGHT_PUBLIC_URL" \
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-redisinsight-client.json" >"$REDISINSIGHT_CLIENT_FILE"
+jq --arg publicUrl "$MEMORYOS_MINIO_CONSOLE_PUBLIC_URL" \
+    '.rootUrl = $publicUrl
+     | .redirectUris = [$publicUrl + "/oauth_callback"]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
+    "$SCRIPT_DIR/memoryos-minio-console-client.json" >"$MINIO_CONSOLE_CLIENT_FILE"
 cp "$SCRIPT_DIR/memoryos-user-provisioner-client.json" "$PROVISIONER_CLIENT_FILE"
 
 
@@ -529,3 +541,13 @@ jq -cn '{secret: env.MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET}' |
         -f - >/dev/null
 grant_inspector_role_to_client
 echo "client=memoryos-redisinsight secret=updated role=memoryos-inspector"
+
+upsert_client memoryos-minio-console "$MINIO_CONSOLE_CLIENT_FILE"
+jq -cn '{secret: env.MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$CLIENT_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -f - >/dev/null
+grant_inspector_role_to_client
+upsert_mapper memoryos-minio-policy memoryos-minio-policy-mapper.json
+echo "client=memoryos-minio-console secret=updated role=memoryos-inspector mapper=policy"

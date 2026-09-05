@@ -53,12 +53,46 @@ cat > /tmp/worker-policy.json <<EOF
   ]
 }
 EOF
+cat > /tmp/inspector-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListAllMyBuckets"],
+      "Resource": ["arn:aws:s3:::*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::${MINIO_BUCKET}"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": ["arn:aws:s3:::${MINIO_BUCKET}/*"]
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "admin:CreateServiceAccount",
+        "admin:ListServiceAccounts",
+        "admin:RemoveServiceAccount",
+        "admin:UpdateServiceAccount"
+      ],
+      "Resource": ["*"]
+    }
+  ]
+}
+EOF
+
 
 
 mc admin user add memoryos "${MINIO_API_ACCESS_KEY}" "${api_secret}"
 mc admin user add memoryos "${MINIO_WORKER_ACCESS_KEY}" "${worker_secret}"
 mc admin policy create memoryos memoryos-api /tmp/api-policy.json
 mc admin policy create memoryos memoryos-worker /tmp/worker-policy.json
+mc admin policy create memoryos memoryos-inspector /tmp/inspector-policy.json
 mc admin policy attach memoryos memoryos-api --user "${MINIO_API_ACCESS_KEY}"
 mc admin policy attach memoryos memoryos-worker --user "${MINIO_WORKER_ACCESS_KEY}"
 printf 'memoryos-ready\n' | mc pipe --attr 'Content-Type=text/plain' "memoryos/${MINIO_BUCKET}/${MINIO_READINESS_KEY}"
