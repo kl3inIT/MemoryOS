@@ -1,0 +1,48 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: memoryos-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: memoryos-tempo
+  - name: Loki
+    uid: memoryos-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - name: trace_id
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: memoryos-tempo
+          url: '$${__value.raw}'
+  - name: Tempo
+    uid: memoryos-tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: memoryos-loki
+        spanStartTimeShift: '-1m'
+        spanEndTimeShift: '1m'
+        tags: [{key: service.name, value: service_name}]
+        filterByTraceID: false
+        customQuery: true
+        query: '{$${__tags}} | trace_id = "$${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: memoryos-prometheus
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        tags: [{key: service.name, value: service_name}]
+        queries:
+          - name: HTTP request rate
+            query: 'sum(rate(http_server_requests_milliseconds_count{$$__tags}[5m]))'
+          - name: Worker processing rate
+            query: 'sum(rate(memoryos_redis_operation_processing_milliseconds_count{$$__tags}[5m]))'

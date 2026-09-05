@@ -5,6 +5,7 @@ import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.objectstorage.ContentSha256;
@@ -84,6 +85,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .query(Long.class)
                 .single();
         SourceOperationId attemptId = new SourceOperationId(UUID.randomUUID());
+        var trace = SourceOperationTraceContext.current();
         jdbcClient.sql("""
                         UPDATE connector_credential_pairs
                         SET pair_sequence = :pairSequence, status = 'INDEXING',
@@ -105,10 +107,10 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         INSERT INTO index_attempts (
                             id, tenant_id, connector_id, connector_credential_pair_id,
                             connector_item_id, connector_item_version_id,
-                            pair_sequence, item_sequence, status
+                            pair_sequence, item_sequence, status, origin_trace_id, origin_span_id
                         ) VALUES (
                             :id, :tenantId, :connectorId, :pairId,
-                            :itemId, :versionId, :pairSequence, :itemSequence, 'NOT_STARTED'
+                            :itemId, :versionId, :pairSequence, :itemSequence, 'NOT_STARTED', :originTraceId, :originSpanId
                         )
                         """)
                 .param("id", attemptId.value())
@@ -119,6 +121,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .param("versionId", itemVersion.versionId())
                 .param("pairSequence", pairSequence)
                 .param("itemSequence", itemSequence)
+                .param("originTraceId", trace == null ? null : trace.traceId())
+                .param("originSpanId", trace == null ? null : trace.spanId())
                 .update();
         return findById(tenantId, attemptId).orElseThrow();
     }

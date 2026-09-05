@@ -1,0 +1,88 @@
+logging:
+  level:
+    root: INFO
+    io.memoryos: ${MEMORYOS_LOG_LEVEL:INFO}
+  pattern:
+    correlation: "[${spring.application.name:} trace=%X{traceId:-} span=%X{spanId:-}] "
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+---
+spring:
+  config:
+    activate:
+      on-profile: staging
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        service_name: ${spring.application.name}
+        environment: staging
+        release: ${MEMORYOS_RELEASE:unknown}
+      stacktrace:
+        max-length: 8192
+        root: first
+management:
+  tracing:
+    sampling:
+      probability: ${MEMORYOS_TRACE_SAMPLING:1.0}
+  opentelemetry:
+    map-environment-variables: false
+    resource-attributes:
+      service.name: ${spring.application.name}
+      service.version: ${MEMORYOS_RELEASE:unknown}
+      deployment.environment.name: staging
+    tracing:
+      export:
+        max-queue-size: 2048
+        max-batch-size: 256
+        schedule-delay: 1s
+        timeout: 2s
+        otlp:
+          endpoint: ${MEMORYOS_OTLP_BASE_URL}/v1/traces
+          connect-timeout: 2s
+          timeout: 2s
+      limits:
+        max-attributes: 64
+        max-attribute-value-length: 1024
+    logging:
+      export:
+        max-queue-size: 2048
+        max-batch-size: 256
+        schedule-delay: 1s
+        timeout: 2s
+        otlp:
+          endpoint: ${MEMORYOS_OTLP_BASE_URL}/v1/logs
+          connect-timeout: 2s
+          timeout: 2s
+      limits:
+        max-attributes: 64
+        max-attribute-value-length: 1024
+  otlp:
+    metrics:
+      export:
+        enabled: true
+        url: ${MEMORYOS_OTLP_BASE_URL}/v1/metrics
+        step: 30s
+        aggregation-temporality: cumulative
+        connect-timeout: 2s
+        read-timeout: 2s
+        resource-attributes:
+          service.name: ${spring.application.name}
+          service.version: ${MEMORYOS_RELEASE:unknown}
+          deployment.environment.name: staging
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        memoryos.redis.operation.processing: true
+      minimum-expected-value:
+        http.server.requests: 5ms
+        memoryos.redis.operation.processing: 5ms
+      maximum-expected-value:
+        http.server.requests: 120s
+        memoryos.redis.operation.processing: 120s

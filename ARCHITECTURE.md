@@ -105,3 +105,19 @@ The staging application origin is `https://memoryos.72-62-193-33.nip.io`, termin
 ## Deferred components
 
 No multi-Tenant switcher, broker policy, audit history, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen, or chat UI exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.
+
+## Staging observability
+
+API and worker package shared Logback and Micrometer/OpenTelemetry configuration from
+`config/observability`. Staging emits JSON stdout and OTLP HTTP logs, metrics and
+traces to an independently managed Collector/Loki/Tempo/Prometheus/Grafana Compose
+project. Backends and ingest are private; Grafana uses native Keycloak OIDC with
+a strict `memoryos-inspector` role gate and separate local break-glass credentials.
+Nullable operation-origin IDs persist across PostgreSQL dispatch and Redis delivery.
+Worker publication/processing spans are separate roots with causal links; telemetry
+never changes durable claim, fencing or authorization semantics.
+
+See the [logging policy](docs/guidelines/observability.md),
+[verification matrix](docs/tests/observability.md), and
+[deployment runbook](infrastructure/observability/README.md). Repository configuration
+and local validation are distinct from staging rollout acceptance.

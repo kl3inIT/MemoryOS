@@ -28,6 +28,8 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
+- [MEM-57 — Staging observability and Grafana SSO](docs/increments/active/mem-57-staging-observability/design.md)
+
 - [MEM-56 â€” Owner-only MinIO Console with Keycloak SSO](docs/increments/active/mem-56-minio-console-sso/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.

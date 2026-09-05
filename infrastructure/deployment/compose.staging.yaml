@@ -43,7 +43,11 @@ services:
       - mailpit_smtp_ca
 
   api:
+    networks:
+      memoryos-telemetry:
     environment:
+      MEMORYOS_OTLP_BASE_URL: http://memoryos-otel-collector:4318
+      MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
       SPRING_PROFILES_ACTIVE: staging
       MEMORYOS_TENANT_ID: ${MEMORYOS_TENANT_ID:?Set MEMORYOS_TENANT_ID}
       MEMORYOS_TENANT_SLUG: ${MEMORYOS_TENANT_SLUG:?Set MEMORYOS_TENANT_SLUG}
@@ -54,7 +58,11 @@ services:
         condition: service_completed_successfully
 
   worker:
+    networks:
+      memoryos-telemetry:
     environment:
+      MEMORYOS_OTLP_BASE_URL: http://memoryos-otel-collector:4318
+      MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
       SPRING_PROFILES_ACTIVE: production,staging
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"
@@ -481,6 +489,9 @@ services:
           memory: 32m
 
 networks:
+  memoryos-telemetry:
+    name: ${MEMORYOS_TELEMETRY_NETWORK:-memoryos-telemetry}
+    external: true
   mailpit-access:
     name: ${MEMORYOS_MAILPIT_ACCESS_NETWORK:-memoryos-mailpit-access}
   postgres-inspection:

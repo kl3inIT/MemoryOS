@@ -64,7 +64,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
                         + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
                         + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
-                        + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql",
+                        + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
+                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
@@ -84,9 +85,27 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "memoryos.redis.cleanup.batch-size=4"
         }
 )
+@org.springframework.context.annotation.Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
 class WorkerFileProcessingIntegrationTest {
+
+    private static final java.util.List<io.opentelemetry.sdk.trace.data.SpanData> SPANS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods = false)
+    static class TelemetryConfiguration {
+        @org.springframework.context.annotation.Bean
+        io.opentelemetry.api.OpenTelemetry operationTestTelemetry() {
+            var processor = new io.opentelemetry.sdk.trace.SpanProcessor() {
+                public void onStart(io.opentelemetry.context.Context parent, io.opentelemetry.sdk.trace.ReadWriteSpan span) {}
+                public boolean isStartRequired() { return false; }
+                public void onEnd(io.opentelemetry.sdk.trace.ReadableSpan span) { SPANS.add(span.toSpanData()); }
+                public boolean isEndRequired() { return true; }
+            };
+            return io.opentelemetry.sdk.OpenTelemetrySdk.builder().setTracerProvider(
+                    io.opentelemetry.sdk.trace.SdkTracerProvider.builder().addSpanProcessor(processor).build()).build();
+        }
+    }
 
     private static final String INGESTION_STREAM = "memoryos:test:cutover:ingestion";
     private static final String INGESTION_GROUP = "memoryos-test-cutover-ingestion";
@@ -212,7 +231,14 @@ class WorkerFileProcessingIntegrationTest {
             );
         }
         assertEquals(200, uploadResponse.statusCode());
-        var upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
+        io.memoryos.connector.SourceUploadReceipt upload;
+        String originTrace = "1234567890abcdef1234567890abcdef";
+        try (var trace = org.slf4j.MDC.putCloseable("traceId", originTrace);
+             var span = org.slf4j.MDC.putCloseable("spanId", "1234567890abcdef")) {
+            upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
+        }
+        assertEquals(originTrace, jdbcClient.sql("SELECT origin_trace_id FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value()).query(String.class).single());
         assertEquals(sha256, upload.item().sha256());
         String objectKey = jdbcClient.sql("""
                         SELECT object.object_key
@@ -234,6 +260,7 @@ class WorkerFileProcessingIntegrationTest {
                 StreamOffset.create(INGESTION_STREAM, ReadOffset.lastConsumed())
         );
         assertEquals(1, abandoned.size());
+        assertEquals(originTrace, abandoned.getFirst().getValue().get("origin_trace_id"));
         assertEquals(
                 1L,
                 redis.opsForStream().pending(INGESTION_STREAM, INGESTION_GROUP).getTotalPendingMessages()
@@ -241,8 +268,13 @@ class WorkerFileProcessingIntegrationTest {
         LockSupport.parkNanos(Duration.ofMillis(600).toNanos());
         worker.start();
 
-        await(() -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
+        // The real isolated extractor permits 90 seconds, plus stream reclaim/startup.
+        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
+        await(() -> SPANS.stream().anyMatch(span -> span.getName().equals("memoryos.operation.process")
+                && span.getLinks().stream().anyMatch(link -> link.getSpanContext().getTraceId().equals(originTrace))));
+        org.assertj.core.api.Assertions.assertThat(SPANS.stream().filter(span -> span.getName().equals("memoryos.operation.process")))
+                .allMatch(span -> !span.getParentSpanContext().isValid());
         assertEquals(
                 2,
                 jdbcClient.sql("SELECT dispatch_attempts FROM index_attempts WHERE id = :id")
@@ -339,10 +371,14 @@ class WorkerFileProcessingIntegrationTest {
 
 
     private static void await(BooleanSupplier condition) {
-        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        await(Duration.ofSeconds(10), condition);
+    }
+
+    private static void await(Duration timeout, BooleanSupplier condition) {
+        long deadline = System.nanoTime() + timeout.toNanos();
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() >= deadline) {
-                throw new AssertionError("worker condition did not converge within 10 seconds");
+                throw new AssertionError("worker condition did not converge within " + timeout);
             }
             LockSupport.parkNanos(Duration.ofMillis(25).toNanos());
         }

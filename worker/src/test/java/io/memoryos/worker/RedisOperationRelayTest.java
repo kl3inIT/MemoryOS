@@ -38,7 +38,7 @@ class RedisOperationRelayTest {
     private final RedisExecutionProperties properties = properties();
     private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private final RedisExecutionMetrics metrics = new RedisExecutionMetrics(registry, redis, properties);
-    private final RedisOperationRelay relay = new RedisOperationRelay(redis, dispatch, properties, metrics);
+    private final RedisOperationRelay relay = new RedisOperationRelay(redis, dispatch, properties, metrics, io.opentelemetry.api.OpenTelemetry.noop());
 
     @BeforeEach
     void configureStreamOperations() {

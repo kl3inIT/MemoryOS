@@ -38,6 +38,8 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | --- | --- | --- |
 | [MEM-56](https://linear.app/memory-os/issue/MEM-56/add-owner-only-minio-console-with-keycloak-sso) | Expose an owner-only, bucket-read-only staging MinIO Console through native Keycloak SSO without widening API, worker, or public object-storage authority | [Design](increments/active/mem-56-minio-console-sso/design.md) Â· [Plan](increments/active/mem-56-minio-console-sso/plan.md) |
 
+| [MEM-57](https://linear.app/memory-os/issue/MEM-57) | Persistent LGTM, correlated structured logging, durable-operation tracing and owner-gated Grafana SSO | [Design](increments/active/mem-57-staging-observability/design.md) · [Plan](increments/active/mem-57-staging-observability/plan.md) |
+
 ## Candidate increments
 
 These are sequencing signals, not commitments or independently deployable slices.

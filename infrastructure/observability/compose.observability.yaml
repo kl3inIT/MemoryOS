@@ -1,0 +1,126 @@
+name: memoryos-observability
+x-defaults: &defaults
+  restart: unless-stopped
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+services:
+  collector:
+    <<: *defaults
+    image: otel/opentelemetry-collector-contrib:0.160.0@sha256:799dc6cf12c96192af37b5bdba804da8c10b3bc563b43cb90c3f3c58d9572ad6
+    command: [--config=/etc/otelcol/config.yaml]
+    volumes:
+      - ./collector.yaml:/etc/otelcol/config.yaml:ro
+    read_only: true
+    mem_limit: 384m
+    networks:
+      telemetry:
+        aliases: [memoryos-otel-collector]
+      backend:
+  loki:
+    <<: *defaults
+    image: grafana/loki:3.7.7@sha256:d70e4659623f3e109af669cae76fe2a5dd5be54e2298fe8aed380d982fbc2500
+    command: [-config.file=/etc/loki/config.yaml]
+    volumes:
+      - ./loki.yaml:/etc/loki/config.yaml:ro
+      - loki:/loki
+    mem_limit: 768m
+    networks: [backend]
+  tempo:
+    <<: *defaults
+    image: grafana/tempo:3.0.3@sha256:0296560ac66f8a3600d7fb3014a52c189d4d9c3549ad6ff441bf2409855d68d5
+    command:
+      - -target=all
+      - -config.file=/etc/tempo/config.yaml
+      - -backend-scheduler.provider.work.compaction.block-retention=168h
+    user: "10001:10001"
+    volumes:
+      - ./tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempo:/var/tempo
+    mem_limit: 1g
+    networks: [backend]
+  prometheus:
+    <<: *defaults
+    image: prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=4GB
+      - --web.enable-otlp-receiver
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./alerts.yaml:/etc/prometheus/alerts.yaml:ro
+      - prometheus:/prometheus
+    mem_limit: 768m
+    networks: [backend]
+  grafana:
+    <<: *defaults
+    user: "472:472"
+    image: grafana/grafana:13.2.1@sha256:f772d434e8fab0049deb2b1b30abd43342bcfca1537614aa8d36080232cf4283
+    environment:
+      GF_SERVER_ROOT_URL: ${MEMORYOS_GRAFANA_PUBLIC_URL:?Set MEMORYOS_GRAFANA_PUBLIC_URL}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: Keycloak
+      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
+      GF_AUTH_GENERIC_OAUTH_SKIP_ORG_ROLE_SYNC: "false"
+      GF_AUTH_GENERIC_OAUTH_VALIDATE_ID_TOKEN: "true"
+      GF_AUTH_GENERIC_OAUTH_JWK_SET_URL: ${MEMORYOS_GRAFANA_ISSUER}/protocol/openid-connect/certs
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: memoryos-grafana
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET__FILE: /run/secrets/grafana_oidc_secret
+      GF_AUTH_GENERIC_OAUTH_SCOPES: openid email profile
+      GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: ${MEMORYOS_GRAFANA_ISSUER:?Set MEMORYOS_GRAFANA_ISSUER}/protocol/openid-connect/auth
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: ${MEMORYOS_GRAFANA_ISSUER}/protocol/openid-connect/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: ${MEMORYOS_GRAFANA_ISSUER}/protocol/openid-connect/userinfo
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(realm_access.roles[*], 'memoryos-inspector') && 'Admin'"
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT: "true"
+      GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "false"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+    secrets: [grafana_admin_password, grafana_oidc_secret]
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    mem_limit: 512m
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://localhost:3000/api/health]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      backend:
+      proxy:
+        aliases: [memoryos-grafana]
+networks:
+  telemetry:
+    name: ${MEMORYOS_TELEMETRY_NETWORK:-memoryos-telemetry}
+    internal: true
+  backend:
+    internal: true
+  proxy:
+    name: ${MEMORYOS_PROXY_NETWORK:-proxy-network}
+    external: true
+volumes:
+  grafana:
+  loki:
+  tempo:
+  prometheus:
+secrets:
+  grafana_admin_password:
+    file: ${MEMORYOS_GRAFANA_ADMIN_PASSWORD_FILE:?Set MEMORYOS_GRAFANA_ADMIN_PASSWORD_FILE}
+  grafana_oidc_secret:
+    file: ${MEMORYOS_GRAFANA_OIDC_SECRET_FILE:?Set MEMORYOS_GRAFANA_OIDC_SECRET_FILE}
