@@ -28,10 +28,10 @@
 - [x] Reconcile a real Keycloak realm and inspect client, mapper, scoped role, owner claim, and ordinary-user claim.
 - [x] Prove owner read-only and ordinary-user denied behavior through MinIO STS/S3.
 - [x] Inspect every changed IDE-supported file with JetBrains warnings enabled, then run the repository gate.
-- [ ] Deploy the reviewed PR head and exercise native Console SSO plus the unchanged FILE Source path in a real browser.
+- [x] Deploy the reviewed runtime-affecting PR head and exercise native Console SSO plus the unchanged FILE Source path in a real browser.
 
 ## Delivery
 
-- [ ] Publish the PR and attach it to MEM-56.
+- [x] Publish the PR and attach it to MEM-56.
 - [ ] Obtain explicit user visual approval before merge.
 - [ ] Merge only the reviewed exact head, verify exact-SHA CI, deploy exact merge SHA, and complete the increment records.

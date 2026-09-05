@@ -29,4 +29,4 @@
 - A temporary verified realm user with no inspector role completed Keycloak authentication but received no Console bucket access; the user was deleted after the negative check. The ordinary-user claim and STS denial remain as recorded above.
 - The unchanged MemoryOS browser flow uploaded a 35-byte FILE directly, reached `INDEXED`, and exposed the resulting object to the read-only Console. Removal completed asynchronously, the Source returned to one indexed document, and the temporary object disappeared. Restarting the staging worker recovered its Redis consumers; no post-restart transport-unavailable warning was observed.
 
-The reviewed explicit-deny amendment still requires final PR-head deployment. User visual acceptance and merge remain pending.
+The explicit-deny runtime amendment from `8307b7624395e07e0b8343f33f9a5f50cef0328b` is deployed. User visual acceptance and merge remain pending.
