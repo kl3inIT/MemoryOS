@@ -47,9 +47,9 @@ Implementation is complete and under repository/runtime verification. Checkboxes
 - [x] Separate configured Sources from the implemented Source-type catalog and replace inline FILE creation with `Add source`.
 - [x] Add a typed provider-owned setup wizard shell; FILE supplies one real `configuration` step without placeholder credential, review, or advanced steps.
 - [x] Replace URL-selected master-detail with a full-width configured-Source list and dedicated Source detail route.
-- [x] Compact the provider catalog to Onyx-aligned icon-and-label tiles grouped under nonempty categories.
+- [x] Match the provider catalog's full-width icon/title/action header, search field, and exact Onyx `w-40` wrapping tile rhythm while showing only implemented providers.
 - [x] Align the generic provider-owned wizard with Onyx's lightweight progress rail, centered configuration body, and navigation row.
-- [x] Match Onyx provider grouping with expandable semantic table row groups, aggregate totals, explicit columns, and per-Source Manage actions.
+- [x] Match Onyx provider grouping with a searchable/filterable semantic six-column table, total/active/public/document metrics, expand/collapse controls, status/access badges, and icon-only Manage actions.
 - [x] Retain failed-finalization recovery above Source routes so list/other-detail navigation returns to the initiating Source without another PUT.
 
 ## Deployment and operations
