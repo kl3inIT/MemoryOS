@@ -834,6 +834,8 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(providerSearch).toBeFocused();
   await providerSearch.fill("not implemented");
   await expect(page.getByText("No sources match your search.")).toBeVisible();
+  await providerSearch.press("Enter");
+  await expect(page).toHaveURL(/\/admin\/sources\/new\/?$/);
   await providerSearch.fill("");
 
   const fileProvider = page.getByRole("link", { name: "File", exact: true });

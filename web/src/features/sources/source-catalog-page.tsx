@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CloudUpload } from "lucide-react";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sourceCategories, sourceProviders } from "./source-provider-catalog";
@@ -8,12 +8,12 @@ import { sourceCategories, sourceProviders } from "./source-provider-catalog";
 export function SourceCatalogPage() {
   const navigate = useNavigate({ from: "/admin/sources/new/" });
   const [searchQuery, setSearchQuery] = useState("");
-  const deferredQuery = useDeferredValue(searchQuery.trim().toLowerCase());
+  const normalizedQuery = searchQuery.trim().toLowerCase();
   const matchingProviders = sourceProviders.filter(
     (provider) =>
-      !deferredQuery ||
-      provider.name.toLowerCase().includes(deferredQuery) ||
-      provider.category.toLowerCase().includes(deferredQuery),
+      !normalizedQuery ||
+      provider.name.toLowerCase().includes(normalizedQuery) ||
+      provider.category.toLowerCase().includes(normalizedQuery),
   );
 
   return (
@@ -38,8 +38,16 @@ export function SourceCatalogPage() {
         className="mt-5 bg-surface-sunken"
         onChange={(event) => setSearchQuery(event.target.value)}
         onKeyDown={(event) => {
-          const provider = matchingProviders.at(0);
-          if (event.key === "Enter" && matchingProviders.length === 1 && provider) {
+          if (event.key !== "Enter") return;
+          const currentQuery = event.currentTarget.value.trim().toLowerCase();
+          const navigationMatches = sourceProviders.filter(
+            (provider) =>
+              !currentQuery ||
+              provider.name.toLowerCase().includes(currentQuery) ||
+              provider.category.toLowerCase().includes(currentQuery),
+          );
+          const provider = navigationMatches.at(0);
+          if (navigationMatches.length === 1 && provider) {
             void navigate({ to: provider.setupPath });
           }
         }}
