@@ -82,6 +82,7 @@ cat > /tmp/inspector-policy.json <<EOF
       ],
       "Resource": ["*"]
     }
+  ]
 }
 EOF
 
