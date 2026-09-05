@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/root/.gradle sed -i 's/\r$//' gradlew \
     && java -Djarmode=tools -jar /workspace/api.jar extract --layers --destination /workspace/api-extracted \
     && java -Djarmode=tools -jar /workspace/worker.jar extract --layers --destination /workspace/worker-extracted
 
-FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:f4273aca6e32b3da7440b3776238116b3f1db7b85060c12848cc24048032207c AS runtime
+FROM bellsoft/liberica-runtime-container:jre-26-glibc@sha256:296ed65e096ae3ea6d336677c581ef2ea65cf72efc05594cf7da5f83befc1f16 AS runtime
 
 RUN addgroup -S -g 1654 memoryos \
     && adduser -S -D -H -u 1654 -G memoryos memoryos
