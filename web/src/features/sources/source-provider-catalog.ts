@@ -14,7 +14,7 @@ export type SourceProvider = {
 export const sourceProviders = [
   {
     type: "FILE",
-    name: "Files",
+    name: "File",
     category: "Popular",
     setupPath: "/admin/sources/new/file",
     icon: Files,

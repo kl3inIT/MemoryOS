@@ -180,7 +180,7 @@ test("opens the separate administration shell", async ({ page }) => {
     "aria-current",
     "page",
   );
-  await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
 });
 
 test("keeps one document, identity session, and admin shell across internal routes", async ({
@@ -789,9 +789,35 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
 
   await page.goto("/admin");
   const sourceTable = page.getByRole("table", { name: "Connected sources" });
-  const fileGroup = sourceTable.getByRole("button", { name: /Files 1 source · 0 documents/ });
+  await expect(page.getByRole("heading", { name: "Existing sources" })).toBeVisible();
+  await expect(
+    sourceTable.getByRole("columnheader", { name: "Permissions / Access" }),
+  ).toBeVisible();
+  await expect(sourceTable.getByText("Scheduled", { exact: true })).toBeVisible();
+  await expect(sourceTable.getByText("Organization Public", { exact: true })).toBeVisible();
+  const fileGroup = sourceTable.getByRole("button", {
+    name: /File group, 1 sources, 0 documents/,
+  });
   const supportSource = sourceTable.getByRole("link", { name: otherSource.name, exact: true });
   await expect(fileGroup).toHaveAttribute("aria-expanded", "true");
+  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Total sources");
+  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Active sources");
+  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Public sources");
+  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Total docs indexed");
+  const sourceSearch = page.getByRole("searchbox", { name: "Search sources" });
+  await sourceSearch.fill("missing source");
+  await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
+  await sourceSearch.fill("");
+  await page.getByRole("button", { name: "Filter sources" }).click();
+  await page.getByLabel("Status").selectOption("ACTIVE");
+  await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(supportSource).toBeVisible();
+  await page.getByRole("button", { name: "Filter sources" }).click();
+  await page.getByRole("button", { name: "Collapse all" }).click();
+  await expect(supportSource).toBeHidden();
+  await page.getByRole("button", { name: "Expand all" }).click();
+  await expect(supportSource).toBeVisible();
   await fileGroup.click();
   await expect(supportSource).toBeHidden();
   await fileGroup.click();
@@ -804,8 +830,13 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByRole("link", { name: "Add source" }).first().click();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/?$/);
   await expect(page.getByRole("heading", { name: "Add a source" })).toBeVisible();
+  const providerSearch = page.getByRole("searchbox", { name: "Search sources" });
+  await expect(providerSearch).toBeFocused();
+  await providerSearch.fill("not implemented");
+  await expect(page.getByText("No sources match your search.")).toBeVisible();
+  await providerSearch.fill("");
 
-  const fileProvider = page.getByRole("link", { name: "Files", exact: true });
+  const fileProvider = page.getByRole("link", { name: "File", exact: true });
   await expect(fileProvider).toHaveCount(1);
   await fileProvider.click();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
