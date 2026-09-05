@@ -89,7 +89,7 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, and `memoryos-redisinsight` with Authorization Code and mandatory S256 PKCE, and creates confidential service-account client `memoryos-user-provisioner`. It creates realm role `memoryos-inspector`, assigns it only to that realm-local initial owner, and exposes that role only to the two inspection clients. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, `memoryos-redisinsight`, and `memoryos-minio-console`, and creates confidential service-account client `memoryos-user-provisioner`. The application and OAuth2 Proxy clients require S256 PKCE. The pinned native MinIO Console does not emit a `code_challenge`, so its confidential client instead relies on its secret, exact `/oauth_callback`, OIDC state, and claim-based authorization without a Keycloak PKCE requirement. The script creates realm role `memoryos-inspector`, assigns it only to the realm-local initial owner, exposes that role only to the three inspection clients, and maps it to the MinIO `policy` claim. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
 
 Required operator environment:
 
@@ -110,6 +110,8 @@ MEMORYOS_PGWEB_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
 MEMORYOS_REDISINSIGHT_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
+MEMORYOS_MINIO_CONSOLE_PUBLIC_URL # exact HTTPS origin; callback is /oauth_callback
+MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_SMTP_HOST
 MEMORYOS_KEYCLOAK_SMTP_PORT # defaults to 587
@@ -122,7 +124,7 @@ MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 ```
 
-Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set both inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb and Redis Insight client/cookie secrets remain separate. Store client secrets outside Git and mount the matching files into OAuth2 Proxy.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set all three inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb and Redis Insight OAuth secrets remain separate from the MinIO OIDC secret. Store every client secret outside Git; mount pgweb/Redis Insight secrets into their OAuth2 Proxies and the MinIO OIDC secret directly into MinIO.
 
 If a future invitee email is already owned by an unrelated unverified Keycloak user, invitation issue fails closed. An operator must inspect that exact user in the `memoryos` realm, confirm ownership out of band, and delete or repair it through the Keycloak admin console before retrying. MemoryOS never takes over or deletes the account automatically.
 
@@ -192,7 +194,7 @@ Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18
 
 ## Run the hardened staging stack
 
-MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, and their OAuth2 Proxies. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns stable identifiers, exact public origins, secret-file paths, and non-secret tuning; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, avoiding duplicated secret values. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, their OAuth2 Proxies, and native MinIO Console OIDC. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns stable identifiers, exact public origins, secret-file paths, and non-secret tuning; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, avoiding duplicated secret values. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
 
 ### Provision staging object storage
 
@@ -202,7 +204,7 @@ Before the first start, create the three MinIO secrets without printing them:
 infrastructure/minio/provision-secrets.sh /apps/memoryos/secrets/minio
 ```
 
-The command is idempotent, refuses a partial set, and enforces mode `0600`. `minio-bootstrap` creates the private bucket, API/worker policies, users, and readiness sentinel, then authenticates both service identities against that sentinel. It uses only `/tmp` for `mc` state and may run again safely. API receives the API secret file; worker receives the worker secret file.
+The MinIO command is idempotent, refuses a partial set, and enforces mode `0600`. Run `infrastructure/inspection/provision-staging-secrets.sh` as well to create the separate MinIO Console OIDC client secret. Load that secret into the controlled Keycloak reconciliation shell as `MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET`; Compose mounts the same file into MinIO and never renders its value into container metadata. `minio-bootstrap` creates the private bucket, API/worker policies and users, the bucket-read-only `memoryos-inspector` policy, and the readiness sentinel, then authenticates both service identities against that sentinel. It uses only `/tmp` for `mc` state and may run again safely.
 
 Configure Nginx Proxy Manager for the exact object origin:
 
@@ -219,7 +221,24 @@ hsts=true
 certificate=Let's Encrypt for the exact domain
 ```
 
-The public origin must equal `MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT` and `MEMORYOS_OBJECT_STORAGE_CONNECT_SRC`; the application origin must equal `MEMORYOS_OBJECT_STORAGE_BROWSER_ORIGIN`. Do not expose the MinIO console or root credential.
+The public object origin must equal `MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT` and `MEMORYOS_OBJECT_STORAGE_CONNECT_SRC`; the application origin must equal `MEMORYOS_OBJECT_STORAGE_BROWSER_ORIGIN`.
+
+Configure a separate Nginx Proxy Manager host for the native MinIO Console:
+
+```text
+domain=memoryos-minio.72-62-193-33.nip.io
+scheme=http
+forward-host=memoryos-minio
+forward-port=9001
+websockets=true
+block-exploits=true
+force-ssl=true
+http2=true
+hsts=true
+certificate=Let's Encrypt for the exact domain
+```
+
+Set `MEMORYOS_MINIO_CONSOLE_PUBLIC_URL` to that exact HTTPS origin. MinIO uses it as `MINIO_BROWSER_REDIRECT_URL`, and Keycloak permits only `<origin>/oauth_callback`. The Console uses native MinIO OIDC rather than another OAuth2 Proxy. Container port `9001` has no host binding; never publish it directly or expose the root credential. To roll back the inspection surface without affecting FILE storage, remove the Console proxy host, remove the staging OIDC variables/secret mount, and recreate MinIO; the port `9000` object origin and API/worker policies remain unchanged.
 
 V9 is an approved early-project destructive cutover: it drops `connector_item_versions.content_bytes` and requires an empty/reset application database before deployment. Do not apply it over retained FILE rows. The rollback boundary is the whole release—stop API/worker/web, restore the pre-V9 PostgreSQL backup, restore the matching pre-cutover images, and leave the new private bucket unreachable. There is no dual-write, BYTEA fallback, reverse object-to-BYTEA migration, or mixed-version rolling deployment.
 
