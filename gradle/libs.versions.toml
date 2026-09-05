@@ -2,7 +2,7 @@
 opentelemetry = "1.65.0"
 spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
-spring-modulith = "2.1.0"
+spring-modulith = "2.1.1"
 archunit = "1.5.0"
 springdoc = "3.0.3"
 keycloak-admin-client = "26.0.12"
