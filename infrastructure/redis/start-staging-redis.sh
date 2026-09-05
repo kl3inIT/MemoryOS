@@ -34,7 +34,7 @@ cat >/tmp/memoryos-users.acl <<EOF
 user default off
 user memoryos-admin on #$ADMIN_HASH ~* &* +@all
 user memoryos-worker on #$WORKER_HASH ~memoryos:execution:* &* +ping +hello +info +client|setname +client|setinfo +xgroup +xinfo +xadd +xdel +xreadgroup +xack +xpending +xclaim +xautoclaim +xlen +xrange +del +exists
-user memoryos-inspector on #$INSPECTOR_HASH ~memoryos:execution:* ~memoryos:cache:* &* +ping +hello +info +dbsize +scan +type +ttl +get +memory +command|info +client|setname +client|setinfo +xinfo +xrange +xlen +xpending
+user memoryos-inspector on #$INSPECTOR_HASH ~* &* -@all +@read +@connection +info +command +memory|usage +memory|stats +memory|doctor +memory|malloc-stats +config|get +slowlog|get +slowlog|len +client|list +client|info
 EOF
 cat >/tmp/memoryos-redis.conf <<EOF
 bind 0.0.0.0
