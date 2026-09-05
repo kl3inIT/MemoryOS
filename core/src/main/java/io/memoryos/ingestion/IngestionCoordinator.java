@@ -2,5 +2,7 @@ package io.memoryos.ingestion;
 
 public interface IngestionCoordinator {
 
-    void process(OperationDelivery delivery);
+    enum Outcome { COMPLETED, SKIPPED, FAILED }
+
+    Outcome process(OperationDelivery delivery);
 }

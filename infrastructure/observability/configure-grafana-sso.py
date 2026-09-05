@@ -9,6 +9,11 @@ import urllib.parse
 import urllib.request
 
 
+class RejectRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def required(name):
     value = os.environ.get(name, "").strip()
     if not value:
@@ -24,6 +29,8 @@ def origin(value):
 
 
 def reconcile():
+    # Never forward administrator credentials or bearer tokens through redirects.
+    opener = urllib.request.build_opener(RejectRedirects())
     server = origin(required("KEYCLOAK_URL"))
     public = origin(required("MEMORYOS_GRAFANA_PUBLIC_URL"))
     secret = Path(required("MEMORYOS_GRAFANA_OIDC_SECRET_FILE")).read_text().strip()
@@ -36,14 +43,14 @@ def reconcile():
     }).encode()
     admin_realm = urllib.parse.quote(os.environ.get("KEYCLOAK_ADMIN_REALM", "master"), safe="")
     request = urllib.request.Request(server + f"/realms/{admin_realm}/protocol/openid-connect/token", credentials)
-    with urllib.request.urlopen(request, timeout=15) as response:
+    with opener.open(request, timeout=15) as response:
         token = json.load(response)["access_token"]
 
     def api(method, path, body=None):
         request = urllib.request.Request(server + "/admin/realms/memoryos/" + path,
             None if body is None else json.dumps(body).encode(),
             {"Authorization": "Bearer " + token, "Content-Type": "application/json"}, method=method)
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with opener.open(request, timeout=15) as response:
             raw = response.read()
             return json.loads(raw) if raw else None
 

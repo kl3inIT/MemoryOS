@@ -21,6 +21,9 @@ do not upgrade the appender independently of its SDK/API/incubator dependencies.
   validated origin IDs; each publication/processing attempt starts a new bounded
   root span linked to that origin. Operation IDs are log/span attributes, never
   metric labels or authority for claim, retry, tenant resolution or authorization.
+- Processing spans expose `processing.outcome` (COMPLETED, SKIPPED, FAILED).
+  Handled business failures set span ERROR even when the delivery is ACKed:
+  PostgreSQL owns the retry policy, while ACK describes Redis transport handling.
 - The Collector strips raw HTTP URL/path/query fields and exception event text
   from traces because invitation paths and OAuth callbacks can carry secrets.
   Route templates, error types and status codes remain available. This is not a

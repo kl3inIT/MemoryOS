@@ -30,6 +30,9 @@ jobs:
       - name: Build and verify
         run: ./gradlew clean check --no-daemon
 
+      - name: Verify Grafana SSO credential boundary
+        run: python3 -m unittest discover -s infrastructure/observability -p 'test_*.py'
+
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15

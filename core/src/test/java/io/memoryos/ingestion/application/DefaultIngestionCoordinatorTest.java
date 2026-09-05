@@ -33,6 +33,63 @@ import org.springframework.transaction.support.TransactionTemplate;
 class DefaultIngestionCoordinatorTest {
 
     @Test
+    void handledCleanupFailureReportsFailedAndKeepsDatabaseRetry() {
+        var cleanup = mock(ConnectorCleanupPort.class);
+        var scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> renewal = mock(ScheduledFuture.class);
+        org.mockito.Mockito.doReturn(renewal).when(scheduler)
+                .scheduleAtFixedRate(any(Runnable.class), eq(30L), eq(30L), eq(TimeUnit.SECONDS));
+        var delivery = new OperationDelivery(new TenantId(UUID.randomUUID()), OperationWorkload.CLEANUP,
+                new SourceOperationId(UUID.randomUUID()), UUID.randomUUID());
+        var work = new CleanupWork(delivery.operationId(), delivery.tenantId(), SourceOperationType.DELETE_SOURCE,
+                new SourceId(UUID.randomUUID()), null, UUID.randomUUID());
+        when(cleanup.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId())).thenReturn(Optional.of(work));
+        when(cleanup.objects(work)).thenThrow(new IllegalStateException("test failure"));
+        var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class), cleanup,
+                mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
+                mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), scheduler);
+
+        org.assertj.core.api.Assertions.assertThat(coordinator.process(delivery))
+                .isEqualTo(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED);
+        verify(cleanup).retry(work, "SOURCE_CLEANUP_INTERNAL", 3, java.time.Duration.ofSeconds(5));
+        verify(renewal).cancel(false);
+    }
+
+    @Test
+    void typedExtractionFailureReportsFailedAndPersistsFailure() throws Exception {
+        var indexing = mock(ConnectorIndexingPort.class);
+        var scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> renewal = mock(ScheduledFuture.class);
+        org.mockito.Mockito.doReturn(renewal).when(scheduler)
+                .scheduleAtFixedRate(any(Runnable.class), eq(30L), eq(30L), eq(TimeUnit.SECONDS));
+        var delivery = new OperationDelivery(new TenantId(UUID.randomUUID()), OperationWorkload.INGESTION,
+                new SourceOperationId(UUID.randomUUID()), UUID.randomUUID());
+        var reference = mock(io.memoryos.objectstorage.StoredObjectReference.class);
+        var metadata = mock(io.memoryos.objectstorage.ObjectMetadata.class);
+        when(reference.metadata()).thenReturn(metadata);
+        var work = new io.memoryos.connector.IndexWork(delivery.operationId(), delivery.tenantId(),
+                UUID.randomUUID(), new SourceId(UUID.randomUUID()), null, UUID.randomUUID(), reference);
+        when(indexing.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId())).thenReturn(Optional.of(work));
+        var storage = mock(ObjectStorage.class);
+        var content = mock(io.memoryos.objectstorage.ObjectContent.class);
+        when(storage.open(reference.key())).thenReturn(content);
+        when(content.metadata()).thenReturn(metadata);
+        var extractor = mock(SourceContentExtractor.class);
+        when(extractor.extract(content.inputStream(), metadata.sizeBytes(), reference.filename()))
+                .thenThrow(new io.memoryos.ingestion.ExtractionException(
+                        io.memoryos.ingestion.ExtractionFailure.MALFORMED, "test failure"));
+        var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
+                mock(DocumentCommandPort.class), extractor, storage, mock(StoredObjectRegistry.class),
+                mock(TransactionTemplate.class), scheduler);
+
+        org.assertj.core.api.Assertions.assertThat(coordinator.process(delivery))
+                .isEqualTo(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED);
+        verify(indexing).fail(work, "SOURCE_EXTRACTION_MALFORMED");
+        verify(content).close();
+        verify(renewal).cancel(false);
+    }
+
+    @Test
     void renewsAndCancelsTheCleanupLeaseWhileProcessing() {
         var indexing = mock(ConnectorIndexingPort.class);
         var cleanup = mock(ConnectorCleanupPort.class);

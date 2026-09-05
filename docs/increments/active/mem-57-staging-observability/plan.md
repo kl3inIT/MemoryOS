@@ -9,7 +9,8 @@
 - [x] Provision dashboards, trace/log links, bounded retention/queues/resources, and alert rules.
 - [x] Run focused contracts, configuration/runtime smoke tests, static analysis where available, and clean check.
 - [x] Consolidate verified contracts into architecture, runbook, and verification matrices.
-- [ ] Open the ready PR and verify CI.
+- [x] Open the ready PR and verify CI (PR #73, initial head b1f77f0).
+- [x] Address CodeRabbit redirect protection, dashboard legends, and handled-failure span status with regression tests.
 - [ ] After review/merge, deploy through the runbook and record staging acceptance in Linear.
 
 No frontend SDK, unused Spring AI runtime, or external notification integration is included.

@@ -33,7 +33,7 @@
         {
           "refId": "A",
           "expr": "sum by (service_name, status) (rate(http_server_requests_milliseconds_count[5m]))",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{service_name}} {{status}}"
         }
       ],
       "fieldConfig": {
@@ -62,7 +62,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(http_server_requests_milliseconds_bucket[5m])))",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{service_name}}"
         }
       ],
       "fieldConfig": {
@@ -91,7 +91,7 @@
         {
           "refId": "A",
           "expr": "sum by (service_name, area) (jvm_memory_used_bytes)",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{service_name}} {{area}}"
         }
       ],
       "fieldConfig": {
@@ -120,7 +120,7 @@
         {
           "refId": "A",
           "expr": "sum by (service_name) (rate(jvm_gc_pause_milliseconds_sum[5m]))",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{service_name}}"
         }
       ],
       "fieldConfig": {
@@ -149,7 +149,7 @@
         {
           "refId": "A",
           "expr": "hikaricp_connections_active or hikaricp_connections_pending",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{__name__}} {{service_name}} {{pool}}"
         }
       ],
       "fieldConfig": {
@@ -178,7 +178,7 @@
         {
           "refId": "A",
           "expr": "memoryos_redis_stream_depth or memoryos_redis_stream_pending",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{__name__}} {{service_name}} {{workload}}"
         }
       ],
       "fieldConfig": {
@@ -207,7 +207,7 @@
         {
           "refId": "A",
           "expr": "sum by (workload, outcome) (rate(memoryos_redis_delivery_total[5m]))",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{workload}} {{outcome}}"
         }
       ],
       "fieldConfig": {
@@ -236,7 +236,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.95, sum by (le, workload) (rate(memoryos_redis_operation_processing_milliseconds_bucket[5m])))",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{workload}}"
         }
       ],
       "fieldConfig": {
@@ -265,7 +265,7 @@
         {
           "refId": "A",
           "expr": "sum by (event) (count_over_time({service_name=\"memoryos-worker\"} | event=~\"ingestion.*|cleanup.*\" [5m]))",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{event}}"
         }
       ],
       "fieldConfig": {
@@ -293,8 +293,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{service_name=~\"memoryos-api|memoryos-worker\"} | severity_text=~\"WARN|ERROR\"",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "expr": "{service_name=~\"memoryos-api|memoryos-worker\"} | severity_text=~\"WARN|ERROR\""
         }
       ],
       "fieldConfig": {
@@ -323,7 +322,7 @@
         {
           "refId": "A",
           "expr": "ALERTS{alertstate=\"firing\"}",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{alertname}}"
         }
       ],
       "fieldConfig": {
@@ -352,7 +351,7 @@
         {
           "refId": "A",
           "expr": "process_cpu_usage",
-          "legendFormat": "{{service_name}} {{workload}} {{outcome}}"
+          "legendFormat": "{{service_name}}"
         }
       ],
       "fieldConfig": {

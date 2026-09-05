@@ -12,3 +12,4 @@ out/
 web/.playwright-cli/
 .env
 secrets/
+__pycache__/

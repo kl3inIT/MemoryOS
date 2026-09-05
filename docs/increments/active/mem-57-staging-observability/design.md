@@ -6,6 +6,8 @@ Status: implemented and locally verified; pull request and staging rollout are s
 
 Operators can diagnose API requests and durable ingestion through correlated structured logs, metrics, and traces in owner-only Grafana. API and worker use Boot 4.1 managed Micrometer/OpenTelemetry and Logback. Frontend SDK work is deferred to MEM-58; no Spring AI dependency is introduced before an AI capability exists.
 
+The coordinator returns a bounded processing outcome so handled extraction and cleanup failures mark the consumer span ERROR. Redis acknowledgement remains independent: PostgreSQL retains ownership of business retries. Grafana's Keycloak provisioning rejects token/admin redirects to keep administrator credentials at the configured origin.
+
 ## Runtime
 
 Deploy Grafana, Loki, Tempo, Prometheus, and OpenTelemetry Collector as persistent staging services with private ingest/backend networks. Grafana uses the existing Keycloak owner inspector boundary. Application deployment and health do not depend on telemetry availability. Each source has exactly one ingest route: application OTLP logs are not collected again from stdout.

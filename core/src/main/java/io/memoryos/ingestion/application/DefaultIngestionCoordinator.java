@@ -59,25 +59,25 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     @Override
-    public void process(OperationDelivery delivery) {
+    public Outcome process(OperationDelivery delivery) {
         Objects.requireNonNull(delivery, "delivery must not be null");
-        switch (delivery.workload()) {
+        return switch (delivery.workload()) {
             case INGESTION -> indexingPort.claim(
                             delivery.tenantId(),
                             delivery.operationId(),
                             delivery.deliveryId()
                     )
-                    .ifPresent(this::processIndex);
+                    .map(this::processIndex).orElse(Outcome.SKIPPED);
             case CLEANUP -> cleanupPort.claim(
                             delivery.tenantId(),
                             delivery.operationId(),
                             delivery.deliveryId()
                     )
-                    .ifPresent(this::processCleanup);
-        }
+                    .map(this::processCleanup).orElse(Outcome.SKIPPED);
+        };
     }
 
-    private void processIndex(IndexWork work) {
+    private Outcome processIndex(IndexWork work) {
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
                 () -> renewIndexLease(work),
                 LEASE_RENEWAL_SECONDS,
@@ -112,11 +112,13 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             });
             LOGGER.atInfo().addKeyValue("event", "ingestion.completed")
                     .addKeyValue("operation_id", work.operationId().value()).log("Indexing completed");
+            return Outcome.COMPLETED;
         } catch (StaleIndexClaimException exception) {
             indexingPort.supersede(work);
             LOGGER.atDebug().addKeyValue("event", "ingestion.publication.stale")
                     .addKeyValue("operation_id", work.operationId().value())
                     .log("Rolled back stale index publication");
+            return Outcome.SKIPPED;
         } catch (ExtractionException exception) {
             LOGGER.atWarn().addKeyValue("event", "ingestion.extraction.failed")
                     .addKeyValue("operation_id", work.operationId().value())
@@ -127,6 +129,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale typed extraction failure");
             }
+            return Outcome.FAILED;
         } catch (RuntimeException exception) {
             LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
                     .addKeyValue("operation_id", work.operationId().value())
@@ -142,6 +145,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale internal extraction failure");
             }
+            return Outcome.FAILED;
         } finally {
             renewal.cancel(false);
         }
@@ -157,7 +161,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         }
     }
 
-    private void processCleanup(CleanupWork work) {
+    private Outcome processCleanup(CleanupWork work) {
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
                 () -> renewCleanupLease(work),
                 LEASE_RENEWAL_SECONDS,
@@ -173,7 +177,9 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 LOGGER.atDebug().addKeyValue("event", "cleanup.completion.stale")
                     .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale cleanup completion");
+                return Outcome.SKIPPED;
             }
+            return Outcome.COMPLETED;
         } catch (RuntimeException exception) {
             LOGGER.atWarn().addKeyValue("event", "cleanup.retry.requested")
                     .addKeyValue("operation_id", work.operationId().value())
@@ -189,6 +195,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale cleanup failure");
             }
+            return Outcome.FAILED;
         } finally {
             renewal.cancel(false);
         }

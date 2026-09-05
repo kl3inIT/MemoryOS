@@ -39,6 +39,8 @@ No backend or ingest port is published. Grafana alone joins the existing proxy n
    tokens and userinfo. It does not grant user roles. Run it before Grafana starts
    and whenever its URL/client secret changes. A missing inspector role fails
    provisioning rather than creating new user authority.
+   Token and admin API requests reject redirects, including redirects to the
+   same origin. Configure the final Keycloak origin directly.
 6. Start the independent stack **before** deploying the staging application:
 
    ```sh

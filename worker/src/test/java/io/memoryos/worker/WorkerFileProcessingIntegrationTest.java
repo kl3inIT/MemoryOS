@@ -268,7 +268,8 @@ class WorkerFileProcessingIntegrationTest {
         LockSupport.parkNanos(Duration.ofMillis(600).toNanos());
         worker.start();
 
-        await(() -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
+        // The real isolated extractor permits 90 seconds, plus stream reclaim/startup.
+        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
         await(() -> SPANS.stream().anyMatch(span -> span.getName().equals("memoryos.operation.process")
                 && span.getLinks().stream().anyMatch(link -> link.getSpanContext().getTraceId().equals(originTrace))));
@@ -370,10 +371,14 @@ class WorkerFileProcessingIntegrationTest {
 
 
     private static void await(BooleanSupplier condition) {
-        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        await(Duration.ofSeconds(10), condition);
+    }
+
+    private static void await(Duration timeout, BooleanSupplier condition) {
+        long deadline = System.nanoTime() + timeout.toNanos();
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() >= deadline) {
-                throw new AssertionError("worker condition did not converge within 10 seconds");
+                throw new AssertionError("worker condition did not converge within " + timeout);
             }
             LockSupport.parkNanos(Duration.ofMillis(25).toNanos());
         }

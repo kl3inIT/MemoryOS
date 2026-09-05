@@ -263,7 +263,11 @@ final class RedisStreamWorker implements SmartLifecycle {
              var deliveryMdc = MDC.putCloseable("delivery_id", delivery.deliveryId().toString());
              var workloadMdc = MDC.putCloseable("workload", workload.name())) {
             try {
-                coordinator.process(delivery);
+                var outcome = coordinator.process(delivery);
+                span.setAttribute("processing.outcome", outcome.name());
+                if (outcome == IngestionCoordinator.Outcome.FAILED) {
+                    span.setStatus(StatusCode.ERROR);
+                }
                 metrics.delivery(
                         workload,
                         acknowledgeAndDelete(settings, record.getId())

@@ -1,6 +1,6 @@
 # MEM-57 verification
 
-## Local checks — 2026-09-06
+## Local checks â€” 2026-09-06
 
 - Updated the worktree from origin/main to 6a9e1e0, retaining MEM-56 MinIO SSO and Redis fixes. OrgMemory at db999fab was inspected read-only.
 - `gradlew.bat clean check --no-daemon`: passed, including 144 tests (core 79, connector 6, API 40, worker 19), zero failures/errors/skips. The final run also forwarded the staging telemetry fixture through the real local Collector.
@@ -23,7 +23,14 @@ An isolated Docker project used the checked-in configuration with loopback-only 
 - The provisioned Tempo-to-Loki template was interpolated with a real trace and returned its matching log using structured trace_id metadata. Using the default line-text trace filter would not have matched OTLP log bodies; this was corrected.
 - Readiness endpoints for all five services returned success. No app health dependency on Collector was added.
 
-## Delivery boundary
+## CodeRabbit follow-up
+
+- Reject all redirects from both Keycloak token and admin requests. A standard-library unittest exercises HTTP 301, 302, 303, 307 and 308 against separate loopback origins, asserting the destination receives no request. The test passes locally and runs in CI.
+- Correct each dashboard legend to use labels retained by that panel's query.
+- Return explicit coordinator outcomes. Focused extraction-failure and cleanup-retry tests verify persisted failure/retry effects; parameterized worker tests verify ERROR only for FAILED, with ACK/delete retained for all handled outcomes.
+- The full local run exposed a 10-second FILE convergence deadline that interrupted the real extractor before its 90-second runtime budget. Only the FILE-processing wait now allows 120 seconds; other convergence waits remain 10 seconds. The complete gate is rerun on the revised fixture before merge.
+
+## Pre-merge delivery boundary
 
 The implementation is ready for review and staging rollout through infrastructure/observability/README.md. No staging mutation, public proxy change or production secret was performed in this session. Host capacity, HTTPS owner/member acceptance, deployed traffic, retention growth and operational notification routing remain rollout acceptance, not inferred from local tests. Alert rules are viewable in the metrics backend; no external paging destination is configured.
 
