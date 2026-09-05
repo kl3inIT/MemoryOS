@@ -12,7 +12,7 @@ The existing realm-local `memoryos-inspector` role remains assigned to exactly o
 
 MinIO uses claim-based authorization with `MINIO_IDENTITY_OPENID_CLAIM_NAME=policy`. It does not use `role_policy`: MinIO's STS endpoint is part of the public S3 origin, and a provider-wide role policy would give every authenticated realm user the same storage policy even when they bypass the Console URL.
 
-The MinIO bootstrap reconciles a policy named `memoryos-inspector`, matching the only emitted claim value. It permits listing buckets, reading the configured bucket location, listing the configured bucket, and reading objects in that bucket. It grants no write, delete, bucket-management, IAM, policy, server-administration, or service-account permission. An authenticated user without the matching claim receives no usable MinIO policy.
+The MinIO bootstrap reconciles a policy named `memoryos-inspector`, matching the only emitted claim value. It permits listing buckets, reading the configured bucket location, listing the configured bucket, and reading objects in that bucket. It grants no write, delete, bucket-management, IAM, policy, or server-administration permission. Because the pinned MinIO release otherwise lets an authenticated identity create service accounts for itself without an explicit allow, the policy explicitly denies create/list/update/remove service-account actions so an expiring SSO session cannot mint a persistent credential. An authenticated user without the matching claim receives no usable MinIO policy.
 
 ## Runtime and secret boundary
 
@@ -26,7 +26,7 @@ The public Console URL is the fixed MinIO browser redirect URL, producing the ex
 
 The staging inspection-secret provisioner generates the Console OIDC client secret idempotently with mode `0600`. Controlled Keycloak reconciliation loads that value without printing it, reconciles the exact client and mapper, grants only `memoryos-inspector` into the client's realm-role scope, and verifies that no other scoped realm role remains.
 
-The MinIO bootstrap creates or updates the bucket-scoped `memoryos-inspector` policy on every run before authenticating the existing API and worker identities. No long-lived MinIO user is created for the human owner; MinIO exchanges the Keycloak token for expiring STS credentials.
+The MinIO bootstrap creates or updates the bucket-scoped `memoryos-inspector` policy, including the explicit service-account deny, on every run before authenticating the existing API and worker identities. No long-lived MinIO user is created for the human owner; MinIO exchanges the Keycloak token for expiring STS credentials.
 
 ## Verification
 

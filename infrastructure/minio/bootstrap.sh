@@ -71,8 +71,17 @@ cat > /tmp/inspector-policy.json <<EOF
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
       "Resource": ["arn:aws:s3:::${MINIO_BUCKET}/*"]
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "admin:CreateServiceAccount",
+        "admin:ListServiceAccounts",
+        "admin:RemoveServiceAccount",
+        "admin:UpdateServiceAccount"
+      ],
+      "Resource": ["*"]
     }
-  ]
 }
 EOF
 

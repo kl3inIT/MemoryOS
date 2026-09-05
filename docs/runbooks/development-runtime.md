@@ -204,7 +204,7 @@ Before the first start, create the three MinIO secrets without printing them:
 infrastructure/minio/provision-secrets.sh /apps/memoryos/secrets/minio
 ```
 
-The MinIO command is idempotent, refuses a partial set, and enforces mode `0600`. Run `infrastructure/inspection/provision-staging-secrets.sh` as well to create the separate MinIO Console OIDC client secret. Load that secret into the controlled Keycloak reconciliation shell as `MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET`; Compose mounts the same file into MinIO and never renders its value into container metadata. `minio-bootstrap` creates the private bucket, API/worker policies and users, the bucket-read-only `memoryos-inspector` policy, and the readiness sentinel, then authenticates both service identities against that sentinel. It uses only `/tmp` for `mc` state and may run again safely.
+The MinIO command is idempotent, refuses a partial set, and enforces mode `0600`. Run `infrastructure/inspection/provision-staging-secrets.sh` as well to create the separate MinIO Console OIDC client secret. Load that secret into the controlled Keycloak reconciliation shell as `MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET`; Compose mounts the same file into MinIO and never renders its value into container metadata. `minio-bootstrap` creates the private bucket, API/worker policies and users, the bucket-read-only `memoryos-inspector` policy, and the readiness sentinel, then authenticates both service identities against that sentinel. The inspector policy explicitly denies create/list/update/remove service-account actions so an OIDC session cannot mint a persistent access key. The bootstrap uses only `/tmp` for `mc` state and may run again safely.
 
 Configure Nginx Proxy Manager for the exact object origin:
 

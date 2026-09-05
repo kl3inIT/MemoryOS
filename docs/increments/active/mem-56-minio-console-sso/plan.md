@@ -11,7 +11,7 @@
 - [x] Add the exact `memoryos-minio-console` confidential Keycloak client.
 - [x] Add a client-scoped realm-role mapper that emits only `memoryos-inspector` as the MinIO `policy` claim.
 - [x] Reconcile the client secret, exact callback, native non-PKCE Console contract, owner-only role assignment, and single-role client scope.
-- [x] Provision a bucket-scoped read-only MinIO policy named `memoryos-inspector` without write, delete, IAM, service-account, or admin access.
+- [x] Provision a bucket-scoped read-only MinIO policy named `memoryos-inspector` with explicit service-account denial and no write, delete, IAM, or admin access.
 
 ## Runtime
 
