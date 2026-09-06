@@ -89,6 +89,27 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
     }
 
     @Override
+    public void write(ObjectKey key, byte[] content, String mediaType) {
+        Objects.requireNonNull(content, "content must not be null");
+        if (content.length == 0 || content.length > 33_554_432) {
+            throw new IllegalArgumentException("object write exceeds bounds");
+        }
+        try {
+            var checksum = java.util.Base64.getEncoder().encodeToString(
+                    java.security.MessageDigest.getInstance("SHA-256").digest(content));
+            client.putObject(PutObjectRequest.builder().bucket(bucket).key(key.value())
+                            .overrideConfiguration(c -> c.apiCallTimeout(java.time.Duration.ofMinutes(2)))
+                            .contentType(mediaType).contentLength((long) content.length)
+                            .checksumSHA256(checksum).ifNoneMatch("*").build(),
+                    software.amazon.awssdk.core.sync.RequestBody.fromBytes(content));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        } catch (S3Exception | SdkClientException exception) {
+            throw translate(exception);
+        }
+    }
+
+    @Override
     public UploadAuthorization authorizeUpload(ObjectKey key, UploadConstraints constraints) {
         Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(constraints, "constraints must not be null");

@@ -46,8 +46,8 @@ export function CreateFileSourcePage() {
       setError("Choose one file at a time. You can add more files after creating the source.");
       return;
     }
-    if (!/\.(pdf|docx|txt|md)$/i.test(selected.name)) {
-      setError("Choose a PDF, DOCX, TXT, or Markdown file.");
+    if (!/\.(pdf|docx|pptx|txt|md)$/i.test(selected.name)) {
+      setError("Choose a PDF, DOCX, PPTX, TXT, or Markdown file.");
       return;
     }
     if (selected.size === 0 || selected.size > 10 * 1024 * 1024) {
@@ -197,8 +197,8 @@ export function CreateFileSourcePage() {
               type="file"
               className="sr-only"
               tabIndex={-1}
-              aria-label="Choose PDF, DOCX, TXT, or Markdown file"
-              accept=".pdf,.docx,.txt,.md"
+              aria-label="Choose PDF, DOCX, PPTX, TXT, or Markdown file"
+              accept=".pdf,.docx,.pptx,.txt,.md"
               disabled={busy || Boolean(pendingFinalize)}
               onChange={(event) => {
                 selectFiles(event.target.files);
@@ -206,7 +206,7 @@ export function CreateFileSourcePage() {
               }}
             />
             <p className="mt-3 font-secondary-body text-content-muted">
-              PDF, DOCX, TXT, Markdown · Up to 10 MiB
+              PDF, DOCX, PPTX, TXT, Markdown · Up to 10 MiB
             </p>
           </div>
           {file ? (

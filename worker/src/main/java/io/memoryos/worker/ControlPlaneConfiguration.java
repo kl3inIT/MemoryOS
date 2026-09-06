@@ -85,6 +85,12 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
+    RecurringTask<Void> extractionArtifactCleanupTask(io.memoryos.document.ExtractionArtifactPort artifacts) {
+        return Tasks.recurring("memoryos-extraction-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
+                .execute((_, _) -> artifacts.cleanup());
+    }
+
+    @Bean
     AbandonedObjectUploadCleanupTask abandonedObjectUploadCleanupTask(ObjectUploadCleanupPort cleanup) {
         return new AbandonedObjectUploadCleanupTask(cleanup);
     }

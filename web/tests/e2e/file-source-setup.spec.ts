@@ -85,7 +85,8 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     });
     await page.goto("/admin/sources/new/file");
     const submit = page.getByRole("button", { name: "Upload and create" });
-    const input = page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file");
+    const input = page.getByLabel("Choose PDF, DOCX, PPTX, TXT, or Markdown file");
+    await expect(input).toHaveAttribute("accept", ".pdf,.docx,.pptx,.txt,.md");
     await expect(submit).toBeDisabled();
     await input.setInputFiles({
       name: "empty.txt",

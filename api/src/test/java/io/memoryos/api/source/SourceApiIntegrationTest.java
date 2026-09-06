@@ -114,6 +114,9 @@ class SourceApiIntegrationTest {
     private SourceContentExtractor extractor;
 
     @Autowired
+    private io.memoryos.document.ExtractionArtifactPort extractionArtifacts;
+
+    @Autowired
     private PlatformTransactionManager transactionManager;
 
     @Autowired
@@ -341,6 +344,7 @@ class SourceApiIntegrationTest {
                     storedObjects,
                     new TransactionTemplate(transactionManager),
                     leaseScheduler,
+                    extractionArtifacts,
                     new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
             );
             for (OperationWorkload workload : OperationWorkload.values()) {
@@ -402,6 +406,11 @@ class SourceApiIntegrationTest {
     }
 
     static final class InMemoryObjectStorage implements ObjectStorage {
+        @Override
+        public void write(ObjectKey key, byte[] content, String mediaType) {
+            var authorization = authorizeUpload(key, new UploadConstraints(content.length, mediaType, checksum(content)));
+            put(authorization.uri(), content);
+        }
         private final AtomicLong sequence = new AtomicLong();
         private final Map<URI, Entry> authorizations = new ConcurrentHashMap<>();
         private final Map<ObjectKey, Entry> objects = new ConcurrentHashMap<>();

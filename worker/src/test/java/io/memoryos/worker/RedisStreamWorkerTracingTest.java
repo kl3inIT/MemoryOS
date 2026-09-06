@@ -33,7 +33,8 @@ class RedisStreamWorkerTracingTest {
                 mock(io.memoryos.objectstorage.ObjectStorage.class),
                 mock(io.memoryos.objectstorage.StoredObjectRegistry.class),
                 mock(org.springframework.transaction.support.TransactionTemplate.class),
-                mock(java.util.concurrent.ScheduledExecutorService.class), registry);
+                mock(java.util.concurrent.ScheduledExecutorService.class),
+                mock(io.memoryos.document.ExtractionArtifactPort.class), registry);
         var redis = mock(StringRedisTemplate.class, RETURNS_DEEP_STUBS);
         var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8);
         var id = RecordId.of("1-0");

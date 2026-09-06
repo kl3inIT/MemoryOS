@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Document",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"tenant"}
+        allowedDependencies = {"tenant", "objectstorage"}
 )
 package io.memoryos.document;
 

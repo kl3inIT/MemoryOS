@@ -36,6 +36,7 @@ class WorkerConfiguration {
             StoredObjectRegistry storedObjects,
             PlatformTransactionManager transactionManager,
             ScheduledExecutorService claimLeaseScheduler,
+            io.memoryos.document.ExtractionArtifactPort artifacts,
             io.micrometer.core.instrument.MeterRegistry registry
     ) {
         return new DefaultIngestionCoordinator(
@@ -47,6 +48,7 @@ class WorkerConfiguration {
                 storedObjects,
                 new TransactionTemplate(transactionManager),
                 claimLeaseScheduler,
+                artifacts,
                 registry
         );
     }

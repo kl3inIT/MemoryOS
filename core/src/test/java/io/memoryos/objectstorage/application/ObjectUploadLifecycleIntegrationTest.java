@@ -237,6 +237,10 @@ class ObjectUploadLifecycleIntegrationTest {
     }
 
     private static final class FakeObjectStorage implements ObjectStorage {
+        @Override
+        public void write(ObjectKey key, byte[] content, String mediaType) {
+            throw new AssertionError("Browser upload tests must not use server writes");
+        }
         private final Map<ObjectKey, ObjectMetadata> objects = new ConcurrentHashMap<>();
         private final Clock clock;
         private ObjectKey lastKey;

@@ -424,7 +424,7 @@ class PostgresSourceLifecycleTest {
                 "a".repeat(64)
         );
 
-        String metadata = jdbcClient.sql("SELECT metadata_json FROM document_versions")
+        String metadata = jdbcClient.sql("SELECT metadata_json FROM documents")
                 .query(String.class)
                 .single();
         assertEquals("MemoryOS", objectMapper.readTree(metadata).path("author").stringValue());
@@ -594,6 +594,10 @@ class PostgresSourceLifecycleTest {
     }
 
     private static final class InMemoryObjectStorage implements ObjectStorage {
+        @Override
+        public void write(ObjectKey key, byte[] content, String mediaType) {
+            throw new AssertionError("Connector lifecycle tests must not write extraction artifacts");
+        }
         private final AtomicLong sequence = new AtomicLong();
         private final Map<URI, Entry> authorizations = new ConcurrentHashMap<>();
         private final Map<ObjectKey, Entry> objects = new ConcurrentHashMap<>();

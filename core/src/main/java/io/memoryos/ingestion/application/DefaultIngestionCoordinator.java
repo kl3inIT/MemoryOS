@@ -37,6 +37,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     private final StoredObjectRegistry storedObjects;
     private final TransactionTemplate transactions;
     private final ScheduledExecutorService leaseScheduler;
+    private final io.memoryos.document.ExtractionArtifactPort artifacts;
     private final IngestionMetrics metrics;
 
     public DefaultIngestionCoordinator(
@@ -48,6 +49,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             StoredObjectRegistry storedObjects,
             TransactionTemplate transactions,
             ScheduledExecutorService leaseScheduler,
+            io.memoryos.document.ExtractionArtifactPort artifacts,
             io.micrometer.core.instrument.MeterRegistry registry
     ) {
         this.metrics = new IngestionMetrics(registry);
@@ -59,6 +61,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         this.storedObjects = Objects.requireNonNull(storedObjects, "storedObjects must not be null");
         this.transactions = Objects.requireNonNull(transactions, "transactions must not be null");
         this.leaseScheduler = Objects.requireNonNull(leaseScheduler, "leaseScheduler must not be null");
+        this.artifacts = Objects.requireNonNull(artifacts, "artifacts must not be null");
     }
 
     @Override
@@ -115,11 +118,12 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                         work.object().filename()
                 );
             }
+            var staged = artifacts.stage(work.tenantId(), content);
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
                         work.tenantId(),
                         indexingPort.findMappedDocument(work).orElse(null),
-                        content,
+                        staged,
                         expected.checksum().value()
                 );
                 if (!indexingPort.complete(work, documentId)) {

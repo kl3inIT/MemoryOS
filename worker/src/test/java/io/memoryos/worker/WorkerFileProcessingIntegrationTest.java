@@ -1,6 +1,7 @@
 package io.memoryos.worker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.memoryos.connector.SourceManagementService;
@@ -69,7 +70,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
                         + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
                         + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql",
+                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
+                        + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
+                        + "classpath:db/migration/V12__use_current_documents.sql",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
@@ -93,6 +96,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
 class WorkerFileProcessingIntegrationTest {
+    @org.springframework.beans.factory.annotation.Autowired
+    private io.memoryos.document.ExtractionArtifactPort extractionArtifacts;
 
     private static final java.util.List<io.opentelemetry.sdk.trace.data.SpanData> SPANS = new java.util.concurrent.CopyOnWriteArrayList<>();
 
@@ -204,6 +209,9 @@ class WorkerFileProcessingIntegrationTest {
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
+        if (System.getenv("DOCLING_TEST_ENDPOINT") != null) {
+            registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
+        }
         registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
@@ -254,14 +262,15 @@ class WorkerFileProcessingIntegrationTest {
     void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
         worker.stop();
         var sourceId = sources.createFileSource(OWNER, "Worker knowledge").source().id();
-        byte[] content = "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
+        boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
+        byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         var authorization = sources.initiateUpload(
                 OWNER,
                 sourceId,
                 new ObjectUploadSpecification(
-                        "worker.txt",
-                        "text/plain",
+                        docling ? "worker.docx" : "worker.txt",
+                        docling ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "text/plain",
                         content.length,
                         new ContentSha256(sha256)
                 )
@@ -327,12 +336,23 @@ class WorkerFileProcessingIntegrationTest {
                 && span.getLinks().stream().anyMatch(link -> link.getSpanContext().getTraceId().equals(originTrace))));
         org.assertj.core.api.Assertions.assertThat(SPANS.stream().filter(span -> span.getName().equals("memoryos.operation.process")))
                 .allMatch(span -> !span.getParentSpanContext().isValid());
-        assertEquals(
-                2,
+        String artifactKey = jdbcClient.sql("""
+                SELECT a.object_key FROM document_extraction_artifacts a
+                JOIN documents v ON v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id
+                WHERE a.state='ACTIVE' AND a.write_complete=TRUE
+                """).query(String.class).single();
+        try (S3Client client = s3Client()) {
+            String artifact = client.getObjectAsBytes(software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+                    .bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
+            assertTrue(artifact.contains("MemoryOS worker extraction"));
+        }
+        // Rediscovery may publish again while the intentionally stopped consumer is waiting.
+        // Require recovery after stream loss, not an exact timing-dependent delivery count.
+        assertTrue(
                 jdbcClient.sql("SELECT dispatch_attempts FROM index_attempts WHERE id = :id")
                         .param("id", upload.operation().id().value())
                         .query(Integer.class)
-                        .single()
+                        .single() >= 2
         );
         assertEquals(
                 0L,
@@ -365,6 +385,9 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(1, registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count());
         sources.removeItem(OWNER, sourceId, upload.item().id());
         await(() -> sources.getSource(OWNER, sourceId).items().isEmpty());
+        extractionArtifacts.cleanup();
+        await(() -> jdbcClient.sql("SELECT COUNT(*) FROM document_extraction_artifacts")
+                .query(Integer.class).single() == 0);
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM stored_objects").query(Long.class).single());
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM object_uploads").query(Long.class).single());
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM source_uploads").query(Long.class).single());
@@ -433,7 +456,7 @@ class WorkerFileProcessingIntegrationTest {
 
 
     private static void await(BooleanSupplier condition) {
-        await(Duration.ofSeconds(10), condition);
+        await(Duration.ofSeconds(45), condition);
     }
 
     private static void await(Duration timeout, BooleanSupplier condition) {
@@ -443,6 +466,35 @@ class WorkerFileProcessingIntegrationTest {
                 throw new AssertionError("worker condition did not converge within " + timeout);
             }
             LockSupport.parkNanos(Duration.ofMillis(25).toNanos());
+        }
+    }
+
+    private static byte[] docxFixture() throws Exception {
+        try (var output = new java.io.ByteArrayOutputStream(); var zip = new java.util.zip.ZipOutputStream(output)) {
+            var entries = Map.of(
+                    "[Content_Types].xml", """
+                    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+                    <Default Extension="xml" ContentType="application/xml"/>
+                    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+                    </Types>
+                    """,
+                    "_rels/.rels", """
+                    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+                    </Relationships>
+                    """,
+                    "word/document.xml", """
+                    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+                    <w:p><w:r><w:t>MemoryOS worker extraction</w:t></w:r></w:p></w:body></w:document>
+                    """);
+            for (var entry : entries.entrySet()) {
+                zip.putNextEntry(new java.util.zip.ZipEntry(entry.getKey()));
+                zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            zip.finish();
+            return output.toByteArray();
         }
     }
 }
