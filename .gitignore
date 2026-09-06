@@ -14,5 +14,6 @@ web/.playwright-cli/
 .env.tmp
 .memoryos-dev.yaml
 .memoryos-dev.yaml.tmp
+.memoryos-dev.yaml.*.tmp
 secrets/
 __pycache__/

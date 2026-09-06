@@ -11,7 +11,7 @@ if (-not $ProjectRoot) {
 
 $configurationPath = Join-Path $ProjectRoot ".infisical.json"
 $targetPath = Join-Path $ProjectRoot ".memoryos-dev.yaml"
-$temporaryPath = Join-Path $ProjectRoot ".memoryos-dev.yaml.tmp"
+$temporaryPath = Join-Path $ProjectRoot (".memoryos-dev.yaml.{0}.tmp" -f [guid]::NewGuid().ToString("N"))
 
 if (-not (Test-Path $configurationPath -PathType Leaf)) {
     throw "Missing Infisical configuration: $configurationPath"
@@ -45,7 +45,6 @@ if (-not $InfisicalExecutable) {
 }
 
 $env:INFISICAL_DOMAIN = $configuration.domain
-Remove-Item -Path $temporaryPath -Force -ErrorAction SilentlyContinue
 
 try {
     $global:LASTEXITCODE = 0
@@ -64,14 +63,33 @@ try {
         throw "Infisical did not produce a Spring configuration cache"
     }
 
-    $variables = Get-Content -Path $temporaryPath | Where-Object {
-        $_.Trim() -and -not $_.TrimStart().StartsWith("#")
-    }
+    $yaml = [System.IO.File]::ReadAllText($temporaryPath, [System.Text.Encoding]::UTF8)
+    $variables = @($yaml -split "\r\n|\n|\r" | Where-Object {
+        $line = $_.Trim()
+        $line -and -not $line.StartsWith("#") -and
+            $line -ne "{}" -and $line -ne "---" -and $line -ne "..."
+    })
     if ($variables.Count -eq 0) {
         throw "Infisical returned an empty environment"
     }
 
-    Move-Item -Path $temporaryPath -Destination $targetPath -Force
+    if ([System.IO.File]::Exists($targetPath)) {
+        [System.IO.File]::Replace($temporaryPath, $targetPath, [NullString]::Value)
+    }
+    else {
+        try {
+            [System.IO.File]::Move($temporaryPath, $targetPath)
+        }
+        catch [System.IO.IOException] {
+            # Another first launch may have created the cache after the existence check.
+            if (-not [System.IO.File]::Exists($temporaryPath) -or
+                -not [System.IO.File]::Exists($targetPath)) {
+                throw
+            }
+            [System.IO.File]::Replace($temporaryPath, $targetPath, [NullString]::Value)
+        }
+    }
+
     Write-Host "Synchronized $($variables.Count) shared $($configuration.defaultEnvironment) variables from Infisical."
 }
 finally {
