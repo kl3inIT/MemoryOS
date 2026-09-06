@@ -1,11 +1,15 @@
 package io.memoryos.worker;
 
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.tenant.TenantId;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.dao.DataAccessException;
@@ -47,6 +51,7 @@ final class RedisStreamWorker implements SmartLifecycle {
     private final OperationDispatchPort dispatch;
     private final IngestionCoordinator coordinator;
     private final RedisExecutionMetrics metrics;
+    private final OpenTelemetry telemetry;
     private final String consumerId = "memoryos-worker-" + UUID.randomUUID();
 
     private volatile boolean running;
@@ -58,8 +63,10 @@ final class RedisStreamWorker implements SmartLifecycle {
             RedisExecutionProperties properties,
             OperationDispatchPort dispatch,
             IngestionCoordinator coordinator,
-            RedisExecutionMetrics metrics
+            RedisExecutionMetrics metrics,
+            OpenTelemetry telemetry
     ) {
+        this.telemetry = telemetry;
         this.redis = Objects.requireNonNull(redis, "redis must not be null");
         this.topology = Objects.requireNonNull(topology, "topology must not be null");
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
@@ -95,7 +102,8 @@ final class RedisStreamWorker implements SmartLifecycle {
                     properties.consumerBlock().plusSeconds(5).toMillis(),
                     TimeUnit.MILLISECONDS
             )) {
-                LOGGER.warn("Redis stream consumers did not stop within the graceful shutdown window");
+                LOGGER.atWarn().addKeyValue("event", "redis.consumer.shutdown_timeout")
+                        .log("Redis consumers exceeded the shutdown window");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -137,11 +145,17 @@ final class RedisStreamWorker implements SmartLifecycle {
                 }
             } catch (DataAccessException exception) {
                 Throwable cause = exception.getMostSpecificCause();
-                LOGGER.warn("Redis stream operation failed for {} ({}; cause={})",
-                        workload, exception.getClass().getSimpleName(), cause.getClass().getSimpleName());
+                LOGGER.atWarn().addKeyValue("event", "redis.transport.failed")
+                        .addKeyValue("workload", workload.name())
+                        .addKeyValue("error_type", exception.getClass().getName())
+                        .addKeyValue("cause_type", cause.getClass().getName())
+                        .log("Redis operation failed; retry after transport backoff");
                 pause(properties.transportBackoff());
             } catch (RuntimeException exception) {
-                LOGGER.error("Redis stream loop failed safely for {}", workload);
+                LOGGER.atError().addKeyValue("event", "redis.consumer.failed")
+                        .addKeyValue("workload", workload.name())
+                        .addKeyValue("error_type", exception.getClass().getName())
+                        .log("Redis consumer failed; retry after backoff");
                 pause(properties.transportBackoff());
             }
         }
@@ -226,24 +240,52 @@ final class RedisStreamWorker implements SmartLifecycle {
         try {
             delivery = delivery(record.getValue(), workload);
         } catch (IllegalArgumentException exception) {
-            LOGGER.warn("Discarded invalid internal Redis delivery {}", record.getId().getValue());
+            LOGGER.atWarn().addKeyValue("event", "redis.delivery.invalid")
+                    .addKeyValue("redis_message_id", record.getId().getValue())
+                    .log("Discarded invalid internal Redis delivery");
             acknowledgeAndDelete(settings, record.getId());
             metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.INVALID);
             return;
         }
         long startedAt = metrics.startProcessing();
-        try {
-            coordinator.process(delivery);
-            metrics.delivery(
-                    workload,
-                    acknowledgeAndDelete(settings, record.getId())
-                            ? RedisExecutionMetrics.DeliveryOutcome.ACKED
-                            : RedisExecutionMetrics.DeliveryOutcome.ACK_MISSED
-            );
-        } catch (RuntimeException exception) {
-            metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.PENDING);
-            LOGGER.error("Operation delivery {} remains pending after processing failure", record.getId().getValue());
+        var span = OperationTracing.start(telemetry, "memoryos.operation.process", SpanKind.CONSUMER, delivery);
+        var published = SourceOperationTraceContext.from(
+                optional(record.getValue(), "publish_trace_id"), optional(record.getValue(), "publish_span_id"));
+        if (published != null) {
+            span.addLink(io.opentelemetry.api.trace.SpanContext.createFromRemoteParent(
+                    published.traceId(), published.spanId(), io.opentelemetry.api.trace.TraceFlags.getDefault(),
+                    io.opentelemetry.api.trace.TraceState.getDefault()));
+        }
+        try (var scope = span.makeCurrent();
+             var traceMdc = MDC.putCloseable("traceId", span.getSpanContext().getTraceId());
+             var spanMdc = MDC.putCloseable("spanId", span.getSpanContext().getSpanId());
+             var operationMdc = MDC.putCloseable("operation_id", delivery.operationId().value().toString());
+             var deliveryMdc = MDC.putCloseable("delivery_id", delivery.deliveryId().toString());
+             var workloadMdc = MDC.putCloseable("workload", workload.name())) {
+            try {
+                var outcome = coordinator.process(delivery);
+                span.setAttribute("processing.outcome", outcome.name());
+                if (outcome == IngestionCoordinator.Outcome.FAILED) {
+                    span.setStatus(StatusCode.ERROR);
+                }
+                metrics.delivery(
+                        workload,
+                        acknowledgeAndDelete(settings, record.getId())
+                                ? RedisExecutionMetrics.DeliveryOutcome.ACKED
+                                : RedisExecutionMetrics.DeliveryOutcome.ACK_MISSED
+                );
+            } catch (RuntimeException exception) {
+                span.setStatus(StatusCode.ERROR);
+                span.setAttribute("error.type", exception.getClass().getName());
+                metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.PENDING);
+                LOGGER.atError().addKeyValue("event", "redis.delivery.pending")
+                        .addKeyValue("operation_id", delivery.operationId().value())
+                        .addKeyValue("delivery_id", delivery.deliveryId())
+                        .addKeyValue("error_type", exception.getClass().getName())
+                        .log("Delivery remains pending after processing failure");
+            }
         } finally {
+            span.end();
             metrics.completeProcessing(workload, startedAt);
         }
     }
@@ -257,8 +299,13 @@ final class RedisStreamWorker implements SmartLifecycle {
                 new TenantId(UUID.fromString(value(values, "tenant_id"))),
                 workload,
                 new SourceOperationId(UUID.fromString(value(values, "operation_id"))),
-                UUID.fromString(value(values, "delivery_id"))
+                UUID.fromString(value(values, "delivery_id")),
+                SourceOperationTraceContext.from(optional(values, "origin_trace_id"), optional(values, "origin_span_id"))
         );
+    }
+
+    private static String optional(Map<Object, Object> values, String key) {
+        return values.get(key) instanceof String text ? text : null;
     }
 
     private static String value(Map<Object, Object> values, String key) {

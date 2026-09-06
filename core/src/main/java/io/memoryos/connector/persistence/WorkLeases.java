@@ -60,6 +60,13 @@ final class WorkLeases {
         return updated == 1 ? Optional.of(load.apply(operationId, token)) : Optional.empty();
     }
 
+    static @org.jspecify.annotations.Nullable Duration initialQueueWait(java.sql.ResultSet row)
+            throws java.sql.SQLException {
+        return row.getInt("processing_attempts") == 1
+                ? Duration.between(row.getTimestamp("created_at").toInstant(), row.getTimestamp("started_at").toInstant())
+                : null;
+    }
+
     static boolean renew(
             JdbcClient jdbcClient,
             String table,

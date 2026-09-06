@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: classpath:memoryos-observability.yaml
   application:
     name: memoryos-worker
   main:

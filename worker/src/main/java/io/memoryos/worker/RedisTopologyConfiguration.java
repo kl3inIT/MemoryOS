@@ -23,8 +23,9 @@ class RedisTopologyConfiguration {
             StringRedisTemplate redis,
             OperationDispatchPort dispatch,
             RedisExecutionProperties properties,
-            RedisExecutionMetrics metrics
+            RedisExecutionMetrics metrics,
+            io.opentelemetry.api.OpenTelemetry telemetry
     ) {
-        return new RedisOperationRelay(redis, dispatch, properties, metrics);
+        return new RedisOperationRelay(redis, dispatch, properties, metrics, telemetry);
     }
 }

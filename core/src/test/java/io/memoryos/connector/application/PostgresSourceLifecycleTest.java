@@ -323,6 +323,11 @@ class PostgresSourceLifecycleTest {
                     delivery.operationId(),
                     delivery.deliveryId()
             ).orElseThrow();
+            if (attempt == 1) {
+                org.assertj.core.api.Assertions.assertThat(work.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
+            } else {
+                org.junit.jupiter.api.Assertions.assertNull(work.initialQueueWait());
+            }
             assertTrue(attempts.retry(
                     work,
                     "SOURCE_EXTRACTION_INTERNAL",
@@ -372,6 +377,8 @@ class PostgresSourceLifecycleTest {
                 delivery.operationId(),
                 delivery.deliveryId()
         ).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(stale.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
+        org.junit.jupiter.api.Assertions.assertNull(current.initialQueueWait());
         assertNotEquals(stale.claimToken(), current.claimToken());
         DocumentId documentId = new DocumentId(UUID.randomUUID());
         jdbcClient.sql("""
@@ -495,6 +502,8 @@ class PostgresSourceLifecycleTest {
                 cleanupDelivery.operationId(),
                 cleanupDelivery.deliveryId()
         ).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(staleCleanup.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
+        org.junit.jupiter.api.Assertions.assertNull(currentCleanup.initialQueueWait());
         assertNotEquals(staleCleanup.claimToken(), currentCleanup.claimToken());
         assertFalse(cleanup.fail(staleCleanup, "SOURCE_CLEANUP_INTERNAL"));
         assertTrue(cleanup.fail(currentCleanup, "SOURCE_CLEANUP_INTERNAL"));

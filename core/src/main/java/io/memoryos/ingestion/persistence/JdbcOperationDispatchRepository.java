@@ -1,6 +1,7 @@
 package io.memoryos.ingestion.persistence;
 
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.ingestion.DispatchClaim;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
@@ -17,6 +18,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +32,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
     private static final Pattern ERROR_CODE = Pattern.compile("[A-Z][A-Z0-9_]{0,63}");
 
     private static final String INDEX_CANDIDATES = """
-            SELECT attempt.id, attempt.tenant_id
+            SELECT attempt.id, attempt.tenant_id, attempt.origin_trace_id, attempt.origin_span_id
             FROM index_attempts attempt
             JOIN tenants tenant ON tenant.id = attempt.tenant_id
             JOIN connector_credential_pairs pair
@@ -54,7 +56,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             """;
 
     private static final String CLEANUP_CANDIDATES = """
-            SELECT id, tenant_id
+            SELECT id, tenant_id, origin_trace_id, origin_span_id
             FROM connector_cleanup_attempts
             WHERE next_dispatch_at <= :now
               AND (dispatch_token IS NULL OR dispatch_lease_expires_at < :now)
@@ -84,7 +86,8 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                 .param("limit", limit)
                 .query((resultSet, _) -> new DispatchCandidate(
                         resultSet.getObject("id", UUID.class),
-                        resultSet.getObject("tenant_id", UUID.class)
+                        resultSet.getObject("tenant_id", UUID.class),
+                        SourceOperationTraceContext.from(resultSet.getString("origin_trace_id"), resultSet.getString("origin_span_id"))
                 ))
                 .list();
         List<DispatchClaim> claims = new ArrayList<>(candidates.size());
@@ -115,7 +118,8 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                                 new TenantId(candidate.tenantId()),
                                 workload,
                                 new SourceOperationId(candidate.operationId()),
-                                deliveryId
+                                deliveryId,
+                                candidate.origin()
                         ),
                         token
                 ));
@@ -231,7 +235,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                 .update();
     }
 
-    private record DispatchCandidate(UUID operationId, UUID tenantId) {
+    private record DispatchCandidate(UUID operationId, UUID tenantId, @Nullable SourceOperationTraceContext origin) {
     }
 
     private static String table(OperationWorkload workload) {

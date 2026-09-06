@@ -2,6 +2,9 @@
 
 These conventions apply across MemoryOS. Capability-specific behavior belongs in `docs/specs/`; change-local reasoning belongs in the active increment.
 
+For logging, tracing, metric names and labels, business outcome instrumentation,
+privacy, and staging defaults, follow the [observability conventions](guidelines/observability.md).
+
 ## Change design
 
 - Prefer the smallest complete production path over scaffolding for a hypothetical future path.
@@ -108,3 +111,8 @@ Domain Story and Consumer
 - `ARCHITECTURE.md` states what exists. `docs/vision.md` states intended outcomes. ADRs state accepted rationale. Guidelines state reusable policy. Specs state capability contracts. Increment documents state change-local design and progress.
 - Update documents in the same change that makes them true.
 - Do not mark an increment completed or move it from `active/` until verification passes and the pull request is merged.
+
+## Observability
+
+Follow the [logging and telemetry policy](guidelines/observability.md) for event fields,
+levels, sensitive content, durable correlation, sampling and metric cardinality.

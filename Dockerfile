@@ -16,6 +16,7 @@ COPY core ./core
 COPY connector ./connector
 COPY api ./api
 COPY worker ./worker
+COPY config ./config
 
 RUN --mount=type=cache,target=/root/.gradle sed -i 's/\r$//' gradlew \
     && chmod 0755 gradlew \

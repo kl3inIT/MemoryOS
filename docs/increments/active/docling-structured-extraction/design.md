@@ -16,7 +16,7 @@ Versioned blocks carry type, stable index, text, heading hierarchy, tables with 
 
 Store canonical JSON in private MinIO. PostgreSQL owns the stable Document's current metadata, source checksum, artifact reference and eligibility. Replace these fields in place, following Onyx's current-document model; do not retain extraction-version history or lock retry output to a processing profile. Track artifacts before publication and reclaim them once no current Document references them.
 
-Normalized text is transient parser output, not a PostgreSQL projection. Downstream chunking reads the canonical artifact. Extraction artifact storage does not move MEM-46 chunk/embedding authority out of PostgreSQL. V11 copies current metadata/reference and discards old version history and text for dev/staging; missing legacy artifacts do not block migration. The normal FILE reindex route regenerates them when needed.
+Normalized text is transient parser output, not a PostgreSQL projection. Downstream chunking reads the canonical artifact. Extraction artifact storage does not move MEM-46 chunk/embedding authority out of PostgreSQL. V12 copies current metadata/reference and discards old version history and text for dev/staging; missing legacy artifacts do not block migration. The normal FILE reindex route regenerates them when needed.
 
 ## Execution and service
 

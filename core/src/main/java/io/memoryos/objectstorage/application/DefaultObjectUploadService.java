@@ -191,12 +191,10 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
                 });
                 completed++;
             } catch (RuntimeException exception) {
-                LOGGER.warn(
-                        "Abandoned object upload cleanup failed; the claim will be retried after lease expiry: tenant={}, upload={}",
-                        row.tenantId().value(),
-                        row.uploadId().value(),
-                        exception
-                );
+                LOGGER.atWarn().addKeyValue("event", "object_upload.cleanup.retry")
+                        .addKeyValue("upload_id", row.uploadId().value())
+                        .addKeyValue("error_type", exception.getClass().getName())
+                        .log("Abandoned upload cleanup failed; retry after lease expiry");
             }
         }
         return completed;

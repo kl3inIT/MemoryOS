@@ -2,7 +2,7 @@
 
 - [ ] Pin compatible Java SDK, server image, models and OCR assets; inspect current official docs and licenses during implementation.
 - [x] Define canonical block/table/provenance schema for FILE and the later Google-native adapters; parser configuration is diagnostic metadata.
-- [x] Replace version history with current Document metadata/reference through V11, without strict legacy-data preservation for dev/staging. Track correction verification in [current-document-plan.md](current-document-plan.md).
+- [x] Replace version history with current Document metadata/reference through V12, without strict legacy-data preservation for dev/staging. Track correction verification in [current-document-plan.md](current-document-plan.md).
 - [x] Implement bounded worker object write/adoption and orphan/last-reference cleanup with least-privilege deployment policy.
 - [x] Implement Java Docling adapter, bounded private byte submission, failure taxonomy and output validation. The synchronous SDK FileSource request uses base64 bytes, not a fetch URL.
 - [x] Integrate FILE PDF/DOCX/PPTX through the real ingestion consumer; retain TXT/Markdown and existing upload/retry UX.

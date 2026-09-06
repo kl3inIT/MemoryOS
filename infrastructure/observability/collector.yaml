@@ -1,0 +1,72 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        max_request_body_size: 4194304
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    timeout: 1s
+    send_batch_size: 256
+    send_batch_max_size: 512
+  transform/privacy:
+    error_mode: propagate
+    trace_statements:
+      - context: span
+        statements:
+          # Invitation URLs and OAuth query strings can contain bearer secrets.
+          # Keep the route template, method and status instead of the raw URL.
+          - delete_key(attributes, "http.url")
+          - delete_key(attributes, "http.target")
+          - delete_key(attributes, "url.full")
+          - delete_key(attributes, "url.path")
+          - delete_key(attributes, "url.query")
+          - set(status.message, "")
+      - context: spanevent
+        statements:
+          - delete_key(attributes, "exception.message")
+          - delete_key(attributes, "exception.stacktrace")
+exporters:
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+    timeout: 2s
+    sending_queue:
+      queue_size: 1000
+    retry_on_failure:
+      max_elapsed_time: 60s
+  otlp_http/tempo:
+    endpoint: http://tempo:4318
+    timeout: 2s
+    sending_queue:
+      queue_size: 1000
+    retry_on_failure:
+      max_elapsed_time: 60s
+  otlp_http/prometheus:
+    metrics_endpoint: http://prometheus:9090/api/v1/otlp/v1/metrics
+    timeout: 2s
+    sending_queue:
+      queue_size: 1000
+    retry_on_failure:
+      max_elapsed_time: 60s
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/privacy, batch]
+      exporters: [otlp_http/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/loki]

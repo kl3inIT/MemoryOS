@@ -21,7 +21,7 @@ class CurrentDocumentMigrationTest {
     @Test
     void keepsCurrentMetadataAndArtifactWithoutBlockingLegacyDevDocuments() {
         Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .target("10").load().migrate();
+                .target("11").load().migrate();
         var jdbc = JdbcClient.create(new DriverManagerDataSource(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()));
         UUID tenant = UUID.randomUUID();

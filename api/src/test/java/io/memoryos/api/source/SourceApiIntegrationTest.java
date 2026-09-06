@@ -344,7 +344,8 @@ class SourceApiIntegrationTest {
                     storedObjects,
                     new TransactionTemplate(transactionManager),
                     leaseScheduler,
-                    extractionArtifacts
+                    extractionArtifacts,
+                    new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
             );
             for (OperationWorkload workload : OperationWorkload.values()) {
                 operationDispatch.claim(workload, 8)

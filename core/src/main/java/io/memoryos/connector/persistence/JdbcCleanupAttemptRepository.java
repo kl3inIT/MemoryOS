@@ -188,7 +188,7 @@ public class JdbcCleanupAttemptRepository {
 
     private CleanupWork load(UUID operationId, UUID token) {
         return jdbcClient.sql("""
-                        SELECT id, tenant_id, operation, target_pair_id, target_item_id
+                        SELECT id, tenant_id, operation, target_pair_id, target_item_id, created_at, started_at, processing_attempts
                         FROM connector_cleanup_attempts
                         WHERE id = :id AND claim_token = :token
                         """)
@@ -200,7 +200,8 @@ public class JdbcCleanupAttemptRepository {
                         io.memoryos.connector.SourceOperationType.valueOf(resultSet.getString("operation")),
                         new io.memoryos.connector.SourceId(resultSet.getObject("target_pair_id", UUID.class)),
                         optionalItemId(resultSet.getObject("target_item_id", UUID.class)),
-                        token
+                        token,
+                        WorkLeases.initialQueueWait(resultSet)
                 ))
                 .single();
     }

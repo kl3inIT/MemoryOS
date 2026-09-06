@@ -56,6 +56,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
+                "management.otlp.metrics.export.enabled=true",
+                "management.otlp.metrics.export.step=1s",
+                "management.otlp.metrics.export.aggregation-temporality=cumulative",
+                "management.otlp.metrics.export.resource-attributes.service.name=memoryos-worker",
                 "spring.sql.init.mode=always",
                 "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
                         + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
@@ -66,8 +70,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
                         + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
                         + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__add_document_extraction_artifacts.sql,"
-                        + "classpath:db/migration/V11__use_current_documents.sql",
+                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
+                        + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
+                        + "classpath:db/migration/V12__use_current_documents.sql",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
@@ -87,11 +92,66 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "memoryos.redis.cleanup.batch-size=4"
         }
 )
+@org.springframework.context.annotation.Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
 class WorkerFileProcessingIntegrationTest {
     @org.springframework.beans.factory.annotation.Autowired
     private io.memoryos.document.ExtractionArtifactPort extractionArtifacts;
+
+    private static final java.util.List<io.opentelemetry.sdk.trace.data.SpanData> SPANS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods = false)
+    static class TelemetryConfiguration {
+        @org.springframework.context.annotation.Bean
+        io.opentelemetry.api.OpenTelemetry operationTestTelemetry() {
+            var processor = new io.opentelemetry.sdk.trace.SpanProcessor() {
+                public void onStart(io.opentelemetry.context.Context parent, io.opentelemetry.sdk.trace.ReadWriteSpan span) {}
+                public boolean isStartRequired() { return false; }
+                public void onEnd(io.opentelemetry.sdk.trace.ReadableSpan span) { SPANS.add(span.toSpanData()); }
+                public boolean isEndRequired() { return true; }
+            };
+            return io.opentelemetry.sdk.OpenTelemetrySdk.builder().setTracerProvider(
+                    io.opentelemetry.sdk.trace.SdkTracerProvider.builder().addSpanProcessor(processor).build()).build();
+        }
+    }
+
+    private static final java.util.List<String> METRIC_EXPORTS = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final com.sun.net.httpserver.HttpServer METRICS_RECEIVER = metricsReceiver();
+
+    private static com.sun.net.httpserver.HttpServer metricsReceiver() {
+        try {
+            var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/v1/metrics", exchange -> {
+                byte[] body = exchange.getRequestBody().readAllBytes();
+                METRIC_EXPORTS.add(new String(body, StandardCharsets.ISO_8859_1));
+                String forward = System.getenv("MEMORYOS_TEST_OTLP_FORWARD");
+                if (forward != null) {
+                    var connection = (java.net.HttpURLConnection) URI.create(forward + "/v1/metrics").toURL().openConnection();
+                    try {
+                        connection.setConnectTimeout(2000);
+                        connection.setReadTimeout(2000);
+                        connection.setRequestMethod("POST");
+                        connection.setDoOutput(true);
+                        connection.setRequestProperty("Content-Type", "application/x-protobuf");
+                        try (var output = connection.getOutputStream()) { output.write(body); }
+                        if (connection.getResponseCode() != 200) throw new java.io.IOException("Collector rejected metrics");
+                    } finally {
+                        connection.disconnect();
+                    }
+                }
+                exchange.sendResponseHeaders(200, -1);
+                exchange.close();
+            });
+            server.start();
+            return server;
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("Could not start metrics receiver", exception);
+        }
+    }
+
+    @org.junit.jupiter.api.AfterAll
+    static void stopMetricsReceiver() { METRICS_RECEIVER.stop(0); }
 
     private static final String INGESTION_STREAM = "memoryos:test:cutover:ingestion";
     private static final String INGESTION_GROUP = "memoryos-test-cutover-ingestion";
@@ -130,6 +190,9 @@ class WorkerFileProcessingIntegrationTest {
 
 
     @Autowired
+    private io.micrometer.core.instrument.MeterRegistry registry;
+
+    @Autowired
     private JdbcClient jdbcClient;
 
     @Autowired
@@ -149,6 +212,7 @@ class WorkerFileProcessingIntegrationTest {
         if (System.getenv("DOCLING_TEST_ENDPOINT") != null) {
             registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
         }
+        registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
@@ -221,7 +285,14 @@ class WorkerFileProcessingIntegrationTest {
             );
         }
         assertEquals(200, uploadResponse.statusCode());
-        var upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
+        io.memoryos.connector.SourceUploadReceipt upload;
+        String originTrace = "1234567890abcdef1234567890abcdef";
+        try (var trace = org.slf4j.MDC.putCloseable("traceId", originTrace);
+             var span = org.slf4j.MDC.putCloseable("spanId", "1234567890abcdef")) {
+            upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
+        }
+        assertEquals(originTrace, jdbcClient.sql("SELECT origin_trace_id FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value()).query(String.class).single());
         assertEquals(sha256, upload.item().sha256());
         String objectKey = jdbcClient.sql("""
                         SELECT object.object_key
@@ -243,6 +314,7 @@ class WorkerFileProcessingIntegrationTest {
                 StreamOffset.create(INGESTION_STREAM, ReadOffset.lastConsumed())
         );
         assertEquals(1, abandoned.size());
+        assertEquals(originTrace, abandoned.getFirst().getValue().get("origin_trace_id"));
         assertEquals(
                 1L,
                 redis.opsForStream().pending(INGESTION_STREAM, INGESTION_GROUP).getTotalPendingMessages()
@@ -250,8 +322,20 @@ class WorkerFileProcessingIntegrationTest {
         LockSupport.parkNanos(Duration.ofMillis(600).toNanos());
         worker.start();
 
-        await(() -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
+        // The real isolated extractor permits 90 seconds, plus stream reclaim/startup.
+        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count() == 1);
+        var initialWait = registry.get("memoryos.operation.initial.queue.wait").tag("workload", "INGESTION").timer();
+        assertEquals(1, initialWait.count());
+        double databaseWaitSeconds = jdbcClient.sql("SELECT EXTRACT(EPOCH FROM started_at - created_at) FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value()).query(Double.class).single();
+        org.assertj.core.api.Assertions.assertThat(initialWait.totalTime(java.util.concurrent.TimeUnit.SECONDS))
+                .isCloseTo(databaseWaitSeconds, org.assertj.core.data.Offset.offset(0.000001));
+        await(() -> SPANS.stream().anyMatch(span -> span.getName().equals("memoryos.operation.process")
+                && span.getLinks().stream().anyMatch(link -> link.getSpanContext().getTraceId().equals(originTrace))));
+        org.assertj.core.api.Assertions.assertThat(SPANS.stream().filter(span -> span.getName().equals("memoryos.operation.process")))
+                .allMatch(span -> !span.getParentSpanContext().isValid());
         String artifactKey = jdbcClient.sql("""
                 SELECT a.object_key FROM document_extraction_artifacts a
                 JOIN documents v ON v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id
@@ -296,6 +380,9 @@ class WorkerFileProcessingIntegrationTest {
                         .single()
         );
 
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "SKIPPED").counter().count() >= 1);
+        assertEquals(1, initialWait.count());
+        assertEquals(1, registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count());
         sources.removeItem(OWNER, sourceId, upload.item().id());
         await(() -> sources.getSource(OWNER, sourceId).items().isEmpty());
         extractionArtifacts.cleanup();
@@ -336,6 +423,13 @@ class WorkerFileProcessingIntegrationTest {
                         .query(String.class)
                         .single()
         );
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "CLEANUP", "outcome", "COMPLETED").counter().count() == 2);
+        int exportsBeforeFinalOutcomes = METRIC_EXPORTS.size();
+        await(() -> METRIC_EXPORTS.size() > exportsBeforeFinalOutcomes);
+        await(() -> METRIC_EXPORTS.stream().anyMatch(body -> body.contains("memoryos.operation.outcomes")
+                && body.contains("memoryos.operation.initial.queue.wait") && body.contains("COMPLETED")
+                && body.contains("SKIPPED") && body.contains("CLEANUP") && body.contains("memoryos-worker")));
+        assertEquals(2, registry.get("memoryos.operation.initial.queue.wait").tag("workload", "CLEANUP").timer().count());
         assertEquals(
                 0L,
                 redis.opsForStream().pending(
@@ -362,10 +456,14 @@ class WorkerFileProcessingIntegrationTest {
 
 
     private static void await(BooleanSupplier condition) {
-        long deadline = System.nanoTime() + Duration.ofSeconds(45).toNanos();
+        await(Duration.ofSeconds(45), condition);
+    }
+
+    private static void await(Duration timeout, BooleanSupplier condition) {
+        long deadline = System.nanoTime() + timeout.toNanos();
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() >= deadline) {
-                throw new AssertionError("worker condition did not converge within 45 seconds");
+                throw new AssertionError("worker condition did not converge within " + timeout);
             }
             LockSupport.parkNanos(Duration.ofMillis(25).toNanos());
         }

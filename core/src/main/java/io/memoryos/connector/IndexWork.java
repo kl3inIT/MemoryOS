@@ -3,7 +3,10 @@ package io.memoryos.connector;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.tenant.TenantId;
 
+import java.time.Duration;
 import java.util.UUID;
+
+import org.jspecify.annotations.Nullable;
 
 public record IndexWork(
         SourceOperationId operationId,
@@ -12,6 +15,7 @@ public record IndexWork(
         SourceId sourceId,
         SourceItemId itemId,
         UUID claimToken,
-        StoredObjectReference object
+        StoredObjectReference object,
+        @Nullable Duration initialQueueWait
 ) {
 }

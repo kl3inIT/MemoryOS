@@ -1,5 +1,6 @@
 [versions]
-spring-boot = "4.1.0"
+opentelemetry = "1.65.0"
+spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
 spring-modulith = "2.1.0"
 archunit = "1.5.0"
@@ -13,6 +14,11 @@ docling-java = "0.6.5"
 
 [libraries]
 docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
+otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.31.1-alpha" }
+spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
+micrometer-core = { module = "io.micrometer:micrometer-core" }
+micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
+otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.31.1-alpha" }
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
