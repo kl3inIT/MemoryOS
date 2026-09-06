@@ -62,6 +62,12 @@ class BearerAuthenticationIntegrationTest {
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> "http://127.0.0.1:" + JWK_SERVER.getAddress().getPort() + "/jwks");
         registry.add("memoryos.identity.audience", () -> AUDIENCE);
+        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
+        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
+        registry.add(
+                "memoryos.identity.keycloak.admin.action-redirect-uri",
+                () -> "http://127.0.0.1/invite/activate"
+        );
         registry.add(
                 "spring.datasource.url",
                 () -> "jdbc:h2:mem:jwt-auth;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
@@ -78,12 +84,15 @@ class BearerAuthenticationIntegrationTest {
         registry.add("spring.security.oauth2.client.provider.memoryos.user-info-uri",
                 () -> ISSUER + "/userinfo");
         registry.add("spring.security.oauth2.client.provider.memoryos.user-name-attribute", () -> "sub");
-        registry.add("memoryos.initial-organization.owner-subject", () -> "startup-owner");
-        registry.add("memoryos.initial-organization.slug", () -> "test");
-        registry.add("memoryos.initial-organization.display-name", () -> "Test");
-        registry.add("memoryos.initial-organization.default-workspace-slug", () -> "default");
-        registry.add("memoryos.initial-organization.default-workspace-display-name", () -> "Default");
-        registry.add("memoryos.initial-organization.change-reference", () -> "TEST-JWT-BOOTSTRAP");
+        registry.add(
+                "arconia.multitenancy.resolution.fixed.tenant-identifier",
+                () -> "10000000-0000-0000-0000-000000000024"
+        );
+        registry.add("memoryos.initial-tenant.id", () -> "10000000-0000-0000-0000-000000000024");
+        registry.add("memoryos.initial-tenant.owner-subject", () -> "startup-owner");
+        registry.add("memoryos.initial-tenant.slug", () -> "test");
+        registry.add("memoryos.initial-tenant.display-name", () -> "Test");
+        registry.add("memoryos.initial-tenant.change-reference", () -> "TEST-JWT-BOOTSTRAP");
     }
 
     @Autowired
@@ -201,12 +210,87 @@ class BearerAuthenticationIntegrationTest {
     }
 
     @Test
-    void returnsOnlyActorIdForBoundIdentity() throws Exception {
+    void returnsEmptyTenantAuthorityForBoundActorWithoutMembership() throws Exception {
         var response = request(token(validClaims(BOUND_SUBJECT), SIGNING_KEY));
 
         assertEquals(200, response.statusCode());
-        assertEquals("{\"actorId\":\"" + ACTOR_ID + "\"}", response.body());
+        assertEquals(
+                "{\"actorId\":\"" + ACTOR_ID + "\",\"tenant\":null,\"capabilities\":[]}",
+                response.body()
+        );
     }
+
+    @Test
+    void returnsDurableTenantAuthorityForBoundOwner() throws Exception {
+        UUID ownerActorId = jdbcClient.sql("""
+                        SELECT actor_id FROM external_identity_bindings
+                        WHERE issuer = :issuer AND subject = 'startup-owner'
+                        """)
+                .param("issuer", ISSUER)
+                .query(UUID.class)
+                .single();
+
+        var response = request(token(validClaims("startup-owner"), SIGNING_KEY));
+
+        assertEquals(200, response.statusCode());
+        assertEquals(
+                "{\"actorId\":\"" + ownerActorId + "\",\"tenant\":{\"displayName\":\"Test\","
+                        + "\"role\":\"OWNER\"},\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]}",
+                response.body()
+        );
+    }
+
+    @Test
+    void ignoresTenantHeadersAndUsesTheFixedDeploymentTenant() throws Exception {
+        var request = HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + port + "/api/identity/me"))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + token(validClaims("startup-owner"), SIGNING_KEY))
+                .header("X-TenantId", "20000000-0000-0000-0000-000000000024")
+                .build();
+
+        var response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode());
+        assertEquals(
+                "Test",
+                io.swagger.v3.core.util.Json.mapper()
+                        .readTree(response.body())
+                        .path("tenant")
+                        .path("displayName")
+                        .textValue()
+        );
+    }
+
+    @Test
+    void rejectsOversizedDeclaredUploadBeforeAuthorization() throws Exception {
+        String body = """
+                {
+                  "filename": "oversized.txt",
+                  "mediaType": "text/plain",
+                  "sizeBytes": 10485761,
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+                """;
+        var request = HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + port
+                                + "/api/sources/" + UUID.randomUUID() + "/uploads"))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + token(validClaims(BOUND_SUBJECT), SIGNING_KEY))
+                .header("X-MemoryOS-CSRF", "1")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+
+        var response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(400, response.statusCode());
+        assertEquals(
+                "REQUEST_VALIDATION",
+                io.swagger.v3.core.util.Json.mapper().readTree(response.body()).path("code").textValue()
+        );
+    }
+
 
     private HttpResponse<String> request(String token) throws IOException, InterruptedException {
         var builder = HttpRequest.newBuilder(

@@ -1,26 +1,27 @@
 package io.memoryos.invitation;
 
 import io.memoryos.FailureCategory;
+import io.memoryos.FailureReason;
 
-public enum InvitationFailureReason {
+public enum InvitationFailureReason implements FailureReason {
     NOT_OWNER(
             "INVITATION_NOT_OWNER",
             FailureCategory.NOT_PERMITTED,
-            "An active Organization owner is required."
+            "An active Tenant owner is required."
     ),
     INVALID_EMAIL(
             "INVITATION_INVALID_EMAIL",
             FailureCategory.VALIDATION,
             "Enter a valid email address."
     ),
-    INVITATION_CONFLICT(
+    CONFLICT(
             "INVITATION_CONFLICT",
             FailureCategory.CONFLICT,
             "The invitation conflicts with existing state."
     ),
-    INVITATION_NOT_AVAILABLE(
+    NOT_AVAILABLE(
             "INVITATION_NOT_AVAILABLE",
-            FailureCategory.UNAVAILABLE,
+            FailureCategory.GONE,
             "This invitation is no longer available."
     ),
     EMAIL_NOT_VERIFIED(
@@ -36,7 +37,7 @@ public enum InvitationFailureReason {
     IDENTITY_CONFLICT(
             "INVITATION_IDENTITY_CONFLICT",
             FailureCategory.CONFLICT,
-            "This identity already has Organization authority."
+            "This identity already has Tenant authority."
     );
 
     private final String code;
@@ -49,14 +50,17 @@ public enum InvitationFailureReason {
         this.message = message;
     }
 
+    @Override
     public String code() {
         return code;
     }
 
+    @Override
     public FailureCategory category() {
         return category;
     }
 
+    @Override
     public String message() {
         return message;
     }

@@ -2,7 +2,7 @@ package io.memoryos.api.security;
 
 import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.invitation.InvitationService;
-import io.memoryos.organization.OrganizationAccessResolver;
+import io.memoryos.tenant.TenantAccessResolver;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -16,20 +16,20 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(OAuth2LoginProperties.class)
+@EnableConfigurationProperties(BrowserLoginProperties.class)
 class SessionSecurityConfiguration {
 
     @Bean
-    @Order(3)
+    @Order(2)
     SecurityFilterChain sessionSecurityFilterChain(
             HttpSecurity http,
             ClientRegistrationRepository clientRegistrationRepository,
             ExternalIdentityResolver identityResolver,
-            OrganizationAccessResolver organizationAccessResolver,
+            TenantAccessResolver tenantAccessResolver,
             InvitationService invitationService,
-            OAuth2LoginProperties oauth2LoginProperties
+            BrowserLoginProperties browserLoginProperties
     ) {
-        var clientRegistration = clientRegistrationRepository.findByRegistrationId(oauth2LoginProperties.registrationId());
+        var clientRegistration = clientRegistrationRepository.findByRegistrationId(browserLoginProperties.registrationId());
         if (clientRegistration == null) {
             throw new IllegalStateException("configured OAuth2 login client registration does not exist");
         }
@@ -38,7 +38,7 @@ class SessionSecurityConfiguration {
         }
         RequestMatcher sessionLogoutRequest = request -> HttpMethod.POST.matches(request.getMethod())
                 && "/logout".equals(request.getServletPath())
-                && "1".equals(request.getHeader("X-MemoryOS-CSRF"));
+                && BrowserMutation.isPresent(request.getHeader(BrowserMutation.HEADER));
 
         http
                 .authorizeHttpRequests(authorize -> authorize
@@ -57,7 +57,7 @@ class SessionSecurityConfiguration {
                         .authorizedClientRepository(new DiscardingOAuth2AuthorizedClientRepository())
                         .successHandler(new ActorSessionLoginSuccessHandler(
                                 identityResolver,
-                                organizationAccessResolver,
+                                tenantAccessResolver,
                                 invitationService
                         ))
                         .failureHandler(new OAuth2LoginFailureHandler()))

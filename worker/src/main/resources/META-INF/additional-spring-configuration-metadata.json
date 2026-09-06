@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "memoryos.worker.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether Redis Stream consumers process durable ingestion and cleanup operations.",
+      "defaultValue": true
+    }
+  ]
+}

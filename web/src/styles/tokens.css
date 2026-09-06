@@ -32,18 +32,139 @@
   --border-default: var(--neutral-200);
   --border-strong: var(--neutral-400);
 
-  /* Interaction roles remain monochrome; status color is reserved for real outcomes. */
-  --action-primary: var(--neutral-900);
-  --action-primary-hover: var(--neutral-800);
-  --action-primary-active: var(--neutral-950);
-  --action-primary-foreground: var(--neutral-00);
-  --action-secondary: var(--neutral-50);
-  --action-secondary-hover: var(--neutral-100);
-  --action-secondary-active: var(--neutral-200);
-  --action-secondary-foreground: var(--neutral-900);
-  --action-ghost-hover: var(--neutral-50);
-  --action-ghost-active: var(--neutral-100);
+  /* Canonical action matrix: tone × prominence × interaction state. */
+  --action-default-primary-surface: var(--neutral-900);
+  --action-default-primary-surface-hover: var(--neutral-800);
+  --action-default-primary-surface-active: var(--neutral-950);
+  --action-default-primary-content: var(--content-inverse);
+  --action-default-primary-content-hover: var(--content-inverse);
+  --action-default-primary-content-active: var(--content-inverse);
+  --action-default-primary-border: transparent;
+  --action-default-primary-border-hover: transparent;
+  --action-default-primary-border-active: transparent;
+  --action-default-secondary-surface: var(--surface-base);
+  --action-default-secondary-surface-hover: var(--surface-subtle);
+  --action-default-secondary-surface-active: var(--surface-sunken);
+  --action-default-secondary-content: var(--content-primary);
+  --action-default-secondary-content-hover: var(--content-primary);
+  --action-default-secondary-content-active: var(--content-primary);
+  --action-default-secondary-border: var(--border-default);
+  --action-default-secondary-border-hover: var(--border-strong);
+  --action-default-secondary-border-active: var(--border-strong);
+  --action-default-tertiary-surface: transparent;
+  --action-default-tertiary-surface-hover: var(--surface-subtle);
+  --action-default-tertiary-surface-active: var(--surface-sunken);
+  --action-default-tertiary-content: var(--content-secondary);
+  --action-default-tertiary-content-hover: var(--content-primary);
+  --action-default-tertiary-content-active: var(--content-primary);
+  --action-default-tertiary-border: transparent;
+  --action-default-tertiary-border-hover: transparent;
+  --action-default-tertiary-border-active: transparent;
+  --action-default-internal-surface: transparent;
+  --action-default-internal-surface-hover: var(--surface-subtle);
+  --action-default-internal-surface-active: var(--surface-sunken);
+  --action-default-internal-content: var(--content-secondary);
+  --action-default-internal-content-hover: var(--content-primary);
+  --action-default-internal-content-active: var(--content-primary);
+  --action-default-internal-border: transparent;
+  --action-default-internal-border-hover: transparent;
+  --action-default-internal-border-active: transparent;
+  --action-default-disabled-surface: var(--surface-sunken);
+  --action-default-disabled-content: var(--content-disabled);
+  --action-default-disabled-border: var(--border-subtle);
+
+  --action-danger-primary-surface: var(--status-danger-strong);
+  --action-danger-primary-surface-hover: color-mix(
+    in oklch,
+    var(--status-danger-strong),
+    var(--content-primary) 8%
+  );
+  --action-danger-primary-surface-active: color-mix(
+    in oklch,
+    var(--status-danger-strong),
+    var(--content-primary) 14%
+  );
+  --action-danger-primary-content: var(--content-inverse);
+  --action-danger-primary-content-hover: var(--content-inverse);
+  --action-danger-primary-content-active: var(--content-inverse);
+  --action-danger-primary-border: transparent;
+  --action-danger-primary-border-hover: transparent;
+  --action-danger-primary-border-active: transparent;
+  --action-danger-secondary-surface: var(--status-danger-surface);
+  --action-danger-secondary-surface-hover: color-mix(
+    in oklch,
+    var(--status-danger-surface),
+    var(--status-danger-strong) 10%
+  );
+  --action-danger-secondary-surface-active: color-mix(
+    in oklch,
+    var(--status-danger-surface),
+    var(--status-danger-strong) 18%
+  );
+  --action-danger-secondary-content: var(--status-danger-content);
+  --action-danger-secondary-content-hover: var(--status-danger-content);
+  --action-danger-secondary-content-active: var(--status-danger-content);
+  --action-danger-secondary-border: color-mix(
+    in oklch,
+    var(--status-danger-content),
+    transparent 65%
+  );
+  --action-danger-secondary-border-hover: color-mix(
+    in oklch,
+    var(--status-danger-content),
+    transparent 45%
+  );
+  --action-danger-secondary-border-active: var(--status-danger-content);
+  --action-danger-tertiary-surface: transparent;
+  --action-danger-tertiary-surface-hover: var(--status-danger-surface);
+  --action-danger-tertiary-surface-active: color-mix(
+    in oklch,
+    var(--status-danger-surface),
+    var(--status-danger-strong) 12%
+  );
+  --action-danger-tertiary-content: var(--status-danger-content);
+  --action-danger-tertiary-content-hover: var(--status-danger-content);
+  --action-danger-tertiary-content-active: var(--status-danger-content);
+  --action-danger-tertiary-border: transparent;
+  --action-danger-tertiary-border-hover: transparent;
+  --action-danger-tertiary-border-active: transparent;
+  --action-danger-internal-surface: transparent;
+  --action-danger-internal-surface-hover: var(--status-danger-surface);
+  --action-danger-internal-surface-active: color-mix(
+    in oklch,
+    var(--status-danger-surface),
+    var(--status-danger-strong) 12%
+  );
+  --action-danger-internal-content: var(--status-danger-content);
+  --action-danger-internal-content-hover: var(--status-danger-content);
+  --action-danger-internal-content-active: var(--status-danger-content);
+  --action-danger-internal-border: transparent;
+  --action-danger-internal-border-hover: transparent;
+  --action-danger-internal-border-active: transparent;
+  --action-danger-disabled-surface: var(--surface-sunken);
+  --action-danger-disabled-content: var(--content-disabled);
+  --action-danger-disabled-border: var(--border-subtle);
   --focus-ring: var(--neutral-400);
+
+  /* Shared control dimensions. */
+  --control-height-sm: 2rem;
+  --control-height-md: 2.5rem;
+  --control-height-lg: 2.75rem;
+  --control-icon-sm: 0.875rem;
+  --control-icon-md: 1rem;
+  --control-icon-lg: 1.125rem;
+
+  /* Compatibility aliases for non-action shadcn components. */
+  --action-primary: var(--action-default-primary-surface);
+  --action-primary-hover: var(--action-default-primary-surface-hover);
+  --action-primary-active: var(--action-default-primary-surface-active);
+  --action-primary-foreground: var(--action-default-primary-content);
+  --action-secondary: var(--action-default-secondary-surface);
+  --action-secondary-hover: var(--action-default-secondary-surface-hover);
+  --action-secondary-active: var(--action-default-secondary-surface-active);
+  --action-secondary-foreground: var(--action-default-secondary-content);
+  --action-ghost-hover: var(--action-default-tertiary-surface-hover);
+  --action-ghost-active: var(--action-default-tertiary-surface-active);
 
   --status-danger-strong: oklch(0.577 0.245 27.325);
   --status-danger-surface: oklch(0.97 0.025 27.325);
@@ -124,16 +245,9 @@
   --border-default: oklch(1 0 0 / 15%);
   --border-strong: oklch(1 0 0 / 24%);
 
-  --action-primary: oklch(0.922 0.006 260);
-  --action-primary-hover: oklch(0.985 0.003 260);
-  --action-primary-active: oklch(0.84 0.008 260);
-  --action-primary-foreground: var(--neutral-900);
-  --action-secondary: oklch(1 0 0 / 9%);
-  --action-secondary-hover: oklch(1 0 0 / 14%);
-  --action-secondary-active: oklch(1 0 0 / 20%);
-  --action-secondary-foreground: oklch(0.94 0.006 260);
-  --action-ghost-hover: oklch(1 0 0 / 8%);
-  --action-ghost-active: oklch(1 0 0 / 14%);
+  --action-default-primary-surface: oklch(0.922 0.006 260);
+  --action-default-primary-surface-hover: oklch(0.985 0.003 260);
+  --action-default-primary-surface-active: oklch(0.84 0.008 260);
   --focus-ring: var(--neutral-500);
 
   --status-danger-strong: oklch(0.704 0.191 22.216);

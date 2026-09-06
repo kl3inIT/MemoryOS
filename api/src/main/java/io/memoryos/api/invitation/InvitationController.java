@@ -2,48 +2,51 @@ package io.memoryos.api.invitation;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
+import io.memoryos.api.invitation.contract.CreateInvitationRequest;
+import io.memoryos.api.invitation.contract.CurrentInvitationResponse;
+import io.memoryos.api.invitation.contract.InvitationPageResponse;
+import io.memoryos.api.invitation.contract.InvitationResponse;
+import io.memoryos.api.invitation.contract.IssuedInvitationResponse;
 import io.memoryos.identity.IdentityContext;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
+import io.memoryos.invitation.InvitationPage;
+import io.memoryos.invitation.InvitationQuery;
 import io.memoryos.invitation.InvitationService;
+import io.memoryos.invitation.InvitationSort;
 import io.memoryos.invitation.InvitationStatus;
 import io.memoryos.invitation.InvitationView;
 import io.memoryos.invitation.IssuedInvitation;
-import io.memoryos.organization.OrganizationId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/invitations")
+@Tag(name = "Invitations")
 final class InvitationController {
 
-    static final String BROWSER_REQUEST_HEADER = "X-MemoryOS-CSRF";
-    static final String BROWSER_REQUEST_VALUE = "1";
     private static final String API_PROBLEM_SCHEMA = "#/components/schemas/ApiProblem";
 
     private final InvitationService invitations;
@@ -54,7 +57,7 @@ final class InvitationController {
 
     @Operation(
             operationId = "listInvitations",
-            summary = "List the current owner's Organization invitations",
+            summary = "List the current owner's Tenant invitations",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -62,10 +65,18 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "200",
-            description = "Invitation lifecycle records without plaintext secrets",
+            description = "A bounded page of invitation lifecycle records without plaintext secrets",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    array = @ArraySchema(schema = @Schema(implementation = InvitationResponse.class))
+                    schema = @Schema(implementation = InvitationPageResponse.class)
+            )
+    )
+    @ApiResponse(
+            responseCode = "400",
+            description = "Invalid invitation list query",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
             )
     )
     @ApiResponse(
@@ -75,24 +86,35 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner",
+            description = "The actor is not an active Tenant owner",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
             )
     )
     @GetMapping
-    List<InvitationResponse> list(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
+    InvitationPageResponse list(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @RequestParam(required = false) InvitationStatus status,
+            @RequestParam(required = false) String email,
+            @RequestParam(defaultValue = "CREATED_AT_DESC") InvitationSort sort,
+            @Parameter(schema = @Schema(type = "integer", format = "int32", defaultValue = "0", minimum = "0"))
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(schema = @Schema(type = "integer", format = "int32", defaultValue = "20", minimum = "1", maximum = "100"))
+            @RequestParam(defaultValue = "20") int size
     ) {
-        return invitations.list(identityContext.actorId()).stream()
-                .map(InvitationController::response)
-                .toList();
+        InvitationQuery query;
+        try {
+            query = new InvitationQuery(status, email, sort, page, size);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+        return page(invitations.list(identityContext.actorId(), query));
     }
 
     @Operation(
             operationId = "createInvitation",
-            summary = "Create one Organization member invitation",
+            summary = "Create one Tenant member invitation",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -121,7 +143,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner or the same-origin header is missing",
+            description = "The actor is not an active Tenant owner or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -135,17 +157,18 @@ final class InvitationController {
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
             )
     )
+    @ApiResponse(
+            responseCode = "503",
+            description = "Keycloak recipient activation is temporarily unavailable",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
+            )
+    )
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     IssuedInvitationResponse create(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
-            @Parameter(
-                    name = BROWSER_REQUEST_HEADER,
-                    description = "Same-origin non-simple request guard for browser-session mutations.",
-                    required = true,
-                    schema = @Schema(allowableValues = BROWSER_REQUEST_VALUE)
-            )
-            @RequestHeader(value = BROWSER_REQUEST_HEADER, required = false) String browserRequest,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @Content(
@@ -155,7 +178,6 @@ final class InvitationController {
             )
             @RequestBody CreateInvitationRequest request
     ) {
-        requireBrowserMutation(browserRequest);
         return issued(invitations.issue(identityContext.actorId(), request.email()));
     }
 
@@ -182,7 +204,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner or the same-origin header is missing",
+            description = "The actor is not an active Tenant owner or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -199,17 +221,9 @@ final class InvitationController {
     @PostMapping("/{invitationId}/rotate")
     IssuedInvitationResponse rotate(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
-            @Parameter(
-                    name = BROWSER_REQUEST_HEADER,
-                    description = "Same-origin non-simple request guard for browser-session mutations.",
-                    required = true,
-                    schema = @Schema(allowableValues = BROWSER_REQUEST_VALUE)
-            )
-            @RequestHeader(value = BROWSER_REQUEST_HEADER, required = false) String browserRequest,
             @Parameter(description = "Invitation identifier.", required = true)
             @PathVariable UUID invitationId
     ) {
-        requireBrowserMutation(browserRequest);
         return issued(invitations.rotate(identityContext.actorId(), invitationId));
     }
 
@@ -229,7 +243,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Organization owner or the same-origin header is missing",
+            description = "The actor is not an active Tenant owner or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -244,20 +258,12 @@ final class InvitationController {
             )
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @DeleteMapping("/{invitationId}")
+    @PostMapping("/{invitationId}/revoke")
     void revoke(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
-            @Parameter(
-                    name = BROWSER_REQUEST_HEADER,
-                    description = "Same-origin non-simple request guard for browser-session mutations.",
-                    required = true,
-                    schema = @Schema(allowableValues = BROWSER_REQUEST_VALUE)
-            )
-            @RequestHeader(value = BROWSER_REQUEST_HEADER, required = false) String browserRequest,
             @Parameter(description = "Invitation identifier.", required = true)
             @PathVariable UUID invitationId
     ) {
-        requireBrowserMutation(browserRequest);
         invitations.revoke(identityContext.actorId(), invitationId);
     }
 
@@ -287,35 +293,43 @@ final class InvitationController {
             HttpServletResponse response
     ) {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        var session = request.getSession(false);
-        var state = session == null
-                ? null
-                : session.getAttribute(InvitationSessionState.ATTRIBUTE);
-        if (!(state instanceof InvitationSessionState invitationState)) {
-            throw unavailable();
+        var state = InvitationSessionState.read(request);
+        if (state == null) {
+            throw new InvitationException(
+                    InvitationFailureReason.NOT_AVAILABLE,
+                    "invitation continuation is not available"
+            );
         }
         try {
-            var continuation = invitations.resume(
-                    invitationState.invitationId(),
-                    new OrganizationId(invitationState.organizationId())
-            );
+            var continuation = invitations.resume(state.invitationId(), state.tenant());
             return new CurrentInvitationResponse(
-                    continuation.organizationDisplayName(),
+                    continuation.tenantDisplayName(),
                     continuation.expiresAt(),
                     "/invite/continue"
             );
         } catch (InvitationException exception) {
-            session.removeAttribute(InvitationSessionState.ATTRIBUTE);
+            InvitationSessionState.clear(request);
             throw exception;
         }
     }
 
-    private static IssuedInvitationResponse issued(
-            IssuedInvitation invitation
-    ) {
+    private static IssuedInvitationResponse issued(IssuedInvitation invitation) {
         return new IssuedInvitationResponse(
                 response(invitation.invitation()),
-                "/invite/" + invitation.plaintextSecret()
+                "/invite/" + invitation.plaintextSecret(),
+                invitation.delivery()
+        );
+    }
+
+    private static InvitationPageResponse page(InvitationPage invitations) {
+        return new InvitationPageResponse(
+                invitations.items().stream()
+                        .map(InvitationController::response)
+                        .toList(),
+                invitations.page(),
+                invitations.size(),
+                invitations.totalItems(),
+                invitations.totalPages()
         );
     }
 
@@ -330,74 +344,5 @@ final class InvitationController {
                 invitation.acceptedAt(),
                 invitation.revokedAt()
         );
-    }
-
-    private static void requireBrowserMutation(String browserRequest) {
-        if (!BROWSER_REQUEST_VALUE.equals(browserRequest)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "same-origin browser request required");
-        }
-    }
-
-    private static InvitationException unavailable() {
-        return new InvitationException(
-                InvitationFailureReason.INVITATION_NOT_AVAILABLE,
-                "invitation continuation is not available"
-        );
-    }
-
-    @Schema(name = "CreateInvitationRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record CreateInvitationRequest(
-            @Schema(
-                    format = "email",
-                    maxLength = 254,
-                    requiredMode = Schema.RequiredMode.REQUIRED
-            )
-            String email
-    ) {
-    }
-
-    @Schema(name = "Invitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record InvitationResponse(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            UUID id,
-            @Schema(format = "email", requiredMode = Schema.RequiredMode.REQUIRED)
-            String email,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            InvitationStatus status,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            Instant createdAt,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            Instant expiresAt,
-            @Schema(nullable = true)
-            UUID acceptedActorId,
-            @Schema(nullable = true)
-            Instant acceptedAt,
-            @Schema(nullable = true)
-            Instant revokedAt
-    ) {
-    }
-
-    @Schema(name = "IssuedInvitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record IssuedInvitationResponse(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            InvitationResponse invitation,
-            @Schema(
-                    pattern = "^/invite/",
-                    description = "Relative same-origin capability URL returned only from create or rotate.",
-                    requiredMode = Schema.RequiredMode.REQUIRED
-            )
-            String invitationUrl
-    ) {
-    }
-
-    @Schema(name = "CurrentInvitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record CurrentInvitationResponse(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            String organizationDisplayName,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            Instant expiresAt,
-            @Schema(pattern = "^/invite/continue", requiredMode = Schema.RequiredMode.REQUIRED)
-            String continueUrl
-    ) {
     }
 }

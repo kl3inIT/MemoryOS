@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import io.memoryos.FailureCategory;
+import io.memoryos.identity.IdentityProvisioningException;
+import io.memoryos.identity.IdentityProvisioningFailureReason;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
 
@@ -36,12 +38,32 @@ class ApiExceptionHandlerTest {
         }
     }
 
+    @Test
+    void mapsEveryIdentityProvisioningFailureToOneSafeProblemContract() {
+        for (IdentityProvisioningFailureReason reason : IdentityProvisioningFailureReason.values()) {
+            var problem = handler.handleBusinessException(new IdentityProvisioningException(
+                    reason,
+                    "provider diagnostic that must stay server-side"
+            ));
+
+            assertEquals(status(reason.category()).value(), problem.getStatus());
+            assertEquals(title(reason.category()), problem.getTitle());
+            assertEquals(reason.message(), problem.getDetail());
+            assertNotEquals("provider diagnostic that must stay server-side", problem.getDetail());
+            assertEquals(problemType(reason.code()), problem.getType());
+            assertNotNull(problem.getProperties());
+            assertEquals(reason.code(), problem.getProperties().get("code"));
+        }
+    }
+
     private static HttpStatus status(FailureCategory category) {
         return switch (category) {
             case VALIDATION -> HttpStatus.BAD_REQUEST;
             case NOT_PERMITTED -> HttpStatus.FORBIDDEN;
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT -> HttpStatus.CONFLICT;
-            case UNAVAILABLE -> HttpStatus.GONE;
+            case GONE -> HttpStatus.GONE;
+            case SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
 
@@ -49,8 +71,10 @@ class ApiExceptionHandlerTest {
         return switch (category) {
             case VALIDATION -> "Validation failed";
             case NOT_PERMITTED -> "Not permitted";
+            case NOT_FOUND -> "Not found";
             case CONFLICT -> "Conflict";
-            case UNAVAILABLE -> "Unavailable";
+            case GONE -> "Unavailable";
+            case SERVICE_UNAVAILABLE -> "Service unavailable";
         };
     }
 

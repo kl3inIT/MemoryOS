@@ -1,11 +1,33 @@
 [versions]
-spring-boot = "4.1.0"
+opentelemetry = "1.65.0"
+spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
 spring-modulith = "2.1.0"
 archunit = "1.5.0"
 springdoc = "3.0.3"
+keycloak-admin-client = "26.0.12"
+tika = "4.0.0"
+arconia = "0.30.0"
+db-scheduler = "16.12.0"
+aws-sdk = "2.54.11"
+docling-java = "0.6.5"
 
 [libraries]
+docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
+otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.31.1-alpha" }
+spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
+micrometer-core = { module = "io.micrometer:micrometer-core" }
+micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
+otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.31.1-alpha" }
+aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
+aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
+aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
+aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
+arconia-bom = { module = "io.arconia:arconia-bom", version.ref = "arconia" }
+arconia-multitenancy-web = { module = "io.arconia:arconia-multitenancy-web-spring-boot-starter" }
+arconia-dev-services-redis = { module = "io.arconia:arconia-dev-services-redis" }
+arconia-dev-services-postgresql = { module = "io.arconia:arconia-dev-services-postgresql" }
+db-scheduler-spring-boot4 = { module = "com.github.kagkarlsson:db-scheduler-spring-boot-4-starter", version.ref = "db-scheduler" }
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 spring-modulith-api = { module = "org.springframework.modulith:spring-modulith-api" }
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
@@ -14,6 +36,9 @@ spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-depe
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
+spring-boot-restclient = { module = "org.springframework.boot:spring-boot-restclient" }
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 springdoc-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-api", version.ref = "springdoc" }
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
 spring-boot-starter-oauth2-client = { module = "org.springframework.boot:spring-boot-starter-oauth2-client" }
@@ -30,6 +55,13 @@ postgresql = { module = "org.postgresql:postgresql" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 h2 = { module = "com.h2database:h2" }
+commons-pool2 = { module = "org.apache.commons:commons-pool2" }
+jackson-databind = { module = "tools.jackson.core:jackson-databind" }
+keycloak-admin-client = { module = "org.keycloak:keycloak-admin-client", version.ref = "keycloak-admin-client" }
+tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }
+tika-parser-pdf = { module = "org.apache.tika:tika-parser-pdf-module", version.ref = "tika" }
+tika-parser-microsoft = { module = "org.apache.tika:tika-parser-microsoft-module", version.ref = "tika" }
+tika-parser-text = { module = "org.apache.tika:tika-parser-text-module", version.ref = "tika" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

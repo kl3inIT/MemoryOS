@@ -3,10 +3,17 @@ package io.memoryos.worker;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication(excludeName = "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration")
+@SpringBootApplication(scanBasePackages = {
+        "io.memoryos.worker",
+        "io.memoryos.connector",
+        "io.memoryos.objectstorage",
+        "io.memoryos.document",
+        "io.memoryos.ingestion",
+        "io.memoryos.tenant.persistence"
+})
 public class MemoryOsWorkerApplication {
 
-    static void main(String[] args) {
+    public static void main(String[] args) {
         SpringApplication.run(MemoryOsWorkerApplication.class, args);
     }
 }

@@ -1,0 +1,35 @@
+# MEM-34 verification
+
+## Implemented surface
+
+- Identity owns a concrete Keycloak Admin Client provisioner behind one narrow root-package invitation API.
+- Invitation issue creates the pending digest-only row, provisions or reuses the exact Keycloak recipient synchronously, and commits only after provider success.
+- New recipients receive bounded `VERIFY_EMAIL` and `UPDATE_PASSWORD` actions; MemoryOS-created unverified users are reused on retry; exact verified users are reused without password reset; unrelated unverified or ambiguous accounts fail closed.
+- Provider calls use explicit connect, connection-request, and read timeouts. Provider conflict and provider unavailability use safe typed business failures, with temporary provider failures rendered as `503` Problem Details.
+- The fixed public `/invite/activate` route carries no invitation correlation, clears stale continuation state, marks only the activation UX source, applies no-store/no-referrer, and starts the existing browser OAuth2 flow.
+- A callback with no capability-link continuation accepts only the exact configured issuer, nonblank subject, provider-verified email, and exactly one pending unexpired normalized-email invitation before entering the existing atomic binding/member/accept transaction.
+- Issued Invitation responses project `ACTIVATION_EMAIL_SENT`, `EXISTING_ACCOUNT`, or `RECOVERY_LINK_ONLY`; the owner UI presents activation, existing-account, and rotated-recovery outcomes without exposing provider internals.
+- Keycloak desired state disables public self-registration, registers the exact callback plus `/invite/activate`, and creates realm-local service-account client `memoryos-user-provisioner` with direct `manage-users` only.
+
+## Current evidence
+
+- `:core:compileJava :api:compileJava` passes.
+- `:core:compileTestJava :api:compileTestJava` passes.
+- `DefaultInvitationServiceTest` passes invitation provisioning invocation, rollback on provider failure, direct verified-email acceptance, no-match/unverified denial, and recovery-link-only rotation.
+- `KeycloakInvitationRecipientProvisionerTest` passes create-and-activate, exact MemoryOS-origin retry, existing verified reuse without reset, unrelated/ambiguous conflict, and bounded provider timeout against a local standards-shaped Admin REST server.
+- `SessionSecurityIntegrationTest` passes both capability-link acceptance and `/invite/activate` verified-email acceptance through real Authorization Code + S256 PKCE with JDBC Spring Session and final provider/invitation-state absence.
+- `OpenApiContractTest` passes against the regenerated committed browser contract; the Hey API client is regenerated and its drift check passes.
+- JetBrains warnings-enabled inspection reports no errors or unresolved warnings. IntelliJ retains only the pre-existing weak header-name warnings for standard `Referrer-Policy` and intentional `X-MemoryOS-CSRF`; both values are exercised by browser integration tests.
+- IntelliJ project build and checked-in Gradle compile pass.
+- Focused `ModulithArchitectureTest`, `CoreDependencyRulesTest`, capability tests, API HTTP/session tests, and `OpenApiContractTest` pass.
+- `gradlew.bat clean check --no-daemon` passes the repository-wide backend gate.
+- `pnpm check` passes generated-client drift, lint, formatting, TypeScript, 25 unit tests, route drift, font-asset policy, and production build.
+- `pnpm test:e2e` passes 14/14 Chromium browser contracts, including activation-delivery and recovery-link presentation.
+- `sh -n infrastructure/keycloak/configure-memoryos-realm.sh` and JSON parsing of `memoryos-user-provisioner-client.json` pass.
+
+## Final delivery evidence
+
+- PR #36 merged as `b291a8abdbeedd56e357d3aa35bb99fabe480515`; reviewed head `d5ca8c7a31979f343a3152161a1349484c374a40` is its ancestor, and exact-merge main CI run `33037296010` passed.
+- Staging runs healthy exact-merge API and web images. Realm reconciliation disabled registration, retained only the exact callbacks, and limited `memoryos-user-provisioner` to direct `manage-users`.
+- A temporary recipient received the captured `VERIFY_EMAIL + UPDATE_PASSWORD` action email, completed verification and password setup, returned through `/invite/activate`, and accepted automatically. Keycloak showed one exact enabled verified user with no remaining required actions.
+- PostgreSQL showed the invitation `ACCEPTED`, cleared email correlation, exact issuer/subject binding, active Organization `MEMBER`, and an acceptance timestamp. Persisted sessions contained only `SPRING_SECURITY_CONTEXT` and zero `InvitationSessionState` attributes. Linear records MEM-34 as Done.

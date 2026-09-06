@@ -1,5 +1,7 @@
+import { Link } from "@tanstack/react-router";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { Brand } from "@/components/brand";
+import { RoutePending } from "@/components/states/route-states";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -9,7 +11,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export function SignInScreen() {
   return (
@@ -26,7 +27,7 @@ export function SignInScreen() {
           Sign in to MemoryOS
         </h1>
 
-        <Button asChild size="lg" className="mt-8 h-11 w-full rounded-lg px-4 text-sm shadow-none">
+        <Button asChild size="lg" className="mt-8 w-full">
           <a href="/oauth2/authorization/memoryos">Continue with company account</a>
         </Button>
       </section>
@@ -53,20 +54,49 @@ export function AccessNotProvisionedScreen() {
               aria-level={1}
               className="text-2xl font-semibold tracking-[-0.03em]"
             >
-              This workspace doesn’t know you yet.
+              You don’t have access yet.
             </EmptyTitle>
             <EmptyDescription className="max-w-sm text-sm leading-6">
-              Your identity was verified, but it has not been invited into this MemoryOS workspace.
-              Ask the workspace owner for access, or continue with another account.
+              Your identity was verified, but it has not been added to this MemoryOS Tenant. Ask a
+              Tenant owner for access, or continue with another account.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button asChild size="lg" className="h-11 rounded-lg px-5 shadow-none">
+            <Button asChild size="lg">
               <a href="/oauth2/authorization/memoryos">Try another account</a>
             </Button>
           </EmptyContent>
         </Empty>
       </div>
+    </main>
+  );
+}
+
+export function AccessDeniedScreen() {
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
+      <Empty className="max-w-md">
+        <EmptyHeader>
+          <EmptyMedia variant="icon" className="bg-muted text-foreground">
+            <CircleAlert />
+          </EmptyMedia>
+          <EmptyTitle
+            role="heading"
+            aria-level={1}
+            className="text-2xl font-semibold tracking-[-0.03em]"
+          >
+            You don’t have access to this area.
+          </EmptyTitle>
+          <EmptyDescription>
+            Your account is active, but it cannot manage Tenant invitations or administration.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button asChild prominence="secondary">
+            <Link to="/">Return to MemoryOS</Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
     </main>
   );
 }
@@ -87,11 +117,11 @@ export function SessionErrorScreen({ onRetry }: { onRetry: () => void }) {
             We couldn’t confirm your session.
           </EmptyTitle>
           <EmptyDescription>
-            Your workspace is unchanged. Check the MemoryOS service and try again.
+            Your Tenant data is unchanged. Check the MemoryOS service and try again.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button variant="outline" onClick={onRetry}>
+          <Button prominence="secondary" onClick={onRetry}>
             Try again
           </Button>
         </EmptyContent>
@@ -101,16 +131,5 @@ export function SessionErrorScreen({ onRetry }: { onRetry: () => void }) {
 }
 
 export function SessionLoadingScreen() {
-  return (
-    <main
-      className="flex min-h-svh items-center justify-center bg-background p-6"
-      aria-label="Opening your workspace"
-    >
-      <div className="flex w-56 flex-col items-center gap-5">
-        <Brand compact />
-        <Skeleton className="h-px w-full rounded-none" />
-        <p className="text-xs font-medium text-muted-foreground">Opening your workspace</p>
-      </div>
-    </main>
-  );
+  return <RoutePending label="Opening MemoryOS" />;
 }

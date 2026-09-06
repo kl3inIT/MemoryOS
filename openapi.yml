@@ -7,25 +7,284 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/sources/{sourceId}/uploads:
+    post:
+      tags:
+      - Sources
+      summary: Authorize one direct FILE source upload
+      operationId: initiateSourceUpload
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiateSourceUploadRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceUploadAuthorization"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/uploads/{uploadId}/finalize:
+    post:
+      tags:
+      - Sources
+      summary: Verify and adopt one direct FILE source upload
+      operationId: finalizeSourceUpload
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: uploadId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceUploadReceipt"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/items/{itemId}/remove:
+    post:
+      tags:
+      - Sources
+      summary: Start durable source item removal
+      operationId: removeSourceItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/items/{itemId}/index-attempts:
+    post:
+      tags:
+      - Sources
+      summary: Reindex one source item
+      operationId: reindexSourceItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/delete:
+    post:
+      tags:
+      - Sources
+      summary: Start durable source deletion
+      operationId: deleteSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/file:
+    post:
+      tags:
+      - Sources
+      summary: Create a Tenant-owned FILE source
+      operationId: createFileSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFileSourceRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations:
     get:
       tags:
-      - invitation-controller
-      summary: List the current owner's Organization invitations
+      - Invitations
+      summary: List the current owner's Tenant invitations
       operationId: listInvitations
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - EXPIRED
+          - REVOKED
+      - name: email
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: CREATED_AT_DESC
+          enum:
+          - CREATED_AT_DESC
+          - CREATED_AT_ASC
+          - EMAIL_ASC
+          - EMAIL_DESC
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
       responses:
         "200":
-          description: Invitation lifecycle records without plaintext secrets
+          description: A bounded page of invitation lifecycle records without plaintext
+            secrets
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Invitation"
+                $ref: "#/components/schemas/InvitationPage"
+        "400":
+          description: Invalid invitation list query
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner
+          description: The actor is not an active Tenant owner
           content:
             application/problem+json:
               schema:
@@ -35,8 +294,8 @@ paths:
       - bearerAuth: []
     post:
       tags:
-      - invitation-controller
-      summary: Create one Organization member invitation
+      - Invitations
+      summary: Create one Tenant member invitation
       operationId: createInvitation
       parameters:
       - name: X-MemoryOS-CSRF
@@ -70,7 +329,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner or the same-origin
+          description: The actor is not an active Tenant owner or the same-origin
             header is missing
           content:
             application/problem+json:
@@ -82,13 +341,19 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Keycloak recipient activation is temporarily unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
       security:
       - browserSession: []
       - bearerAuth: []
   /api/invitations/{invitationId}/rotate:
     post:
       tags:
-      - invitation-controller
+      - Invitations
       summary: Replace the secret of a pending invitation
       operationId: rotateInvitation
       parameters:
@@ -118,7 +383,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner or the same-origin
+          description: The actor is not an active Tenant owner or the same-origin
             header is missing
           content:
             application/problem+json:
@@ -133,49 +398,10 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
-  /api/invitations/current:
-    get:
+  /api/invitations/{invitationId}/revoke:
+    post:
       tags:
-      - invitation-controller
-      summary: Return the redacted invitation landing context from the browser session
-      operationId: getCurrentInvitation
-      responses:
-        "200":
-          description: Active invitation continuation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CurrentInvitation"
-        "410":
-          description: No available invitation continuation exists
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-  /api/identity/me:
-    get:
-      tags:
-      - identity-controller
-      summary: Return the authenticated MemoryOS actor
-      description: Accepts either an existing MemoryOS browser session or a valid
-        bound bearer identity and returns only the stable internal ActorId.
-      operationId: getCurrentIdentity
-      responses:
-        "200":
-          description: The authenticated actor
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CurrentIdentity"
-        "401":
-          description: No accepted authentication is present
-      security:
-      - browserSession: []
-      - bearerAuth: []
-  /api/invitations/{invitationId}:
-    delete:
-      tags:
-      - invitation-controller
+      - Invitations
       summary: Revoke a pending invitation
       operationId: revokeInvitation
       parameters:
@@ -200,7 +426,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Organization owner or the same-origin
+          description: The actor is not an active Tenant owner or the same-origin
             header is missing
           content:
             application/problem+json:
@@ -215,8 +441,362 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/sources:
+    get:
+      tags:
+      - Sources
+      summary: List Tenant sources
+      operationId: listSources
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}:
+    get:
+      tags:
+      - Sources
+      summary: Get one source with current items
+      operationId: getSource
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/items:
+    get:
+      tags:
+      - Sources
+      summary: List current source items
+      operationId: listSourceItems
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceItem"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/index-attempts:
+    get:
+      tags:
+      - Sources
+      summary: List source indexing attempts
+      operationId: listSourceIndexAttempts
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/source-operations/{operationId}:
+    get:
+      tags:
+      - Sources
+      summary: Get a durable source operation
+      operationId: getSourceOperation
+      parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/invitations/current:
+    get:
+      tags:
+      - Invitations
+      summary: Return the redacted invitation landing context from the browser session
+      operationId: getCurrentInvitation
+      responses:
+        "200":
+          description: Active invitation continuation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentInvitation"
+        "410":
+          description: No available invitation continuation exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+  /api/identity/me:
+    get:
+      tags:
+      - Identity
+      summary: Return the authenticated MemoryOS actor
+      description: Accepts either an existing MemoryOS browser session or a valid
+        bound bearer identity and returns the stable internal ActorId plus its durable
+        Tenant authority projection.
+      operationId: getCurrentIdentity
+      responses:
+        "200":
+          description: The authenticated actor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentIdentity"
+        "401":
+          description: No accepted authentication is present
+      security:
+      - browserSession: []
+      - bearerAuth: []
 components:
   schemas:
+    InitiateSourceUploadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        filename:
+          type: string
+          maxLength: 255
+          minLength: 0
+        mediaType:
+          type: string
+          maxLength: 160
+          minLength: 0
+        sizeBytes:
+          type: integer
+          format: int64
+          maximum: 10485760
+          minimum: 1
+        sha256:
+          type: string
+          minLength: 1
+          pattern: "^[0-9a-f]{64}$"
+      required:
+      - filename
+      - mediaType
+      - sha256
+      - sizeBytes
+    SourceUploadAuthorization:
+      type: object
+      additionalProperties: false
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        method:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - method
+      - requiredHeaders
+      - uploadId
+      - uploadUrl
+    SourceItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        sha256:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+        latestOperationId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - errorCode
+      - filename
+      - id
+      - latestOperationId
+      - sha256
+      - sizeBytes
+      - status
+      - uploadedAt
+    SourceOperation:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - completedAt
+      - createdAt
+      - errorCode
+      - id
+      - status
+      - type
+    SourceUploadReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        item:
+          $ref: "#/components/schemas/SourceItem"
+        operation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - item
+      - operation
+    CreateFileSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+      required:
+      - name
+    SourceDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        source:
+          $ref: "#/components/schemas/SourceSummary"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceItem"
+      required:
+      - items
+      - source
+    SourceSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        access:
+          type: string
+        status:
+          type: string
+        pendingWork:
+          type: boolean
+        documentCount:
+          type: integer
+          format: int64
+        lastSucceededAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - access
+      - documentCount
+      - errorCode
+      - id
+      - lastSucceededAt
+      - name
+      - pendingWork
+      - status
+      - type
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -282,14 +862,53 @@ components:
           description: Relative same-origin capability URL returned only from create
             or rotate.
           pattern: ^/invite/
+        delivery:
+          type: string
+          description: Observable delivery result for this issue or rotation operation.
+          enum:
+          - ACTIVATION_EMAIL_SENT
+          - EXISTING_ACCOUNT
+          - RECOVERY_LINK_ONLY
       required:
+      - delivery
       - invitation
       - invitationUrl
+    InvitationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invitation"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
     CurrentInvitation:
       type: object
       additionalProperties: false
       properties:
-        organizationDisplayName:
+        tenantDisplayName:
           type: string
         expiresAt:
           type: string
@@ -300,7 +919,7 @@ components:
       required:
       - continueUrl
       - expiresAt
-      - organizationDisplayName
+      - tenantDisplayName
     CurrentIdentity:
       type: object
       additionalProperties: false
@@ -309,8 +928,40 @@ components:
           type: string
           format: uuid
           description: Stable internal MemoryOS actor identifier.
+        tenant:
+          description: "Active Tenant context, or null when the actor has no active\
+            \ Tenant membership."
+          oneOf:
+          - $ref: "#/components/schemas/CurrentTenant"
+          - type: "null"
+        capabilities:
+          type: array
+          description: Canonical capabilities backed by current server enforcement.
+          items:
+            type: string
+            enum:
+            - INVITATIONS_MANAGE
+            - SOURCES_MANAGE
       required:
       - actorId
+      - capabilities
+      - tenant
+    CurrentTenant:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+          description: Display name of the actor's active Tenant.
+        role:
+          type: string
+          description: Stable Tenant membership role used for presentation.
+          enum:
+          - OWNER
+          - MEMBER
+      required:
+      - displayName
+      - role
     ApiProblem:
       type: object
       additionalProperties: false

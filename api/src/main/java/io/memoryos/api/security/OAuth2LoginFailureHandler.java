@@ -8,8 +8,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 import org.jspecify.annotations.NonNull;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.DefaultRedirectStrategy;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
@@ -28,9 +28,8 @@ final class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
             @NonNull AuthenticationException exception
     ) throws IOException {
         SecurityContextHolder.clearContext();
+        boolean invitationFlow = InvitationSessionState.read(request) != null;
         var session = request.getSession(false);
-        boolean invitationFlow = session != null
-                && session.getAttribute(InvitationSessionState.ATTRIBUTE) instanceof InvitationSessionState;
         if (session != null) {
             session.invalidate();
         }

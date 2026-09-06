@@ -1,6 +1,6 @@
 # MemoryOS
 
-MemoryOS is a durable personal knowledge system built as a controlled Spring Modulith monolith. External provider identities resolve to stable internal actors; the current product path bootstraps one Organization and admits its configured owner through Keycloak browser login.
+MemoryOS is a durable personal knowledge system built as a controlled Spring Modulith monolith. External provider identities resolve to stable internal actors; each self-hosted deployment bootstraps one fixed Tenant and admits its configured owner through Keycloak browser login.
 
 ## Start here
 
@@ -18,17 +18,18 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
 - Node.js 24 with Corepack; `web/package.json` pins pnpm.
-- Docker with the Compose plugin for the hardened PostgreSQL, shared Keycloak, API, and web deployment stack.
+- Docker with the Compose plugin for the hardened PostgreSQL, private MinIO, shared Keycloak, API, indexing worker, and web deployment stack.
 
 ## Modules and capabilities
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Capability contracts, behavior, transactions, persistence, and architecture rules |
-| `api` | Spring Boot HTTP and security composition root |
-| `worker` | Spring Boot background-processing composition root |
+| `core` | Seven closed capability implementations, transactions, persistence, the provider-neutral object-storage contract, and its S3 adapter |
+| `connector` | Shared provider adapter bundle; FILE uses Docling for PDF/DOCX/PPTX and Apache Tika 4 for TXT/Markdown |
+| `api` | Spring Boot HTTP, validation, migration, and security composition root |
+| `worker` | Persistence-backed indexing and cleanup composition root |
 
-Current capabilities: `identity`, `organization`, `authorization`, `knowledge`, `ingestion`, `retrieval`, and `assistant`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `identity`, `tenant`, `invitation`, `objectstorage`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 storage adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 
@@ -72,23 +73,26 @@ pnpm generate:api
 
 Run the OpenAPI contract test again without the write flag, then run `pnpm check`. Normal runtime configuration does not expose springdoc API-doc endpoints.
 
-The API image is built from [`Dockerfile`](Dockerfile) and injects the explicitly selected Infisical environment before Spring Boot starts; the browser image is built from [`web/Dockerfile`](web/Dockerfile). [`infrastructure/deployment/compose.production.yaml`](infrastructure/deployment/compose.production.yaml) owns MemoryOS PostgreSQL, the single Keycloak runtime shared with OrgMemory, staging-only Mailpit and its OAuth2 Proxy, API, and web. The current server selects Infisical `staging`; developer machines select `dev`; no production server exists. PostgreSQL keeps isolated `memoryos` and `keycloak` databases, and the MemoryOS repository provisions only the `memoryos` realm. Mailpit captures verification messages through authenticated STARTTLS; its operator fallback binds to server loopback, while `https://memoryos-mail.72-62-193-33.nip.io` reaches it only through an initial-owner-email-allowlisted S256 OIDC proxy. Deployment commands and migration/rollback procedures are in the runtime runbooks.
+The API and worker images are built from [`Dockerfile`](Dockerfile) and inject the explicitly selected Infisical environment before Spring Boot starts; the browser image is built from [`web/Dockerfile`](web/Dockerfile). Deployment is composed explicitly from [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay. The base owns PostgreSQL, private MinIO and its idempotent bucket/policy bootstrap, the Keycloak runtime shared with OrgMemory, API, worker, and web. Distinct file-mounted MinIO credentials constrain API to signed PUT/inspection and worker to read/delete; both probe one private sentinel. Staging adds Mailpit, TLS Redis, read-only pgweb and Redis Insight, SSO proxies, and an owner-only bucket-read-only MinIO Console using native Keycloak OIDC; production adds no inspection exposure. Developer `bootRun` processes use Arconia's `development` profile for PostgreSQL/Redis but require an explicitly configured object-storage endpoint and credentials.
 
-The staging application is available at `https://memoryos.72-62-193-33.nip.io`; Keycloak retains the matching exact HTTPS callback for `memoryos-web`.
+The staging application is available at `https://memoryos.72-62-193-33.nip.io`; Keycloak retains the matching exact HTTPS callback and `/invite/activate` action return for `memoryos-web`. The configured object-storage origin routes directly to MinIO port `9000` and must match the presigning endpoint, MinIO CORS allowlist, and web CSP. The staging-only Console uses `https://memoryos-minio.72-62-193-33.nip.io`, exact `/oauth_callback`, and the owner-only `memoryos-inspector` policy without exposing port `9001` directly.
 
 ## Current runtime behavior
 
-API startup runs Flyway, transactionally bootstraps or verifies the configured initial Organization owner, and fails on configuration or aggregate drift. Remaining `/api/**` routes use stateless bearer authentication. The exact current-identity endpoint also accepts an existing confidential OAuth2 Authorization Code + PKCE browser session backed by Spring Session JDBC.
+API startup runs Flyway through V9, transactionally bootstraps or verifies the configured Tenant UUID and initial owner, and binds Arconia Web fixed Tenant context around HTTP requests. Source upload initiation returns a checksum-bound presigned PUT; finalization verifies MinIO metadata and adopts or discards the staged object. The worker starts after migrated API health, claims durable leased work, carries each work record's explicit `TenantId` through JDBC predicates, streams immutable object content through the FILE/Tika adapter for bounded detection/extraction, and token-guardedly publishes or cleans Document and object state.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health |
-| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | `{"actorId":"<uuid>"}` |
+| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable actor plus nullable Tenant context and capabilities |
 | `GET /api/identity/me` | Missing/invalid authentication or unknown binding | `401` |
 | `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
+| `GET /invite/activate` | Public Keycloak action return | Starts browser OAuth2 login without carrying invitation correlation |
+| `/api/sources/**` | Active Tenant owner | Create/list/detail, initiate/finalize browser-direct FILE upload, reindex, remove, and delete; mutations use POST commands |
+| `/api/source-operations/**` | Active Tenant owner | Poll durable index and cleanup operations |
 
-The [identity contract](docs/specs/identity.md), [organization contract](docs/specs/organization.md), and [runtime runbook](docs/runbooks/development-runtime.md) define the write boundary and operational procedure.
+The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitation](docs/specs/invitation.md), [object storage](docs/specs/object-storage.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
 
 ## Engineering policies
 

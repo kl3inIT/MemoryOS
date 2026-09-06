@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses } from './types.gen';
+import type { CreateFileSourceData, CreateFileSourceResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveSourceItemData, RemoveSourceItemResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -19,7 +19,93 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
- * List the current owner's Organization invitations
+ * Authorize one direct FILE source upload
+ */
+export const initiateSourceUpload = <ThrowOnError extends boolean = false>(options: Options<InitiateSourceUploadData, ThrowOnError>): RequestResult<InitiateSourceUploadResponses, unknown, ThrowOnError> => (options.client ?? client).post<InitiateSourceUploadResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/uploads',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Verify and adopt one direct FILE source upload
+ */
+export const finalizeSourceUpload = <ThrowOnError extends boolean = false>(options: Options<FinalizeSourceUploadData, ThrowOnError>): RequestResult<FinalizeSourceUploadResponses, unknown, ThrowOnError> => (options.client ?? client).post<FinalizeSourceUploadResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/uploads/{uploadId}/finalize',
+    ...options
+});
+
+/**
+ * Start durable source item removal
+ */
+export const removeSourceItem = <ThrowOnError extends boolean = false>(options: Options<RemoveSourceItemData, ThrowOnError>): RequestResult<RemoveSourceItemResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveSourceItemResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/items/{itemId}/remove',
+    ...options
+});
+
+/**
+ * Reindex one source item
+ */
+export const reindexSourceItem = <ThrowOnError extends boolean = false>(options: Options<ReindexSourceItemData, ThrowOnError>): RequestResult<ReindexSourceItemResponses, unknown, ThrowOnError> => (options.client ?? client).post<ReindexSourceItemResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/items/{itemId}/index-attempts',
+    ...options
+});
+
+/**
+ * Start durable source deletion
+ */
+export const deleteSource = <ThrowOnError extends boolean = false>(options: Options<DeleteSourceData, ThrowOnError>): RequestResult<DeleteSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<DeleteSourceResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/delete',
+    ...options
+});
+
+/**
+ * Create a Tenant-owned FILE source
+ */
+export const createFileSource = <ThrowOnError extends boolean = false>(options: Options<CreateFileSourceData, ThrowOnError>): RequestResult<CreateFileSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateFileSourceResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/file',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List the current owner's Tenant invitations
  */
 export const listInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListInvitationsData, ThrowOnError>): RequestResult<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError>({
     security: [{
@@ -32,7 +118,7 @@ export const listInvitations = <ThrowOnError extends boolean = false>(options?: 
 });
 
 /**
- * Create one Organization member invitation
+ * Create one Tenant member invitation
  */
 export const createInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateInvitationData, ThrowOnError>): RequestResult<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError> => (options.client ?? client).post<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError>({
     security: [{
@@ -62,6 +148,84 @@ export const rotateInvitation = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
+ * Revoke a pending invitation
+ */
+export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).post<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/invitations/{invitationId}/revoke',
+    ...options
+});
+
+/**
+ * List Tenant sources
+ */
+export const listSources = <ThrowOnError extends boolean = false>(options?: Options<ListSourcesData, ThrowOnError>): RequestResult<ListSourcesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources',
+    ...options
+});
+
+/**
+ * Get one source with current items
+ */
+export const getSource = <ThrowOnError extends boolean = false>(options: Options<GetSourceData, ThrowOnError>): RequestResult<GetSourceResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}',
+    ...options
+});
+
+/**
+ * List current source items
+ */
+export const listSourceItems = <ThrowOnError extends boolean = false>(options: Options<ListSourceItemsData, ThrowOnError>): RequestResult<ListSourceItemsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceItemsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/items',
+    ...options
+});
+
+/**
+ * List source indexing attempts
+ */
+export const listSourceIndexAttempts = <ThrowOnError extends boolean = false>(options: Options<ListSourceIndexAttemptsData, ThrowOnError>): RequestResult<ListSourceIndexAttemptsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceIndexAttemptsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/index-attempts',
+    ...options
+});
+
+/**
+ * Get a durable source operation
+ */
+export const getSourceOperation = <ThrowOnError extends boolean = false>(options: Options<GetSourceOperationData, ThrowOnError>): RequestResult<GetSourceOperationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceOperationResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/source-operations/{operationId}',
+    ...options
+});
+
+/**
  * Return the redacted invitation landing context from the browser session
  */
 export const getCurrentInvitation = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentInvitationData, ThrowOnError>): RequestResult<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError>({ url: '/api/invitations/current', ...options });
@@ -69,7 +233,7 @@ export const getCurrentInvitation = <ThrowOnError extends boolean = false>(optio
 /**
  * Return the authenticated MemoryOS actor
  *
- * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns only the stable internal ActorId.
+ * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Tenant authority projection.
  */
 export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentIdentityData, ThrowOnError>): RequestResult<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError>({
     security: [{
@@ -78,18 +242,5 @@ export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/identity/me',
-    ...options
-});
-
-/**
- * Revoke a pending invitation
- */
-export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
-    url: '/api/invitations/{invitationId}',
     ...options
 });

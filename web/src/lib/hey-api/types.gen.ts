@@ -4,6 +4,69 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type InitiateSourceUploadRequest = {
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    sha256: string;
+};
+
+export type SourceUploadAuthorization = {
+    uploadId: string;
+    method: string;
+    uploadUrl: string;
+    requiredHeaders: {
+        [key: string]: string;
+    };
+    expiresAt: string;
+};
+
+export type SourceItem = {
+    id: string;
+    filename: string;
+    sha256: string;
+    sizeBytes: number;
+    status: string;
+    uploadedAt: string;
+    latestOperationId: string | null;
+    errorCode: string | null;
+};
+
+export type SourceOperation = {
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string;
+    completedAt: string | null;
+    errorCode: string | null;
+};
+
+export type SourceUploadReceipt = {
+    item: SourceItem;
+    operation: SourceOperation;
+};
+
+export type CreateFileSourceRequest = {
+    name: string;
+};
+
+export type SourceDetail = {
+    source: SourceSummary;
+    items: Array<SourceItem>;
+};
+
+export type SourceSummary = {
+    id: string;
+    name: string;
+    type: string;
+    access: string;
+    status: string;
+    pendingWork: boolean;
+    documentCount: number;
+    lastSucceededAt: string | null;
+    errorCode: string | null;
+};
+
 export type CreateInvitationRequest = {
     email: string;
 };
@@ -25,10 +88,22 @@ export type IssuedInvitation = {
      * Relative same-origin capability URL returned only from create or rotate.
      */
     invitationUrl: string;
+    /**
+     * Observable delivery result for this issue or rotation operation.
+     */
+    delivery: 'ACTIVATION_EMAIL_SENT' | 'EXISTING_ACCOUNT' | 'RECOVERY_LINK_ONLY';
+};
+
+export type InvitationPage = {
+    items: Array<Invitation>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
 };
 
 export type CurrentInvitation = {
-    organizationDisplayName: string;
+    tenantDisplayName: string;
     expiresAt: string;
     continueUrl: string;
 };
@@ -38,6 +113,25 @@ export type CurrentIdentity = {
      * Stable internal MemoryOS actor identifier.
      */
     actorId: string;
+    /**
+     * Active Tenant context, or null when the actor has no active Tenant membership.
+     */
+    tenant: CurrentTenant | null;
+    /**
+     * Canonical capabilities backed by current server enforcement.
+     */
+    capabilities: Array<'INVITATIONS_MANAGE' | 'SOURCES_MANAGE'>;
+};
+
+export type CurrentTenant = {
+    /**
+     * Display name of the actor's active Tenant.
+     */
+    displayName: string;
+    /**
+     * Stable Tenant membership role used for presentation.
+     */
+    role: 'OWNER' | 'MEMBER';
 };
 
 export type ApiProblem = {
@@ -67,20 +161,175 @@ export type ApiProblem = {
     code?: string;
 };
 
+export type InitiateSourceUploadData = {
+    body: InitiateSourceUploadRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/uploads';
+};
+
+export type InitiateSourceUploadResponses = {
+    /**
+     * Created
+     */
+    201: SourceUploadAuthorization;
+};
+
+export type InitiateSourceUploadResponse = InitiateSourceUploadResponses[keyof InitiateSourceUploadResponses];
+
+export type FinalizeSourceUploadData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+        uploadId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/uploads/{uploadId}/finalize';
+};
+
+export type FinalizeSourceUploadResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceUploadReceipt;
+};
+
+export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof FinalizeSourceUploadResponses];
+
+export type RemoveSourceItemData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items/{itemId}/remove';
+};
+
+export type RemoveSourceItemResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceOperation;
+};
+
+export type RemoveSourceItemResponse = RemoveSourceItemResponses[keyof RemoveSourceItemResponses];
+
+export type ReindexSourceItemData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items/{itemId}/index-attempts';
+};
+
+export type ReindexSourceItemResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceOperation;
+};
+
+export type ReindexSourceItemResponse = ReindexSourceItemResponses[keyof ReindexSourceItemResponses];
+
+export type DeleteSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/delete';
+};
+
+export type DeleteSourceResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceOperation;
+};
+
+export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceResponses];
+
+export type CreateFileSourceData = {
+    body: CreateFileSourceRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/sources/file';
+};
+
+export type CreateFileSourceResponses = {
+    /**
+     * Created
+     */
+    201: SourceDetail;
+};
+
+export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFileSourceResponses];
+
 export type ListInvitationsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        status?: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+        email?: string;
+        sort?: 'CREATED_AT_DESC' | 'CREATED_AT_ASC' | 'EMAIL_ASC' | 'EMAIL_DESC';
+        page?: number;
+        size?: number;
+    };
     url: '/api/invitations';
 };
 
 export type ListInvitationsErrors = {
     /**
+     * Invalid invitation list query
+     */
+    400: ApiProblem;
+    /**
      * No accepted authentication is present
      */
     401: unknown;
     /**
-     * The actor is not an active Organization owner
+     * The actor is not an active Tenant owner
      */
     403: ApiProblem;
 };
@@ -89,9 +338,9 @@ export type ListInvitationsError = ListInvitationsErrors[keyof ListInvitationsEr
 
 export type ListInvitationsResponses = {
     /**
-     * Invitation lifecycle records without plaintext secrets
+     * A bounded page of invitation lifecycle records without plaintext secrets
      */
-    200: Array<Invitation>;
+    200: InvitationPage;
 };
 
 export type ListInvitationsResponse = ListInvitationsResponses[keyof ListInvitationsResponses];
@@ -119,13 +368,17 @@ export type CreateInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Organization owner or the same-origin header is missing
+     * The actor is not an active Tenant owner or the same-origin header is missing
      */
     403: ApiProblem;
     /**
      * A conflicting pending invitation already exists
      */
     409: ApiProblem;
+    /**
+     * Keycloak recipient activation is temporarily unavailable
+     */
+    503: ApiProblem;
 };
 
 export type CreateInvitationError = CreateInvitationErrors[keyof CreateInvitationErrors];
@@ -163,7 +416,7 @@ export type RotateInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Organization owner or the same-origin header is missing
+     * The actor is not an active Tenant owner or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -182,6 +435,140 @@ export type RotateInvitationResponses = {
 };
 
 export type RotateInvitationResponse = RotateInvitationResponses[keyof RotateInvitationResponses];
+
+export type RevokeInvitationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        /**
+         * Invitation identifier.
+         */
+        invitationId: string;
+    };
+    query?: never;
+    url: '/api/invitations/{invitationId}/revoke';
+};
+
+export type RevokeInvitationErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active Tenant owner or the same-origin header is missing
+     */
+    403: ApiProblem;
+    /**
+     * Invitation is no longer pending and available
+     */
+    410: ApiProblem;
+};
+
+export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
+
+export type RevokeInvitationResponses = {
+    /**
+     * Invitation revoked
+     */
+    204: void;
+};
+
+export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
+
+export type ListSourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sources';
+};
+
+export type ListSourcesResponses = {
+    /**
+     * OK
+     */
+    200: Array<SourceSummary>;
+};
+
+export type ListSourcesResponse = ListSourcesResponses[keyof ListSourcesResponses];
+
+export type GetSourceData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}';
+};
+
+export type GetSourceResponses = {
+    /**
+     * OK
+     */
+    200: SourceDetail;
+};
+
+export type GetSourceResponse = GetSourceResponses[keyof GetSourceResponses];
+
+export type ListSourceItemsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/items';
+};
+
+export type ListSourceItemsResponses = {
+    /**
+     * OK
+     */
+    200: Array<SourceItem>;
+};
+
+export type ListSourceItemsResponse = ListSourceItemsResponses[keyof ListSourceItemsResponses];
+
+export type ListSourceIndexAttemptsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        size?: number;
+    };
+    url: '/api/sources/{sourceId}/index-attempts';
+};
+
+export type ListSourceIndexAttemptsResponses = {
+    /**
+     * OK
+     */
+    200: Array<SourceOperation>;
+};
+
+export type ListSourceIndexAttemptsResponse = ListSourceIndexAttemptsResponses[keyof ListSourceIndexAttemptsResponses];
+
+export type GetSourceOperationData = {
+    body?: never;
+    path: {
+        operationId: string;
+    };
+    query?: never;
+    url: '/api/source-operations/{operationId}';
+};
+
+export type GetSourceOperationResponses = {
+    /**
+     * OK
+     */
+    200: SourceOperation;
+};
+
+export type GetSourceOperationResponse = GetSourceOperationResponses[keyof GetSourceOperationResponses];
 
 export type GetCurrentInvitationData = {
     body?: never;
@@ -230,47 +617,3 @@ export type GetCurrentIdentityResponses = {
 };
 
 export type GetCurrentIdentityResponse = GetCurrentIdentityResponses[keyof GetCurrentIdentityResponses];
-
-export type RevokeInvitationData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        /**
-         * Invitation identifier.
-         */
-        invitationId: string;
-    };
-    query?: never;
-    url: '/api/invitations/{invitationId}';
-};
-
-export type RevokeInvitationErrors = {
-    /**
-     * No accepted authentication is present
-     */
-    401: unknown;
-    /**
-     * The actor is not an active Organization owner or the same-origin header is missing
-     */
-    403: ApiProblem;
-    /**
-     * Invitation is no longer pending and available
-     */
-    410: ApiProblem;
-};
-
-export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
-
-export type RevokeInvitationResponses = {
-    /**
-     * Invitation revoked
-     */
-    204: void;
-};
-
-export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];

@@ -28,15 +28,14 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @NullMarked
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(MemoryOsIdentityProperties.class)
+@EnableConfigurationProperties(IdentityProperties.class)
 class SecurityConfiguration {
-
 
     @Bean
     JwtDecoder jwtDecoder(
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
             @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
-            MemoryOsIdentityProperties properties) {
+            IdentityProperties properties) {
         requireUri(issuerUri, "issuer-uri");
         requireJwkSetUri(jwkSetUri);
 
@@ -49,28 +48,12 @@ class SecurityConfiguration {
         return decoder;
     }
 
+    /**
+     * The browser application API: every {@code /api/**} endpoint accepts an existing browser session or a
+     * bound bearer identity, never creates a session, and never saves bearer authentication into one.
+     */
     @Bean
     @Order(1)
-    SecurityFilterChain currentIdentitySecurityFilterChain(
-            HttpSecurity http,
-            JwtDecoder jwtDecoder,
-            ExternalIdentityResolver identityResolver) {
-        http.securityMatcher("/api/identity/me", "/api/invitations", "/api/invitations/**");
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .requestCache(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/invitations/current").permitAll()
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
-                        .decoder(jwtDecoder)
-                        .jwtAuthenticationConverter(new JwtToActorAuthenticationConverter(identityResolver))));
-        return http.build();
-    }
-
-    @Bean
-    @Order(2)
     SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http,
             JwtDecoder jwtDecoder,
@@ -78,8 +61,11 @@ class SecurityConfiguration {
         http.securityMatcher("/api/**");
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .requestCache(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/invitations/current").permitAll()
+                        .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .decoder(jwtDecoder)
                         .jwtAuthenticationConverter(new JwtToActorAuthenticationConverter(identityResolver))));

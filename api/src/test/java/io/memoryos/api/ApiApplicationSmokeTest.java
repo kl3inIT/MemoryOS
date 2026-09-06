@@ -1,29 +1,32 @@
 package io.memoryos.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import java.net.URI;
 
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,12 +38,12 @@ import org.springframework.test.web.servlet.MockMvc;
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
                 "memoryos.identity.audience=memoryos-api",
                 "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-                "memoryos.initial-organization.owner-subject=smoke-owner",
-                "memoryos.initial-organization.slug=smoke",
-                "memoryos.initial-organization.display-name=Smoke",
-                "memoryos.initial-organization.default-workspace-slug=default",
-                "memoryos.initial-organization.default-workspace-display-name=Default",
-                "memoryos.initial-organization.change-reference=TEST-SMOKE-BOOTSTRAP",
+                "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000024",
+                "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000024",
+                "memoryos.initial-tenant.owner-subject=smoke-owner",
+                "memoryos.initial-tenant.slug=smoke",
+                "memoryos.initial-tenant.display-name=Smoke",
+                "memoryos.initial-tenant.change-reference=TEST-SMOKE-BOOTSTRAP",
                 "spring.datasource.url=jdbc:h2:mem:api-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
                 "spring.datasource.username=sa",
                 "spring.datasource.password="
@@ -53,10 +56,19 @@ class ApiApplicationSmokeTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private AsyncTaskExecutor applicationTaskExecutor;
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
+        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
+        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
+        registry.add(
+                "memoryos.identity.keycloak.admin.action-redirect-uri",
+                () -> "http://127.0.0.1/invite/activate"
+        );
     }
 
     @AfterAll
@@ -66,6 +78,13 @@ class ApiApplicationSmokeTest {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void applicationTaskExecutorUsesVirtualThreads() throws Exception {
+        assertTrue(applicationTaskExecutor
+                .submit(() -> Thread.currentThread().isVirtual())
+                .get(5, TimeUnit.SECONDS));
     }
 
     @Test

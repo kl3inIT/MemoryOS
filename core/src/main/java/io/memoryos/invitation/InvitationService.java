@@ -1,16 +1,15 @@
 package io.memoryos.invitation;
 
 import io.memoryos.identity.ActorId;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface InvitationService {
 
     IssuedInvitation issue(ActorId ownerActorId, String email);
 
-    List<InvitationView> list(ActorId ownerActorId);
+    InvitationPage list(ActorId ownerActorId, InvitationQuery query);
 
     IssuedInvitation rotate(ActorId ownerActorId, UUID invitationId);
 
@@ -18,8 +17,10 @@ public interface InvitationService {
 
     InvitationContinuation intake(String plaintextSecret);
 
-    InvitationContinuation resume(UUID invitationId, OrganizationId organizationId);
+    InvitationContinuation resume(UUID invitationId, TenantId tenantId);
 
     ActorId accept(InvitationAcceptance acceptance);
+
+    ActorId acceptVerifiedEmail(VerifiedEmailInvitationAcceptance acceptance);
 
 }

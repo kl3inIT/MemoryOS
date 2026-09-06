@@ -1,6 +1,20 @@
+arconia:
+  multitenancy:
+    resolution:
+      fixed:
+        enabled: true
+        tenant-identifier: ${MEMORYOS_TENANT_ID}
+
 spring:
+  config:
+    import: classpath:memoryos-observability.yaml
   application:
     name: memoryos-api
+  main:
+    keep-alive: true
+  threads:
+    virtual:
+      enabled: true
   mvc:
     problemdetails:
       enabled: true
@@ -57,14 +71,43 @@ management:
 memoryos:
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
+    keycloak:
+      admin:
+        server-url: ${MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL}
+        realm: ${MEMORYOS_KEYCLOAK_ADMIN_REALM:memoryos}
+        client-id: ${MEMORYOS_KEYCLOAK_ADMIN_CLIENT_ID:memoryos-user-provisioner}
+        client-secret: ${MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET}
+        action-client-id: ${MEMORYOS_BROWSER_CLIENT_ID:memoryos-web}
+        action-redirect-uri: ${MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI}
+        connect-timeout: ${MEMORYOS_KEYCLOAK_ADMIN_CONNECT_TIMEOUT:2s}
+        connection-request-timeout: ${MEMORYOS_KEYCLOAK_ADMIN_CONNECTION_REQUEST_TIMEOUT:1s}
+        read-timeout: ${MEMORYOS_KEYCLOAK_ADMIN_READ_TIMEOUT:5s}
   browser:
     registration-id: memoryos
   invitation:
     time-to-live: ${MEMORYOS_INVITATION_TTL:72h}
-  initial-organization:
+  initial-tenant:
+    id: ${MEMORYOS_TENANT_ID}
     owner-subject: ${MEMORYOS_INITIAL_OWNER_SUBJECT}
-    slug: ${MEMORYOS_ORGANIZATION_SLUG}
-    display-name: ${MEMORYOS_ORGANIZATION_DISPLAY_NAME}
-    default-workspace-slug: ${MEMORYOS_DEFAULT_WORKSPACE_SLUG}
-    default-workspace-display-name: ${MEMORYOS_DEFAULT_WORKSPACE_DISPLAY_NAME}
-    change-reference: ${MEMORYOS_INITIAL_ORGANIZATION_CHANGE_REFERENCE}
+    slug: ${MEMORYOS_TENANT_SLUG}
+    display-name: ${MEMORYOS_TENANT_DISPLAY_NAME}
+    change-reference: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
+  object-storage:
+    upload:
+      lifetime: ${MEMORYOS_OBJECT_UPLOAD_LIFETIME:15m}
+      verification-lease: ${MEMORYOS_OBJECT_UPLOAD_VERIFICATION_LEASE:30s}
+      adoption-timeout: ${MEMORYOS_OBJECT_UPLOAD_ADOPTION_TIMEOUT:5m}
+      cleanup-lease: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_LEASE:1m}
+      cleanup-batch-size: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_BATCH_SIZE:16}
+    s3:
+      service-endpoint: ${MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT}
+      upload-endpoint: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT}
+      region: ${MEMORYOS_OBJECT_STORAGE_REGION:us-east-1}
+      bucket: ${MEMORYOS_OBJECT_STORAGE_BUCKET:memoryos}
+      access-key: ${MEMORYOS_OBJECT_STORAGE_ACCESS_KEY}
+      secret-key: ${MEMORYOS_OBJECT_STORAGE_SECRET_KEY}
+      path-style-access: ${MEMORYOS_OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+      readiness-key: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:system/readiness}
+      authorization-lifetime: ${MEMORYOS_OBJECT_UPLOAD_AUTHORIZATION_LIFETIME:10m}
+      connect-timeout: ${MEMORYOS_OBJECT_STORAGE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${MEMORYOS_OBJECT_STORAGE_READ_TIMEOUT:30s}

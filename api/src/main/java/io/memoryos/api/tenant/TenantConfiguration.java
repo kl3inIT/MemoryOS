@@ -1,0 +1,56 @@
+package io.memoryos.api.tenant;
+
+import io.arconia.multitenancy.core.exceptions.TenantVerificationException;
+import io.arconia.multitenancy.core.tenantdetails.TenantVerifier;
+
+import io.memoryos.identity.ExternalIdentity;
+import io.memoryos.tenant.InitialTenantBootstrapRequest;
+import io.memoryos.tenant.InitialTenantBootstrapper;
+import io.memoryos.tenant.TenantAccessResolver;
+import io.memoryos.tenant.TenantId;
+
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+ * Wires the fixed-Tenant runtime: the Arconia tenant verifier and the idempotent initial-Tenant bootstrap.
+ */
+@Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(InitialTenantProperties.class)
+class TenantConfiguration {
+
+    @Bean
+    TenantVerifier tenantVerifier(TenantAccessResolver accessResolver) {
+        return tenantIdentifier -> {
+            TenantId tenantId;
+            try {
+                tenantId = new TenantId(UUID.fromString(tenantIdentifier));
+            } catch (IllegalArgumentException exception) {
+                throw new TenantVerificationException("tenant identifier must be a UUID", exception);
+            }
+            if (!accessResolver.isActiveTenant(tenantId)) {
+                throw new TenantVerificationException("tenant is not active");
+            }
+        };
+    }
+
+    @Bean
+    ApplicationRunner initialTenantBootstrapRunner(
+            InitialTenantBootstrapper bootstrapper,
+            InitialTenantProperties properties,
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer
+    ) {
+        return ignored -> bootstrapper.bootstrap(new InitialTenantBootstrapRequest(
+                new TenantId(properties.id()),
+                new ExternalIdentity(issuer, properties.ownerSubject()),
+                properties.slug(),
+                properties.displayName(),
+                properties.changeReference()
+        ));
+    }
+}

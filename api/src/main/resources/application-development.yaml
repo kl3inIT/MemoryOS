@@ -1,3 +1,9 @@
+arconia:
+  dev:
+    services:
+      postgresql:
+        port: 55432
+
 logging:
   level:
     root: INFO

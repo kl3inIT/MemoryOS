@@ -1,0 +1,64 @@
+# MEM-53 verification: local and staging inspection tooling
+
+Verified locally on 2026-09-02. Public staging SSO acceptance remains a deployment gate because this workstation has no configured SSH access to the staging host.
+
+## Development service lifecycle
+
+| Contract | Evidence |
+| --- | --- |
+| Arconia activates the repository profile rather than its default | Real `:api:bootRun` and `:worker:bootRun` processes each logged exactly one active profile: `development`. `META-INF/arconia-bootstrap.properties` owns the early bootstrap setting. |
+| API alone owns development PostgreSQL | The real API started an Arconia PostgreSQL 18.4 Dev Service on fixed host port `55432`, applied Flyway, completed Tenant bootstrap, and returned `{"status":"UP"}` from `/actuator/health`. |
+| Worker reuses the API database and owns development Redis | With the API still running, the real worker started without another PostgreSQL container, opened its datasource, started db-scheduler, started one Redis 8.8 Dev Service on fixed host port `56379`, and returned `{"status":"UP"}` from `/actuator/health/readiness`. |
+| Tests do not inherit the fixed PostgreSQL lifecycle | The API Gradle test task explicitly disables PostgreSQL Dev Services. Existing isolated PostgreSQL and H2 test contracts remained non-skipped and green. |
+
+Arconia 0.30 has no fixed-port bind-address property. Docker inspection showed Testcontainers publishes the two development ports on host interfaces, not loopback-only. The runbook and architecture record the developer-firewall requirement; the optional browser tools remain loopback-only.
+
+## Compose and inspection boundaries
+
+- Base+staging, base+production, and local-tool Compose combinations each completed `config --quiet` with validation-only values.
+- Base+production rendered exactly `postgres`, `shared-keycloak`, `api`, `worker`, and `web`; it contained no Mailpit, Redis inspector, pgweb, Redis Insight, or inspection OAuth proxy.
+- Base+staging rendered Mailpit, ACL-provisioned TLS Redis, the idempotent PostgreSQL inspector bootstrap, pgweb, Redis Insight, and separate OAuth2 Proxies in addition to the base runtime.
+- Rendered staging configuration reported no published ports for pgweb or Redis Insight. Only their proxies published `127.0.0.1:18026` and `127.0.0.1:18027`; raw tools joined only their private backend networks, while proxies alone also joined `proxy`.
+- Rendered worker configuration retained its API-health dependency, added Redis-health dependency, selected `production,staging`, mounted only the Redis CA, and configured the `memoryos-worker` TLS connection.
+- Pinned image digests are recorded for pgweb 0.17.0, Redis Insight 3.8.0, Redis 8.2.1 Alpine, and OAuth2 Proxy 7.15.3.
+
+## Behavioral inspection evidence
+
+| Contract | Evidence |
+| --- | --- |
+| Secret provisioning is bounded, idempotent, and rotatable | The Linux provisioner ran twice over the same directories, preserved the complete set, and verified the Redis certificate against its CA. An explicit `MEMORYOS_REDIS_TLS_ROTATE=true` run replaced the certificate with a different SHA-256 value. The script prints no secret values and otherwise fails 30 days before expiry with the required coordinated rotation command. |
+| Worker Redis credential has one staging source | The deployed Universal Auth identity injected 19 existing staging secrets but no `MEMORYOS_REDIS_PASSWORD` and correctly rejected secret creation with HTTP `403`. The staging overlay now mounts `redis_worker_password` into both Redis and worker. A built worker image confirmed that the post-Infisical launcher replaces the password environment and copies the public Redis CA to private tmpfs with mode `0444` before dropping privileges, without retaining `CHOWN` in the worker capability set. |
+| Staging application invariants are explicit | The deployed read-only Infisical identity still exposes Organization-era keys and does not expose `MEMORYOS_TENANT_ID`. The staging overlay now passes the stable Tenant ID, slug, display name, bootstrap reference, and worker Redis/scheduler tuning from the mode-`0600` deployment environment. Live startup verified those values against the existing Tenant row and reached healthy API and worker states. |
+| PostgreSQL inspection is read-only | A disposable base+staging runtime created `memoryos_pgweb`, reran the bootstrap over the existing role, and started pgweb under the Compose security constraints. pgweb returned HTTP `200`. The role reported `current_user=memoryos_pgweb` and `transaction_read_only=on`; `CREATE TABLE` failed with `cannot execute CREATE TABLE in a read-only transaction`. |
+| Redis transport is TLS and inspector ACL is persistent | A disposable base+staging runtime started Redis with plaintext port disabled, TLS on `6379`, default user disabled, and hashed administrator, worker, and inspector ACL credentials. Live staging then proved mode-`0600` bind-backed Compose secrets require the root wrapper plus `DAC_OVERRIDE`; after reading them, the wrapper drops to the image's `redis` user before starting the server. Every restart reconstructs that single ACL source from mounted secret files rather than mutable container state. |
+| Redis inspection can read but cannot mutate/administer | `memoryos-inspector` read a seeded `memoryos:execution:*` stream through `XRANGE`. `XADD` returned `NOPERM`; `CONFIG GET` returned `NOPERM`. The ACL also denies unrestricted key patterns and all commands not explicitly listed. |
+| Redis Insight starts with the checked-in restrictions | Redis Insight returned `200 {"status":"up"}` from `/api/health/` under the Compose read-only filesystem/capability constraints. Docker metadata contained neither `RI_REDIS_PASSWORD` nor `RI_ENCRYPTION_KEY`; the root wrapper read both files, dropped to UID `1000`, and the application API reported the preconfigured TLS connection while database management remained disabled. |
+
+## Keycloak reconciliation evidence
+
+`sh -n` passed for the Keycloak, PostgreSQL, Redis, and secret-provisioning scripts. Both inspection client JSON templates parsed successfully.
+
+A live Keycloak 26.5.2 staging reconciliation exercised the complete existing-owner path. It observed:
+
+- one `memoryos-inspector` user-role grant, targeted only to the reconciled initial owner;
+- exact realm-role scope mappings posted only to `clients/<pgweb-or-redisinsight-uuid>/scope-mappings/realm`, each with role ID/name `role-inspector` / `memoryos-inspector`;
+- separate confidential clients with `fullScopeAllowed=false`;
+- exact callbacks `https://pgweb.example.test/oauth2/callback` and `https://redis.example.test/oauth2/callback`;
+- mandatory S256 PKCE on both clients;
+- no requirement for a separate inspection username or password; and
+- no secret value in reconciliation stdout.
+
+The first staging attempt exposed a real realm-policy mismatch: `registrationEmailAsUsername=true` normalizes a newly created `admin` username to its email, so the original exact-username convergence check could never pass. The partially created unprivileged user was removed. Reconciliation now reuses the existing initial owner, preserves its credential, and converges without creating a second privileged account.
+
+CodeRabbit identified that fail-closed validation alone would leave a stale role holder authorized if a prior deployment had granted the dedicated role. Live staging verification temporarily granted `memoryos-inspector` to an ordinary acceptance user, reran reconciliation, and then observed only the initial owner in `roles/memoryos-inspector/users`. Reconciliation now removes every non-owner grant and re-reads role membership before enforcing exactly one owner assignment.
+
+Both public origins redirected to the `memoryos` realm with exact callbacks and `code_challenge_method=S256`. The existing initial owner authenticated successfully into pgweb and Redis Insight. A temporary verified realm user without `memoryos-inspector` completed authentication but received OAuth2 Proxy `403 Forbidden`; the user was deleted immediately afterward. The external `/apps/memoryos-pgweb` Compose containers were removed during cutover while its configuration remains intact for rollback.
+
+## Static, test, and artifact gates
+
+- JetBrains inspections with warnings enabled reported no findings in changed Kotlin DSL, TOML, YAML, JSON, or ordinary application configuration files.
+- IntelliJ reported `Unused property` for each `META-INF/arconia-bootstrap.properties` entry. This is a tooling false positive: Arconia's `BootstrapConfigurationFile` loads that exact resource reflectively before normal configuration import, and the real API/worker launches proved the resulting single `development` profile. No suppression was added.
+- `./gradlew.bat :api:compileJava :worker:compileJava --no-daemon` completed successfully.
+- `./gradlew.bat clean check --no-daemon` completed successfully: 23 actionable tasks, 13 executed, and 10 from cache.
+- The 38 generated test-suite reports contain 141 tests with `skipped="0"`, `failures="0"`, and `errors="0"`.
+- `./gradlew.bat :api:bootJar :worker:bootJar --no-daemon` completed successfully. Archive inspection found no Arconia Dev Services or Testcontainers artifacts in either production JAR; API retained only its intended Arconia multitenancy libraries.

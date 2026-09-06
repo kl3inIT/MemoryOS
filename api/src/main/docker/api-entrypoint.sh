@@ -14,6 +14,7 @@ set +a
 : "${INFISICAL_ENVIRONMENT:?INFISICAL_ENVIRONMENT is required}"
 : "${INFISICAL_CLIENT_ID:?INFISICAL_CLIENT_ID is required}"
 : "${INFISICAL_CLIENT_SECRET:?INFISICAL_CLIENT_SECRET is required}"
+: "${MEMORYOS_APPLICATION_JAR:?MEMORYOS_APPLICATION_JAR is required}"
 
 case "$INFISICAL_ENVIRONMENT" in
     dev|staging|prod) ;;
@@ -38,7 +39,8 @@ export INFISICAL_TOKEN
 unset access_token
 
 exec infisical run \
+    --domain="$INFISICAL_DOMAIN" \
     --projectId="$INFISICAL_PROJECT_ID" \
     --env="$INFISICAL_ENVIRONMENT" \
     -- \
-    su -p -s /bin/sh memoryos -c 'unset INFISICAL_TOKEN; exec java -jar application.jar'
+    /usr/local/bin/memoryos-launcher

@@ -4,13 +4,32 @@ import { Popover } from "radix-ui";
 import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useTheme } from "@/features/theme/theme-context";
+import {
+  useAdminAccess,
+  useApplicationSession,
+} from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 
 const logoutLocationHeader = "X-MemoryOS-Logout-Location";
 
-export function AccountMenu({ collapsed }: { collapsed: boolean }) {
+export function AccountMenu({
+  collapsed,
+  onNavigate,
+}: {
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+  const { tenant } = useApplicationSession();
+  const { canAccessAdmin, adminEntryPath } = useAdminAccess();
+  const membershipLabel = tenant.role === "OWNER" ? "Tenant owner" : "Tenant member";
+  const initials = tenant.displayName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
   const isDark = resolvedTheme === "dark";
   const [signOutState, setSignOutState] = useState<"idle" | "pending" | "error">("idle");
   const signingOut = signOutState === "pending";
@@ -40,13 +59,13 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
         <SidebarTab
           icon={
             <span className="grid size-4 place-items-center rounded-full bg-surface-raised font-figure-small-label text-content-primary ring-1 ring-border-default">
-              OW
+              {initials}
             </span>
           }
           selected={menuOpen}
           collapsed={collapsed}
         >
-          Workspace owner
+          {membershipLabel}
         </SidebarTab>
       </Popover.Trigger>
 
@@ -57,7 +76,8 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
           sideOffset={10}
           className="z-50 w-72 rounded-2xl border border-border-default bg-surface-overlay p-2 shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in"
         >
-          <p className="px-3 py-2 font-main-ui-body text-content-primary">Workspace owner</p>
+          <p className="px-3 pt-2 font-main-ui-body text-content-primary">{tenant.displayName}</p>
+          <p className="px-3 pb-2 font-secondary-body text-content-secondary">{membershipLabel}</p>
           <div className="mt-1 border-t border-border-subtle pt-1">
             <MenuItem
               icon={isDark ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
@@ -65,9 +85,18 @@ export function AccountMenu({ collapsed }: { collapsed: boolean }) {
             >
               {isDark ? "Use light theme" : "Use dark theme"}
             </MenuItem>
-            <MenuItem href="/admin" icon={<Settings2 className="size-4.5" />}>
-              Admin Panel
-            </MenuItem>
+            {canAccessAdmin ? (
+              <MenuItem
+                to={adminEntryPath}
+                icon={<Settings2 className="size-4.5" />}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onNavigate?.();
+                }}
+              >
+                Admin Panel
+              </MenuItem>
+            ) : null}
           </div>
           <div className="mt-1 border-t border-border-subtle pt-1">
             <MenuItem

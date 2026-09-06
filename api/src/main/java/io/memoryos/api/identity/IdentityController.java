@@ -6,9 +6,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
+import io.memoryos.api.identity.contract.CurrentIdentityResponse;
 import io.memoryos.identity.IdentityContext;
-import java.util.UUID;
+import io.memoryos.tenant.TenantAccessResolver;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,13 +19,20 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/identity")
+@Tag(name = "Identity")
 final class IdentityController {
+
+    private final TenantAccessResolver tenantAccessResolver;
+
+    IdentityController(TenantAccessResolver tenantAccessResolver) {
+        this.tenantAccessResolver = tenantAccessResolver;
+    }
 
     @Operation(
             operationId = "getCurrentIdentity",
             summary = "Return the authenticated MemoryOS actor",
             description = "Accepts either an existing MemoryOS browser session or a valid bound bearer identity "
-                    + "and returns only the stable internal ActorId.",
+                    + "and returns the stable internal ActorId plus its durable Tenant authority projection.",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -46,16 +55,10 @@ final class IdentityController {
     CurrentIdentityResponse currentIdentity(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
     ) {
-        return new CurrentIdentityResponse(identityContext.actorId().value());
+        return CurrentIdentityResponse.from(
+                identityContext.actorId().value(),
+                tenantAccessResolver.findActiveMembership(identityContext.actorId()).orElse(null)
+        );
     }
 
-    @Schema(name = "CurrentIdentity", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
-    record CurrentIdentityResponse(
-            @Schema(
-                    description = "Stable internal MemoryOS actor identifier.",
-                    requiredMode = Schema.RequiredMode.REQUIRED
-            )
-            UUID actorId
-    ) {
-    }
 }

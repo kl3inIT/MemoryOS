@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Menu,
@@ -6,20 +7,21 @@ import {
   PanelLeftOpen,
   Plug,
   Settings2,
-  Users,
+  UserPlus,
   X,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/components/app-shell/account-menu";
 import { Brand } from "@/components/brand";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
+import { useAdminAccess } from "@/features/identity/application-session-context";
 import { cn } from "@/lib/utils";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "people";
+export type AdminPage = "sources" | "invitations";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -46,14 +48,16 @@ function SidebarContents({
   mobile = false,
 }: SidebarContentsProps) {
   const appArea = area === "app";
+  const { canManageInvitations, canManageSources, canAccessAdmin, adminEntryPath } =
+    useAdminAccess();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex h-10 shrink-0 items-center gap-2 px-2.5">
         {collapsed && !mobile ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <IconButton
+            prominence="internal"
+            size="sm"
             aria-label="Expand sidebar"
             title="Expand sidebar"
             onClick={onCollapseToggle}
@@ -63,34 +67,34 @@ function SidebarContents({
               <Brand compact />
             </span>
             <PanelLeftOpen className="absolute opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
-          </Button>
+          </IconButton>
         ) : (
           <>
-            <a
-              href="/"
+            <Link
+              to="/"
               aria-label="MemoryOS home"
               className="flex min-w-0 flex-1 items-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               onClick={onNavigate}
             >
               <Brand />
-            </a>
+            </Link>
             {mobile ? (
               <Dialog.Close asChild>
-                <Button variant="ghost" size="icon" aria-label="Close navigation">
+                <IconButton prominence="internal" size="md" aria-label="Close navigation">
                   <X />
-                </Button>
+                </IconButton>
               </Dialog.Close>
             ) : (
-              <Button
-                variant="ghost"
-                size="icon-sm"
+              <IconButton
+                prominence="internal"
+                size="sm"
                 aria-label="Collapse sidebar"
                 title="Collapse sidebar"
                 onClick={onCollapseToggle}
                 className="text-content-secondary"
               >
                 <PanelLeftClose />
-              </Button>
+              </IconButton>
             )}
           </>
         )}
@@ -103,7 +107,7 @@ function SidebarContents({
         {!appArea && (
           <div className="mb-5">
             <SidebarTab
-              href="/"
+              to="/"
               icon={<ArrowLeft className="size-4" />}
               collapsed={collapsed}
               variant="light"
@@ -116,7 +120,7 @@ function SidebarContents({
 
         {appArea ? (
           <SidebarTab
-            href="/"
+            to="/"
             icon={<SquarePen className="size-4" />}
             selected
             collapsed={collapsed}
@@ -126,37 +130,41 @@ function SidebarContents({
           </SidebarTab>
         ) : (
           <div className="space-y-5">
-            <SidebarSection title="Organization" collapsed={collapsed}>
-              <SidebarTab
-                href="/admin/people"
-                icon={<Users className="size-4" />}
-                selected={adminPage === "people"}
-                collapsed={collapsed}
-                onClick={onNavigate}
-              >
-                People
-              </SidebarTab>
-            </SidebarSection>
-            <SidebarSection title="Knowledge" collapsed={collapsed}>
-              <SidebarTab
-                href="/admin"
-                icon={<Plug className="size-4" />}
-                selected={adminPage === "sources"}
-                collapsed={collapsed}
-                onClick={onNavigate}
-              >
-                Sources
-              </SidebarTab>
-            </SidebarSection>
+            {canManageInvitations ? (
+              <SidebarSection title="Tenant" collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/invitations"
+                  icon={<UserPlus className="size-4" />}
+                  selected={adminPage === "invitations"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  Invitations
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageSources ? (
+              <SidebarSection title="Knowledge" collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin"
+                  icon={<Plug className="size-4" />}
+                  selected={adminPage === "sources"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  Sources
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
           </div>
         )}
       </nav>
 
       <footer className="shrink-0 p-2">
-        {appArea && (
+        {appArea && canAccessAdmin ? (
           <div className="mb-1">
             <SidebarTab
-              href="/admin"
+              to={adminEntryPath}
               icon={<Settings2 className="size-4" />}
               collapsed={collapsed}
               variant="light"
@@ -165,8 +173,8 @@ function SidebarContents({
               Admin Panel
             </SidebarTab>
           </div>
-        )}
-        <AccountMenu collapsed={collapsed} />
+        ) : null}
+        <AccountMenu collapsed={collapsed} onNavigate={onNavigate} />
       </footer>
     </div>
   );
@@ -179,6 +187,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface-canvas text-content-primary">
@@ -205,12 +214,12 @@ export function AppShell({
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-base md:m-2 md:ml-0 md:rounded-2xl md:border md:border-border-subtle md:shadow-xs">
-        <Dialog.Root>
+        <Dialog.Root open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3 md:hidden">
             <Dialog.Trigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Open navigation">
+              <IconButton prominence="internal" size="md" aria-label="Open navigation">
                 <Menu />
-              </Button>
+              </IconButton>
             </Dialog.Trigger>
             <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
               {pageTitle}
@@ -221,7 +230,12 @@ export function AppShell({
             <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
             <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none">
               <Dialog.Title className="sr-only">MemoryOS navigation</Dialog.Title>
-              <SidebarContents area={area} adminPage={adminPage} mobile />
+              <SidebarContents
+                area={area}
+                adminPage={adminPage}
+                mobile
+                onNavigate={() => setMobileNavigationOpen(false)}
+              />
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

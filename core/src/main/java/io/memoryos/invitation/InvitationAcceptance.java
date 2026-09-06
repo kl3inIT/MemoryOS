@@ -1,13 +1,13 @@
 package io.memoryos.invitation;
 
 import io.memoryos.identity.ExternalIdentity;
-import io.memoryos.organization.OrganizationId;
+import io.memoryos.tenant.TenantId;
 
 import java.util.UUID;
 
 public record InvitationAcceptance(
         UUID invitationId,
-        OrganizationId organizationId,
+        TenantId tenantId,
         ExternalIdentity externalIdentity,
         String email,
         boolean emailVerified

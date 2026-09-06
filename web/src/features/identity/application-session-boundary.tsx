@@ -1,22 +1,30 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Outlet } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import {
+  AccessNotProvisionedScreen,
   SessionErrorScreen,
   SessionLoadingScreen,
   SignInScreen,
 } from "@/features/identity/session-states";
-import { AdminShell } from "@/features/identity/admin-shell";
-import { NewSessionPage } from "@/features/identity/new-session-page";
-import { OrganizationInvitationsPage } from "@/features/invitations/organization-invitations-page";
 import { isUnauthenticated } from "@/lib/api";
-import { getCurrentIdentityOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { getCurrentIdentity } from "@/lib/hey-api/sdk.gen";
+import { acceptCurrentIdentity } from "@/lib/query-client";
 
-export function ApplicationSessionBoundary({
-  page = "new-session",
-}: {
-  page?: "new-session" | "admin" | "people";
-}) {
+const currentIdentityQueryKey = getCurrentIdentityQueryKey();
+
+export function ApplicationSessionBoundary({ children }: { children?: ReactNode } = {}) {
+  const queryClient = useQueryClient();
   const sessionQuery = useQuery({
-    ...getCurrentIdentityOptions(),
+    queryKey: currentIdentityQueryKey,
+    queryFn: async ({ signal }) => {
+      const { data } = await getCurrentIdentity({ signal, throwOnError: true });
+      acceptCurrentIdentity(queryClient, data);
+      return data;
+    },
+    refetchOnWindowFocus: "always",
     retry: false,
   });
 
@@ -32,6 +40,15 @@ export function ApplicationSessionBoundary({
     return <SessionErrorScreen onRetry={() => void sessionQuery.refetch()} />;
   }
 
-  if (page === "people") return <OrganizationInvitationsPage />;
-  return page === "admin" ? <AdminShell /> : <NewSessionPage />;
+  if (!sessionQuery.data.tenant) {
+    return <AccessNotProvisionedScreen />;
+  }
+
+  return (
+    <ApplicationSessionProvider
+      session={{ ...sessionQuery.data, tenant: sessionQuery.data.tenant }}
+    >
+      {children ?? <Outlet />}
+    </ApplicationSessionProvider>
+  );
 }

@@ -1,16 +1,16 @@
 package io.memoryos.api.security;
 
-import io.memoryos.identity.ExternalIdentity;
+import io.memoryos.api.invitation.InvitationSessionState;
 import io.memoryos.identity.ActorId;
+import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityResolver;
 import io.memoryos.identity.IdentityContext;
-import io.memoryos.api.invitation.InvitationSessionState;
 import io.memoryos.invitation.InvitationAcceptance;
 import io.memoryos.invitation.InvitationException;
 import io.memoryos.invitation.InvitationFailureReason;
 import io.memoryos.invitation.InvitationService;
-import io.memoryos.organization.OrganizationId;
-import io.memoryos.organization.OrganizationAccessResolver;
+import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
+import io.memoryos.tenant.TenantAccessResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -35,20 +35,20 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     private static final String INVITATION_FAILURE_DESTINATION = "/invitation?reason=";
 
     private final ExternalIdentityResolver identityResolver;
-    private final OrganizationAccessResolver organizationAccessResolver;
+    private final TenantAccessResolver tenantAccessResolver;
     private final InvitationService invitationService;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
     ActorSessionLoginSuccessHandler(
             ExternalIdentityResolver identityResolver,
-            OrganizationAccessResolver organizationAccessResolver,
+            TenantAccessResolver tenantAccessResolver,
             InvitationService invitationService
     ) {
         this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
-        this.organizationAccessResolver = Objects.requireNonNull(
-                organizationAccessResolver,
-                "organizationAccessResolver must not be null"
+        this.tenantAccessResolver = Objects.requireNonNull(
+                tenantAccessResolver,
+                "tenantAccessResolver must not be null"
         );
         this.invitationService = Objects.requireNonNull(
                 invitationService,
@@ -77,19 +77,16 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
 
         var externalIdentity = new ExternalIdentity(issuer.toString(), subject);
         var actorId = identityResolver.resolve(externalIdentity).orElse(null);
-        if (actorId == null || !organizationAccessResolver.hasActiveOrganization(actorId)) {
+        if (actorId == null || !tenantAccessResolver.hasActiveTenant(actorId)) {
             actorId = acceptInvitation(request, response, oidcUser, externalIdentity);
             if (actorId == null) {
                 return;
             }
         }
 
-        var session = request.getSession(false);
-        if (session != null) {
-            session.removeAttribute(InvitationSessionState.ATTRIBUTE);
-        }
+        InvitationSessionState.clear(request);
         var securityContext = SecurityContextHolder.createEmptyContext();
-        securityContext.setAuthentication(new ActorSessionAuthenticationToken(new IdentityContext(actorId)));
+        securityContext.setAuthentication(new ActorAuthenticationToken(new IdentityContext(actorId)));
         SecurityContextHolder.setContext(securityContext);
         securityContextRepository.saveContext(securityContext, request, response);
         redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
@@ -101,25 +98,36 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             OidcUser oidcUser,
             ExternalIdentity externalIdentity
     ) throws IOException {
-        var session = request.getSession(false);
-        Object continuationAttribute = session == null
-                ? null
-                : session.getAttribute(InvitationSessionState.ATTRIBUTE);
-        if (!(continuationAttribute instanceof InvitationSessionState invitationState)) {
-            rejectLogin(request, response);
-            return null;
-        }
+        var continuation = InvitationSessionState.read(request);
+        boolean activationFlow = InvitationSessionState.isActivation(request);
 
         try {
-            return invitationService.accept(new InvitationAcceptance(
-                    invitationState.invitationId(),
-                    new OrganizationId(invitationState.organizationId()),
-                    externalIdentity,
-                    oidcUser.getClaimAsString("email"),
-                    Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
-            ));
+            if (continuation != null) {
+                return invitationService.accept(new InvitationAcceptance(
+                        continuation.invitationId(),
+                        continuation.tenant(),
+                        externalIdentity,
+                        oidcUser.getClaimAsString("email"),
+                        Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
+                ));
+            }
+            return invitationService.acceptVerifiedEmail(
+                    new VerifiedEmailInvitationAcceptance(
+                            externalIdentity,
+                            oidcUser.getClaimAsString("email"),
+                            Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
+                    )
+            );
         } catch (InvitationException exception) {
-            rejectInvitation(request, response, invitationFailurePathReason(exception.reason()));
+            if (continuation != null || activationFlow) {
+                rejectInvitation(
+                        request,
+                        response,
+                        invitationFailurePathReason(exception.reason())
+                );
+            } else {
+                rejectLogin(request, response);
+            }
             return null;
         }
     }
@@ -150,8 +158,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         return switch (reason) {
             case EMAIL_NOT_VERIFIED -> "email-not-verified";
             case EMAIL_MISMATCH -> "email-mismatch";
-            case NOT_OWNER, INVALID_EMAIL, INVITATION_CONFLICT,
-                 INVITATION_NOT_AVAILABLE, IDENTITY_CONFLICT -> "not-available";
+            case NOT_OWNER, INVALID_EMAIL, CONFLICT, NOT_AVAILABLE, IDENTITY_CONFLICT -> "not-available";
         };
     }
 }

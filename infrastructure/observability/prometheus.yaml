@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+storage:
+  tsdb:
+    out_of_order_time_window: 5m
+otlp:
+  promote_resource_attributes:
+    - service.name
+    - deployment.environment.name
+  translation_strategy: UnderscoreEscapingWithSuffixes
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+rule_files:
+  - /etc/prometheus/alerts.yaml

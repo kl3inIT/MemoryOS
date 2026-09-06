@@ -30,9 +30,11 @@ LABEL org.opencontainers.image.title="MemoryOS Web" \
 
 RUN rm -f /etc/nginx/conf.d/default.conf
 
-COPY --chown=101:101 web/nginx.conf /etc/nginx/nginx.conf
+COPY --chown=101:101 web/nginx.conf /etc/nginx/nginx.conf.template
 COPY --from=build --chown=101:101 /workspace/web/dist /usr/share/nginx/html
+ENV MEMORYOS_OBJECT_STORAGE_CONNECT_SRC=""
+
 
 USER 101:101
 EXPOSE 8080
-ENTRYPOINT ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/bin/sh", "-c", "envsubst '$MEMORYOS_OBJECT_STORAGE_CONNECT_SRC' < /etc/nginx/nginx.conf.template > /tmp/nginx.conf && exec nginx -c /tmp/nginx.conf -g 'daemon off;'"]

@@ -3,6 +3,8 @@ package io.memoryos;
 public enum FailureCategory {
     VALIDATION,
     NOT_PERMITTED,
+    NOT_FOUND,
     CONFLICT,
-    UNAVAILABLE
+    GONE,
+    SERVICE_UNAVAILABLE
 }

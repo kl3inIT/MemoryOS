@@ -54,6 +54,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.context.annotation.Import;
 
 @SuppressWarnings({
         "SqlResolve",
@@ -62,6 +63,7 @@ import org.springframework.test.context.DynamicPropertySource;
         "SqlWithoutWhere"
 })
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TestKeycloakProvisioningConfiguration.class)
 class SessionSecurityIntegrationTest {
 
     private static final RSAKey SIGNING_KEY = rsaKey();
@@ -89,6 +91,12 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> ISSUER);
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> ISSUER + "/jwks");
         registry.add("memoryos.identity.audience", () -> "memoryos-api");
+        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
+        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
+        registry.add(
+                "memoryos.identity.keycloak.admin.action-redirect-uri",
+                () -> "http://127.0.0.1/invite/activate"
+        );
         registry.add("server.servlet.session.cookie.secure", () -> "false");
         registry.add("spring.datasource.url", () -> "jdbc:h2:mem:browser-auth;MODE=PostgreSQL;"
                 + "DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
@@ -105,12 +113,15 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.client.registration.memoryos.scope", () -> "openid");
         registry.add("spring.security.oauth2.client.registration.memoryos.provider", () -> "memoryos");
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> ISSUER);
-        registry.add("memoryos.initial-organization.owner-subject", () -> "initial-owner");
-        registry.add("memoryos.initial-organization.slug", () -> "tasco");
-        registry.add("memoryos.initial-organization.display-name", () -> "Tasco");
-        registry.add("memoryos.initial-organization.default-workspace-slug", () -> "default");
-        registry.add("memoryos.initial-organization.default-workspace-display-name", () -> "Tasco Default Workspace");
-        registry.add("memoryos.initial-organization.change-reference", () -> "TEST-BROWSER-BOOTSTRAP");
+        registry.add(
+                "arconia.multitenancy.resolution.fixed.tenant-identifier",
+                () -> "10000000-0000-0000-0000-000000000024"
+        );
+        registry.add("memoryos.initial-tenant.id", () -> "10000000-0000-0000-0000-000000000024");
+        registry.add("memoryos.initial-tenant.owner-subject", () -> "initial-owner");
+        registry.add("memoryos.initial-tenant.slug", () -> "tasco");
+        registry.add("memoryos.initial-tenant.display-name", () -> "Tasco");
+        registry.add("memoryos.initial-tenant.change-reference", () -> "TEST-BROWSER-BOOTSTRAP");
     }
 
     @AfterAll
@@ -172,19 +183,19 @@ class SessionSecurityIntegrationTest {
             assertEquals(baseUri().resolve("/").toString(), callbackResponse.headers().firstValue("location").orElseThrow());
             assertNotEquals(preAuthenticationSessionId, sessionCookie(cookies));
 
-            var authenticated = client.send(request("/"), HttpResponse.BodyHandlers.ofString());
-            assertEquals(200, authenticated.statusCode());
-            assertTrue(authenticated.body().contains(ownerActorId.toString()));
             var currentIdentity = client.send(
                     request("/api/identity/me"),
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, currentIdentity.statusCode());
             assertTrue(currentIdentity.body().contains(ownerActorId.toString()));
-            assertEquals(1L, count("organizations"));
-            assertEquals(1L, count("workspaces"));
-            assertEquals(1L, count("organization_memberships"));
-            assertEquals(1L, count("workspace_memberships"));
+            assertTrue(currentIdentity.body().contains("\"displayName\":\"Tasco\""));
+            assertTrue(currentIdentity.body().contains("\"role\":\"OWNER\""));
+            assertTrue(currentIdentity.body().contains(
+                    "\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]"
+            ));
+            assertEquals(1L, count("tenants"));
+            assertEquals(1L, count("tenant_memberships"));
 
             List<byte[]> attributes = jdbcClient.sql("SELECT attribute_bytes FROM spring_session_attributes")
                     .query(byte[].class)
@@ -311,6 +322,90 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
+    void filtersSortsAndPaginatesInvitationHistoryOverHttp() throws Exception {
+        AUTHENTICATING_SUBJECT.set("initial-owner");
+        AUTHENTICATING_EMAIL.set("owner@example.test");
+        AUTHENTICATING_EMAIL_VERIFIED.set(true);
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var client = client(cookies)) {
+            completeOAuth(client, "/oauth2/authorization/memoryos");
+            var alpha = client.send(
+                    invitationMutation("{\"email\":\"alpha@example.test\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var zeta = client.send(
+                    invitationMutation("{\"email\":\"zeta@example.test\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var beta = client.send(
+                    invitationMutation("{\"email\":\"beta@example.test\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(201, alpha.statusCode());
+            assertEquals(201, zeta.statusCode());
+            assertEquals(201, beta.statusCode());
+
+            var revokeAlpha = client.send(
+                    HttpRequest.newBuilder(baseUri().resolve(
+                                    "/api/invitations/" + jsonString(alpha.body(), "id") + "/revoke"
+                            ))
+                            .header(BROWSER_MUTATION_HEADER, "1")
+                            .POST(HttpRequest.BodyPublishers.noBody())
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(204, revokeAlpha.statusCode());
+
+            var firstPage = client.send(
+                    request("/api/invitations?status=PENDING&email=%40example.test"
+                            + "&sort=EMAIL_ASC&page=0&size=1"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var secondPage = client.send(
+                    request("/api/invitations?status=PENDING&email=%40example.test"
+                            + "&sort=EMAIL_ASC&page=1&size=1"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            assertEquals(200, firstPage.statusCode());
+            var firstPageJson = io.swagger.v3.core.util.Json.mapper().readTree(firstPage.body());
+            assertEquals(0, firstPageJson.path("page").asInt());
+            assertEquals(1, firstPageJson.path("size").asInt());
+            assertEquals(2L, firstPageJson.path("totalItems").asLong());
+            assertEquals(2L, firstPageJson.path("totalPages").asLong());
+            assertEquals(1, firstPageJson.path("items").size());
+            assertEquals(
+                    "beta@example.test",
+                    firstPageJson.path("items").get(0).path("email").asText()
+            );
+
+            assertEquals(200, secondPage.statusCode());
+            var secondPageJson = io.swagger.v3.core.util.Json.mapper().readTree(secondPage.body());
+            assertEquals(1, secondPageJson.path("page").asInt());
+            assertEquals(1, secondPageJson.path("size").asInt());
+            assertEquals(1, secondPageJson.path("items").size());
+            assertEquals(
+                    "zeta@example.test",
+                    secondPageJson.path("items").get(0).path("email").asText()
+            );
+
+            var invalidPageSize = client.send(
+                    request("/api/invitations?size=101"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(400, invalidPageSize.statusCode());
+            assertEquals("application/problem+json", invalidPageSize
+                    .headers().firstValue("content-type").orElseThrow());
+            assertEquals("/api/invitations", jsonString(invalidPageSize.body(), "instance"));
+        } finally {
+            jdbcClient.sql("DELETE FROM tenant_invitations").update();
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+
+    @Test
     void derivesTheOAuthCallbackFromTheForwardedHttpsOrigin() throws Exception {
         var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
         var request = HttpRequest.newBuilder(baseUri().resolve("/oauth2/authorization/memoryos"))
@@ -333,7 +428,7 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
-    void rejectsABoundIdentityWithoutOrganizationMembershipAndInvalidatesItsSession() throws Exception {
+    void rejectsABoundIdentityWithoutTenantMembershipAndInvalidatesItsSession() throws Exception {
         AUTHENTICATING_SUBJECT.set("unprovisioned-user");
         UUID unprovisionedActorId = UUID.randomUUID();
         jdbcClient.sql("INSERT INTO actors (id) VALUES (:actorId)")
@@ -370,9 +465,6 @@ class SessionSecurityIntegrationTest {
                     callbackResponse.headers().firstValue("location").orElseThrow()
             );
 
-            var failure = client.send(request("/access-not-provisioned"), HttpResponse.BodyHandlers.ofString());
-            assertEquals(403, failure.statusCode());
-            assertTrue(failure.body().contains("ACCESS_NOT_PROVISIONED"));
             assertEquals(1L, jdbcClient.sql("""
                             SELECT COUNT(*) FROM external_identity_bindings
                             WHERE issuer = :issuer
@@ -383,10 +475,10 @@ class SessionSecurityIntegrationTest {
                     .param("actorId", unprovisionedActorId)
                     .query(Long.class)
                     .single());
-            var root = client.send(request("/"), HttpResponse.BodyHandlers.ofString());
-            assertEquals(302, root.statusCode());
-            assertTrue(root.headers().firstValue("location").orElseThrow()
-                    .endsWith("/oauth2/authorization/memoryos"));
+            assertEquals(
+                    401,
+                    client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
         }
     }
 
@@ -395,6 +487,7 @@ class SessionSecurityIntegrationTest {
         String memberSubject = "invited-member-" + UUID.randomUUID();
         String memberEmail = memberSubject + "@example.test";
         String invitationUrl;
+        UUID invitationId;
         var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
 
         try (var ownerClient = client(ownerCookies)) {
@@ -415,6 +508,7 @@ class SessionSecurityIntegrationTest {
             );
             assertEquals(201, create.statusCode());
             invitationUrl = jsonString(create.body(), "invitationUrl");
+            invitationId = UUID.fromString(jsonString(create.body(), "id"));
             assertTrue(invitationUrl.startsWith("/invite/"));
             assertFalse(databaseContains(invitationUrl.substring("/invite/".length())));
         }
@@ -460,7 +554,7 @@ class SessionSecurityIntegrationTest {
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, current.statusCode());
-            assertEquals("Tasco", jsonString(current.body(), "organizationDisplayName"));
+            assertEquals("Tasco", jsonString(current.body(), "tenantDisplayName"));
 
             AUTHENTICATING_SUBJECT.set(memberSubject);
             AUTHENTICATING_EMAIL.set(memberEmail);
@@ -488,10 +582,37 @@ class SessionSecurityIntegrationTest {
                     .query(UUID.class)
                     .single();
             assertTrue(identity.body().contains(memberActorId.toString()));
-            assertEquals("MEMBER", membershipRole("organization_memberships", memberActorId));
-            assertEquals("MEMBER", membershipRole("workspace_memberships", memberActorId));
+            assertTrue(identity.body().contains("\"displayName\":\"Tasco\""));
+            assertTrue(identity.body().contains("\"role\":\"MEMBER\""));
+            assertTrue(identity.body().contains("\"capabilities\":[]"));
+            var ownerOnlyResponses = List.of(
+                    memberClient.send(request("/api/invitations"), HttpResponse.BodyHandlers.ofString()),
+                    memberClient.send(
+                            invitationMutation("{\"email\":\"another-member@example.test\"}"),
+                            HttpResponse.BodyHandlers.ofString()
+                    ),
+                    memberClient.send(
+                            invitationMutation(
+                                    "/api/invitations/" + invitationId + "/rotate",
+                                    HttpRequest.BodyPublishers.noBody()
+                            ),
+                            HttpResponse.BodyHandlers.ofString()
+                    ),
+                    memberClient.send(
+                            invitationMutation(
+                                    "/api/invitations/" + invitationId + "/revoke",
+                                    HttpRequest.BodyPublishers.noBody()
+                            ),
+                            HttpResponse.BodyHandlers.ofString()
+                    )
+            );
+            for (var response : ownerOnlyResponses) {
+                assertEquals(403, response.statusCode());
+                assertEquals("INVITATION_NOT_OWNER", jsonString(response.body(), "code"));
+            }
+            assertEquals("MEMBER", tenantMembershipRole(memberActorId));
             assertEquals("ACCEPTED", jdbcClient.sql("""
-                            SELECT status FROM organization_invitations
+                            SELECT status FROM tenant_invitations
                             WHERE normalized_email = :email
                             """)
                     .param("email", memberEmail)
@@ -499,6 +620,117 @@ class SessionSecurityIntegrationTest {
                     .single());
 
             assertPersistedSessionsContainNoProviderOrInvitationState();
+        } finally {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(memberSubject, memberEmail);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+    @Test
+    void acceptsProvisionedInvitationByVerifiedEmailWithoutContinuation() throws Exception {
+        String memberSubject = "activated-member-" + UUID.randomUUID();
+        String memberEmail = memberSubject + "@example.test";
+        var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var ownerClient = client(ownerCookies)) {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            completeOAuth(ownerClient, "/oauth2/authorization/memoryos");
+            var create = ownerClient.send(
+                    invitationMutation("{\"email\":\"" + memberEmail + "\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(201, create.statusCode());
+            assertEquals("ACTIVATION_EMAIL_SENT", jsonString(create.body(), "delivery"));
+        }
+
+        var memberCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var memberClient = client(memberCookies)) {
+            var activation = memberClient.send(
+                    request("/invite/activate"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(303, activation.statusCode());
+            assertEquals(
+                    "/oauth2/authorization/memoryos",
+                    activation.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals("no-store", activation.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-referrer", activation.headers().firstValue("referrer-policy").orElseThrow());
+
+            AUTHENTICATING_SUBJECT.set(memberSubject);
+            AUTHENTICATING_EMAIL.set(memberEmail);
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            var callback = completeOAuth(
+                    memberClient,
+                    activation.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals(302, callback.statusCode());
+            assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
+
+            var identity = memberClient.send(
+                    request("/api/identity/me"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, identity.statusCode());
+            assertEquals("MEMBER", jsonString(identity.body(), "role"));
+            assertEquals("ACCEPTED", jdbcClient.sql("""
+                            SELECT status FROM tenant_invitations
+                            WHERE normalized_email = :email
+                            """)
+                    .param("email", memberEmail)
+                    .query(String.class)
+                    .single());
+            assertPersistedSessionsContainNoProviderOrInvitationState();
+        } finally {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(memberSubject, memberEmail);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+    @Test
+    void acceptsExistingVerifiedInvitationOnNormalLoginWithoutRecoverySecret() throws Exception {
+        String memberSubject = "existing-member-" + UUID.randomUUID();
+        String memberEmail = memberSubject + "@example.test";
+        var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var ownerClient = client(ownerCookies)) {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            completeOAuth(ownerClient, "/oauth2/authorization/memoryos");
+            assertEquals(
+                    201,
+                    ownerClient.send(
+                            invitationMutation("{\"email\":\"" + memberEmail + "\"}"),
+                            HttpResponse.BodyHandlers.ofString()
+                    ).statusCode()
+            );
+        }
+
+        var memberCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var memberClient = client(memberCookies)) {
+            AUTHENTICATING_SUBJECT.set(memberSubject);
+            AUTHENTICATING_EMAIL.set(memberEmail);
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            var callback = completeOAuth(memberClient, "/oauth2/authorization/memoryos");
+
+            assertEquals(302, callback.statusCode());
+            assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
+            assertEquals("ACCEPTED", jdbcClient.sql("""
+                            SELECT status FROM tenant_invitations
+                            WHERE normalized_email = :email
+                            """)
+                    .param("email", memberEmail)
+                    .query(String.class)
+                    .single());
         } finally {
             AUTHENTICATING_SUBJECT.set("initial-owner");
             AUTHENTICATING_EMAIL.set("owner@example.test");
@@ -576,7 +808,7 @@ class SessionSecurityIntegrationTest {
                     .query(Long.class)
                     .single());
             assertEquals("PENDING", jdbcClient.sql("""
-                            SELECT status FROM organization_invitations
+                            SELECT status FROM tenant_invitations
                             WHERE normalized_email = :email
                             """)
                     .param("email", invitedEmail)
@@ -586,7 +818,7 @@ class SessionSecurityIntegrationTest {
             AUTHENTICATING_SUBJECT.set("initial-owner");
             AUTHENTICATING_EMAIL.set("owner@example.test");
             AUTHENTICATING_EMAIL_VERIFIED.set(true);
-            jdbcClient.sql("DELETE FROM organization_invitations WHERE normalized_email = :email")
+            jdbcClient.sql("DELETE FROM tenant_invitations WHERE normalized_email = :email")
                     .param("email", invitedEmail)
                     .update();
             jdbcClient.sql("DELETE FROM spring_session").update();
@@ -617,6 +849,18 @@ class SessionSecurityIntegrationTest {
                 .build();
     }
 
+    private HttpRequest invitationMutation(
+            String path,
+            HttpRequest.BodyPublisher body
+    ) {
+        return HttpRequest.newBuilder(baseUri().resolve(path))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json")
+                .header(BROWSER_MUTATION_HEADER, "1")
+                .POST(body)
+                .build();
+    }
+
     private HttpResponse<String> completeOAuth(HttpClient client, String startPath) throws Exception {
         var authorization = client.send(request(startPath), HttpResponse.BodyHandlers.ofString());
         assertEquals(302, authorization.statusCode());
@@ -634,8 +878,8 @@ class SessionSecurityIntegrationTest {
         );
     }
 
-    private String membershipRole(String table, UUID actorId) {
-        return jdbcClient.sql("SELECT role FROM " + table + " WHERE actor_id = :actorId")
+    private String tenantMembershipRole(UUID actorId) {
+        return jdbcClient.sql("SELECT role FROM tenant_memberships WHERE actor_id = :actorId")
                 .param("actorId", actorId)
                 .query(String.class)
                 .single();
@@ -643,7 +887,7 @@ class SessionSecurityIntegrationTest {
 
     private boolean databaseContains(String value) {
         return jdbcClient.sql("""
-                        SELECT COUNT(*) FROM organization_invitations
+                        SELECT COUNT(*) FROM tenant_invitations
                         WHERE secret_digest = :value OR normalized_email = :value
                         """)
                 .param("value", value)
@@ -665,7 +909,7 @@ class SessionSecurityIntegrationTest {
     }
 
     private void deleteInvitedMember(String subject, String email) {
-        jdbcClient.sql("DELETE FROM organization_invitations WHERE normalized_email = :email")
+        jdbcClient.sql("DELETE FROM tenant_invitations WHERE normalized_email = :email")
                 .param("email", email)
                 .update();
         jdbcClient.sql("""
@@ -677,10 +921,7 @@ class SessionSecurityIntegrationTest {
                 .query(UUID.class)
                 .optional()
                 .ifPresent(actorId -> {
-                    jdbcClient.sql("DELETE FROM workspace_memberships WHERE actor_id = :actorId")
-                            .param("actorId", actorId)
-                            .update();
-                    jdbcClient.sql("DELETE FROM organization_memberships WHERE actor_id = :actorId")
+                    jdbcClient.sql("DELETE FROM tenant_memberships WHERE actor_id = :actorId")
                             .param("actorId", actorId)
                             .update();
                     jdbcClient.sql("""

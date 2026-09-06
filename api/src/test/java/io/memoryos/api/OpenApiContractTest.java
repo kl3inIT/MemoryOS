@@ -2,6 +2,7 @@ package io.memoryos.api;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -9,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.sun.net.httpserver.HttpServer;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -16,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.TreeSet;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,12 +34,12 @@ import org.springframework.test.web.servlet.MockMvc;
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
         "memoryos.identity.audience=memoryos-api",
         "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "memoryos.initial-organization.owner-subject=openapi-owner",
-        "memoryos.initial-organization.slug=openapi",
-        "memoryos.initial-organization.display-name=OpenAPI",
-        "memoryos.initial-organization.default-workspace-slug=default",
-        "memoryos.initial-organization.default-workspace-display-name=Default",
-        "memoryos.initial-organization.change-reference=TEST-OPENAPI-CONTRACT",
+        "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000024",
+        "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000024",
+        "memoryos.initial-tenant.owner-subject=openapi-owner",
+        "memoryos.initial-tenant.slug=openapi",
+        "memoryos.initial-tenant.display-name=OpenAPI",
+        "memoryos.initial-tenant.change-reference=TEST-OPENAPI-CONTRACT",
         "spring.datasource.url=jdbc:h2:mem:openapi-contract;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
                 + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
         "spring.datasource.username=sa",
@@ -53,8 +56,19 @@ class OpenApiContractTest {
             "/api/identity/me",
             "/api/invitations",
             "/api/invitations/current",
-            "/api/invitations/{invitationId}",
-            "/api/invitations/{invitationId}/rotate"
+            "/api/invitations/{invitationId}/revoke",
+            "/api/invitations/{invitationId}/rotate",
+            "/api/source-operations/{operationId}",
+            "/api/sources",
+            "/api/sources/file",
+            "/api/sources/{sourceId}",
+            "/api/sources/{sourceId}/delete",
+            "/api/sources/{sourceId}/index-attempts",
+            "/api/sources/{sourceId}/items",
+            "/api/sources/{sourceId}/uploads",
+            "/api/sources/{sourceId}/uploads/{uploadId}/finalize",
+            "/api/sources/{sourceId}/items/{itemId}/index-attempts",
+            "/api/sources/{sourceId}/items/{itemId}/remove"
     );
 
     @Autowired
@@ -63,6 +77,12 @@ class OpenApiContractTest {
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
+        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
+        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
+        registry.add(
+                "memoryos.identity.keycloak.admin.action-redirect-uri",
+                () -> "http://127.0.0.1/invite/activate"
+        );
     }
 
     @AfterAll
@@ -82,6 +102,21 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        JsonNode revokeOperation = actual.path("paths")
+                .path("/api/invitations/{invitationId}/revoke")
+                .path("post");
+        assertEquals("revokeInvitation", revokeOperation.path("operationId").textValue());
+        assertEquals("Invitations", revokeOperation.path("tags").path(0).textValue());
+        assertEquals(
+                "Identity",
+                actual.path("paths")
+                        .path("/api/identity/me")
+                        .path("get")
+                        .path("tags")
+                        .path(0)
+                        .textValue()
+        );
+        assertFalse(actual.path("paths").has("/api/invitations/{invitationId}"));
         assertEquals(
                 "uri-reference",
                 actual.path("components")
@@ -92,6 +127,17 @@ class OpenApiContractTest {
                         .path("format")
                         .textValue()
         );
+        JsonNode tenantSchema = actual.path("components")
+                .path("schemas")
+                .path("CurrentIdentity")
+                .path("properties")
+                .path("tenant");
+        assertEquals(2, tenantSchema.path("oneOf").size());
+        assertEquals(
+                "#/components/schemas/CurrentTenant",
+                tenantSchema.path("oneOf").path(0).path("$ref").textValue()
+        );
+        assertEquals("null", tenantSchema.path("oneOf").path(1).path("type").textValue());
 
         Path contract = repositoryRoot().resolve("openapi.yml");
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
