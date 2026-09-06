@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="MemoryOS Worker Dev" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <envs>
+      <env name="ARCONIA_BOOTSTRAP_MODE" value="dev" />
+      <env name="SPRING_CONFIG_IMPORT" value="file:$PROJECT_DIR$/.memoryos-dev.yaml" />
+    </envs>
+    <module name="memoryos.worker.main" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="io.memoryos.worker.MemoryOsWorkerApplication" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <shortenClasspath name="ARGS_FILE" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Sync Infisical Dev Env" run_configuration_type="ShConfigurationType" />
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
