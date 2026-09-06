@@ -850,7 +850,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(createSource).toBeDisabled();
   await page.getByRole("textbox", { name: "Source name" }).fill(source.name);
   await expect(createSource).toBeDisabled();
-  await page.getByLabel("Choose PDF, DOCX, TXT, or Markdown file").setInputFiles({
+  await page.getByLabel("Choose PDF, DOCX, PPTX, TXT, or Markdown file").setInputFiles({
     name: "knowledge.txt",
     mimeType: "text/plain",
     buffer: uploadedFile,

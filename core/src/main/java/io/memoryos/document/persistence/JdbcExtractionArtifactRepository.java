@@ -1,0 +1,90 @@
+package io.memoryos.document.persistence;
+
+import io.memoryos.tenant.TenantId;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class JdbcExtractionArtifactRepository {
+    private final JdbcClient jdbc;
+
+    public JdbcExtractionArtifactRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
+
+    public void pin(TenantId tenant, UUID operation, String profile) {
+        jdbc.sql("""
+                INSERT INTO document_processing_attempts(tenant_id, operation_id, profile)
+                VALUES (:tenant, :operation, :profile) ON CONFLICT DO NOTHING
+                """).param("tenant", tenant.value()).param("operation", operation).param("profile", profile).update();
+        String pinned = jdbc.sql("""
+                SELECT profile FROM document_processing_attempts WHERE tenant_id=:tenant AND operation_id=:operation
+                """).param("tenant", tenant.value()).param("operation", operation).query(String.class).single();
+        if (!pinned.equals(profile)) throw new IllegalStateException("pinned extraction profile is unavailable");
+    }
+
+    public void pinResult(TenantId tenant, UUID operation, String hash) {
+        int updated = jdbc.sql("""
+                UPDATE document_processing_attempts SET result_sha256=:hash
+                WHERE tenant_id=:tenant AND operation_id=:operation
+                  AND (result_sha256 IS NULL OR result_sha256=:hash)
+                """).param("tenant", tenant.value()).param("operation", operation).param("hash", hash).update();
+        if (updated != 1) throw new IllegalStateException("extraction output differs from pinned manifest");
+    }
+
+    public void stage(TenantId tenant, UUID id, String key, String hash, long size) {
+        jdbc.sql("""
+                INSERT INTO document_extraction_artifacts
+                    (tenant_id,id,object_key,content_sha256,size_bytes,state,expires_at)
+                VALUES (:tenant,:id,:key,:hash,:size,'STAGED',CURRENT_TIMESTAMP + INTERVAL '1' HOUR)
+                """).param("tenant", tenant.value()).param("id", id).param("key", key)
+                .param("hash", hash).param("size", size).update();
+    }
+
+    public List<CleanupArtifact> claimCleanup() {
+        UUID token = UUID.randomUUID();
+        return jdbc.sql("""
+                WITH candidates AS (
+                    SELECT a.tenant_id,a.id FROM document_extraction_artifacts a
+                    WHERE ((a.state='STAGED' AND a.expires_at<CURRENT_TIMESTAMP) OR a.state IN ('ACTIVE','DELETING'))
+                      AND (a.cleanup_until IS NULL OR a.cleanup_until<CURRENT_TIMESTAMP)
+                      AND NOT EXISTS (SELECT 1 FROM document_versions v
+                          WHERE v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id)
+                    ORDER BY a.expires_at LIMIT 20 FOR UPDATE SKIP LOCKED
+                )
+                UPDATE document_extraction_artifacts a SET state='DELETING',cleanup_token=:token,
+                    cleanup_until=CURRENT_TIMESTAMP + INTERVAL '2' MINUTE
+                FROM candidates c WHERE a.tenant_id=c.tenant_id AND a.id=c.id
+                RETURNING a.tenant_id,a.id,a.object_key,a.cleanup_token
+                """).param("token", token).query((rs, row) -> new CleanupArtifact(
+                        new TenantId(rs.getObject("tenant_id", UUID.class)), rs.getObject("id", UUID.class),
+                        rs.getString("object_key"), rs.getObject("cleanup_token", UUID.class))).list();
+    }
+
+    public void finishWrite(TenantId tenant, UUID id) {
+        // Set only after PUT and integrity verification have returned successfully.
+        // An expired writer must not resurrect an artifact already claimed for deletion.
+        jdbc.sql("""
+                UPDATE document_extraction_artifacts SET write_complete=TRUE
+                WHERE tenant_id=:tenant AND id=:id
+                """).param("tenant", tenant.value()).param("id", id).update();
+    }
+
+    public void remove(CleanupArtifact artifact) {
+        jdbc.sql("""
+                DELETE FROM document_extraction_artifacts WHERE tenant_id=:tenant AND id=:id
+                  AND state='DELETING' AND cleanup_token=:token AND write_complete=TRUE
+                """).param("tenant", artifact.tenantId().value()).param("id", artifact.id())
+                .param("token", artifact.token()).update();
+        // A timed-out PUT may still finish remotely. Retain its tombstone and
+        // repeat deletion instead of forgetting a potentially late object.
+        jdbc.sql("""
+                UPDATE document_extraction_artifacts SET cleanup_until=CURRENT_TIMESTAMP + INTERVAL '1' DAY
+                WHERE tenant_id=:tenant AND id=:id AND state='DELETING'
+                  AND cleanup_token=:token AND write_complete=FALSE
+                """).param("tenant", artifact.tenantId().value()).param("id", artifact.id())
+                .param("token", artifact.token()).update();
+    }
+
+    public record CleanupArtifact(TenantId tenantId, UUID id, String key, UUID token) { }
+}

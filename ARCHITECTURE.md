@@ -9,7 +9,7 @@ MemoryOS is a controlled Spring Modulith monolith with four flat Gradle modules:
 | Module | Runtime role | Dependency rule |
 | --- | --- | --- |
 | `core` | Seven closed capability implementations: contracts, transactions, capability-owned persistence, and the object-storage S3 adapter | Must not depend on `connector` or a deployable |
-| `connector` | Shared provider integration bundle; current `provider.file` adapter carries Tika 4 | Depends only on public `core` APIs |
+| `connector` | Shared provider integration bundle; `provider.file` routes PDF/DOCX/PPTX to Docling Serve and text to bounded Tika 4 | Depends only on public `core` APIs |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root | Depends on `core`; MEM-35 excludes `connector`/Tika |
 | `worker` | PostgreSQL-authoritative Redis Stream execution and control-plane composition root | Depends on `core`, selects `connector` at runtime, and alone composes Redis/db-scheduler |
 
@@ -103,5 +103,7 @@ The deployment is an explicit overlay contract. `compose.base.yaml` owns Postgre
 The staging application origin is `https://memoryos.72-62-193-33.nip.io`, terminated by Nginx Proxy Manager and forwarded to `memoryos-web:8080`. The object-storage origin routes directly to `memoryos-minio:9000` and must exactly match the configured presigning endpoint, MinIO CORS origin, and web CSP `connect-src`. The separate owner-only Console origin routes to `memoryos-minio:9001`; native OIDC returns only to its exact `/oauth_callback`, and claim-based authorization grants the bucket-read-only `memoryos-inspector` policy only to the initial owner. The confidential `memoryos-web` client retains the matching HTTPS callback, `/invite/activate` action return, root, and web origin with S256 PKCE; staging's secure JDBC-session cookie is therefore exercised over HTTPS rather than a loopback development rewrite.
 
 ## Deferred components
+
+Structured extraction is documented in the [Document contract](docs/specs/document.md) and [Ingestion contract](docs/specs/ingestion.md). The base deployment includes a digest-pinned CPU Docling service on the private network, without host ports or object-storage credentials. Worker publishes checksum-verified canonical artifacts to MinIO and adopts them transactionally with DocumentVersion; a separate recurring sweep reclaims unreferenced artifacts. This is extraction, not chunking, embedding or search indexing.
 
 No multi-Tenant switcher, broker policy, audit history, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen, or chat UI exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.

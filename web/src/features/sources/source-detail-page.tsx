@@ -344,11 +344,11 @@ export function SourceDetailPage() {
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <label className="min-w-0 flex-1">
-                  <span className="sr-only">Choose PDF, DOCX, TXT, or Markdown file</span>
+                  <span className="sr-only">Choose PDF, DOCX, PPTX, TXT, or Markdown file</span>
                   <Input
                     ref={fileInput}
                     type="file"
-                    accept=".pdf,.docx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    accept=".pdf,.docx,.pptx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                     disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
                     onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                     className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"

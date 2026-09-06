@@ -42,6 +42,11 @@ cat > /tmp/worker-policy.json <<EOF
   "Statement": [
     {
       "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::${MINIO_BUCKET}/extracted/*"]
+    },
+    {
+      "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:DeleteObject"],
       "Resource": ["arn:aws:s3:::${MINIO_BUCKET}/raw/*"]
     },

@@ -70,25 +70,29 @@ public class JdbcDocumentRepository implements DocumentCommandPort {
             if (!locked) {
                 throw new IllegalStateException("mapped document is missing");
             }
-            boolean sameContent = jdbcClient.sql("""
-                            SELECT COUNT(*) FROM document_versions
+            var sameContent = jdbcClient.sql("""
+                            SELECT id FROM document_versions
                             WHERE tenant_id = :tenantId
                               AND document_id = :documentId
                               AND source_content_sha256 = :sha256
+                              AND processing_profile = :profile
                             """)
                     .param("tenantId", tenantId.value())
                     .param("documentId", documentId.value())
                     .param("sha256", sourceSha256)
-                    .query(Integer.class)
-                    .single() != 0;
-            if (sameContent) {
+                    .param("profile", content.processingProfile())
+                    .query(UUID.class)
+                    .optional();
+            if (sameContent.isPresent()) {
                 jdbcClient.sql("""
                                 UPDATE documents
-                                SET status = 'ELIGIBLE', updated_at = CURRENT_TIMESTAMP
+                                SET status = 'ELIGIBLE', current_version_id = :versionId,
+                                    updated_at = CURRENT_TIMESTAMP
                                 WHERE tenant_id = :tenantId AND id = :documentId
                                 """)
                         .param("tenantId", tenantId.value())
                         .param("documentId", documentId.value())
+                        .param("versionId", sameContent.get())
                         .update();
                 return documentId;
             }
@@ -104,13 +108,22 @@ public class JdbcDocumentRepository implements DocumentCommandPort {
                 .query(Long.class)
                 .single();
         UUID versionId = UUID.randomUUID();
+        if (content.extractionArtifactId() != null) {
+            int adopted = jdbcClient.sql("""
+                    UPDATE document_extraction_artifacts SET state='ACTIVE'
+                    WHERE tenant_id=:tenantId AND id=:id AND state='STAGED' AND write_complete=TRUE
+                      AND expires_at>CURRENT_TIMESTAMP
+                    """).param("tenantId", tenantId.value()).param("id", content.extractionArtifactId()).update();
+            if (adopted != 1) throw new IllegalStateException("extraction artifact is not adoptable");
+        }
         jdbcClient.sql("""
                         INSERT INTO document_versions (
                             id, tenant_id, document_id, version_number,
-                            title, media_type, normalized_text, source_content_sha256, metadata_json
+                            title, media_type, normalized_text, source_content_sha256, metadata_json,
+                            processing_profile, extraction_artifact_id
                         ) VALUES (
                             :id, :tenantId, :documentId, :versionNumber,
-                            :title, :mediaType, :normalizedText, :sha256, :metadata
+                            :title, :mediaType, :normalizedText, :sha256, :metadata, :profile, :artifact
                         )
                         """)
                 .param("id", versionId)
@@ -122,6 +135,8 @@ public class JdbcDocumentRepository implements DocumentCommandPort {
                 .param("normalizedText", content.normalizedText())
                 .param("sha256", sourceSha256)
                 .param("metadata", objectMapper.writeValueAsString(content.metadata()))
+                .param("profile", content.processingProfile())
+                .param("artifact", content.extractionArtifactId())
                 .update();
         jdbcClient.sql("""
                         UPDATE documents

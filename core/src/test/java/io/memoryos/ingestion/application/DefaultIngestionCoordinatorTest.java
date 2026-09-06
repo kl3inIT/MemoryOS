@@ -71,7 +71,8 @@ class DefaultIngestionCoordinatorTest {
                 storage,
                 storedObjects,
                 transactions,
-                scheduler
+                scheduler,
+                mock(io.memoryos.document.ExtractionArtifactPort.class)
         );
 
         coordinator.process(new OperationDelivery(tenantId, OperationWorkload.CLEANUP, operationId, deliveryId));

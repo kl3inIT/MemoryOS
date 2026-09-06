@@ -9,8 +9,10 @@ tika = "4.0.0"
 arconia = "0.30.0"
 db-scheduler = "16.12.0"
 aws-sdk = "2.54.11"
+docling-java = "0.6.5"
 
 [libraries]
+docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
