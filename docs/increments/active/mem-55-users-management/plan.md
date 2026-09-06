@@ -2,7 +2,7 @@
 
 ## Current ownership and remaining gate
 
-The user subsequently authorized multiple scoped commits and pushing this existing branch to GitHub for Nhat's reference. This supersedes earlier commit/push restrictions only; no PR opening, merge or deployment is authorized. Related active Linear work is assigned to Nhat (`nhudinhnhat2004`).
+The user subsequently authorized multiple scoped commits and pushing this existing branch to GitHub for Nhat's reference. This supersedes earlier commit/push restrictions only; no PR opening, merge or deployment is authorized. IAM follow-ups are assigned to Nhat (`nhudinhnhat2004`); MEM-65 authentication theme belongs to Duc Anh (`anhnd05122004`).
 
 The receiving Codex session owns the combined Users/Groups work in this existing checkout after the 2026-09-06 full handoff. Historical Main/delegation assignments below describe completed work, not current dependencies. Preserve all existing files. Datasource/JPA IDE setup is deferred; no staging/Infisical mutation, PR opening, merge or deployment is authorized.
 

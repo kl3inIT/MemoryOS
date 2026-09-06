@@ -44,7 +44,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 
-The user assigned MEM-25, MEM-36, MEM-55, MEM-59, MEM-65, MEM-68 and MEM-69 to Nhat (`nhudinhnhat2004`) and requested In Progress on Linear. The following follow-ups are not implemented by the combined Users/Groups branch:
+The user assigned MEM-25, MEM-36, MEM-55, MEM-59, MEM-68 and MEM-69 to Nhat (`nhudinhnhat2004`), and MEM-65 authentication theme to Duc Anh (`anhnd05122004`). All seven issues are In Progress on Linear. The following follow-ups are not implemented by the combined Users/Groups branch:
 
 | Issue | Follow-up boundary |
 | --- | --- |
