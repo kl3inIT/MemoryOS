@@ -24,12 +24,12 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Seven closed capability implementations, transactions, persistence, the provider-neutral object-storage contract, and its S3 adapter |
+| `core` | Five closed capability implementations; JPA IAM lifecycle, JDBC resource persistence, transactions, and the provider-neutral object-storage contract/S3 adapter |
 | `connector` | Shared provider adapter bundle; FILE uses Docling for PDF/DOCX/PPTX and Apache Tika 4 for TXT/Markdown |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root |
 | `worker` | Persistence-backed indexing and cleanup composition root |
 
-Current core capabilities are `identity`, `tenant`, `invitation`, `objectstorage`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 storage adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `iam`, `objectstorage`, `connector`, `document`, and `ingestion`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 
@@ -79,18 +79,23 @@ The staging application is available at `https://memoryos.72-62-193-33.nip.io`; 
 
 ## Current runtime behavior
 
-API startup runs Flyway through V9, transactionally bootstraps or verifies the configured Tenant UUID and initial owner, and binds Arconia Web fixed Tenant context around HTTP requests. Source upload initiation returns a checksum-bound presigned PUT; finalization verifies MinIO metadata and adopts or discards the staged object. The worker starts after migrated API health, claims durable leased work, carries each work record's explicit `TenantId` through JDBC predicates, streams immutable object content through the FILE/Tika adapter for bounded detection/extraction, and token-guardedly publishes or cleans Document and object state.
+API startup runs Flyway through V16, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
+
+V14 invalidates existing Spring Sessions for the `io.memoryos.iam.ActorId` package cutover. Deploy API and worker as one coordinated version transition; existing browser users sign in again.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health |
-| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable actor plus nullable Tenant context and capabilities |
+| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable actor, nullable Tenant, global/scoped capabilities, and authorization revision |
 | `GET /api/identity/me` | Missing/invalid authentication or unknown binding | `401` |
 | `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
 | `GET /invite/activate` | Public Keycloak action return | Starts browser OAuth2 login without carrying invitation correlation |
-| `/api/sources/**` | Active Tenant owner | Create/list/detail, initiate/finalize browser-direct FILE upload, reindex, remove, and delete; mutations use POST commands |
-| `/api/source-operations/**` | Active Tenant owner | Poll durable index and cleanup operations |
+| `/api/users` and membership/invitation commands | Global `USERS_MANAGE` | Bounded Users directory, profile/account classification, invitation and membership lifecycle |
+| `POST /api/users/{actorId}/groups` | `IAM_ADMIN` | Replace ordinary memberships while preserving system edges and retained manager flags |
+| `/api/groups/**` | Applicable global IAM capability or own managed-Group scope | Group/member projections and explicitly authorized lifecycle, grant, and manager commands |
+| `/api/sources/**` | Global Source capability or associated managed-Group scope | Server-filtered reads; scoped upload/finalize/reindex; creation/association changes and destructive commands require their global capabilities |
+| `/api/source-operations/**` | Global `SOURCES_READ` or associated managed-Group scope | Poll authorized durable index and cleanup operations |
 
 The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitation](docs/specs/invitation.md), [object storage](docs/specs/object-storage.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
 

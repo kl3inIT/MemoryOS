@@ -37,8 +37,22 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
+| [MEM-55](https://linear.app/memory-os/issue/MEM-55/complete-onyx-aligned-users-management-and-application-membership) | Onyx-aligned Users directory, verified profiles, application membership lifecycle, real Group editing and STANDARD account presentation; integrated with MEM-36 on one branch | [Design](increments/active/mem-55-users-management/design.md) · [Plan](increments/active/mem-55-users-management/plan.md) · [Verification](increments/active/mem-55-users-management/verification.md) |
+| [MEM-36](https://linear.app/memory-os/issue/MEM-36) | Unified JPA IAM, protected Groups, grant union/implications, scoped managers, and FILE Source associations; remains active with MEM-55 until review and merge | [Design](increments/active/mem-36-iam-jpa/design.md) · [Plan](increments/active/mem-36-iam-jpa/plan.md) · [Combined verification](increments/active/mem-55-users-management/verification.md) |
 | [MEM-56](https://linear.app/memory-os/issue/MEM-56/add-owner-only-minio-console-with-keycloak-sso) | Expose an owner-only, bucket-read-only staging MinIO Console through native Keycloak SSO without widening API, worker, or public object-storage authority | [Design](increments/active/mem-56-minio-console-sso/design.md) · [Plan](increments/active/mem-56-minio-console-sso/plan.md) |
 | [MEM-64](https://linear.app/memory-os/issue/MEM-64) | Ingestion outcome metrics, initial queue wait and observability conventions | [Design](increments/active/mem-64-ingestion-observability/design.md) · [Plan](increments/active/mem-64-ingestion-observability/plan.md) |
+
+## IAM follow-ups tracked separately from MEM-55/MEM-36
+
+The user assigned MEM-25, MEM-36, MEM-55, MEM-59, MEM-65, MEM-68 and MEM-69 to Nhat (`nhudinhnhat2004`) and requested In Progress on Linear. The following follow-ups are not implemented by the combined Users/Groups branch:
+
+| Issue | Follow-up boundary |
+| --- | --- |
+| [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Enterprise broker, safe account linking and future JIT/pending approval; separate simulator and actual provider acceptance |
+| [MEM-68](https://linear.app/memory-os/issue/MEM-68) | Provider/broker revocation across bearer tokens and browser sessions, with explicit propagation and outage semantics |
+| [MEM-69](https://linear.app/memory-os/issue/MEM-69) | Absolute browser-session lifetime and reauthentication policy beyond idle timeout |
+| [MEM-25](https://linear.app/memory-os/issue/MEM-25) | Audit evidence and viewer after a named consumer/retention/access contract |
+| [MEM-65](https://linear.app/memory-os/issue/MEM-65) | Keycloak authentication theme; enabling new broker/session behavior remains separate |
 
 ## Candidate increments
 
