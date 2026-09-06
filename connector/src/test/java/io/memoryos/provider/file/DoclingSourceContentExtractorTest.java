@@ -41,7 +41,7 @@ class DoclingSourceContentExtractorTest {
             assertEquals(1, json.at("/blocks/0/provenance/0/page_no").asInt());
             assertEquals("TABLE", json.at("/blocks/1/kind").asString());
             assertEquals("Doanh thu", json.at("/blocks/1/table/table_cells/0/text").asString());
-            assertEquals(extractor.processingProfile(), result.processingProfile());
+            assertTrue(result.metadata().get("parser_configuration").contains("docling-java=0.6.5"));
         }
     }
 

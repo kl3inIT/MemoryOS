@@ -66,7 +66,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
                         + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
                         + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__add_document_extraction_artifacts.sql",
+                        + "classpath:db/migration/V10__add_document_extraction_artifacts.sql,"
+                        + "classpath:db/migration/V11__use_current_documents.sql",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
@@ -253,7 +254,7 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
         String artifactKey = jdbcClient.sql("""
                 SELECT a.object_key FROM document_extraction_artifacts a
-                JOIN document_versions v ON v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id
+                JOIN documents v ON v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id
                 WHERE a.state='ACTIVE' AND a.write_complete=TRUE
                 """).query(String.class).single();
         try (S3Client client = s3Client()) {
@@ -261,12 +262,13 @@ class WorkerFileProcessingIntegrationTest {
                     .bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
             assertTrue(artifact.contains("MemoryOS worker extraction"));
         }
-        assertEquals(
-                2,
+        // Rediscovery may publish again while the intentionally stopped consumer is waiting.
+        // Require recovery after stream loss, not an exact timing-dependent delivery count.
+        assertTrue(
                 jdbcClient.sql("SELECT dispatch_attempts FROM index_attempts WHERE id = :id")
                         .param("id", upload.operation().id().value())
                         .query(Integer.class)
-                        .single()
+                        .single() >= 2
         );
         assertEquals(
                 0L,

@@ -29,12 +29,7 @@ public class DefaultExtractionArtifactService implements ExtractionArtifactPort 
     }
 
     @Override
-    public void pinProfile(TenantId tenantId, UUID operationId, String profile) {
-        repository.pin(tenantId, operationId, profile);
-    }
-
-    @Override
-    public DocumentContent stage(TenantId tenantId, UUID operationId, String profile, DocumentContent content) {
+    public DocumentContent stage(TenantId tenantId, DocumentContent content) {
         String json = content.structuredJson().isEmpty()
                 ? mapper.writeValueAsString(Map.of("schema", "memoryos-extraction-v1", "blocks",
                     java.util.List.of(Map.of("kind", "PARAGRAPH", "text", content.normalizedText(), "index", 0))))
@@ -44,7 +39,6 @@ public class DefaultExtractionArtifactService implements ExtractionArtifactPort 
         String hash;
         try { hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
         catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
-        repository.pinResult(tenantId, operationId, hash);
         UUID id = UUID.randomUUID();
         ObjectKey key = new ObjectKey("extracted/" + tenantId.value() + "/" + id + "/document.json");
         repository.stage(tenantId, id, key.value(), hash, bytes.length);
@@ -54,7 +48,7 @@ public class DefaultExtractionArtifactService implements ExtractionArtifactPort 
             throw new IllegalStateException("artifact integrity mismatch");
         }
         repository.finishWrite(tenantId, id);
-        return content.withArtifact(id, profile);
+        return content.withArtifact(id);
     }
 
     @Override

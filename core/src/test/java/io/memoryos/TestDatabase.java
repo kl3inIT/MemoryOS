@@ -42,7 +42,8 @@ public final class TestDatabase {
                 new ClassPathResource("db/migration/V7__create_scheduler_control_plane.sql"),
                 new ClassPathResource("db/migration/V8__cut_over_operations_to_redis_streams.sql"),
                 new ClassPathResource("db/migration/V9__cut_over_file_content_to_object_storage.sql"),
-                new ClassPathResource("db/migration/V10__add_document_extraction_artifacts.sql")
+                new ClassPathResource("db/migration/V10__add_document_extraction_artifacts.sql"),
+                new ClassPathResource("db/migration/V11__use_current_documents.sql")
         );
     }
 

@@ -47,8 +47,6 @@ public final class DoclingSourceContentExtractor implements SourceContentExtract
         this.client = client;
     }
 
-    @Override public String processingProfile() { return properties.profile(); }
-
     @Override
     public DocumentContent extract(InputStream content, long sizeBytes, String filename) throws ExtractionException {
         if (sizeBytes < 1 || sizeBytes > 10_485_760) throw failure(ExtractionFailure.WRITE_LIMIT);
@@ -104,8 +102,8 @@ public final class DoclingSourceContentExtractor implements SourceContentExtract
             if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 33_554_432) {
                 throw failure(ExtractionFailure.WRITE_LIMIT);
             }
-            return new DocumentContent(mediaType, filename, text, Map.of("parser", "docling"),
-                    json, processingProfile(), null);
+            return new DocumentContent(mediaType, filename, text,
+                    Map.of("parser", "docling", "parser_configuration", properties.parserConfiguration()), json, null);
         } catch (ExtractionException e) { throw e; }
         catch (RuntimeException e) {
             if (e.getCause() instanceof java.net.http.HttpTimeoutException) throw failure(ExtractionFailure.TIMEOUT);

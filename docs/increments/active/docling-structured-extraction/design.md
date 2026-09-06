@@ -14,9 +14,9 @@ Evolve SourceContentExtractor into a provider-neutral structured result without 
 
 Versioned blocks carry type, stable index, text, heading hierarchy, tables with cell/header/row semantics, and provenance where the source provides it. Retain page/bounding-box coordinates for PDFs, sheet/ranges for tables and tab/element paths for native Docs. Missing provenance stays explicitly absent, never fabricated. Image references describe artifacts, not a promise of VLM image understanding.
 
-Store canonical JSON and necessary image artifacts in private MinIO. PostgreSQL owns version/profile/manifest/hash references and eligibility. Extend server-side object write/stage/adopt/discard operations and worker IAM before use; every artifact is tracked before publication and is reclaimable after a crash. Separate the source hash from processing identity. Do not overwrite completed revisions or use Document content-hash uniqueness to collapse different parser/OCR results.
+Store canonical JSON in private MinIO. PostgreSQL owns the stable Document's current metadata, source checksum, artifact reference and eligibility. Replace these fields in place, following Onyx's current-document model; do not retain extraction-version history or lock retry output to a processing profile. Track artifacts before publication and reclaim them once no current Document references them.
 
-Keep bounded normalized_text as a compatibility projection while migrating existing consumers. Downstream chunking reads the canonical artifact. Extraction artifact storage does not move MEM-46 chunk/embedding authority out of PostgreSQL.
+Normalized text is transient parser output, not a PostgreSQL projection. Downstream chunking reads the canonical artifact. Extraction artifact storage does not move MEM-46 chunk/embedding authority out of PostgreSQL. V11 copies current metadata/reference and discards old version history and text for dev/staging; missing legacy artifacts do not block migration. The normal FILE reindex route regenerates them when needed.
 
 ## Execution and service
 
@@ -34,6 +34,6 @@ The SDK is `ai.docling:docling-serve-client:0.6.5`; the CPU server/model image i
 
 Canonical output is one self-contained JSON artifact with embedded image data, not separate image objects. Tika remains solely for text compatibility; PDFBox is used for PDF admission, not content extraction. Models are immutable image assets. EasyOCR's writable user-network directory is redirected to `/tmp/easyocr` so read-only deployment does not fail during request initialization.
 
-Artifact cleanup retains uncertain-write tombstones and re-deletes their keys daily until the writer has positively finished; it does not assume that a timeout cancelled a PUT. Processing profiles/output hashes remain as operation audit metadata. Normalized text remains in PostgreSQL, with the structured artifact and checksum reference alongside it.
+Artifact cleanup retains uncertain-write tombstones and re-deletes their keys daily until the writer has positively finished; it does not assume that a timeout cancelled a PUT. Parser configuration is diagnostic metadata only. Current-reference replacement and operation completion commit together; rollback preserves the previous reference. See [the accepted current-document correction](current-document-plan.md).
 
 Verification evidence and remaining corpus/failure drills are tracked in `plan.md`. Capacity limits are not a throughput commitment. No staging deployment or Linear closure is implied by local test success.

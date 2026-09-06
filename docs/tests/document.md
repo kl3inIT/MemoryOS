@@ -2,7 +2,9 @@
 
 | Contract | Evidence |
 | --- | --- |
-| Successful extraction publishes one eligible Document/version/mapping | `SourceApiIntegrationTest` and `WorkerFileProcessingIntegrationTest` |
+| Successful extraction publishes one eligible Document/artifact/mapping | `SourceApiIntegrationTest` and `WorkerFileProcessingIntegrationTest` |
 | Failed/stale work cannot publish current content | `PostgresSourceLifecycleTest` stale-token scenario |
-| Item removal removes final unreferenced Document/version | API lifecycle and Redis-stream worker integration |
-| Normalized text and SHA constraints execute in V5 | H2 full-context migration plus PostgreSQL concurrency suite |
+| Reprocessing keeps Document ID, replaces current reference and permits changed parser/output | `ExtractionArtifactLifecycleTest` |
+| Failed replacement retains old reference; cleanup only selects unreferenced artifacts | `ExtractionArtifactLifecycleTest` |
+| Item removal removes final unreferenced Document and artifact | API lifecycle and Redis-stream worker integration |
+| V11 retains current metadata/reference, allows legacy null artifacts, removes version/profile tables and text column | `CurrentDocumentMigrationTest`, H2 full-context migration |

@@ -12,26 +12,6 @@ public class JdbcExtractionArtifactRepository {
 
     public JdbcExtractionArtifactRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public void pin(TenantId tenant, UUID operation, String profile) {
-        jdbc.sql("""
-                INSERT INTO document_processing_attempts(tenant_id, operation_id, profile)
-                VALUES (:tenant, :operation, :profile) ON CONFLICT DO NOTHING
-                """).param("tenant", tenant.value()).param("operation", operation).param("profile", profile).update();
-        String pinned = jdbc.sql("""
-                SELECT profile FROM document_processing_attempts WHERE tenant_id=:tenant AND operation_id=:operation
-                """).param("tenant", tenant.value()).param("operation", operation).query(String.class).single();
-        if (!pinned.equals(profile)) throw new IllegalStateException("pinned extraction profile is unavailable");
-    }
-
-    public void pinResult(TenantId tenant, UUID operation, String hash) {
-        int updated = jdbc.sql("""
-                UPDATE document_processing_attempts SET result_sha256=:hash
-                WHERE tenant_id=:tenant AND operation_id=:operation
-                  AND (result_sha256 IS NULL OR result_sha256=:hash)
-                """).param("tenant", tenant.value()).param("operation", operation).param("hash", hash).update();
-        if (updated != 1) throw new IllegalStateException("extraction output differs from pinned manifest");
-    }
-
     public void stage(TenantId tenant, UUID id, String key, String hash, long size) {
         jdbc.sql("""
                 INSERT INTO document_extraction_artifacts
@@ -48,7 +28,7 @@ public class JdbcExtractionArtifactRepository {
                     SELECT a.tenant_id,a.id FROM document_extraction_artifacts a
                     WHERE ((a.state='STAGED' AND a.expires_at<CURRENT_TIMESTAMP) OR a.state IN ('ACTIVE','DELETING'))
                       AND (a.cleanup_until IS NULL OR a.cleanup_until<CURRENT_TIMESTAMP)
-                      AND NOT EXISTS (SELECT 1 FROM document_versions v
+                      AND NOT EXISTS (SELECT 1 FROM documents v
                           WHERE v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id)
                     ORDER BY a.expires_at LIMIT 20 FOR UPDATE SKIP LOCKED
                 )

@@ -104,6 +104,6 @@ The staging application origin is `https://memoryos.72-62-193-33.nip.io`, termin
 
 ## Deferred components
 
-Structured extraction is documented in the [Document contract](docs/specs/document.md) and [Ingestion contract](docs/specs/ingestion.md). The base deployment includes a digest-pinned CPU Docling service on the private network, without host ports or object-storage credentials. Worker publishes checksum-verified canonical artifacts to MinIO and adopts them transactionally with DocumentVersion; a separate recurring sweep reclaims unreferenced artifacts. This is extraction, not chunking, embedding or search indexing.
+Structured extraction is documented in the [Document contract](docs/specs/document.md) and [Ingestion contract](docs/specs/ingestion.md). The base deployment includes a digest-pinned CPU Docling service on the private network, without host ports or object-storage credentials. Worker publishes checksum-verified canonical artifacts to MinIO and updates the current Document reference transactionally; a separate recurring sweep reclaims unreferenced artifacts. This is extraction, not chunking, embedding or search indexing.
 
 No multi-Tenant switcher, broker policy, audit history, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen, or chat UI exists. Add every deferred component only through a capability-owned vertical slice with a verified production path.

@@ -21,7 +21,7 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
         }
     }
 
-    String profile() {
+    String parserConfiguration() {
         return "memoryos-extraction-v1;docling-java=0.6.5;engine=" + engineRevision
                 + ";ocr=easyocr:vi,en;force=false;tables=accurate;images=embedded;maxPages=" + maxPages
                 + ";timeoutSeconds=" + timeout.toSeconds() + ";maxInput=10485760;maxOutput=33554432;native=tika-4.0.0";

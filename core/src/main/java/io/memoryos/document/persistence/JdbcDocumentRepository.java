@@ -4,11 +4,9 @@ import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.tenant.TenantId;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -16,177 +14,67 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
-@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcDocumentRepository implements DocumentCommandPort {
-
-    private static final String UNREFERENCED = """
-            NOT EXISTS (
-                SELECT 1 FROM documents_by_connector_credential_pair mapping
-                WHERE mapping.tenant_id = :tenantId AND mapping.document_id = %s
-            )
-            """;
-
     private final JdbcClient jdbcClient;
     private final ObjectMapper objectMapper;
 
     public JdbcDocumentRepository(JdbcClient jdbcClient, ObjectMapper objectMapper) {
-        this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        this.jdbcClient = jdbcClient;
+        this.objectMapper = objectMapper;
     }
 
     @Override
     @Transactional
-    public DocumentId publish(
-            TenantId tenantId,
-            @Nullable DocumentId existingDocumentId,
-            DocumentContent content,
-            String sourceSha256
-    ) {
-        Objects.requireNonNull(tenantId, "tenantId must not be null");
-        Objects.requireNonNull(content, "content must not be null");
-        Objects.requireNonNull(sourceSha256, "sourceSha256 must not be null");
-        DocumentId documentId = existingDocumentId == null
-                ? new DocumentId(UUID.randomUUID())
-                : existingDocumentId;
+    public DocumentId publish(TenantId tenantId, @Nullable DocumentId existingDocumentId,
+            DocumentContent content, String sourceSha256) {
+        Objects.requireNonNull(tenantId);
+        Objects.requireNonNull(content);
+        Objects.requireNonNull(sourceSha256);
+        DocumentId id = existingDocumentId == null ? new DocumentId(UUID.randomUUID()) : existingDocumentId;
         if (existingDocumentId == null) {
-            jdbcClient.sql("""
-                            INSERT INTO documents (id, tenant_id, status)
-                            VALUES (:id, :tenantId, 'ELIGIBLE')
-                            """)
-                    .param("id", documentId.value())
-                    .param("tenantId", tenantId.value())
-                    .update();
-        } else {
-            boolean locked = jdbcClient.sql("""
-                            SELECT id FROM documents
-                            WHERE tenant_id = :tenantId AND id = :id
-                            FOR UPDATE
-                            """)
-                    .param("tenantId", tenantId.value())
-                    .param("id", documentId.value())
-                    .query(UUID.class)
-                    .optional()
-                    .isPresent();
-            if (!locked) {
-                throw new IllegalStateException("mapped document is missing");
-            }
-            var sameContent = jdbcClient.sql("""
-                            SELECT id FROM document_versions
-                            WHERE tenant_id = :tenantId
-                              AND document_id = :documentId
-                              AND source_content_sha256 = :sha256
-                              AND processing_profile = :profile
-                            """)
-                    .param("tenantId", tenantId.value())
-                    .param("documentId", documentId.value())
-                    .param("sha256", sourceSha256)
-                    .param("profile", content.processingProfile())
-                    .query(UUID.class)
-                    .optional();
-            if (sameContent.isPresent()) {
-                jdbcClient.sql("""
-                                UPDATE documents
-                                SET status = 'ELIGIBLE', current_version_id = :versionId,
-                                    updated_at = CURRENT_TIMESTAMP
-                                WHERE tenant_id = :tenantId AND id = :documentId
-                                """)
-                        .param("tenantId", tenantId.value())
-                        .param("documentId", documentId.value())
-                        .param("versionId", sameContent.get())
-                        .update();
-                return documentId;
-            }
+            jdbcClient.sql("INSERT INTO documents(id,tenant_id,status) VALUES(:id,:tenant,'ELIGIBLE')")
+                    .param("id", id.value()).param("tenant", tenantId.value()).update();
+        } else if (jdbcClient.sql("SELECT id FROM documents WHERE tenant_id=:tenant AND id=:id FOR UPDATE")
+                .param("tenant", tenantId.value()).param("id", id.value()).query(UUID.class).optional().isEmpty()) {
+            throw new IllegalStateException("mapped document is missing");
         }
-
-        Long versionNumber = jdbcClient.sql("""
-                        SELECT COALESCE(MAX(version_number), 0) + 1
-                        FROM document_versions
-                        WHERE tenant_id = :tenantId AND document_id = :documentId
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("documentId", documentId.value())
-                .query(Long.class)
-                .single();
-        UUID versionId = UUID.randomUUID();
         if (content.extractionArtifactId() != null) {
             int adopted = jdbcClient.sql("""
                     UPDATE document_extraction_artifacts SET state='ACTIVE'
-                    WHERE tenant_id=:tenantId AND id=:id AND state='STAGED' AND write_complete=TRUE
-                      AND expires_at>CURRENT_TIMESTAMP
-                    """).param("tenantId", tenantId.value()).param("id", content.extractionArtifactId()).update();
+                    WHERE tenant_id=:tenant AND id=:artifact AND state='STAGED'
+                      AND write_complete=TRUE AND expires_at>CURRENT_TIMESTAMP
+                    """).param("tenant", tenantId.value()).param("artifact", content.extractionArtifactId()).update();
             if (adopted != 1) throw new IllegalStateException("extraction artifact is not adoptable");
         }
+        // Caller commits reference replacement and token-fenced operation completion together.
+        // The old artifact is eligible for cleanup only after this transaction commits.
         jdbcClient.sql("""
-                        INSERT INTO document_versions (
-                            id, tenant_id, document_id, version_number,
-                            title, media_type, normalized_text, source_content_sha256, metadata_json,
-                            processing_profile, extraction_artifact_id
-                        ) VALUES (
-                            :id, :tenantId, :documentId, :versionNumber,
-                            :title, :mediaType, :normalizedText, :sha256, :metadata, :profile, :artifact
-                        )
-                        """)
-                .param("id", versionId)
-                .param("tenantId", tenantId.value())
-                .param("documentId", documentId.value())
-                .param("versionNumber", versionNumber)
-                .param("title", truncate(content.title(), 255))
-                .param("mediaType", truncate(content.mediaType(), 160))
-                .param("normalizedText", content.normalizedText())
-                .param("sha256", sourceSha256)
-                .param("metadata", objectMapper.writeValueAsString(content.metadata()))
-                .param("profile", content.processingProfile())
-                .param("artifact", content.extractionArtifactId())
-                .update();
-        jdbcClient.sql("""
-                        UPDATE documents
-                        SET status = 'ELIGIBLE', current_version_id = :versionId,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE tenant_id = :tenantId AND id = :documentId
-                        """)
-                .param("versionId", versionId)
-                .param("tenantId", tenantId.value())
-                .param("documentId", documentId.value())
-                .update();
-        return documentId;
+                UPDATE documents SET status='ELIGIBLE', title=:title, media_type=:mediaType,
+                    source_content_sha256=:sha, metadata_json=:metadata, extraction_artifact_id=:artifact,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE tenant_id=:tenant AND id=:id
+                """).param("title", truncate(content.title(), 255)).param("mediaType", truncate(content.mediaType(), 160))
+                .param("sha", sourceSha256).param("metadata", objectMapper.writeValueAsString(content.metadata()))
+                .param("artifact", content.extractionArtifactId()).param("tenant", tenantId.value())
+                .param("id", id.value()).update();
+        return id;
     }
 
     @Override
     @Transactional
     public void removeUnreferenced(TenantId tenantId, List<DocumentId> documentIds) {
-        if (documentIds.isEmpty()) {
-            return;
-        }
-        List<UUID> ids = documentIds.stream().map(DocumentId::value).toList();
+        if (documentIds.isEmpty()) return;
         jdbcClient.sql("""
-                        UPDATE documents SET current_version_id = NULL, status = 'INELIGIBLE'
-                        WHERE tenant_id = :tenantId AND id IN (:ids) AND
-                        """ + UNREFERENCED.formatted("documents.id"))
-                .param("tenantId", tenantId.value())
-                .param("ids", ids)
-                .update();
-        jdbcClient.sql("""
-                        DELETE FROM document_versions
-                        WHERE tenant_id = :tenantId AND document_id IN (:ids) AND
-                        """ + UNREFERENCED.formatted("document_versions.document_id"))
-                .param("tenantId", tenantId.value())
-                .param("ids", ids)
-                .update();
-        jdbcClient.sql("""
-                        DELETE FROM documents
-                        WHERE tenant_id = :tenantId AND id IN (:ids) AND
-                        """ + UNREFERENCED.formatted("documents.id"))
-                .param("tenantId", tenantId.value())
-                .param("ids", ids)
-                .update();
+                DELETE FROM documents WHERE tenant_id=:tenant AND id IN (:ids)
+                AND NOT EXISTS (SELECT 1 FROM documents_by_connector_credential_pair mapping
+                    WHERE mapping.tenant_id=:tenant AND mapping.document_id=documents.id)
+                """).param("tenant", tenantId.value())
+                .param("ids", documentIds.stream().map(DocumentId::value).toList()).update();
     }
 
     private static String truncate(String value, int limit) {
-        Objects.requireNonNull(value, "value must not be null");
-        String normalized = value.strip();
-        if (normalized.isEmpty()) {
-            normalized = "Untitled document";
-        }
+        String normalized = Objects.requireNonNull(value).strip();
+        if (normalized.isEmpty()) normalized = "Untitled document";
         return normalized.length() <= limit ? normalized : normalized.substring(0, limit);
     }
 }

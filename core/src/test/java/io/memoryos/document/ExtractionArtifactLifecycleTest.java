@@ -40,26 +40,37 @@ class ExtractionArtifactLifecycleTest {
     }
 
     @Test
-    void retryCannotChangeProfileOrPreviouslyProducedArtifactHash() {
-        var operation = UUID.randomUUID();
-        artifacts.pin(tenant, operation, "profile-v1");
-        artifacts.pin(tenant, operation, "profile-v1");
-        assertThrows(IllegalStateException.class, () -> artifacts.pin(tenant, operation, "profile-v2"));
-        artifacts.pinResult(tenant, operation, "a".repeat(64));
-        artifacts.pinResult(tenant, operation, "a".repeat(64));
-        assertThrows(IllegalStateException.class, () -> artifacts.pinResult(tenant, operation, "b".repeat(64)));
-    }
-
-    @Test
-    void profileChangesCreateImmutableVersionsAndReferencesProtectArtifacts() {
+    void reprocessingReplacesCurrentArtifactWithoutCreatingVersionHistory() {
         UUID first = stage(true);
         DocumentId id = transaction.execute(s -> documents.publish(tenant, null, content(first, "v1"), "a".repeat(64)));
         UUID second = stage(true);
         transaction.executeWithoutResult(s -> documents.publish(tenant, id, content(second, "v2"), "a".repeat(64)));
-        assertEquals(2, jdbc.sql("SELECT count(*) FROM document_versions").query(Integer.class).single());
-        assertTrue(artifacts.claimCleanup().isEmpty());
+        assertEquals(1, jdbc.sql("SELECT count(*) FROM documents").query(Integer.class).single());
+        assertEquals(second, jdbc.sql("SELECT extraction_artifact_id FROM documents").query(UUID.class).single());
+        var old = artifacts.claimCleanup();
+        assertEquals(List.of(first), old.stream().map(JdbcExtractionArtifactRepository.CleanupArtifact::id).toList());
+        artifacts.remove(old.getFirst());
         transaction.executeWithoutResult(s -> documents.removeUnreferenced(tenant, List.of(id)));
-        assertEquals(2, artifacts.claimCleanup().size());
+        assertEquals(List.of(second), artifacts.claimCleanup().stream()
+                .map(JdbcExtractionArtifactRepository.CleanupArtifact::id).toList());
+    }
+
+    @Test
+    void failedReplacementKeepsPreviousReferenceAndRetryMayProduceDifferentContent() {
+        UUID first = stage(true);
+        var id = transaction.execute(s -> documents.publish(tenant, null, content(first, "old"), "a".repeat(64)));
+        UUID failed = stage(true);
+        assertThrows(IllegalStateException.class, () -> transaction.executeWithoutResult(s -> {
+            documents.publish(tenant, id, content(failed, "changed"), "a".repeat(64));
+            throw new IllegalStateException("stale claim");
+        }));
+        assertEquals(first, jdbc.sql("SELECT extraction_artifact_id FROM documents").query(UUID.class).single());
+        assertTrue(artifacts.claimCleanup().isEmpty());
+        UUID retried = stage(true);
+        transaction.executeWithoutResult(s -> documents.publish(tenant, id, content(retried, "different again"), "a".repeat(64)));
+        assertEquals(retried, jdbc.sql("SELECT extraction_artifact_id FROM documents").query(UUID.class).single());
+        assertEquals(1, jdbc.sql("SELECT count(*) FROM documents").query(Integer.class).single());
+        assertTrue(jdbc.sql("SELECT metadata_json FROM documents").query(String.class).single().contains("different again"));
     }
 
     @Test
@@ -71,7 +82,7 @@ class ExtractionArtifactLifecycleTest {
         }));
         assertEquals("STAGED", jdbc.sql("SELECT state FROM document_extraction_artifacts")
                 .query(String.class).single());
-        assertEquals(0, jdbc.sql("SELECT count(*) FROM document_versions").query(Integer.class).single());
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM documents").query(Integer.class).single());
     }
 
     @Test
@@ -104,6 +115,7 @@ class ExtractionArtifactLifecycleTest {
     }
 
     private DocumentContent content(UUID artifact, String profile) {
-        return new DocumentContent("text/plain", "test", "test", Map.of(), "{}", profile, artifact);
+        return new DocumentContent("text/plain", "test", "test " + profile,
+                Map.of("parser_configuration", profile), "{}", artifact);
     }
 }

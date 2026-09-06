@@ -60,7 +60,8 @@ import org.springframework.test.context.DynamicPropertySource;
                         + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
                         + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
                         + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__add_document_extraction_artifacts.sql",
+                        + "classpath:db/migration/V10__add_document_extraction_artifacts.sql,"
+                        + "classpath:db/migration/V11__use_current_documents.sql",
                 "spring.data.redis.repositories.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "db-scheduler.enabled=true",

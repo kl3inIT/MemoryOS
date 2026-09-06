@@ -88,8 +88,6 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 TimeUnit.SECONDS
         );
         try {
-            String profile = extractor.processingProfile();
-            artifacts.pinProfile(work.tenantId(), work.operationId().value(), profile);
             var expected = work.object().metadata();
             final io.memoryos.document.DocumentContent content;
             try (var objectContent = storage.open(work.object().key())) {
@@ -102,7 +100,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                         work.object().filename()
                 );
             }
-            var staged = artifacts.stage(work.tenantId(), work.operationId().value(), profile, content);
+            var staged = artifacts.stage(work.tenantId(), content);
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
                         work.tenantId(),

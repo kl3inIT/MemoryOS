@@ -417,7 +417,7 @@ class PostgresSourceLifecycleTest {
                 "a".repeat(64)
         );
 
-        String metadata = jdbcClient.sql("SELECT metadata_json FROM document_versions")
+        String metadata = jdbcClient.sql("SELECT metadata_json FROM documents")
                 .query(String.class)
                 .single();
         assertEquals("MemoryOS", objectMapper.readTree(metadata).path("author").stringValue());
