@@ -55,6 +55,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
+                "management.otlp.metrics.export.enabled=true",
+                "management.otlp.metrics.export.step=1s",
+                "management.otlp.metrics.export.aggregation-temporality=cumulative",
+                "management.otlp.metrics.export.resource-attributes.service.name=memoryos-worker",
                 "spring.sql.init.mode=always",
                 "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
                         + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
@@ -107,6 +111,43 @@ class WorkerFileProcessingIntegrationTest {
         }
     }
 
+    private static final java.util.List<String> METRIC_EXPORTS = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final com.sun.net.httpserver.HttpServer METRICS_RECEIVER = metricsReceiver();
+
+    private static com.sun.net.httpserver.HttpServer metricsReceiver() {
+        try {
+            var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/v1/metrics", exchange -> {
+                byte[] body = exchange.getRequestBody().readAllBytes();
+                METRIC_EXPORTS.add(new String(body, StandardCharsets.ISO_8859_1));
+                String forward = System.getenv("MEMORYOS_TEST_OTLP_FORWARD");
+                if (forward != null) {
+                    var connection = (java.net.HttpURLConnection) URI.create(forward + "/v1/metrics").toURL().openConnection();
+                    try {
+                        connection.setConnectTimeout(2000);
+                        connection.setReadTimeout(2000);
+                        connection.setRequestMethod("POST");
+                        connection.setDoOutput(true);
+                        connection.setRequestProperty("Content-Type", "application/x-protobuf");
+                        try (var output = connection.getOutputStream()) { output.write(body); }
+                        if (connection.getResponseCode() != 200) throw new java.io.IOException("Collector rejected metrics");
+                    } finally {
+                        connection.disconnect();
+                    }
+                }
+                exchange.sendResponseHeaders(200, -1);
+                exchange.close();
+            });
+            server.start();
+            return server;
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("Could not start metrics receiver", exception);
+        }
+    }
+
+    @org.junit.jupiter.api.AfterAll
+    static void stopMetricsReceiver() { METRICS_RECEIVER.stop(0); }
+
     private static final String INGESTION_STREAM = "memoryos:test:cutover:ingestion";
     private static final String INGESTION_GROUP = "memoryos-test-cutover-ingestion";
     private static final String CLEANUP_STREAM = "memoryos:test:cutover:cleanup";
@@ -144,6 +185,9 @@ class WorkerFileProcessingIntegrationTest {
 
 
     @Autowired
+    private io.micrometer.core.instrument.MeterRegistry registry;
+
+    @Autowired
     private JdbcClient jdbcClient;
 
     @Autowired
@@ -160,6 +204,7 @@ class WorkerFileProcessingIntegrationTest {
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
+        registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
@@ -271,6 +316,13 @@ class WorkerFileProcessingIntegrationTest {
         // The real isolated extractor permits 90 seconds, plus stream reclaim/startup.
         await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
         assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count() == 1);
+        var initialWait = registry.get("memoryos.operation.initial.queue.wait").tag("workload", "INGESTION").timer();
+        assertEquals(1, initialWait.count());
+        double databaseWaitSeconds = jdbcClient.sql("SELECT EXTRACT(EPOCH FROM started_at - created_at) FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value()).query(Double.class).single();
+        org.assertj.core.api.Assertions.assertThat(initialWait.totalTime(java.util.concurrent.TimeUnit.SECONDS))
+                .isCloseTo(databaseWaitSeconds, org.assertj.core.data.Offset.offset(0.000001));
         await(() -> SPANS.stream().anyMatch(span -> span.getName().equals("memoryos.operation.process")
                 && span.getLinks().stream().anyMatch(link -> link.getSpanContext().getTraceId().equals(originTrace))));
         org.assertj.core.api.Assertions.assertThat(SPANS.stream().filter(span -> span.getName().equals("memoryos.operation.process")))
@@ -308,6 +360,9 @@ class WorkerFileProcessingIntegrationTest {
                         .single()
         );
 
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "SKIPPED").counter().count() >= 1);
+        assertEquals(1, initialWait.count());
+        assertEquals(1, registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count());
         sources.removeItem(OWNER, sourceId, upload.item().id());
         await(() -> sources.getSource(OWNER, sourceId).items().isEmpty());
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM stored_objects").query(Long.class).single());
@@ -345,6 +400,13 @@ class WorkerFileProcessingIntegrationTest {
                         .query(String.class)
                         .single()
         );
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "CLEANUP", "outcome", "COMPLETED").counter().count() == 2);
+        int exportsBeforeFinalOutcomes = METRIC_EXPORTS.size();
+        await(() -> METRIC_EXPORTS.size() > exportsBeforeFinalOutcomes);
+        await(() -> METRIC_EXPORTS.stream().anyMatch(body -> body.contains("memoryos.operation.outcomes")
+                && body.contains("memoryos.operation.initial.queue.wait") && body.contains("COMPLETED")
+                && body.contains("SKIPPED") && body.contains("CLEANUP") && body.contains("memoryos-worker")));
+        assertEquals(2, registry.get("memoryos.operation.initial.queue.wait").tag("workload", "CLEANUP").timer().count());
         assertEquals(
                 0L,
                 redis.opsForStream().pending(

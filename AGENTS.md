@@ -28,7 +28,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
-- [MEM-57 — Staging observability and Grafana SSO](docs/increments/active/mem-57-staging-observability/design.md)
+- [MEM-64 - Ingestion outcome metrics and observability conventions](docs/increments/active/mem-64-ingestion-observability/design.md)
 
 - [MEM-56 â€” Owner-only MinIO Console with Keycloak SSO](docs/increments/active/mem-56-minio-console-sso/design.md)
 
@@ -40,6 +40,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Architecture](ARCHITECTURE.md)
 - [Roadmap](docs/roadmap.md)
 - [Conventions](docs/conventions.md)
+- [Observability conventions](docs/guidelines/observability.md)
 - [Operating model](docs/guidelines/operating-model.md)
 - [Persistence policy](docs/guidelines/persistence.md)
 - [Shared connector and JDBC source persistence decision](docs/decisions/0006-shared-connector-bundle-and-jdbc-source-persistence.md)

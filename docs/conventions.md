@@ -2,6 +2,9 @@
 
 These conventions apply across MemoryOS. Capability-specific behavior belongs in `docs/specs/`; change-local reasoning belongs in the active increment.
 
+For logging, tracing, metric names and labels, business outcome instrumentation,
+privacy, and staging defaults, follow the [observability conventions](guidelines/observability.md).
+
 ## Change design
 
 - Prefer the smallest complete production path over scaffolding for a hypothetical future path.

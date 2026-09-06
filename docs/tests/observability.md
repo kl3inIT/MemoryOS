@@ -2,6 +2,9 @@
 
 | Contract | Verification |
 | --- | --- |
+| Business results are counted once independently of ACK, including handled failure, skipped and unhandled invocations | `DefaultIngestionCoordinatorTest`, ACK-outage contract in `RedisStreamWorkerTracingTest`, real Redis processing in `WorkerFileProcessingIntegrationTest` |
+| First-claim wait uses database timestamps and excludes retry/reclaim samples | `PostgresSourceLifecycleTest`, `WorkerFileProcessingIntegrationTest` |
+| Metric recording failure preserves processing result; negative clock adjustment clamps to zero | `DefaultIngestionCoordinatorTest` |
 | Boot staging logs, traces and metrics share service identity | `StagingTelemetryIntegrationTest` captures actual OTLP HTTP exports |
 | Logback emits JSON with event and active trace ID, no duplicate application log | `StagingTelemetryIntegrationTest` checks captured console output and exporter payload |
 | Observation-enabled HTTP client sends W3C context | `StagingTelemetryIntegrationTest` checks the receiving HTTP server's traceparent |

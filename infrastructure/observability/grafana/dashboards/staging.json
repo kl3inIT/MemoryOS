@@ -2,7 +2,7 @@
   "uid": "memoryos-staging",
   "title": "MemoryOS staging",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": false,
   "timezone": "browser",
   "tags": [
@@ -357,6 +357,66 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "title": "Processing outcomes / second",
+      "description": "Coordinator invocations, independent of Redis ACK. FAILED includes handled retries; UNHANDLED escaped the coordinator; SKIPPED includes duplicate/stale deliveries. Not unique operations.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "memoryos-prometheus",
+        "type": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workload, outcome) (rate(memoryos_operation_outcomes_total[5m]))",
+          "legendFormat": "{{workload}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "title": "Initial queue wait p95",
+      "description": "PostgreSQL creation to first claim only. Includes initial dispatch/worker downtime; excludes retry and reclaim waits. No traffic means no data. Histogram resolution tops out at one hour; not an accepted SLO.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "memoryos-prometheus",
+        "type": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, workload) (rate(memoryos_operation_initial_queue_wait_milliseconds_bucket[5m])))",
+          "legendFormat": "{{workload}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
         },
         "overrides": []
       },

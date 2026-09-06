@@ -322,6 +322,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     private IndexWork load(UUID attemptId, UUID token) {
         return jdbcClient.sql("""
                         SELECT attempt.id,
+                               attempt.created_at, attempt.started_at, attempt.processing_attempts,
                                attempt.tenant_id,
                                attempt.connector_id,
                                attempt.connector_credential_pair_id,
@@ -360,7 +361,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                         resultSet.getString("declared_media_type"),
                                         new ContentSha256(resultSet.getString("content_sha256"))
                                 )
-                        )
+                        ),
+                        WorkLeases.initialQueueWait(resultSet)
                 ))
                 .single();
     }

@@ -37,6 +37,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     private final StoredObjectRegistry storedObjects;
     private final TransactionTemplate transactions;
     private final ScheduledExecutorService leaseScheduler;
+    private final IngestionMetrics metrics;
 
     public DefaultIngestionCoordinator(
             ConnectorIndexingPort indexingPort,
@@ -46,8 +47,10 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             ObjectStorage storage,
             StoredObjectRegistry storedObjects,
             TransactionTemplate transactions,
-            ScheduledExecutorService leaseScheduler
+            ScheduledExecutorService leaseScheduler,
+            io.micrometer.core.instrument.MeterRegistry registry
     ) {
+        this.metrics = new IngestionMetrics(registry);
         this.indexingPort = Objects.requireNonNull(indexingPort, "indexingPort must not be null");
         this.cleanupPort = Objects.requireNonNull(cleanupPort, "cleanupPort must not be null");
         this.documents = Objects.requireNonNull(documents, "documents must not be null");
@@ -61,6 +64,18 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     @Override
     public Outcome process(OperationDelivery delivery) {
         Objects.requireNonNull(delivery, "delivery must not be null");
+        final Outcome outcome;
+        try {
+            outcome = processDelivery(delivery);
+        } catch (RuntimeException exception) {
+            metrics.unhandled(delivery.workload());
+            throw exception;
+        }
+        metrics.completed(delivery.workload(), outcome);
+        return outcome;
+    }
+
+    private Outcome processDelivery(OperationDelivery delivery) {
         return switch (delivery.workload()) {
             case INGESTION -> indexingPort.claim(
                             delivery.tenantId(),
@@ -78,6 +93,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     private Outcome processIndex(IndexWork work) {
+        metrics.firstClaim(io.memoryos.ingestion.OperationWorkload.INGESTION, work.initialQueueWait());
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
                 () -> renewIndexLease(work),
                 LEASE_RENEWAL_SECONDS,
@@ -162,6 +178,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     private Outcome processCleanup(CleanupWork work) {
+        metrics.firstClaim(io.memoryos.ingestion.OperationWorkload.CLEANUP, work.initialQueueWait());
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
                 () -> renewCleanupLease(work),
                 LEASE_RENEWAL_SECONDS,

@@ -1,6 +1,6 @@
 # MEM-57 — Staging observability
 
-Status: implemented and locally verified; pull request and staging rollout are separate gates.
+Status: merged via [PR #73](https://github.com/kl3inIT/MemoryOS/pull/73). Post-merge deployment evidence and closure are recorded in [MEM-57](https://linear.app/memory-os/issue/MEM-57).
 
 ## Outcome and scope
 
