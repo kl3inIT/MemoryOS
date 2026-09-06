@@ -12,7 +12,7 @@ Align both configurations with the current local development profile: API owns P
 
 Keep the normal confidential OIDC/Infisical paths. Do not introduce a temporary application profile, fake credential mode, copied secrets, or alternative processing loop. Document the local cache as sensitive ignored state rather than committing values.
 
-The authenticated audit found legacy Organization/Workspace keys in both environments. Separate staging reconciliation preserved the deployed Tenant, owner, issuer, credentials, and database target; shared development values remain unchanged. Development prerequisites must not reuse staging database, queue, or object-storage authority. Operator credentials and local dependency state remain outside Git.
+The authenticated audit found legacy Organization/Workspace keys in both environments. Separate staging reconciliation preserved the deployed Tenant, owner, issuer, credentials, and database target. Post-merge Infisical-only work reconciled known development keys and isolated MinIO configuration, with the remaining identity prerequisite recorded in the plan. Development must not reuse staging database, queue, or object-storage authority. Operator credentials and local dependency state remain outside Git.
 
 ## Delivery boundaries
 

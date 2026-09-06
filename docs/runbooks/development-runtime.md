@@ -72,6 +72,14 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 
 `MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
 
+### Infisical MinIO layout
+
+Development stores its six `MEMORYOS_OBJECT_STORAGE_*` endpoint, bucket, readiness-key, access-key, and secret-key values at the environment root. They belong to the isolated development MinIO identity, not the staging bucket or either staging service identity.
+
+Staging stores the common service endpoint, upload endpoint, bucket, and readiness key at the root. `/minio/api` and `/minio/worker` each retain that service's existing `MEMORYOS_OBJECT_STORAGE_ACCESS_KEY` and `MEMORYOS_OBJECT_STORAGE_SECRET_KEY`. Never place one credential pair at the shared staging root or recursively combine both folders into a runtime export.
+
+These folders are a protected credential inventory; the current entrypoint still consumes the separate mounted credential files, and Compose still selects each service's access key. No automatic folder-to-file synchronization exists. Editing an Infisical value alone does not rotate the MinIO identity, update a mounted file, or restart a process; an authorized rotation must keep those copies consistent without crossing service boundaries. MinIO root credentials remain outside the application export.
+
 ## OMP code intelligence and debugging
 
 Start OMP from the repository root so it loads `.omp/lsp.json`, `.omp/dap.json`, the project skills, and the JetBrains MCP endpoint.
@@ -231,7 +239,7 @@ Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18
 
 ## Run the hardened staging stack
 
-MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, their OAuth2 Proxies, and native MinIO Console OIDC. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns stable identifiers, exact public origins, secret-file paths, and non-secret tuning; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, avoiding duplicated secret values. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, their OAuth2 Proxies, and native MinIO Console OIDC. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns stable identifiers, exact public origins, secret-file paths, and non-secret tuning; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, preserving per-service boundaries; the [Infisical MinIO inventory](#infisical-minio-layout) does not replace those mounts. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
 
 ### Provision staging object storage
 
