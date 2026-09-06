@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateFileSourceData, CreateFileSourceResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveSourceItemData, RemoveSourceItemResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses } from './types.gen';
+import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGroupData, GetGroupResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,49 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Replace a user's ordinary Group memberships
+ */
+export const replaceUserGroups = <ThrowOnError extends boolean = false>(options: Options<ReplaceUserGroupsData, ThrowOnError>): RequestResult<ReplaceUserGroupsResponses, ReplaceUserGroupsErrors, ThrowOnError> => (options.client ?? client).post<ReplaceUserGroupsResponses, ReplaceUserGroupsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/users/{actorId}/groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Deactivate an existing Tenant member
+ */
+export const deactivateUser = <ThrowOnError extends boolean = false>(options: Options<DeactivateUserData, ThrowOnError>): RequestResult<DeactivateUserResponses, DeactivateUserErrors, ThrowOnError> => (options.client ?? client).post<DeactivateUserResponses, DeactivateUserErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/users/{actorId}/deactivate',
+    ...options
+});
+
+/**
+ * Activate an existing Tenant member
+ */
+export const activateUser = <ThrowOnError extends boolean = false>(options: Options<ActivateUserData, ThrowOnError>): RequestResult<ActivateUserResponses, ActivateUserErrors, ThrowOnError> => (options.client ?? client).post<ActivateUserResponses, ActivateUserErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/users/{actorId}/activate',
+    ...options
+});
 
 /**
  * Authorize one direct FILE source upload
@@ -75,6 +118,36 @@ export const reindexSourceItem = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
+ * List groups associated with one source
+ */
+export const listSourceGroups = <ThrowOnError extends boolean = false>(options: Options<ListSourceGroupsData, ThrowOnError>): RequestResult<ListSourceGroupsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceGroupsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/groups',
+    ...options
+});
+
+/**
+ * Replace groups associated with one source
+ */
+export const updateSourceGroups = <ThrowOnError extends boolean = false>(options: Options<UpdateSourceGroupsData, ThrowOnError>): RequestResult<UpdateSourceGroupsResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateSourceGroupsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Start durable source deletion
  */
 export const deleteSource = <ThrowOnError extends boolean = false>(options: Options<DeleteSourceData, ThrowOnError>): RequestResult<DeleteSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<DeleteSourceResponses, unknown, ThrowOnError>({
@@ -105,7 +178,7 @@ export const createFileSource = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
- * List the current owner's Tenant invitations
+ * List Tenant invitations manageable by the current IAM administrator
  */
 export const listInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListInvitationsData, ThrowOnError>): RequestResult<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError>({
     security: [{
@@ -157,6 +230,165 @@ export const revokeInvitation = <ThrowOnError extends boolean = false>(options: 
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/invitations/{invitationId}/revoke',
+    ...options
+});
+
+/**
+ * List Groups visible to the current actor
+ */
+export const listGroups = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsData, ThrowOnError>): RequestResult<ListGroupsResponses, ListGroupsErrors, ThrowOnError> => (options?.client ?? client).get<ListGroupsResponses, ListGroupsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups',
+    ...options
+});
+
+/**
+ * Create an ordinary Group
+ */
+export const createGroup = <ThrowOnError extends boolean = false>(options: Options<CreateGroupData, ThrowOnError>): RequestResult<CreateGroupResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGroupResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Rename an ordinary Group
+ */
+export const renameGroup = <ThrowOnError extends boolean = false>(options: Options<RenameGroupData, ThrowOnError>): RequestResult<RenameGroupResponses, unknown, ThrowOnError> => (options.client ?? client).post<RenameGroupResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/rename',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List members of one visible Group
+ */
+export const listGroupMembers = <ThrowOnError extends boolean = false>(options: Options<ListGroupMembersData, ThrowOnError>): RequestResult<ListGroupMembersResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupMembersResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/members',
+    ...options
+});
+
+/**
+ * Add Tenant members to a Group
+ */
+export const addGroupMembers = <ThrowOnError extends boolean = false>(options: Options<AddGroupMembersData, ThrowOnError>): RequestResult<AddGroupMembersResponses, unknown, ThrowOnError> => (options.client ?? client).post<AddGroupMembersResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/members',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove one member from a Group
+ */
+export const removeGroupMember = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupMemberData, ThrowOnError>): RequestResult<RemoveGroupMemberResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveGroupMemberResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/members/{actorId}/remove',
+    ...options
+});
+
+/**
+ * Remove a manager from an ordinary Group
+ */
+export const removeGroupManager = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupManagerData, ThrowOnError>): RequestResult<RemoveGroupManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveGroupManagerResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/members/{actorId}/remove-manager',
+    ...options
+});
+
+/**
+ * Assign a manager to an ordinary Group
+ */
+export const assignGroupManager = <ThrowOnError extends boolean = false>(options: Options<AssignGroupManagerData, ThrowOnError>): RequestResult<AssignGroupManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<AssignGroupManagerResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/members/{actorId}/assign-manager',
+    ...options
+});
+
+/**
+ * Delete an ordinary Group
+ */
+export const deleteGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupData, ThrowOnError>): RequestResult<DeleteGroupResponses, unknown, ThrowOnError> => (options.client ?? client).post<DeleteGroupResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/delete',
+    ...options
+});
+
+/**
+ * Replace an ordinary Group's explicit capability grants
+ */
+export const replaceGroupCapabilities = <ThrowOnError extends boolean = false>(options: Options<ReplaceGroupCapabilitiesData, ThrowOnError>): RequestResult<ReplaceGroupCapabilitiesResponses, unknown, ThrowOnError> => (options.client ?? client).post<ReplaceGroupCapabilitiesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/capabilities',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List users manageable by the current IAM administrator
+ */
+export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/api/users',
     ...options
 });
 
@@ -213,6 +445,19 @@ export const listSourceIndexAttempts = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * List groups available for source association
+ */
+export const listSourceGroupOptions = <ThrowOnError extends boolean = false>(options?: Options<ListSourceGroupOptionsData, ThrowOnError>): RequestResult<ListSourceGroupOptionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourceGroupOptionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/group-options',
+    ...options
+});
+
+/**
  * Get a durable source operation
  */
 export const getSourceOperation = <ThrowOnError extends boolean = false>(options: Options<GetSourceOperationData, ThrowOnError>): RequestResult<GetSourceOperationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceOperationResponses, unknown, ThrowOnError>({
@@ -242,5 +487,57 @@ export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/identity/me',
+    ...options
+});
+
+/**
+ * Get one visible Group
+ */
+export const getGroup = <ThrowOnError extends boolean = false>(options: Options<GetGroupData, ThrowOnError>): RequestResult<GetGroupResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGroupResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}',
+    ...options
+});
+
+/**
+ * List sources associated with one group
+ */
+export const listGroupSources = <ThrowOnError extends boolean = false>(options: Options<ListGroupSourcesData, ThrowOnError>): RequestResult<ListGroupSourcesResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupSourcesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/sources',
+    ...options
+});
+
+/**
+ * List Tenant members eligible to join a Group
+ */
+export const listGroupCandidates = <ThrowOnError extends boolean = false>(options: Options<ListGroupCandidatesData, ThrowOnError>): RequestResult<ListGroupCandidatesResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupCandidatesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/{groupId}/candidates',
+    ...options
+});
+
+/**
+ * List the server-owned Group capability registry
+ */
+export const listGroupCapabilities = <ThrowOnError extends boolean = false>(options?: Options<ListGroupCapabilitiesData, ThrowOnError>): RequestResult<ListGroupCapabilitiesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGroupCapabilitiesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/groups/capabilities',
     ...options
 });

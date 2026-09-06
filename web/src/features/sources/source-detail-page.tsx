@@ -32,6 +32,7 @@ import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload"
 import { SourceStatusBadge } from "./source-status-badge";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
+import { SourceGroupsSection } from "./source-groups-section";
 
 const terminalOperationStatuses: Record<string, true> = {
   SUCCEEDED: true,
@@ -55,6 +56,7 @@ export function SourceDetailPage() {
   const [cleanupPending, setCleanupPending] = useState(false);
   const uploadController = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const backLinkRef = useRef<HTMLAnchorElement>(null);
   const cleanupController = useRef<AbortController | null>(null);
 
   useEffect(
@@ -87,7 +89,7 @@ export function SourceDetailPage() {
   }
 
   async function submitFile() {
-    if (!selectedId || !file || pendingFinalize) return;
+    if (!canUpload || !selectedId || !file || pendingFinalize) return;
     setError(null);
     uploadController.current?.abort();
     const controller = new AbortController();
@@ -157,7 +159,7 @@ export function SourceDetailPage() {
   }
 
   async function retryFinalize() {
-    if (!activePendingFinalize) return;
+    if (!canUpload || !activePendingFinalize) return;
     const pending = activePendingFinalize;
     setError(null);
     const controller = new AbortController();
@@ -190,7 +192,7 @@ export function SourceDetailPage() {
   }
 
   async function reindex(item: SourceItem) {
-    if (!selectedId || !item.id) return;
+    if (!canReindex || !selectedId || !item.id) return;
     setError(null);
     try {
       await reindexItem.mutateAsync({
@@ -204,7 +206,7 @@ export function SourceDetailPage() {
   }
 
   async function removeSelectedItem(item: SourceItem) {
-    if (!selectedId || !item.id) throw new Error("Source item is unavailable");
+    if (!canRemoveItems || !selectedId || !item.id) throw new Error("Source item is unavailable");
     setError(null);
     await removeItem.mutateAsync({
       path: { sourceId: selectedId, itemId: item.id },
@@ -227,7 +229,7 @@ export function SourceDetailPage() {
   }
 
   async function deleteSelectedSource() {
-    if (!selectedId) throw new Error("Source is unavailable");
+    if (!canDelete || !selectedId) throw new Error("Source is unavailable");
     setError(null);
     cleanupController.current?.abort();
     const controller = new AbortController();
@@ -252,13 +254,24 @@ export function SourceDetailPage() {
   }
 
   const detail = sourceQuery.data;
+  const sourceActions = detail?.source.actions ?? [];
+  const canUpload = sourceActions.includes("upload");
+  const canReindex = sourceActions.includes("reindex");
+  const canRemoveItems = sourceActions.includes("remove_items");
+  const canDelete = sourceActions.includes("delete");
+  const canManageGroups = sourceActions.includes("manage_groups");
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const busy =
     uploadBusy || reindexItem.isPending || removeItem.isPending || deleteSource.isPending;
+  async function refreshAuthorityViews() {
+    backLinkRef.current?.focus();
+    await queryClient.invalidateQueries();
+  }
 
   return (
     <section className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
       <Link
+        ref={backLinkRef}
         to="/admin"
         className="inline-flex items-center gap-2 font-secondary-action text-content-secondary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
       >
@@ -275,7 +288,7 @@ export function SourceDetailPage() {
         </p>
       ) : null}
 
-      {pendingFinalize && !activePendingFinalize ? (
+      {canUpload && pendingFinalize && !activePendingFinalize ? (
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-content-secondary">
             {pendingFinalize.filename} is stored and still needs finalization.
@@ -315,115 +328,119 @@ export function SourceDetailPage() {
                   </p>
                 ) : null}
               </div>
-              <ConfirmDialog
-                trigger={
-                  <Button
-                    tone="danger"
-                    prominence="secondary"
-                    disabled={busy || cleanupPending || detail.source.status === "DELETING"}
-                  >
-                    <Trash2 />
-                    Delete source
-                  </Button>
-                }
-                title={`Delete ${detail.source.name}?`}
-                description={`Deleting “${detail.source.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
-                confirmLabel="Delete source"
-                pendingLabel="Deleting source"
-                onConfirm={deleteSelectedSource}
-                errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
-              />
+              {canDelete ? (
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      tone="danger"
+                      prominence="secondary"
+                      disabled={busy || cleanupPending || detail.source.status === "DELETING"}
+                    >
+                      <Trash2 />
+                      Delete source
+                    </Button>
+                  }
+                  title={`Delete ${detail.source.name}?`}
+                  description={`Deleting “${detail.source.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
+                  confirmLabel="Delete source"
+                  pendingLabel="Deleting source"
+                  onConfirm={deleteSelectedSource}
+                  errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
+                />
+              ) : null}
             </div>
 
-            <form
-              className="border-b border-border-subtle bg-surface-subtle p-5 sm:p-6"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void (activePendingFinalize ? retryFinalize() : submitFile());
-              }}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="min-w-0 flex-1">
-                  <span className="sr-only">Choose PDF, DOCX, PPTX, TXT, or Markdown file</span>
-                  <Input
-                    ref={fileInput}
-                    type="file"
-                    accept=".pdf,.docx,.pptx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                    disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
-                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                    className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
-                  />
-                </label>
-                <Button
-                  type="submit"
-                  pending={uploadBusy}
-                  disabled={
-                    (!file && !activePendingFinalize) ||
-                    Boolean(pendingFinalize && !activePendingFinalize) ||
-                    busy ||
-                    detail.source.status === "DELETING"
-                  }
-                >
-                  <Upload />
-                  {activePendingFinalize ? "Retry finalization" : "Upload file"}
-                </Button>
-                {uploadPhase !== "idle" || activePendingFinalize ? (
+            {canUpload ? (
+              <form
+                className="border-b border-border-subtle bg-surface-subtle p-5 sm:p-6"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void (activePendingFinalize ? retryFinalize() : submitFile());
+                }}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Choose PDF, DOCX, PPTX, TXT, or Markdown file</span>
+                    <Input
+                      ref={fileInput}
+                      type="file"
+                      accept=".pdf,.docx,.pptx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                      disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
+                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                      className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
+                    />
+                  </label>
                   <Button
-                    type="button"
-                    prominence="secondary"
-                    onClick={() => {
-                      if (activePendingFinalize) {
-                        setPendingFinalize(null);
-                        setUploadPhase("idle");
-                        setFile(null);
-                        if (fileInput.current) fileInput.current.value = "";
-                        setError(
-                          "Finalization cancelled. The unfinished object will expire automatically.",
-                        );
-                      } else {
-                        uploadController.current?.abort(
-                          new DOMException("Upload cancelled", "AbortError"),
-                        );
-                      }
-                    }}
+                    type="submit"
+                    pending={uploadBusy}
+                    disabled={
+                      (!file && !activePendingFinalize) ||
+                      Boolean(pendingFinalize && !activePendingFinalize) ||
+                      busy ||
+                      detail.source.status === "DELETING"
+                    }
                   >
-                    <X />
-                    Cancel
+                    <Upload />
+                    {activePendingFinalize ? "Retry finalization" : "Upload file"}
                   </Button>
-                ) : null}
-              </div>
-              {uploadPhase !== "idle" || activePendingFinalize ? (
-                <div className="mt-3" aria-live="polite">
-                  <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
-                    <span>
-                      {uploadPhase === "preparing"
-                        ? "Calculating SHA-256 before authorization"
-                        : uploadPhase === "uploading"
-                          ? "Uploading directly to object storage"
-                          : uploadPhase === "finalizing"
-                            ? "Verifying and registering the stored file"
-                            : `${activePendingFinalize?.filename ?? "File"} is stored but not finalized`}
-                    </span>
-                    {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
-                  </div>
-                  {uploadPhase === "uploading" ? (
-                    <div
-                      role="progressbar"
-                      aria-label="Direct upload progress"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={uploadProgress}
-                      className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
+                  {uploadPhase !== "idle" || activePendingFinalize ? (
+                    <Button
+                      type="button"
+                      prominence="secondary"
+                      onClick={() => {
+                        if (activePendingFinalize) {
+                          setPendingFinalize(null);
+                          setUploadPhase("idle");
+                          setFile(null);
+                          if (fileInput.current) fileInput.current.value = "";
+                          setError(
+                            "Finalization cancelled. The unfinished object will expire automatically.",
+                          );
+                        } else {
+                          uploadController.current?.abort(
+                            new DOMException("Upload cancelled", "AbortError"),
+                          );
+                        }
+                      }}
                     >
-                      <div
-                        className="h-full rounded-full bg-content-primary transition-[width] duration-150"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
+                      <X />
+                      Cancel
+                    </Button>
                   ) : null}
                 </div>
-              ) : null}
-            </form>
+                {uploadPhase !== "idle" || activePendingFinalize ? (
+                  <div className="mt-3" aria-live="polite">
+                    <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
+                      <span>
+                        {uploadPhase === "preparing"
+                          ? "Calculating SHA-256 before authorization"
+                          : uploadPhase === "uploading"
+                            ? "Uploading directly to object storage"
+                            : uploadPhase === "finalizing"
+                              ? "Verifying and registering the stored file"
+                              : `${activePendingFinalize?.filename ?? "File"} is stored but not finalized`}
+                      </span>
+                      {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
+                    </div>
+                    {uploadPhase === "uploading" ? (
+                      <div
+                        role="progressbar"
+                        aria-label="Direct upload progress"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={uploadProgress}
+                        className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
+                      >
+                        <div
+                          className="h-full rounded-full bg-content-primary transition-[width] duration-150"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </form>
+            ) : null}
 
             <div className="p-5 sm:p-6">
               <div className="mb-4 flex items-center justify-between">
@@ -433,7 +450,11 @@ export function SourceDetailPage() {
               {(detail.items ?? []).length === 0 ? (
                 <EmptyState
                   title="No files yet"
-                  detail="Upload one supported file to start indexing."
+                  detail={
+                    canUpload
+                      ? "Upload one supported file to start indexing."
+                      : "No files are indexed in this Source."
+                  }
                 />
               ) : (
                 <div className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
@@ -458,39 +479,50 @@ export function SourceDetailPage() {
                           </p>
                         ) : null}
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          prominence="secondary"
-                          size="sm"
-                          disabled={busy || item.status === "DELETING"}
-                          onClick={() => void reindex(item)}
-                        >
-                          <RefreshCw /> Reindex
-                        </Button>
-                        <ConfirmDialog
-                          trigger={
+                      {canReindex || canRemoveItems ? (
+                        <div className="flex gap-2">
+                          {canReindex ? (
                             <Button
-                              tone="danger"
                               prominence="secondary"
                               size="sm"
                               disabled={busy || item.status === "DELETING"}
+                              onClick={() => void reindex(item)}
                             >
-                              <Trash2 /> Remove
+                              <RefreshCw /> Reindex
                             </Button>
-                          }
-                          title={`Remove ${item.filename ?? "uploaded file"}?`}
-                          description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
-                          confirmLabel="Remove file"
-                          pendingLabel="Removing file"
-                          onConfirm={() => removeSelectedItem(item)}
-                          errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
-                        />
-                      </div>
+                          ) : null}
+                          {canRemoveItems ? (
+                            <ConfirmDialog
+                              trigger={
+                                <Button
+                                  tone="danger"
+                                  prominence="secondary"
+                                  size="sm"
+                                  disabled={busy || item.status === "DELETING"}
+                                >
+                                  <Trash2 /> Remove
+                                </Button>
+                              }
+                              title={`Remove ${item.filename ?? "uploaded file"}?`}
+                              description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
+                              confirmLabel="Remove file"
+                              pendingLabel="Removing file"
+                              onConfirm={() => removeSelectedItem(item)}
+                              errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
               )}
             </div>
+            <SourceGroupsSection
+              sourceId={selectedId}
+              editable={canManageGroups}
+              onAuthorityChanged={refreshAuthorityViews}
+            />
           </div>
         )}
       </main>

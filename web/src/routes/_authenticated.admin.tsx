@@ -1,25 +1,33 @@
 import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
-import { useCan } from "@/features/identity/application-session-context";
+import {
+  useCapabilityAuthority,
+  useGlobalCapability,
+} from "@/features/identity/application-session-context";
 import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-recovery-provider";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
-    const canManageInvitations = useCan("INVITATIONS_MANAGE");
-    const canManageSources = useCan("SOURCES_MANAGE");
+    const canManageUsers = useGlobalCapability("USERS_MANAGE");
+    const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
+    const canReadSources = useCapabilityAuthority("SOURCES_READ") !== "none";
     const matchRoute = useMatchRoute();
-    const invitationsSelected = Boolean(matchRoute({ to: "/admin/invitations" }));
+    const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
+    const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
+    const page = usersSelected ? "users" : groupsSelected ? "groups" : "sources";
+    const allowed =
+      page === "users" ? canManageUsers : page === "groups" ? canReadGroups : canReadSources;
 
-    if (invitationsSelected ? !canManageInvitations : !canManageSources) {
+    if (!allowed) {
       return <AccessDeniedScreen />;
     }
 
     return (
       <AppShell
         area="admin"
-        adminPage={invitationsSelected ? "invitations" : "sources"}
-        pageTitle={invitationsSelected ? "Invitations" : "Sources"}
+        adminPage={page}
+        pageTitle={page === "users" ? "Users" : page === "groups" ? "Groups" : "Sources"}
       >
         <SourceUploadRecoveryProvider>
           <Outlet />

@@ -46,6 +46,7 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
 
   return (
     <ApplicationSessionProvider
+      key={sessionQuery.data.actorId}
       session={{ ...sessionQuery.data, tenant: sessionQuery.data.tenant }}
     >
       {children ?? <Outlet />}

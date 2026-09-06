@@ -15,7 +15,11 @@ import { Route as InvitationRouteImport } from './routes/invitation'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
-import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated.admin.invitations'
+import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
+import { Route as AuthenticatedAdminGroupsIndexRouteImport } from './routes/_authenticated.admin.groups.index'
+import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_authenticated.admin.groups.$groupId'
+import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
 import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from './routes/_authenticated.admin.sources.$sourceId'
 import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
 import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
@@ -50,11 +54,34 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminInvitationsRoute =
-  AuthenticatedAdminInvitationsRouteImport.update({
-    id: '/invitations',
-    path: '/invitations',
+const AuthenticatedAdminGroupsRoute =
+  AuthenticatedAdminGroupsRouteImport.update({
+    id: '/groups',
+    path: '/groups',
     getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminGroupsIndexRoute =
+  AuthenticatedAdminGroupsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminGroupsRoute,
+  } as any)
+const AuthenticatedAdminGroupsGroupIdRoute =
+  AuthenticatedAdminGroupsGroupIdRouteImport.update({
+    id: '/$groupId',
+    path: '/$groupId',
+    getParentRoute: () => AuthenticatedAdminGroupsRoute,
+  } as any)
+const AuthenticatedAdminGroupsNewRoute =
+  AuthenticatedAdminGroupsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AuthenticatedAdminGroupsRoute,
   } as any)
 const AuthenticatedAdminSourcesSourceIdRoute =
   AuthenticatedAdminSourcesSourceIdRouteImport.update({
@@ -86,10 +113,14 @@ export interface FileRoutesByFullPath {
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
-  '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
+  '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -97,9 +128,12 @@ export interface FileRoutesByTo {
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
   '/': typeof AuthenticatedIndexRoute
-  '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
+  '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
+  '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -110,10 +144,14 @@ export interface FileRoutesById {
   '/invitation': typeof InvitationRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
+  '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
+  '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -124,10 +162,14 @@ export interface FileRouteTypes {
     | '/access-not-provisioned'
     | '/invitation'
     | '/admin'
-    | '/admin/invitations'
+    | '/admin/groups'
+    | '/admin/users'
     | '/admin/'
+    | '/admin/groups/$groupId'
+    | '/admin/groups/new'
     | '/admin/sources/$sourceId'
     | '/admin/sources/new'
+    | '/admin/groups/'
     | '/admin/sources/new/file'
     | '/admin/sources/new/'
   fileRoutesByTo: FileRoutesByTo
@@ -135,9 +177,12 @@ export interface FileRouteTypes {
     | '/access-not-provisioned'
     | '/invitation'
     | '/'
-    | '/admin/invitations'
+    | '/admin/users'
     | '/admin'
+    | '/admin/groups/$groupId'
+    | '/admin/groups/new'
     | '/admin/sources/$sourceId'
+    | '/admin/groups'
     | '/admin/sources/new/file'
     | '/admin/sources/new'
   id:
@@ -147,10 +192,14 @@ export interface FileRouteTypes {
     | '/invitation'
     | '/_authenticated/admin'
     | '/_authenticated/'
-    | '/_authenticated/admin/invitations'
+    | '/_authenticated/admin/groups'
+    | '/_authenticated/admin/users'
     | '/_authenticated/admin/'
+    | '/_authenticated/admin/groups/$groupId'
+    | '/_authenticated/admin/groups/new'
     | '/_authenticated/admin/sources/$sourceId'
     | '/_authenticated/admin/sources/new'
+    | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/'
   fileRoutesById: FileRoutesById
@@ -205,12 +254,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/invitations': {
-      id: '/_authenticated/admin/invitations'
-      path: '/invitations'
-      fullPath: '/admin/invitations'
-      preLoaderRoute: typeof AuthenticatedAdminInvitationsRouteImport
+    '/_authenticated/admin/groups': {
+      id: '/_authenticated/admin/groups'
+      path: '/groups'
+      fullPath: '/admin/groups'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/groups/': {
+      id: '/_authenticated/admin/groups/'
+      path: '/'
+      fullPath: '/admin/groups/'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminGroupsRoute
+    }
+    '/_authenticated/admin/groups/$groupId': {
+      id: '/_authenticated/admin/groups/$groupId'
+      path: '/$groupId'
+      fullPath: '/admin/groups/$groupId'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsGroupIdRouteImport
+      parentRoute: typeof AuthenticatedAdminGroupsRoute
+    }
+    '/_authenticated/admin/groups/new': {
+      id: '/_authenticated/admin/groups/new'
+      path: '/new'
+      fullPath: '/admin/groups/new'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsNewRouteImport
+      parentRoute: typeof AuthenticatedAdminGroupsRoute
     }
     '/_authenticated/admin/sources/$sourceId': {
       id: '/_authenticated/admin/sources/$sourceId'
@@ -243,6 +320,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminGroupsRouteChildren {
+  AuthenticatedAdminGroupsGroupIdRoute: typeof AuthenticatedAdminGroupsGroupIdRoute
+  AuthenticatedAdminGroupsNewRoute: typeof AuthenticatedAdminGroupsNewRoute
+  AuthenticatedAdminGroupsIndexRoute: typeof AuthenticatedAdminGroupsIndexRoute
+}
+
+const AuthenticatedAdminGroupsRouteChildren: AuthenticatedAdminGroupsRouteChildren =
+  {
+    AuthenticatedAdminGroupsGroupIdRoute: AuthenticatedAdminGroupsGroupIdRoute,
+    AuthenticatedAdminGroupsNewRoute: AuthenticatedAdminGroupsNewRoute,
+    AuthenticatedAdminGroupsIndexRoute: AuthenticatedAdminGroupsIndexRoute,
+  }
+
+const AuthenticatedAdminGroupsRouteWithChildren =
+  AuthenticatedAdminGroupsRoute._addFileChildren(
+    AuthenticatedAdminGroupsRouteChildren,
+  )
+
 interface AuthenticatedAdminSourcesNewRouteChildren {
   AuthenticatedAdminSourcesNewFileRoute: typeof AuthenticatedAdminSourcesNewFileRoute
   AuthenticatedAdminSourcesNewIndexRoute: typeof AuthenticatedAdminSourcesNewIndexRoute
@@ -262,14 +357,16 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
   )
 
 interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminInvitationsRoute: typeof AuthenticatedAdminInvitationsRoute
+  AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
+  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute
   AuthenticatedAdminSourcesNewRoute: typeof AuthenticatedAdminSourcesNewRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminInvitationsRoute: AuthenticatedAdminInvitationsRoute,
+  AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
+  AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminSourcesSourceIdRoute:
     AuthenticatedAdminSourcesSourceIdRoute,

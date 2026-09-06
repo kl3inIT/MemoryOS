@@ -15,11 +15,13 @@ import { NewSessionPage } from "./new-session-page";
 
 const OWNER_SESSION: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  authorizationVersion: 1,
   tenant: {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["INVITATIONS_MANAGE", "SOURCES_MANAGE"],
+  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE"],
+  scopedCapabilities: [],
 };
 
 async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
@@ -71,20 +73,35 @@ describe("NewSessionPage", () => {
       ...OWNER_SESSION,
       tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
       capabilities: [],
+      scopedCapabilities: [],
     });
 
     expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
   });
-  it("routes invitation-only administrators to invitations", async () => {
+  it("routes user-only administrators to users", async () => {
     await renderNewSession({
       ...OWNER_SESSION,
-      capabilities: ["INVITATIONS_MANAGE"],
+      capabilities: ["USERS_MANAGE"],
     });
 
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
       "href",
-      "/admin/invitations",
+      "/admin/users",
+    );
+  });
+
+  it("routes group-scoped managers to the Groups surface", async () => {
+    await renderNewSession({
+      ...OWNER_SESSION,
+      tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
+      capabilities: [],
+      scopedCapabilities: ["GROUPS_READ"],
+    });
+
+    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
+      "href",
+      "/admin/groups",
     );
   });
 
