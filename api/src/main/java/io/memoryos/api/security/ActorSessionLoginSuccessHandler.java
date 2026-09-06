@@ -1,16 +1,17 @@
 package io.memoryos.api.security;
 
 import io.memoryos.api.invitation.InvitationSessionState;
-import io.memoryos.identity.ActorId;
-import io.memoryos.identity.ExternalIdentity;
-import io.memoryos.identity.ExternalIdentityResolver;
-import io.memoryos.identity.IdentityContext;
-import io.memoryos.invitation.InvitationAcceptance;
-import io.memoryos.invitation.InvitationException;
-import io.memoryos.invitation.InvitationFailureReason;
-import io.memoryos.invitation.InvitationService;
-import io.memoryos.invitation.VerifiedEmailInvitationAcceptance;
-import io.memoryos.tenant.TenantAccessResolver;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.ActorProfileRecorder;
+import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentityResolver;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.InvitationAcceptance;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.VerifiedEmailInvitationAcceptance;
+import io.memoryos.iam.TenantAccessResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -37,13 +38,15 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     private final ExternalIdentityResolver identityResolver;
     private final TenantAccessResolver tenantAccessResolver;
     private final InvitationService invitationService;
+    private final ActorProfileRecorder profileRecorder;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
     ActorSessionLoginSuccessHandler(
             ExternalIdentityResolver identityResolver,
             TenantAccessResolver tenantAccessResolver,
-            InvitationService invitationService
+            InvitationService invitationService,
+            ActorProfileRecorder profileRecorder
     ) {
         this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
         this.tenantAccessResolver = Objects.requireNonNull(
@@ -54,6 +57,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                 invitationService,
                 "invitationService must not be null"
         );
+        this.profileRecorder = Objects.requireNonNull(profileRecorder, "profileRecorder must not be null");
     }
 
     @Override
@@ -82,6 +86,19 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             if (actorId == null) {
                 return;
             }
+        }
+
+        try {
+            profileRecorder.record(
+                    actorId,
+                    externalIdentity,
+                    oidcUser.getClaimAsString("name"),
+                    oidcUser.getClaimAsString("email"),
+                    Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
+            );
+        } catch (RuntimeException exception) {
+            invalidatePartialSession(request);
+            throw exception;
         }
 
         InvitationSessionState.clear(request);

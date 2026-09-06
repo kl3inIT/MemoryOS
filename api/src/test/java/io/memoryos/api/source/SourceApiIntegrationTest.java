@@ -16,8 +16,8 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.document.DocumentCommandPort;
-import io.memoryos.identity.ActorId;
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
@@ -49,6 +49,7 @@ import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -75,10 +76,6 @@ import org.springframework.transaction.support.TransactionTemplate;
         "memoryos.initial-tenant.slug=sources",
         "memoryos.initial-tenant.display-name=Sources",
         "memoryos.initial-tenant.change-reference=MEM-35-TEST",
-        "spring.datasource.url=jdbc:h2:mem:source-api;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
-                + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
-        "spring.datasource.username=sa",
-        "spring.datasource.password="
 })
 @AutoConfigureMockMvc
 @Import(SourceApiIntegrationTest.StorageTestConfiguration.class)
@@ -130,6 +127,7 @@ class SourceApiIntegrationTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
+        io.memoryos.api.ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
@@ -280,6 +278,137 @@ class SourceApiIntegrationTest {
     }
 
     @Test
+    void enforcesScopedSourceHttpSurfacesAndImmediateAssociationRevocation() throws Exception {
+        UUID tenantId = jdbcClient.sql("SELECT id FROM tenants WHERE slug = 'sources'")
+                .query(UUID.class)
+                .single();
+        UUID managedGroupId = UUID.randomUUID();
+        ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
+        String managedSourceId = createSource(owner, "Manager source", managedGroupId);
+        String hiddenSourceId = createSource(owner, "Hidden manager source", null);
+        ApiUpload managedUpload = uploadAndFinalize(
+                manager,
+                managedSourceId,
+                "manager.txt",
+                "manager-visible content".getBytes(UTF_8)
+        );
+        ApiUpload hiddenUpload = uploadAndFinalize(
+                owner,
+                hiddenSourceId,
+                "hidden.txt",
+                "hidden content".getBytes(UTF_8)
+        );
+
+        mockMvc.perform(get("/api/sources").with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(managedSourceId)).exists())
+                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(hiddenSourceId)).doesNotExist());
+        mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source.actions[0]").value("upload"))
+                .andExpect(jsonPath("$.source.actions[1]").value("reindex"))
+                .andExpect(jsonPath("$.source.actions.length()").value(2));
+        mockMvc.perform(get("/api/sources/{sourceId}", hiddenSourceId).with(authentication(manager)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        mockMvc.perform(get("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(managedGroupId.toString()));
+        mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId)
+                        .with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(managedSourceId));
+        mockMvc.perform(get("/api/groups/{groupId}/sources", adminGroupId())
+                        .with(authentication(manager)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/source-operations/{operationId}", managedUpload.operationId())
+                        .with(authentication(manager)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/source-operations/{operationId}", hiddenUpload.operationId())
+                        .with(authentication(manager)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+
+        mockMvc.perform(post(
+                        "/api/sources/{sourceId}/items/{itemId}/index-attempts",
+                        managedSourceId,
+                        managedUpload.itemId()
+                )
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(post("/api/sources/{sourceId}/uploads", hiddenSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"filename":"denied.txt","mediaType":"text/plain","sizeBytes":1,
+                                 "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        mockMvc.perform(post(
+                        "/api/sources/{sourceId}/items/{itemId}/remove",
+                        managedSourceId,
+                        managedUpload.itemId()
+                )
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(post("/api/sources/{sourceId}/delete", managedSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(post("/api/sources/file")
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Denied manager create\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"groupIds\":[\"%s\"]}".formatted(managedGroupId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(get("/api/sources/group-options").with(authentication(manager)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+
+        mockMvc.perform(get("/api/sources/group-options?search=Scoped")
+                        .with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(managedGroupId.toString()));
+        mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"groupIds\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
+        mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"groupIds\":[\"%s\"]}".formatted(adminGroupId())))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/source-operations/{operationId}", managedUpload.operationId())
+                        .with(authentication(manager)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/sources").with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(managedSourceId)).doesNotExist());
+    }
+
+    @Test
     void rejectsMemberManagementAndBothValidationFailureShapes() throws Exception {
         mockMvc.perform(post("/api/sources/file")
                         .with(authentication(member))
@@ -287,7 +416,7 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Forbidden\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
 
         mockMvc.perform(post("/api/sources/file")
                         .with(authentication(owner))
@@ -331,6 +460,104 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
 
+    }
+
+    private ActorAuthenticationToken scopedManager(UUID tenantId, UUID groupId) {
+        UUID actorId = UUID.randomUUID();
+        jdbcClient.sql("INSERT INTO actors (id) VALUES (:actorId)")
+                .param("actorId", actorId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO tenant_memberships (tenant_id, actor_id, role, status)
+                        VALUES (:tenantId, :actorId, 'MEMBER', 'ACTIVE')
+                        """)
+                .param("tenantId", tenantId)
+                .param("actorId", actorId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name)
+                        VALUES (:tenantId, :groupId, :name)
+                        """)
+                .param("tenantId", tenantId)
+                .param("groupId", groupId)
+                .param("name", "Scoped " + groupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_memberships (
+                            tenant_id, group_id, actor_id, is_manager
+                        ) VALUES (
+                            :tenantId, :basicGroupId, :actorId, FALSE
+                        ), (
+                            :tenantId, :groupId, :actorId, TRUE
+                        )
+                        """)
+                .param("tenantId", tenantId)
+                .param("basicGroupId", UUID.fromString("00000000-0000-0000-0000-000000000002"))
+                .param("groupId", groupId)
+                .param("actorId", actorId)
+                .update();
+        return token(actorId);
+    }
+
+    private String createSource(
+            ActorAuthenticationToken actor,
+            String name,
+            @Nullable UUID groupId
+    ) throws Exception {
+        String request = groupId == null
+                ? "{\"name\":\"%s\"}".formatted(name)
+                : "{\"name\":\"%s\",\"groupIds\":[\"%s\"]}".formatted(name, groupId);
+        String response = mockMvc.perform(post("/api/sources/file")
+                        .with(authentication(actor))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return io.swagger.v3.core.util.Json.mapper().readTree(response)
+                .path("source").path("id").textValue();
+    }
+
+    private ApiUpload uploadAndFinalize(
+            ActorAuthenticationToken actor,
+            String sourceId,
+            String filename,
+            byte[] content
+    ) throws Exception {
+        String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        String authorizationBody = mockMvc.perform(post("/api/sources/{sourceId}/uploads", sourceId)
+                        .with(authentication(actor))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"filename":"%s","mediaType":"text/plain","sizeBytes":%d,"sha256":"%s"}
+                                """.formatted(filename, content.length, checksum)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        var authorization = io.swagger.v3.core.util.Json.mapper().readTree(authorizationBody);
+        String uploadId = authorization.path("uploadId").textValue();
+        objectStorage.put(URI.create(authorization.path("uploadUrl").textValue()), content);
+        String receiptBody = mockMvc.perform(post(
+                        "/api/sources/{sourceId}/uploads/{uploadId}/finalize",
+                        sourceId,
+                        uploadId
+                )
+                        .with(authentication(actor))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isAccepted())
+                .andReturn().getResponse().getContentAsString();
+        var receipt = io.swagger.v3.core.util.Json.mapper().readTree(receiptBody);
+        return new ApiUpload(
+                receipt.path("item").path("id").textValue(),
+                receipt.path("operation").path("id").textValue()
+        );
+    }
+
+    private static UUID adminGroupId() {
+        return UUID.fromString("00000000-0000-0000-0000-000000000001");
+    }
+
+    private record ApiUpload(String itemId, String operationId) {
     }
 
     private void processDispatchedWork() {

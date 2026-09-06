@@ -1,6 +1,6 @@
 package io.memoryos.api.invitation.contract;
 
-import io.memoryos.invitation.InvitationDelivery;
+import io.memoryos.iam.InvitationDelivery;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(name = "IssuedInvitation", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)

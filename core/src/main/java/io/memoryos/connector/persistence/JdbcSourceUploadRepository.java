@@ -9,7 +9,7 @@ import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.util.List;
 import java.util.Objects;

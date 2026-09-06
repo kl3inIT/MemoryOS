@@ -2,7 +2,7 @@ package io.memoryos.ingestion;
 
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.util.Objects;
 import java.util.UUID;

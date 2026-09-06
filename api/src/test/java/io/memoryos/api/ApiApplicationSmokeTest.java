@@ -44,9 +44,6 @@ import org.springframework.test.web.servlet.MockMvc;
                 "memoryos.initial-tenant.slug=smoke",
                 "memoryos.initial-tenant.display-name=Smoke",
                 "memoryos.initial-tenant.change-reference=TEST-SMOKE-BOOTSTRAP",
-                "spring.datasource.url=jdbc:h2:mem:api-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
-                "spring.datasource.username=sa",
-                "spring.datasource.password="
         })
 @AutoConfigureMockMvc(addFilters = false)
 class ApiApplicationSmokeTest {
@@ -62,6 +59,7 @@ class ApiApplicationSmokeTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
@@ -76,9 +74,6 @@ class ApiApplicationSmokeTest {
         IDENTITY_SERVER.stop(0);
     }
 
-    @Test
-    void contextLoads() {
-    }
 
     @Test
     void applicationTaskExecutorUsesVirtualThreads() throws Exception {

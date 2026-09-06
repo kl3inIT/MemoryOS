@@ -1,8 +1,8 @@
 package io.memoryos.api.security;
 
-import io.memoryos.identity.ExternalIdentity;
-import io.memoryos.identity.ExternalIdentityResolver;
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentityResolver;
+import io.memoryos.iam.IdentityContext;
 import java.util.Objects;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.core.convert.converter.Converter;

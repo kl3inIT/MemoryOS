@@ -20,9 +20,6 @@ import org.springframework.http.HttpStatus;
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis",
                 "arconia.dev.services.redis.enabled=false",
                 "memoryos.redis.topology-interval=1h",
-                "spring.datasource.url=jdbc:h2:mem:redis-unavailable;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
-                "spring.datasource.username=sa",
-                "spring.datasource.password=",
                 "spring.data.redis.host=127.0.0.1",
                 "spring.data.redis.port=1",
                 "spring.data.redis.password=redis-readiness-secret",
@@ -34,6 +31,11 @@ import org.springframework.http.HttpStatus;
 )
 @AutoConfigureTestRestTemplate
 class RedisUnavailableReadinessIntegrationTest {
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void databaseProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        WorkerPostgresDatabase.configure(registry);
+    }
 
     @Autowired
     private TestRestTemplate http;

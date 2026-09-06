@@ -3,7 +3,7 @@ package io.memoryos.connector.persistence;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.objectstorage.StoredObjectReference;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.util.Objects;
 import java.util.UUID;

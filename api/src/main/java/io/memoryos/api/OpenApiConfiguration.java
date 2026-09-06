@@ -60,7 +60,24 @@ class OpenApiConfiguration {
                         openApi.setComponents(new Components());
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
-                    configureNullableCurrentTenant(openApi.getComponents());
+                    configureNullableReference(
+                            openApi.getComponents(), "CurrentIdentity", "tenant", "CurrentTenant"
+                    );
+                    configureNullableReference(
+                            openApi.getComponents(), "UserListItem", "role", "TenantMembershipRole"
+                    );
+                    configureNullableReference(
+                            openApi.getComponents(), "UserListItem", "accountType", "AccountType"
+                    );
+                    configureNullableReference(
+                            openApi.getComponents(), "UserGroup", "systemKey", "GroupSystemKey"
+                    );
+                    configureNullableReference(
+                            openApi.getComponents(), "GroupSummary", "systemKey", "GroupSystemKey"
+                    );
+                    configureNullableReference(
+                            openApi.getComponents(), "SourceGroup", "systemKey", "GroupSystemKey"
+                    );
                 })
                 .build();
     }
@@ -82,23 +99,28 @@ class OpenApiConfiguration {
         };
     }
 
-    private static void configureNullableCurrentTenant(Components components) {
-        Schema<?> currentIdentity = Objects.requireNonNull(
-                components.getSchemas().get("CurrentIdentity"),
-                "CurrentIdentity schema must exist"
+    private static void configureNullableReference(
+            Components components,
+            String schemaName,
+            String propertyName,
+            String referenceName
+    ) {
+        Schema<?> parent = Objects.requireNonNull(
+                components.getSchemas().get(schemaName),
+                schemaName + " schema must exist"
         );
-        Schema<?> generatedTenant = Objects.requireNonNull(
-                currentIdentity.getProperties().get("tenant"),
-                "CurrentIdentity.tenant schema must exist"
+        Schema<?> generatedProperty = Objects.requireNonNull(
+                parent.getProperties().get(propertyName),
+                schemaName + "." + propertyName + " schema must exist"
         );
-        Schema<Object> tenantReference = new Schema<>();
-        tenantReference.set$ref("#/components/schemas/CurrentTenant");
+        Schema<Object> reference = new Schema<>();
+        reference.set$ref("#/components/schemas/" + referenceName);
         Schema<Object> nullValue = new Schema<>();
         nullValue.setTypes(Set.of("null"));
-        Schema<Object> nullableTenant = new Schema<>();
-        nullableTenant.setDescription(generatedTenant.getDescription());
-        nullableTenant.setOneOf(List.of(tenantReference, nullValue));
-        currentIdentity.addProperty("tenant", nullableTenant);
+        Schema<Object> nullableProperty = new Schema<>();
+        nullableProperty.setDescription(generatedProperty.getDescription());
+        nullableProperty.setOneOf(List.of(reference, nullValue));
+        parent.addProperty(propertyName, nullableProperty);
     }
 
     private static Schema<?> apiProblemSchema() {

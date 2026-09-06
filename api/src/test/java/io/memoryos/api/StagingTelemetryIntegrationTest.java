@@ -36,14 +36,10 @@ import org.springframework.test.context.TestPropertySource;
                 "memoryos.initial-tenant.slug=smoke",
                 "memoryos.initial-tenant.display-name=Smoke",
                 "memoryos.initial-tenant.change-reference=TEST-SMOKE-BOOTSTRAP",
-                "spring.datasource.url=jdbc:h2:mem:api-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
-                "spring.datasource.username=sa",
-                "spring.datasource.password="
         })
 @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 @ActiveProfiles("staging")
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:staging-telemetry;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
         "management.otlp.metrics.export.step=1s",
         "MEMORYOS_RELEASE=telemetry-contract-test"
 })
@@ -72,7 +68,7 @@ class StagingTelemetryIntegrationTest {
     @Test
     void exportsCorrelatedStructuredLogAndTraceAndMetrics(org.springframework.boot.test.system.CapturedOutput output) {
         var span = tracer.nextSpan().name("memoryos.telemetry.contract").start();
-        try (var scope = tracer.withSpan(span)) {
+        try (var _ = tracer.withSpan(span)) {
             LoggerFactory.getLogger(getClass()).atInfo().addKeyValue("event", "telemetry.contract")
                     .addKeyValue("operation_id", "contract-operation").log("Telemetry contract event");
             org.springframework.web.client.RestClient.builder().observationRegistry(observations).build().get().uri("http://127.0.0.1:" + COLLECTOR.getAddress().getPort() + "/echo").retrieve().toBodilessEntity();
@@ -83,7 +79,7 @@ class StagingTelemetryIntegrationTest {
         assertThat(org.springframework.web.client.RestClient.create("http://127.0.0.1:" + port)
                 .get().uri("/actuator/health").retrieve().toBodilessEntity().getStatusCode().value()).isEqualTo(200);
         int identityStatus = org.springframework.web.client.RestClient.create("http://127.0.0.1:" + port)
-                .get().uri("/api/identity/me").exchange((request, response) -> response.getStatusCode().value());
+                .get().uri("/api/identity/me").exchange((_, response) -> response.getStatusCode().value());
         assertThat(identityStatus).isEqualTo(401);
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
             assertThat(text("/v1/logs")).contains("Telemetry contract event", "telemetry.contract", "contract-operation");
@@ -179,6 +175,7 @@ class StagingTelemetryIntegrationTest {
     }
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");

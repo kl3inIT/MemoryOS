@@ -32,15 +32,17 @@ import org.springframework.http.HttpStatus;
                 "memoryos.redis.ingestion.group=memoryos-test-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:work:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-cleanup-workers",
-                "spring.datasource.url=jdbc:h2:mem:redis-topology;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
-                "spring.datasource.username=sa",
-                "spring.datasource.password=",
                 "spring.data.redis.repositories.enabled=false"
         }
 )
 @AutoConfigureTestRestTemplate
 @Testcontainers(disabledWithoutDocker = true)
 class RedisExecutionTopologyIntegrationTest {
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void databaseProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        WorkerPostgresDatabase.configure(registry);
+    }
 
     @Autowired
     private RedisExecutionTopology topology;

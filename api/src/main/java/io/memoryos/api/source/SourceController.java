@@ -11,7 +11,7 @@ import io.memoryos.api.source.contract.SourceUploadReceiptResponse;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceManagementService;
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.objectstorage.ObjectUploadId;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,7 +59,11 @@ final class SourceController {
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
             @Valid @RequestBody CreateFileSourceRequest request
     ) {
-        return SourceDetailResponse.from(sources.createFileSource(identityContext.actorId(), request.name()));
+        return SourceDetailResponse.from(sources.createFileSource(
+                identityContext.actorId(),
+                request.name(),
+                request.toGroupIds()
+        ));
     }
 
     @Operation(operationId = "listSources", summary = "List Tenant sources")

@@ -18,7 +18,7 @@ import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.StoredObjectRegistry;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -179,6 +180,7 @@ class DefaultIngestionCoordinatorTest {
     @Test
     void metricRecordingFailureDoesNotChangeBusinessOutcome() {
         var failingRegistry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry() {
+            @NullMarked
             @Override
             protected io.micrometer.core.instrument.Counter newCounter(io.micrometer.core.instrument.Meter.Id id) {
                 var counter = mock(io.micrometer.core.instrument.Counter.class);

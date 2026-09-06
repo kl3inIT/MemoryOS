@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Object Storage",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"tenant"}
+        allowedDependencies = {"iam"}
 )
 package io.memoryos.objectstorage;
 

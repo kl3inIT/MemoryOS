@@ -6,7 +6,7 @@ import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
@@ -256,12 +256,12 @@ final class RedisStreamWorker implements SmartLifecycle {
                     published.traceId(), published.spanId(), io.opentelemetry.api.trace.TraceFlags.getDefault(),
                     io.opentelemetry.api.trace.TraceState.getDefault()));
         }
-        try (var scope = span.makeCurrent();
-             var traceMdc = MDC.putCloseable("traceId", span.getSpanContext().getTraceId());
-             var spanMdc = MDC.putCloseable("spanId", span.getSpanContext().getSpanId());
-             var operationMdc = MDC.putCloseable("operation_id", delivery.operationId().value().toString());
-             var deliveryMdc = MDC.putCloseable("delivery_id", delivery.deliveryId().toString());
-             var workloadMdc = MDC.putCloseable("workload", workload.name())) {
+        try (var _ = span.makeCurrent();
+             var _ = MDC.putCloseable("traceId", span.getSpanContext().getTraceId());
+             var _ = MDC.putCloseable("spanId", span.getSpanContext().getSpanId());
+             var _ = MDC.putCloseable("operation_id", delivery.operationId().value().toString());
+             var _ = MDC.putCloseable("delivery_id", delivery.deliveryId().toString());
+             var _ = MDC.putCloseable("workload", workload.name())) {
             try {
                 var outcome = coordinator.process(delivery);
                 span.setAttribute("processing.outcome", outcome.name());

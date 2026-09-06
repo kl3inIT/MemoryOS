@@ -3,11 +3,11 @@ package io.memoryos.api.tenant;
 import io.arconia.multitenancy.core.exceptions.TenantVerificationException;
 import io.arconia.multitenancy.core.tenantdetails.TenantVerifier;
 
-import io.memoryos.identity.ExternalIdentity;
-import io.memoryos.tenant.InitialTenantBootstrapRequest;
-import io.memoryos.tenant.InitialTenantBootstrapper;
-import io.memoryos.tenant.TenantAccessResolver;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.InitialTenantBootstrapRequest;
+import io.memoryos.iam.InitialTenantBootstrapper;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.iam.TenantId;
 
 import java.util.UUID;
 

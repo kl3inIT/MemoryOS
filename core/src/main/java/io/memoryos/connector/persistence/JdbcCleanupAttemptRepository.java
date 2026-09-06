@@ -3,7 +3,7 @@ package io.memoryos.connector.persistence;
 import io.memoryos.connector.CleanupWork;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.time.Duration;
 import java.util.Objects;

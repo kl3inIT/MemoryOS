@@ -13,16 +13,16 @@ import io.memoryos.api.invitation.contract.CurrentInvitationResponse;
 import io.memoryos.api.invitation.contract.InvitationPageResponse;
 import io.memoryos.api.invitation.contract.InvitationResponse;
 import io.memoryos.api.invitation.contract.IssuedInvitationResponse;
-import io.memoryos.identity.IdentityContext;
-import io.memoryos.invitation.InvitationException;
-import io.memoryos.invitation.InvitationFailureReason;
-import io.memoryos.invitation.InvitationPage;
-import io.memoryos.invitation.InvitationQuery;
-import io.memoryos.invitation.InvitationService;
-import io.memoryos.invitation.InvitationSort;
-import io.memoryos.invitation.InvitationStatus;
-import io.memoryos.invitation.InvitationView;
-import io.memoryos.invitation.IssuedInvitation;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationPage;
+import io.memoryos.iam.InvitationQuery;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.InvitationSort;
+import io.memoryos.iam.InvitationStatus;
+import io.memoryos.iam.InvitationView;
+import io.memoryos.iam.IssuedInvitation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -57,7 +57,7 @@ final class InvitationController {
 
     @Operation(
             operationId = "listInvitations",
-            summary = "List the current owner's Tenant invitations",
+            summary = "List Tenant invitations manageable by the current IAM administrator",
             security = {
                     @SecurityRequirement(name = "browserSession"),
                     @SecurityRequirement(name = "bearerAuth")
@@ -86,7 +86,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Tenant owner",
+            description = "The actor lacks USERS_MANAGE authority",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -143,7 +143,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Tenant owner or the same-origin header is missing",
+            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -204,7 +204,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Tenant owner or the same-origin header is missing",
+            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)
@@ -243,7 +243,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor is not an active Tenant owner or the same-origin header is missing",
+            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)

@@ -213,7 +213,26 @@ configure_realm() {
     echo "realm=$TARGET_REALM self-registration=disabled email-verification=required smtp=updated"
 }
 
+configure_provisioning_profile() {
+    "$KCADM" get users/profile --config "$CONFIG_FILE" -r "$TARGET_REALM" |
+        jq '.attributes = (
+            ((.attributes // []) | map(select(.name != "memoryos.provisioned"))) + [{
+                name: "memoryos.provisioned",
+                displayName: "MemoryOS provisioning provenance",
+                permissions: {view: ["admin"], edit: ["admin"]},
+                validations: {options: {options: ["true"]}},
+                multivalued: false
+            }]
+        )' |
+        "$KCADM" update users/profile \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f - >/dev/null
+    echo "realm=$TARGET_REALM provisioning-provenance=admin-only"
+}
+
 configure_realm
+configure_provisioning_profile
 
 find_initial_owner_uuid() {
     if [ -n "${MEMORYOS_INITIAL_OWNER_SUBJECT:-}" ]; then

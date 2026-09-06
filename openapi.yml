@@ -7,6 +7,139 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/users/{actorId}/groups:
+    post:
+      tags:
+      - Users
+      summary: Replace a user's ordinary Group memberships
+      operationId: replaceUserGroups
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceUserGroupsRequest"
+        required: true
+      responses:
+        "204":
+          description: The user's ordinary Group memberships were replaced
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: The actor lacks IAM_ADMIN authority or the same-origin header
+            is missing
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: The user or a requested Group does not exist in the current
+            Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/users/{actorId}/deactivate:
+    post:
+      tags:
+      - Users
+      summary: Deactivate an existing Tenant member
+      operationId: deactivateUser
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: The member is inactive
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: "The actor lacks USERS_MANAGE authority, the target is protected,\
+            \ or the same-origin header is missing"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: The member does not exist in the current Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/users/{actorId}/activate:
+    post:
+      tags:
+      - Users
+      summary: Activate an existing Tenant member
+      operationId: activateUser
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: The member is active
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: "The actor lacks USERS_MANAGE authority, the target is protected,\
+            \ or the same-origin header is missing"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: The member does not exist in the current Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
   /api/sources/{sourceId}/uploads:
     post:
       tags:
@@ -155,6 +288,61 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/groups:
+    get:
+      tags:
+      - Sources
+      summary: List groups associated with one source
+      operationId: listSourceGroups
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceGroupList"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Sources
+      summary: Replace groups associated with one source
+      operationId: updateSourceGroups
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSourceGroupsRequest"
+        required: true
+      responses:
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/delete:
     post:
       tags:
@@ -221,7 +409,7 @@ paths:
     get:
       tags:
       - Invitations
-      summary: List the current owner's Tenant invitations
+      summary: List Tenant invitations manageable by the current IAM administrator
       operationId: listInvitations
       parameters:
       - name: status
@@ -284,7 +472,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Tenant owner
+          description: The actor lacks USERS_MANAGE authority
           content:
             application/problem+json:
               schema:
@@ -329,8 +517,8 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Tenant owner or the same-origin
-            header is missing
+          description: The actor lacks USERS_MANAGE authority or the same-origin header
+            is missing
           content:
             application/problem+json:
               schema:
@@ -383,8 +571,8 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Tenant owner or the same-origin
-            header is missing
+          description: The actor lacks USERS_MANAGE authority or the same-origin header
+            is missing
           content:
             application/problem+json:
               schema:
@@ -426,14 +614,462 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active Tenant owner or the same-origin
-            header is missing
+          description: The actor lacks USERS_MANAGE authority or the same-origin header
+            is missing
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "410":
           description: Invitation is no longer pending and available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/groups:
+    get:
+      tags:
+      - Groups
+      summary: List Groups visible to the current actor
+      operationId: listGroups
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: "A bounded, server-authorized Group page"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupPage"
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: The actor has no global or managed-Group read authority
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Groups
+      summary: Create an ordinary Group
+      operationId: createGroup
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroupRequest"
+        required: true
+      responses:
+        "201":
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/rename:
+    post:
+      tags:
+      - Groups
+      summary: Rename an ordinary Group
+      operationId: renameGroup
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameGroupRequest"
+        required: true
+      responses:
+        "200":
+          description: Group renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/members:
+    get:
+      tags:
+      - Groups
+      summary: List members of one visible Group
+      operationId: listGroupMembers
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: A bounded Group member page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupMemberPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Groups
+      summary: Add Tenant members to a Group
+      operationId: addGroupMembers
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddGroupMembersRequest"
+        required: true
+      responses:
+        "204":
+          description: Members added idempotently
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/members/{actorId}/remove:
+    post:
+      tags:
+      - Groups
+      summary: Remove one member from a Group
+      operationId: removeGroupMember
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Member removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/members/{actorId}/remove-manager:
+    post:
+      tags:
+      - Groups
+      summary: Remove a manager from an ordinary Group
+      operationId: removeGroupManager
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Manager flag removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/members/{actorId}/assign-manager:
+    post:
+      tags:
+      - Groups
+      summary: Assign a manager to an ordinary Group
+      operationId: assignGroupManager
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Manager assigned
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/delete:
+    post:
+      tags:
+      - Groups
+      summary: Delete an ordinary Group
+      operationId: deleteGroup
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Group links and grants deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/capabilities:
+    post:
+      tags:
+      - Groups
+      summary: Replace an ordinary Group's explicit capability grants
+      operationId: replaceGroupCapabilities
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceGroupCapabilitiesRequest"
+        required: true
+      responses:
+        "204":
+          description: Explicit grants replaced
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/users:
+    get:
+      tags:
+      - Users
+      summary: List users manageable by the current IAM administrator
+      operationId: listUsers
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+          - INVITED
+      - name: role
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: NAME_ASC
+          enum:
+          - NAME_ASC
+          - NAME_DESC
+          - EMAIL_ASC
+          - EMAIL_DESC
+          - STATUS_ASC
+          - STATUS_DESC
+          - ROLE_ASC
+          - ROLE_DESC
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: A bounded page of current memberships and eligible pending
+            invitations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPage"
+        "400":
+          description: Invalid user directory query
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: The actor lacks USERS_MANAGE authority
           content:
             application/problem+json:
               schema:
@@ -541,6 +1177,47 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/group-options:
+    get:
+      tags:
+      - Sources
+      summary: List groups available for source association
+      operationId: listSourceGroupOptions
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceGroupPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/source-operations/{operationId}:
     get:
       tags:
@@ -604,8 +1281,131 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/groups/{groupId}:
+    get:
+      tags:
+      - Groups
+      summary: Get one visible Group
+      operationId: getGroup
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The server-authorized Group detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/sources:
+    get:
+      tags:
+      - Groups
+      summary: List sources associated with one group
+      operationId: listGroupSources
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GroupSources"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/candidates:
+    get:
+      tags:
+      - Groups
+      summary: List Tenant members eligible to join a Group
+      operationId: listGroupCandidates
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: A bounded candidate page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupMemberPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/capabilities:
+    get:
+      tags:
+      - Groups
+      summary: List the server-owned Group capability registry
+      operationId: listGroupCapabilities
+      responses:
+        "200":
+          description: Capability metadata for implemented consumers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupCapabilities"
+      security:
+      - bearerAuth: []
+      - browserSession: []
 components:
   schemas:
+    ReplaceUserGroupsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          maxLength: 100
+          minItems: 0
+      required:
+      - groupIds
     InitiateSourceUploadRequest:
       type: object
       additionalProperties: false
@@ -735,6 +1535,21 @@ components:
       required:
       - item
       - operation
+    UpdateSourceGroupsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          maxLength: 100
+          minItems: 0
+          minLength: 1
+      required:
+      - groupIds
     CreateFileSourceRequest:
       type: object
       additionalProperties: false
@@ -743,6 +1558,15 @@ components:
           type: string
           maxLength: 120
           minLength: 0
+        groupIds:
+          type:
+          - array
+          - "null"
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
       required:
       - name
     SourceDetail:
@@ -787,8 +1611,13 @@ components:
           type:
           - string
           - "null"
+        actions:
+          type: array
+          items:
+            type: string
       required:
       - access
+      - actions
       - documentCount
       - errorCode
       - id
@@ -873,6 +1702,321 @@ components:
       - delivery
       - invitation
       - invitationUrl
+    CreateGroupRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 0
+      required:
+      - name
+    GroupSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        systemKey:
+          oneOf:
+          - $ref: "#/components/schemas/GroupSystemKey"
+          - type: "null"
+        memberCount:
+          type: integer
+          format: int64
+          minimum: 0
+        managerCount:
+          type: integer
+          format: int64
+          minimum: 0
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum:
+            - IAM_ADMIN
+            - USERS_MANAGE
+            - GROUPS_READ
+            - GROUPS_MANAGE
+            - SOURCES_READ
+            - SOURCES_MANAGE
+            - SOURCES_DELETE
+        actions:
+          type: array
+          items:
+            type: string
+      required:
+      - actions
+      - capabilities
+      - id
+      - managerCount
+      - memberCount
+      - name
+      - systemKey
+    GroupSystemKey:
+      type: string
+      enum:
+      - ADMIN
+      - BASIC
+    RenameGroupRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 0
+      required:
+      - name
+    AddGroupMembersRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        actorIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          maxLength: 100
+          minItems: 0
+          minLength: 1
+      required:
+      - actorIds
+    ReplaceGroupCapabilitiesRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum:
+            - IAM_ADMIN
+            - USERS_MANAGE
+            - GROUPS_READ
+            - GROUPS_MANAGE
+            - SOURCES_READ
+            - SOURCES_MANAGE
+            - SOURCES_DELETE
+          maxItems: 7
+          maxLength: 7
+          minItems: 0
+      required:
+      - capabilities
+    AccountType:
+      type: string
+      enum:
+      - STANDARD
+    TenantMembershipRole:
+      type: string
+      enum:
+      - OWNER
+      - MEMBER
+    UserCounts:
+      type: object
+      additionalProperties: false
+      properties:
+        active:
+          type: integer
+          format: int64
+          minimum: 0
+        inactive:
+          type: integer
+          format: int64
+          minimum: 0
+        invited:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - active
+      - inactive
+      - invited
+    UserGroup:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        systemKey:
+          oneOf:
+          - $ref: "#/components/schemas/GroupSystemKey"
+          - type: "null"
+      required:
+      - id
+      - name
+      - systemKey
+    UserListItem:
+      type: object
+      additionalProperties: false
+      properties:
+        actorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: Stable Actor identifier for a membership row; null for an invitation
+            row.
+        invitationId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: Invitation identifier for an invited row; null for a membership
+            row.
+        displayName:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+        emailVerified:
+          type:
+          - boolean
+          - "null"
+        profileIssuer:
+          type:
+          - string
+          - "null"
+        role:
+          oneOf:
+          - $ref: "#/components/schemas/TenantMembershipRole"
+          - type: "null"
+        accountType:
+          oneOf:
+          - $ref: "#/components/schemas/AccountType"
+          - type: "null"
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+          - INVITED
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserGroup"
+        invitationExpiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: Invitation expiry for an invited row; null for a membership
+            row.
+      required:
+      - accountType
+      - actorId
+      - displayName
+      - email
+      - emailVerified
+      - groups
+      - invitationExpiresAt
+      - invitationId
+      - profileIssuer
+      - role
+      - status
+    UserPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserListItem"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+        counts:
+          $ref: "#/components/schemas/UserCounts"
+      required:
+      - counts
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
+    SourceGroup:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        systemKey:
+          oneOf:
+          - $ref: "#/components/schemas/GroupSystemKey"
+          - type: "null"
+      required:
+      - id
+      - name
+      - systemKey
+    SourceGroupList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceGroup"
+      required:
+      - items
+    SourceGroupPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceGroup"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
     InvitationPage:
       type: object
       additionalProperties: false
@@ -936,15 +2080,42 @@ components:
           - type: "null"
         capabilities:
           type: array
-          description: Canonical capabilities backed by current server enforcement.
+          description: Expanded global capabilities backed by current server enforcement.
           items:
             type: string
             enum:
-            - INVITATIONS_MANAGE
+            - IAM_ADMIN
+            - USERS_MANAGE
+            - GROUPS_READ
+            - GROUPS_MANAGE
+            - SOURCES_READ
             - SOURCES_MANAGE
+            - SOURCES_DELETE
+        scopedCapabilities:
+          type: array
+          description: Eligible capabilities available only within resources managed
+            by this actor.
+          items:
+            type: string
+            enum:
+            - IAM_ADMIN
+            - USERS_MANAGE
+            - GROUPS_READ
+            - GROUPS_MANAGE
+            - SOURCES_READ
+            - SOURCES_MANAGE
+            - SOURCES_DELETE
+        authorizationVersion:
+          type: integer
+          format: int64
+          description: Monotonic Tenant IAM revision used only to invalidate private
+            client data.
+          minimum: 0
       required:
       - actorId
+      - authorizationVersion
       - capabilities
+      - scopedCapabilities
       - tenant
     CurrentTenant:
       type: object
@@ -962,6 +2133,162 @@ components:
       required:
       - displayName
       - role
+    GroupPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupSummary"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
+    GroupSources:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceSummary"
+      required:
+      - items
+    GroupMember:
+      type: object
+      additionalProperties: false
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        displayName:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+        accountType:
+          type: string
+          enum:
+          - STANDARD
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+        isManager:
+          type: boolean
+        protectedOwner:
+          type: boolean
+      required:
+      - accountType
+      - actorId
+      - displayName
+      - email
+      - isManager
+      - protectedOwner
+      - status
+    GroupMemberPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupMember"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
+    GroupCapabilities:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupCapability"
+      required:
+      - items
+    GroupCapability:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          enum:
+          - IAM_ADMIN
+          - USERS_MANAGE
+          - GROUPS_READ
+          - GROUPS_MANAGE
+          - SOURCES_READ
+          - SOURCES_MANAGE
+          - SOURCES_DELETE
+        label:
+          type: string
+        description:
+          type: string
+        editable:
+          type: boolean
+        implies:
+          type: array
+          items:
+            type: string
+            enum:
+            - IAM_ADMIN
+            - USERS_MANAGE
+            - GROUPS_READ
+            - GROUPS_MANAGE
+            - SOURCES_READ
+            - SOURCES_MANAGE
+            - SOURCES_DELETE
+      required:
+      - description
+      - editable
+      - id
+      - implies
+      - label
     ApiProblem:
       type: object
       additionalProperties: false

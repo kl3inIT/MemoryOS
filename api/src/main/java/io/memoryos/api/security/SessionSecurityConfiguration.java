@@ -1,8 +1,9 @@
 package io.memoryos.api.security;
 
-import io.memoryos.identity.ExternalIdentityResolver;
-import io.memoryos.invitation.InvitationService;
-import io.memoryos.tenant.TenantAccessResolver;
+import io.memoryos.iam.ActorProfileRecorder;
+import io.memoryos.iam.ExternalIdentityResolver;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.TenantAccessResolver;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,7 @@ class SessionSecurityConfiguration {
             ExternalIdentityResolver identityResolver,
             TenantAccessResolver tenantAccessResolver,
             InvitationService invitationService,
+            ActorProfileRecorder profileRecorder,
             BrowserLoginProperties browserLoginProperties
     ) {
         var clientRegistration = clientRegistrationRepository.findByRegistrationId(browserLoginProperties.registrationId());
@@ -58,7 +60,8 @@ class SessionSecurityConfiguration {
                         .successHandler(new ActorSessionLoginSuccessHandler(
                                 identityResolver,
                                 tenantAccessResolver,
-                                invitationService
+                                invitationService,
+                                profileRecorder
                         ))
                         .failureHandler(new OAuth2LoginFailureHandler()))
                 .logout(logout -> logout

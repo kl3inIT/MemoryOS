@@ -3,7 +3,7 @@ package io.memoryos.api.source;
 import io.memoryos.api.source.contract.SourceOperationResponse;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationId;
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

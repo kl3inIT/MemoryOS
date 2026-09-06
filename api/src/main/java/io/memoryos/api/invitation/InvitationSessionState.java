@@ -1,6 +1,6 @@
 package io.memoryos.api.invitation;
 
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.Serial;

@@ -3,7 +3,7 @@ package io.memoryos.objectstorage.persistence;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectVerificationToken;
 import io.memoryos.objectstorage.StoredObjectId;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.sql.Timestamp;
 import java.time.Instant;

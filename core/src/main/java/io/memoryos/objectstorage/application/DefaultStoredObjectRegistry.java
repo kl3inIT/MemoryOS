@@ -3,7 +3,7 @@ package io.memoryos.objectstorage.application;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectRegistry;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.util.Objects;
 

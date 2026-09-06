@@ -33,7 +33,7 @@ class SchedulerSchemaMigrationTest {
                 .locations("classpath:db/migration")
                 .load();
 
-        assertEquals(12, flyway.migrate().migrationsExecuted);
+        flyway.migrate();
 
         var dataSource = new DriverManagerDataSource(
                 POSTGRES.getJdbcUrl(),

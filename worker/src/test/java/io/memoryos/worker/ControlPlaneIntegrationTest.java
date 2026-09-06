@@ -50,19 +50,6 @@ import org.springframework.test.context.DynamicPropertySource;
                 "memoryos.redis.ingestion.group=memoryos-test-control-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:control:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-control-cleanup-workers",
-                "spring.sql.init.mode=always",
-                "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
-                        + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
-                        + "classpath:db/migration/V3__create_organization_invitations.sql,"
-                        + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
-                        + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
-                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
-                        + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
-                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
-                        + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
-                        + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
-                        + "classpath:db/migration/V12__use_current_documents.sql",
                 "spring.data.redis.repositories.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "db-scheduler.enabled=true",
@@ -106,9 +93,7 @@ class ControlPlaneIntegrationTest {
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        WorkerPostgresDatabase.configure(registry, POSTGRES);
     }
 
     @Test

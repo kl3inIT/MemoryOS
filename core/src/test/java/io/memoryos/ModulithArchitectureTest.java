@@ -12,9 +12,7 @@ import org.springframework.modulith.core.ApplicationModules;
 class ModulithArchitectureTest {
 
     private static final Set<String> CAPABILITIES = Set.of(
-            "identity",
-            "tenant",
-            "invitation",
+            "iam",
             "objectstorage",
             "connector",
             "document",
