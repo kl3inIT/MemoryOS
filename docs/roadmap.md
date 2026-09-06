@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-05.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-06.
 
 ## Delivered
 
@@ -31,14 +31,14 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | MEM-53 | API-owned local PostgreSQL, worker-owned local Redis, and read-only SSO-protected staging inspection surfaces | [Design](increments/completed/mem-53-inspection-tooling/design.md) · [Verification](increments/completed/mem-53-inspection-tooling/verification.md) · [PR #56](https://github.com/kl3inIT/MemoryOS/pull/56) · [hardening PRs #57–59 and #62](https://github.com/kl3inIT/MemoryOS/pull/62) |
 | MEM-43/MEM-44/MEM-51 | PostgreSQL-authoritative Redis Stream relay and consumer execution with bounded dispatch, fencing, rediscovery, and no direct business poller | [Design](increments/completed/mem-43-44-51-redis-execution-cutover/design.md) · [Verification](increments/completed/mem-43-44-51-redis-execution-cutover/verification.md) · [PR #63](https://github.com/kl3inIT/MemoryOS/pull/63) |
 | MEM-52 | Provider-neutral object storage with MinIO-verified direct FILE uploads, deterministic object lifecycle, and screenshot-faithful Source management | [Design](increments/completed/mem-52-minio-object-storage/design.md) · [Verification](increments/completed/mem-52-minio-object-storage/verification.md) · [PR #64](https://github.com/kl3inIT/MemoryOS/pull/64) · [final UI PR #71](https://github.com/kl3inIT/MemoryOS/pull/71) |
+| MEM-57 | Persistent LGTM, structured logging, durable-operation tracing and owner-gated Grafana SSO | [Design](increments/completed/mem-57-staging-observability/design.md) · [PR #73](https://github.com/kl3inIT/MemoryOS/pull/73) · Post-merge runtime evidence in [Linear](https://linear.app/memory-os/issue/MEM-57) |
 
 ## Active
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-56](https://linear.app/memory-os/issue/MEM-56/add-owner-only-minio-console-with-keycloak-sso) | Expose an owner-only, bucket-read-only staging MinIO Console through native Keycloak SSO without widening API, worker, or public object-storage authority | [Design](increments/active/mem-56-minio-console-sso/design.md) · [Plan](increments/active/mem-56-minio-console-sso/plan.md) |
-
-| [MEM-57](https://linear.app/memory-os/issue/MEM-57) | Persistent LGTM, correlated structured logging, durable-operation tracing and owner-gated Grafana SSO | [Design](increments/active/mem-57-staging-observability/design.md) � [Plan](increments/active/mem-57-staging-observability/plan.md) |
+| [MEM-64](https://linear.app/memory-os/issue/MEM-64) | Ingestion outcome metrics, initial queue wait and observability conventions | [Design](increments/active/mem-64-ingestion-observability/design.md) · [Plan](increments/active/mem-64-ingestion-observability/plan.md) |
 
 ## Candidate increments
 

@@ -22,6 +22,42 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class RedisStreamWorkerTracingTest {
+    @org.junit.jupiter.api.Test
+    void acknowledgementFailureDoesNotReclassifyOrDoubleCountCoordinatorOutcome() {
+        var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        var coordinator = new io.memoryos.ingestion.application.DefaultIngestionCoordinator(
+                mock(io.memoryos.connector.ConnectorIndexingPort.class),
+                mock(io.memoryos.connector.ConnectorCleanupPort.class),
+                mock(io.memoryos.document.DocumentCommandPort.class),
+                mock(io.memoryos.ingestion.SourceContentExtractor.class),
+                mock(io.memoryos.objectstorage.ObjectStorage.class),
+                mock(io.memoryos.objectstorage.StoredObjectRegistry.class),
+                mock(org.springframework.transaction.support.TransactionTemplate.class),
+                mock(java.util.concurrent.ScheduledExecutorService.class), registry);
+        var redis = mock(StringRedisTemplate.class, RETURNS_DEEP_STUBS);
+        var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8);
+        var id = RecordId.of("1-0");
+        MapRecord<String, Object, Object> record = MapRecord.create("ingestion", Map.<Object, Object>of(
+                "tenant_id", UUID.randomUUID().toString(), "operation_kind", "INGESTION",
+                "operation_id", UUID.randomUUID().toString(), "delivery_id", UUID.randomUUID().toString()))
+                .withId(id);
+        when(redis.opsForStream().acknowledge("ingestion", "workers", id))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("test ACK outage"));
+        var transportMetrics = mock(RedisExecutionMetrics.class);
+        var worker = new RedisStreamWorker(redis, mock(RedisExecutionTopology.class),
+                mock(RedisExecutionProperties.class), mock(OperationDispatchPort.class),
+                coordinator, transportMetrics, io.opentelemetry.api.OpenTelemetry.noop());
+
+        ReflectionTestUtils.invokeMethod(worker, "process", settings, OperationWorkload.INGESTION, record);
+
+        assertThat(registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "SKIPPED")
+                .counter().count()).isEqualTo(1);
+        assertThat(registry.find("memoryos.operation.outcomes").counters().stream()
+                .mapToDouble(io.micrometer.core.instrument.Counter::count).sum()).isEqualTo(1);
+        verify(transportMetrics).delivery(OperationWorkload.INGESTION, RedisExecutionMetrics.DeliveryOutcome.PENDING);
+        verify(redis.opsForStream(), never()).delete("ingestion", id);
+    }
+
     @ParameterizedTest
     @EnumSource(IngestionCoordinator.Outcome.class)
     void handledOutcomesPreserveAcknowledgementAndReportBusinessFailure(IngestionCoordinator.Outcome outcome) {

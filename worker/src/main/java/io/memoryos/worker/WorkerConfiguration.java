@@ -35,7 +35,8 @@ class WorkerConfiguration {
             ObjectStorage storage,
             StoredObjectRegistry storedObjects,
             PlatformTransactionManager transactionManager,
-            ScheduledExecutorService claimLeaseScheduler
+            ScheduledExecutorService claimLeaseScheduler,
+            io.micrometer.core.instrument.MeterRegistry registry
     ) {
         return new DefaultIngestionCoordinator(
                 indexingPort,
@@ -45,7 +46,8 @@ class WorkerConfiguration {
                 storage,
                 storedObjects,
                 new TransactionTemplate(transactionManager),
-                claimLeaseScheduler
+                claimLeaseScheduler,
+                registry
         );
     }
 }

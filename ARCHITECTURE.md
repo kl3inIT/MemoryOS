@@ -116,6 +116,9 @@ a strict `memoryos-inspector` role gate and separate local break-glass credentia
 Nullable operation-origin IDs persist across PostgreSQL dispatch and Redis delivery.
 Worker publication/processing spans are separate roots with causal links; telemetry
 never changes durable claim, fencing or authorization semantics.
+The ingestion coordinator records bounded processing outcomes independently of ACK;
+connector persistence supplies creation-to-first-claim wait from database timestamps.
+See the [processing telemetry contract](docs/specs/ingestion.md#processing-telemetry).
 
 See the [logging policy](docs/guidelines/observability.md),
 [verification matrix](docs/tests/observability.md), and

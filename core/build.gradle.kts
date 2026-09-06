@@ -9,6 +9,7 @@ dependencies {
     implementation(platform(libs.aws.sdk.bom))
     implementation(libs.spring.boot.starter.jdbc)
     compileOnly(libs.spring.boot.starter.actuator)
+    implementation(libs.micrometer.core)
     implementation(libs.jackson.databind)
     implementation(libs.keycloak.admin.client)
     implementation(libs.aws.sdk.s3)
