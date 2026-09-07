@@ -9,7 +9,7 @@ keycloak-admin-client = "26.0.12"
 tika = "4.0.0"
 arconia = "0.30.0"
 db-scheduler = "16.12.0"
-aws-sdk = "2.54.11"
+aws-sdk = "2.54.12"
 docling-java = "0.6.5"
 
 [libraries]
