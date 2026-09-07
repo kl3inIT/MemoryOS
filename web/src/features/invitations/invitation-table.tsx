@@ -172,10 +172,15 @@ export function InvitationTable({
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div
+        role="region"
+        aria-label="Invitation records"
+        tabIndex={0}
+        className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+      >
         <table className="w-full min-w-[48rem] border-collapse">
           <caption className="sr-only">Tenant invitations</caption>
-          <thead className="border-b border-border-subtle bg-surface-subtle/40 text-left">
+          <thead className="border-b border-border-subtle bg-surface-base text-left">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -188,7 +193,7 @@ export function InvitationTable({
                       aria-sort={
                         sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"
                       }
-                      className={cn("px-4 py-3", header.column.id === "actions" && "text-right")}
+                      className={cn("px-4 py-2", header.column.id === "actions" && "text-right")}
                     >
                       {header.isPlaceholder ? null : sortable ? (
                         <TextButton
@@ -209,7 +214,7 @@ export function InvitationTable({
                       ) : header.column.id === "actions" ? (
                         <span className="sr-only">Actions</span>
                       ) : (
-                        <span className="font-secondary-action text-content-secondary">
+                        <span className="font-secondary-body text-content-muted">
                           <table.FlexRender header={header} />
                         </span>
                       )}
@@ -221,9 +226,9 @@ export function InvitationTable({
           </thead>
           <tbody className="divide-y divide-border-subtle">
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="align-top">
+              <tr key={row.id} className="align-middle transition-colors hover:bg-surface-base">
                 {row.getAllCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-4">
+                  <td key={cell.id} className="px-4 py-3">
                     <table.FlexRender cell={cell} />
                   </td>
                 ))}
@@ -235,7 +240,7 @@ export function InvitationTable({
 
       <nav
         aria-label="Invitation pages"
-        className="flex flex-col gap-3 border-t border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col gap-3 border-t border-border-subtle bg-surface-base px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <p className="font-secondary-body text-content-muted">
           Showing {firstItem}–{lastItem} of {totalItems}

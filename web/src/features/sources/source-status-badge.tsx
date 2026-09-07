@@ -1,5 +1,15 @@
-import { Check, Clock3, LoaderCircle, Trash2, TriangleAlert, type LucideIcon } from "lucide-react";
+import {
+  Check,
+  Clock3,
+  LoaderCircle,
+  Lock,
+  Trash2,
+  TriangleAlert,
+  UsersRound,
+  type LucideIcon,
+} from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import type { SourceSummary } from "@/lib/hey-api/types.gen";
 
 type SourceStatusPresentation = {
   label: string;
@@ -37,6 +47,26 @@ export function SourceStatusBadge({ status }: { status?: string }) {
         aria-hidden="true"
       />
       {presentation.label}
+    </StatusBadge>
+  );
+}
+
+export function SourceAccessBadge({ access }: { access: SourceSummary["access"] }) {
+  const workspaceAccess = access === "PUBLIC";
+  const AccessIcon = workspaceAccess ? UsersRound : Lock;
+
+  return (
+    <StatusBadge
+      tone="neutral"
+      className="gap-1.5"
+      title={
+        workspaceAccess
+          ? "Available to workspace members, not the public Internet."
+          : "Restricted source access."
+      }
+    >
+      <AccessIcon className="size-3 shrink-0" aria-hidden="true" />
+      {workspaceAccess ? "Workspace members" : "Restricted"}
     </StatusBadge>
   );
 }

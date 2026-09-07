@@ -3,13 +3,13 @@
   --font-sans: "Hanken Grotesk Variable", "Segoe UI Variable", "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", consolas, monospace;
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
 
   --shadow-xs: var(--elevation-1);
   --shadow-sm: var(--elevation-1);
@@ -40,6 +40,7 @@
   --color-surface-subtle: var(--surface-subtle);
   --color-surface-sunken: var(--surface-sunken);
   --color-surface-overlay: var(--surface-overlay);
+  --color-surface-scrim: var(--surface-scrim);
   --color-content-primary: var(--content-primary);
   --color-content-secondary: var(--content-secondary);
   --color-content-muted: var(--content-muted);

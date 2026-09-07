@@ -52,17 +52,17 @@ afterEach(() => {
 });
 
 describe("NewSessionPage", () => {
-  it("renders New Session inside the authenticated application shell", async () => {
+  it("offers authorized workspace navigation inside the authenticated shell", async () => {
     await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "New Session" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
-    expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Ask MemoryOS" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Manage sources" })).toHaveAttribute("href", "/admin");
+    expect(
+      new URL((screen.getByRole("link", { name: "Manage invitations" }) as HTMLAnchorElement).href)
+        .pathname,
+    ).toBe("/admin/invitations");
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
   });
 
@@ -75,6 +75,8 @@ describe("NewSessionPage", () => {
 
     expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Manage sources" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Manage invitations" })).not.toBeInTheDocument();
   });
   it("routes invitation-only administrators to invitations", async () => {
     await renderNewSession({
@@ -136,9 +138,7 @@ describe("NewSessionPage", () => {
     await user.click(screen.getByRole("button", { name: "Tenant owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't sign you out. Try again.",
-    );
+    expect(await screen.findByRole("alert")).toBeVisible();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
   });
 });

@@ -10,6 +10,15 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const canManageSources = useCan("SOURCES_MANAGE");
     const matchRoute = useMatchRoute();
     const invitationsSelected = Boolean(matchRoute({ to: "/admin/invitations" }));
+    const sourceSetupStep = matchRoute({
+      to: "/admin/sources/new/google-drive",
+      search: { step: "connector" },
+      includeSearch: true,
+    })
+      ? 1
+      : matchRoute({ to: "/admin/sources/new/google-drive" })
+        ? 0
+        : undefined;
 
     if (invitationsSelected ? !canManageInvitations : !canManageSources) {
       return <AccessDeniedScreen />;
@@ -20,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
         area="admin"
         adminPage={invitationsSelected ? "invitations" : "sources"}
         pageTitle={invitationsSelected ? "Invitations" : "Sources"}
+        sourceSetupStep={sourceSetupStep}
       >
         <SourceUploadRecoveryProvider>
           <Outlet />

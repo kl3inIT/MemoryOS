@@ -22,7 +22,8 @@ export function MenuItem({
 }: MenuItemProps) {
   const className = cn(
     actionVariants({ tone, prominence: "internal" }),
-    "flex h-[var(--control-height-md)] w-full items-center gap-3 rounded-lg px-3 text-left font-main-ui-body",
+    "flex min-h-[var(--control-height-md)] w-full items-center gap-2 rounded-lg px-2 py-2 text-left font-main-ui-body",
+    tone === "default" && "hover:bg-surface-subtle active:bg-surface-sunken",
     disabled && "cursor-not-allowed",
   );
   const content = (
@@ -37,6 +38,7 @@ export function MenuItem({
   if (to) {
     return (
       <Link
+        data-slot="menu-item"
         aria-disabled={disabled || undefined}
         tabIndex={disabled ? -1 : undefined}
         to={to}
@@ -55,6 +57,7 @@ export function MenuItem({
   return (
     <button
       type="button"
+      data-slot="menu-item"
       disabled={disabled}
       onClick={onClick as MouseEventHandler<HTMLButtonElement> | undefined}
       className={className}

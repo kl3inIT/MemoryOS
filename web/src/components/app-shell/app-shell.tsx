@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Menu,
-  SquarePen,
+  House,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -26,6 +26,7 @@ export type AdminPage = "sources" | "invitations";
 type AppShellProps = {
   area?: AppShellArea;
   adminPage?: AdminPage;
+  sourceSetupStep?: 0 | 1;
   pageTitle: string;
   children: ReactNode;
 };
@@ -33,15 +34,61 @@ type AppShellProps = {
 type SidebarContentsProps = {
   area: AppShellArea;
   adminPage?: AdminPage;
+  sourceSetupStep?: 0 | 1;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
   onNavigate?: () => void;
   mobile?: boolean;
 };
 
+function SourceSetupSidebarSteps({ step }: { step: 0 | 1 }) {
+  return (
+    <ol className="relative mx-2 mt-2 flex flex-col" aria-label="Connector setup progress">
+      {["Credential", "Connector"].map((label, index) => (
+        <li
+          key={label}
+          aria-current={step === index ? "step" : undefined}
+          className={cn(
+            "flex h-9 items-center gap-0.5 font-main-ui-body",
+            index > step ? "text-content-muted" : "text-content-primary",
+          )}
+        >
+          {index === 1 && (
+            <span
+              aria-hidden="true"
+              className={cn(
+                "absolute top-4.5 left-2 h-9 w-0.5",
+                step === 1 ? "bg-status-info-content" : "bg-border-default",
+              )}
+            />
+          )}
+          <span
+            className="flex min-h-5 shrink-0 items-center justify-center p-0.5"
+            aria-hidden="true"
+          >
+            <span
+              className={cn(
+                "z-10 flex size-3.5 shrink-0 items-center justify-center rounded-full",
+                index > step ? "bg-border-default" : "bg-status-info-content",
+              )}
+            >
+              {step === index && <span className="size-1.5 rounded-full bg-(--neutral-00)" />}
+            </span>
+          </span>
+          <span>{label}</span>
+          <span className="sr-only">
+            {index < step ? "Completed" : index > step ? "Not started" : "Current step"}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function SidebarContents({
   area,
   adminPage = "sources",
+  sourceSetupStep,
   collapsed = false,
   onCollapseToggle,
   onNavigate,
@@ -52,8 +99,14 @@ function SidebarContents({
     useAdminAccess();
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex h-10 shrink-0 items-center gap-2 px-2.5">
+    <div className="flex h-full min-h-0 flex-col pb-2">
+      <header
+        className={cn(
+          "flex shrink-0 gap-2",
+          sourceSetupStep !== undefined ? "items-start pt-3" : "min-h-13 items-center pt-1",
+          collapsed ? "px-1" : "px-3",
+        )}
+      >
         {collapsed && !mobile ? (
           <IconButton
             prominence="internal"
@@ -84,7 +137,7 @@ function SidebarContents({
                   <X />
                 </IconButton>
               </Dialog.Close>
-            ) : (
+            ) : sourceSetupStep === undefined ? (
               <IconButton
                 prominence="internal"
                 size="sm"
@@ -95,41 +148,38 @@ function SidebarContents({
               >
                 <PanelLeftClose />
               </IconButton>
-            )}
+            ) : null}
           </>
         )}
       </header>
 
       <nav
-        aria-label={appArea ? "Primary navigation" : "Administration navigation"}
-        className="min-h-0 flex-1 px-2 pt-2"
-      >
-        {!appArea && (
-          <div className="mb-5">
-            <SidebarTab
-              to="/"
-              icon={<ArrowLeft className="size-4" />}
-              collapsed={collapsed}
-              variant="light"
-              onClick={onNavigate}
-            >
-              Back to MemoryOS
-            </SidebarTab>
-          </div>
+        aria-label={
+          sourceSetupStep !== undefined
+            ? "Connector setup"
+            : appArea
+              ? "Primary navigation"
+              : "Administration navigation"
+        }
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto px-2",
+          sourceSetupStep === undefined && "pt-4",
         )}
-
-        {appArea ? (
+      >
+        {sourceSetupStep !== undefined ? (
+          <SourceSetupSidebarSteps step={sourceSetupStep} />
+        ) : appArea ? (
           <SidebarTab
             to="/"
-            icon={<SquarePen className="size-4" />}
+            icon={<House className="size-4" />}
             selected
             collapsed={collapsed}
             onClick={onNavigate}
           >
-            New Session
+            Home
           </SidebarTab>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-4">
             {canManageInvitations ? (
               <SidebarSection title="Tenant" collapsed={collapsed}>
                 <SidebarTab
@@ -160,8 +210,29 @@ function SidebarContents({
         )}
       </nav>
 
-      <footer className="shrink-0 p-2">
-        {appArea && canAccessAdmin ? (
+      <footer className="shrink-0 px-2 pt-4">
+        {!collapsed && <div className="mx-2 mb-2 border-t border-border-subtle" />}
+        {sourceSetupStep !== undefined ? (
+          <SidebarTab
+            to="/admin/sources/new"
+            icon={<X className="size-4" />}
+            variant="light"
+            onClick={onNavigate}
+          >
+            Exit Connector Setup
+          </SidebarTab>
+        ) : !appArea ? (
+          <SidebarTab
+            to="/"
+            icon={<ArrowLeft className="size-4" />}
+            collapsed={collapsed}
+            variant="light"
+            onClick={onNavigate}
+          >
+            Back to MemoryOS
+          </SidebarTab>
+        ) : null}
+        {sourceSetupStep === undefined && appArea && canAccessAdmin ? (
           <div className="mb-1">
             <SidebarTab
               to={adminEntryPath}
@@ -174,7 +245,9 @@ function SidebarContents({
             </SidebarTab>
           </div>
         ) : null}
-        <AccountMenu collapsed={collapsed} onNavigate={onNavigate} />
+        {sourceSetupStep === undefined && (
+          <AccountMenu collapsed={collapsed} onNavigate={onNavigate} />
+        )}
       </footer>
     </div>
   );
@@ -183,11 +256,13 @@ function SidebarContents({
 export function AppShell({
   area = "app",
   adminPage = "sources",
+  sourceSetupStep,
   pageTitle,
   children,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const sidebarCollapsed = sourceSetupStep === undefined && collapsed;
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface-canvas text-content-primary">
@@ -199,23 +274,30 @@ export function AppShell({
       </a>
 
       <aside
-        aria-label={area === "app" ? "Application sidebar" : "Administration sidebar"}
+        aria-label={
+          sourceSetupStep !== undefined
+            ? "Connector setup sidebar"
+            : area === "app"
+              ? "Application sidebar"
+              : "Administration sidebar"
+        }
         className={cn(
           "relative hidden h-dvh shrink-0 overflow-hidden bg-surface-canvas transition-[width] duration-200 motion-reduce:transition-none md:block",
-          collapsed ? "w-(--sidebar-width-collapsed)" : "w-(--sidebar-width)",
+          sidebarCollapsed ? "w-(--sidebar-width-collapsed)" : "w-(--sidebar-width)",
         )}
       >
         <SidebarContents
           area={area}
           adminPage={adminPage}
-          collapsed={collapsed}
+          sourceSetupStep={sourceSetupStep}
+          collapsed={sidebarCollapsed}
           onCollapseToggle={() => setCollapsed((current) => !current)}
         />
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-base md:m-2 md:ml-0 md:rounded-2xl md:border md:border-border-subtle md:shadow-xs">
+      <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-base">
         <Dialog.Root open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3 md:hidden">
+          <header className="flex h-13 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3 md:hidden">
             <Dialog.Trigger asChild>
               <IconButton prominence="internal" size="md" aria-label="Open navigation">
                 <Menu />
@@ -227,12 +309,16 @@ export function AppShell({
           </header>
 
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
-            <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none">
+            <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
+            <Dialog.Content
+              aria-describedby={undefined}
+              className="fixed inset-y-0 left-0 z-50 w-[min(var(--sidebar-width),86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none"
+            >
               <Dialog.Title className="sr-only">MemoryOS navigation</Dialog.Title>
               <SidebarContents
                 area={area}
                 adminPage={adminPage}
+                sourceSetupStep={sourceSetupStep}
                 mobile
                 onNavigate={() => setMobileNavigationOpen(false)}
               />
@@ -240,7 +326,11 @@ export function AppShell({
           </Dialog.Portal>
         </Dialog.Root>
 
-        <main id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-0 min-w-0 flex-1 overflow-auto outline-none"
+        >
           {children}
         </main>
       </section>

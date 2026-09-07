@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { InvitationFilters } from "@/features/invitations/invitation-filters";
 import {
   invitationListQuery,
@@ -184,30 +185,27 @@ export function TenantInvitationsPage() {
 
   return (
     <>
-      <section className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
-        <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="mb-2 font-secondary-action text-content-muted">Tenant</p>
-            <h1 className="font-heading-h2 text-content-primary">Invitations</h1>
-            <p className="mt-2 max-w-xl font-main-content-body text-content-secondary">
-              Invite members and inspect the complete invitation lifecycle.
-            </p>
-          </div>
-          <Button
-            size="lg"
-            onClick={() => {
-              setIssuedInvitation(null);
-              setFormError(null);
-              setDialogOpen(true);
-            }}
-          >
-            <UserRoundPlus />
-            Invite member
-          </Button>
-        </header>
+      <SettingsLayout wide>
+        <PageHeader
+          title="Invitations"
+          description="Invite members to your Tenant and manage their invitation links."
+          icon={<UserRoundPlus />}
+          actions={
+            <Button
+              onClick={() => {
+                setIssuedInvitation(null);
+                setFormError(null);
+                setDialogOpen(true);
+              }}
+            >
+              <UserRoundPlus />
+              Invite member
+            </Button>
+          }
+        />
 
         <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised">
-          <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3 sm:px-5">
+          <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-4">
             <h2 className="font-main-ui-action text-content-primary">Invitation history</h2>
             <span
               className="font-secondary-body text-content-muted"
@@ -230,7 +228,10 @@ export function TenantInvitationsPage() {
           />
 
           {invitationsQuery.isPending ? (
-            <div className="px-5 py-12 text-center font-main-ui-body text-content-muted">
+            <div
+              role="status"
+              className="px-5 py-12 text-center font-main-ui-body text-content-muted"
+            >
               Loading invitations…
             </div>
           ) : invitationsQuery.isError && !invitationPage ? (
@@ -257,7 +258,7 @@ export function TenantInvitationsPage() {
               <p className="mx-auto mt-2 max-w-md font-main-ui-body text-content-muted">
                 {hasFilters
                   ? "Change or clear the current filters to see other invitation records."
-                  : "Create a link when you are ready to bring someone into MemoryOS."}
+                  : "Invite a member to send an activation email or create a secure invitation link."}
               </p>
               {hasFilters && (
                 <Button
@@ -288,15 +289,15 @@ export function TenantInvitationsPage() {
             />
           )}
         </div>
-      </section>
+      </SettingsLayout>
 
       <Dialog.Root
         open={dialogOpen}
         onOpenChange={(open) => (open ? setDialogOpen(true) : closeInvitationDialog())}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border-default bg-surface-overlay p-5 shadow-md outline-none sm:p-6">
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-overlay p-6 shadow-md outline-none">
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -321,7 +322,7 @@ export function TenantInvitationsPage() {
                   >
                     Secure invitation link
                   </label>
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Input
                       id="invitation-link"
                       readOnly
@@ -331,7 +332,11 @@ export function TenantInvitationsPage() {
                       ).toString()}
                       className="min-w-0 flex-1 bg-surface-subtle"
                     />
-                    <Button type="button" onClick={() => void copyInvitationLink()}>
+                    <Button
+                      type="button"
+                      prominence="secondary"
+                      onClick={() => void copyInvitationLink()}
+                    >
                       {invitationLinkCopied ? <Link2 /> : <Copy />}
                       {invitationLinkCopied ? "Copied" : "Copy"}
                     </Button>
@@ -369,7 +374,7 @@ export function TenantInvitationsPage() {
                 </p>
               )}
 
-              <div className="mt-7 flex justify-end gap-2">
+              <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
                   prominence="tertiary"

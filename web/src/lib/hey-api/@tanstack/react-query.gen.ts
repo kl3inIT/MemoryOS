@@ -3,8 +3,42 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createFileSource, createInvitation, deleteSource, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getSource, getSourceOperation, initiateSourceUpload, listInvitations, listSourceIndexAttempts, listSourceItems, listSources, type Options, reindexSourceItem, removeSourceItem, revokeInvitation, rotateInvitation } from '../sdk.gen';
-import type { CreateFileSourceData, CreateFileSourceResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveSourceItemData, RemoveSourceItemResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse } from '../types.gen';
+import { createFileSource, createGoogleDriveSource, createInvitation, deleteGoogleDriveCredential, deleteSource, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getSource, getSourceOperation, initiateSourceUpload, listGoogleDriveCredentials, listInvitations, listSourceIndexAttempts, listSourceItems, listSources, type Options, reindexSourceItem, removeSourceItem, replaceGoogleDriveRoots, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, updateGoogleDriveSchedule } from '../sdk.gen';
+import type { CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveSourceItemData, RemoveSourceItemResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse } from '../types.gen';
+
+/**
+ * Update the automatic Google Drive sync interval
+ */
+export const updateGoogleDriveScheduleMutation = (options?: Partial<Options<UpdateGoogleDriveScheduleData>>): UseMutationOptions<UpdateGoogleDriveScheduleResponse, DefaultError, Options<UpdateGoogleDriveScheduleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateGoogleDriveScheduleResponse, DefaultError, Options<UpdateGoogleDriveScheduleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateGoogleDriveSchedule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace Google Drive scope mode and selected roots atomically
+ */
+export const replaceGoogleDriveRootsMutation = (options?: Partial<Options<ReplaceGoogleDriveRootsData>>): UseMutationOptions<ReplaceGoogleDriveRootsResponse, DefaultError, Options<ReplaceGoogleDriveRootsData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceGoogleDriveRootsResponse, DefaultError, Options<ReplaceGoogleDriveRootsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceGoogleDriveRoots({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 /**
  * Authorize one direct FILE source upload
@@ -75,12 +109,46 @@ export const reindexSourceItemMutation = (options?: Partial<Options<ReindexSourc
 };
 
 /**
+ * Schedule durable Google Drive synchronization
+ */
+export const synchronizeGoogleDriveSourceMutation = (options?: Partial<Options<SynchronizeGoogleDriveSourceData>>): UseMutationOptions<SynchronizeGoogleDriveSourceResponse, DefaultError, Options<SynchronizeGoogleDriveSourceData>> => {
+    const mutationOptions: UseMutationOptions<SynchronizeGoogleDriveSourceResponse, DefaultError, Options<SynchronizeGoogleDriveSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await synchronizeGoogleDriveSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Start durable source deletion
  */
 export const deleteSourceMutation = (options?: Partial<Options<DeleteSourceData>>): UseMutationOptions<DeleteSourceResponse, DefaultError, Options<DeleteSourceData>> => {
     const mutationOptions: UseMutationOptions<DeleteSourceResponse, DefaultError, Options<DeleteSourceData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await deleteSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Create a Google Drive source using a reusable credential
+ */
+export const createGoogleDriveSourceMutation = (options?: Partial<Options<CreateGoogleDriveSourceData>>): UseMutationOptions<CreateGoogleDriveSourceResponse, DefaultError, Options<CreateGoogleDriveSourceData>> => {
+    const mutationOptions: UseMutationOptions<CreateGoogleDriveSourceResponse, DefaultError, Options<CreateGoogleDriveSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createGoogleDriveSource({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -269,6 +337,40 @@ export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitat
     return mutationOptions;
 };
 
+/**
+ * Revoke a shared Google Drive credential and disconnect all attached Sources
+ */
+export const revokeGoogleDriveCredentialMutation = (options?: Partial<Options<RevokeGoogleDriveCredentialData>>): UseMutationOptions<RevokeGoogleDriveCredentialResponse, DefaultError, Options<RevokeGoogleDriveCredentialData>> => {
+    const mutationOptions: UseMutationOptions<RevokeGoogleDriveCredentialResponse, DefaultError, Options<RevokeGoogleDriveCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeGoogleDriveCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Authorize a reusable Google Drive credential
+ */
+export const startGoogleDriveAuthorizationMutation = (options?: Partial<Options<StartGoogleDriveAuthorizationData>>): UseMutationOptions<StartGoogleDriveAuthorizationResponse, DefaultError, Options<StartGoogleDriveAuthorizationData>> => {
+    const mutationOptions: UseMutationOptions<StartGoogleDriveAuthorizationResponse, DefaultError, Options<StartGoogleDriveAuthorizationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startGoogleDriveAuthorization({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listSourcesQueryKey = (options?: Options<ListSourcesData>) => createQueryKey('listSources', options);
 
 /**
@@ -341,6 +443,24 @@ export const listSourceIndexAttemptsOptions = (options: Options<ListSourceIndexA
     queryKey: listSourceIndexAttemptsQueryKey(options)
 });
 
+export const getGoogleDriveConfigurationQueryKey = (options: Options<GetGoogleDriveConfigurationData>) => createQueryKey('getGoogleDriveConfiguration', options);
+
+/**
+ * Get Google Drive source configuration
+ */
+export const getGoogleDriveConfigurationOptions = (options: Options<GetGoogleDriveConfigurationData>) => queryOptions<GetGoogleDriveConfigurationResponse, DefaultError, GetGoogleDriveConfigurationResponse, ReturnType<typeof getGoogleDriveConfigurationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGoogleDriveConfiguration({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGoogleDriveConfigurationQueryKey(options)
+});
+
 export const getSourceOperationQueryKey = (options: Options<GetSourceOperationData>) => createQueryKey('getSourceOperation', options);
 
 /**
@@ -396,3 +516,38 @@ export const getCurrentIdentityOptions = (options?: Options<GetCurrentIdentityDa
     },
     queryKey: getCurrentIdentityQueryKey(options)
 });
+
+export const listGoogleDriveCredentialsQueryKey = (options?: Options<ListGoogleDriveCredentialsData>) => createQueryKey('listGoogleDriveCredentials', options);
+
+/**
+ * List reusable Tenant-owned Google Drive credentials
+ */
+export const listGoogleDriveCredentialsOptions = (options?: Options<ListGoogleDriveCredentialsData>) => queryOptions<ListGoogleDriveCredentialsResponse, DefaultError, ListGoogleDriveCredentialsResponse, ReturnType<typeof listGoogleDriveCredentialsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGoogleDriveCredentials({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGoogleDriveCredentialsQueryKey(options)
+});
+
+/**
+ * Delete an unused Google Drive credential with a revision precondition
+ */
+export const deleteGoogleDriveCredentialMutation = (options?: Partial<Options<DeleteGoogleDriveCredentialData>>): UseMutationOptions<DeleteGoogleDriveCredentialResponse, DefaultError, Options<DeleteGoogleDriveCredentialData>> => {
+    const mutationOptions: UseMutationOptions<DeleteGoogleDriveCredentialResponse, DefaultError, Options<DeleteGoogleDriveCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteGoogleDriveCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

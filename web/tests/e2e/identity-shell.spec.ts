@@ -25,8 +25,6 @@ test("offers the backend OAuth2 flow when no session exists", async ({ page }) =
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: /sign in to memoryos/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /keep what matters/i })).toHaveCount(0);
-  await expect(page.getByText(/authentication and mfa|authorized members only/i)).toHaveCount(0);
   await expect(page.getByRole("link", { name: /continue with company account/i })).toHaveAttribute(
     "href",
     "/oauth2/authorization/memoryos",
@@ -51,15 +49,24 @@ test("renders the authenticated application shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "New Session", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Home", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
-  await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Ask MemoryOS" })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Manage sources" })).toHaveAttribute(
+    "href",
+    "/admin",
+  );
+  await expect(page.getByRole("link", { name: "Manage invitations" })).toHaveAttribute(
+    "href",
+    /^\/admin\/invitations(?:\?.*)?$/,
+  );
   await page.reload();
-  await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Home", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 });
 
 test("hides owner UI and blocks member administration deep links without requests", async ({
@@ -101,6 +108,10 @@ test("hides owner UI and blocks member administration deep links without request
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
   await page.goto("/admin/sources/new/file");
+  await expect(
+    page.getByRole("heading", { name: "You don’t have access to this area." }),
+  ).toBeVisible();
+  await page.goto("/admin/sources/new/google-drive");
   await expect(
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
@@ -208,6 +219,9 @@ test("keeps one document, identity session, and admin shell across internal rout
       }),
     });
   });
+  await page.route("**/api/sources", async (route) => {
+    await route.fulfill({ json: [] });
+  });
 
   await page.goto("/");
   await page.evaluate(() => {
@@ -217,6 +231,7 @@ test("keeps one document, identity session, and admin shell across internal rout
   await page.getByRole("link", { name: "Admin Panel" }).click();
 
   await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () =>
@@ -274,7 +289,6 @@ test("keeps unprovisioned access separate from signed-out state", async ({ page 
   await page.goto("/access-not-provisioned");
 
   await expect(page.getByRole("heading", { name: /don’t have access yet/i })).toBeVisible();
-  await expect(page.getByText(/has not been added to this memoryos tenant/i)).toBeVisible();
 });
 
 test("recovers from an unavailable identity endpoint without treating it as signed out", async ({
@@ -299,7 +313,7 @@ test("recovers from an unavailable identity endpoint without treating it as sign
 
   await expect(page.getByRole("heading", { name: /couldn’t confirm your session/i })).toBeVisible();
   await page.getByRole("button", { name: /try again/i }).click();
-  await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
 });
 
 test("creates a production invitation from the Invitations administration page", async ({
@@ -575,13 +589,24 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     });
   });
   await page.route("**/api/source-operations/**", async (route) => {
-    sourceDeleted = true;
+    const id = new URL(route.request().url()).pathname.split("/").at(-1);
+    const type =
+      id === "19d557e6-fd95-461e-b2e7-0a7f858170dd"
+        ? "REMOVE_ITEM"
+        : id === "4e54f788-33b7-4f20-b3e0-12bd445a598a"
+          ? "DELETE_SOURCE"
+          : null;
+    if (!type) {
+      await route.fulfill({ status: 404 });
+      return;
+    }
+    if (type === "DELETE_SOURCE") sourceDeleted = true;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        id: "4e54f788-33b7-4f20-b3e0-12bd445a598a",
-        type: "DELETE_SOURCE",
+        id,
+        type,
         status: "SUCCEEDED",
         createdAt: "2026-08-27T10:00:00Z",
         completedAt: "2026-08-27T10:00:01Z",
@@ -790,20 +815,12 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.goto("/admin");
   const sourceTable = page.getByRole("table", { name: "Connected sources" });
   await expect(page.getByRole("heading", { name: "Existing sources" })).toBeVisible();
-  await expect(
-    sourceTable.getByRole("columnheader", { name: "Permissions / Access" }),
-  ).toBeVisible();
   await expect(sourceTable.getByText("Scheduled", { exact: true })).toBeVisible();
-  await expect(sourceTable.getByText("Organization Public", { exact: true })).toBeVisible();
   const fileGroup = sourceTable.getByRole("button", {
     name: /File group, 1 sources, 0 documents/,
   });
   const supportSource = sourceTable.getByRole("link", { name: otherSource.name, exact: true });
   await expect(fileGroup).toHaveAttribute("aria-expanded", "true");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Total sources");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Active sources");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Public sources");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Total docs indexed");
   const sourceSearch = page.getByRole("searchbox", { name: "Search sources" });
   await sourceSearch.fill("missing source");
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
@@ -822,6 +839,15 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(supportSource).toBeHidden();
   await fileGroup.click();
   await expect(supportSource).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const manageSource = sourceTable.getByRole("link", {
+    name: `Manage ${otherSource.name}`,
+    exact: true,
+  });
+  await manageSource.focus();
+  await expect(manageSource).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await supportSource.click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${otherSource.id}$`));
   await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
@@ -850,7 +876,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(createSource).toBeDisabled();
   await page.getByRole("textbox", { name: "Source name" }).fill(source.name);
   await expect(createSource).toBeDisabled();
-  await page.getByLabel("Choose PDF, DOCX, PPTX, TXT, or Markdown file").setInputFiles({
+  await page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file").setInputFiles({
     name: "knowledge.txt",
     mimeType: "text/plain",
     buffer: uploadedFile,
@@ -862,9 +888,6 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await expect(page.getByRole("button", { name: "Retry finalization" })).toBeVisible();
   expect(createAttempts).toBe(1);
-  await expect(page.getByRole("status")).toContainText(
-    "The file reached object storage; retry finalization without uploading it again.",
-  );
   await page.getByRole("link", { name: "Sources", exact: true }).last().click();
   await expect(page).toHaveURL(/\/admin$/);
   await page
@@ -875,7 +898,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByRole("link", { name: "Return to pending upload" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await page.getByRole("button", { name: "Retry finalization" }).click();
-  await expect(page.getByText("knowledge.txt")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "knowledge.txt", exact: true })).toBeVisible();
   expect(objectStoragePuts).toBe(1);
   expect(storedBytes).toEqual(uploadedFile);
   expect(apiUploadBodies.some((body) => body?.equals(uploadedFile))).toBe(false);

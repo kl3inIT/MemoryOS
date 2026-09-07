@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateFileSourceData, CreateFileSourceResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveSourceItemData, RemoveSourceItemResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses } from './types.gen';
+import type { CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveSourceItemData, RemoveSourceItemResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,40 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Update the automatic Google Drive sync interval
+ */
+export const updateGoogleDriveSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateGoogleDriveScheduleData, ThrowOnError>): RequestResult<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive/schedule',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Replace Google Drive scope mode and selected roots atomically
+ */
+export const replaceGoogleDriveRoots = <ThrowOnError extends boolean = false>(options: Options<ReplaceGoogleDriveRootsData, ThrowOnError>): RequestResult<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError> => (options.client ?? client).put<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive/roots',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Authorize one direct FILE source upload
@@ -75,6 +109,19 @@ export const reindexSourceItem = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
+ * Schedule durable Google Drive synchronization
+ */
+export const synchronizeGoogleDriveSource = <ThrowOnError extends boolean = false>(options: Options<SynchronizeGoogleDriveSourceData, ThrowOnError>): RequestResult<SynchronizeGoogleDriveSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<SynchronizeGoogleDriveSourceResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive/sync',
+    ...options
+});
+
+/**
  * Start durable source deletion
  */
 export const deleteSource = <ThrowOnError extends boolean = false>(options: Options<DeleteSourceData, ThrowOnError>): RequestResult<DeleteSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<DeleteSourceResponses, unknown, ThrowOnError>({
@@ -85,6 +132,23 @@ export const deleteSource = <ThrowOnError extends boolean = false>(options: Opti
         }],
     url: '/api/sources/{sourceId}/delete',
     ...options
+});
+
+/**
+ * Create a Google Drive source using a reusable credential
+ */
+export const createGoogleDriveSource = <ThrowOnError extends boolean = false>(options: Options<CreateGoogleDriveSourceData, ThrowOnError>): RequestResult<CreateGoogleDriveSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGoogleDriveSourceResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/google-drive',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -161,6 +225,40 @@ export const revokeInvitation = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
+ * Revoke a shared Google Drive credential and disconnect all attached Sources
+ */
+export const revokeGoogleDriveCredential = <ThrowOnError extends boolean = false>(options: Options<RevokeGoogleDriveCredentialData, ThrowOnError>): RequestResult<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).post<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/google-drive/{credentialId}/revoke',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Authorize a reusable Google Drive credential
+ */
+export const startGoogleDriveAuthorization = <ThrowOnError extends boolean = false>(options: Options<StartGoogleDriveAuthorizationData, ThrowOnError>): RequestResult<StartGoogleDriveAuthorizationResponses, unknown, ThrowOnError> => (options.client ?? client).post<StartGoogleDriveAuthorizationResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/google-drive/authorization',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * List Tenant sources
  */
 export const listSources = <ThrowOnError extends boolean = false>(options?: Options<ListSourcesData, ThrowOnError>): RequestResult<ListSourcesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcesResponses, unknown, ThrowOnError>({
@@ -213,6 +311,19 @@ export const listSourceIndexAttempts = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * Get Google Drive source configuration
+ */
+export const getGoogleDriveConfiguration = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveConfigurationData, ThrowOnError>): RequestResult<GetGoogleDriveConfigurationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveConfigurationResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive',
+    ...options
+});
+
+/**
  * Get a durable source operation
  */
 export const getSourceOperation = <ThrowOnError extends boolean = false>(options: Options<GetSourceOperationData, ThrowOnError>): RequestResult<GetSourceOperationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceOperationResponses, unknown, ThrowOnError>({
@@ -242,5 +353,31 @@ export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/identity/me',
+    ...options
+});
+
+/**
+ * List reusable Tenant-owned Google Drive credentials
+ */
+export const listGoogleDriveCredentials = <ThrowOnError extends boolean = false>(options?: Options<ListGoogleDriveCredentialsData, ThrowOnError>): RequestResult<ListGoogleDriveCredentialsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGoogleDriveCredentialsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/google-drive',
+    ...options
+});
+
+/**
+ * Delete an unused Google Drive credential with a revision precondition
+ */
+export const deleteGoogleDriveCredential = <ThrowOnError extends boolean = false>(options: Options<DeleteGoogleDriveCredentialData, ThrowOnError>): RequestResult<DeleteGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteGoogleDriveCredentialResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/google-drive/{credentialId}',
     ...options
 });

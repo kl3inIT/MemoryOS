@@ -29,13 +29,13 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
   return (
     <form
       aria-label="Filter invitations"
-      className="grid gap-3 border-b border-border-subtle bg-surface-subtle/40 p-4 lg:grid-cols-[minmax(14rem,1fr)_11rem_auto] lg:items-end"
+      className="grid gap-3 border-b border-border-subtle p-4 lg:grid-cols-[minmax(14rem,1fr)_11rem_auto] lg:items-end"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
-      <label className="grid gap-1.5 font-secondary-action text-content-secondary">
+      <label className="grid gap-2 font-main-ui-body text-content-secondary">
         Email
         <Input
           type="search"
@@ -46,7 +46,7 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
         />
       </label>
 
-      <label className="grid gap-1.5 font-secondary-action text-content-secondary">
+      <label className="grid gap-2 font-main-ui-body text-content-secondary">
         Status
         <Select
           value={status}
@@ -61,7 +61,9 @@ export function InvitationFilters({ search, onApply, onClear }: InvitationFilter
       </label>
 
       <div className="flex gap-2">
-        <Button type="submit">Apply</Button>
+        <Button type="submit" prominence="secondary">
+          Apply
+        </Button>
         <TextButton
           onClick={() => {
             setEmail("");

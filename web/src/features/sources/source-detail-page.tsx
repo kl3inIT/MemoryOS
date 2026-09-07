@@ -10,10 +10,12 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   deleteSourceMutation,
@@ -25,27 +27,33 @@ import {
   reindexSourceItemMutation,
   removeSourceItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { getSourceOperation } from "@/lib/hey-api/sdk.gen";
-import type { SourceItem } from "@/lib/hey-api/types.gen";
-import { SourceActionError, sourceMutationError, sourceStatusMessage } from "./source-errors";
+import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
+import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
-import { SourceStatusBadge } from "./source-status-badge";
+import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
+import { GoogleDrivePanel } from "./google-drive-panel";
+import { waitForSourceOperation } from "./source-operations";
 
-const terminalOperationStatuses: Record<string, true> = {
-  SUCCEEDED: true,
-  SUPERSEDED: true,
-  FAILED: true,
-};
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
 export function SourceDetailPage() {
-  const { sourceId: selectedId } = useParams({
+  const { sourceId } = useParams({
     from: "/_authenticated/admin/sources/$sourceId",
   });
+  return <SourceDetailContent key={sourceId} selectedId={sourceId} />;
+}
+
+function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const navigate = useNavigate({ from: "/admin/sources/$sourceId" });
   const queryClient = useQueryClient();
+  const notify = useActionNotifications();
+  const [reindexControllers] = useState(() => new Map<string, AbortController>());
+  const [reindexingItems, setReindexingItems] = useState<string[]>([]);
+  const [removalControllers] = useState(() => new Map<string, AbortController>());
+  const [removingItems, setRemovingItems] = useState<string[]>([]);
+  const active = useRef(true);
   const { pendingFinalize, setPendingFinalize } = useSourceUploadRecovery();
   const activePendingFinalize = pendingFinalize?.sourceId === selectedId ? pendingFinalize : null;
   const [file, setFile] = useState<File | null>(null);
@@ -53,24 +61,35 @@ export function SourceDetailPage() {
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [cleanupPending, setCleanupPending] = useState(false);
+  const [driveBusy, setDriveBusy] = useState(false);
   const uploadController = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const cleanupController = useRef<AbortController | null>(null);
 
-  useEffect(
-    () => () => {
+  useLayoutEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
       uploadController.current?.abort();
       uploadController.current = null;
       cleanupController.current?.abort();
       cleanupController.current = null;
-    },
-    [],
-  );
+      for (const controller of reindexControllers.values()) controller.abort();
+      reindexControllers.clear();
+      for (const controller of removalControllers.values()) controller.abort();
+      removalControllers.clear();
+    };
+  }, [reindexControllers, removalControllers]);
 
   const sourceQuery = useQuery({
     ...getSourceOptions({ path: { sourceId: selectedId } }),
     retry: false,
-    refetchInterval: (query) => (query.state.data?.source?.pendingWork ? 1_500 : false),
+    refetchInterval: (query) =>
+      query.state.data?.source?.pendingWork
+        ? 1_500
+        : query.state.data?.source?.type === "GOOGLE_DRIVE"
+          ? 5_000
+          : false,
   });
 
   const initiateUpload = useMutation(initiateSourceUploadMutation());
@@ -86,10 +105,24 @@ export function SourceDetailPage() {
     }
   }
 
+  async function refreshSource() {
+    try {
+      await sourceQuery.refetch({ throwOnError: true });
+      if (active.current)
+        notify({ tone: "success", title: "Source refreshed", description: detail?.source.name });
+    } catch (cause) {
+      if (active.current)
+        notify({
+          tone: "error",
+          title: "Source refresh failed",
+          description: sourceMutationError(cause, "reindex"),
+        });
+    }
+  }
+
   async function submitFile() {
-    if (!selectedId || !file || pendingFinalize) return;
+    if (!selectedId || !file || pendingFinalize || uploadController.current) return;
     setError(null);
-    uploadController.current?.abort();
     const controller = new AbortController();
     uploadController.current = controller;
     setUploadPhase("preparing");
@@ -129,6 +162,11 @@ export function SourceDetailPage() {
           setError(
             `${sourceMutationError(cause, "upload")} The file reached object storage; retry finalization without uploading it again.`,
           );
+          notify({
+            tone: "error",
+            title: "Finalization failed",
+            description: `${file.name} is stored, but finalization could not be confirmed. Retry without uploading again.`,
+          });
           return;
         }
       }
@@ -137,27 +175,35 @@ export function SourceDetailPage() {
       setFile(null);
       if (fileInput.current) fileInput.current.value = "";
       setUploadPhase("idle");
+      notify({
+        tone: "info",
+        title: "Upload accepted",
+        description: `${file.name} is registered for processing. Indexing is not yet confirmed.`,
+      });
       await refresh(selectedId);
     } catch (cause) {
+      if (!active.current) return;
       setUploadPhase("idle");
-      if (controller.signal.aborted) {
-        setError("Upload cancelled. The unfinished object will expire automatically.");
-      } else if (cause instanceof DirectUploadError) {
-        setError(
-          cause.status === 403
+      const message = controller.signal.aborted
+        ? "Upload cancelled. If finalization had started, it may already be accepted; refresh the source to check."
+        : cause instanceof DirectUploadError
+          ? cause.status === 403
             ? "Object storage rejected the upload. Its authorization may have expired; start the upload again."
-            : "Object storage could not accept the file. Check the connection and try again.",
-        );
-      } else {
-        setError(sourceMutationError(cause, "upload"));
-      }
+            : "Object storage could not accept the file. Check the connection and try again."
+          : sourceMutationError(cause, "upload");
+      setError(message);
+      notify({
+        tone: controller.signal.aborted ? "info" : "error",
+        title: controller.signal.aborted ? "Upload cancelled" : "Upload failed",
+        description: `${file.name}: ${message}`,
+      });
     } finally {
       if (uploadController.current === controller) uploadController.current = null;
     }
   }
 
   async function retryFinalize() {
-    if (!activePendingFinalize) return;
+    if (!activePendingFinalize || uploadController.current) return;
     const pending = activePendingFinalize;
     setError(null);
     const controller = new AbortController();
@@ -169,80 +215,238 @@ export function SourceDetailPage() {
         headers: sameOriginMutationHeaders,
         signal: controller.signal,
       });
+      controller.signal.throwIfAborted();
       setPendingFinalize(null);
       setFile(null);
       if (fileInput.current) fileInput.current.value = "";
       setUploadPhase("idle");
+      notify({
+        tone: "info",
+        title: "Upload accepted",
+        description: `${pending.filename} is registered for processing. Indexing is not yet confirmed.`,
+      });
       await refresh(pending.sourceId);
     } catch (cause) {
-      if (controller.signal.aborted) {
-        setUploadPhase("finalize-retry");
-        setError("Finalization cancelled. Retry to finish without uploading the file again.");
-      } else {
-        setUploadPhase("finalize-retry");
-        setError(
-          `${sourceMutationError(cause, "upload")} The file remains in object storage; retry finalization without uploading it again.`,
-        );
-      }
+      if (!active.current) return;
+      setUploadPhase("finalize-retry");
+      const message = controller.signal.aborted
+        ? "Finalization stopped waiting. It may already be accepted; refresh the source before retrying."
+        : `${sourceMutationError(cause, "upload")} The file remains in object storage; retry finalization without uploading it again.`;
+      setError(message);
+      notify({
+        tone: controller.signal.aborted ? "info" : "error",
+        title: controller.signal.aborted ? "Finalization cancelled" : "Finalization failed",
+        description: `${pending.filename}: ${message}`,
+      });
     } finally {
       if (uploadController.current === controller) uploadController.current = null;
     }
   }
 
   async function reindex(item: SourceItem) {
-    if (!selectedId || !item.id) return;
+    if (
+      !selectedId ||
+      !item.id ||
+      reindexControllers.has(item.id) ||
+      removalControllers.has(item.id)
+    )
+      return;
+    const controller = new AbortController();
+    reindexControllers.set(item.id, controller);
+    setReindexingItems((current) => [...current, item.id]);
     setError(null);
+    const filename = item.filename ?? "Uploaded file";
+    let accepted = false;
     try {
-      await reindexItem.mutateAsync({
+      let operation = await reindexItem.mutateAsync({
         path: { sourceId: selectedId, itemId: item.id },
         headers: sameOriginMutationHeaders,
+        signal: controller.signal,
       });
+      controller.signal.throwIfAborted();
+      accepted = true;
+      notify({ tone: "info", title: "Reindex requested", description: filename });
+      void refresh(selectedId);
+      operation = await waitForSourceOperation(operation, controller.signal);
+      if (operation.status === "SUCCEEDED") {
+        notify({ tone: "success", title: "Reindex complete", description: filename });
+      } else if (operation.status === "SUPERSEDED") {
+        notify({
+          tone: "info",
+          title: "Reindex superseded",
+          description: `${filename}: this request was replaced by newer work.`,
+        });
+      } else {
+        notify({
+          tone: "error",
+          title: "Reindex failed",
+          description: `${filename}: ${sourceStatusMessage(operation.errorCode ?? "SOURCE_INDEX_FAILED")}`,
+        });
+      }
       await refresh(selectedId);
     } catch (cause) {
-      setError(sourceMutationError(cause, "reindex"));
+      if (controller.signal.aborted) return;
+      const message = accepted
+        ? `${filename}: processing may still be running. Refresh the source to check its status.`
+        : sourceMutationError(cause, "reindex");
+      if (!accepted) setError(message);
+      notify({
+        tone: "error",
+        title: accepted ? "Reindex status unavailable" : "Reindex could not start",
+        description: message,
+      });
+    } finally {
+      reindexControllers.delete(item.id);
+      if (!controller.signal.aborted)
+        setReindexingItems((current) => current.filter((id) => id !== item.id));
     }
   }
 
   async function removeSelectedItem(item: SourceItem) {
     if (!selectedId || !item.id) throw new Error("Source item is unavailable");
+    if (removalControllers.has(item.id) || reindexControllers.has(item.id)) return;
+    const controller = new AbortController();
+    removalControllers.set(item.id, controller);
+    setRemovingItems((current) => [...current, item.id]);
     setError(null);
-    await removeItem.mutateAsync({
-      path: { sourceId: selectedId, itemId: item.id },
-      headers: sameOriginMutationHeaders,
-    });
-    await refresh(selectedId);
+    try {
+      const operation = await removeItem.mutateAsync({
+        path: { sourceId: selectedId, itemId: item.id },
+        headers: sameOriginMutationHeaders,
+        signal: controller.signal,
+      });
+      controller.signal.throwIfAborted();
+      notify({
+        tone: "info",
+        title: "Removal requested",
+        description: `${item.filename ?? "Uploaded file"}: cleanup is pending.`,
+      });
+      void observeRemoval(item, operation, controller);
+      void refresh(selectedId);
+    } catch (cause) {
+      removalControllers.delete(item.id);
+      if (controller.signal.aborted) return;
+      setRemovingItems((current) => current.filter((id) => id !== item.id));
+      notify({
+        tone: "error",
+        title: "Removal could not start",
+        description: `${item.filename ?? "Uploaded file"}: ${sourceMutationError(cause, "remove-item")}`,
+      });
+      throw cause;
+    }
   }
 
-  async function waitForCleanup(operationId: string, signal: AbortSignal) {
-    for (let attempt = 0; attempt < 120; attempt += 1) {
-      const { data: operation } = await getSourceOperation({
-        path: { operationId },
-        signal,
-        throwOnError: true,
-      });
-      if (Object.hasOwn(terminalOperationStatuses, operation.status)) return operation;
-      await abortableDelay(1_000, signal);
+  async function observeRemoval(
+    item: SourceItem,
+    operation: SourceOperation,
+    controller: AbortController,
+  ) {
+    const filename = item.filename ?? "Uploaded file";
+    try {
+      const completed = await waitForSourceOperation(operation, controller.signal);
+      if (completed.status === "SUCCEEDED") {
+        notify({ tone: "success", title: "File removed", description: filename });
+      } else if (completed.status === "SUPERSEDED") {
+        notify({
+          tone: "info",
+          title: "Removal superseded",
+          description: `${filename}: this request was replaced by newer work.`,
+        });
+      } else {
+        notify({
+          tone: "error",
+          title: "Removal failed",
+          description: `${filename}: ${sourceStatusMessage(completed.errorCode ?? "SOURCE_CLEANUP_INTERNAL")}`,
+        });
+      }
+      void refresh(selectedId);
+    } catch {
+      if (!controller.signal.aborted)
+        notify({
+          tone: "error",
+          title: "Removal status unavailable",
+          description: `${filename}: cleanup may still be running. Refresh the source to check its status.`,
+        });
+    } finally {
+      removalControllers.delete(item.id);
+      if (!controller.signal.aborted)
+        setRemovingItems((current) => current.filter((id) => id !== item.id));
     }
-    throw new SourceActionError("cleanup-timeout");
   }
 
   async function deleteSelectedSource() {
     if (!selectedId) throw new Error("Source is unavailable");
+    if (cleanupController.current) return;
     setError(null);
-    cleanupController.current?.abort();
     const controller = new AbortController();
     cleanupController.current = controller;
     setCleanupPending(true);
+    const sourceName = detail?.source.name ?? "Source";
     try {
       const operation = await deleteSource.mutateAsync({
         path: { sourceId: selectedId },
         headers: sameOriginMutationHeaders,
+        signal: controller.signal,
       });
-      if (!operation.id) throw new SourceActionError("invalid-cleanup-response");
-      await refresh(selectedId);
-      const completed = await waitForCleanup(operation.id, controller.signal);
-      if (completed.status === "FAILED") throw new SourceActionError("cleanup-failed");
-      await navigate({ to: "/admin", replace: true });
+      controller.signal.throwIfAborted();
+      notify({
+        tone: "info",
+        title: "Source deletion requested",
+        description: `${sourceName}: cleanup is pending.`,
+      });
+      void observeDeletion(operation, controller, sourceName);
+      void refresh(selectedId);
+    } catch (cause) {
+      if (cleanupController.current === controller) cleanupController.current = null;
+      if (controller.signal.aborted) return;
+      setCleanupPending(false);
+      notify({
+        tone: "error",
+        title: "Deletion could not start",
+        description: `${sourceName}: ${sourceMutationError(cause, "delete-source")}`,
+      });
+      throw cause;
+    }
+  }
+
+  async function observeDeletion(
+    operation: SourceOperation,
+    controller: AbortController,
+    sourceName: string,
+  ) {
+    try {
+      if (!operation.id) throw new Error("Deletion operation is unavailable");
+      const completed = await waitForSourceOperation(operation, controller.signal);
+      if (completed.status === "SUCCEEDED") {
+        notify({
+          tone: "success",
+          title: "Source deleted",
+          description: sourceName,
+          surviveNavigation: true,
+        });
+        await navigate({ to: "/admin", replace: true });
+      } else if (completed.status === "SUPERSEDED") {
+        notify({
+          tone: "info",
+          title: "Source deletion superseded",
+          description: `${sourceName}: this request was replaced by newer work. Refresh before trying again.`,
+        });
+        void refresh(selectedId);
+      } else {
+        notify({
+          tone: "error",
+          title: "Source deletion failed",
+          description: `${sourceName}: ${sourceStatusMessage(completed.errorCode ?? "SOURCE_CLEANUP_INTERNAL")}`,
+        });
+        void refresh(selectedId);
+      }
+    } catch {
+      if (!controller.signal.aborted)
+        notify({
+          tone: "error",
+          title: "Deletion status unavailable",
+          description: `${sourceName}: cleanup may still be running. Refresh the source to check its status.`,
+        });
     } finally {
       if (cleanupController.current === controller) {
         cleanupController.current = null;
@@ -253,11 +457,18 @@ export function SourceDetailPage() {
 
   const detail = sourceQuery.data;
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
-  const busy =
-    uploadBusy || reindexItem.isPending || removeItem.isPending || deleteSource.isPending;
+  const managementBusy =
+    uploadBusy ||
+    reindexItem.isPending ||
+    removeItem.isPending ||
+    deleteSource.isPending ||
+    cleanupPending ||
+    sourceQuery.isError;
+  const busy = managementBusy || driveBusy;
+  const ProviderIcon = findSourceProvider(detail?.source.type)?.icon ?? FileText;
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
+    <SettingsLayout wide>
       <Link
         to="/admin"
         className="inline-flex items-center gap-2 font-secondary-action text-content-secondary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -275,6 +486,21 @@ export function SourceDetailPage() {
         </p>
       ) : null}
 
+      {sourceQuery.isError && detail ? (
+        <div className="mt-5 space-y-3">
+          <p role="alert" className="text-sm text-status-danger-content">
+            Source status could not be refreshed. Displayed values may be out of date.
+          </p>
+          <Button
+            prominence="secondary"
+            pending={sourceQuery.isFetching}
+            onClick={() => void refreshSource()}
+          >
+            Refresh source
+          </Button>
+        </div>
+      ) : null}
+
       {pendingFinalize && !activePendingFinalize ? (
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-content-secondary">
@@ -288,213 +514,326 @@ export function SourceDetailPage() {
         </div>
       ) : null}
 
-      <main className="mt-6 min-w-0 overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised">
+      <div className="min-w-0">
         {sourceQuery.isPending && !detail ? (
           <div className="px-6 py-16">
             <LoadingLabel label="Loading source" />
           </div>
-        ) : sourceQuery.isError || !detail?.source ? (
+        ) : !detail?.source ? (
           <div className="px-6 py-16">
             <EmptyState title="Source unavailable" detail="It may have completed deletion." />
+            <Button
+              prominence="secondary"
+              className="mt-4"
+              pending={sourceQuery.isFetching}
+              onClick={() => void refreshSource()}
+            >
+              Try again
+            </Button>
           </div>
         ) : (
           <div>
-            <div className="flex flex-col gap-5 border-b border-border-subtle p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-heading-h3 text-content-primary">{detail.source.name}</h1>
-                  <SourceStatusBadge status={detail.source.status} />
-                </div>
-                <p className="mt-2 font-secondary-body text-content-muted">
-                  {findSourceProvider(detail.source.type)?.name ?? detail.source.type} ·{" "}
-                  {detail.source.access} · {detail.source.documentCount ?? 0} indexed documents
-                </p>
-                {detail.source.errorCode ? (
-                  <p className="mt-2 text-sm text-status-danger-content">
-                    {sourceStatusMessage(detail.source.errorCode)}
-                  </p>
-                ) : null}
-              </div>
-              <ConfirmDialog
-                trigger={
-                  <Button
-                    tone="danger"
-                    prominence="secondary"
-                    disabled={busy || cleanupPending || detail.source.status === "DELETING"}
-                  >
-                    <Trash2 />
-                    Delete source
-                  </Button>
-                }
-                title={`Delete ${detail.source.name}?`}
-                description={`Deleting “${detail.source.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
-                confirmLabel="Delete source"
-                pendingLabel="Deleting source"
-                onConfirm={deleteSelectedSource}
-                errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
-              />
-            </div>
-
-            <form
-              className="border-b border-border-subtle bg-surface-subtle p-5 sm:p-6"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void (activePendingFinalize ? retryFinalize() : submitFile());
-              }}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="min-w-0 flex-1">
-                  <span className="sr-only">Choose PDF, DOCX, PPTX, TXT, or Markdown file</span>
-                  <Input
-                    ref={fileInput}
-                    type="file"
-                    accept=".pdf,.docx,.pptx,.txt,.md,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                    disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
-                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                    className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
-                  />
-                </label>
-                <Button
-                  type="submit"
-                  pending={uploadBusy}
-                  disabled={
-                    (!file && !activePendingFinalize) ||
-                    Boolean(pendingFinalize && !activePendingFinalize) ||
-                    busy ||
-                    detail.source.status === "DELETING"
-                  }
-                >
-                  <Upload />
-                  {activePendingFinalize ? "Retry finalization" : "Upload file"}
-                </Button>
-                {uploadPhase !== "idle" || activePendingFinalize ? (
-                  <Button
-                    type="button"
-                    prominence="secondary"
-                    onClick={() => {
-                      if (activePendingFinalize) {
-                        setPendingFinalize(null);
-                        setUploadPhase("idle");
-                        setFile(null);
-                        if (fileInput.current) fileInput.current.value = "";
-                        setError(
-                          "Finalization cancelled. The unfinished object will expire automatically.",
-                        );
-                      } else {
-                        uploadController.current?.abort(
-                          new DOMException("Upload cancelled", "AbortError"),
-                        );
-                      }
-                    }}
-                  >
-                    <X />
-                    Cancel
-                  </Button>
-                ) : null}
-              </div>
-              {uploadPhase !== "idle" || activePendingFinalize ? (
-                <div className="mt-3" aria-live="polite">
-                  <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
-                    <span>
-                      {uploadPhase === "preparing"
-                        ? "Calculating SHA-256 before authorization"
-                        : uploadPhase === "uploading"
-                          ? "Uploading directly to object storage"
-                          : uploadPhase === "finalizing"
-                            ? "Verifying and registering the stored file"
-                            : `${activePendingFinalize?.filename ?? "File"} is stored but not finalized`}
-                    </span>
-                    {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
-                  </div>
-                  {uploadPhase === "uploading" ? (
-                    <div
-                      role="progressbar"
-                      aria-label="Direct upload progress"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={uploadProgress}
-                      className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
+            <PageHeader
+              icon={<ProviderIcon />}
+              title={detail.source.name}
+              description={findSourceProvider(detail.source.type)?.name ?? detail.source.type}
+              actions={
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      tone="danger"
+                      prominence="tertiary"
+                      disabled={busy || cleanupPending || detail.source.status === "DELETING"}
                     >
-                      <div
-                        className="h-full rounded-full bg-content-primary transition-[width] duration-150"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
+                      <Trash2 />
+                      Delete source
+                    </Button>
+                  }
+                  title={`Delete ${detail.source.name}?`}
+                  description={`Deleting “${detail.source.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
+                  confirmLabel="Delete source"
+                  pendingLabel="Deleting source"
+                  onConfirm={deleteSelectedSource}
+                  errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
+                />
+              }
+            />
+            {detail.source.errorCode ? (
+              <p role="alert" className="mt-4 text-sm text-status-danger-content">
+                {sourceStatusMessage(detail.source.errorCode)}
+              </p>
+            ) : null}
+            <dl className="my-6 grid gap-5 rounded-lg border border-border-subtle px-4 py-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <dt className="text-content-muted">Source status</dt>
+                <dd className="mt-2">
+                  <SourceStatusBadge status={detail.source.status} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-content-muted">Access</dt>
+                <dd className="mt-2">
+                  <SourceAccessBadge access={detail.source.access} />
+                </dd>
+                {detail.source.type === "GOOGLE_DRIVE" ? (
+                  <dd className="mt-2 text-xs text-content-muted">
+                    Google Drive document access is not configured here.
+                  </dd>
+                ) : null}
+              </div>
+              <div>
+                <dt className="text-content-muted">Documents indexed</dt>
+                <dd className="mt-2 text-lg font-semibold tabular-nums text-content-primary">
+                  {detail.source.documentCount}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-content-muted">Last indexed successfully</dt>
+                <dd className="mt-2 text-content-primary">
+                  {detail.source.lastSucceededAt ? (
+                    <time dateTime={detail.source.lastSucceededAt}>
+                      {new Date(detail.source.lastSucceededAt).toLocaleString()}
+                    </time>
+                  ) : (
+                    "Not yet"
+                  )}
+                </dd>
+              </div>
+            </dl>
+
+            {detail.source.type === "FILE" ? (
+              <form
+                className="space-y-4 border-b border-border-subtle py-6"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void (activePendingFinalize ? retryFinalize() : submitFile());
+                }}
+              >
+                <div>
+                  <h2 className="font-heading-h3 text-content-primary">Upload content</h2>
+                  <p className="mt-2 text-sm text-content-muted">
+                    PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 10 MiB per file
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">
+                      Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file
+                    </span>
+                    <Input
+                      ref={fileInput}
+                      type="file"
+                      accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                      disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
+                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                      className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
+                    />
+                  </label>
+                  <Button
+                    type="submit"
+                    pending={uploadBusy}
+                    disabled={
+                      (!file && !activePendingFinalize) ||
+                      Boolean(pendingFinalize && !activePendingFinalize) ||
+                      busy ||
+                      detail.source.status === "DELETING"
+                    }
+                  >
+                    <Upload />
+                    {activePendingFinalize ? "Retry finalization" : "Upload file"}
+                  </Button>
+                  {uploadPhase !== "idle" || activePendingFinalize ? (
+                    <Button
+                      type="button"
+                      prominence="secondary"
+                      onClick={() => {
+                        if (activePendingFinalize && !uploadBusy) {
+                          setPendingFinalize(null);
+                          setUploadPhase("idle");
+                          setFile(null);
+                          if (fileInput.current) fileInput.current.value = "";
+                          setError(
+                            "Finalization cancelled. The unfinished object will expire automatically.",
+                          );
+                          notify({
+                            tone: "info",
+                            title: "Finalization cancelled",
+                            description: `${activePendingFinalize.filename}: the unfinished object will expire automatically.`,
+                          });
+                        } else {
+                          uploadController.current?.abort(
+                            new DOMException("Upload cancelled", "AbortError"),
+                          );
+                        }
+                      }}
+                    >
+                      <X />
+                      Cancel
+                    </Button>
                   ) : null}
                 </div>
-              ) : null}
-            </form>
+                {uploadPhase !== "idle" || activePendingFinalize ? (
+                  <div className="mt-3" aria-live="polite">
+                    <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
+                      <span>
+                        {uploadPhase === "preparing"
+                          ? "Calculating SHA-256 before authorization"
+                          : uploadPhase === "uploading"
+                            ? "Uploading directly to object storage"
+                            : uploadPhase === "finalizing"
+                              ? "Verifying and registering the stored file"
+                              : `${activePendingFinalize?.filename ?? "File"} is stored but not finalized`}
+                      </span>
+                      {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
+                    </div>
+                    {uploadPhase === "uploading" ? (
+                      <div
+                        role="progressbar"
+                        aria-label="Direct upload progress"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={uploadProgress}
+                        className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
+                      >
+                        <div
+                          className="h-full rounded-full bg-content-primary transition-[width] duration-150"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </form>
+            ) : detail.source.type === "GOOGLE_DRIVE" ? (
+              <GoogleDrivePanel
+                key={selectedId}
+                source={detail.source}
+                disabled={managementBusy || detail.source.status === "DELETING"}
+                onBusyChange={setDriveBusy}
+              />
+            ) : null}
 
-            <div className="p-5 sm:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-secondary-action text-content-primary">Files</h3>
+            <section
+              aria-labelledby="source-files-heading"
+              className="mt-8 border-t border-border-subtle pt-6"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 id="source-files-heading" className="font-heading-h3 text-content-primary">
+                  Files
+                </h2>
                 {detail.source.pendingWork ? <LoadingLabel label="Processing" /> : null}
               </div>
               {(detail.items ?? []).length === 0 ? (
                 <EmptyState
                   title="No files yet"
-                  detail="Upload one supported file to start indexing."
+                  detail={
+                    detail.source.type === "GOOGLE_DRIVE"
+                      ? "Files appear here after synchronization acquires them from Google Drive."
+                      : "Upload one supported file to start indexing."
+                  }
                 />
               ) : (
-                <div className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
-                  {(detail.items ?? []).map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex flex-col gap-3 bg-surface-raised p-4 sm:flex-row sm:items-center"
-                    >
-                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-secondary">
-                        <FileText className="size-4" aria-hidden="true" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-content-primary">
-                          {item.filename ?? "Uploaded file"}
-                        </p>
-                        <p className="mt-1 font-secondary-body text-content-muted">
-                          {formatBytes(item.sizeBytes ?? 0)} · {item.status ?? "PENDING"}
-                        </p>
-                        {item.errorCode ? (
-                          <p className="mt-1 text-xs text-status-danger-content">
-                            {sourceStatusMessage(item.errorCode)}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          prominence="secondary"
-                          size="sm"
-                          disabled={busy || item.status === "DELETING"}
-                          onClick={() => void reindex(item)}
-                        >
-                          <RefreshCw /> Reindex
-                        </Button>
-                        <ConfirmDialog
-                          trigger={
-                            <Button
-                              tone="danger"
-                              prominence="secondary"
-                              size="sm"
-                              disabled={busy || item.status === "DELETING"}
-                            >
-                              <Trash2 /> Remove
-                            </Button>
-                          }
-                          title={`Remove ${item.filename ?? "uploaded file"}?`}
-                          description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
-                          confirmLabel="Remove file"
-                          pendingLabel="Removing file"
-                          onConfirm={() => removeSelectedItem(item)}
-                          errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <div
+                  className="overflow-x-auto rounded-lg border border-border-subtle"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Source files table"
+                >
+                  <table className="w-full min-w-[38rem] text-left text-sm">
+                    <thead className="border-b border-border-subtle bg-surface-sunken text-content-muted">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 font-medium">
+                          File
+                        </th>
+                        <th scope="col" className="px-4 py-3 font-medium">
+                          Size
+                        </th>
+                        <th scope="col" className="px-4 py-3 font-medium">
+                          Status
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-right font-medium">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle">
+                      {(detail.items ?? []).map((item) => (
+                        <tr key={item.id}>
+                          <td className="max-w-xs px-4 py-4">
+                            <span className="flex items-center gap-2 font-medium text-content-primary">
+                              <FileText
+                                className="size-4 shrink-0 text-content-muted"
+                                aria-hidden="true"
+                              />
+                              <span className="break-words">
+                                {item.filename ?? "Uploaded file"}
+                              </span>
+                            </span>
+                            {item.errorCode ? (
+                              <p className="mt-1 text-xs text-status-danger-content">
+                                {sourceStatusMessage(item.errorCode)}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-content-muted">
+                            {formatBytes(item.sizeBytes ?? 0)}
+                          </td>
+                          <td className="px-4 py-4 text-content-secondary">
+                            {item.status ?? "PENDING"}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                prominence="tertiary"
+                                size="sm"
+                                pending={reindexingItems.includes(item.id)}
+                                disabled={
+                                  busy ||
+                                  removingItems.includes(item.id) ||
+                                  item.status === "DELETING" ||
+                                  detail.source.status === "DELETING"
+                                }
+                                onClick={() => void reindex(item)}
+                              >
+                                <RefreshCw /> Reindex
+                              </Button>
+                              <ConfirmDialog
+                                trigger={
+                                  <Button
+                                    tone="danger"
+                                    prominence="tertiary"
+                                    size="sm"
+                                    pending={removingItems.includes(item.id)}
+                                    disabled={
+                                      busy ||
+                                      reindexingItems.includes(item.id) ||
+                                      item.status === "DELETING" ||
+                                      detail.source.status === "DELETING"
+                                    }
+                                  >
+                                    <Trash2 /> Remove
+                                  </Button>
+                                }
+                                title={`Remove ${item.filename ?? "uploaded file"}?`}
+                                description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
+                                confirmLabel="Remove file"
+                                pendingLabel="Removing file"
+                                onConfirm={() => removeSelectedItem(item)}
+                                errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-            </div>
+            </section>
           </div>
         )}
-      </main>
-    </section>
+      </div>
+    </SettingsLayout>
   );
 }
 
@@ -517,24 +856,6 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
       <p className="mx-auto mt-2 max-w-md font-main-ui-body text-content-muted">{detail}</p>
     </div>
   );
-}
-
-function abortableDelay(milliseconds: number, signal: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    if (signal.aborted) {
-      reject(signal.reason);
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      signal.removeEventListener("abort", abort);
-      resolve();
-    }, milliseconds);
-    function abort() {
-      window.clearTimeout(timeout);
-      reject(signal.reason);
-    }
-    signal.addEventListener("abort", abort, { once: true });
-  });
 }
 
 function formatBytes(bytes: number) {
