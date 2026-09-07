@@ -1,10 +1,15 @@
 # Document verification matrix
 
+These are behavior-evidence pointers, not a live Google E2E or IDE-clean claim. Current Document/artifact lifecycle tests and the current-schema API fixture use PostgreSQL. Google publication coverage uses a controlled provider with real PostgreSQL; provider-native structure is covered separately in the [Ingestion matrix](ingestion.md).
+
 | Contract | Evidence |
 | --- | --- |
-| Successful extraction publishes one eligible Document/artifact/mapping | `SourceApiIntegrationTest` and `WorkerFileProcessingIntegrationTest` |
-| Failed/stale work cannot publish current content | `PostgresSourceLifecycleTest` stale-token scenario |
-| Reprocessing keeps Document ID, replaces current reference and permits changed parser/output | `ExtractionArtifactLifecycleTest` |
-| Failed replacement retains old reference; cleanup only selects unreferenced artifacts | `ExtractionArtifactLifecycleTest` |
-| Item removal removes final unreferenced Document and artifact | API lifecycle and Redis-stream worker integration |
-| V12 retains current metadata/reference, allows legacy null artifacts, removes version/profile tables and text column | `CurrentDocumentMigrationTest`, H2 full-context migration |
+| Successful extraction publishes the current Document/artifact/provenance; FILE lifecycle remains authorized and cleanup removes owned content | `SourceApiIntegrationTest.indexesAndCleansUpOneFileThroughTheAuthorizedApi` and `WorkerFileProcessingIntegrationTest.redisStreamsIndexRemoveAndDeleteOneRealFile` |
+| Failed/stale claims cannot publish current content | `PostgresSourceLifecycleTest.staleWorkerTokenCannotCompleteAfterLeaseReclaim` |
+| Google indexing reads adopted bytes offline; changed credential authority rolls back replacement, retaining the same Document ID, prior metadata and artifact; restricted mappings do not enter FILE PUBLIC access | `PostgresGoogleDriveSyncTest.indexesAdoptedBytesOfflineAndRollsBackPublicationAfterCredentialRevisionChanges` |
+| Temporary reconciliation ineligibility defers otherwise-current indexing, which later completes without using its extraction retry budget; obsolete scope/removal cannot resurrect content | `PostgresGoogleDriveSyncTest.reconciliationDefersInFlightIndexingUntilTheUnchangedInputIsConfirmed` and `scopeReplacementAndExplicitRemovalCannotBeResurrectedByOldWork` |
+| Reprocessing keeps Document ID and replaces the current artifact without Document history; failed replacement retains the old reference and retry may produce different output | `ExtractionArtifactLifecycleTest.reprocessingReplacesCurrentArtifactWithoutCreatingVersionHistory` and `failedReplacementKeepsPreviousReferenceAndRetryMayProduceDifferentContent` |
+| Artifact adoption rolls back with publication; incomplete writes cannot be adopted; expired uncertain writes retain a tombstone and cannot publish late | `ExtractionArtifactLifecycleTest.failedPublicationRollsBackArtifactAdoption`, `incompleteWriteCannotBeAdopted`, and `uncertainWriteRetainsTombstoneUntilWriterFinishesAndCannotPublishLate` |
+| Cleanup protects the current artifact and reclaims replaced/unreferenced artifacts; item/source removal deletes final unreferenced Documents and provider bytes, including cleanup after Tenant deactivation | `ExtractionArtifactLifecycleTest`, `SourceApiIntegrationTest.indexesAndCleansUpOneFileThroughTheAuthorizedApi`, and `WorkerFileProcessingIntegrationTest.redisStreamsIndexRemoveAndDeleteOneRealFile` |
+| All structural readers use the current extraction artifact contract with route-appropriate table/provenance data rather than a Google Document history fork | `DoclingSourceContentExtractorTest.preservesOrderedHeadingTableAndProvenance`, `GoogleNativeExtractionTest`, and `SpreadsheetSourceContentExtractorTest` |
+| Migration retains latest metadata and artifact references, allows legacy null artifacts, and removes version/profile history and stored-text/current-version columns against real PostgreSQL | `CurrentDocumentMigrationTest.keepsCurrentMetadataAndArtifactWithoutBlockingLegacyDevDocuments` (seed V11 data, migrate to current schema, assert retained data rather than migration count) |

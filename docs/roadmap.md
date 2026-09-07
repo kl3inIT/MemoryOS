@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-06.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-07.
 
 ## Delivered
 
@@ -40,13 +40,13 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | --- | --- | --- |
 | [MEM-56](https://linear.app/memory-os/issue/MEM-56/add-owner-only-minio-console-with-keycloak-sso) | Expose an owner-only, bucket-read-only staging MinIO Console through native Keycloak SSO without widening API, worker, or public object-storage authority | [Design](increments/active/mem-56-minio-console-sso/design.md) · [Plan](increments/active/mem-56-minio-console-sso/plan.md) |
 | [MEM-64](https://linear.app/memory-os/issue/MEM-64) | Ingestion outcome metrics, initial queue wait and observability conventions | [Design](increments/active/mem-64-ingestion-observability/design.md) · [Plan](increments/active/mem-64-ingestion-observability/plan.md) |
+| Google Drive structured ingestion — scoped MEM-9/MEM-10/MEM-60/MEM-63 | Implemented owner-supplied reusable OAuth credentials, tenant-owned General/My Drive and Specific/explicit-link Sources, scoped SOURCE_SYNC, tracked snapshots and current Document publication. V18–V20 preserve existing credentials/data and add independent per-Source intervals and scope modes. The original three-Sheet Source retains Specific mode and its owner-selected one-minute interval. Backend/frontend/browser gates pass; live UI creation resolves the real General root, then a bounded switch to Specific indexes one Sheet without a whole-My-Drive crawl. Source/credential actions provide five-second, outcome-accurate feedback; live sync, reindex, removal and deletion were exercised, the temporary Source was removed, and the original Source/credential were preserved. Owner authorized focused commits and a Drive-branch push, not PR/merge/deployment. Service accounts, ACLs, reader linking, document viewing and broader provider acceptance remain outside this slice; full linked issues are not complete. | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Plan and evidence](increments/active/google-drive-structured-ingestion/plan.md) |
 
 ## Candidate increments
 
 These are sequencing signals, not commitments or independently deployable slices.
 
-1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Tenant-owned Google Drive connections.
-2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Tenant-scoped Google Docs with source ACL evidence.
-3. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
+1. Remaining [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls)/MEM-60 scope — separately designed Google document authority and authorized reading; not implied by the active ingestion-only slice.
+2. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
 
 Create or link an issue and add an active increment record before implementation begins.

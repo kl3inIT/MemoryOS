@@ -32,6 +32,8 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 - [MEM-56 — Owner-only MinIO Console with Keycloak SSO](docs/increments/active/mem-56-minio-console-sso/design.md)
 
+- [Google Drive structured ingestion — scoped MEM-9/MEM-10/MEM-60/MEM-63](docs/increments/active/google-drive-structured-ingestion/design.md)
+
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
 ## Canonical references
