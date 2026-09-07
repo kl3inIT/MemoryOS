@@ -4,17 +4,20 @@ import { expect, test } from "@playwright/test";
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
 const OWNER_SESSION = {
   actorId: ACTOR_ID,
+  authorizationVersion: 1,
   tenant: {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["INVITATIONS_MANAGE", "SOURCES_MANAGE"],
+  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
+  scopedCapabilities: [],
 };
 const MEMBER_SESSION = {
   ...OWNER_SESSION,
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
   tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
   capabilities: [],
+  scopedCapabilities: [],
 };
 
 test("offers the backend OAuth2 flow when no session exists", async ({ page }) => {
@@ -65,7 +68,7 @@ test("renders the authenticated application shell", async ({ page }) => {
 test("hides owner UI and blocks member administration deep links without requests", async ({
   page,
 }) => {
-  let invitationRequests = 0;
+  let userRequests = 0;
   let sourceRequests = 0;
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -74,8 +77,8 @@ test("hides owner UI and blocks member administration deep links without request
       body: JSON.stringify(MEMBER_SESSION),
     });
   });
-  await page.route("**/api/invitations*", async (route) => {
-    invitationRequests += 1;
+  await page.route("**/api/users*", async (route) => {
+    userRequests += 1;
     await route.fulfill({ status: 403 });
   });
   await page.route("**/api/sources**", async (route) => {
@@ -89,12 +92,12 @@ test("hides owner UI and blocks member administration deep links without request
   await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
 
-  await page.goto("/admin/invitations?status=PENDING");
-  await expect(page).toHaveURL(/\/admin\/invitations\?status=PENDING/);
+  await page.goto("/admin/users?status=ACTIVE");
+  await expect(page).toHaveURL(/\/admin\/users\?status=ACTIVE/);
   await expect(
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
-  expect(invitationRequests).toBe(0);
+  expect(userRequests).toBe(0);
 
   await page.goto("/admin/sources/15f8cb72-2628-4d75-bcf1-8f6cda95a120");
   await expect(
@@ -195,7 +198,7 @@ test("keeps one document, identity session, and admin shell across internal rout
       body: JSON.stringify(OWNER_SESSION),
     });
   });
-  await page.route("**/api/invitations?*", async (route) => {
+  await page.route("**/api/users?*", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -205,6 +208,7 @@ test("keeps one document, identity session, and admin shell across internal rout
         size: 20,
         totalItems: 0,
         totalPages: 0,
+        counts: { active: 0, inactive: 0, invited: 0 },
       }),
     });
   });
@@ -227,8 +231,8 @@ test("keeps one document, identity session, and admin shell across internal rout
 
   await page.getByRole("button", { name: "Collapse sidebar" }).click();
   await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-  await page.getByRole("link", { name: "Invitations", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/invitations(?:\?|$)/);
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   expect(identityRequests).toBe(1);
 });
@@ -241,7 +245,7 @@ test("closes mobile administration navigation after a client route change", asyn
       body: JSON.stringify(OWNER_SESSION),
     });
   });
-  await page.route("**/api/invitations?*", async (route) => {
+  await page.route("**/api/users?*", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -251,6 +255,7 @@ test("closes mobile administration navigation after a client route change", asyn
         size: 20,
         totalItems: 0,
         totalPages: 0,
+        counts: { active: 0, inactive: 0, invited: 0 },
       }),
     });
   });
@@ -259,8 +264,8 @@ test("closes mobile administration navigation after a client route change", asyn
   await page.goto("/admin");
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toBeVisible();
-  await page.getByRole("link", { name: "Invitations", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/invitations(?:\?|$)/);
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Open navigation" }).click();
@@ -302,14 +307,56 @@ test("recovers from an unavailable identity endpoint without treating it as sign
   await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
 });
 
-test("creates a production invitation from the Invitations administration page", async ({
-  page,
-}) => {
-  const expiresAt = "2026-08-24T10:00:00Z";
-  const invitations: Array<Record<string, unknown>> = [];
+test("manages members and one-time invitation recovery from the Users view", async ({ page }) => {
+  const expiresAt = "2026-09-20T10:00:00Z";
+  const invitationId = "75c4e810-e1f2-45cb-9480-8e713a934bca";
+  const memberActorId = "97c41cb9-55ae-4a52-94ab-7aad59be91e5";
+  const userEntries: Array<Record<string, unknown>> = [
+    {
+      actorId: ACTOR_ID,
+      invitationId: null,
+      displayName: "Alex Morgan",
+      email: "alex@example.com",
+      emailVerified: true,
+      profileIssuer: "https://identity.example.com",
+      role: "OWNER",
+      status: "ACTIVE",
+      accountType: "STANDARD",
+      groups: [
+        {
+          id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
+          name: "Admin",
+          systemKey: "ADMIN",
+        },
+      ],
+      invitationExpiresAt: null,
+    },
+    {
+      actorId: memberActorId,
+      invitationId: null,
+      displayName: "Rowan Brooks",
+      email: "rowan@example.com",
+      emailVerified: true,
+      profileIssuer: "https://identity.example.com",
+      role: "MEMBER",
+      status: "ACTIVE",
+      accountType: "STANDARD",
+      groups: [
+        {
+          id: "234e1244-b81e-471a-8a67-84f67ebc57b8",
+          name: "Research",
+          systemKey: null,
+        },
+      ],
+      invitationExpiresAt: null,
+    },
+  ];
   let createMutationHeader: string | undefined;
-  let createRequests = 0;
+  let membershipMutationHeader: string | undefined;
   let revokeMutationHeader: string | undefined;
+  let createRequests = 0;
+  let failNextUsersRefresh = false;
+  let invitation: Record<string, unknown> | undefined;
 
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -318,50 +365,82 @@ test("creates a production invitation from the Invitations administration page",
       body: JSON.stringify(OWNER_SESSION),
     });
   });
-  await page.route("**/api/invitations*", async (route) => {
-    if (new URL(route.request().url()).pathname !== "/api/invitations") {
+  await page.route("**/api/users*", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname !== "/api/users") {
       await route.fallback();
       return;
     }
-    if (route.request().method() === "POST") {
-      createRequests += 1;
-      createMutationHeader = route.request().headers()["x-memoryos-csrf"];
-      const invitation = {
-        id: "75c4e810-e1f2-45cb-9480-8e713a934bca",
-        email: "member@example.com",
-        status: "PENDING",
-        createdAt: "2026-08-21T10:00:00Z",
-        expiresAt,
-        acceptedActorId: null,
-        acceptedAt: null,
-        revokedAt: null,
-      };
-      invitations.push(invitation);
-      await route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify({
-          invitation,
-          invitationUrl: "/invite/one-time-secret",
-          delivery: "ACTIVATION_EMAIL_SENT",
-        }),
-      });
+    if (failNextUsersRefresh) {
+      failNextUsersRefresh = false;
+      await route.fulfill({ status: 503 });
       return;
     }
+    const counts = {
+      active: userEntries.filter((entry) => entry.status === "ACTIVE").length,
+      inactive: userEntries.filter((entry) => entry.status === "INACTIVE").length,
+      invited: userEntries.filter((entry) => entry.status === "INVITED").length,
+    };
+    const status = url.searchParams.get("status");
+    const visibleEntries = userEntries.filter((entry) => !status || entry.status === status);
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        items: invitations,
+        items: visibleEntries,
         page: 0,
         size: 20,
-        totalItems: invitations.length,
-        totalPages: invitations.length === 0 ? 0 : 1,
+        totalItems: visibleEntries.length,
+        totalPages: visibleEntries.length > 0 ? 1 : 0,
+        counts,
+      }),
+    });
+  });
+  await page.route("**/api/invitations*", async (route) => {
+    if (
+      new URL(route.request().url()).pathname !== "/api/invitations" ||
+      route.request().method() !== "POST"
+    ) {
+      await route.fallback();
+      return;
+    }
+    createRequests += 1;
+    createMutationHeader = route.request().headers()["x-memoryos-csrf"];
+    invitation = {
+      id: invitationId,
+      email: "member@example.com",
+      status: "PENDING",
+      createdAt: "2026-09-06T10:00:00Z",
+      expiresAt,
+      acceptedActorId: null,
+      acceptedAt: null,
+      revokedAt: null,
+    };
+    userEntries.push({
+      actorId: null,
+      invitationId,
+      displayName: null,
+      email: "member@example.com",
+      emailVerified: null,
+      profileIssuer: null,
+      role: null,
+      status: "INVITED",
+      accountType: null,
+      groups: [],
+      invitationExpiresAt: expiresAt,
+    });
+    failNextUsersRefresh = true;
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        invitation,
+        invitationUrl: "/invite/one-time-secret",
+        delivery: "ACTIVATION_EMAIL_SENT",
       }),
     });
   });
   await page.route("**/api/invitations/**", async (route) => {
-    const invitation = invitations[0];
     if (!invitation) {
       await route.fulfill({ status: 404 });
       return;
@@ -380,20 +459,36 @@ test("creates a production invitation from the Invitations administration page",
     }
     if (route.request().method() === "POST" && route.request().url().endsWith("/revoke")) {
       revokeMutationHeader = route.request().headers()["x-memoryos-csrf"];
-      invitation.status = "REVOKED";
-      invitation.revokedAt = "2026-08-21T11:00:00Z";
+      const invitedIndex = userEntries.findIndex((entry) => entry.invitationId === invitationId);
+      if (invitedIndex >= 0) userEntries.splice(invitedIndex, 1);
       await route.fulfill({ status: 204 });
       return;
     }
     await route.fulfill({ status: 405 });
   });
+  await page.route("**/api/users/**", async (route) => {
+    const url = new URL(route.request().url());
+    const member = userEntries.find((entry) => entry.actorId === memberActorId);
+    if (!member || route.request().method() !== "POST") {
+      await route.fulfill({ status: 404 });
+      return;
+    }
+    membershipMutationHeader = route.request().headers()["x-memoryos-csrf"];
+    if (url.pathname.endsWith("/deactivate")) member.status = "INACTIVE";
+    else if (url.pathname.endsWith("/activate")) member.status = "ACTIVE";
+    else {
+      await route.fulfill({ status: 405 });
+      return;
+    }
+    await route.fulfill({ status: 204 });
+  });
 
-  await page.goto("/admin/invitations");
-  await expect(page.getByRole("link", { name: "Invitations", exact: true })).toHaveAttribute(
+  await page.goto("/admin/users");
+  await expect(page.getByRole("link", { name: "Users", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
-  await expect(page.getByRole("heading", { name: "Invitations", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Invite member" }).click();
   await page.getByRole("textbox", { name: "Email address" }).fill("member@example.com");
   await page.getByRole("textbox", { name: "Email address" }).evaluate((input) => {
@@ -413,42 +508,89 @@ test("creates a production invitation from the Invitations administration page",
     navigator.clipboard.writeText = () => Promise.reject(new Error("clipboard denied"));
   });
   await page.getByRole("button", { name: "Copy" }).click();
-  await expect(page.getByText("The invitation link could not be copied.")).toBeVisible();
+  await expect(page.getByText(/invitation link could not be copied/i)).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
+
+  await page.getByRole("button", { name: "Retry refresh" }).click();
   await expect(page.getByText("member@example.com")).toBeVisible();
   await expect(
-    page.getByRole("table", { name: "Tenant invitations" }).getByText("Pending", {
-      exact: true,
-    }),
+    page.getByRole("table", { name: "Tenant users" }).getByText("Invited", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Rotate invitation link for member@example.com" }).click();
+
+  await page.getByRole("button", { name: "Actions for member@example.com" }).click();
+  await page.getByRole("button", { name: "Rotate recovery link" }).click();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/rotated-secret$/,
   );
   await expect(page.getByRole("heading", { name: "Recovery link rotated" })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
-  await page.getByRole("button", { name: "Revoke invitation for member@example.com" }).click();
-  await expect(
-    page.getByRole("table", { name: "Tenant invitations" }).getByText("Revoked", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Rotate invitation link for member@example.com" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Actions for member@example.com" })).toBeFocused();
+
+  await page.getByRole("button", { name: "Actions for member@example.com" }).click();
+  await page.getByRole("button", { name: "Revoke invitation" }).click();
+  const revokeDialog = page.getByRole("alertdialog");
+  await expect(revokeDialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await revokeDialog.getByRole("button", { name: "Revoke invitation" }).click();
+  await expect(page.getByText("member@example.com")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Invite member" })).toBeFocused();
   expect(revokeMutationHeader).toBe("1");
+
+  await page.getByRole("button", { name: "Show active users, 2" }).click();
+  await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
+  await page.getByRole("button", { name: "Deactivate member" }).click();
+  const deactivateDialog = page.getByRole("alertdialog");
+  await expect(deactivateDialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await deactivateDialog.getByRole("button", { name: "Deactivate member" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Invite member" })).toBeFocused();
+  await page.getByRole("button", { name: "Show inactive users, 1" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toContainText("Inactive");
+
+  await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
+  await page.getByRole("button", { name: "Activate member" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Activate member" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Invite member" })).toBeFocused();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(
+    page.getByRole("row").filter({ hasText: "Rowan Brooks" }).getByText("Active"),
+  ).toBeVisible();
+  expect(membershipMutationHeader).toBe("1");
 });
-test("restores and updates the server-driven invitation view from the URL", async ({ page }) => {
-  const invitations = Array.from({ length: 25 }, (_, index) => ({
-    id: `75c4e810-e1f2-45cb-9480-${String(index + 1).padStart(12, "0")}`,
-    email: `member${String(index + 1).padStart(2, "0")}@example.com`,
-    status: index === 24 ? "REVOKED" : "PENDING",
-    createdAt: new Date(Date.parse("2026-08-21T10:00:00Z") + index * 60_000).toISOString(),
-    expiresAt: "2026-08-24T10:00:00Z",
-    acceptedActorId: null,
-    acceptedAt: null,
-    revokedAt: index === 24 ? "2026-08-21T11:00:00Z" : null,
-  }));
+
+test("restores and updates the bounded server-driven Users view from the URL", async ({ page }) => {
+  await page.clock.install();
+  const entries = [
+    {
+      actorId: ACTOR_ID,
+      invitationId: null,
+      displayName: "Alex Morgan",
+      email: "alex@example.com",
+      emailVerified: true,
+      profileIssuer: "https://identity.example.com",
+      role: "OWNER",
+      status: "ACTIVE",
+      accountType: "STANDARD",
+      groups: [],
+      invitationExpiresAt: null,
+    },
+    ...Array.from({ length: 25 }, (_, index) => {
+      const sequence = String(index + 1).padStart(2, "0");
+      return {
+        actorId: `97c41cb9-55ae-4a52-94ab-${String(index + 1).padStart(12, "0")}`,
+        invitationId: null,
+        displayName: `Member ${sequence}`,
+        email: `member${sequence}@example.com`,
+        emailVerified: true,
+        profileIssuer: "https://identity.example.com",
+        role: "MEMBER",
+        status: index === 24 ? "INACTIVE" : "ACTIVE",
+        accountType: "STANDARD",
+        groups: [],
+        invitationExpiresAt: null,
+      };
+    }),
+  ];
 
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -457,21 +599,52 @@ test("restores and updates the server-driven invitation view from the URL", asyn
       body: JSON.stringify(OWNER_SESSION),
     });
   });
-  await page.route("**/api/invitations?*", async (route) => {
+  let delayRestoredPage = false;
+  const restoredPageResponse = Promise.withResolvers<void>();
+  await page.route("**/api/users?*", async (route) => {
     const url = new URL(route.request().url());
     const status = url.searchParams.get("status");
-    const email = url.searchParams.get("email")?.toLowerCase();
-    const sort = url.searchParams.get("sort") ?? "CREATED_AT_DESC";
+    const role = url.searchParams.get("role");
+    const search = url.searchParams.get("search")?.toLowerCase();
+    const sort = url.searchParams.get("sort") ?? "NAME_ASC";
     const pageIndex = Number(url.searchParams.get("page") ?? 0);
     const pageSize = Number(url.searchParams.get("size") ?? 20);
-    const filtered = invitations
-      .filter((invitation) => !status || invitation.status === status)
-      .filter((invitation) => !email || invitation.email.includes(email))
+    if (delayRestoredPage && status === "ACTIVE" && pageIndex === 1) {
+      await restoredPageResponse.promise;
+    }
+    const field = sort.slice(0, sort.lastIndexOf("_"));
+    const descending = sort.endsWith("_DESC");
+    const filtered = entries
+      .filter((entry) => !status || entry.status === status)
+      .filter((entry) => !role || entry.role === role)
+      .filter(
+        (entry) =>
+          !search ||
+          entry.displayName.toLowerCase().includes(search) ||
+          entry.email.toLowerCase().includes(search),
+      )
       .toSorted((left, right) => {
-        if (sort === "EMAIL_ASC") return left.email.localeCompare(right.email);
-        if (sort === "EMAIL_DESC") return right.email.localeCompare(left.email);
-        if (sort === "CREATED_AT_ASC") return left.createdAt.localeCompare(right.createdAt);
-        return right.createdAt.localeCompare(left.createdAt);
+        const leftValue = String(
+          field === "NAME"
+            ? left.displayName
+            : field === "EMAIL"
+              ? left.email
+              : field === "STATUS"
+                ? left.status
+                : left.role,
+        );
+        const rightValue = String(
+          field === "NAME"
+            ? right.displayName
+            : field === "EMAIL"
+              ? right.email
+              : field === "STATUS"
+                ? right.status
+                : right.role,
+        );
+        return (descending ? rightValue : leftValue).localeCompare(
+          descending ? leftValue : rightValue,
+        );
       });
     const start = pageIndex * pageSize;
     await route.fulfill({
@@ -483,31 +656,60 @@ test("restores and updates the server-driven invitation view from the URL", asyn
         size: pageSize,
         totalItems: filtered.length,
         totalPages: Math.ceil(filtered.length / pageSize),
+        counts: { active: 25, inactive: 1, invited: 0 },
       }),
     });
   });
 
-  await page.goto("/admin/invitations?status=PENDING&email=member&sort=EMAIL_ASC&page=1&size=20");
+  await page.goto(
+    "/admin/users?status=ACTIVE&search=member&role=MEMBER&sort=EMAIL_ASC&page=1&size=20",
+  );
 
+  await expect(page.getByRole("searchbox", { name: "Search users" })).toHaveValue("member");
+  await expect(page.getByRole("combobox", { name: "Filter by role" })).toHaveValue("MEMBER");
   await expect(page.getByText("member21@example.com")).toBeVisible();
   await expect(page.getByText("Showing 21–24 of 24")).toBeVisible();
   await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Show inactive users, 1" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Created" }).click();
-  await expect(page).toHaveURL(
-    /\/admin\/invitations\?status=PENDING&email=member&sort=CREATED_AT_DESC&page=0&size=20/,
-  );
-
-  await page.getByRole("searchbox", { name: "Email" }).fill("member02");
-  await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page).toHaveURL(/email=member02/);
+  await page.getByRole("button", { name: "Show inactive users, 1" }).click();
+  await expect(page).toHaveURL(/status=INACTIVE/);
   await expect(page).toHaveURL(/page=0/);
+  await expect(page.getByText("member25@example.com")).toBeVisible();
+
+  await page.clock.fastForward(301_000);
+  delayRestoredPage = true;
+  const restoredRequest = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return (
+      url.pathname === "/api/users" &&
+      url.searchParams.get("status") === "ACTIVE" &&
+      url.searchParams.get("page") === "1"
+    );
+  });
+  await page.goBack();
+  await restoredRequest;
+  await expect(page).toHaveURL(/page=1/);
+  delayRestoredPage = false;
+  restoredPageResponse.resolve();
+  await expect(page.getByText("Showing 21–24 of 24")).toBeVisible();
+  await expect(page).toHaveURL(/page=1/);
+  await page.goForward();
+  await expect(page.getByText("member25@example.com")).toBeVisible();
+
+  await page.getByRole("button", { name: "Show active users, 25" }).click();
+  await page.getByRole("button", { name: "Sort by name" }).click();
+  await expect(page).toHaveURL(/sort=NAME_ASC/);
+  await page.getByRole("searchbox", { name: "Search users" }).fill("member02");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(/search=member02/);
   await expect(page.getByText("member02@example.com")).toBeVisible();
 
   await page.getByRole("combobox", { name: "Rows per page" }).selectOption("50");
   await expect(page).toHaveURL(/size=50/);
   await page.reload();
   await expect(page.getByText("member02@example.com")).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Search users" })).toHaveValue("member02");
 });
 
 test("shows the recipient invitation landing and recovery states", async ({ page }) => {
@@ -547,6 +749,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     documentCount: 0,
     lastSucceededAt: null,
     errorCode: null,
+    actions: ["upload", "reindex", "remove_items", "delete", "manage_groups"],
   };
   const otherSource = {
     ...source,
@@ -616,6 +819,42 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.route("**/api/sources**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (request.method() === "GET" && path === "/api/sources/group-options") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
+              name: "Admin",
+              systemKey: "ADMIN",
+            },
+          ],
+          page: 0,
+          size: 25,
+          totalItems: 1,
+          totalPages: 1,
+        }),
+      });
+      return;
+    }
+    if (request.method() === "GET" && path.endsWith("/groups")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
+              name: "Admin",
+              systemKey: "ADMIN",
+            },
+          ],
+        }),
+      });
+      return;
+    }
     if (request.method() === "GET" && path === "/api/sources") {
       await route.fulfill({
         status: 200,

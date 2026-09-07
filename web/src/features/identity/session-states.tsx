@@ -88,7 +88,7 @@ export function AccessDeniedScreen() {
             You don’t have access to this area.
           </EmptyTitle>
           <EmptyDescription>
-            Your account is active, but it cannot manage Tenant invitations or administration.
+            Your account is active, but it does not have permission to manage this area.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

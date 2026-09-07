@@ -1,6 +1,12 @@
-import { ApiError } from "@/lib/api";
+import { ApiError, problemCode } from "@/lib/api";
 
-type SourceMutation = "create" | "upload" | "reindex" | "remove-item" | "delete-source";
+type SourceMutation =
+  | "create"
+  | "upload"
+  | "reindex"
+  | "remove-item"
+  | "delete-source"
+  | "associations";
 type SourceActionFailure = "cleanup-failed" | "cleanup-timeout" | "invalid-cleanup-response";
 
 const statusMessages: Record<string, string> = {
@@ -47,9 +53,11 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
   if (error instanceof ApiError) {
     const code = problemCode(error);
     if (code && statusMessages[code]) return statusMessages[code];
-    if (error.status === 403) return "Only an active Tenant owner can manage sources.";
+    if (error.status === 403) return "You do not have permission to manage this Source.";
     if (error.status === 404) return unavailableMessage(mutation);
     if (error.status === 409) return conflictMessage(mutation);
+    if (error.status === 400 && mutation === "associations")
+      return "Every Source must remain associated with at least one group.";
     if (error.status === 400 || error.status === 413)
       return "Check the source name or uploaded file and try again.";
     if (code && isSafeCode(code))
@@ -60,24 +68,20 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
 }
 
 function unavailableMessage(mutation: SourceMutation) {
+  if (mutation === "associations") return "This Source is no longer available.";
   if (mutation === "remove-item") return "This file is no longer available in the source.";
   if (mutation === "delete-source") return "This source is no longer available.";
   return "The source or file is no longer available.";
 }
 
 function conflictMessage(mutation: SourceMutation) {
+  if (mutation === "associations")
+    return "Source associations changed while you were editing. Refresh and try again.";
   if (mutation === "remove-item")
     return "This file is already changing. Refresh the source and try again.";
   if (mutation === "delete-source")
     return "This source is already changing. Refresh the source and try again.";
   return "The source cannot accept that operation right now.";
-}
-
-function problemCode(error: ApiError) {
-  const cause = error.cause;
-  if (!cause || typeof cause !== "object" || !("code" in cause)) return undefined;
-  const code = cause.code;
-  return typeof code === "string" ? code : undefined;
 }
 
 function isSafeCode(code: string) {

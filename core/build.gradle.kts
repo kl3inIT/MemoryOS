@@ -8,6 +8,7 @@ dependencies {
     implementation(platform(libs.spring.boot.dependencies))
     implementation(platform(libs.aws.sdk.bom))
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.jakarta.persistence.api)
     compileOnly(libs.spring.boot.starter.actuator)
     implementation(libs.micrometer.core)
     implementation(libs.jackson.databind)
@@ -18,6 +19,9 @@ dependencies {
 
     testImplementation(platform(libs.spring.modulith.bom))
     testImplementation(libs.spring.modulith.starter.test)
+    testImplementation(libs.spring.boot.starter.data.jpa)
+    testImplementation(libs.flyway.core)
+    testRuntimeOnly(libs.flyway.database.postgresql)
     testImplementation(libs.archunit.junit5)
     testImplementation(libs.h2)
     testImplementation(libs.testcontainers.junit.jupiter)

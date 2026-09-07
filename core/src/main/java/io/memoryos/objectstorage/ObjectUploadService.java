@@ -1,6 +1,6 @@
 package io.memoryos.objectstorage;
 
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 public interface ObjectUploadService {
     ObjectUploadAuthorization initiate(TenantId tenantId, ObjectUploadSpecification specification);

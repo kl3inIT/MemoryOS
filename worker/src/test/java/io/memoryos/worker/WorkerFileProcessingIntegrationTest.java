@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
-import io.memoryos.identity.ActorId;
+import io.memoryos.iam.ActorId;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
@@ -60,19 +61,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "management.otlp.metrics.export.step=1s",
                 "management.otlp.metrics.export.aggregation-temporality=cumulative",
                 "management.otlp.metrics.export.resource-attributes.service.name=memoryos-worker",
-                "spring.sql.init.mode=always",
-                "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
-                        + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
-                        + "classpath:db/migration/V3__create_organization_invitations.sql,"
-                        + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
-                        + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
-                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
-                        + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
-                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
-                        + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
-                        + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
-                        + "classpath:db/migration/V12__use_current_documents.sql",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
@@ -213,9 +201,7 @@ class WorkerFileProcessingIntegrationTest {
             registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
         }
         registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        WorkerPostgresDatabase.configure(registry, POSTGRES);
         registry.add("memoryos.object-storage.s3.service-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
         registry.add("memoryos.object-storage.s3.upload-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
         registry.add("memoryos.object-storage.s3.region", () -> "us-east-1");
@@ -255,13 +241,41 @@ class WorkerFileProcessingIntegrationTest {
                 .param("tenantId", tenantId)
                 .param("actorId", OWNER.value())
                 .update();
+        UUID adminGroupId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID basicGroupId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        jdbcClient.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name, system_key)
+                        VALUES (:tenantId, :adminGroupId, 'Admin', 'ADMIN'),
+                               (:tenantId, :basicGroupId, 'Basic', 'BASIC')
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .param("basicGroupId", basicGroupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :adminGroupId, 'IAM_ADMIN')
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id)
+                        VALUES (:tenantId, :adminGroupId, :actorId),
+                               (:tenantId, :basicGroupId, :actorId)
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .param("basicGroupId", basicGroupId)
+                .param("actorId", OWNER.value())
+                .update();
     }
 
     @Test
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
         worker.stop();
-        var sourceId = sources.createFileSource(OWNER, "Worker knowledge").source().id();
+        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of()).source().id();
         boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
         byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
@@ -287,8 +301,8 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(200, uploadResponse.statusCode());
         io.memoryos.connector.SourceUploadReceipt upload;
         String originTrace = "1234567890abcdef1234567890abcdef";
-        try (var trace = org.slf4j.MDC.putCloseable("traceId", originTrace);
-             var span = org.slf4j.MDC.putCloseable("spanId", "1234567890abcdef")) {
+        try (var _ = org.slf4j.MDC.putCloseable("traceId", originTrace);
+             var _ = org.slf4j.MDC.putCloseable("spanId", "1234567890abcdef")) {
             upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
         }
         assertEquals(originTrace, jdbcClient.sql("SELECT origin_trace_id FROM index_attempts WHERE id = :id")

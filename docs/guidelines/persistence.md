@@ -10,7 +10,7 @@ A temporary runtime profile, command, or endpoint is not an acceptable substitut
 
 ## Schema ownership
 
-- Capability-owned migrations live with the owning capability's resources. The current identity migration is `core/src/main/resources/db/migration/V1__create_identity_tables.sql`.
+- Capability-owned migrations live with the owning capability's resources. Core migrations are under `core/src/main/resources/db/migration/`; V1 establishes initial identity tables, while later IAM migrations add profiles, Account Type, authorization revision, Groups and Source associations.
 - Applied Flyway migrations are immutable against any retained database. An explicitly approved early-project baseline reset may replace them only together with recreating every MemoryOS database that recorded those checksums; never create checksum drift against a live schema history.
 - Uniqueness, referential integrity, and deletion behavior belong in database constraints when the database is the final concurrency authority.
 
@@ -21,8 +21,9 @@ A temporary runtime profile, command, or endpoint is not an acceptable substitut
 - Do not add repository interfaces for a single internal JDBC implementation. Inject concrete repositories inside the same closed capability. Introduce a port only when a second implementation, a cross-module consumer, or a testable non-database contract provides concrete value.
 - Keep `@Transactional` on the application operation when one command coordinates several repositories. Repository methods participate in that transaction and own SQL, row mapping, locks, conditional writes, claims, bulk updates, and database-specific mechanics.
 - Source and ingestion persistence is JDBC-first because it requires explicit row locks, worker leases, conditional transitions, bulk invalidation, PostgreSQL-specific constraints, and multi-join projections. Read projections use a dedicated query repository rather than inflating write repositories.
-- JPA is allowed only when entity lifecycle or relationship management demonstrably reduces complexity. Do not introduce entity/domain/persistence DTO/mapping layers by default, and do not migrate clear invitation or Tenant JDBC repositories merely for stylistic uniformity.
-- Reevaluate Spring Data JPA for MEM-36 Groups, where relationship lifecycle may provide concrete value. Defer Querydsl or jOOQ until measured dynamic-query or SQL type-safety pressure justifies the dependency and migration cost.
+- The accepted [unified IAM decision](../decisions/0007-unified-jpa-iam-and-group-authorization.md) uses JPA for Actor, binding, profile, Tenant, membership, invitation, bootstrap and Group lifecycle within one closed `iam` capability. Entities and ORM relationships stay internal; do not introduce parallel entity/domain/DTO copies or cross-capability entity navigation. This is the implemented MEM-36 choice, not a pending Groups-only ORM evaluation.
+- Keep bounded IAM projections and explicit authorization locks in concrete JDBC repositories. JPA lifecycle writes and JDBC mechanics share the same DataSource and transaction manager. Flyway owns DDL, Hibernate validates it, and open-in-view/ORM permission caches are disabled. Source, Document, Object Storage and Ingestion persistence remain JDBC-first.
+- Defer Querydsl or jOOQ until measured dynamic-query or SQL type-safety pressure justifies the dependency and migration cost. Do not add Spring Data repository interfaces merely because JPA is in use; concrete capability repositories remain the default.
 
 ## Early-project schema evolution
 

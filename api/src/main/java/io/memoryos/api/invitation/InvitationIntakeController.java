@@ -1,7 +1,7 @@
 package io.memoryos.api.invitation;
 
-import io.memoryos.invitation.InvitationException;
-import io.memoryos.invitation.InvitationService;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -17,7 +17,6 @@ final class InvitationIntakeController {
     private static final String LANDING_PATH = "/invitation";
     private static final String NOT_AVAILABLE_PATH = LANDING_PATH + "?reason=not-available";
     private static final String OAUTH_PATH = "/oauth2/authorization/memoryos";
-    //noinspection HttpHeaderName
     private static final String REFERRER_POLICY = "Referrer-Policy";
 
     private final InvitationService invitations;

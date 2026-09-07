@@ -14,9 +14,7 @@ import org.junit.jupiter.api.Test;
 class CoreDependencyRulesTest {
 
     private static final Set<String> CAPABILITIES = Set.of(
-            "identity",
-            "tenant",
-            "invitation",
+            "iam",
             "objectstorage",
             "connector",
             "document",

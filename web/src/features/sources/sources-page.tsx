@@ -17,12 +17,14 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { findSourceProvider } from "./source-provider-catalog";
 import { SourceStatusBadge } from "./source-status-badge";
 
 export function SourcesPage() {
+  const canCreate = useGlobalCapability("SOURCES_MANAGE");
   const sourcesQuery = useQuery({
     ...listSourcesOptions(),
     retry: false,
@@ -38,9 +40,11 @@ export function SourcesPage() {
           <BookOpen className="size-7 text-content-primary" aria-hidden="true" />
           <h1 className="mt-2 font-heading-h3 text-content-primary">Existing sources</h1>
         </div>
-        <Button asChild size="sm">
-          <Link to="/admin/sources/new">Add source</Link>
-        </Button>
+        {canCreate ? (
+          <Button asChild size="sm">
+            <Link to="/admin/sources/new">Add source</Link>
+          </Button>
+        ) : null}
       </header>
 
       {sourcesQuery.isPending ? (
@@ -71,9 +75,11 @@ export function SourcesPage() {
             <Files className="size-5" aria-hidden="true" />
           </span>
           <h2 className="mt-4 font-heading-h3 text-content-primary">No sources yet</h2>
-          <Button asChild size="sm" className="mt-4">
-            <Link to="/admin/sources/new">Add source</Link>
-          </Button>
+          {canCreate ? (
+            <Button asChild size="sm" className="mt-4">
+              <Link to="/admin/sources/new">Add source</Link>
+            </Button>
+          ) : null}
         </div>
       ) : (
         <SourceList sources={sources} />

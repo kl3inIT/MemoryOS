@@ -40,10 +40,6 @@ import org.springframework.test.web.servlet.MockMvc;
         "memoryos.initial-tenant.slug=openapi",
         "memoryos.initial-tenant.display-name=OpenAPI",
         "memoryos.initial-tenant.change-reference=TEST-OPENAPI-CONTRACT",
-        "spring.datasource.url=jdbc:h2:mem:openapi-contract;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
-                + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
-        "spring.datasource.username=sa",
-        "spring.datasource.password="
 })
 @AutoConfigureMockMvc(addFilters = false)
 class OpenApiContractTest {
@@ -54,6 +50,22 @@ class OpenApiContractTest {
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
             "/api/identity/me",
+            "/api/users",
+            "/api/users/{actorId}/activate",
+            "/api/users/{actorId}/deactivate",
+            "/api/users/{actorId}/groups",
+            "/api/groups",
+            "/api/groups/capabilities",
+            "/api/groups/{groupId}",
+            "/api/groups/{groupId}/rename",
+            "/api/groups/{groupId}/delete",
+            "/api/groups/{groupId}/members",
+            "/api/groups/{groupId}/candidates",
+            "/api/groups/{groupId}/members/{actorId}/remove",
+            "/api/groups/{groupId}/members/{actorId}/assign-manager",
+            "/api/groups/{groupId}/members/{actorId}/remove-manager",
+            "/api/groups/{groupId}/capabilities",
+            "/api/groups/{groupId}/sources",
             "/api/invitations",
             "/api/invitations/current",
             "/api/invitations/{invitationId}/revoke",
@@ -61,6 +73,8 @@ class OpenApiContractTest {
             "/api/source-operations/{operationId}",
             "/api/sources",
             "/api/sources/file",
+            "/api/sources/group-options",
+            "/api/sources/{sourceId}/groups",
             "/api/sources/{sourceId}",
             "/api/sources/{sourceId}/delete",
             "/api/sources/{sourceId}/index-attempts",
@@ -76,6 +90,7 @@ class OpenApiContractTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");

@@ -4,7 +4,7 @@ import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.document.DocumentId;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.util.List;
 import java.util.Objects;

@@ -1,6 +1,6 @@
 package io.memoryos.document.persistence;
 
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -36,7 +36,7 @@ public class JdbcExtractionArtifactRepository {
                     cleanup_until=CURRENT_TIMESTAMP + INTERVAL '2' MINUTE
                 FROM candidates c WHERE a.tenant_id=c.tenant_id AND a.id=c.id
                 RETURNING a.tenant_id,a.id,a.object_key,a.cleanup_token
-                """).param("token", token).query((rs, row) -> new CleanupArtifact(
+                """).param("token", token).query((rs, _) -> new CleanupArtifact(
                         new TenantId(rs.getObject("tenant_id", UUID.class)), rs.getObject("id", UUID.class),
                         rs.getString("object_key"), rs.getObject("cleanup_token", UUID.class))).list();
     }

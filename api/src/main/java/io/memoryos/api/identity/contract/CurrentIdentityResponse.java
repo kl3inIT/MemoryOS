@@ -1,11 +1,13 @@
 package io.memoryos.api.identity.contract;
 
-import io.memoryos.tenant.TenantMembershipRole;
-import io.memoryos.tenant.TenantMembership;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantMembership;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -24,25 +26,42 @@ public record CurrentIdentityResponse(
         )
         @Nullable CurrentTenantResponse tenant,
         @Schema(
-                description = "Canonical capabilities backed by current server enforcement.",
+                description = "Expanded global capabilities backed by current server enforcement.",
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
-        List<CurrentIdentityCapability> capabilities
+        List<IamCapability> capabilities,
+        @Schema(
+                description = "Eligible capabilities available only within resources managed by this actor.",
+                requiredMode = Schema.RequiredMode.REQUIRED
+        )
+        List<IamCapability> scopedCapabilities,
+        @Schema(
+                description = "Monotonic Tenant IAM revision used only to invalidate private client data.",
+                minimum = "0",
+                requiredMode = Schema.RequiredMode.REQUIRED
+        )
+        long authorizationVersion
 ) {
 
     public static CurrentIdentityResponse from(
             UUID actorId,
-            @Nullable TenantMembership membership
+            @Nullable TenantMembership membership,
+            Set<IamCapability> capabilities,
+            Set<IamCapability> scopedCapabilities,
+            long authorizationVersion
     ) {
         return new CurrentIdentityResponse(
                 actorId,
                 membership == null ? null : CurrentTenantResponse.from(membership),
-                membership != null && membership.role() == TenantMembershipRole.OWNER
-                        ? List.of(
-                        CurrentIdentityCapability.INVITATIONS_MANAGE,
-                        CurrentIdentityCapability.SOURCES_MANAGE
-                )
-                        : List.of()
+                sorted(capabilities),
+                sorted(scopedCapabilities),
+                membership == null ? 0 : authorizationVersion
         );
+    }
+
+    private static List<IamCapability> sorted(Set<IamCapability> capabilities) {
+        return capabilities.stream()
+                .sorted(Comparator.comparingInt(IamCapability::ordinal))
+                .toList();
     }
 }

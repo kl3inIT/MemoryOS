@@ -14,7 +14,7 @@ import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.time.Duration;
 import java.util.Map;

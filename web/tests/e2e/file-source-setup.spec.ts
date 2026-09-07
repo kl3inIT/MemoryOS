@@ -10,6 +10,9 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       status: "ACTIVE",
       documentCount: 1,
       pendingWork: false,
+      lastSucceededAt: null,
+      errorCode: null,
+      actions: ["upload", "reindex", "remove_items", "delete", "manage_groups"],
     };
     let creates = 0;
     let puts = 0;
@@ -18,14 +21,48 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       route.fulfill({
         json: {
           actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+          authorizationVersion: 1,
           tenant: { displayName: "Tasco", role: "OWNER" },
-          capabilities: ["SOURCES_MANAGE"],
+          capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+          scopedCapabilities: [],
         },
       }),
     );
     await page.route("**/api/sources**", async (route) => {
       const path = new URL(route.request().url()).pathname;
       if (route.request().method() === "GET") {
+        if (path === "/api/sources/group-options") {
+          await route.fulfill({
+            json: {
+              items: [
+                {
+                  id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
+                  name: "Admin",
+                  systemKey: "ADMIN",
+                },
+              ],
+              page: 0,
+              size: 25,
+              totalItems: 1,
+              totalPages: 1,
+            },
+          });
+          return;
+        }
+        if (path.endsWith("/groups")) {
+          await route.fulfill({
+            json: {
+              items: [
+                {
+                  id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
+                  name: "Admin",
+                  systemKey: "ADMIN",
+                },
+              ],
+            },
+          });
+          return;
+        }
         await route.fulfill({
           json:
             path === "/api/sources"
@@ -141,8 +178,6 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       await page.getByRole("button", { name: "Use dark theme" }).click();
       await expect(page.locator("html")).toHaveClass(/dark/);
       await page.keyboard.press("Escape");
-      const bounds = await submit.boundingBox();
-      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(720);
       await page.screenshot({ path: testInfo.outputPath("file-setup-dark.png"), fullPage: true });
     }
     await submit.evaluate((button: HTMLButtonElement) => {

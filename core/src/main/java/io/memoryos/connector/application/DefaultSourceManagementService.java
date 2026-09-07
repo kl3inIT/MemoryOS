@@ -13,26 +13,41 @@ import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.connector.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.persistence.JdbcSourceItemRepository;
+import io.memoryos.connector.persistence.JdbcSourceOperationQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceUploadRepository;
-import io.memoryos.identity.ActorId;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentity;
+import io.memoryos.iam.GroupIdentityPage;
+import io.memoryos.iam.GroupScopeService;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantId;
 import io.memoryos.objectstorage.ObjectUploadAuthorization;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
-import io.memoryos.tenant.TenantAccessResolver;
-import io.memoryos.tenant.TenantId;
 
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class DefaultSourceManagementService implements SourceManagementService {
@@ -42,9 +57,12 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final JdbcIndexAttemptRepository attempts;
     private final JdbcSourceDocumentRepository sourceDocuments;
     private final JdbcSourceQueryRepository queries;
+    private final JdbcSourceOperationQueryRepository operationQueries;
+    private final JdbcSourceGroupRepository sourceGroups;
     private final JdbcSourceUploadRepository sourceUploads;
     private final ObjectUploadService objectUploads;
-    private final TenantAccessResolver tenantAccess;
+    private final IamAuthorization authorization;
+    private final GroupScopeService groupScopes;
     private final TransactionTemplate transactions;
 
     public DefaultSourceManagementService(
@@ -53,9 +71,12 @@ public class DefaultSourceManagementService implements SourceManagementService {
             JdbcIndexAttemptRepository attempts,
             JdbcSourceDocumentRepository sourceDocuments,
             JdbcSourceQueryRepository queries,
+            JdbcSourceOperationQueryRepository operationQueries,
+            JdbcSourceGroupRepository sourceGroups,
             JdbcSourceUploadRepository sourceUploads,
             ObjectUploadService objectUploads,
-            TenantAccessResolver tenantAccess,
+            IamAuthorization authorization,
+            GroupScopeService groupScopes,
             PlatformTransactionManager transactionManager
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
@@ -63,9 +84,12 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.attempts = Objects.requireNonNull(attempts, "attempts must not be null");
         this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
         this.queries = Objects.requireNonNull(queries, "queries must not be null");
+        this.operationQueries = Objects.requireNonNull(operationQueries, "operationQueries must not be null");
+        this.sourceGroups = Objects.requireNonNull(sourceGroups, "sourceGroups must not be null");
         this.sourceUploads = Objects.requireNonNull(sourceUploads, "sourceUploads must not be null");
         this.objectUploads = Objects.requireNonNull(objectUploads, "objectUploads must not be null");
-        this.tenantAccess = Objects.requireNonNull(tenantAccess, "tenantAccess must not be null");
+        this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
+        this.groupScopes = Objects.requireNonNull(groupScopes, "groupScopes must not be null");
         this.transactions = new TransactionTemplate(
                 Objects.requireNonNull(transactionManager, "transactionManager must not be null")
         );
@@ -73,30 +97,162 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional
-    public SourceDetail createFileSource(ActorId actorId, String name) {
-        TenantId tenantId = requireOwner(actorId);
-        var pair = sources.createFileSource(tenantId, requireName(name));
-        return queries.detail(tenantId, pair.sourceId());
+    public SourceDetail createFileSource(
+            ActorId actorId,
+            String name,
+            Collection<GroupId> groupIds
+    ) {
+        ActorId requiredActorId = requireActorId(actorId);
+        List<GroupId> requestedGroupIds = normalizeGroupIds(groupIds, true);
+        String normalizedName = requireName(name);
+        IamAccess access = authorization.lockAndRequireExclusive(
+                requiredActorId,
+                IamCapability.SOURCES_MANAGE
+        );
+        List<GroupId> associatedGroupIds;
+        if (requestedGroupIds.isEmpty()) {
+            associatedGroupIds = List.of(sourceGroups.adminGroupId(access.tenantId()));
+        } else {
+            groupScopes.validateGroupIds(access.tenantId(), requestedGroupIds);
+            associatedGroupIds = requestedGroupIds;
+        }
+        var pair = sources.createFileSource(access.tenantId(), normalizedName);
+        sourceGroups.replace(access.tenantId(), pair.sourceId(), associatedGroupIds);
+        boolean globalDelete = authorization.effectiveCapabilities(requiredActorId)
+                .contains(IamCapability.SOURCES_DELETE);
+        return queries.detail(
+                access.tenantId(),
+                requiredActorId,
+                pair.sourceId(),
+                true,
+                true,
+                globalDelete
+        );
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SourceSummary> listSources(ActorId actorId) {
-        return queries.list(requireOwner(actorId));
+        ActorId requiredActorId = requireActorId(actorId);
+        SourcePermissions permissions = readPermissions(requiredActorId);
+        return queries.list(
+                permissions.tenantId(),
+                requiredActorId,
+                permissions.globalRead(),
+                permissions.globalManage(),
+                permissions.globalDelete()
+        );
     }
 
     @Override
     @Transactional(readOnly = true)
     public SourceDetail getSource(ActorId actorId, SourceId sourceId) {
-        return queries.detail(requireOwner(actorId), requireSourceId(sourceId));
+        ActorId requiredActorId = requireActorId(actorId);
+        SourcePermissions permissions = readPermissions(requiredActorId);
+        return queries.detail(
+                permissions.tenantId(),
+                requiredActorId,
+                requireSourceId(sourceId),
+                permissions.globalRead(),
+                permissions.globalManage(),
+                permissions.globalDelete()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GroupIdentity> listSourceGroups(ActorId actorId, SourceId sourceId) {
+        ActorId requiredActorId = requireActorId(actorId);
+        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        queries.summary(
+                permissions.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                permissions.globalRead(),
+                permissions.globalManage(),
+                permissions.globalDelete()
+        );
+        return sourceGroups.list(permissions.tenantId(), requiredSourceId);
+    }
+
+    @Override
+    @Transactional
+    public void replaceSourceGroups(
+            ActorId actorId,
+            SourceId sourceId,
+            Collection<GroupId> groupIds
+    ) {
+        ActorId requiredActorId = requireActorId(actorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        List<GroupId> requiredGroupIds = normalizeGroupIds(groupIds, false);
+        IamAccess access = authorization.lockAndRequireExclusive(
+                requiredActorId,
+                IamCapability.SOURCES_MANAGE
+        );
+        requireMutable(sources.lockAuthorized(
+                access.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                true
+        ));
+        groupScopes.validateGroupIds(access.tenantId(), requiredGroupIds);
+        sourceGroups.replace(access.tenantId(), requiredSourceId, requiredGroupIds);
+    }
+
+    @Override
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public GroupIdentityPage listSourceGroupOptions(
+            ActorId actorId,
+            @Nullable String search,
+            int page,
+            int size
+    ) {
+        ActorId requiredActorId = requireActorId(actorId);
+        IamAccess access = authorization.require(
+                requiredActorId,
+                IamCapability.SOURCES_MANAGE,
+                false
+        );
+        return groupScopes.listGroupOptions(access.tenantId(), search, page, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SourceSummary> listGroupSources(ActorId actorId, GroupId groupId) {
+        ActorId requiredActorId = requireActorId(actorId);
+        GroupId requiredGroupId = Objects.requireNonNull(groupId, "groupId must not be null");
+        SourcePermissions permissions = readPermissions(requiredActorId);
+        groupScopes.validateGroupIds(permissions.tenantId(), List.of(requiredGroupId));
+        if (!permissions.globalRead()
+                && !groupScopes.isManagedBy(permissions.tenantId(), requiredActorId, requiredGroupId)) {
+            throw SourceException.notFound();
+        }
+        return queries.listForGroup(
+                permissions.tenantId(),
+                requiredActorId,
+                requiredGroupId,
+                permissions.globalRead(),
+                permissions.globalManage(),
+                permissions.globalDelete()
+        );
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit) {
-        TenantId tenantId = requireOwner(actorId);
-        queries.summary(tenantId, requireSourceId(sourceId));
-        return attempts.list(tenantId, sourceId, limit);
+        ActorId requiredActorId = requireActorId(actorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        SourcePermissions permissions = readPermissions(requiredActorId);
+        queries.summary(
+                permissions.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                permissions.globalRead(),
+                permissions.globalManage(),
+                permissions.globalDelete()
+        );
+        return attempts.list(permissions.tenantId(), requiredSourceId, limit);
     }
 
     @Override
@@ -105,8 +261,9 @@ public class DefaultSourceManagementService implements SourceManagementService {
             SourceId sourceId,
             ObjectUploadSpecification specification
     ) {
-        TenantId tenantId = requireOwner(actorId);
+        ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
+        IamAccess initialAccess = requireManagedSource(requiredActorId, requiredSourceId);
         Objects.requireNonNull(specification, "specification must not be null");
         ObjectUploadSpecification normalized = new ObjectUploadSpecification(
                 requireFilename(specification.filename()),
@@ -114,12 +271,23 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 specification.sizeBytes(),
                 specification.checksum()
         );
-        ObjectUploadAuthorization authorization = objectUploads.initiate(tenantId, normalized);
+        ObjectUploadAuthorization upload = objectUploads.initiate(initialAccess.tenantId(), normalized);
         transactions.executeWithoutResult(_ -> {
-            requireMutable(sources.lock(tenantId, requiredSourceId));
-            sourceUploads.create(tenantId, requiredSourceId, authorization.uploadId());
+            IamAccess commitAccess = authorization.lockAndRequire(
+                    requiredActorId,
+                    IamCapability.SOURCES_MANAGE,
+                    true
+            );
+            requireSameTenant(initialAccess.tenantId(), commitAccess);
+            requireMutable(sources.lockAuthorized(
+                    commitAccess.tenantId(),
+                    requiredActorId,
+                    requiredSourceId,
+                    commitAccess.authority() == Authority.GLOBAL
+            ));
+            sourceUploads.create(commitAccess.tenantId(), requiredSourceId, upload.uploadId());
         });
-        return authorization;
+        return upload;
     }
 
     @Override
@@ -128,39 +296,59 @@ public class DefaultSourceManagementService implements SourceManagementService {
             SourceId sourceId,
             ObjectUploadId uploadId
     ) {
-        TenantId tenantId = requireOwner(actorId);
+        ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         ObjectUploadId requiredUploadId = Objects.requireNonNull(uploadId, "uploadId must not be null");
-        SourceUploadReceipt existing = receipt(tenantId, requiredSourceId, requiredUploadId);
+        IamAccess initialAccess = requireManagedSource(requiredActorId, requiredSourceId);
+        SourceUploadReceipt existing = receipt(initialAccess.tenantId(), requiredSourceId, requiredUploadId);
         if (existing != null) {
             return existing;
         }
-        if (!sourceUploads.exists(tenantId, requiredSourceId, requiredUploadId)) {
+        if (!sourceUploads.exists(initialAccess.tenantId(), requiredSourceId, requiredUploadId)) {
             throw SourceException.notFound();
         }
-        var verified = objectUploads.verify(tenantId, requiredUploadId);
+        var verified = objectUploads.verify(initialAccess.tenantId(), requiredUploadId);
         return Objects.requireNonNull(transactions.execute(_ -> {
-            var pair = sources.lock(tenantId, requiredSourceId);
-            SourceUploadReceipt concurrent = receipt(tenantId, requiredSourceId, requiredUploadId);
+            IamAccess commitAccess = authorization.lockAndRequire(
+                    requiredActorId,
+                    IamCapability.SOURCES_MANAGE,
+                    true
+            );
+            requireSameTenant(initialAccess.tenantId(), commitAccess);
+            var pair = sources.lockAuthorized(
+                    commitAccess.tenantId(),
+                    requiredActorId,
+                    requiredSourceId,
+                    commitAccess.authority() == Authority.GLOBAL
+            );
+            SourceUploadReceipt concurrent = receipt(
+                    commitAccess.tenantId(),
+                    requiredSourceId,
+                    requiredUploadId
+            );
             if (concurrent != null) {
                 return concurrent;
             }
             var mutablePair = requireMutable(pair);
             var version = items.resolveOrCreate(
-                    tenantId,
+                    commitAccess.tenantId(),
                     mutablePair,
                     verified.object().filename(),
                     verified.object()
             );
             if (version.created()) {
-                objectUploads.adopt(tenantId, requiredUploadId, verified.token());
+                objectUploads.adopt(commitAccess.tenantId(), requiredUploadId, verified.token());
             } else {
-                objectUploads.discard(tenantId, requiredUploadId, verified.token());
+                objectUploads.discard(commitAccess.tenantId(), requiredUploadId, verified.token());
             }
-            SourceOperationView operation = attempts.findLive(tenantId, requiredSourceId, version)
-                    .orElseGet(() -> attempts.create(tenantId, pair, version));
+            SourceOperationView operation = attempts.findLive(
+                            commitAccess.tenantId(),
+                            requiredSourceId,
+                            version
+                    )
+                    .orElseGet(() -> attempts.create(commitAccess.tenantId(), pair, version));
             if (!sourceUploads.complete(
-                    tenantId,
+                    commitAccess.tenantId(),
                     requiredSourceId,
                     requiredUploadId,
                     version,
@@ -169,7 +357,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 throw SourceException.conflict("source upload receipt was concurrently finalized");
             }
             return new SourceUploadReceipt(
-                    queries.item(tenantId, requiredSourceId, version.itemId()),
+                    queries.item(commitAccess.tenantId(), requiredSourceId, version.itemId()),
                     operation
             );
         }));
@@ -178,25 +366,47 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Override
     @Transactional
     public SourceOperationView reindex(ActorId actorId, SourceId sourceId, SourceItemId itemId) {
-        TenantId tenantId = requireOwner(actorId);
-        var pair = requireMutable(sources.lock(tenantId, requireSourceId(sourceId)));
+        ActorId requiredActorId = requireActorId(actorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        IamAccess access = authorization.lockAndRequire(
+                requiredActorId,
+                IamCapability.SOURCES_MANAGE,
+                true
+        );
+        var pair = requireMutable(sources.lockAuthorized(
+                access.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                access.authority() == Authority.GLOBAL
+        ));
         var version = items.lockCurrentVersion(
-                tenantId,
+                access.tenantId(),
                 pair,
                 Objects.requireNonNull(itemId, "itemId must not be null")
         );
-        return attempts.findLive(tenantId, sourceId, version)
-                .orElseGet(() -> attempts.create(tenantId, pair, version));
+        return attempts.findLive(access.tenantId(), requiredSourceId, version)
+                .orElseGet(() -> attempts.create(access.tenantId(), pair, version));
     }
 
     @Override
     @Transactional
     public SourceOperationView removeItem(ActorId actorId, SourceId sourceId, SourceItemId itemId) {
-        TenantId tenantId = requireOwner(actorId);
+        ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         SourceItemId requiredItemId = Objects.requireNonNull(itemId, "itemId must not be null");
+        IamAccess access = authorization.lockAndRequire(
+                requiredActorId,
+                IamCapability.SOURCES_DELETE,
+                false
+        );
+        var pair = sources.lockAuthorized(
+                access.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                true
+        );
         var parentCleanup = sources.findCleanup(
-                tenantId,
+                access.tenantId(),
                 SourceOperationType.DELETE_SOURCE,
                 "PAIR:" + requiredSourceId.value()
         );
@@ -204,31 +414,22 @@ public class DefaultSourceManagementService implements SourceManagementService {
             return parentCleanup.get();
         }
         String targetKey = "ITEM:" + requiredItemId.value();
-        var existing = sources.findCleanup(tenantId, SourceOperationType.REMOVE_ITEM, targetKey);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-        var pair = sources.lock(tenantId, requiredSourceId);
-        parentCleanup = sources.findCleanup(
-                tenantId,
-                SourceOperationType.DELETE_SOURCE,
-                "PAIR:" + requiredSourceId.value()
+        var existing = sources.findCleanup(
+                access.tenantId(),
+                SourceOperationType.REMOVE_ITEM,
+                targetKey
         );
-        if (parentCleanup.isPresent()) {
-            return parentCleanup.get();
-        }
-        existing = sources.findCleanup(tenantId, SourceOperationType.REMOVE_ITEM, targetKey);
         if (existing.isPresent()) {
             return existing.get();
         }
         var mutablePair = requireMutable(pair);
-        items.lockCurrentVersion(tenantId, mutablePair, requiredItemId);
-        items.markDeleting(tenantId, mutablePair, requiredItemId);
-        sourceDocuments.invalidateItem(tenantId, requiredSourceId, requiredItemId);
-        attempts.cancelForItem(tenantId, requiredSourceId, requiredItemId);
+        items.lockCurrentVersion(access.tenantId(), mutablePair, requiredItemId);
+        items.markDeleting(access.tenantId(), mutablePair, requiredItemId);
+        sourceDocuments.invalidateItem(access.tenantId(), requiredSourceId, requiredItemId);
+        attempts.cancelForItem(access.tenantId(), requiredSourceId, requiredItemId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
-                tenantId,
+                access.tenantId(),
                 SourceOperationType.REMOVE_ITEM,
                 targetKey,
                 requiredSourceId,
@@ -239,25 +440,43 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Override
     @Transactional
     public SourceOperationView deleteSource(ActorId actorId, SourceId sourceId) {
-        TenantId tenantId = requireOwner(actorId);
+        ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
+        IamAccess access = authorization.lockAndRequire(
+                requiredActorId,
+                IamCapability.SOURCES_DELETE,
+                false
+        );
         String targetKey = "PAIR:" + requiredSourceId.value();
-        var existing = sources.findCleanup(tenantId, SourceOperationType.DELETE_SOURCE, targetKey);
+        var existing = sources.findCleanup(
+                access.tenantId(),
+                SourceOperationType.DELETE_SOURCE,
+                targetKey
+        );
         if (existing.isPresent()) {
             return existing.get();
         }
-        var pair = sources.lock(tenantId, requiredSourceId);
-        existing = sources.findCleanup(tenantId, SourceOperationType.DELETE_SOURCE, targetKey);
+        var pair = sources.lockAuthorized(
+                access.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                true
+        );
+        existing = sources.findCleanup(
+                access.tenantId(),
+                SourceOperationType.DELETE_SOURCE,
+                targetKey
+        );
         if (existing.isPresent()) {
             return existing.get();
         }
-        sources.markDeleting(tenantId, pair);
-        sourceDocuments.invalidateSource(tenantId, requiredSourceId);
-        attempts.cancelForSource(tenantId, requiredSourceId);
-        sources.supersedeItemCleanups(tenantId, requiredSourceId);
+        sources.markDeleting(access.tenantId(), pair);
+        sourceDocuments.invalidateSource(access.tenantId(), requiredSourceId);
+        attempts.cancelForSource(access.tenantId(), requiredSourceId);
+        sources.supersedeItemCleanups(access.tenantId(), requiredSourceId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
-                tenantId,
+                access.tenantId(),
                 SourceOperationType.DELETE_SOURCE,
                 targetKey,
                 requiredSourceId,
@@ -268,14 +487,20 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Override
     @Transactional(readOnly = true)
     public SourceOperationView getOperation(ActorId actorId, SourceOperationId operationId) {
-        TenantId tenantId = requireOwner(actorId);
-        SourceOperationId requiredOperationId = Objects.requireNonNull(operationId, "operationId must not be null");
-        return attempts.findById(tenantId, requiredOperationId)
-                .or(() -> sources.findCleanupById(tenantId, requiredOperationId))
+        ActorId requiredActorId = requireActorId(actorId);
+        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceOperationId requiredOperationId =
+                Objects.requireNonNull(operationId, "operationId must not be null");
+        return operationQueries.findAuthorized(
+                        permissions.tenantId(),
+                        requiredActorId,
+                        requiredOperationId,
+                        permissions.globalRead()
+                )
                 .orElseThrow(SourceException::notFound);
     }
 
-    private SourceUploadReceipt receipt(
+    private @Nullable SourceUploadReceipt receipt(
             TenantId tenantId,
             SourceId sourceId,
             ObjectUploadId uploadId
@@ -288,10 +513,57 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 .orElse(null);
     }
 
-    private TenantId requireOwner(ActorId actorId) {
-        Objects.requireNonNull(actorId, "actorId must not be null");
-        return tenantAccess.findActiveOwnerTenant(actorId)
-                .orElseThrow(SourceException::notOwner);
+    private IamAccess requireManagedSource(ActorId actorId, SourceId sourceId) {
+        IamAccess access = authorization.require(actorId, IamCapability.SOURCES_MANAGE, true);
+        boolean global = access.authority() == Authority.GLOBAL;
+        queries.summary(access.tenantId(), actorId, sourceId, global, global, false);
+        return access;
+    }
+
+    private SourcePermissions readPermissions(ActorId actorId) {
+        ActorId requiredActorId = requireActorId(actorId);
+        IamAccess access = authorization.require(requiredActorId, IamCapability.SOURCES_READ, true);
+        Set<IamCapability> globalCapabilities = authorization.effectiveCapabilities(requiredActorId);
+        return new SourcePermissions(
+                access.tenantId(),
+                globalCapabilities.contains(IamCapability.SOURCES_READ),
+                globalCapabilities.contains(IamCapability.SOURCES_MANAGE),
+                globalCapabilities.contains(IamCapability.SOURCES_DELETE)
+        );
+    }
+
+    private static void requireSameTenant(TenantId initialTenantId, IamAccess commitAccess) {
+        if (!initialTenantId.equals(commitAccess.tenantId())) {
+            throw SourceException.notFound();
+        }
+    }
+
+    private static ActorId requireActorId(ActorId actorId) {
+        return Objects.requireNonNull(actorId, "actorId must not be null");
+    }
+
+    private static List<GroupId> normalizeGroupIds(
+            Collection<GroupId> groupIds,
+            boolean allowEmpty
+    ) {
+        Objects.requireNonNull(groupIds, "groupIds must not be null");
+        LinkedHashSet<GroupId> distinct = new LinkedHashSet<>();
+        for (GroupId groupId : groupIds) {
+            distinct.add(Objects.requireNonNull(groupId, "groupId must not be null"));
+        }
+        if (!allowEmpty && distinct.isEmpty()) {
+            throw SourceException.invalid(
+                    "Select at least one group.",
+                    "source group replacement did not contain a group"
+            );
+        }
+        if (distinct.size() > 100) {
+            throw SourceException.invalid(
+                    "Select no more than 100 groups.",
+                    "source group selection exceeded 100 distinct groups"
+            );
+        }
+        return List.copyOf(distinct);
     }
 
     private static JdbcSourceRepository.SourcePair requireMutable(JdbcSourceRepository.SourcePair pair) {
@@ -304,7 +576,6 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private static SourceId requireSourceId(SourceId sourceId) {
         return Objects.requireNonNull(sourceId, "sourceId must not be null");
     }
-
 
     private static String requireName(String name) {
         Objects.requireNonNull(name, "name must not be null");
@@ -329,6 +600,14 @@ public class DefaultSourceManagementService implements SourceManagementService {
             );
         }
         return normalized;
+    }
+
+    private record SourcePermissions(
+            TenantId tenantId,
+            boolean globalRead,
+            boolean globalManage,
+            boolean globalDelete
+    ) {
     }
 
 }

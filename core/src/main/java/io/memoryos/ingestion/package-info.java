@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Ingestion",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"connector", "document", "tenant", "objectstorage"}
+        allowedDependencies = {"connector", "document", "iam", "objectstorage"}
 )
 package io.memoryos.ingestion;
 

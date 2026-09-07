@@ -1,11 +1,19 @@
 package io.memoryos;
 
-import java.sql.SQLException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 
+import java.sql.SQLException;
+import javax.sql.DataSource;
+
+
+import org.flywaydb.core.Flyway;
 import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.SharedEntityManagerCreator;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -28,30 +36,15 @@ public final class TestDatabase {
     private TestDatabase() {
     }
 
-    /**
-     * The current production schema: every migration in order.
-     */
-    public static ResourceDatabasePopulator migrations() {
-        return new ResourceDatabasePopulator(
-                new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
-                new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
-                new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
-                new ClassPathResource("db/migration/V4__collapse_workspace_into_organization.sql"),
-                new ClassPathResource("db/migration/V5__create_file_source_and_document_schema.sql"),
-                new ClassPathResource("db/migration/V6__cut_over_organization_to_tenant.sql"),
-                new ClassPathResource("db/migration/V7__create_scheduler_control_plane.sql"),
-                new ClassPathResource("db/migration/V8__cut_over_operations_to_redis_streams.sql"),
-                new ClassPathResource("db/migration/V9__cut_over_file_content_to_object_storage.sql"),
-                new ClassPathResource("db/migration/V10__persist_operation_trace_origins.sql"),
-                new ClassPathResource("db/migration/V11__add_document_extraction_artifacts.sql"),
-                new ClassPathResource("db/migration/V12__use_current_documents.sql")
-        );
-    }
 
     /**
-     * Resets the shared PostgreSQL container's public schema and applies {@link #migrations()}.
+     * Resets the shared PostgreSQL container's public schema and applies production Flyway migrations.
      */
     public static DriverManagerDataSource freshPostgres() throws SQLException {
+        return freshPostgres("latest");
+    }
+
+    public static DriverManagerDataSource freshPostgres(String targetVersion) throws SQLException {
         PostgreSQLContainer container = postgres();
         var dataSource = new DriverManagerDataSource(
                 container.getJdbcUrl(),
@@ -61,8 +54,9 @@ public final class TestDatabase {
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
             statement.execute("DROP SCHEMA public CASCADE");
             statement.execute("CREATE SCHEMA public");
-            migrations().populate(connection);
         }
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                .target(targetVersion).load().migrate();
         return dataSource;
     }
 
@@ -79,6 +73,39 @@ public final class TestDatabase {
         proxyFactory.setInterfaces(contract);
         proxyFactory.addAdvice(interceptor);
         return contract.cast(proxyFactory.getProxy());
+    }
+
+    public static JpaHarness jpa(DataSource dataSource) {
+        var factoryBean = new LocalContainerEntityManagerFactoryBean();
+        factoryBean.setDataSource(dataSource);
+        factoryBean.setPackagesToScan("io.memoryos.iam.persistence");
+        factoryBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        factoryBean.setJpaPropertyMap(java.util.Map.of(
+                "hibernate.hbm2ddl.auto", "validate",
+                "hibernate.jdbc.time_zone", "UTC",
+                "hibernate.cache.use_second_level_cache", "false",
+                "hibernate.cache.use_query_cache", "false"
+        ));
+        factoryBean.setPersistenceUnitName("memoryos-test");
+        factoryBean.afterPropertiesSet();
+        EntityManagerFactory factory = java.util.Objects.requireNonNull(
+                factoryBean.getObject(),
+                "test EntityManagerFactory was not created"
+        );
+        EntityManager entityManager = SharedEntityManagerCreator.createSharedEntityManager(factory);
+        return new JpaHarness(entityManager, new JpaTransactionManager(factory), factory);
+    }
+
+    public record JpaHarness(
+            EntityManager entityManager,
+            JpaTransactionManager transactionManager,
+            EntityManagerFactory entityManagerFactory
+    ) implements AutoCloseable {
+
+        @Override
+        public void close() {
+            entityManagerFactory.close();
+        }
     }
 
     private static synchronized PostgreSQLContainer postgres() {

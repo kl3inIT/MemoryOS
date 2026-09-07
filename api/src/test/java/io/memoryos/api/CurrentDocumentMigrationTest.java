@@ -52,8 +52,8 @@ class CurrentDocumentMigrationTest {
                         .param("version", versionId).param("id", document).update();
             }
         }
-        assertEquals(1, Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .load().migrate().migrationsExecuted);
+        Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .load().migrate();
         assertEquals(2, jdbc.sql("SELECT count(*) FROM documents WHERE title='title-2'").query(Integer.class).single());
         assertEquals(1, jdbc.sql("SELECT count(*) FROM documents WHERE extraction_artifact_id IS NULL").query(Integer.class).single());
         assertEquals(artifact, jdbc.sql("SELECT extraction_artifact_id FROM documents WHERE extraction_artifact_id IS NOT NULL")

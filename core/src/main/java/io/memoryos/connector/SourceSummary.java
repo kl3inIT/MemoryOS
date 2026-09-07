@@ -1,6 +1,7 @@
 package io.memoryos.connector;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
@@ -13,6 +14,10 @@ public record SourceSummary(
         boolean pendingWork,
         long documentCount,
         @Nullable Instant lastSucceededAt,
-        @Nullable String errorCode
+        @Nullable String errorCode,
+        List<SourceAction> actions
 ) {
+    public SourceSummary {
+        actions = List.copyOf(actions);
+    }
 }
