@@ -13,6 +13,12 @@ MemoryOS is a durable personal knowledge system built as a controlled Spring Mod
 
 Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); project rules are not duplicated.
 
+Project skills live in `.skills/`. The entries under `.agents/skills/` (Codex),
+`.claude/skills/` (Claude), and `.omp/skills/` (OMP) are committed relative
+symbolic links to each shared skill. Edit the canonical files in `.skills/`.
+On Windows, enable Developer Mode or use an elevated terminal, and clone with
+`git -c core.symlinks=true clone <repository-url>` so Git creates actual links.
+
 ## Requirements
 
 - JDK 25.

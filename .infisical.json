@@ -1,0 +1,7 @@
+{
+  "workspaceId": "90ae5a61-2159-47c2-a463-5a71beee234d",
+  "defaultEnvironment": "dev",
+  "gitBranchToEnvironmentMapping": {},
+  "defaultSecretPath": "/",
+  "domain": "https://secret.nhuxuanviet.com"
+}
