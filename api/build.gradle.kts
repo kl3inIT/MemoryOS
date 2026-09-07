@@ -9,6 +9,7 @@ extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":connector"))
     implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
     implementation(libs.arconia.multitenancy.web)
@@ -30,12 +31,10 @@ dependencies {
     testAndDevelopmentOnly(libs.arconia.dev.services.postgresql)
 
     testImplementation(libs.spring.boot.starter.actuator.test)
-    testImplementation(project(":connector"))
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
-    testRuntimeOnly(libs.h2)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

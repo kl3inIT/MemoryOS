@@ -26,7 +26,8 @@ class RedisExecutionTopologyTest {
                     Duration.ofMinutes(2),
                     1_000,
                     new RedisExecutionProperties.Workload("ingestion", "ingestion-workers", 8),
-                    new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8)
+                    new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8),
+                    new RedisExecutionProperties.Workload("sync", "sync-workers", 2)
             )
     );
 

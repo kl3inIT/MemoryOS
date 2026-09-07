@@ -37,7 +37,8 @@ class WorkerConfiguration {
             PlatformTransactionManager transactionManager,
             ScheduledExecutorService claimLeaseScheduler,
             io.memoryos.document.ExtractionArtifactPort artifacts,
-            io.micrometer.core.instrument.MeterRegistry registry
+            io.micrometer.core.instrument.MeterRegistry registry,
+            io.memoryos.connector.ConnectorSyncPort sourceSync
     ) {
         return new DefaultIngestionCoordinator(
                 indexingPort,
@@ -49,7 +50,8 @@ class WorkerConfiguration {
                 new TransactionTemplate(transactionManager),
                 claimLeaseScheduler,
                 artifacts,
-                registry
+                registry,
+                new io.memoryos.ingestion.application.SourceSyncProcessor(sourceSync, claimLeaseScheduler, registry)
         );
     }
 }

@@ -36,7 +36,6 @@ import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
 import io.memoryos.tenant.persistence.JdbcTenantBootstrapRepository;
 import io.memoryos.tenant.persistence.JdbcTenantMembershipProvisioner;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -47,8 +46,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-import org.h2.jdbcx.JdbcDataSource;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.CannotAcquireLockException;
@@ -63,7 +60,6 @@ class DefaultInvitationServiceTest {
     private static final Instant START = Instant.parse("2026-08-21T10:00:00Z");
 
     private JdbcClient jdbcClient;
-    private Connection keepAlive;
     private MutableClock clock;
     private InvitationService invitations;
     private InitialTenantBootstrapper bootstrapper;
@@ -72,17 +68,8 @@ class DefaultInvitationServiceTest {
     private RuntimeException provisioningFailure;
 
     @BeforeEach
-    void setUp() {
-        var dataSource = new JdbcDataSource();
-        dataSource.setURL("jdbc:h2:mem:" + UUID.randomUUID()
-                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
-        dataSource.setUser("sa");
-        try {
-            keepAlive = dataSource.getConnection();
-        } catch (SQLException exception) {
-            throw new IllegalStateException("failed to keep the in-memory database open", exception);
-        }
-        TestDatabase.migrations().populate(keepAlive);
+    void setUp() throws SQLException {
+        var dataSource = TestDatabase.freshPostgres();
 
         jdbcClient = JdbcClient.create(dataSource);
         PlatformTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
@@ -129,10 +116,6 @@ class DefaultInvitationServiceTest {
         );
     }
 
-    @AfterEach
-    void closeDatabase() throws SQLException {
-        keepAlive.close();
-    }
 
     @Test
     void issuesAndListsDigestOnlyInvitationForTheActiveOwner() {

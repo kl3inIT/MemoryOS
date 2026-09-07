@@ -29,8 +29,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 import org.springframework.test.web.servlet.MockMvc;
 
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
@@ -44,12 +49,14 @@ import org.springframework.test.web.servlet.MockMvc;
                 "memoryos.initial-tenant.slug=smoke",
                 "memoryos.initial-tenant.display-name=Smoke",
                 "memoryos.initial-tenant.change-reference=TEST-SMOKE-BOOTSTRAP",
-                "spring.datasource.url=jdbc:h2:mem:api-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
-                "spring.datasource.username=sa",
-                "spring.datasource.password="
         })
 @AutoConfigureMockMvc(addFilters = false)
 class ApiApplicationSmokeTest {
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
+            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
+            .asCompatibleSubstituteFor("postgres"));
+
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
@@ -62,6 +69,9 @@ class ApiApplicationSmokeTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");

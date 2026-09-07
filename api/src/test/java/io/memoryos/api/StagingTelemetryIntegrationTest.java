@@ -22,7 +22,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
@@ -36,18 +41,19 @@ import org.springframework.test.context.TestPropertySource;
                 "memoryos.initial-tenant.slug=smoke",
                 "memoryos.initial-tenant.display-name=Smoke",
                 "memoryos.initial-tenant.change-reference=TEST-SMOKE-BOOTSTRAP",
-                "spring.datasource.url=jdbc:h2:mem:api-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
-                "spring.datasource.username=sa",
-                "spring.datasource.password="
         })
 @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 @ActiveProfiles("staging")
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:staging-telemetry;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
         "management.otlp.metrics.export.step=1s",
         "MEMORYOS_RELEASE=telemetry-contract-test"
 })
 class StagingTelemetryIntegrationTest {
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
+            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
+            .asCompatibleSubstituteFor("postgres"));
+
     private record Export(String path, byte[] body) {}
     private static final List<Export> EXPORTS = new CopyOnWriteArrayList<>();
     private static final HttpServer COLLECTOR = collector();
@@ -65,6 +71,9 @@ class StagingTelemetryIntegrationTest {
 
     @DynamicPropertySource
     static void telemetry(DynamicPropertyRegistry properties) {
+        properties.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        properties.add("spring.datasource.username", POSTGRES::getUsername);
+        properties.add("spring.datasource.password", POSTGRES::getPassword);
         properties.add("MEMORYOS_OTLP_BASE_URL", () -> "http://127.0.0.1:" + COLLECTOR.getAddress().getPort());
         properties.add("MEMORYOS_RELEASE", () -> "telemetry-contract-test");
     }

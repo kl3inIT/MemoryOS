@@ -11,9 +11,9 @@ import ai.docling.serve.api.convert.request.source.FileSource;
 import ai.docling.serve.api.convert.request.target.InBodyTarget;
 import ai.docling.serve.api.convert.response.InBodyConvertDocumentResponse;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
-import io.memoryos.ingestion.SourceContentExtractor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -27,7 +27,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-public final class DoclingSourceContentExtractor implements SourceContentExtractor, AutoCloseable {
+public final class DoclingSourceContentExtractor implements AutoCloseable {
     private static final Map<String, String> FORMATS = Map.of(
             "application/pdf", ".pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
@@ -47,15 +47,22 @@ public final class DoclingSourceContentExtractor implements SourceContentExtract
         this.client = client;
     }
 
-    @Override
-    public DocumentContent extract(InputStream content, long sizeBytes, String filename) throws ExtractionException {
+    public static boolean usesDocling(String mediaType) { return FORMATS.containsKey(mediaType); }
+
+    public DocumentContent extract(InputStream content, long sizeBytes, String filename,
+            SourceInputDescriptor input) throws ExtractionException {
         if (sizeBytes < 1 || sizeBytes > 10_485_760) throw failure(ExtractionFailure.WRITE_LIMIT);
         byte[] bytes;
         try {
             bytes = content.readNBytes((int) sizeBytes + 1);
             if (bytes.length != sizeBytes) throw failure(ExtractionFailure.MALFORMED);
         } catch (IOException e) { throw failure(ExtractionFailure.INTERNAL); }
-        String mediaType = new Tika().detect(bytes, filename);
+        return extract(bytes, filename, new Tika().detect(bytes, filename), input);
+    }
+
+    public DocumentContent extract(byte[] bytes, String filename, String mediaType,
+            SourceInputDescriptor input) throws ExtractionException {
+        if (bytes.length < 1 || bytes.length > 10_485_760) throw failure(ExtractionFailure.WRITE_LIMIT);
         if ("application/pdf".equals(mediaType)) {
             // Admission only: content extraction remains exclusively in Docling.
             try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {
@@ -65,11 +72,11 @@ public final class DoclingSourceContentExtractor implements SourceContentExtract
                 throw failure(ExtractionFailure.ENCRYPTED);
             } catch (IOException e) { throw failure(ExtractionFailure.MALFORMED); }
         }
-        if (!FORMATS.containsKey(mediaType)) {
+        if (!usesDocling(mediaType)) {
             if (!Set.of("text/plain", "text/markdown", "text/x-markdown").contains(mediaType)) {
                 throw failure(ExtractionFailure.UNSUPPORTED);
             }
-            return nativeReader.extract(new java.io.ByteArrayInputStream(bytes), bytes.length, filename);
+            return nativeReader.extract(new java.io.ByteArrayInputStream(bytes), bytes.length, filename, input);
         }
         // FileSource sends bounded bytes, never an arbitrary URL or provider credential.
         var request = ConvertDocumentRequest.builder()

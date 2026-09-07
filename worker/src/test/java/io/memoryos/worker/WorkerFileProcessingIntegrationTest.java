@@ -72,8 +72,17 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
                         + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
                         + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
-                        + "classpath:db/migration/V12__use_current_documents.sql",
+                        + "classpath:db/migration/V12__use_current_documents.sql,"
+                        + "classpath:db/migration/V13__add_tracked_object_writes.sql,"
+                        + "classpath:db/migration/V14__add_google_drive_credentials.sql,"
+                        + "classpath:db/migration/V15__add_durable_google_drive_sync.sql,"
+                        + "classpath:db/migration/V16__require_owner_google_oauth_client.sql,"
+                        + "classpath:db/migration/V17__scope_google_sync_to_explicit_roots.sql,"
+                        + "classpath:db/migration/V18__reuse_google_drive_credentials.sql,"
+                        + "classpath:db/migration/V19__add_google_drive_sync_interval.sql,"
+                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql",
                 "db-scheduler.enabled=true",
+                "arconia.dev.services.redis.port=0",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
@@ -89,7 +98,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "memoryos.redis.ingestion.batch-size=4",
                 "memoryos.redis.cleanup.stream=memoryos:test:cutover:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-cutover-cleanup",
-                "memoryos.redis.cleanup.batch-size=4"
+                "memoryos.redis.cleanup.batch-size=4",
+                "memoryos.redis.source-sync.stream=memoryos:test:cutover:source-sync",
+                "memoryos.redis.source-sync.group=memoryos-test-cutover-source-sync"
         }
 )
 @org.springframework.context.annotation.Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)

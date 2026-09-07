@@ -10,12 +10,9 @@ import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.TenantMembershipRole;
 import io.memoryos.tenant.TenantMembership;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.UUID;
 
-import org.h2.jdbcx.JdbcDataSource;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -24,29 +21,15 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 class JdbcTenantAccessResolverTest {
 
     private JdbcClient jdbcClient;
-    private Connection keepAlive;
     private JdbcTenantAccessResolver resolver;
 
     @BeforeEach
-    void setUp() {
-        var dataSource = new JdbcDataSource();
-        dataSource.setURL("jdbc:h2:mem:" + UUID.randomUUID()
-                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
-        dataSource.setUser("sa");
-        try {
-            keepAlive = dataSource.getConnection();
-        } catch (SQLException exception) {
-            throw new IllegalStateException("failed to keep the in-memory database open", exception);
-        }
-        TestDatabase.migrations().populate(keepAlive);
+    void setUp() throws SQLException {
+        var dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         resolver = new JdbcTenantAccessResolver(jdbcClient);
     }
 
-    @AfterEach
-    void closeDatabase() throws SQLException {
-        keepAlive.close();
-    }
 
     @Test
     void resolvesActiveOwnerMembership() {

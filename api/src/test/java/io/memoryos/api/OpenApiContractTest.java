@@ -27,6 +27,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(properties = {
         "springdoc.api-docs.enabled=true",
@@ -39,14 +43,15 @@ import org.springframework.test.web.servlet.MockMvc;
         "memoryos.initial-tenant.owner-subject=openapi-owner",
         "memoryos.initial-tenant.slug=openapi",
         "memoryos.initial-tenant.display-name=OpenAPI",
-        "memoryos.initial-tenant.change-reference=TEST-OPENAPI-CONTRACT",
-        "spring.datasource.url=jdbc:h2:mem:openapi-contract;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
-                + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
-        "spring.datasource.username=sa",
-        "spring.datasource.password="
+        "memoryos.initial-tenant.change-reference=TEST-OPENAPI-CONTRACT"
 })
+@Testcontainers(disabledWithoutDocker = true)
 @AutoConfigureMockMvc(addFilters = false)
 class OpenApiContractTest {
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
+            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
+            .asCompatibleSubstituteFor("postgres"));
 
     private static final String WRITE_FLAG = "MEMORYOS_OPENAPI_WRITE";
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
@@ -61,6 +66,15 @@ class OpenApiContractTest {
             "/api/source-operations/{operationId}",
             "/api/sources",
             "/api/sources/file",
+            "/api/sources/google-drive",
+            "/api/credentials/google-drive",
+            "/api/credentials/google-drive/authorization",
+            "/api/credentials/google-drive/{credentialId}",
+            "/api/credentials/google-drive/{credentialId}/revoke",
+            "/api/sources/{sourceId}/google-drive",
+            "/api/sources/{sourceId}/google-drive/roots",
+            "/api/sources/{sourceId}/google-drive/schedule",
+            "/api/sources/{sourceId}/google-drive/sync",
             "/api/sources/{sourceId}",
             "/api/sources/{sourceId}/delete",
             "/api/sources/{sourceId}/index-attempts",
@@ -76,6 +90,9 @@ class OpenApiContractTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");

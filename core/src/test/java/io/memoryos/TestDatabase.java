@@ -44,7 +44,15 @@ public final class TestDatabase {
                 new ClassPathResource("db/migration/V9__cut_over_file_content_to_object_storage.sql"),
                 new ClassPathResource("db/migration/V10__persist_operation_trace_origins.sql"),
                 new ClassPathResource("db/migration/V11__add_document_extraction_artifacts.sql"),
-                new ClassPathResource("db/migration/V12__use_current_documents.sql")
+                new ClassPathResource("db/migration/V12__use_current_documents.sql"),
+                new ClassPathResource("db/migration/V13__add_tracked_object_writes.sql"),
+                new ClassPathResource("db/migration/V14__add_google_drive_credentials.sql"),
+                new ClassPathResource("db/migration/V15__add_durable_google_drive_sync.sql"),
+                new ClassPathResource("db/migration/V16__require_owner_google_oauth_client.sql"),
+                new ClassPathResource("db/migration/V17__scope_google_sync_to_explicit_roots.sql"),
+                new ClassPathResource("db/migration/V18__reuse_google_drive_credentials.sql"),
+                new ClassPathResource("db/migration/V19__add_google_drive_sync_interval.sql"),
+                new ClassPathResource("db/migration/V20__add_google_drive_scope_mode.sql")
         );
     }
 

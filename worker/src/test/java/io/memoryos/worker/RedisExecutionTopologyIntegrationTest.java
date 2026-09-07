@@ -25,6 +25,7 @@ import org.springframework.http.HttpStatus;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
+                "arconia.dev.services.redis.port=0",
                 "memoryos.worker.enabled=false",
                 "db-scheduler.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis",
@@ -32,6 +33,8 @@ import org.springframework.http.HttpStatus;
                 "memoryos.redis.ingestion.group=memoryos-test-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:work:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-cleanup-workers",
+                "memoryos.redis.source-sync.stream=memoryos:test:work:source-sync",
+                "memoryos.redis.source-sync.group=memoryos-test-source-sync-workers",
                 "spring.datasource.url=jdbc:h2:mem:redis-topology;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
                 "spring.datasource.username=sa",
                 "spring.datasource.password=",
@@ -66,46 +69,49 @@ class RedisExecutionTopologyIntegrationTest {
     }
 
     @SuppressWarnings("unchecked")
-    @Test
-    void createsGroupsAndAcknowledgesIdentifierOnlyDelivery() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(io.memoryos.ingestion.OperationWorkload.class)
+    void createsGroupsAndAcknowledgesIdentifierOnlyDelivery(io.memoryos.ingestion.OperationWorkload kind) {
+        var workload = properties.workload(kind);
         topology.ensureTopology();
         topology.ensureTopology();
 
         assertGroupExists(properties.ingestion());
         assertGroupExists(properties.cleanup());
+        assertGroupExists(properties.sourceSync());
         assertEquals(
                 HttpStatus.OK,
                 http.getForEntity("/actuator/health/readiness", String.class).getStatusCode()
         );
         var operations = redis.opsForStream();
-        var recordId = operations.add(properties.ingestion().stream(), Map.of(
+        var recordId = operations.add(workload.stream(), Map.of(
                 "tenant_id", UUID.randomUUID().toString(),
-                "operation_kind", "INGESTION",
+                "operation_kind", kind.name(),
                 "operation_id", UUID.randomUUID().toString(),
                 "delivery_id", UUID.randomUUID().toString()
         ));
         assertNotNull(recordId);
 
         var records = operations.read(
-                Consumer.from(properties.ingestion().group(), "mem42-integration"),
+                Consumer.from(workload.group(), "mem42-integration"),
                 StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
-                StreamOffset.create(properties.ingestion().stream(), ReadOffset.lastConsumed())
+                StreamOffset.create(workload.stream(), ReadOffset.lastConsumed())
         );
 
         assertNotNull(records);
         assertEquals(1, records.size());
         assertEquals(1L, operations.pending(
-                properties.ingestion().stream(),
-                properties.ingestion().group()
+                workload.stream(),
+                workload.group()
         ).getTotalPendingMessages());
         assertEquals(1L, operations.acknowledge(
-                properties.ingestion().stream(),
-                properties.ingestion().group(),
+                workload.stream(),
+                workload.group(),
                 records.getFirst().getId()
         ));
         assertEquals(0L, operations.pending(
-                properties.ingestion().stream(),
-                properties.ingestion().group()
+                workload.stream(),
+                workload.group()
         ).getTotalPendingMessages());
     }
 

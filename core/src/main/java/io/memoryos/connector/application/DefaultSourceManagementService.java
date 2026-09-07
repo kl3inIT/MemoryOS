@@ -46,6 +46,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final ObjectUploadService objectUploads;
     private final TenantAccessResolver tenantAccess;
     private final TransactionTemplate transactions;
+    private final io.memoryos.connector.persistence.JdbcSourceSyncRepository sync;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -56,7 +57,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
             JdbcSourceUploadRepository sourceUploads,
             ObjectUploadService objectUploads,
             TenantAccessResolver tenantAccess,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            io.memoryos.connector.persistence.JdbcSourceSyncRepository sync
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
@@ -66,6 +68,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.sourceUploads = Objects.requireNonNull(sourceUploads, "sourceUploads must not be null");
         this.objectUploads = Objects.requireNonNull(objectUploads, "objectUploads must not be null");
         this.tenantAccess = Objects.requireNonNull(tenantAccess, "tenantAccess must not be null");
+        this.sync = Objects.requireNonNull(sync);
         this.transactions = new TransactionTemplate(
                 Objects.requireNonNull(transactionManager, "transactionManager must not be null")
         );
@@ -108,6 +111,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         TenantId tenantId = requireOwner(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         Objects.requireNonNull(specification, "specification must not be null");
+        requireFileSource(tenantId, requiredSourceId);
         ObjectUploadSpecification normalized = new ObjectUploadSpecification(
                 requireFilename(specification.filename()),
                 specification.mediaType(),
@@ -131,6 +135,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         TenantId tenantId = requireOwner(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         ObjectUploadId requiredUploadId = Objects.requireNonNull(uploadId, "uploadId must not be null");
+        requireFileSource(tenantId, requiredSourceId);
         SourceUploadReceipt existing = receipt(tenantId, requiredSourceId, requiredUploadId);
         if (existing != null) {
             return existing;
@@ -185,6 +190,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 pair,
                 Objects.requireNonNull(itemId, "itemId must not be null")
         );
+        if (!attempts.canReplay(tenantId, sourceId, version.versionId()))
+            throw SourceException.conflict("source item must complete an authorized synchronization before reindexing");
         return attempts.findLive(tenantId, sourceId, version)
                 .orElseGet(() -> attempts.create(tenantId, pair, version));
     }
@@ -223,6 +230,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         }
         var mutablePair = requireMutable(pair);
         items.lockCurrentVersion(tenantId, mutablePair, requiredItemId);
+        sync.exclude(tenantId, requiredSourceId, requiredItemId);
         items.markDeleting(tenantId, mutablePair, requiredItemId);
         sourceDocuments.invalidateItem(tenantId, requiredSourceId, requiredItemId);
         attempts.cancelForItem(tenantId, requiredSourceId, requiredItemId);
@@ -254,6 +262,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         sources.markDeleting(tenantId, pair);
         sourceDocuments.invalidateSource(tenantId, requiredSourceId);
         attempts.cancelForSource(tenantId, requiredSourceId);
+        sync.cancel(tenantId, requiredSourceId);
         sources.supersedeItemCleanups(tenantId, requiredSourceId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
@@ -272,6 +281,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         SourceOperationId requiredOperationId = Objects.requireNonNull(operationId, "operationId must not be null");
         return attempts.findById(tenantId, requiredOperationId)
                 .or(() -> sources.findCleanupById(tenantId, requiredOperationId))
+                .or(() -> sync.find(tenantId, requiredOperationId))
                 .orElseThrow(SourceException::notFound);
     }
 
@@ -292,6 +302,11 @@ public class DefaultSourceManagementService implements SourceManagementService {
         Objects.requireNonNull(actorId, "actorId must not be null");
         return tenantAccess.findActiveOwnerTenant(actorId)
                 .orElseThrow(SourceException::notOwner);
+    }
+
+    private void requireFileSource(TenantId tenantId, SourceId sourceId) {
+        if (queries.summary(tenantId, sourceId).type() != io.memoryos.connector.SourceType.FILE)
+            throw SourceException.conflict("browser uploads require a FILE source");
     }
 
     private static JdbcSourceRepository.SourcePair requireMutable(JdbcSourceRepository.SourcePair pair) {

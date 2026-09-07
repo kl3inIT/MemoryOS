@@ -18,7 +18,8 @@ public record RedisExecutionProperties(
         Duration reclaimIdle,
         long maxStreamDepth,
         Workload ingestion,
-        Workload cleanup
+        Workload cleanup,
+        Workload sourceSync
 ) {
 
     public RedisExecutionProperties {
@@ -34,12 +35,14 @@ public record RedisExecutionProperties(
         }
         Objects.requireNonNull(ingestion, "ingestion must not be null");
         Objects.requireNonNull(cleanup, "cleanup must not be null");
+        Objects.requireNonNull(sourceSync, "sourceSync must not be null");
     }
 
     Workload workload(OperationWorkload workload) {
         return switch (Objects.requireNonNull(workload, "workload must not be null")) {
             case INGESTION -> ingestion;
             case CLEANUP -> cleanup;
+            case SOURCE_SYNC -> sourceSync;
         };
     }
 

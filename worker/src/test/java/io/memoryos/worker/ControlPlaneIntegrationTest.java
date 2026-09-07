@@ -43,6 +43,7 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
+                "arconia.dev.services.redis.port=0",
                 "memoryos.worker.enabled=false",
                 "memoryos.redis.topology-interval=1h",
                 "memoryos.redis.relay-interval=100ms",
@@ -50,6 +51,8 @@ import org.springframework.test.context.DynamicPropertySource;
                 "memoryos.redis.ingestion.group=memoryos-test-control-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:control:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-control-cleanup-workers",
+                "memoryos.redis.source-sync.stream=memoryos:test:control:source-sync",
+                "memoryos.redis.source-sync.group=memoryos-test-control-source-sync",
                 "spring.sql.init.mode=always",
                 "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
                         + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
@@ -62,7 +65,15 @@ import org.springframework.test.context.DynamicPropertySource;
                         + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
                         + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
                         + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
-                        + "classpath:db/migration/V12__use_current_documents.sql",
+                        + "classpath:db/migration/V12__use_current_documents.sql,"
+                        + "classpath:db/migration/V13__add_tracked_object_writes.sql,"
+                        + "classpath:db/migration/V14__add_google_drive_credentials.sql,"
+                        + "classpath:db/migration/V15__add_durable_google_drive_sync.sql,"
+                        + "classpath:db/migration/V16__require_owner_google_oauth_client.sql,"
+                        + "classpath:db/migration/V17__scope_google_sync_to_explicit_roots.sql,"
+                        + "classpath:db/migration/V18__reuse_google_drive_credentials.sql,"
+                        + "classpath:db/migration/V19__add_google_drive_sync_interval.sql,"
+                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql",
                 "spring.data.redis.repositories.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "db-scheduler.enabled=true",

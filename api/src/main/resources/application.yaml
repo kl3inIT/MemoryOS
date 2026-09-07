@@ -18,6 +18,10 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  jackson:
+    datatype:
+      enum:
+        fail-on-numbers-for-enums: true
   datasource:
     url: ${MEMORYOS_DATABASE_URL}
     username: ${MEMORYOS_DATABASE_USERNAME}
@@ -84,6 +88,18 @@ memoryos:
         read-timeout: ${MEMORYOS_KEYCLOAK_ADMIN_READ_TIMEOUT:5s}
   browser:
     registration-id: memoryos
+  google-drive:
+    credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}
+    redirect-uri: ${MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI:}
+    authorization-uri: ${MEMORYOS_GOOGLE_DRIVE_AUTHORIZATION_URI:https://accounts.google.com/o/oauth2/v2/auth}
+    token-uri: ${MEMORYOS_GOOGLE_DRIVE_TOKEN_URI:https://oauth2.googleapis.com/token}
+    revocation-uri: ${MEMORYOS_GOOGLE_DRIVE_REVOCATION_URI:https://oauth2.googleapis.com/revoke}
+    issuer-uri: ${MEMORYOS_GOOGLE_DRIVE_ISSUER_URI:https://accounts.google.com}
+    jwk-set-uri: ${MEMORYOS_GOOGLE_DRIVE_JWK_SET_URI:https://www.googleapis.com/oauth2/v3/certs}
+    drive-api-base-url: ${MEMORYOS_GOOGLE_DRIVE_API_BASE_URL:https://www.googleapis.com/drive/v3}
+    sheets-api-base-url: ${MEMORYOS_GOOGLE_SHEETS_API_BASE_URL:https://sheets.googleapis.com/v4}
+    docs-api-base-url: ${MEMORYOS_GOOGLE_DOCS_API_BASE_URL:https://docs.googleapis.com/v1}
   invitation:
     time-to-live: ${MEMORYOS_INVITATION_TTL:72h}
   initial-tenant:

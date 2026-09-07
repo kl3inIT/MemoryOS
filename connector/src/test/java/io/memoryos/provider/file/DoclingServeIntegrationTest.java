@@ -12,6 +12,7 @@ import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import tools.jackson.databind.ObjectMapper;
+import io.memoryos.connector.SourceInputDescriptor;
 
 @EnabledIfEnvironmentVariable(named = "DOCLING_TEST_ENDPOINT", matches = "https?://.+")
 class DoclingServeIntegrationTest {
@@ -56,7 +57,7 @@ class DoclingServeIntegrationTest {
         }
         try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(
                 URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200), new ObjectMapper())) {
-            var result = extractor.extract(new ByteArrayInputStream(input), input.length, "slide.pptx");
+            var result = extractor.extract(new ByteArrayInputStream(input), input.length, "slide.pptx", SourceInputDescriptor.binary());
             assertTrue(result.normalizedText().contains("MemoryOS slide 127"));
         }
     }
@@ -84,7 +85,7 @@ class DoclingServeIntegrationTest {
         }
         try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(
                 URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200), new ObjectMapper())) {
-            var result = extractor.extract(new ByteArrayInputStream(input), input.length, "scan.pdf");
+            var result = extractor.extract(new ByteArrayInputStream(input), input.length, "scan.pdf", SourceInputDescriptor.binary());
             assertTrue(result.normalizedText().contains("127"));
             assertTrue(result.structuredJson().contains("page_no"));
         }
@@ -120,7 +121,7 @@ class DoclingServeIntegrationTest {
         try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(
                 URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200),
                 new ObjectMapper())) {
-            var result = extractor.extract(new ByteArrayInputStream(input), input.length, "hrod.docx");
+            var result = extractor.extract(new ByteArrayInputStream(input), input.length, "hrod.docx", SourceInputDescriptor.binary());
             assertTrue(result.normalizedText().contains("Báo cáo nhân sự HROD"));
             var blocks = new ObjectMapper().readTree(result.structuredJson()).path("blocks");
             assertTrue(blocks.valueStream().anyMatch(block -> "TABLE".equals(block.path("kind").asString())));

@@ -88,6 +88,7 @@ final class RedisStreamWorker implements SmartLifecycle {
         consumers = startedConsumers;
         startedConsumers.submit(() -> consume(OperationWorkload.INGESTION, startedConsumers));
         startedConsumers.submit(() -> consume(OperationWorkload.CLEANUP, startedConsumers));
+        startedConsumers.submit(() -> consume(OperationWorkload.SOURCE_SYNC, startedConsumers));
     }
 
     @Override

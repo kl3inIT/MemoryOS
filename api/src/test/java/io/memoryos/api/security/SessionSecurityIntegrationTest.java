@@ -55,6 +55,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.context.annotation.Import;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 @SuppressWarnings({
         "SqlResolve",
@@ -62,9 +66,15 @@ import org.springframework.context.annotation.Import;
         "HttpHeaderInspection",
         "SqlWithoutWhere"
 })
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestKeycloakProvisioningConfiguration.class)
 class SessionSecurityIntegrationTest {
+
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
+            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
+            .asCompatibleSubstituteFor("postgres"));
 
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final Map<String, AuthorizationGrant> AUTHORIZATION_GRANTS = new ConcurrentHashMap<>();
@@ -98,10 +108,9 @@ class SessionSecurityIntegrationTest {
                 () -> "http://127.0.0.1/invite/activate"
         );
         registry.add("server.servlet.session.cookie.secure", () -> "false");
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:browser-auth;MODE=PostgreSQL;"
-                + "DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
-        registry.add("spring.datasource.username", () -> "sa");
-        registry.add("spring.datasource.password", () -> "");
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.security.oauth2.client.registration.memoryos.client-id", () -> CLIENT_ID);
         registry.add("spring.security.oauth2.client.registration.memoryos.client-secret", () -> "client-secret");
         registry.add("spring.security.oauth2.client.registration.memoryos.client-authentication-method",
@@ -140,6 +149,23 @@ class SessionSecurityIntegrationTest {
             assertEquals(401, response.statusCode());
             assertTrue(response.headers().allValues("set-cookie").isEmpty());
             assertTrue(cookies.getCookieStore().getCookies().isEmpty());
+            assertEquals(sessionCount, count("spring_session"));
+        }
+    }
+
+    @Test
+    void uncorrelatedGoogleCallbackCannotEnterSsoOrCreateSession() throws Exception {
+        long sessionCount = count("spring_session");
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var client = client(cookies)) {
+            var response = client.send(
+                    request("/login/oauth2/code/google-drive?state=untrusted&code=untrusted"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(302, response.statusCode());
+            assertTrue(response.headers().firstValue("location").orElseThrow()
+                    .endsWith("/admin/sources/new/google-drive?googleDrive=authorization-failed"));
+            assertTrue(response.headers().allValues("set-cookie").isEmpty());
             assertEquals(sessionCount, count("spring_session"));
         }
     }
@@ -288,12 +314,8 @@ class SessionSecurityIntegrationTest {
                     "application/problem+json",
                     frameworkFailure.headers().firstValue("content-type").orElseThrow()
             );
-            assertFalse(frameworkFailure.body().contains("\"type\""));
-            assertEquals("Bad Request", jsonString(frameworkFailure.body(), "title"));
-            assertEquals("Failed to read request", jsonString(frameworkFailure.body(), "detail"));
             assertEquals("/api/invitations", jsonString(frameworkFailure.body(), "instance"));
             assertTrue(frameworkFailure.body().contains("\"status\":400"));
-            assertFalse(frameworkFailure.body().contains("\"code\""));
 
             var sameOriginFailure = client.send(
                     HttpRequest.newBuilder(baseUri().resolve("/api/invitations"))

@@ -12,6 +12,9 @@ dependencies {
     implementation(libs.tika.parser.pdf)
     implementation(libs.tika.parser.microsoft)
     implementation(libs.tika.parser.text)
+    implementation(libs.poi.ooxml)
+    implementation(libs.commons.csv)
+    implementation(libs.commons.compress)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.archunit.junit5)

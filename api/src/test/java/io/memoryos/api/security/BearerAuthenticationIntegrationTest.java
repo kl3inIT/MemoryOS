@@ -36,14 +36,24 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "SqlWithoutWhere"})
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BearerAuthenticationIntegrationTest {
 
     private static final String AUDIENCE = "memoryos-api";
     private static final String BOUND_SUBJECT = "bound-subject";
     private static final String ACTOR_ID = "00000000-0000-0000-0000-000000000001";
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
+            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
+            .asCompatibleSubstituteFor("postgres"));
+
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final RSAKey WRONG_KEY = rsaKey();
     private static final HttpServer JWK_SERVER = startJwkServer();
@@ -68,12 +78,9 @@ class BearerAuthenticationIntegrationTest {
                 "memoryos.identity.keycloak.admin.action-redirect-uri",
                 () -> "http://127.0.0.1/invite/activate"
         );
-        registry.add(
-                "spring.datasource.url",
-                () -> "jdbc:h2:mem:jwt-auth;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
-                        + "DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
-        registry.add("spring.datasource.username", () -> "sa");
-        registry.add("spring.datasource.password", () -> "");
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.security.oauth2.client.registration.memoryos.client-secret", () -> "client-secret");
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> ISSUER);
         registry.add("spring.security.oauth2.client.provider.memoryos.authorization-uri",

@@ -44,6 +44,15 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             WHERE tenant.status = 'ACTIVE'
               AND pair.status <> 'DELETING'
               AND item.status <> 'DELETING'
+              AND item.current_version_id = attempt.connector_item_version_id
+              AND (item.provider_file_id IS NULL OR EXISTS (
+                  SELECT 1 FROM google_drive_membership m
+                  JOIN google_drive_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
+                  JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
+                  WHERE m.tenant_id = pair.tenant_id AND m.source_id = pair.id
+                    AND m.file_id = item.provider_file_id AND m.eligible AND NOT m.excluded
+                    AND v.scope_revision = s.revision
+              ))
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (
@@ -67,6 +76,19 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             ORDER BY created_at, id
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
+            """;
+
+    private static final String SYNC_CANDIDATES = """
+            SELECT attempt.id, attempt.tenant_id, attempt.origin_trace_id, attempt.origin_span_id
+            FROM source_sync_attempts attempt
+            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+            JOIN connector_credential_pairs pair ON pair.tenant_id = attempt.tenant_id AND pair.id = attempt.source_id
+            WHERE tenant.status = 'ACTIVE' AND pair.status <> 'DELETING'
+              AND attempt.next_dispatch_at <= :now
+              AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
+              AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
+            ORDER BY attempt.created_at, attempt.id LIMIT :limit
+            FOR UPDATE OF attempt SKIP LOCKED
             """;
 
     private final JdbcClient jdbcClient;
@@ -242,6 +264,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
         return switch (workload) {
             case INGESTION -> "index_attempts";
             case CLEANUP -> "connector_cleanup_attempts";
+            case SOURCE_SYNC -> "source_sync_attempts";
         };
     }
 
@@ -249,6 +272,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
         return switch (workload) {
             case INGESTION -> INDEX_CANDIDATES;
             case CLEANUP -> CLEANUP_CANDIDATES;
+            case SOURCE_SYNC -> SYNC_CANDIDATES;
         };
     }
 

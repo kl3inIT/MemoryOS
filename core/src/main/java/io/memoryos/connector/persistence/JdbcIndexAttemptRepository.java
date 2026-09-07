@@ -2,6 +2,7 @@ package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.IndexWork;
+import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
@@ -36,15 +37,34 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     private final JdbcClient jdbcClient;
     private final JdbcSourceRepository sources;
     private final JdbcSourceDocumentRepository sourceDocuments;
+    private final io.memoryos.connector.GoogleDriveConnectionService connections;
 
     public JdbcIndexAttemptRepository(
             JdbcClient jdbcClient,
             JdbcSourceRepository sources,
-            JdbcSourceDocumentRepository sourceDocuments
+            JdbcSourceDocumentRepository sourceDocuments,
+            io.memoryos.connector.GoogleDriveConnectionService connections
     ) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
+        this.connections = Objects.requireNonNull(connections, "connections must not be null");
+    }
+
+    public boolean canReplay(TenantId tenant, SourceId source, UUID version) {
+        return jdbcClient.sql("""
+                SELECT v.provider_file_id, v.credential_revision,
+                  v.scope_revision = s.revision AND m.eligible AND NOT m.excluded AS eligible
+                FROM connector_item_versions v
+                JOIN connector_credential_pairs p ON p.tenant_id = v.tenant_id AND p.connector_id = v.connector_id
+                LEFT JOIN google_drive_sources s ON s.tenant_id = p.tenant_id AND s.source_id = p.id
+                LEFT JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
+                  AND m.file_id = v.provider_file_id
+                WHERE v.tenant_id = :tenant AND v.id = :version AND p.id = :source
+                """).param("tenant", tenant.value()).param("version", version).param("source", source.value())
+                .query((r, _) -> r.getString("provider_file_id") == null
+                        || (r.getBoolean("eligible") && connections.current(tenant, source, r.getLong("credential_revision"))))
+                .optional().orElse(false);
     }
 
     public Optional<SourceOperationView> findLive(
@@ -224,6 +244,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     @Override
     @Transactional
     public boolean retry(IndexWork work, String errorCode, int maxAttempts, Duration backoff) {
+        if (!lockSource(work)) return false;
         WorkLeases.RetryOutcome outcome = WorkLeases.retry(
                 jdbcClient,
                 "index_attempts",
@@ -241,15 +262,16 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public Optional<DocumentId> findMappedDocument(IndexWork work) {
+        if (!lockSource(work)) return Optional.empty();
         return sourceDocuments.findMappedDocument(work);
     }
 
     @Override
     @Transactional
     public boolean complete(IndexWork work, DocumentId documentId) {
-        if (!isCurrent(work)) {
+        if (!isCurrent(work, true)) {
             return false;
         }
         int updated = jdbcClient.sql("""
@@ -284,6 +306,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     @Override
     @Transactional
     public boolean fail(IndexWork work, String errorCode) {
+        if (!lockSource(work)) return false;
         String safeCode = WorkLeases.safeErrorCode(errorCode);
         int updated = jdbcClient.sql("""
                         UPDATE index_attempts
@@ -312,9 +335,14 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         WHERE tenant_id = :tenantId
                           AND id = :itemId
                           AND status <> 'DELETING'
+                          AND current_version_id = (
+                              SELECT connector_item_version_id FROM index_attempts
+                              WHERE tenant_id = :tenantId AND id = :attemptId
+                          )
                         """)
                 .param("tenantId", work.tenantId().value())
                 .param("itemId", work.itemId().value())
+                .param("attemptId", work.operationId().value())
                 .update();
         sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
     }
@@ -332,7 +360,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                object.filename,
                                object.size_bytes,
                                object.declared_media_type,
-                               object.content_sha256
+                               object.content_sha256,
+                               version.input_format, version.provider_file_id, version.provider_version, version.source_url
                         FROM index_attempts attempt
                         JOIN connector_item_versions version
                           ON version.tenant_id = attempt.tenant_id
@@ -362,12 +391,31 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                         new ContentSha256(resultSet.getString("content_sha256"))
                                 )
                         ),
+                        new io.memoryos.connector.SourceInputDescriptor(
+                                io.memoryos.connector.SourceInputFormat.valueOf(resultSet.getString("input_format")),
+                                resultSet.getString("provider_file_id"), resultSet.getString("provider_version"),
+                                resultSet.getString("source_url")),
                         WorkLeases.initialQueueWait(resultSet)
                 ))
                 .single();
     }
 
-    private boolean isCurrent(IndexWork work) {
+    private boolean isCurrent(IndexWork work, boolean requireEligibility) {
+        if (!lockSource(work)) return false;
+        if (work.input().providerFileId() != null) {
+            var revision = jdbcClient.sql("""
+                    SELECT v.credential_revision FROM index_attempts a
+                    JOIN connector_item_versions v ON v.tenant_id = a.tenant_id AND v.id = a.connector_item_version_id
+                    JOIN google_drive_sources s ON s.tenant_id = a.tenant_id AND s.source_id = a.connector_credential_pair_id
+                    JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
+                      AND m.file_id = v.provider_file_id
+                    WHERE a.tenant_id = :tenant AND a.id = :id AND v.scope_revision = s.revision
+                      AND (:ignoreEligibility OR m.eligible) AND NOT m.excluded AND m.root_id IS NOT NULL
+                    """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
+                    .param("ignoreEligibility", !requireEligibility)
+                    .query(Long.class).optional();
+            if (revision.isEmpty() || !connections.current(work.tenantId(), work.sourceId(), revision.get())) return false;
+        }
         return jdbcClient.sql("""
                         SELECT COUNT(*)
                         FROM index_attempts attempt
@@ -382,6 +430,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                           AND attempt.id = :attemptId
                           AND attempt.status = 'IN_PROGRESS'
                           AND attempt.claim_token = :claimToken
+                          AND attempt.lease_expires_at > CURRENT_TIMESTAMP
                           AND tenant.status = 'ACTIVE'
                           AND pair.status <> 'DELETING'
                           AND NOT EXISTS (
@@ -401,9 +450,31 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .single() == 1;
     }
 
+    private boolean lockSource(IndexWork work) {
+        try {
+            sources.lock(work.tenantId(), work.sourceId());
+            return true;
+        } catch (SourceException exception) {
+            if ("SOURCE_NOT_FOUND".equals(exception.code())) return false;
+            throw exception;
+        }
+    }
+
     @Override
     @Transactional
     public void supersede(IndexWork work) {
+        if (work.input().providerFileId() != null && isCurrent(work, false)) {
+            jdbcClient.sql("""
+                    UPDATE index_attempts SET status = 'NOT_STARTED', completed_at = NULL, error_code = NULL,
+                        deferred_attempts = deferred_attempts + 1,
+                        claim_token = NULL, lease_expires_at = NULL,
+                        delivery_id = NULL, dispatch_token = NULL, dispatch_lease_expires_at = NULL,
+                        redis_message_id = NULL, dispatched_at = NULL, next_dispatch_at = CURRENT_TIMESTAMP
+                    WHERE tenant_id = :tenant AND id = :id AND status = 'IN_PROGRESS' AND claim_token = :token
+                    """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
+                    .param("token", work.claimToken()).update();
+            return;
+        }
         jdbcClient.sql("""
                         UPDATE index_attempts
                         SET status = 'SUPERSEDED', completed_at = CURRENT_TIMESTAMP,

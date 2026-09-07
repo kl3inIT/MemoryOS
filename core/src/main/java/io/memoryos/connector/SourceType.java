@@ -1,5 +1,6 @@
 package io.memoryos.connector;
 
 public enum SourceType {
-    FILE
+    FILE,
+    GOOGLE_DRIVE
 }

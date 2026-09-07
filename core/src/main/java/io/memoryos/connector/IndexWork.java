@@ -16,6 +16,7 @@ public record IndexWork(
         SourceItemId itemId,
         UUID claimToken,
         StoredObjectReference object,
+        SourceInputDescriptor input,
         @Nullable Duration initialQueueWait
 ) {
 }

@@ -39,6 +39,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     private final ScheduledExecutorService leaseScheduler;
     private final io.memoryos.document.ExtractionArtifactPort artifacts;
     private final IngestionMetrics metrics;
+    private final SourceSyncProcessor sourceSync;
 
     public DefaultIngestionCoordinator(
             ConnectorIndexingPort indexingPort,
@@ -50,7 +51,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             TransactionTemplate transactions,
             ScheduledExecutorService leaseScheduler,
             io.memoryos.document.ExtractionArtifactPort artifacts,
-            io.micrometer.core.instrument.MeterRegistry registry
+            io.micrometer.core.instrument.MeterRegistry registry,
+            SourceSyncProcessor sourceSync
     ) {
         this.metrics = new IngestionMetrics(registry);
         this.indexingPort = Objects.requireNonNull(indexingPort, "indexingPort must not be null");
@@ -62,6 +64,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         this.transactions = Objects.requireNonNull(transactions, "transactions must not be null");
         this.leaseScheduler = Objects.requireNonNull(leaseScheduler, "leaseScheduler must not be null");
         this.artifacts = Objects.requireNonNull(artifacts, "artifacts must not be null");
+        this.sourceSync = Objects.requireNonNull(sourceSync);
     }
 
     @Override
@@ -92,6 +95,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                             delivery.deliveryId()
                     )
                     .map(this::processCleanup).orElse(Outcome.SKIPPED);
+            case SOURCE_SYNC -> sourceSync.process(delivery);
         };
     }
 
@@ -115,7 +119,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 content = extractor.extract(
                         objectContent.inputStream(),
                         expected.sizeBytes(),
-                        work.object().filename()
+                        work.object().filename(),
+                        work.input()
                 );
             }
             var staged = artifacts.stage(work.tenantId(), content);

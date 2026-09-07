@@ -61,6 +61,16 @@ public class JdbcSourceRepository {
     }
 
     public SourcePair lock(TenantId tenantId, SourceId sourceId) {
+        jdbcClient.sql("SELECT id FROM tenants WHERE id = :tenant FOR SHARE")
+                .param("tenant", tenantId.value()).query(UUID.class).optional();
+        jdbcClient.sql("""
+                SELECT credential.id FROM credentials credential
+                WHERE credential.tenant_id = :tenant AND credential.credential_kind = 'GOOGLE_OAUTH'
+                  AND credential.id = (SELECT credential_id FROM connector_credential_pairs
+                    WHERE tenant_id = :tenant AND id = :source)
+                FOR UPDATE
+                """).param("tenant", tenantId.value()).param("source", sourceId.value())
+                .query(UUID.class).optional();
         return jdbcClient.sql("""
                         SELECT pair.connector_id, pair.status, pair.pair_sequence
                         FROM connector_credential_pairs pair
@@ -183,6 +193,19 @@ public class JdbcSourceRepository {
      */
     public void recomputeStatus(TenantId tenantId, SourceId sourceId, boolean indexSucceeded) {
         jdbcClient.sql("""
+                        WITH latest_failure AS (
+                            SELECT attempt.error_code FROM index_attempts attempt
+                            JOIN connector_items item
+                              ON item.tenant_id = attempt.tenant_id
+                             AND item.id = attempt.connector_item_id
+                             AND item.current_version_id = attempt.connector_item_version_id
+                            WHERE attempt.tenant_id = :tenantId
+                              AND attempt.connector_credential_pair_id = :pairId
+                              AND attempt.status = 'FAILED'
+                              AND item.status = 'FAILED'
+                            ORDER BY attempt.pair_sequence DESC
+                            LIMIT 1
+                        )
                         UPDATE connector_credential_pairs
                         SET document_count = (
                                 SELECT COUNT(*) FROM documents_by_connector_credential_pair mapping
@@ -190,14 +213,7 @@ public class JdbcSourceRepository {
                                   AND mapping.connector_credential_pair_id = :pairId
                                   AND mapping.retrieval_eligible = TRUE
                             ),
-                            error_code = (
-                                SELECT attempt.error_code FROM index_attempts attempt
-                                WHERE attempt.tenant_id = :tenantId
-                                  AND attempt.connector_credential_pair_id = :pairId
-                                  AND attempt.status = 'FAILED'
-                                ORDER BY attempt.pair_sequence DESC
-                                LIMIT 1
-                            ),
+                            error_code = (SELECT error_code FROM latest_failure),
                             status = CASE
                                 WHEN status = 'DELETING' THEN 'DELETING'
                                 WHEN EXISTS (
@@ -212,12 +228,7 @@ public class JdbcSourceRepository {
                                       AND mapping.connector_credential_pair_id = :pairId
                                       AND mapping.retrieval_eligible = TRUE
                                 ) THEN 'ACTIVE'
-                                WHEN EXISTS (
-                                    SELECT 1 FROM index_attempts attempt
-                                    WHERE attempt.tenant_id = :tenantId
-                                      AND attempt.connector_credential_pair_id = :pairId
-                                      AND attempt.status = 'FAILED'
-                                ) THEN 'FAILED'
+                                WHEN EXISTS (SELECT 1 FROM latest_failure) THEN 'FAILED'
                                 ELSE 'NOT_STARTED'
                             END,
                             last_succeeded_at = CASE
@@ -248,6 +259,11 @@ public class JdbcSourceRepository {
         }
     }
 
+    public boolean lockActiveTenant(TenantId tenantId) {
+        return jdbcClient.sql("SELECT id FROM tenants WHERE id = :tenant AND status = 'ACTIVE' FOR SHARE")
+                .param("tenant", tenantId.value()).query(UUID.class).optional().isPresent();
+    }
+
     private UUID ensureNoAuthCredential(TenantId tenantId) {
         Optional<UUID> existing = jdbcClient.sql("""
                         SELECT id FROM credentials
@@ -261,8 +277,8 @@ public class JdbcSourceRepository {
         }
         UUID credentialId = UUID.randomUUID();
         jdbcClient.sql("""
-                        INSERT INTO credentials (id, tenant_id, credential_kind, status)
-                        VALUES (:id, :tenantId, 'NO_AUTH', 'ACTIVE')
+                        INSERT INTO credentials (id, tenant_id, name, credential_kind, status)
+                        VALUES (:id, :tenantId, 'No authentication', 'NO_AUTH', 'ACTIVE')
                         """)
                 .param("id", credentialId)
                 .param("tenantId", tenantId.value())

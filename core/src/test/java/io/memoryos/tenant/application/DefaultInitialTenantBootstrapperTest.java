@@ -19,14 +19,11 @@ import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
 import io.memoryos.tenant.persistence.JdbcTenantBootstrapRepository;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
-import org.h2.jdbcx.JdbcDataSource;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -37,21 +34,11 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 class DefaultInitialTenantBootstrapperTest {
 
     private JdbcClient jdbcClient;
-    private Connection keepAlive;
     private InitialTenantBootstrapper bootstrapper;
 
     @BeforeEach
-    void setUp() {
-        var dataSource = new JdbcDataSource();
-        dataSource.setURL("jdbc:h2:mem:" + UUID.randomUUID()
-                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
-        dataSource.setUser("sa");
-        try {
-            keepAlive = dataSource.getConnection();
-        } catch (SQLException exception) {
-            throw new IllegalStateException("failed to keep the in-memory database open", exception);
-        }
-        TestDatabase.migrations().populate(keepAlive);
+    void setUp() throws SQLException {
+        var dataSource = TestDatabase.freshPostgres();
 
         jdbcClient = JdbcClient.create(dataSource);
         var transactionManager = new DataSourceTransactionManager(dataSource);
@@ -72,10 +59,6 @@ class DefaultInitialTenantBootstrapperTest {
         );
     }
 
-    @AfterEach
-    void closeDatabase() throws SQLException {
-        keepAlive.close();
-    }
 
     @Test
     void currentSchemaContainsNoWorkspaceArtifacts() {

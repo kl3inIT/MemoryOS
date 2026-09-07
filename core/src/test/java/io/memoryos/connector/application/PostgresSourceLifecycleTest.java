@@ -122,7 +122,8 @@ class PostgresSourceLifecycleTest {
 
         var sourceRepository = new JdbcSourceRepository(jdbcClient);
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
-        attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments);
+        attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
+                org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class));
         var documents = new JdbcDocumentRepository(jdbcClient, objectMapper);
         sourceUploads = new JdbcSourceUploadRepository(jdbcClient);
         objectStorage = new InMemoryObjectStorage();
@@ -155,7 +156,9 @@ class PostgresSourceLifecycleTest {
                         sourceUploads,
                         documents,
                         objectUploads,
-                        storedObjects
+                        storedObjects,
+                        new JdbcSourceItemRepository(jdbcClient),
+                        org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectWriteService.class)
                 ),
                 ConnectorCleanupPort.class,
                 transactionManager
@@ -395,6 +398,39 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
+    void successfulReindexClearsOnlyRecoveredItemFailures() throws Exception {
+        SourceId sourceId = service.createFileSource(owner, "Recovery").source().id();
+        var uploads = new java.util.ArrayList<SourceUploadReceipt>();
+        String[] failures = {"SOURCE_EXTRACTION_MALFORMED", "SOURCE_EXTRACTION_TIMEOUT"};
+        for (int index = 0; index < failures.length; index++) {
+            uploads.add(upload(owner, sourceId, "item-" + index + ".txt",
+                    ("content " + index).getBytes(StandardCharsets.UTF_8)));
+            var delivery = dispatch(OperationWorkload.INGESTION);
+            var work = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
+            assertTrue(attempts.fail(work, failures[index]));
+        }
+        assertEquals(failures[1], service.getSource(owner, sourceId).source().errorCode());
+
+        for (int index = uploads.size() - 1; index >= 0; index--) {
+            service.reindex(owner, sourceId, uploads.get(index).item().id());
+            var delivery = dispatch(OperationWorkload.INGESTION);
+            var work = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
+            DocumentId documentId = new DocumentId(UUID.randomUUID());
+            jdbcClient.sql("""
+                            INSERT INTO documents (id, tenant_id, status)
+                            VALUES (:id, :tenantId, 'ELIGIBLE')
+                            """)
+                    .param("id", documentId.value())
+                    .param("tenantId", tenantId)
+                    .update();
+            assertTrue(attempts.complete(work, documentId));
+            var source = service.getSource(owner, sourceId).source();
+            assertEquals(index == 1 ? failures[0] : null, source.errorCode());
+            assertEquals(uploads.size() - index, source.documentCount());
+        }
+    }
+
+    @Test
     void uploadRejectsAnItemWhoseRemovalIsPending() {
         SourceId sourceId = service.createFileSource(owner, "Deleting item").source().id();
         byte[] content = "pending removal".getBytes(StandardCharsets.UTF_8);
@@ -582,13 +618,15 @@ class PostgresSourceLifecycleTest {
         var target = new DefaultSourceManagementService(
                 sourceRepository,
                 new JdbcSourceItemRepository(jdbcClient),
-                new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments),
+                new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
+                        org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class)),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 sourceUploads,
                 objectUploads,
                 new JdbcTenantAccessResolver(jdbcClient),
-                transactionManager
+                transactionManager,
+                new io.memoryos.connector.persistence.JdbcSourceSyncRepository(jdbcClient)
         );
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }

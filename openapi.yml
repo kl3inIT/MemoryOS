@@ -7,6 +7,74 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/sources/{sourceId}/google-drive/schedule:
+    put:
+      tags:
+      - Sources
+      summary: Update the automatic Google Drive sync interval
+      operationId: updateGoogleDriveSchedule
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGoogleDriveScheduleRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/google-drive/roots:
+    put:
+      tags:
+      - Sources
+      summary: Replace Google Drive scope mode and selected roots atomically
+      operationId: replaceGoogleDriveRoots
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceGoogleDriveRootsRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/uploads:
     post:
       tags:
@@ -155,6 +223,37 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/google-drive/sync:
+    post:
+      tags:
+      - Sources
+      summary: Schedule durable Google Drive synchronization
+      operationId: synchronizeGoogleDriveSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/delete:
     post:
       tags:
@@ -183,6 +282,37 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/google-drive:
+    post:
+      tags:
+      - Sources
+      summary: Create a Google Drive source using a reusable credential
+      operationId: createGoogleDriveSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGoogleDriveSourceRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceDetail"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -441,6 +571,71 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/credentials/google-drive/{credentialId}/revoke:
+    post:
+      tags:
+      - Credentials
+      summary: Revoke a shared Google Drive credential and disconnect all attached
+        Sources
+      operationId: revokeGoogleDriveCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeGoogleDriveCredentialRequest"
+        required: true
+      responses:
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/google-drive/authorization:
+    post:
+      tags:
+      - Credentials
+      summary: Authorize a reusable Google Drive credential
+      operationId: startGoogleDriveAuthorization
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartGoogleDriveAuthorizationRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveAuthorizationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources:
     get:
       tags:
@@ -541,6 +736,29 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/google-drive:
+    get:
+      tags:
+      - Sources
+      summary: Get Google Drive source configuration
+      operationId: getGoogleDriveConfiguration
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/source-operations/{operationId}:
     get:
       tags:
@@ -604,8 +822,167 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/credentials/google-drive:
+    get:
+      tags:
+      - Credentials
+      summary: List reusable Tenant-owned Google Drive credentials
+      operationId: listGoogleDriveCredentials
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GoogleDriveCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/google-drive/{credentialId}:
+    delete:
+      tags:
+      - Credentials
+      summary: Delete an unused Google Drive credential with a revision precondition
+      operationId: deleteGoogleDriveCredential
+      parameters:
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
 components:
   schemas:
+    UpdateGoogleDriveScheduleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          maximum: 2147483647
+          minimum: 1
+      required:
+      - syncIntervalMinutes
+    GoogleDriveConfigurationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        credentialId:
+          type: string
+          format: uuid
+        accountEmail:
+          type: string
+        credentialStatus:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        oauthClientConfigured:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          maximum: 2147483647
+          minimum: 1
+        scheduleRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        scopeMode:
+          type: string
+          enum:
+          - GENERAL
+          - SPECIFIC
+        roots:
+          type: array
+          description: "Selected roots for SPECIFIC; empty for GENERAL, whose My Drive\
+            \ root is server-managed."
+          items:
+            $ref: "#/components/schemas/GoogleDriveRootResponse"
+        lastSyncedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        pendingWork:
+          type: boolean
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - accountEmail
+      - credentialId
+      - credentialRevision
+      - credentialStatus
+      - errorCode
+      - lastSyncedAt
+      - oauthClientConfigured
+      - pendingWork
+      - revision
+      - roots
+      - scheduleRevision
+      - scopeMode
+      - sourceId
+      - syncIntervalMinutes
+    GoogleDriveRootResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        mimeType:
+          type: string
+      required:
+      - id
+      - mimeType
+      - name
+    ReplaceGoogleDriveRootsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        scopeMode:
+          type: string
+          description: GENERAL includes the connected account's My Drive tree; SPECIFIC
+            includes selected links.
+          enum:
+          - GENERAL
+          - SPECIFIC
+        links:
+          type: array
+          description: "Empty for GENERAL; 1–20 distinct, non-overlapping file or\
+            \ folder links for SPECIFIC."
+          items:
+            type: string
+            maxLength: 2048
+            minLength: 0
+          maxItems: 20
+          minItems: 0
+      required:
+      - links
+      - scopeMode
     InitiateSourceUploadRequest:
       type: object
       additionalProperties: false
@@ -735,7 +1112,7 @@ components:
       required:
       - item
       - operation
-    CreateFileSourceRequest:
+    CreateGoogleDriveSourceRequest:
       type: object
       additionalProperties: false
       properties:
@@ -743,8 +1120,31 @@ components:
           type: string
           maxLength: 120
           minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        scopeMode:
+          type: string
+          description: GENERAL includes the connected account's My Drive tree; SPECIFIC
+            includes selected links.
+          enum:
+          - GENERAL
+          - SPECIFIC
+        links:
+          type: array
+          description: "Empty for GENERAL; 1–20 distinct, non-overlapping file or\
+            \ folder links for SPECIFIC."
+          items:
+            type: string
+            maxLength: 2048
+            minLength: 0
+          maxItems: 20
+          minItems: 0
       required:
+      - credentialId
+      - links
       - name
+      - scopeMode
     SourceDetail:
       type: object
       additionalProperties: false
@@ -797,6 +1197,16 @@ components:
       - pendingWork
       - status
       - type
+    CreateFileSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+      required:
+      - name
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -873,6 +1283,43 @@ components:
       - delivery
       - invitation
       - invitationUrl
+    RevokeGoogleDriveCredentialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedCredentialRevision:
+          type: integer
+          format: int64
+      required:
+      - expectedCredentialRevision
+    StartGoogleDriveAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        expectedCredentialRevision:
+          type: integer
+          format: int64
+        oauthClientJson:
+          type: string
+          maxLength: 16384
+          minLength: 0
+      required:
+      - name
+    GoogleDriveAuthorizationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        authorizationUrl:
+          type: string
+      required:
+      - authorizationUrl
     InvitationPage:
       type: object
       additionalProperties: false
@@ -962,6 +1409,43 @@ components:
       required:
       - displayName
       - role
+    GoogleDriveCredentialResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        accountEmail:
+          type: string
+        status:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        oauthClientConfigured:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        sourceCount:
+          type: integer
+          format: int64
+      required:
+      - accountEmail
+      - createdAt
+      - credentialRevision
+      - id
+      - name
+      - oauthClientConfigured
+      - sourceCount
+      - status
+      - updatedAt
     ApiProblem:
       type: object
       additionalProperties: false
