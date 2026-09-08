@@ -188,6 +188,7 @@ test("handles unavailable, retry, empty and a newer query overtaking an older on
   await expect(
     page.getByText("Search to see matching documents and relevant context."),
   ).toBeVisible();
+  await expect(input).toBeFocused();
   await input.fill("slow");
   await search.click();
   await expect(page.getByRole("status")).toContainText("Searching");
@@ -250,7 +251,11 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
-  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await expect
+    .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+    .toBe(true);
   await page.keyboard.press("Shift+Tab");
-  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await expect
+    .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+    .toBe(true);
 });

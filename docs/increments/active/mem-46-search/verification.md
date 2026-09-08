@@ -125,5 +125,8 @@ Linear implementation update was saved and re-read successfully; the CLI reporte
 | OpenSearch operator Python suite | Passed: 7 tests; two existing POSIX certificate tests skipped on Windows. All five new Dashboards-provisioning tests passed. |
 | Python compilation and YAML parse | Passed for the changed provisioners and Search deployment/Dashboards YAML. Local Docker lacks the Compose plugin, so no Compose-resolution claim is made. |
 | `./gradlew.bat clean check --no-daemon --console=plain` with Temurin 25.0.2 | Passed in 10m03s: 23 tasks, including real PostgreSQL/OpenSearch integrations. |
+| PR #83 CI at `337a921` | Passed: backend check, frontend/browser, frontend image, backend images, secret scan and CI Gate. Publish was correctly skipped for a pull request. |
 
-Live staging provisioning, authenticated Discover inspection, latest-head CI/review and exact-SHA deployment remain open. Local Saved Objects fixtures do not prove that the four deployed sample chunks are visible or that the live inspector session is unable to mutate saved objects/documents.
+CodeRabbit reviewed 14 code/config files at `337a921` and requested three accessibility/test-stability changes: focus Search before removing Cancel, preserve a forced-colors outline fallback on result actions and poll for settled dialog focus in Playwright. Those changes and a direct Cancel-focus assertion are implemented. The follow-up `pnpm --dir web check`, focused Chromium Search 3/3 and `git diff --check` all passed.
+
+Live staging provisioning, authenticated Discover inspection and exact-SHA deployment remain open. The deployment workflow accepts verified `main` releases only; the pull request remains open and unmerged by explicit user direction. Local Saved Objects fixtures do not prove that the four deployed sample chunks are visible or that the live inspector session is unable to mutate saved objects/documents.

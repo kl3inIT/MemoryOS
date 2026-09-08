@@ -30,7 +30,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
         <div className="min-w-0 flex-1">
           <button
             type="button"
-            className="max-w-full rounded-sm text-left font-heading-h3 text-content-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+            className="max-w-full rounded-sm text-left font-heading-h3 text-content-primary underline-offset-4 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
             onClick={(event) => open(item.sections[0], event)}
           >
             <span className="line-clamp-2 break-words">{title}</span>
@@ -57,7 +57,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
                 <p className="font-secondary-action text-content-muted">{matchLabel}</p>
                 <button
                   type="button"
-                  className="shrink-0 rounded-sm font-secondary-action text-content-primary underline underline-offset-4 hover:no-underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+                  className="shrink-0 rounded-sm font-secondary-action text-content-primary underline underline-offset-4 hover:no-underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
                   aria-label={`Open ${matchLabel.toLowerCase()} in ${title}`}
                   onClick={(event) => open(section, event)}
                 >

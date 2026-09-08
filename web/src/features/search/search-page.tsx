@@ -119,6 +119,7 @@ export function SearchPage() {
                 type="button"
                 prominence="secondary"
                 onClick={() => {
+                  searchInputRef.current?.focus();
                   setSelected(null);
                   setRequest(null);
                 }}

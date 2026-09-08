@@ -1,6 +1,6 @@
 # MEM-46 — Kế hoạch Search làm trước
 
-[Design](design.md) là scope hiện hành; [MEM-11](../mem-11-production-chat/plan.md) làm Chat sau. Pipeline Search đã deploy; MEM-46 đang In Review và phần hoàn thiện UI/UX, nghiệm thu cùng Dashboards được giao cho `phamnhatanh811` trên nhánh Linear hiện hành. i18n thuộc MEM-74. Permission-specific design để rà riêng. [Verification](verification.md) ghi rõ phần đã chạy và phần còn phụ thuộc runtime/model.
+[Design](design.md) là scope hiện hành; [MEM-11](../mem-11-production-chat/plan.md) làm Chat sau. Pipeline Search đã deploy; MEM-46 đang In Progress sau khi PR #83 được mở và phần hoàn thiện UI/UX, nghiệm thu cùng Dashboards được giao cho `phamnhatanh811` trên nhánh Linear hiện hành. Không merge `main` trước quyết định của người dùng. i18n thuộc MEM-74. Permission-specific design để rà riêng. [Verification](verification.md) ghi rõ phần đã chạy và phần còn phụ thuộc runtime/model.
 
 Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credentials, không che programming errors, response schemas required, TLS từ NPM đến Dashboards, backend saved-object read-only và certificate renewal có rollback. Kiểm unit/protocol/OpenAPI, operator tests với certificate thật được tạo trong test, `clean check`, frontend, CI đúng head và staging sau sửa; giữ V17 đã áp dụng và không merge main.
 

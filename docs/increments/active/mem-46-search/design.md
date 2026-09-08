@@ -1,6 +1,6 @@
 # MEM-46 — Search từ canonical JSON đến kết quả tìm kiếm
 
-Status: pipeline Search đã deploy và [MEM-46](https://linear.app/memory-os/issue/MEM-46) đang In Review. Từ ngày 2026-09-08, phần hoàn thiện UI/UX, nghiệm thu Search và OpenSearch Dashboards được giao cho `phamnhatanh811`; i18n thuộc MEM-74 và không nằm trong increment này. Công việc tiếp tục trên nhánh `phamnhatanh811/mem-46-trien-khai-search-tu-json-embedding-va-opensearch-den-giao`. [MEM-11](https://linear.app/memory-os/issue/MEM-11) là Chat riêng, Todo và phụ thuộc Search.
+Status: pipeline Search đã deploy và [MEM-46](https://linear.app/memory-os/issue/MEM-46) đang In Progress sau khi PR #83 được mở; không merge `main` trước quyết định của người dùng. Từ ngày 2026-09-08, phần hoàn thiện UI/UX, nghiệm thu Search và OpenSearch Dashboards được giao cho `phamnhatanh811`; i18n thuộc MEM-74 và không nằm trong increment này. Công việc tiếp tục trên nhánh `phamnhatanh811/mem-46-trien-khai-search-tu-json-embedding-va-opensearch-den-giao`. [MEM-11](https://linear.app/memory-os/issue/MEM-11) là Chat riêng, Todo và phụ thuộc Search.
 
 Quyết định này thay yêu cầu cũ hoàn tất Search và Chat trong một issue. Search được nghiệm thu/đóng theo contract riêng, không phải chờ answer streaming hoặc LLM context expansion. Phần permission chi tiết tạm để bàn sau; tiếp tục dùng IAM/session/source boundaries hiện có, không thêm cơ chế permission mới trong bước lập kế hoạch này.
 
