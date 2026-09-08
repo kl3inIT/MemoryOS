@@ -10,6 +10,7 @@ opensearch_security.auth.type: openid
 opensearch_security.openid.connect_url: ${MEMORYOS_OPENSEARCH_OIDC_ISSUER}/.well-known/openid-configuration
 opensearch_security.openid.client_id: memoryos-opensearch-dashboards
 opensearch_security.openid.client_secret: ${MEMORYOS_DASHBOARDS_OIDC_SECRET}
+opensearch_security.openid.scope: openid profile email
 opensearch_security.openid.base_redirect_url: ${MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL}
 opensearch_security.cookie.secure: true
 opensearch_security.cookie.password: ${MEMORYOS_DASHBOARDS_COOKIE_PASSWORD}
