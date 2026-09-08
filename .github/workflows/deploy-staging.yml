@@ -13,9 +13,9 @@ name: Deploy staging
         type: string
 
 permissions:
-  contents: read
-  actions: read
-  packages: read
+  contents: read # Check out trusted main deployment code.
+  actions: read # Verify the source CI run and download its release bundle.
+  packages: read # Pull the verified private GHCR images on staging.
 
 defaults:
   run:
@@ -44,8 +44,6 @@ jobs:
       MEMORYOS_SMOKE_ISSUER: ${{ vars.STAGING_ISSUER }}
       MEMORYOS_SMOKE_STORAGE_ORIGIN: ${{ vars.STAGING_STORAGE_ORIGIN }}
       MEMORYOS_SMOKE_ACTOR_ID: ${{ vars.STAGING_SMOKE_ACTOR_ID }}
-      MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
-      MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
     steps:
       - name: Check out trusted deployment workflow and smoke tests
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -97,6 +95,8 @@ jobs:
       - name: Verify bundle and required staging configuration
         if: steps.release.outputs.ready == 'true'
         env:
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
           SHA: ${{ steps.release.outputs.sha }}
           CI_RUN: ${{ steps.release.outputs.run_id }}
           ATTEMPT: ${{ steps.release.outputs.attempt }}
@@ -165,6 +165,9 @@ jobs:
 
       - name: Require real authenticated upload, indexing, Search and reader smoke
         if: steps.release.outputs.ready == 'true'
+        env:
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
         run: pnpm --dir web test:staging
 
       - name: Accept the verified runtime
@@ -175,9 +178,12 @@ jobs:
           ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
             "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' finish '$RELEASE'"
 
-      - name: Restore compatible previous images after deployment or smoke failure
-        if: ${{ failure() && steps.rollout.outcome != 'skipped' && steps.rollout.outcome != '' }}
+      - name: Restore compatible previous images after failure or cancellation
+        # Best effort on cancellation; interrupted recovery retains the server reservation.
+        if: ${{ (failure() || cancelled()) && steps.rollout.outcome != 'skipped' && steps.rollout.outcome != '' }}
         env:
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
           RELEASE: ${{ steps.release.outputs.release }}
         run: |
           set +e

@@ -30,7 +30,7 @@ These are external prerequisites, not evidence that the workflow has already dep
 
 Create the smoke user through the normal Keycloak and MemoryOS membership paths. It needs FILE source creation/management/deletion and access to its own source. Use its real `actorId`; the current identity API exposes a fixed active Tenant context, not a tenant-ID selector. All smoke data is synthetic and created in that configured Tenant. The account must support the existing normal login flow; this increment does not alter realm authentication policy.
 
-Application secrets continue to come from the existing Infisical/server path. The workflow forwards its short-lived package-read token over SSH stdin for pulling private GHCR images; the server removes the temporary Docker credential file when that operation exits. An interrupted process can require operator cleanup of its private transaction directory after the job token expires.
+Application secrets continue to come from the existing Infisical/server path. Smoke credentials are scoped to the configuration check, acceptance smoke and recovery smoke steps. Dependency installation and test collection receive no smoke credentials; the test reads them only when execution starts, before network requests. The workflow forwards its short-lived package-read token over SSH stdin for pulling private GHCR images; the server removes the temporary Docker credential file when that operation exits. An interrupted process can require operator cleanup of its private transaction directory after the job token expires.
 
 Branch-protection changes are outside MEM-70. An owner can separately select the stable `CI Gate` check as a required merge check.
 
@@ -46,7 +46,7 @@ gh run watch <deployment-run-id> --exit-status
 
 The workflow verifies same-repository main-push provenance, successful CI and publication jobs, ancestry, checksums and the selected attempt. Automatic promotion skips a source SHA superseded on main. Manual selection permits an older verified release, subject to schema compatibility checks. Neither path accepts a PR build or arbitrary image tag.
 
-GitHub concurrency preserves a running deployment. A server `flock` excludes simultaneous mutations; `/apps/memoryos/deployments/pending` reserves the environment until authenticated smoke and finalization complete. A canceled or disconnected workflow leaves that reservation for recovery instead of allowing another release to overwrite an uncertain state.
+GitHub concurrency preserves a running deployment. A server `flock` excludes simultaneous mutations; `/apps/memoryos/deployments/pending` reserves the environment until authenticated smoke and finalization complete. Failure or cancellation after rollout starts triggers a compatible rollback attempt. If cancellation, a timeout or disconnection interrupts recovery, the reservation remains for operator recovery instead of allowing another release to overwrite an uncertain state.
 
 The server validates the existing healthy three-image set, retains its actual image IDs and Compose paths, validates candidate configuration and image revisions, and rejects candidates missing an applied migration. After pulling images, free disk must exceed twice the database size plus 2 GB. It stops worker and API writers, creates a PostgreSQL custom-format backup, checks its restore catalogue and checksum, then starts API through normal Flyway. API readiness must succeed before worker/web rollout. This single-instance topology has a maintenance interruption; it does not provide zero-downtime migration.
 
@@ -66,9 +66,11 @@ Do not run a second deployment outside this workflow/reservation protocol. Retai
 
 ## Failure and recovery
 
-On deployment or smoke failure, the workflow attempts to stop candidate writers and compare Flyway history with the captured history. With unchanged history, it restores the prior image IDs and Compose configuration, repeats authenticated smoke, and finalizes the restored runtime. The original deployment remains failed. Matching Flyway history is a structural guard, not proof of semantic compatibility for arbitrary application/data-format changes; reviewers must preserve rollback compatibility or choose an operator-managed maintenance release.
+On deployment or smoke failure, or cancellation after rollout starts, the workflow attempts to stop candidate writers and compare Flyway history with the captured history. With unchanged history, it restores the prior image IDs and Compose configuration, repeats authenticated smoke, and finalizes the restored runtime. The original deployment remains failed or canceled. Matching Flyway history is a structural guard, not proof of semantic compatibility for arbitrary application/data-format changes; reviewers must preserve rollback compatibility or choose an operator-managed maintenance release.
 
-Changed schema, failed rollback, failed recovery smoke, lost SSH, or cancellation requires an operator. Subsequent deployments remain blocked by `pending`. Do not delete that file merely to unblock CI.
+Cancellation cleanup is best effort: [GitHub can forcibly terminate canceled work after five minutes](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation), and job timeout, forced cancellation or runner loss can interrupt recovery. The rollback command must acquire the same nonblocking server lock; it fails without mutation if the original SSH operation still owns that lock. No timeout or cancellation path removes `pending` without successful recovery smoke and finalization.
+
+Changed schema, failed rollback, failed recovery smoke, lost SSH, or interrupted cancellation recovery requires an operator. Subsequent deployments remain blocked by `pending`. Do not delete that file merely to unblock CI.
 
 1. Read the pending release identifier and its private `deployments/<release>/` directory. Inspect `schema.before`, any failure snapshot, the backup catalogue/checksum, candidate/previous image references, and container health. Inspect bounded server logs locally; do not upload environments, tokens, presigned URLs or raw login traces.
 2. If the schema is unchanged, rerun the same transaction's `rollback` command under sudo. The script acquires the server lock and checks that the reservation still belongs to this transaction.

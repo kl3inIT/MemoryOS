@@ -17,8 +17,6 @@ const app = new URL(required("ORIGIN"));
 const issuer = new URL(required("ISSUER"));
 const storage = new URL(required("STORAGE_ORIGIN"));
 const actorId = required("ACTOR_ID");
-const username = required("USERNAME");
-const password = required("PASSWORD");
 for (const url of [app, issuer, storage]) {
   if (url.protocol !== "https:" || url.username || url.password) {
     throw new Error("Staging smoke requires HTTPS endpoints without URL credentials");
@@ -54,6 +52,8 @@ test("real login, upload, indexing, Search, reader and denied anonymous access",
   context,
   request,
 }) => {
+  const username = required("USERNAME");
+  const password = required("PASSWORD");
   let source: string | undefined;
   let phase = "login";
   let failure: string | undefined;
