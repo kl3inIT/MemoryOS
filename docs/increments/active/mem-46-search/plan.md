@@ -54,3 +54,5 @@ Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credent
 `clean check` toàn repository đã qua; frontend `pnpm check` (52 unit tests), 17 browser tests và real PostgreSQL/OpenSearch/Spring AI HTTP fixtures đã qua. Xem [verification](verification.md) để biết giới hạn evidence. Các checkbox acceptance còn mở được giữ nguyên: synthetic embeddings không thay thế approved-model quality, browser mock không thay thế full deployed flow, passage preview không thay thế original/native source opening, và chưa có production snapshot/cutover/capacity drill.
 
 - [ ] Verify the deployed Dashboards custom Nginx host, normal Keycloak SSO and Certbot renewal. Preserve unrelated NPM configuration/cron and existing user roles.
+
+- [ ] Scope alias inspection to its actual read-alias target and permit service bulk coordination; preserve the multi-index alias guard, index-prefix and human-role boundaries. Validate ordinary authenticated sample FILE ingestion through Search and passage reads on the secured staging runtime, and retain the sample source for feature review in MEM-46.
