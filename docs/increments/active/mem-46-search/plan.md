@@ -1,6 +1,6 @@
 # MEM-46 — Kế hoạch Search làm trước
 
-[Design](design.md) là scope hiện hành; [MEM-11](../mem-11-production-chat/plan.md) làm Chat sau. Implementation được duyệt ngày 2026-09-08; pipeline, API và UI đã có code và kiểm thử, production acceptance còn mở. Permission-specific design để rà riêng, theo yêu cầu mới. [Verification](verification.md) ghi rõ phần đã chạy và phần còn phụ thuộc runtime/model.
+[Design](design.md) là scope hiện hành; [MEM-11](../mem-11-production-chat/plan.md) làm Chat sau. Pipeline Search đã deploy; MEM-46 đang In Review và phần hoàn thiện UI/UX, nghiệm thu cùng Dashboards được giao cho `phamnhatanh811` trên nhánh Linear hiện hành. i18n thuộc MEM-74. Permission-specific design để rà riêng. [Verification](verification.md) ghi rõ phần đã chạy và phần còn phụ thuộc runtime/model.
 
 Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credentials, không che programming errors, response schemas required, TLS từ NPM đến Dashboards, backend saved-object read-only và certificate renewal có rollback. Kiểm unit/protocol/OpenAPI, operator tests với certificate thật được tạo trong test, `clean check`, frontend, CI đúng head và staging sau sửa; giữ V17 đã áp dụng và không merge main.
 
@@ -27,8 +27,13 @@ Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credent
 - [x] Đồng bộ Search API/OpenAPI/Hey API và UI sections; preview vẫn đọc chunks hiện tại. Kiểm ranking/content order, giới hạn sau merge, duplicate/obsolete hits, nguồn từng chunk và browser mở từng section.
 
 - [x] Direct-query hybrid retrieval: query embedding đúng model/index space, BM25 title/content và vector candidates, chosen fusion, deterministic ties/dedup/current result identity.
-- [ ] Bounded query/filters/result count/pagination và source metadata; document grouping có supporting snippets và locators thật. Không trả raw SDK response.
-- [ ] Search page/navigation, loading/empty/unavailable/cancel/out-of-order responses; escaped snippets/highlights, filter/pagination và source opening. Default Search không gọi generative ChatModel.
+- [ ] Bounded query/filters/result count/pagination và source metadata; document grouping có supporting snippets và locators thật. Không trả raw SDK response. UI behavior đã kiểm; corpus/latency và deployed API acceptance vẫn mở.
+- [x] Search page/navigation, loading/empty/unavailable/cancel/out-of-order responses; escaped snippets/highlights, filter/pagination và source opening. Default Search không gọi generative ChatModel.
+- [x] Thay full section content trong result card bằng snippet ngắn quanh exact full-query/token match; highlight literal/case-insensitive an toàn bằng React nodes, không dùng `dangerouslySetInnerHTML` và không tạo highlight giả cho semantic-only hit.
+- [x] Chuẩn hóa metadata hiển thị: friendly file type, bỏ MIME thô và exact generated `Title: <filename>` prefix; giảm thuật ngữ kỹ thuật `Passage`, không suy diễn source/time ngoài response.
+- [x] Chuyển current passage reader thành responsive Radix Dialog; focus trap/visible focus, Escape/overlay close, explicit focus return với search-input fallback, giữ list scroll và chuyển đúng section/matching ordinal.
+- [x] Giữ preview là faithful plain text khi API chưa có block kind/heading hierarchy/table cells; không dựng bảng/list từ whitespace. Ghi rõ contract gap nếu structured renderer được yêu cầu sau này.
+- [x] Rà apply/reset filters, loading/cancel/retry/empty, paging, result/section switching, keyboard và mobile overflow; giới hạn `aria-live` ở status text ngắn.
 - [x] Search API contract qua backend OpenAPI/Hey API và browser thật; Chat không được hiển thị như tính năng đã chạy trước MEM-11.
 - [ ] Golden search cases: exact IDs/abbreviations, Vietnamese paraphrases, multiple matching chunks, table headers, no match, changed artifact và query/model/index mismatch/outage.
 
@@ -54,5 +59,7 @@ Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credent
 `clean check` toàn repository đã qua; frontend `pnpm check` (52 unit tests), 17 browser tests và real PostgreSQL/OpenSearch/Spring AI HTTP fixtures đã qua. Xem [verification](verification.md) để biết giới hạn evidence. Các checkbox acceptance còn mở được giữ nguyên: synthetic embeddings không thay thế approved-model quality, browser mock không thay thế full deployed flow, passage preview không thay thế original/native source opening, và chưa có production snapshot/cutover/capacity drill.
 
 - [ ] Verify the deployed Dashboards custom Nginx host, normal Keycloak SSO and Certbot renewal. Preserve unrelated NPM configuration/cron and existing user roles.
+- [x] Implement an idempotent global-tenant index pattern/saved view for `memoryos-chunks*` through the supported Saved Objects API; keep bootstrap credentials in a mounted curl config and cover create/no-op/drift/fail-closed behavior with operator tests.
+- [ ] Run the operator provisioner on staging; verify Discover opens the four sample chunks while `memoryos-inspector` remains read-only and cannot create or mutate saved objects/documents.
 
 - [ ] Scope alias inspection to its actual read-alias target and permit service bulk coordination; preserve the multi-index alias guard, index-prefix and human-role boundaries. Validate ordinary authenticated sample FILE ingestion through Search and passage reads on the secured staging runtime, and retain the sample source for feature review in MEM-46.

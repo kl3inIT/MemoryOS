@@ -108,3 +108,22 @@ Linear implementation update was saved and re-read successfully; the CLI reporte
 - Uploaded four clearly synthetic Vietnamese TXT/Markdown files through the normal authenticated API and checksum-bound MinIO PUT/finalize flow. Extraction completed, exposing `SEARCH_INDEX_FAILED` on secured OpenSearch. The exact service request to global alias lookup returned 403, while selecting the read alias as the index target returned 200. Cluster alias permission alone did not repair the scope and was removed.
 - Changed alias inspection to select the actual read-alias targets; retained the one-physical-index check. Extended the real OpenSearch integration to attach a second target, assert rejection, remove the extra alias target and verify recovery. The service role adds only bulk coordination while keeping target-index and human-role permissions unchanged.
 - Final `clean check` passed in 5m28s (`.tmp/search-acceptance-20260908/final-clean-check.log`). Changed production Java and YAML inspections are clean with warnings enabled; the integration fixture retains the documented JUnit-managed Testcontainers lifecycle warning. Full sample Search/reader and deployment evidence is recorded in MEM-46 after rollout, not inferred from extraction success.
+
+## 2026-09-09 — Assigned Search UI/UX and Dashboards completion
+
+- Continued from `main` at `c4f32a1` on `phamnhatanh811/mem-46-trien-khai-search-tu-json-embedding-va-opensearch-den-giao`; MEM-46 was re-read as In Review and assigned to `phamnhatanh811`. A kickoff comment recorded the agreed UI/UX, Dashboards and verification scope without moving i18n or Chat into this increment.
+- Search cards now show bounded, query-anchored snippets instead of full sections. Literal full-query/token matches are highlighted with React text nodes; semantic-only results receive no fabricated highlight. Exact generated `Title: <filename>` prefixes are removed, MIME values are mapped to friendly file types and only API-provided metadata is shown.
+- The passage reader is a responsive Radix Dialog. Desktop and 390×844 mobile browser checks cover opening immediately from the selected result, related-match navigation, long plain-text scrolling, safe rendering of markup-like content, Escape close, focus trap/return, and viewport containment. The UI deliberately does not infer headings, lists or tables from whitespace because the API exposes plain text only.
+- Loading, cancel, unavailable/retry, empty, filtering/reset, paging and out-of-order response behavior are covered in the focused Search browser suite. The live region contains concise status text instead of the result list.
+- Added an idempotent operator provisioner for the global-tenant `memoryos-chunks*` index pattern and `memoryos-chunks-inspection` saved search through the OpenSearch Dashboards Saved Objects API. It reads the protected service credential from a mode-0600 mounted curl config, never writes `.kibana*` directly and verifies controlled state after create/update. Unit tests cover create, unchanged replay, drift correction and fail-closed verification while retaining the inspector role's read-only boundary.
+- Node 26 exposes an unusable global Web Storage implementation to jsdom. Vitest conditionally starts workers with Node's `--no-webstorage` option on Node 25+; Node 24 remains unchanged. This restores the existing component suite without altering application storage behavior.
+
+| Gate | Result |
+| --- | --- |
+| `pnpm --dir web check` | Passed: format, lint, typecheck, generated API/route stability, 58 tests and production build. |
+| Focused Chromium `web/tests/e2e/search.spec.ts` | Passed: 3/3 on desktop/error/mobile after the final focus-navigation change. |
+| OpenSearch operator Python suite | Passed: 7 tests; two existing POSIX certificate tests skipped on Windows. All five new Dashboards-provisioning tests passed. |
+| Python compilation and YAML parse | Passed for the changed provisioners and Search deployment/Dashboards YAML. Local Docker lacks the Compose plugin, so no Compose-resolution claim is made. |
+| `./gradlew.bat clean check --no-daemon --console=plain` with Temurin 25.0.2 | Passed in 10m03s: 23 tasks, including real PostgreSQL/OpenSearch integrations. |
+
+Live staging provisioning, authenticated Discover inspection, latest-head CI/review and exact-SHA deployment remain open. Local Saved Objects fixtures do not prove that the four deployed sample chunks are visible or that the live inspector session is unable to mutate saved objects/documents.

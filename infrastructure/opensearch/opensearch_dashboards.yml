@@ -9,7 +9,9 @@ opensearch.ssl.certificateAuthorities: [/run/secrets/opensearch-ca.crt]
 opensearch.username: memoryos-dashboards
 opensearch.password: ${MEMORYOS_DASHBOARDS_PASSWORD}
 opensearch.requestHeadersAllowlist: [authorization, securitytenant]
-opensearch_security.auth.type: openid
+opensearch_security.auth.type: [basicauth, openid]
+opensearch_security.auth.multiple_auth_enabled: true
+opensearch_security.auth.default_redirect_auth_type: openid
 opensearch_security.openid.connect_url: ${MEMORYOS_OPENSEARCH_OIDC_ISSUER}/.well-known/openid-configuration
 opensearch_security.openid.client_id: memoryos-opensearch-dashboards
 opensearch_security.openid.client_secret: ${MEMORYOS_DASHBOARDS_OIDC_SECRET}

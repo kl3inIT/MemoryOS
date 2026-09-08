@@ -1,10 +1,11 @@
 """Operator boundaries using generated test certificates; no live credentials."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 def load(name):
@@ -16,6 +17,7 @@ def load(name):
 
 keycloak = load("configure-keycloak-client")
 provision = load("provision-staging")
+dashboards = load("provision-dashboards")
 
 
 class KeycloakBoundaryTest(unittest.TestCase):
@@ -33,6 +35,83 @@ class KeycloakBoundaryTest(unittest.TestCase):
     def test_never_forwards_administration_credentials_through_redirects(self):
         with self.assertRaises(ValueError):
             keycloak.NoRedirect().redirect_request(None, None, 302, "Found", {}, "https://elsewhere.example")
+
+
+class DashboardsSavedObjectsTest(unittest.TestCase):
+    @staticmethod
+    def response(status, body):
+        completed = Mock()
+        completed.returncode = 0
+        completed.stdout = json.dumps(body) + "\n" + str(status)
+        completed.stderr = ""
+        return completed
+
+    @staticmethod
+    def saved_object(object_type, object_id, desired):
+        return {"type": object_type, "id": object_id, **json.loads(json.dumps(desired))}
+
+    def test_creates_and_verifies_global_tenant_objects_without_exposing_password(self):
+        responses = [
+            self.response(404, {"statusCode": 404}),
+            self.response(200, self.saved_object("index-pattern", dashboards.INDEX_PATTERN_ID, dashboards.INDEX_PATTERN)),
+            self.response(200, self.saved_object("index-pattern", dashboards.INDEX_PATTERN_ID, dashboards.INDEX_PATTERN)),
+            self.response(404, {"statusCode": 404}),
+            self.response(200, self.saved_object("search", dashboards.SAVED_SEARCH_ID, dashboards.SAVED_SEARCH)),
+            self.response(200, self.saved_object("search", dashboards.SAVED_SEARCH_ID, dashboards.SAVED_SEARCH)),
+        ]
+        with patch.object(dashboards.subprocess, "run", side_effect=responses) as run:
+            self.assertEqual("reconciled", dashboards.reconcile("index-pattern", dashboards.INDEX_PATTERN_ID,
+                                                                 dashboards.INDEX_PATTERN))
+            self.assertEqual("reconciled", dashboards.reconcile("search", dashboards.SAVED_SEARCH_ID,
+                                                                 dashboards.SAVED_SEARCH))
+        calls = run.call_args_list
+        self.assertEqual(["GET", "POST", "GET", "GET", "POST", "GET"],
+                         [call.args[0][call.args[0].index("--request") + 1] for call in calls])
+        for call in calls:
+            command = call.args[0]
+            self.assertIn("securitytenant: global_tenant", command)
+            self.assertIn("/run/secrets/dashboards-bootstrap.curl", command)
+            self.assertNotIn("memoryos-dashboards:", " ".join(command))
+        self.assertEqual(dashboards.SAVED_SEARCH, json.loads(calls[4].kwargs["input"]))
+
+    def test_replay_is_read_only_when_controlled_state_matches(self):
+        current_index = self.saved_object("index-pattern", dashboards.INDEX_PATTERN_ID, dashboards.INDEX_PATTERN)
+        current_index["attributes"]["fields"] = "runtime-managed"
+        current_search = self.saved_object("search", dashboards.SAVED_SEARCH_ID, dashboards.SAVED_SEARCH)
+        with patch.object(dashboards.subprocess, "run", side_effect=[
+                self.response(200, current_index), self.response(200, current_search)]) as run:
+            self.assertEqual("unchanged", dashboards.reconcile("index-pattern", dashboards.INDEX_PATTERN_ID,
+                                                                dashboards.INDEX_PATTERN))
+            self.assertEqual("unchanged", dashboards.reconcile("search", dashboards.SAVED_SEARCH_ID,
+                                                                dashboards.SAVED_SEARCH))
+        self.assertEqual(2, run.call_count)
+
+    def test_updates_drift_and_fails_closed_when_verification_differs(self):
+        drifted = self.saved_object("search", dashboards.SAVED_SEARCH_ID, dashboards.SAVED_SEARCH)
+        drifted["attributes"] = {**drifted["attributes"], "title": "Changed"}
+        with patch.object(dashboards.subprocess, "run", side_effect=[
+                self.response(200, drifted),
+                self.response(200, drifted),
+                self.response(200, drifted)]):
+            with self.assertRaisesRegex(RuntimeError, "verification failed"):
+                dashboards.reconcile("search", dashboards.SAVED_SEARCH_ID, dashboards.SAVED_SEARCH)
+
+    def test_inspector_role_remains_saved_object_and_document_read_only(self):
+        roles = (Path(__file__).parent / "security" / "roles.yml").read_text(encoding="utf-8")
+        inspector = roles.split("memoryos_search_inspector:", 1)[1]
+        self.assertIn("kibana_all_read", inspector)
+        self.assertNotIn("kibana_all_write", inspector)
+        self.assertNotIn("all_access", inspector)
+
+    def test_bootstrap_credential_is_generated_as_a_private_curl_config(self):
+        with tempfile.TemporaryDirectory(prefix="memoryos-dashboards-config-") as name:
+            directory = Path(name)
+            (directory / "dashboards-password.txt").write_text("test-secret\n", encoding="utf-8")
+            provision.write_dashboards_bootstrap_config(directory)
+            config = directory / "dashboards-bootstrap.curl"
+            self.assertEqual('user = "memoryos-dashboards:test-secret"\n', config.read_text(encoding="utf-8"))
+            if os.name == "posix":
+                self.assertEqual(0o600, config.stat().st_mode & 0o777)
 
 
 @unittest.skipUnless(os.name == "posix", "certificate operator runs on Linux")

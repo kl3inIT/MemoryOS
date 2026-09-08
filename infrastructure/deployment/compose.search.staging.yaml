@@ -98,6 +98,7 @@ services:
       - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/dashboards.key:/run/secrets/dashboards.key:ro
       - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/run/secrets/opensearch-ca.crt:ro
       - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/dashboards-password.txt:/run/secrets/dashboards-password:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/dashboards-bootstrap.curl:/run/secrets/dashboards-bootstrap.curl:ro
       - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/oidc-client-secret.txt:/run/secrets/oidc-client-secret:ro
       - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/cookie-password.txt:/run/secrets/cookie-password:ro
     networks:

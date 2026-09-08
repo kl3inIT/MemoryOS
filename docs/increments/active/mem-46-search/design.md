@@ -1,8 +1,16 @@
 # MEM-46 — Search từ canonical JSON đến kết quả tìm kiếm
 
-Status: implementation được duyệt và bắt đầu ngày 2026-09-08 trên nhánh `mem-46-search`. [MEM-46](https://linear.app/memory-os/issue/MEM-46) làm trước, In Progress, assignee `dathip04`. [MEM-11](https://linear.app/memory-os/issue/MEM-11) là Chat riêng, Todo và phụ thuộc Search.
+Status: pipeline Search đã deploy và [MEM-46](https://linear.app/memory-os/issue/MEM-46) đang In Review. Từ ngày 2026-09-08, phần hoàn thiện UI/UX, nghiệm thu Search và OpenSearch Dashboards được giao cho `phamnhatanh811`; i18n thuộc MEM-74 và không nằm trong increment này. Công việc tiếp tục trên nhánh `phamnhatanh811/mem-46-trien-khai-search-tu-json-embedding-va-opensearch-den-giao`. [MEM-11](https://linear.app/memory-os/issue/MEM-11) là Chat riêng, Todo và phụ thuộc Search.
 
 Quyết định này thay yêu cầu cũ hoàn tất Search và Chat trong một issue. Search được nghiệm thu/đóng theo contract riêng, không phải chờ answer streaming hoặc LLM context expansion. Phần permission chi tiết tạm để bàn sau; tiếp tục dùng IAM/session/source boundaries hiện có, không thêm cơ chế permission mới trong bước lập kế hoạch này.
+
+## Phạm vi hoàn thiện UI/UX và Dashboards
+
+Search result cards phải ưu tiên khả năng quét: hiển thị đoạn trích ngắn quanh từ khớp và nhấn mạnh literal match bằng React text nodes, không dựng HTML từ nội dung tài liệu và không biến kết quả thành câu trả lời sinh bởi LLM. Semantic-only hits vẫn được hiển thị nhưng không tạo highlight giả. Metadata chỉ dùng trường API hiện có; MIME được đổi thành nhãn loại tệp thân thiện, còn prefix `Title: <filename>` do chunker tạo chỉ được bỏ khi khớp chính xác, có thể xác định được.
+
+Document reader dùng Radix Dialog hiện có. Trên desktop đây là modal lớn có vùng nội dung cuộn; trên màn hình nhỏ nó gần toàn màn hình. Dialog phải hiện ngay khi chọn kết quả, giữ nguyên scroll của danh sách, trap focus, đóng bằng Escape/overlay/nút đóng và trả focus về trigger hoặc ô tìm kiếm dự phòng. Preview tiếp tục hiển thị faithful plain text passages từ API. API hiện không cung cấp block kind, heading hierarchy hay table cells, nên renderer không được suy đoán cấu trúc bảng/list từ khoảng trắng; rich structured rendering cần thay đổi contract riêng nếu được duyệt.
+
+Rà soát Search bao gồm apply/reset filters, loading/cancel/retry/empty, paging, chuyển section, đóng/mở reader, keyboard/focus và mobile overflow. `aria-live` chỉ thông báo trạng thái ngắn, không bọc toàn bộ danh sách kết quả. OpenSearch Dashboards được provision index pattern/saved view cho `memoryos-chunks*` qua đường operator được hỗ trợ; inspector chỉ đọc global tenant và dữ liệu Search, không được cấp quyền tạo saved object hoặc quyền ghi/xóa document.
 
 [Plan](plan.md) giữ checklist Search; [Onyx cụ thể](onyx-search.md) phân biệt Search UI, SearchTool trong Chat và Search API. [Chat design](../mem-11-production-chat/design.md) giữ phần còn lại. Bộ [thiết kế gộp cũ](../../superseded/mem-46-authorized-rag/design.md) chỉ là research/history; completion gate cũ không còn áp dụng.
 
@@ -116,7 +124,7 @@ Review PR #79: NPM xác minh certificate TLS của Dashboards qua CA nội bộ;
 - Trang xem kết quả đọc passages hiện tại trong PostgreSQL; chưa phải đường tải file gốc hoặc mở native Google document.
 - Model/input space đổi chọn physical index khác và rebuild dần; chưa có cutover model không gián đoạn. Index cũ giữ để operator quyết định retention sau verification.
 - Có Compose OpenSearch dùng cho development trên loopback; server dùng managed TLS endpoint. Chưa provision snapshot repository hoặc nghiệm thu production restore/RPO/RTO.
-- Chi tiết run và pending gates ở [verification](verification.md). MEM-46 vẫn In Progress; không đóng bằng test embeddings hoặc browser fixture.
+- Chi tiết run và pending gates ở [verification](verification.md). MEM-46 vẫn In Review; không đóng bằng test embeddings hoặc browser fixture.
 
 Nguồn thư viện: [Spring AI compatibility](https://docs.spring.io/spring-ai/reference/getting-started.html), [OpenSearch Java client](https://docs.opensearch.org/latest/clients/java/). Recipe/class evidence và source paths ở [Onyx/recipe research](onyx-search.md).
 

@@ -1,23 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
-import { FileText, LoaderCircle, Search, X } from "lucide-react";
-import { useState } from "react";
+import { LoaderCircle, Search } from "lucide-react";
+import { useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
+import { SearchResultCard } from "./search-result-card";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
-import { getSearchDocumentOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { SearchRequest } from "@/lib/hey-api/types.gen";
-
-type Selection = { documentId: string; generation: string; from: number };
+import type { Result as SearchResult, SearchRequest, Section } from "@/lib/hey-api/types.gen";
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState("");
   const [since, setSince] = useState("");
   const [request, setRequest] = useState<SearchRequest | null>(null);
-  const [selected, setSelected] = useState<Selection | null>(null);
+  const [selected, setSelected] = useState<DocumentSelection | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const result = useQuery({
     queryKey: ["document-search", request],
     queryFn: async ({ signal }) => {
@@ -37,7 +38,7 @@ export function SearchPage() {
   function submit() {
     if (!query.trim()) return;
     setSelected(null);
-    const nextRequest = {
+    const nextRequest: SearchRequest = {
       query: query.trim(),
       mediaTypes: mediaType ? [mediaType] : [],
       updatedSince: since ? new Date(`${since}T00:00:00`).toISOString() : undefined,
@@ -48,15 +49,51 @@ export function SearchPage() {
     else setRequest(nextRequest);
   }
 
+  function clearFilters() {
+    setMediaType("");
+    setSince("");
+    setSelected(null);
+    if (request) {
+      setRequest({ ...request, mediaTypes: [], updatedSince: undefined, page: 0 });
+    }
+  }
+
+  function openDocument(
+    item: SearchResult,
+    section: Section | undefined,
+    trigger: HTMLButtonElement,
+  ) {
+    if (!item.documentId || !item.generation) return;
+    const activeMatchIndex = Math.max(
+      0,
+      item.sections.findIndex((candidate) => candidate === section),
+    );
+    returnFocusRef.current = trigger;
+    setSelected({
+      documentId: item.documentId,
+      generation: item.generation,
+      title: item.title || "Untitled document",
+      matches: item.sections.map((candidate) => ({
+        matchingOrdinal: candidate.matchingOrdinal,
+        from: Math.max(0, candidate.matchingOrdinal - 1),
+      })),
+      activeMatchIndex,
+    });
+  }
+
+  const statusMessage = searchStatus(request, result);
+  const hasFilters = Boolean(mediaType || since);
+
   return (
     <AppShell pageTitle="Search">
-      <section className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
-        <header className="mb-6">
+      <section className="mx-auto w-full max-w-5xl px-5 py-6 sm:px-8 sm:py-8">
+        <header className="mb-5">
           <h1 className="font-heading-h2 text-content-primary">Search your documents</h1>
-          <p className="mt-2 text-content-secondary">
-            Find a phrase, a document code, or describe what you need.
+          <p className="mt-1.5 max-w-2xl text-content-secondary">
+            Find a phrase, document code, or describe the information you need.
           </p>
         </header>
+
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -64,8 +101,9 @@ export function SearchPage() {
           }}
           className="space-y-3"
         >
-          <div className="flex gap-2">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
             <Input
+              ref={searchInputRef}
               aria-label="Search documents"
               value={query}
               maxLength={1000}
@@ -73,17 +111,25 @@ export function SearchPage() {
               onChange={(event) => setQuery(event.target.value)}
             />
             <Button type="submit" disabled={!query.trim()}>
-              <Search className="size-4" />
+              <Search className="size-4" aria-hidden="true" />
               Search
             </Button>
-            {result.isFetching && (
-              <Button type="button" prominence="secondary" onClick={() => setRequest(null)}>
+            {result.isFetching ? (
+              <Button
+                type="button"
+                prominence="secondary"
+                onClick={() => {
+                  setSelected(null);
+                  setRequest(null);
+                }}
+              >
                 Cancel
               </Button>
-            )}
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="w-44 space-y-1 text-sm text-content-secondary">
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="space-y-1 font-secondary-action text-content-secondary sm:w-48">
               <span>File type</span>
               <Select value={mediaType} onChange={(event) => setMediaType(event.target.value)}>
                 <option value="">All types</option>
@@ -98,21 +144,33 @@ export function SearchPage() {
                 <option value="text/markdown">Markdown</option>
               </Select>
             </label>
-            <label className="w-44 space-y-1 text-sm text-content-secondary">
+            <label className="space-y-1 font-secondary-action text-content-secondary sm:w-48">
               <span>Updated since</span>
               <Input type="date" value={since} onChange={(event) => setSince(event.target.value)} />
             </label>
+            {hasFilters ? (
+              <Button type="button" prominence="tertiary" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            ) : null}
           </div>
         </form>
 
-        <div className="mt-8" aria-live="polite" aria-busy={result.isFetching}>
+        <p role="status" aria-live="polite" className="sr-only">
+          {statusMessage}
+        </p>
+
+        <div className="mt-7" aria-busy={result.isFetching}>
           {!request ? (
             <p className="py-12 text-center text-content-muted">
-              Search to see matching documents and relevant passages.
+              Search to see matching documents and relevant context.
             </p>
           ) : result.isFetching ? (
-            <div role="status" className="flex items-center justify-center gap-2 py-12">
-              <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" />
+            <div className="flex items-center justify-center gap-2 py-12 text-content-secondary">
+              <LoaderCircle
+                className="size-5 animate-spin motion-reduce:animate-none"
+                aria-hidden="true"
+              />
               Searching documents…
             </div>
           ) : result.isError ? (
@@ -123,103 +181,63 @@ export function SearchPage() {
                 Try again
               </Button>
             </div>
-          ) : !result.data?.results?.length ? (
+          ) : !result.data?.results.length ? (
             <div className="py-12 text-center">
               <h2 className="font-heading-h3">No matching documents</h2>
               <p className="mt-2 text-content-secondary">
-                Try another phrase or broaden your filters.
+                Try a broader phrase, remove a filter, or check the document code.
               </p>
+              {hasFilters ? (
+                <Button className="mt-4" prominence="secondary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              ) : null}
             </div>
           ) : (
             <>
-              <p className="mb-4 text-sm text-content-muted">Results for “{request.query}”</p>
-              <ol className="space-y-4">
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-main-ui-body text-content-secondary">
+                  {result.data.results.length}{" "}
+                  {result.data.results.length === 1 ? "result" : "results"}
+                  {" on this page"}
+                </p>
+                <p className="font-secondary-body text-content-muted">For “{request.query}”</p>
+              </div>
+              <ol className="space-y-3">
                 {result.data.results.map((item) => (
-                  <li
-                    key={item.documentId}
-                    className="rounded-xl border border-border-default bg-surface-raised p-5"
-                  >
-                    <div className="flex items-start gap-3">
-                      <FileText className="mt-1 size-5 shrink-0 text-content-muted" />
-                      <div className="min-w-0 flex-1">
-                        <button
-                          className="text-left font-heading-h3 text-content-primary underline-offset-4 hover:underline focus-visible:underline"
-                          onClick={() =>
-                            item.documentId &&
-                            item.generation &&
-                            setSelected({
-                              documentId: item.documentId,
-                              generation: item.generation,
-                              from: Math.max(0, (item.sections?.[0]?.matchingOrdinal ?? 0) - 1),
-                            })
-                          }
-                        >
-                          {item.title || "Untitled document"}
-                        </button>
-                        <p className="mt-1 text-xs text-content-muted">
-                          {item.mediaType}
-                          {item.updatedAt
-                            ? ` · Updated ${new Date(item.updatedAt).toLocaleDateString()}`
-                            : ""}
-                        </p>
-                        {item.sections?.map((section) => {
-                          const start = (section.startOrdinal ?? 0) + 1;
-                          const end = (section.endOrdinal ?? section.startOrdinal ?? 0) + 1;
-                          const label =
-                            start === end ? `Passage ${start}` : `Passages ${start}–${end}`;
-                          return (
-                            <article
-                              key={section.startOrdinal}
-                              className="mt-4 border-t border-border-subtle pt-3"
-                            >
-                              <p className="text-xs text-content-muted">{label}</p>
-                              <p className="mt-2 whitespace-pre-wrap break-words text-sm text-content-secondary">
-                                {section.content}
-                              </p>
-                              <button
-                                className="mt-2 text-sm text-content-primary underline underline-offset-4"
-                                aria-label={`Read ${label.toLowerCase()} in document`}
-                                onClick={() =>
-                                  item.documentId &&
-                                  item.generation &&
-                                  setSelected({
-                                    documentId: item.documentId,
-                                    generation: item.generation,
-                                    from: Math.max(
-                                      0,
-                                      (section.matchingOrdinal ?? section.startOrdinal ?? 0) - 1,
-                                    ),
-                                  })
-                                }
-                              >
-                                Read in document
-                              </button>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </div>
+                  <li key={item.documentId}>
+                    <SearchResultCard
+                      item={item}
+                      query={request.query ?? ""}
+                      onOpen={openDocument}
+                    />
                   </li>
                 ))}
               </ol>
               <nav
                 aria-label="Search results pages"
-                className="mt-6 flex items-center justify-between"
+                className="mt-6 flex items-center justify-between gap-3"
               >
                 <Button
                   prominence="secondary"
                   disabled={!request.page}
-                  onClick={() => setRequest({ ...request, page: (request.page ?? 0) - 1 })}
+                  onClick={() => {
+                    setSelected(null);
+                    setRequest({ ...request, page: (request.page ?? 0) - 1 });
+                  }}
                 >
                   Previous
                 </Button>
-                <span className="text-sm text-content-secondary">
+                <span className="font-main-ui-body text-content-secondary">
                   Page {(request.page ?? 0) + 1}
                 </span>
                 <Button
                   prominence="secondary"
                   disabled={!result.data.hasMore}
-                  onClick={() => setRequest({ ...request, page: (request.page ?? 0) + 1 })}
+                  onClick={() => {
+                    setSelected(null);
+                    setRequest({ ...request, page: (request.page ?? 0) + 1 });
+                  }}
                 >
                   Next
                 </Button>
@@ -227,77 +245,33 @@ export function SearchPage() {
             </>
           )}
         </div>
-        {selected && (
-          <DocumentPreview
-            key={`${selected.documentId}:${selected.generation}:${selected.from}`}
-            selection={selected}
-            onClose={() => setSelected(null)}
-          />
-        )}
       </section>
+
+      {selected ? (
+        <DocumentPreviewDialog
+          key={`${selected.documentId}:${selected.generation}`}
+          selection={selected}
+          returnFocusRef={returnFocusRef}
+          fallbackFocusRef={searchInputRef}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
     </AppShell>
   );
 }
 
-function DocumentPreview({ selection, onClose }: { selection: Selection; onClose: () => void }) {
-  const [from, setFrom] = useState(selection.from);
-  const detail = useQuery({
-    ...getSearchDocumentOptions({
-      path: { documentId: selection.documentId },
-      query: { generation: selection.generation, from },
-    }),
-    retry: false,
-  });
-  return (
-    <section
-      aria-label="Document passages"
-      className="mt-8 rounded-xl border border-border-default bg-surface-subtle p-5"
-      tabIndex={-1}
-    >
-      <header className="flex items-start justify-between gap-3">
-        <h2 className="font-heading-h3">{detail.data?.title ?? "Document passages"}</h2>
-        <Button prominence="secondary" size="sm" onClick={onClose} aria-label="Close document">
-          <X className="size-4" />
-        </Button>
-      </header>
-      {detail.isPending ? (
-        <p role="status" className="mt-4">
-          Loading passages…
-        </p>
-      ) : detail.isError ? (
-        <p role="alert" className="mt-4">
-          This document is unavailable or has changed. Search again to find its current version.
-        </p>
-      ) : (
-        <>
-          {detail.data.passages?.map((passage) => (
-            <article key={passage.ordinal} className="mt-5 border-t border-border-subtle pt-4">
-              <p className="mb-2 text-xs text-content-muted">
-                Passage {(passage.ordinal ?? 0) + 1}
-              </p>
-              <p className="whitespace-pre-wrap break-words text-sm text-content-primary">
-                {passage.content}
-              </p>
-            </article>
-          ))}
-          <div className="mt-5 flex justify-between">
-            <Button
-              prominence="secondary"
-              disabled={from === 0}
-              onClick={() => setFrom(Math.max(0, from - 20))}
-            >
-              Earlier passages
-            </Button>
-            <Button
-              prominence="secondary"
-              disabled={!detail.data.hasMore}
-              onClick={() => setFrom(from + 20)}
-            >
-              More passages
-            </Button>
-          </div>
-        </>
-      )}
-    </section>
-  );
+function searchStatus(
+  request: SearchRequest | null,
+  result: {
+    isFetching: boolean;
+    isError: boolean;
+    data?: { results: unknown[] };
+  },
+): string {
+  if (!request) return "";
+  if (result.isFetching) return "Searching documents.";
+  if (result.isError) return "Search is temporarily unavailable.";
+  const count = result.data?.results.length ?? 0;
+  if (count === 0) return "No matching documents.";
+  return `${count} ${count === 1 ? "result" : "results"} on this page.`;
 }
