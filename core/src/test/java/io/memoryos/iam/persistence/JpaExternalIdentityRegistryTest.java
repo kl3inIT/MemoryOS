@@ -20,7 +20,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers(disabledWithoutDocker = true)
+// SQL is exercised against the isolated, migrated Testcontainers database.
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+@Testcontainers
 class JpaExternalIdentityRegistryTest {
 
     private JdbcClient jdbcClient;

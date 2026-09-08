@@ -28,6 +28,7 @@ out
 **/coverage
 **/test-results
 **/playwright-report
+web/reports
 
 # Runtime output and machine-local configuration
 *.log

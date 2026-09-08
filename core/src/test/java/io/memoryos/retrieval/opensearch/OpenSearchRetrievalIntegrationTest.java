@@ -39,10 +39,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 class OpenSearchRetrievalIntegrationTest {
     // JUnit's Testcontainers extension starts and closes this shared container.
     @Container
+    @SuppressWarnings("resource") // JUnit's Testcontainers extension owns start/stop.
     static final GenericContainer<?> OPENSEARCH = new GenericContainer<>("opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509")
             .withEnv("discovery.type", "single-node").withEnv("DISABLE_SECURITY_PLUGIN", "true")
             .withEnv("DISABLE_INSTALL_DEMO_CONFIG", "true").withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m")

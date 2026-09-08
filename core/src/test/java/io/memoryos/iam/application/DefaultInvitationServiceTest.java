@@ -48,7 +48,7 @@ import io.memoryos.iam.persistence.JpaInvitationRepository;
 import io.memoryos.iam.persistence.JpaTenantMembershipProvisioner;
 import io.memoryos.iam.persistence.JpaTenantRepository;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class DefaultInvitationServiceTest {
 

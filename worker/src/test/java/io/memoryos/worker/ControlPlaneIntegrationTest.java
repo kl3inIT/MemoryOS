@@ -60,13 +60,13 @@ import org.testcontainers.utility.DockerImageName;
 )
 @AutoConfigureTestRestTemplate
 @Import(ControlPlaneIntegrationTest.VirtualThreadProbeConfiguration.class)
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ControlPlaneIntegrationTest {
 
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+            "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382"
     ).asCompatibleSubstituteFor("postgres");
 
     @Container

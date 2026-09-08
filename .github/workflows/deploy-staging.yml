@@ -1,0 +1,203 @@
+name: Deploy staging
+
+"on":
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful main CI run containing the verified release
+        required: true
+        type: string
+
+permissions:
+  contents: read # Check out trusted main deployment code.
+  actions: read # Verify the source CI run and download its release bundle.
+  packages: read # Pull the verified private GHCR images on staging.
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: memoryos-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (vars.STAGING_AUTO_DEPLOY == 'true' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: staging
+    env:
+      STAGING_HOST: ${{ vars.STAGING_HOST }}
+      STAGING_USER: ${{ vars.STAGING_USER }}
+      MEMORYOS_SMOKE_ORIGIN: ${{ vars.STAGING_ORIGIN }}
+      MEMORYOS_SMOKE_ISSUER: ${{ vars.STAGING_ISSUER }}
+      MEMORYOS_SMOKE_STORAGE_ORIGIN: ${{ vars.STAGING_STORAGE_ORIGIN }}
+      MEMORYOS_SMOKE_ACTOR_ID: ${{ vars.STAGING_SMOKE_ACTOR_ID }}
+    steps:
+      - name: Check out trusted deployment workflow and smoke tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve a successful main release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          [[ "$CI_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          base="repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID"
+          gh api "$base" > "$RUNNER_TEMP/ci-run.json"
+          jq --exit-status --arg repo "$GITHUB_REPOSITORY" '
+            .repository.full_name == $repo and .head_repository.full_name == $repo
+            and .head_branch == "main" and .event == "push" and .status == "completed"
+            and .conclusion == "success" and .path == ".github/workflows/ci.yml"
+          ' "$RUNNER_TEMP/ci-run.json"
+          sha=$(jq --raw-output .head_sha "$RUNNER_TEMP/ci-run.json")
+          attempt=$(jq --raw-output .run_attempt "$RUNNER_TEMP/ci-run.json")
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$attempt" =~ ^[1-9][0-9]*$ ]]
+          gh api "$base/attempts/$attempt/jobs?per_page=100" | jq --exit-status '
+            [.jobs[] | select(.name == "CI Gate" or .name == "Publish verified release")] |
+            length == 2 and (map(.name) | sort) == ["CI Gate", "Publish verified release"]
+            and all(.[]; .conclusion == "success")
+          '
+          git merge-base --is-ancestor "$sha" origin/main
+          if [[ "$EVENT_NAME" == workflow_run && "$sha" != "$(git rev-parse origin/main)" ]]; then
+            echo 'Stale automatic release skipped'
+            exit 0
+          fi
+          printf 'sha=%s\nrun_id=%s\nattempt=%s\nready=true\n' "$sha" "$CI_RUN_ID" "$attempt" >> "$GITHUB_OUTPUT"
+          printf 'release=%s-%s-%s\n' "$sha" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
+      - name: Download preserved release
+        if: steps.release.outputs.ready == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-${{ steps.release.outputs.sha }}-${{ steps.release.outputs.attempt }}
+          path: release
+          run-id: ${{ steps.release.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify bundle and required staging configuration
+        if: steps.release.outputs.ready == 'true'
+        env:
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+          SHA: ${{ steps.release.outputs.sha }}
+          CI_RUN: ${{ steps.release.outputs.run_id }}
+          ATTEMPT: ${{ steps.release.outputs.attempt }}
+        run: |
+          jq --exit-status --arg sha "$SHA" --arg run "$CI_RUN" --arg attempt "$ATTEMPT" '
+            .repository == "kl3inIT/MemoryOS" and .sha == $sha and .run == $run and .attempt == $attempt
+          ' release/manifest.json
+          (cd release && sha256sum --check --strict SHA256SUMS)
+          [[ "$STAGING_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+$ ]]
+          [[ "$STAGING_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          for variable in MEMORYOS_SMOKE_ORIGIN MEMORYOS_SMOKE_ISSUER MEMORYOS_SMOKE_STORAGE_ORIGIN MEMORYOS_SMOKE_ACTOR_ID MEMORYOS_SMOKE_USERNAME MEMORYOS_SMOKE_PASSWORD; do
+            test -n "${!variable}" || { echo "Missing $variable"; exit 1; }
+          done
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        if: steps.release.outputs.ready == 'true'
+        with:
+          node-version: '24'
+      - name: Prepare existing Playwright tooling before changing staging
+        if: steps.release.outputs.ready == 'true'
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.22.0
+          pnpm --dir web install --frozen-lockfile
+          pnpm --dir web exec playwright install --with-deps chromium
+          pnpm --dir web test:staging --list
+
+      - name: Prepare dedicated SSH identity and verified host trust
+        if: steps.release.outputs.ready == 'true'
+        env:
+          STAGING_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.STAGING_KNOWN_HOSTS }}
+        run: |
+          test -n "$STAGING_KEY"
+          test -n "$KNOWN_HOSTS"
+          umask 077
+          mkdir "$RUNNER_TEMP/staging-ssh"
+          printf '%s\n' "$STAGING_KEY" > "$RUNNER_TEMP/staging-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/staging-ssh/known_hosts"
+          cat > "$RUNNER_TEMP/staging-ssh/config" <<EOF
+          Host staging
+            HostName $STAGING_HOST
+            User $STAGING_USER
+            IdentityFile $RUNNER_TEMP/staging-ssh/key
+            UserKnownHostsFile $RUNNER_TEMP/staging-ssh/known_hosts
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+            ServerAliveInterval 15
+            ServerAliveCountMax 4
+          EOF
+
+      - name: Pull images, back up, migrate and wait for readiness
+        id: rollout
+        if: steps.release.outputs.ready == 'true'
+        env:
+          RELEASE: ${{ steps.release.outputs.release }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          remote="/apps/memoryos/incoming/$RELEASE"
+          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging "umask 077; mkdir '$remote'"
+          cp infrastructure/deployment/deploy-staging.sh release/
+          scp -F "$RUNNER_TEMP/staging-ssh/config" release/* "staging:$remote/"
+          printf '%s' "$REGISTRY_TOKEN" | ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
+            "sudo -n bash '$remote/deploy-staging.sh' deploy '$RELEASE' '$GITHUB_ACTOR'"
+
+      - name: Require real authenticated upload, indexing, Search and reader smoke
+        if: steps.release.outputs.ready == 'true'
+        env:
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: pnpm --dir web test:staging
+
+      - name: Accept the verified runtime
+        if: steps.release.outputs.ready == 'true'
+        env:
+          RELEASE: ${{ steps.release.outputs.release }}
+        run: |
+          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
+            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' finish '$RELEASE'"
+
+      - name: Restore compatible previous images after failure or cancellation
+        # Best effort on cancellation; interrupted recovery retains the server reservation.
+        if: ${{ (failure() || cancelled()) && steps.rollout.outcome != 'skipped' && steps.rollout.outcome != '' }}
+        env:
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+          RELEASE: ${{ steps.release.outputs.release }}
+        run: |
+          set +e
+          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
+            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' rollback '$RELEASE'"
+          result=$?
+          set -e
+          if [[ $result == 2 ]]; then exit 0; fi # Preflight failed before writers changed.
+          test "$result" == 0
+          pnpm --dir web test:staging
+          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
+            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' finish '$RELEASE'"
+          echo 'Previous runtime passed smoke; the original deployment still failed'
+
+      - name: Remove ephemeral SSH credentials
+        if: ${{ always() }}
+        run: rm -f -- "$RUNNER_TEMP/staging-ssh/key" "$RUNNER_TEMP/staging-ssh/known_hosts" "$RUNNER_TEMP/staging-ssh/config"

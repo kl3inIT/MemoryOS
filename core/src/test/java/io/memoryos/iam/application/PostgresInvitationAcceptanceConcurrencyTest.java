@@ -48,7 +48,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresInvitationAcceptanceConcurrencyTest {
 

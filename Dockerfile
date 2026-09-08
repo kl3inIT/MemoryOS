@@ -50,7 +50,7 @@ FROM runtime AS worker
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.title="MemoryOS Worker" \
-      org.opencontainers.image.source="https://github.com/dathip04/MemoryOS" \
+      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 ENV MEMORYOS_APPLICATION_JAR=worker.jar \
@@ -64,7 +64,7 @@ FROM runtime AS api
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.title="MemoryOS API" \
-      org.opencontainers.image.source="https://github.com/dathip04/MemoryOS" \
+      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 ENV MEMORYOS_APPLICATION_JAR=api.jar

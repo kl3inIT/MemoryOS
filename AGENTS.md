@@ -28,6 +28,8 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
+- [MEM-70 — Testing and CI/CD](docs/increments/active/mem-70-testing-cicd/design.md) is the current delivery priority. See its test audit and source-backed testing policy before expanding the suite.
+
 - [MEM-55 — Users management](docs/increments/active/mem-55-users-management/design.md) and [MEM-36 — Unified JPA IAM and Groups](docs/increments/active/mem-36-iam-jpa/design.md) share one implementation branch.
 
 - [MEM-64 - Ingestion outcome metrics and observability conventions](docs/increments/active/mem-64-ingestion-observability/design.md)

@@ -8,24 +8,37 @@ name: CI
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
+      - name: Validate workflows and staging script
+        run: |
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          shellcheck infrastructure/deployment/deploy-staging.sh
+
       - name: Set up Java 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '25'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
 
       - name: Build and verify
         run: ./gradlew clean check --no-daemon
@@ -36,20 +49,33 @@ jobs:
       - name: Verify Search administration and certificate renewal
         run: python3 -m unittest discover -s infrastructure/opensearch -p 'test_*.py'
 
+      - name: Upload backend test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: backend-tests
+          path: |
+            core/build/test-results/test/*.xml
+            connector/build/test-results/test/*.xml
+            api/build/test-results/test/*.xml
+            worker/build/test-results/test/*.xml
+          if-no-files-found: warn
+          retention-days: 7
+
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '24'
 
@@ -67,38 +93,170 @@ jobs:
       - name: Exercise browser states
         run: pnpm --dir web test:e2e
 
-      - name: Upload browser report
+      - name: Upload frontend test reports
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: playwright-report
-          path: web/playwright-report/
-          if-no-files-found: error
-          retention-days: 14
+          name: frontend-tests
+          path: |
+            web/reports/
+            web/playwright-report/
+            web/test-results/
+          if-no-files-found: warn
+          retention-days: 7
 
   frontend-image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Build production frontend image
-        run: docker build --file web/Dockerfile --tag memoryos-web:ci .
+        run: |
+          docker build --file web/Dockerfile --tag "memoryos-web:sha-$GITHUB_SHA" \
+            --build-arg "VCS_REF=$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            mkdir -p candidate
+            docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"
+          fi
+
+      - name: Preserve verified frontend image
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: candidate-web
+          path: candidate/web.tar
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 7
 
   backend-images:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Build production API image
-        run: docker build --target api --tag memoryos-api:ci .
+        run: |
+          docker build --target api --tag "memoryos-api:sha-$GITHUB_SHA" \
+            --build-arg "VCS_REF=$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
 
       - name: Build production worker image
-        run: docker build --target worker --tag memoryos-worker:ci .
+        run: |
+          docker build --target worker --tag "memoryos-worker:sha-$GITHUB_SHA" \
+            --build-arg "VCS_REF=$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            mkdir -p candidate
+            docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"
+          fi
+
+      - name: Preserve verified backend images
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: candidate-backend
+          path: candidate/backend.tar
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 7
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scan history with a checksum-pinned scanner
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner .
+
+  gate:
+    name: CI Gate
+    if: ${{ always() }}
+    needs: [check, frontend, frontend-image, backend-images, secrets]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every gate to succeed, including jobs that did not run
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          jq --exit-status '
+            keys == ["backend-images", "check", "frontend", "frontend-image", "secrets"]
+            and all(.[]; .result == "success")
+          ' <<< "$RESULTS"
+
+  publish:
+    name: Publish verified release
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # Read the verified main revision for the release bundle.
+      packages: write # Publish the preserved images to GHCR after CI Gate succeeds.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: candidate-*
+          merge-multiple: true
+          path: candidate
+      - name: Authenticate to GHCR for this job
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publish the preserved images and record their digests
+        run: |
+          docker load --input candidate/backend.tar
+          docker load --input candidate/web.tar
+          mkdir release
+          for component in api worker web; do
+            image="memoryos-$component:sha-$GITHUB_SHA"
+            docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
+              .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha
+              and .["org.opencontainers.image.source"] == "https://github.com/kl3inIT/MemoryOS"
+            '
+            repository="ghcr.io/kl3init/memoryos-$component"
+            tag="$repository:sha-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            docker tag "$image" "$tag"
+            docker push "$tag"
+            digest=$(docker image inspect "$tag" | jq --exit-status --raw-output --arg repo "$repository@" '
+              [.[0].RepoDigests[] | select(startswith($repo))] | if length == 1 then .[0] else error("Ambiguous digest") end
+            ')
+            [[ "$digest" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
+            printf 'MEMORYOS_%s_IMAGE=%s\n' "${component^^}" "$digest" >> release/images.env
+          done
+          printf 'MEMORYOS_RELEASE=%s\n' "$GITHUB_SHA" >> release/images.env
+          git archive --format=tar --output=release/configuration.tar HEAD infrastructure core/src/main/resources/db/migration
+          (cd release && sha256sum configuration.tar images.env > SHA256SUMS)
+          jq --null-input --arg sha "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            '{repository: "kl3inIT/MemoryOS", sha: $sha, run: $run, attempt: $attempt}' > release/manifest.json
+      - name: Preserve release manifest and configuration
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-${{ github.sha }}-${{ github.run_attempt }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io

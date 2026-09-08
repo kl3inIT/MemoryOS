@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class DefaultUserQueryServiceTest {
 

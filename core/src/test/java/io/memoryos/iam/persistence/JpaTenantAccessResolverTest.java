@@ -21,7 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers(disabledWithoutDocker = true)
+// SQL is exercised against the isolated, migrated Testcontainers database.
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+@Testcontainers
 class JpaTenantAccessResolverTest {
 
     private JdbcClient jdbcClient;

@@ -60,7 +60,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "management.otlp.metrics.export.enabled=true",
                 "management.otlp.metrics.export.step=1s",
                 "management.otlp.metrics.export.aggregation-temporality=cumulative",
-                "management.otlp.metrics.export.resource-attributes.service.name=memoryos-worker",
+                "management.opentelemetry.resource-attributes.service.name=memoryos-worker",
                 "db-scheduler.enabled=true",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
@@ -81,7 +81,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
         }
 )
 @org.springframework.context.annotation.Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
 class WorkerFileProcessingIntegrationTest {
     @org.springframework.beans.factory.annotation.Autowired
@@ -94,7 +94,8 @@ class WorkerFileProcessingIntegrationTest {
         @org.springframework.context.annotation.Bean
         io.opentelemetry.api.OpenTelemetry operationTestTelemetry() {
             var processor = new io.opentelemetry.sdk.trace.SpanProcessor() {
-                public void onStart(io.opentelemetry.context.Context parent, io.opentelemetry.sdk.trace.ReadWriteSpan span) {}
+                public void onStart(io.opentelemetry.context.@org.jspecify.annotations.NonNull Context parent,
+                                    io.opentelemetry.sdk.trace.@org.jspecify.annotations.NonNull ReadWriteSpan span) {}
                 public boolean isStartRequired() { return false; }
                 public void onEnd(io.opentelemetry.sdk.trace.ReadableSpan span) { SPANS.add(span.toSpanData()); }
                 public boolean isEndRequired() { return true; }
@@ -146,7 +147,7 @@ class WorkerFileProcessingIntegrationTest {
     private static final String CLEANUP_STREAM = "memoryos:test:cutover:cleanup";
     private static final String CLEANUP_GROUP = "memoryos-test-cutover-cleanup";
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+            "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382"
     ).asCompatibleSubstituteFor("postgres");
 
     @Container

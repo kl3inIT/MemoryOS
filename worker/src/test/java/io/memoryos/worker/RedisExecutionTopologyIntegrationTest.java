@@ -36,7 +36,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         }
 )
 @AutoConfigureTestRestTemplate
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 class RedisExecutionTopologyIntegrationTest {
 
     @DynamicPropertySource
