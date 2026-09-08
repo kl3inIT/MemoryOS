@@ -7,9 +7,6 @@ memoryos_search:
 kibana_server:
   users:
     - memoryos-dashboards
-kibana_user:
-  backend_roles:
-    - memoryos-inspector
 kibana_read_only:
   backend_roles:
     - memoryos-inspector

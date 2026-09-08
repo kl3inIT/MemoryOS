@@ -6,7 +6,7 @@ export PATH
 exec docker exec nginx-proxy-manager /opt/certbot/bin/certbot renew \
     --non-interactive \
     --config /etc/letsencrypt.ini \
-    --work-dir /tmp/letsencrypt-lib \
+    --work-dir /data/letsencrypt-work \
     --logs-dir /data/logs \
     --cert-name memoryos-search \
     --no-random-sleep-on-renew \

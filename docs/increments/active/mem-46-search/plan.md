@@ -2,6 +2,8 @@
 
 [Design](design.md) là scope hiện hành; [MEM-11](../mem-11-production-chat/plan.md) làm Chat sau. Implementation được duyệt ngày 2026-09-08; pipeline, API và UI đã có code và kiểm thử, production acceptance còn mở. Permission-specific design để rà riêng, theo yêu cầu mới. [Verification](verification.md) ghi rõ phần đã chạy và phần còn phụ thuộc runtime/model.
 
+Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credentials, không che programming errors, response schemas required, TLS từ NPM đến Dashboards, backend saved-object read-only và certificate renewal có rollback. Kiểm unit/protocol/OpenAPI, operator tests với certificate thật được tạo trong test, `clean check`, frontend, CI đúng head và staging sau sửa; giữ V17 đã áp dụng và không merge main.
+
 ## 1. Chốt model/index và quality contract
 
 - [x] Đọc current Document/Ingestion/Connector specs và tests; xác nhận artifact-read contract, current chunks và worker ownership.

@@ -4,13 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.micrometer.observation.ObservationRegistry;
 import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -52,9 +53,14 @@ class SpringAiEmbeddingHttpTest {
         });
         server.start();
         try {
-            var properties = new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "",
-                    "http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "test-only-credential",
-                    "text-embedding-3-large", 3072, 32, 2, 500, .5, Duration.ofSeconds(3), "memoryos-test", 0);
+            // This protocol fixture uses a fake credential and a local HTTP server.
+            // Runtime properties reject HTTP credentials in SearchPropertiesTest.
+            var properties = mock(SearchProperties.class);
+            when(properties.embeddingEndpoint()).thenReturn("http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
+            when(properties.apiKey()).thenReturn("test-only-credential");
+            when(properties.model()).thenReturn("text-embedding-3-large");
+            when(properties.dimensions()).thenReturn(3072);
+            when(properties.timeout()).thenReturn(Duration.ofSeconds(3));
             var model = new SearchInfrastructureConfiguration().searchEmbeddingModel(properties, ObservationRegistry.NOOP);
             var embeddings = new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2);
             assertEquals(3072, embeddings.query("Chính sách nghỉ phép").length);

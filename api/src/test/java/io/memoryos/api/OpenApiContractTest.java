@@ -154,6 +154,16 @@ class OpenApiContractTest {
         );
         assertEquals("null", tenantSchema.path("oneOf").path(1).path("type").textValue());
 
+        for (String name : Set.of("SearchPage", "Result", "Section", "ChunkProvenance", "Passage", "SearchDocument")) {
+            JsonNode schema = actual.path("components").path("schemas").path(name);
+            Set<String> fields = new TreeSet<>();
+            schema.path("properties").fieldNames().forEachRemaining(fields::add);
+            Set<String> required = new TreeSet<>();
+            schema.path("required").forEach(value -> required.add(value.asText()));
+            assertFalse(fields.isEmpty(), name);
+            assertEquals(fields, required, name + " response fields must be required");
+        }
+
         Path contract = repositoryRoot().resolve("openapi.yml");
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
             Files.writeString(contract, Yaml.pretty(actual));

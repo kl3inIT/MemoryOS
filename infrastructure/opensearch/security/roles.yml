@@ -21,6 +21,11 @@ memoryos_search_inspector:
       allowed_actions:
         - read
         - indices_monitor
+    - index_patterns:
+        - .kibana*
+        - .opensearch_dashboards*
+      allowed_actions:
+        - read
   tenant_permissions:
     - tenant_patterns:
         - global_tenant

@@ -49,6 +49,18 @@ Use `compose.base.yaml`, `compose.staging.yaml` and `compose.search.staging.yaml
 
 Rollback the application with the recorded prior image versions and keep the additive V17 tables unless database recovery is explicitly required. Stop Dashboards/remove its proxy to withdraw the inspection UI. Preserve the Search volume and secret directory; normal rollback never runs `down -v`.
 
+### Credential, role and certificate boundaries
+
+Embedding credentials require an HTTPS base URL. The Keycloak administration script accepts only the shared trusted origin `https://auth.kl3in.tech` (optional explicit port 443), rejects userinfo/paths/query/fragment and refuses redirects before forwarding credentials. Search API response DTOs declare every guaranteed response field required; regenerate the OpenAPI snapshot and Hey API client from the live Spring schema after contract changes.
+
+NPM connects to Dashboards with HTTPS, verifying the certificate against the public Search CA and the `memoryos-opensearch-dashboards` hostname. Dashboards has a separate server certificate/key; it does not receive the OpenSearch node/admin keys. `memoryos_search_inspector` grants read-only saved-object index access and `kibana_all_read` for the global tenant; the human inspector mapping never includes `kibana_user`. The `kibana_read_only` marker additionally limits the UI, but is not the backend permission boundary.
+
+The proxy installer installs a daily 03:41 operator cron for `/apps/memoryos/renew-internal-search-certificates.py --renew-certificates`. This is the checked-in `provision-staging.py` copied to a stable path. Renewal checks node/admin/Dashboards leaf certificates, replaces those expiring within 30 days, retains the CA/DNs and service credentials, and backs up the old leaf pairs under the protected secret directory. It restarts the affected OpenSearch/Dashboards containers, waits for health and restores the old pairs on reload failure. A renewed admin certificate uses the unchanged trusted CA and admin DN; `search-security-bootstrap` reads the current leaf on its next invocation, so renewal does not rewrite Security configuration. Run the same command manually for overdue renewal; `--within-days 366` forces a controlled rotation drill. The CA has a separate 10-year validity and must be replaced through a coordinated trust-distribution change. Keep renewal logs under `/apps/memoryos` and verify cron health during operational checks.
+
+### V17 deployment window
+
+PostgreSQL rewrites `documents` for the volatile `gen_random_uuid()` default and takes an exclusive table lock. V17 is a coordinated maintenance migration, not an online large-table backfill. Before first application, take a verified backup, inspect table/index size, stop writers and measure the migration on a representative copy within the maintenance window; an unvalidated large-corpus production rollout is outside this staging acceptance. Splitting statements or looping batches inside the same Flyway transaction does not release its DDL lock. V17 has already been applied on the two-document staging database; preserve its checksum. A future large installation needs an accepted expand/backfill/contract release sequence before rollout, rather than editing an applied migration. See [PostgreSQL 18 ALTER TABLE](https://www.postgresql.org/docs/18/sql-altertable.html).
+
 ## Recovering the projection
 
 1. Preserve PostgreSQL and canonical artifacts. Determine the configured physical index identity from the index `_meta` and current `documents.search_index_identity`.

@@ -1,8 +1,8 @@
 package io.memoryos.api.search;
 
 import io.memoryos.iam.IdentityContext;
-import io.memoryos.retrieval.SearchDocument;
-import io.memoryos.retrieval.SearchPage;
+import io.memoryos.api.search.contract.SearchDocumentResponse;
+import io.memoryos.api.search.contract.SearchPageResponse;
 import io.memoryos.retrieval.SearchRequest;
 import io.memoryos.retrieval.application.DocumentSearchService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,15 +30,15 @@ class SearchController {
 
     @PostMapping
     @Operation(operationId = "searchDocuments", summary = "Search current documents with keyword and semantic retrieval")
-    SearchPage search(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    SearchPageResponse search(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestBody SearchRequest request) {
-        return service.search(identity.actorId(), request);
+        return SearchPageResponse.from(service.search(identity.actorId(), request));
     }
 
     @GetMapping("/documents/{documentId}")
     @Operation(operationId = "getSearchDocument", summary = "Read current document passages around a search result")
-    SearchDocument document(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    SearchDocumentResponse document(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID documentId, @RequestParam UUID generation, @RequestParam(defaultValue = "0") int from) {
-        return service.document(identity.actorId(), documentId, generation, from);
+        return SearchDocumentResponse.from(service.document(identity.actorId(), documentId, generation, from));
     }
 }

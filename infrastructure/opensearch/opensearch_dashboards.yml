@@ -1,5 +1,8 @@
 server.name: memoryos-opensearch-dashboards
 server.host: 0.0.0.0
+server.ssl.enabled: true
+server.ssl.certificate: /run/secrets/dashboards.crt
+server.ssl.key: /run/secrets/dashboards.key
 opensearch.hosts: [https://opensearch:9200]
 opensearch.ssl.verificationMode: full
 opensearch.ssl.certificateAuthorities: [/run/secrets/opensearch-ca.crt]

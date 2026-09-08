@@ -108,6 +108,8 @@ Staging rollout được duyệt ngày 2026-09-08: tạo PR, yêu cầu CodeRabb
 
 Người dùng bổ sung Dashboards + SSO: dùng OpenSearch Dashboards 3.8.0 và native OpenID Connect với realm MemoryOS hiện có. Client chỉ nhận scope role `memoryos-inspector`; map sang quyền đọc dữ liệu `memoryos-chunks*` và giao diện read-only, giữ identity server Dashboards riêng để quản lý saved objects. Không tự grant role cho người dùng. Proxy HTTPS cho origin staging riêng, node API không mở ra public.
 
+Review PR #79: NPM xác minh certificate TLS của Dashboards qua CA nội bộ; custom inspector role chỉ đọc saved-object indices và global tenant, không kế thừa quyền ghi `kibana_user`. Gia hạn leaf certificates khi còn 30 ngày, giữ CA/DN/service credentials, có backup/rollback và restart kèm health check. Embedding credentials chỉ đi qua HTTPS; Search là application-owned bean, không cung cấp extension override bằng điều kiện registration order. API DTO giữ required response shape mà không đưa Swagger vào core. V17 đã áp dụng trên staging; migration rewrite/maintenance-window và giới hạn nghiệm thu bảng lớn được ghi ở runbook.
+
 Đã kiểm JAR/source JAR `spring-ai-commons:2.0.1`: `DocumentTransformer` chỉ là batch function; `TextSplitter` thêm metadata cha/chunk; `TokenTextSplitter` tokenize toàn đầu vào, có ngưỡng bỏ text ngắn và đưa phần dư vào chunk cuối khi hết `maxNumChunks`. Giữ structured chunker hiện tại để bảo đảm 768 tokens kể cả prefix, bounded lookahead và table provenance; không thêm wrapper chỉ để implement interface.
 
 - Đã có pipeline JSON/chunks → durable SEARCH workload → embedding/native index, Search API, giao diện Search, passage preview, tách extraction/search status và bounded repair/sweep.

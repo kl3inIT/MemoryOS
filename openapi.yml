@@ -1727,6 +1727,9 @@ components:
           format: int32
         provenanceJson:
           type: string
+      required:
+      - ordinal
+      - provenanceJson
     Result:
       type: object
       properties:
@@ -1750,6 +1753,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Section"
+      required:
+      - documentId
+      - generation
+      - mediaType
+      - score
+      - sections
+      - title
+      - updatedAt
     SearchPage:
       type: object
       properties:
@@ -1765,6 +1776,11 @@ components:
         candidateLimit:
           type: integer
           format: int32
+      required:
+      - candidateLimit
+      - hasMore
+      - page
+      - results
     Section:
       type: object
       properties:
@@ -1786,6 +1802,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChunkProvenance"
+      required:
+      - content
+      - endOrdinal
+      - matchingOrdinal
+      - provenance
+      - score
+      - startOrdinal
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -2187,6 +2210,10 @@ components:
           type: string
         provenanceJson:
           type: string
+      required:
+      - content
+      - ordinal
+      - provenanceJson
     SearchDocument:
       type: object
       properties:
@@ -2210,6 +2237,14 @@ components:
           format: int32
         hasMore:
           type: boolean
+      required:
+      - documentId
+      - firstOrdinal
+      - generation
+      - hasMore
+      - passages
+      - title
+      - totalChunks
     InvitationPage:
       type: object
       additionalProperties: false

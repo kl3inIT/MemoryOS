@@ -87,34 +87,34 @@ export type SearchRequest = {
 };
 
 export type ChunkProvenance = {
-    ordinal?: number;
-    provenanceJson?: string;
+    ordinal: number;
+    provenanceJson: string;
 };
 
 export type Result = {
-    documentId?: string;
-    generation?: string;
-    title?: string;
-    mediaType?: string;
-    updatedAt?: string;
-    score?: number;
-    sections?: Array<Section>;
+    documentId: string;
+    generation: string;
+    title: string;
+    mediaType: string;
+    updatedAt: string;
+    score: number;
+    sections: Array<Section>;
 };
 
 export type SearchPage = {
-    results?: Array<Result>;
-    page?: number;
-    hasMore?: boolean;
-    candidateLimit?: number;
+    results: Array<Result>;
+    page: number;
+    hasMore: boolean;
+    candidateLimit: number;
 };
 
 export type Section = {
-    startOrdinal?: number;
-    endOrdinal?: number;
-    matchingOrdinal?: number;
-    score?: number;
-    content?: string;
-    provenance?: Array<ChunkProvenance>;
+    startOrdinal: number;
+    endOrdinal: number;
+    matchingOrdinal: number;
+    score: number;
+    content: string;
+    provenance: Array<ChunkProvenance>;
 };
 
 export type CreateInvitationRequest = {
@@ -239,19 +239,19 @@ export type SourceGroupPage = {
 };
 
 export type Passage = {
-    ordinal?: number;
-    content?: string;
-    provenanceJson?: string;
+    ordinal: number;
+    content: string;
+    provenanceJson: string;
 };
 
 export type SearchDocument = {
-    documentId?: string;
-    generation?: string;
-    title?: string;
-    passages?: Array<Passage>;
-    firstOrdinal?: number;
-    totalChunks?: number;
-    hasMore?: boolean;
+    documentId: string;
+    generation: string;
+    title: string;
+    passages: Array<Passage>;
+    firstOrdinal: number;
+    totalChunks: number;
+    hasMore: boolean;
 };
 
 export type InvitationPage = {

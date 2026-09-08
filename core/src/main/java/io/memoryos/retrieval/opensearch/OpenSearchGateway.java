@@ -1,12 +1,15 @@
 package io.memoryos.retrieval.opensearch;
 
 import io.memoryos.retrieval.SearchUnavailableException;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.generic.Body;
 import org.opensearch.client.opensearch.generic.Requests;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -45,7 +48,9 @@ public final class OpenSearchGateway {
                 }
                 return result;
             }
-        } catch (Exception failure) {
+        } catch (IOException | UncheckedIOException | JacksonException failure) {
+            // Malformed provider JSON is unavailable data; never expose its body
+            // through an exception cause. Programming failures remain visible.
             throw new SearchUnavailableException();
         }
     }

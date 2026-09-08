@@ -24,7 +24,6 @@ import org.springframework.ai.document.MetadataMode;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -63,7 +62,7 @@ public class SearchInfrastructureConfiguration {
 
     @Bean OpenSearchClient searchClient(OpenSearchTransport transport) { return new OpenSearchClient(transport); }
 
-    @Bean @Lazy @ConditionalOnMissingBean(EmbeddingModel.class)
+    @Bean @Lazy
     EmbeddingModel searchEmbeddingModel(SearchProperties properties, ObservationRegistry observations) {
         if (properties.apiKey().isBlank()) throw new IllegalStateException("embedding API key is not configured");
         return OpenAiEmbeddingModel.builder().metadataMode(MetadataMode.NONE).observationRegistry(observations)

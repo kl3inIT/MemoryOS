@@ -7,8 +7,24 @@ import urllib.parse
 import urllib.request
 
 
+def keycloak_origin(value):
+    origin = value.rstrip("/")
+    parsed = urllib.parse.urlsplit(origin)
+    if (parsed.scheme != "https" or parsed.hostname != "auth.kl3in.tech"
+            or parsed.port not in (None, 443) or parsed.username is not None
+            or parsed.password is not None or parsed.path or parsed.query or parsed.fragment):
+        raise ValueError("expected the trusted MemoryOS Keycloak HTTPS origin")
+    return origin
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("Keycloak administration must not follow redirects")
+
+
 def main():
-    server = os.environ["KEYCLOAK_URL"].rstrip("/")
+    server = keycloak_origin(os.environ["KEYCLOAK_URL"])
+    client = urllib.request.build_opener(NoRedirect())
     origin = os.environ["MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL"].rstrip("/")
     parsed = urllib.parse.urlsplit(origin)
     if parsed.scheme != "https" or not parsed.hostname or parsed.path or parsed.query or parsed.fragment or parsed.username:
@@ -17,14 +33,14 @@ def main():
     login = urllib.parse.urlencode({"client_id": "admin-cli", "grant_type": "password",
                                     "username": os.environ["KEYCLOAK_ADMIN_USERNAME"],
                                     "password": os.environ["KC_CLI_PASSWORD"]}).encode()
-    with urllib.request.urlopen(urllib.request.Request(server + "/realms/master/protocol/openid-connect/token", data=login), timeout=20) as response:
+    with client.open(urllib.request.Request(server + "/realms/master/protocol/openid-connect/token", data=login), timeout=20) as response:
         token = json.load(response)["access_token"]
 
     def api(method, path, body=None):
         request = urllib.request.Request(server + "/admin/realms/memoryos/" + path, method=method,
                                          data=None if body is None else json.dumps(body).encode(),
                                          headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with client.open(request, timeout=20) as response:
             data = response.read()
             return json.loads(data) if data else None
 
@@ -33,7 +49,7 @@ def main():
     if len(clients) > 1:
         raise RuntimeError("duplicate Dashboards client")
     role = api("GET", "roles/memoryos-inspector")
-    client = {
+    client_definition = {
         "clientId": client_id, "name": "MemoryOS OpenSearch Dashboards", "protocol": "openid-connect", "enabled": True,
         "publicClient": False, "clientAuthenticatorType": "client-secret", "standardFlowEnabled": True,
         "implicitFlowEnabled": False, "directAccessGrantsEnabled": False, "serviceAccountsEnabled": False,
@@ -49,9 +65,9 @@ def main():
         ],
     }
     if clients:
-        api("PUT", "clients/" + clients[0]["id"], client)
+        api("PUT", "clients/" + clients[0]["id"], client_definition)
     else:
-        api("POST", "clients", client)
+        api("POST", "clients", client_definition)
         clients = api("GET", "clients?clientId=" + client_id)
     identifier = clients[0]["id"]
     scope_path = "clients/" + identifier + "/scope-mappings/realm"
@@ -61,7 +77,7 @@ def main():
         api("DELETE", scope_path, excess)
     api("POST", scope_path, [{"id": role["id"], "name": role["name"]}])
     confirmed = api("GET", "clients/" + identifier)
-    assert confirmed["redirectUris"] == client["redirectUris"] and not confirmed["fullScopeAllowed"]
+    assert confirmed["redirectUris"] == client_definition["redirectUris"] and not confirmed["fullScopeAllowed"]
     assert [item["name"] for item in api("GET", scope_path)] == ["memoryos-inspector"]
     print("Dashboards OIDC client reconciled; only memoryos-inspector role scoped; no user roles changed")
 

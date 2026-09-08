@@ -32,6 +32,13 @@ public record SearchProperties(
             throw new IllegalArgumentException("OpenSearch credentials and remote endpoints require HTTPS");
         }
         if (username.isBlank() != password.isBlank()) throw new IllegalArgumentException("incomplete search credentials");
+        var embeddingUri = URI.create(embeddingEndpoint);
+        if (embeddingUri.getHost() == null || embeddingUri.getUserInfo() != null
+                || embeddingUri.getQuery() != null || embeddingUri.getFragment() != null
+                || !Set.of("http", "https").contains(embeddingUri.getScheme())
+                || !apiKey.isEmpty() && !"https".equals(embeddingUri.getScheme())) {
+            throw new IllegalArgumentException("embedding credentials require an HTTPS endpoint");
+        }
         if (!indexPrefix.matches("[a-z][a-z0-9-]{0,59}") || !Double.isFinite(keywordWeight)
                 || keywordWeight <= 0 || keywordWeight >= 1 || candidateLimit < 50 || candidateLimit > 1000
                 || dimensions < 1 || dimensions > 16000 || replicas < 0 || replicas > 3
