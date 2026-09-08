@@ -28,6 +28,8 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
+- [MEM-75 — Selected dependency upgrades](docs/increments/active/mem-75-dependency-upgrades/design.md) verifies the user-selected springdoc, Actions, Nginx and frontend updates while retaining Java 25 and Node 24.
+
 - [MEM-70 — Testing and CI/CD](docs/increments/active/mem-70-testing-cicd/design.md) is the current delivery priority. See its test audit and source-backed testing policy before expanding the suite.
 
 - [MEM-55 — Users management](docs/increments/active/mem-55-users-management/design.md) and [MEM-36 — Unified JPA IAM and Groups](docs/increments/active/mem-36-iam-jpa/design.md) share one implementation branch.
