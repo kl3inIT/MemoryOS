@@ -11,8 +11,14 @@ arconia = "0.30.0"
 db-scheduler = "16.12.0"
 aws-sdk = "2.54.11"
 docling-java = "0.6.5"
+spring-ai = "2.0.1"
+opensearch-java = "3.9.0"
 
 [libraries]
+spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
+spring-ai-openai = { module = "org.springframework.ai:spring-ai-openai" }
+opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
+httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
 otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.31.1-alpha" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
@@ -33,6 +39,7 @@ spring-modulith-api = { module = "org.springframework.modulith:spring-modulith-a
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor", version.ref = "spring-boot" }
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }

@@ -5,12 +5,11 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.document.DocumentId;
 import io.memoryos.iam.TenantId;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -65,6 +64,19 @@ public class JdbcSourceDocumentRepository {
                 .query(UUID.class)
                 .optional()
                 .map(DocumentId::new);
+    }
+
+    public Set<UUID> readableDocuments(TenantId tenant, List<UUID> documents) {
+        if (documents.isEmpty()) return Set.of();
+        if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
+        return Set.copyOf(jdbcClient.sql("""
+                SELECT DISTINCT m.document_id FROM documents_by_connector_credential_pair m
+                JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
+                JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
+                JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
+                WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
+                    AND p.access_type='PUBLIC' AND p.status='ACTIVE' AND c.status='ACTIVE' AND d.status='ELIGIBLE'
+                """).param("tenant", tenant.value()).param("documents", documents).query(UUID.class).list());
     }
 
     public void publishMapping(IndexWork work, DocumentId documentId) {

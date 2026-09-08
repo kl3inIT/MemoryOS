@@ -8,3 +8,4 @@
 | Failed replacement retains old reference; cleanup only selects unreferenced artifacts | `ExtractionArtifactLifecycleTest` |
 | Item removal removes final unreferenced Document and artifact | API lifecycle and Redis-stream worker integration |
 | V12 retains current metadata/reference, allows legacy null artifacts, removes version/profile tables and text column | `CurrentDocumentMigrationTest`, H2 full-context migration |
+| V17 current chunks/readiness, protected artifact read, transactionally enqueued indexing and stale-generation fencing | `SearchIndexWorkIntegrationTest`; [Search verification](search.md) |

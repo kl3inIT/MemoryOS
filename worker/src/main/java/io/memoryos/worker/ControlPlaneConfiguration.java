@@ -4,16 +4,15 @@ import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
-
+import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.ingestion.application.SearchProjectionMaintenance;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
-
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -85,9 +84,21 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
-    RecurringTask<Void> extractionArtifactCleanupTask(io.memoryos.document.ExtractionArtifactPort artifacts) {
+    RecurringTask<Void> extractionArtifactCleanupTask(ExtractionArtifactPort artifacts) {
         return Tasks.recurring("memoryos-extraction-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> artifacts.cleanup());
+    }
+
+    @Bean
+    RecurringTask<Void> searchRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
+        return Tasks.recurring("memoryos-redis-search-relay-v1", FixedDelay.of(properties.relayInterval()))
+                .execute((_, _) -> relay.relay(OperationWorkload.SEARCH));
+    }
+
+    @Bean
+    RecurringTask<Void> searchProjectionTask(SearchProjectionMaintenance maintenance) {
+        return Tasks.recurring("memoryos-search-projection-reconcile-v1", FixedDelay.of(Duration.ofMinutes(1)))
+                .execute((_, _) -> maintenance.reconcile());
     }
 
     @Bean

@@ -1,5 +1,7 @@
 # MemoryOS
 
+Direct document Search is implemented under [MEM-46](docs/increments/active/mem-46-search/design.md). See the [Search runtime runbook](docs/runbooks/search-runtime.md) for local OpenSearch and managed embedding configuration, and [verification](docs/increments/active/mem-46-search/verification.md) for remaining live-model/deployment acceptance. Chat is tracked separately in MEM-11.
+
 MemoryOS is a durable personal knowledge system built as a controlled Spring Modulith monolith. External provider identities resolve to stable internal actors; each self-hosted deployment bootstraps one fixed Tenant and admits its configured owner through Keycloak browser login.
 
 ## Start here
@@ -30,12 +32,12 @@ On Windows, enable Developer Mode or use an elevated terminal, and clone with
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Five closed capability implementations; JPA IAM lifecycle, JDBC resource persistence, transactions, and the provider-neutral object-storage contract/S3 adapter |
+| `core` | Six closed capability implementations; JPA IAM lifecycle, JDBC resource persistence, transactions, and the provider-neutral object-storage contract/S3 adapter |
 | `connector` | Shared provider adapter bundle; FILE uses Docling for PDF/DOCX/PPTX and Apache Tika 4 for TXT/Markdown |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root |
 | `worker` | Persistence-backed indexing and cleanup composition root |
 
-Current core capabilities are `iam`, `objectstorage`, `connector`, `document`, and `ingestion`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, and `retrieval`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 

@@ -9,6 +9,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.objectstorage",
         "io.memoryos.document",
         "io.memoryos.ingestion",
+        "io.memoryos.retrieval.embedding",
+        "io.memoryos.retrieval.opensearch",
         "io.memoryos.iam.persistence"
 })
 public class MemoryOsWorkerApplication {

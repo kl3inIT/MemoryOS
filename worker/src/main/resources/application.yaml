@@ -1,6 +1,8 @@
 spring:
   config:
-    import: classpath:memoryos-observability.yaml
+    import:
+      - classpath:/memoryos-observability.yaml
+      - classpath:/memoryos-search.yaml
   application:
     name: memoryos-worker
   main:
@@ -88,6 +90,10 @@ memoryos:
       stream: memoryos:execution:cleanup:operations:v1
       group: memoryos:execution:cleanup:workers:v1
       batch-size: ${MEMORYOS_WORKER_CLEANUP_BATCH_SIZE:8}
+    search:
+      stream: memoryos:execution:search:operations:v1
+      group: memoryos:execution:search:workers:v1
+      batch-size: ${MEMORYOS_WORKER_SEARCH_BATCH_SIZE:2}
   object-storage:
     upload:
       lifetime: ${MEMORYOS_OBJECT_UPLOAD_LIFETIME:15m}

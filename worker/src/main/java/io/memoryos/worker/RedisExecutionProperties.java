@@ -1,10 +1,8 @@
 package io.memoryos.worker;
 
 import io.memoryos.ingestion.OperationWorkload;
-
 import java.time.Duration;
 import java.util.Objects;
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("memoryos.redis")
@@ -18,7 +16,8 @@ public record RedisExecutionProperties(
         Duration reclaimIdle,
         long maxStreamDepth,
         Workload ingestion,
-        Workload cleanup
+        Workload cleanup,
+        Workload search
 ) {
 
     public RedisExecutionProperties {
@@ -34,12 +33,14 @@ public record RedisExecutionProperties(
         }
         Objects.requireNonNull(ingestion, "ingestion must not be null");
         Objects.requireNonNull(cleanup, "cleanup must not be null");
+        Objects.requireNonNull(search, "search must not be null");
     }
 
     Workload workload(OperationWorkload workload) {
         return switch (Objects.requireNonNull(workload, "workload must not be null")) {
             case INGESTION -> ingestion;
             case CLEANUP -> cleanup;
+            case SEARCH -> search;
         };
     }
 

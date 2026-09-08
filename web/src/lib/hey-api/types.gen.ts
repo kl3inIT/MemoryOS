@@ -34,6 +34,7 @@ export type SourceItem = {
     uploadedAt: string;
     latestOperationId: string | null;
     errorCode: string | null;
+    searchStatus: 'WAITING' | 'INDEXING' | 'READY' | 'FAILED';
 };
 
 export type SourceOperation = {
@@ -75,6 +76,45 @@ export type SourceSummary = {
     lastSucceededAt: string | null;
     errorCode: string | null;
     actions: Array<string>;
+};
+
+export type SearchRequest = {
+    query?: string;
+    mediaTypes?: Array<string>;
+    updatedSince?: string;
+    page?: number;
+    pageSize?: number;
+};
+
+export type ChunkProvenance = {
+    ordinal?: number;
+    provenanceJson?: string;
+};
+
+export type Result = {
+    documentId?: string;
+    generation?: string;
+    title?: string;
+    mediaType?: string;
+    updatedAt?: string;
+    score?: number;
+    sections?: Array<Section>;
+};
+
+export type SearchPage = {
+    results?: Array<Result>;
+    page?: number;
+    hasMore?: boolean;
+    candidateLimit?: number;
+};
+
+export type Section = {
+    startOrdinal?: number;
+    endOrdinal?: number;
+    matchingOrdinal?: number;
+    score?: number;
+    content?: string;
+    provenance?: Array<ChunkProvenance>;
 };
 
 export type CreateInvitationRequest = {
@@ -196,6 +236,22 @@ export type SourceGroupPage = {
     size: number;
     totalItems: number;
     totalPages: number;
+};
+
+export type Passage = {
+    ordinal?: number;
+    content?: string;
+    provenanceJson?: string;
+};
+
+export type SearchDocument = {
+    documentId?: string;
+    generation?: string;
+    title?: string;
+    passages?: Array<Passage>;
+    firstOrdinal?: number;
+    totalChunks?: number;
+    hasMore?: boolean;
 };
 
 export type InvitationPage = {
@@ -624,6 +680,28 @@ export type CreateFileSourceResponses = {
 };
 
 export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFileSourceResponses];
+
+export type SearchDocumentsData = {
+    body: SearchRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/search';
+};
+
+export type SearchDocumentsResponses = {
+    /**
+     * OK
+     */
+    200: SearchPage;
+};
+
+export type SearchDocumentsResponse = SearchDocumentsResponses[keyof SearchDocumentsResponses];
 
 export type ListInvitationsData = {
     body?: never;
@@ -1197,6 +1275,27 @@ export type GetSourceOperationResponses = {
 };
 
 export type GetSourceOperationResponse = GetSourceOperationResponses[keyof GetSourceOperationResponses];
+
+export type GetSearchDocumentData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+        from?: number;
+    };
+    url: '/api/search/documents/{documentId}';
+};
+
+export type GetSearchDocumentResponses = {
+    /**
+     * OK
+     */
+    200: SearchDocument;
+};
+
+export type GetSearchDocumentResponse = GetSearchDocumentResponses[keyof GetSearchDocumentResponses];
 
 export type GetCurrentInvitationData = {
     body?: never;

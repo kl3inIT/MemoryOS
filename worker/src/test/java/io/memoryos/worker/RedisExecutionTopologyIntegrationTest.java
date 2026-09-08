@@ -7,10 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
-
 import org.junit.jupiter.api.Test;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
@@ -21,6 +18,9 @@ import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.connection.stream.StreamReadOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -39,8 +39,8 @@ import org.springframework.http.HttpStatus;
 @Testcontainers(disabledWithoutDocker = true)
 class RedisExecutionTopologyIntegrationTest {
 
-    @org.springframework.test.context.DynamicPropertySource
-    static void databaseProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
+    @DynamicPropertySource
+    static void databaseProperties(DynamicPropertyRegistry registry) {
         WorkerPostgresDatabase.configure(registry);
     }
 
@@ -75,6 +75,7 @@ class RedisExecutionTopologyIntegrationTest {
 
         assertGroupExists(properties.ingestion());
         assertGroupExists(properties.cleanup());
+        assertGroupExists(properties.search());
         assertEquals(
                 HttpStatus.OK,
                 http.getForEntity("/actuator/health/readiness", String.class).getStatusCode()

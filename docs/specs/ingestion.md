@@ -1,5 +1,7 @@
 # Ingestion capability contract
 
+Search projection is a third `SEARCH` workload alongside extraction (`INGESTION`) and cleanup. Document publication synchronously records durable projection intent; the existing relay/Redis/claim/renewal/acknowledgment mechanism delivers it. `SearchIngestionCoordinator` prepares current chunks, invokes the public `SearchIndex` contract and commits readiness only after verified indexing under its claim. `SearchProjectionMaintenance` rotates through current Documents for backfill/repair and invokes stale projection cleanup. Detailed semantics and limits live in the [Search contract](search.md).
+
 Ingestion owns asynchronous indexing and cleanup orchestration. It depends only on public Connector, Document, Object Storage, and IAM APIs. Provider parsing enters through `SourceContentExtractor`; no Tika or AWS SDK type crosses the core boundary.
 
 The default Redis command timeout is 5 seconds, above the 2-second blocking stream read.

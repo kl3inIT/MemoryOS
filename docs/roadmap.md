@@ -42,6 +42,8 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | [MEM-36](https://linear.app/memory-os/issue/MEM-36) | Unified JPA IAM, protected Groups, grant union/implications, scoped managers, and FILE Source associations; remains active with MEM-55 until review and merge | [Design](increments/active/mem-36-iam-jpa/design.md) · [Plan](increments/active/mem-36-iam-jpa/plan.md) · [Combined verification](increments/active/mem-55-users-management/verification.md) |
 | [MEM-56](https://linear.app/memory-os/issue/MEM-56/add-owner-only-minio-console-with-keycloak-sso) | Expose an owner-only, bucket-read-only staging MinIO Console through native Keycloak SSO without widening API, worker, or public object-storage authority | [Design](increments/active/mem-56-minio-console-sso/design.md) · [Plan](increments/active/mem-56-minio-console-sso/plan.md) |
 | [MEM-64](https://linear.app/memory-os/issue/MEM-64) | Ingestion outcome metrics, initial queue wait and observability conventions | [Design](increments/active/mem-64-ingestion-observability/design.md) · [Plan](increments/active/mem-64-ingestion-observability/plan.md) |
+| [MEM-46](https://linear.app/memory-os/issue/MEM-46) | Search first: current JSON/chunks, Spring AI embeddings, OpenSearch-only vectors, hybrid retrieval, API/UI and index recovery; absorbs MEM-62/47/48/49/50 | [Design](increments/active/mem-46-search/design.md) · [Plan](increments/active/mem-46-search/plan.md) · [Onyx Search implementation](increments/active/mem-46-search/onyx-search.md); In Progress implementation; [verification and runtime blockers](increments/active/mem-46-search/verification.md) |
+| [MEM-11](https://linear.app/memory-os/issue/MEM-11) | Production Chat after MEM-46: shared retrieval, multi-query/weighted RRF, context selection/expansion, streaming answer/citations and durable conversations; absorbs MEM-71/72 | [Design](increments/active/mem-11-production-chat/design.md) · [Plan](increments/active/mem-11-production-chat/plan.md); Todo, depends on Search, implementation pending |
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 
@@ -61,6 +63,7 @@ These are sequencing signals, not commitments or independently deployable slices
 
 1. [MEM-9](https://linear.app/memory-os/issue/MEM-9/authorize-organization-owned-google-drive-connections) — authorize Tenant-owned Google Drive connections.
 2. [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls) — ingest Tenant-scoped Google Docs with source ACL evidence.
-3. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
+3. [MEM-46](https://linear.app/memory-os/issue/MEM-46) — complete chunking, embedding, hybrid Search and index recovery with its own acceptance.
+4. [MEM-11](https://linear.app/memory-os/issue/MEM-11) — production Chat consuming MEM-46, with separate multi-query/context/answer/conversation acceptance.
 
 Create or link an issue and add an active increment record before implementation begins.

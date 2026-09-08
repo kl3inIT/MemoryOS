@@ -52,7 +52,3 @@ tasks.named<Test>("test") {
 springBoot {
     mainClass = "io.memoryos.api.MemoryOsApiApplication"
 }
-
-sourceSets.main {
-    resources.srcDir(rootProject.file("config/observability"))
-}
