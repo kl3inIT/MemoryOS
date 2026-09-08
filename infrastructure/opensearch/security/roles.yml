@@ -6,6 +6,7 @@ memoryos_search:
     - cluster:monitor/health
     - cluster:monitor/main
     - cluster:admin/search/pipeline/*
+    - indices:data/write/bulk
   index_permissions:
     - index_patterns:
         - memoryos-chunks*

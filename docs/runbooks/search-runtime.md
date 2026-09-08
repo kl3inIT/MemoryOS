@@ -1,5 +1,7 @@
 # Search runtime and recovery
 
+Alias inspection uses `GET /<read-alias>/_alias/<read-alias>` so OpenSearch Security resolves only that alias's actual targets. The unscoped `GET /_alias/<alias>` can return 403 because it checks unrelated indexes; adding a cluster alias permission does not fix that target scope. The service role grants `indices:data/write/bulk` for bulk coordination while target-index permissions remain restricted to `memoryos-chunks*`. Human inspector permissions are unchanged. The local security-disabled integration fixture does not establish this production permission boundary.
+
 ## Development
 
 Start the normal local OpenSearch service from the repository root:

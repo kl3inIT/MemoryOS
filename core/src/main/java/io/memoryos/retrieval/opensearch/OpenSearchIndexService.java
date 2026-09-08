@@ -79,7 +79,7 @@ public class OpenSearchIndexService implements SearchIndex {
         if (!gateway.exists("/" + readAlias())) {
             gateway.json("PUT", "/" + identity + "/_alias/" + readAlias(), Map.of(), Map.of());
         }
-        var aliases = gateway.json("GET", "/_alias/" + readAlias(), Map.of(), null);
+        var aliases = gateway.json("GET", "/" + readAlias() + "/_alias/" + readAlias(), Map.of(), null);
         if (aliases.size() != 1 || !aliases.has(identity)) throw new SearchUnavailableException();
         gateway.json("PUT", "/_search/pipeline/" + pipeline(), Map.of(), Map.of("phase_results_processors", List.of(
                 Map.of("normalization-processor", Map.of("normalization", Map.of("technique", "min_max"),

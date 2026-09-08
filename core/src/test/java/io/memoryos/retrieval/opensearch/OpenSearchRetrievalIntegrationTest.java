@@ -2,6 +2,7 @@ package io.memoryos.retrieval.opensearch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
@@ -17,6 +18,7 @@ import io.memoryos.document.DocumentIndexState;
 import io.memoryos.document.application.StructuredDocumentChunker;
 import io.memoryos.iam.TenantId;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
+import io.memoryos.retrieval.SearchUnavailableException;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
@@ -74,6 +76,12 @@ class OpenSearchRetrievalIntegrationTest {
             var unrelated = document(tenant, "IT-2026", "Hardware inventory and laptop replacement.");
             index.index(leave);
             index.index(unrelated);
+            String collision = index.identity() + "-collision";
+            gateway.json("PUT", "/" + collision, Map.of(),
+                    Map.of("aliases", Map.of(index.identity() + "-read", Map.of())));
+            assertThrows(SearchUnavailableException.class, index::ensureIndex);
+            gateway.json("DELETE", "/" + collision, Map.of(), null);
+            index.ensureIndex();
             var foreign = document(new TenantId(UUID.randomUUID()), "HR-2026", "secret vacation policy");
             index.index(foreign);
             var leaveState = new DocumentIndexState(tenant, leave.documentId(), leave.generation(), 1, true);
