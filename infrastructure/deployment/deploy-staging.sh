@@ -21,7 +21,7 @@ schema() {
 
 compose() {
   local file
-  local args=(docker compose --project-name memoryos --env-file "$root/.env.staging" --env-file "$tx/$target.env")
+  local args=(docker compose --project-name memoryos --env-file "$tx/$target.base.env" --env-file "$tx/$target.env")
   while IFS= read -r file; do args+=(-f "$file"); done < "$tx/$target.compose"
   "${args[@]}" "$@"
 }
@@ -50,6 +50,7 @@ if [[ "$mode" == deploy ]]; then
   [[ -f "$root/.env.staging" && ! -L "$root/.env.staging" ]]
   [[ "$(stat -c '%a' "$root/.env.staging")" == 600 ]]
   mkdir "$tx"
+  cp "$root/.env.staging" "$tx/candidate.base.env"
   cp "$root/incoming/$release/"{manifest.json,configuration.tar,images.env,SHA256SUMS} "$tx/"
   (cd "$tx" && sha256sum --check --strict SHA256SUMS)
   jq --exit-status --arg sha "${release:0:40}" '
@@ -87,6 +88,14 @@ if [[ "$mode" == deploy ]]; then
   while IFS= read -r file; do
     [[ -f "$file" && "$(realpath "$file")" == "$root/"* ]]
   done < "$tx/previous.compose"
+  if [[ -f "$state/current.env" ]]; then
+    [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$state/current.env")" == "$previous_sha" ]]
+    cmp --silent "$state/current.compose" "$tx/previous.compose"
+    cp "$state/current.base.env" "$tx/previous.base.env"
+  else
+    # First promotion captures the existing operator-managed configuration.
+    cp "$root/.env.staging" "$tx/previous.base.env"
+  fi
   target=previous; compose config --quiet
   target=candidate; compose config --quiet
   schema > "$tx/schema.before"
@@ -147,6 +156,8 @@ elif [[ "$mode" == finish ]]; then
   mv "$state/current.env.new" "$state/current.env"
   cp "$tx/$target.compose" "$state/current.compose.new"
   mv "$state/current.compose.new" "$state/current.compose"
+  cp "$tx/$target.base.env" "$state/current.base.env.new"
+  mv "$state/current.base.env.new" "$state/current.base.env"
   printf '%s %s\n' "$release" "$target" > "$tx/result"
   rm -- "$state/pending"
   echo "Accepted $target runtime for workflow $release"

@@ -52,13 +52,13 @@ The server validates the existing healthy three-image set, retains its actual im
 
 Playwright then uses real HTTPS/Keycloak login, creates a uniquely named FILE source, uploads one Markdown file to the presigned storage origin, waits up to three minutes for indexing, and searches/reads that file in the real UI. It checks anonymous rejection and waits for source deletion. No HTTP fixtures, source ACL bypass or application test profile are involved. This covers one account plus anonymous denial; it does not replace multi-user authorization integration checks or human feature acceptance.
 
-Acceptance rechecks running image IDs, revision labels and health. The script writes `deployments/current.env`, `deployments/current.compose`, and the transaction result before releasing the reservation. Operator Compose commands must use both the secret environment and this accepted image/configuration record; the original `.env.staging` is preserved:
+Acceptance rechecks running image IDs, revision labels and health. The script writes `deployments/current.env`, `deployments/current.compose`, the private `deployments/current.base.env` configuration snapshot, and the transaction result before releasing the reservation. A later rollback uses that accepted snapshot, even if the desired `.env.staging` configuration changes. Operator Compose commands must use the accepted configuration/image record; the original `.env.staging` remains the desired input for the next deployment:
 
 ```sh
 # In a privileged Bash session on the staging server:
 files=()
 while IFS= read -r file; do files+=(-f "$file"); done < /apps/memoryos/deployments/current.compose
-docker compose --project-name memoryos --env-file /apps/memoryos/.env.staging \
+docker compose --project-name memoryos --env-file /apps/memoryos/deployments/current.base.env \
   --env-file /apps/memoryos/deployments/current.env "${files[@]}" ps
 ```
 

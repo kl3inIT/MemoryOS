@@ -42,7 +42,8 @@ Exit: deployment failure is visible, overlapping deployment cannot mutate the en
 
 - [x] Run changed-file IDE checks, focused regressions, frontend checks and terminating `clean check`; collect measured results.
 - [x] Update canonical testing guidance, a verification matrix and the CI/CD runbook in the same substantive change.
-- [ ] Publish the scoped PR and collect latest-head CI and one CodeRabbit review pass; record exact remaining release/deployment prerequisites.
+- [x] Publish PR #81 and attach it to MEM-70; document exact external staging prerequisites.
+- [ ] Converge latest-head CI and review. The first CI exposed inline-shell quoting, now fixed and verified on Linux. One CodeRabbit request/watch/evidence collection is exhausted with the reviewer still processing; no finding or approval was available in that collection.
 - [ ] Follow the repository PR lifecycle for merge authorization, exact merged-SHA validation and post-merge Linear evidence.
 
 No production deployment or branch-protection change is authorized by this increment. No additional issue or unrelated implementation is started.

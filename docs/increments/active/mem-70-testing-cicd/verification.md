@@ -10,7 +10,7 @@ Baseline: `d45afa28eba4a3bcde99d1195d2a6bb5ee677129`; implementation branch `mem
 | `pnpm --dir web check` with `CI=true` | Passed generated API/route stability, lint, formatting, typecheck, 52 unit tests, production build and font-asset assertions; JUnit output uses `web/reports/unit.xml` |
 | `CI=true pnpm --dir web test:e2e` | 22 Chromium fixture tests passed in 1.9 minutes with one worker and zero retries. Does not establish real provider acceptance |
 | JetBrains per-file inspections and project build | Every changed Java/Kotlin DSL/workflow file inspected with warnings enabled; IDE build succeeded. Corrected the obsolete worker OTLP property and scoped ephemeral-database/JUnit lifecycle inspection suppressions. Two weak suggestions remain: the intentional unknown negative-test HTTP header and optional extraction of fixture-construction code into another method |
-| actionlint 1.7.12 / ShellCheck 0.11.0 | Workflow validation and the server script passed. These are static checks, not a live rollout |
+| actionlint 1.7.12 / ShellCheck 0.11.0 | Workflow validation including inline shell scripts and the server script passed in Linux containers. These are static checks, not a live rollout |
 | Bounded server-script process probes | Passed inside a disposable Linux container without a Docker socket, using a command-boundary Docker stub: API failure prevents new worker/web startup; unchanged schema restores old image IDs/configuration; changed schema prevents old-image rollout and retains the reservation; pending state and real flock exclude another mutation; mutable references are rejected before Docker mutation |
 | Actual aggregate-gate jq expression | Success accepted; failed, skipped, canceled and missing required results rejected in the Linux probe |
 | Existing infrastructure checks | Grafana credential-boundary test passed; two OpenSearch Python checks passed and two Linux certificate/permission checks were explicitly skipped on Windows. The Linux CI job remains responsible for those platform-specific checks |
@@ -18,6 +18,10 @@ Baseline: `d45afa28eba4a3bcde99d1195d2a6bb5ee677129`; implementation branch `mem
 | Gitleaks 8.30.1 history scan | 175 baseline commits scanned. Six reviewed false positives are excluded by exact historical fingerprint only: browser-test prose, image tags and a deterministic unit-test cipher key. No whole documentation/test path is excluded |
 
 The local fault probes are bounded verification tooling in the ignored work area, not another application/test framework or a claim that Docker stubs prove deployment. The durable gates remain Gradle, Vitest, Playwright, actionlint, ShellCheck and Gitleaks.
+
+PR [#81](https://github.com/kl3inIT/MemoryOS/pull/81), initial head `7b53299d0fc60f607015ea2f37c0cc5ad4c02ebf`: [CI run 34205232613](https://github.com/kl3inIT/MemoryOS/actions/runs/34205232613) passed backend tests, both Linux infrastructure suites, frontend checks/browser tests, all three image builds and the secret scan. It failed inline-shell lint because Docker tag/build-argument variables were unquoted; the aggregate gate correctly failed and publication was skipped. Quoting is corrected, Linux actionlint/ShellCheck pass, and that cheap validation now runs before Gradle. The same fix also snapshots accepted private server configuration; a process probe verifies recovery still uses that snapshot after the desired environment file changes.
+
+One CodeRabbit full-review request was sent for PR #81. The bounded ten-minute watch expired with review still in progress. The single evidence collection contained the acknowledgement/progress comment, no submitted review and no inline findings or review threads. This is pending review evidence, not approval or a merge fallback. Latest-head CI is required after the fix push.
 
 ## Source and performance limits
 
