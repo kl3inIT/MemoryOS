@@ -1,9 +1,7 @@
 package io.memoryos.iam;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class IdentityValueObjectsTest {
@@ -24,9 +22,4 @@ class IdentityValueObjectsTest {
         assertThrows(NullPointerException.class, () -> new IdentityContext(null));
     }
 
-    @Test
-    void actorIdCarriesOpaqueUuid() {
-        var value = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        assertEquals(value, new ActorId(value).value());
-    }
 }

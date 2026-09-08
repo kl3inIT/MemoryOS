@@ -24,7 +24,7 @@ ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 
 LABEL org.opencontainers.image.title="MemoryOS Web" \
-      org.opencontainers.image.source="https://github.com/dathip04/MemoryOS" \
+      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 

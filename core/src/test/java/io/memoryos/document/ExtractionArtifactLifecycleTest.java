@@ -19,7 +19,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
-@Testcontainers(disabledWithoutDocker = true)
+// SQL is exercised against the isolated, migrated Testcontainers database.
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+@Testcontainers
 class ExtractionArtifactLifecycleTest {
     private JdbcClient jdbc;
     private JdbcExtractionArtifactRepository artifacts;

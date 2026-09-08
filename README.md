@@ -113,6 +113,7 @@ The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitat
 - [Repository operating model](docs/guidelines/operating-model.md)
 - [Production-first persistence](docs/guidelines/persistence.md)
 - [Testing and verification](docs/guidelines/testing.md)
+- [CI and staging delivery](docs/runbooks/ci-cd.md)
 - [ADR 0003: evidence-driven audit boundary](docs/decisions/0003-defer-audit-until-evidence-consumer.md)
 
 The legacy OrgMemory repository is reference-only. Do not copy its structure or infrastructure breadth without a current MemoryOS capability requirement.

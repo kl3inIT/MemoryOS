@@ -3,6 +3,8 @@ package io.memoryos.api.security;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.memoryos.api.ApiPostgresDatabase;
 import com.nimbusds.jose.JOSEException;
@@ -28,16 +30,21 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "SqlWithoutWhere"})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -94,6 +101,37 @@ class BearerAuthenticationIntegrationTest {
 
     @Autowired
     private JdbcClient jdbcClient;
+
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private AsyncTaskExecutor applicationTaskExecutor;
+
+    @Autowired
+    private WebApplicationContext applicationContext;
+
+    @Test
+    void applicationTaskExecutorUsesVirtualThreads() throws Exception {
+        assertTrue(applicationTaskExecutor.submit(() -> Thread.currentThread().isVirtual())
+                .get(5, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void healthEndpointIsAvailable() throws Exception {
+        var response = HTTP_CLIENT.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + port + "/actuator/health"))
+                .timeout(Duration.ofSeconds(5)).build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("\"status\":\"UP\""));
+    }
+
+    @Test
+    void apiDocumentationEndpointIsDisabledByDefault() throws Exception {
+        // Inspect normal MVC handler registration without security hiding an enabled route.
+        // The HTTP authentication tests below separately exercise the real filter chain.
+        MockMvcBuilders.webAppContextSetup(applicationContext).build()
+                .perform(get("/v3/api-docs/browser"))
+                .andExpect(status().isNotFound());
+    }
 
     @BeforeEach
     void seedBoundIdentity() {

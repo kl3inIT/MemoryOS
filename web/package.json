@@ -18,6 +18,7 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:staging": "playwright test --config playwright.staging.config.ts",
     "preview": "vite preview",
     "check": "pnpm check:api && pnpm check:ci && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm check:routes"
   },

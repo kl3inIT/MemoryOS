@@ -23,6 +23,11 @@ subprojects {
 
         tasks.withType<Test>().configureEach {
             useJUnitPlatform()
+            timeout = java.time.Duration.ofMinutes(10)
+            reports.junitXml.apply {
+                includeSystemOutLog = false
+                includeSystemErrLog = false
+            }
             systemProperty("memoryos.object-storage.s3.service-endpoint", "http://127.0.0.1:1")
             systemProperty("memoryos.object-storage.s3.upload-endpoint", "http://127.0.0.1:1")
             systemProperty("memoryos.object-storage.s3.region", "us-east-1")
