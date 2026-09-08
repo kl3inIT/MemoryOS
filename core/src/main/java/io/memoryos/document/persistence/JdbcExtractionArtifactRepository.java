@@ -30,6 +30,8 @@ public class JdbcExtractionArtifactRepository {
                       AND (a.cleanup_until IS NULL OR a.cleanup_until<CURRENT_TIMESTAMP)
                       AND NOT EXISTS (SELECT 1 FROM documents v
                           WHERE v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id)
+                      AND NOT EXISTS (SELECT 1 FROM document_artifact_readers r
+                          WHERE r.tenant_id=a.tenant_id AND r.artifact_id=a.id AND r.expires_at>CURRENT_TIMESTAMP)
                     ORDER BY a.expires_at LIMIT 20 FOR UPDATE SKIP LOCKED
                 )
                 UPDATE document_extraction_artifacts a SET state='DELETING',cleanup_token=:token,

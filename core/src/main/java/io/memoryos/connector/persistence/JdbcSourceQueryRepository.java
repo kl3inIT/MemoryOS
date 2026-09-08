@@ -15,13 +15,11 @@ import io.memoryos.connector.SourceType;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.GroupId;
 import io.memoryos.iam.TenantId;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -109,7 +107,11 @@ public class JdbcSourceQueryRepository {
                    item.status,
                    item.created_at,
                    attempt.id AS attempt_id,
-                   attempt.error_code
+                   attempt.error_code,
+                   CASE WHEN doc.id IS NULL OR mapping.retrieval_eligible=FALSE THEN 'WAITING'
+                        WHEN doc.searchable_generation=doc.content_generation THEN 'READY'
+                        WHEN doc.search_error_code IS NOT NULL THEN 'FAILED'
+                        ELSE 'INDEXING' END AS search_status
             FROM connector_credential_pairs pair
             JOIN connector_items item
               ON item.tenant_id = pair.tenant_id
@@ -128,6 +130,9 @@ public class JdbcSourceQueryRepository {
                    AND latest.connector_credential_pair_id = pair.id
                    AND latest.connector_item_id = item.id
              )
+            LEFT JOIN documents_by_connector_credential_pair mapping
+              ON mapping.tenant_id=pair.tenant_id AND mapping.connector_credential_pair_id=pair.id AND mapping.connector_item_id=item.id
+            LEFT JOIN documents doc ON doc.tenant_id=mapping.tenant_id AND doc.id=mapping.document_id
             WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
             """;
 
@@ -288,7 +293,8 @@ public class JdbcSourceQueryRepository {
                 SourceItemStatus.valueOf(resultSet.getString("status")),
                 resultSet.getTimestamp("created_at").toInstant(),
                 attemptId == null ? null : new SourceOperationId(attemptId),
-                resultSet.getString("error_code")
+                resultSet.getString("error_code"),
+                resultSet.getString("search_status")
         );
     }
 }

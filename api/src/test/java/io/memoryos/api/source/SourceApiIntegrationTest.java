@@ -10,12 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sun.net.httpserver.HttpServer;
-import io.memoryos.connector.ConnectorCleanupPort;
-import io.memoryos.connector.SourceDocumentAccessResolver;
-import io.memoryos.document.DocumentId;
-import io.memoryos.connector.ConnectorIndexingPort;
+import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
+import io.memoryos.connector.ConnectorCleanupPort;
+import io.memoryos.connector.ConnectorIndexingPort;
+import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentCommandPort;
+import io.memoryos.document.DocumentId;
+import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.ingestion.OperationDispatchPort;
@@ -32,32 +34,34 @@ import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.StoredObjectRegistry;
 import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
-
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.swagger.v3.core.util.Json;
 import java.io.ByteArrayInputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.Executors;
-
+import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.http.MediaType;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -76,6 +80,7 @@ import org.springframework.transaction.support.TransactionTemplate;
         "memoryos.initial-tenant.slug=sources",
         "memoryos.initial-tenant.display-name=Sources",
         "memoryos.initial-tenant.change-reference=MEM-35-TEST",
+        "memoryos.search.endpoint=http://127.0.0.1:1",
 })
 @AutoConfigureMockMvc
 @Import(SourceApiIntegrationTest.StorageTestConfiguration.class)
@@ -111,7 +116,7 @@ class SourceApiIntegrationTest {
     private SourceContentExtractor extractor;
 
     @Autowired
-    private io.memoryos.document.ExtractionArtifactPort extractionArtifacts;
+    private ExtractionArtifactPort extractionArtifacts;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -127,7 +132,7 @@ class SourceApiIntegrationTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
-        io.memoryos.api.ApiPostgresDatabase.configure(registry);
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
@@ -190,7 +195,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.source.status").value("NOT_STARTED"))
                 .andReturn().getResponse().getContentAsString();
-        String sourceId = io.swagger.v3.core.util.Json.mapper().readTree(sourceBody)
+        String sourceId = Json.mapper().readTree(sourceBody)
                 .path("source").path("id").textValue();
 
         byte[] file = "MemoryOS FILE connector content".getBytes(UTF_8);
@@ -205,7 +210,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.method").value("PUT"))
                 .andReturn().getResponse().getContentAsString();
-        var authorization = io.swagger.v3.core.util.Json.mapper().readTree(authorizationBody);
+        var authorization = Json.mapper().readTree(authorizationBody);
         String uploadId = authorization.path("uploadId").textValue();
         objectStorage.put(URI.create(authorization.path("uploadUrl").textValue()), file);
         String uploadBody = mockMvc.perform(post(
@@ -219,7 +224,7 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.item.status").value("PENDING"))
                 .andExpect(jsonPath("$.operation.status").value("NOT_STARTED"))
                 .andReturn().getResponse().getContentAsString();
-        String itemId = io.swagger.v3.core.util.Json.mapper().readTree(uploadBody)
+        String itemId = Json.mapper().readTree(uploadBody)
                 .path("item").path("id").textValue();
 
         processDispatchedWork();
@@ -264,7 +269,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.type").value("DELETE_SOURCE"))
                 .andReturn().getResponse().getContentAsString();
-        String deleteOperationId = io.swagger.v3.core.util.Json.mapper().readTree(deleteBody)
+        String deleteOperationId = Json.mapper().readTree(deleteBody)
                 .path("id").textValue();
         processDispatchedWork();
         mockMvc.perform(post("/api/sources/{sourceId}/delete", sourceId)
@@ -434,7 +439,7 @@ class SourceApiIntegrationTest {
                         .content("{\"name\":\"Validation source\"}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        String sourceId = io.swagger.v3.core.util.Json.mapper().readTree(sourceBody)
+        String sourceId = Json.mapper().readTree(sourceBody)
                 .path("source").path("id").textValue();
         mockMvc.perform(get("/api/sources/{sourceId}/index-attempts?size=0", sourceId)
                         .with(authentication(owner)))
@@ -460,6 +465,22 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
 
+    }
+
+    @Test
+    void searchUsesExistingSessionGuardAndSafeUnavailableContract() throws Exception {
+        String query = "{\"query\":\"nghỉ phép\",\"page\":0,\"pageSize\":10}";
+        mockMvc.perform(post("/api/search").with(authentication(member)).contentType(MediaType.APPLICATION_JSON).content(query))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/search").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(query))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("SEARCH_UNAVAILABLE"));
+        mockMvc.perform(post("/api/search").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"query\":\"\",\"page\":0,\"pageSize\":10}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/search/documents/{id}", UUID.randomUUID()).with(authentication(member))
+                        .param("generation", UUID.randomUUID().toString()))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SEARCH_DOCUMENT_UNAVAILABLE"));
     }
 
     private ActorAuthenticationToken scopedManager(UUID tenantId, UUID groupId) {
@@ -514,7 +535,7 @@ class SourceApiIntegrationTest {
                         .content(request))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        return io.swagger.v3.core.util.Json.mapper().readTree(response)
+        return Json.mapper().readTree(response)
                 .path("source").path("id").textValue();
     }
 
@@ -534,7 +555,7 @@ class SourceApiIntegrationTest {
                                 """.formatted(filename, content.length, checksum)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        var authorization = io.swagger.v3.core.util.Json.mapper().readTree(authorizationBody);
+        var authorization = Json.mapper().readTree(authorizationBody);
         String uploadId = authorization.path("uploadId").textValue();
         objectStorage.put(URI.create(authorization.path("uploadUrl").textValue()), content);
         String receiptBody = mockMvc.perform(post(
@@ -546,7 +567,7 @@ class SourceApiIntegrationTest {
                         .header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isAccepted())
                 .andReturn().getResponse().getContentAsString();
-        var receipt = io.swagger.v3.core.util.Json.mapper().readTree(receiptBody);
+        var receipt = Json.mapper().readTree(receiptBody);
         return new ApiUpload(
                 receipt.path("item").path("id").textValue(),
                 receipt.path("operation").path("id").textValue()
@@ -572,9 +593,9 @@ class SourceApiIntegrationTest {
                     new TransactionTemplate(transactionManager),
                     leaseScheduler,
                     extractionArtifacts,
-                    new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+                    new SimpleMeterRegistry()
             );
-            for (OperationWorkload workload : OperationWorkload.values()) {
+            for (OperationWorkload workload : List.of(OperationWorkload.INGESTION, OperationWorkload.CLEANUP)) {
                 operationDispatch.claim(workload, 8)
                         .forEach(claim -> coordinator.process(claim.delivery()));
             }
@@ -722,7 +743,7 @@ class SourceApiIntegrationTest {
                 return new ContentSha256(HexFormat.of().formatHex(
                         MessageDigest.getInstance("SHA-256").digest(content)
                 ));
-            } catch (java.security.NoSuchAlgorithmException exception) {
+            } catch (NoSuchAlgorithmException exception) {
                 throw new IllegalStateException(exception);
             }
         }

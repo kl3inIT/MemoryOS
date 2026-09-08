@@ -39,7 +39,3 @@ dependencies {
     testRuntimeOnly(libs.flyway.database.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
-
-sourceSets.main {
-    resources.srcDir(rootProject.file("config/observability"))
-}

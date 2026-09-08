@@ -7,7 +7,9 @@ arconia:
 
 spring:
   config:
-    import: classpath:memoryos-observability.yaml
+    import:
+      - classpath:/memoryos-observability.yaml
+      - classpath:/memoryos-search.yaml
   application:
     name: memoryos-api
   main:

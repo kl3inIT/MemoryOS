@@ -1,7 +1,6 @@
 package io.memoryos.connector;
 
 import java.time.Instant;
-
 import org.jspecify.annotations.Nullable;
 
 public record SourceItemView(
@@ -12,6 +11,7 @@ public record SourceItemView(
         SourceItemStatus status,
         Instant uploadedAt,
         @Nullable SourceOperationId latestOperationId,
-        @Nullable String errorCode
+        @Nullable String errorCode,
+        String searchStatus
 ) {
 }

@@ -5,9 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
-
 import org.junit.jupiter.api.Test;
-
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -26,7 +24,8 @@ class RedisExecutionTopologyTest {
                     Duration.ofMinutes(2),
                     1_000,
                     new RedisExecutionProperties.Workload("ingestion", "ingestion-workers", 8),
-                    new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8)
+                    new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8),
+                    new RedisExecutionProperties.Workload("search", "search-workers", 2)
             )
     );
 

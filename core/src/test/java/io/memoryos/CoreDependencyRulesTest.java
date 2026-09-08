@@ -6,9 +6,7 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
-
 import java.util.Set;
-
 import org.junit.jupiter.api.Test;
 
 class CoreDependencyRulesTest {
@@ -18,7 +16,8 @@ class CoreDependencyRulesTest {
             "objectstorage",
             "connector",
             "document",
-            "ingestion"
+            "ingestion",
+            "retrieval"
     );
 
     private final JavaClasses coreClasses = new ClassFileImporter()

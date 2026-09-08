@@ -72,7 +72,11 @@ export function SourceDetailPage() {
   const sourceQuery = useQuery({
     ...getSourceOptions({ path: { sourceId: selectedId } }),
     retry: false,
-    refetchInterval: (query) => (query.state.data?.source?.pendingWork ? 1_500 : false),
+    refetchInterval: (query) =>
+      query.state.data?.source?.pendingWork ||
+      query.state.data?.items?.some((item) => item.searchStatus === "INDEXING")
+        ? 1_500
+        : false,
   });
 
   const initiateUpload = useMutation(initiateSourceUploadMutation());
@@ -472,6 +476,8 @@ export function SourceDetailPage() {
                         </p>
                         <p className="mt-1 font-secondary-body text-content-muted">
                           {formatBytes(item.sizeBytes ?? 0)} · {item.status ?? "PENDING"}
+                          {item.searchStatus &&
+                            ` · Search: ${item.searchStatus === "READY" ? "Ready" : item.searchStatus === "FAILED" ? "Retry scheduled" : item.searchStatus === "INDEXING" ? "Indexing" : "Waiting for extraction"}`}
                         </p>
                         {item.errorCode ? (
                           <p className="mt-1 text-xs text-status-danger-content">

@@ -1,0 +1,35 @@
+name: memoryos-local-search
+
+# Normal local development service. Server deployments supply a TLS-protected
+# OpenSearch endpoint and credentials through managed configuration.
+services:
+  opensearch:
+    image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - memoryos_local_search:/usr/share/opensearch/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=3s"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  memoryos_local_search:

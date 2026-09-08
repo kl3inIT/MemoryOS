@@ -1,8 +1,8 @@
 package io.memoryos.worker;
 
+import io.memoryos.ingestion.OperationWorkload;
 import java.util.Map;
 import java.util.Objects;
-
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.stream.ReadOffset;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -27,8 +27,9 @@ final class RedisExecutionTopology {
     }
 
     void ensureTopology() {
-        ensureGroup(properties.ingestion());
-        ensureGroup(properties.cleanup());
+        for (var workload : OperationWorkload.values()) {
+            ensureGroup(properties.workload(workload));
+        }
     }
 
     private void ensureGroup(RedisExecutionProperties.Workload workload) {

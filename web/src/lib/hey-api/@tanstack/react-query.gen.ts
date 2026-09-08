@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activateUser, addGroupMembers, assignGroupManager, createFileSource, createGroup, createInvitation, deactivateUser, deleteGroup, deleteSource, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getGroup, getSource, getSourceOperation, initiateSourceUpload, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGroupCapabilities, replaceUserGroups, revokeInvitation, rotateInvitation, updateSourceGroups } from '../sdk.gen';
-import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGroupData, GetGroupResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, createFileSource, createGroup, createInvitation, deactivateUser, deleteGroup, deleteSource, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getGroup, getSearchDocument, getSource, getSourceOperation, initiateSourceUpload, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGroupCapabilities, replaceUserGroups, revokeInvitation, rotateInvitation, searchDocuments, updateSourceGroups } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGroupData, GetGroupResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
 
 /**
  * Replace a user's ordinary Group memberships
@@ -217,6 +217,23 @@ export const createFileSourceMutation = (options?: Partial<Options<CreateFileSou
     const mutationOptions: UseMutationOptions<CreateFileSourceResponse, DefaultError, Options<CreateFileSourceData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createFileSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Search current documents with keyword and semantic retrieval
+ */
+export const searchDocumentsMutation = (options?: Partial<Options<SearchDocumentsData>>): UseMutationOptions<SearchDocumentsResponse, DefaultError, Options<SearchDocumentsData>> => {
+    const mutationOptions: UseMutationOptions<SearchDocumentsResponse, DefaultError, Options<SearchDocumentsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await searchDocuments({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -771,6 +788,24 @@ export const getSourceOperationOptions = (options: Options<GetSourceOperationDat
         return data;
     },
     queryKey: getSourceOperationQueryKey(options)
+});
+
+export const getSearchDocumentQueryKey = (options: Options<GetSearchDocumentData>) => createQueryKey('getSearchDocument', options);
+
+/**
+ * Read current document passages around a search result
+ */
+export const getSearchDocumentOptions = (options: Options<GetSearchDocumentData>) => queryOptions<GetSearchDocumentResponse, DefaultError, GetSearchDocumentResponse, ReturnType<typeof getSearchDocumentQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSearchDocument({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSearchDocumentQueryKey(options)
 });
 
 export const getCurrentInvitationQueryKey = (options?: Options<GetCurrentInvitationData>) => createQueryKey('getCurrentInvitation', options);

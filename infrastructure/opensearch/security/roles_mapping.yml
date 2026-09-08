@@ -1,0 +1,15 @@
+_meta:
+  type: rolesmapping
+  config_version: 2
+memoryos_search:
+  users:
+    - memoryos-service
+kibana_server:
+  users:
+    - memoryos-dashboards
+kibana_read_only:
+  backend_roles:
+    - memoryos-inspector
+memoryos_search_inspector:
+  backend_roles:
+    - memoryos-inspector

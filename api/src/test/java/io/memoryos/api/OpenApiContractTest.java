@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.sun.net.httpserver.HttpServer;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -18,12 +17,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.TreeSet;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,6 +47,8 @@ class OpenApiContractTest {
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
+            "/api/search",
+            "/api/search/documents/{documentId}",
             "/api/identity/me",
             "/api/users",
             "/api/users/{actorId}/activate",
@@ -153,6 +153,16 @@ class OpenApiContractTest {
                 tenantSchema.path("oneOf").path(0).path("$ref").textValue()
         );
         assertEquals("null", tenantSchema.path("oneOf").path(1).path("type").textValue());
+
+        for (String name : Set.of("SearchPage", "Result", "Section", "ChunkProvenance", "Passage", "SearchDocument")) {
+            JsonNode schema = actual.path("components").path("schemas").path(name);
+            Set<String> fields = new TreeSet<>();
+            schema.path("properties").fieldNames().forEachRemaining(fields::add);
+            Set<String> required = new TreeSet<>();
+            schema.path("required").forEach(value -> required.add(value.asText()));
+            assertFalse(fields.isEmpty(), name);
+            assertEquals(fields, required, name + " response fields must be required");
+        }
 
         Path contract = repositoryRoot().resolve("openapi.yml");
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {

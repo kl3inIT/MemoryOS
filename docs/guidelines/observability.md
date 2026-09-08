@@ -2,7 +2,7 @@
 
 API and worker use Boot's Micrometer/OpenTelemetry autoconfiguration with one
 aligned SDK/instrumentation train. Logback remains the SLF4J implementation.
-Shared resources live in `config/observability` and are packaged in both images.
+Shared resources live in `core/src/main/resources` and reach both deployables through their `core` dependency. Each `application.yaml` imports `memoryos-observability.yaml`; Spring Boot loads the shared `logback-spring.xml` from the same classpath.
 The explicit SDK version override is required by the newer Logback instrumentation;
 do not upgrade the appender independently of its SDK/API/incubator dependencies.
 

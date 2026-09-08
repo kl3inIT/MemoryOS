@@ -1,42 +1,22 @@
 package io.memoryos.connector.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.net.URI;
-import java.time.Duration;
-import java.security.MessageDigest;
-import java.time.Instant;
-import java.util.Map;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorCleanupPort;
-import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceAction;
+import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationType;
+import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
@@ -45,11 +25,25 @@ import io.memoryos.connector.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.persistence.JdbcSourceOperationQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
-import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.persistence.JdbcSourceUploadRepository;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.iam.IamException;
+import io.memoryos.iam.TenantId;
+import io.memoryos.iam.application.DefaultGroupScopeService;
+import io.memoryos.iam.application.DefaultIamAuthorization;
+import io.memoryos.iam.persistence.GroupInvariantRepository;
+import io.memoryos.iam.persistence.GroupProjectionRepository;
+import io.memoryos.iam.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.persistence.IamLockRepository;
+import io.memoryos.ingestion.OperationDelivery;
+import io.memoryos.ingestion.OperationDispatchPort;
+import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
@@ -69,21 +63,28 @@ import io.memoryos.objectstorage.application.DefaultStoredObjectRegistry;
 import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.GroupSystemKey;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.application.DefaultGroupScopeService;
-import io.memoryos.iam.application.DefaultIamAuthorization;
-import io.memoryos.iam.persistence.GroupInvariantRepository;
-import io.memoryos.iam.persistence.GroupProjectionRepository;
-import io.memoryos.iam.persistence.IamAuthorizationRepository;
-import io.memoryos.iam.persistence.IamLockRepository;
-import io.memoryos.ingestion.OperationDelivery;
-import io.memoryos.ingestion.OperationDispatchPort;
-import io.memoryos.ingestion.OperationWorkload;
-import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
-import io.memoryos.iam.TenantId;
+import java.io.ByteArrayInputStream;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -138,7 +139,7 @@ class PostgresSourceLifecycleTest {
         var sourceRepository = new JdbcSourceRepository(jdbcClient);
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments);
-        var documents = new JdbcDocumentRepository(jdbcClient, objectMapper);
+        var documents = new JdbcDocumentRepository(jdbcClient, objectMapper, _ -> { });
         sourceUploads = new JdbcSourceUploadRepository(jdbcClient);
         objectStorage = new InMemoryObjectStorage();
         var storedObjectRepository = new JdbcStoredObjectRepository(jdbcClient);
@@ -504,9 +505,9 @@ class PostgresSourceLifecycleTest {
                     delivery.deliveryId()
             ).orElseThrow();
             if (attempt == 1) {
-                org.assertj.core.api.Assertions.assertThat(work.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
+                assertThat(work.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
             } else {
-                org.junit.jupiter.api.Assertions.assertNull(work.initialQueueWait());
+                assertNull(work.initialQueueWait());
             }
             assertTrue(attempts.retry(
                     work,
@@ -557,8 +558,8 @@ class PostgresSourceLifecycleTest {
                 delivery.operationId(),
                 delivery.deliveryId()
         ).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(stale.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
-        org.junit.jupiter.api.Assertions.assertNull(current.initialQueueWait());
+        assertThat(stale.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
+        assertNull(current.initialQueueWait());
         assertNotEquals(stale.claimToken(), current.claimToken());
         DocumentId documentId = new DocumentId(UUID.randomUUID());
         jdbcClient.sql("""
@@ -627,7 +628,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void persistsExtractionMetadataWithTheDocumentVersion() {
-        var documents = new JdbcDocumentRepository(jdbcClient, objectMapper);
+        var documents = new JdbcDocumentRepository(jdbcClient, objectMapper, _ -> { });
         documents.publish(
                 new TenantId(tenantId),
                 null,
@@ -718,8 +719,8 @@ class PostgresSourceLifecycleTest {
                 cleanupDelivery.operationId(),
                 cleanupDelivery.deliveryId()
         ).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(staleCleanup.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
-        org.junit.jupiter.api.Assertions.assertNull(currentCleanup.initialQueueWait());
+        assertThat(staleCleanup.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
+        assertNull(currentCleanup.initialQueueWait());
         assertNotEquals(staleCleanup.claimToken(), currentCleanup.claimToken());
         assertFalse(cleanup.fail(staleCleanup, "SOURCE_CLEANUP_INTERNAL"));
         assertTrue(cleanup.fail(currentCleanup, "SOURCE_CLEANUP_INTERNAL"));
@@ -860,7 +861,7 @@ class PostgresSourceLifecycleTest {
             return new ContentSha256(HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(content)
             ));
-        } catch (java.security.NoSuchAlgorithmException exception) {
+        } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
     }

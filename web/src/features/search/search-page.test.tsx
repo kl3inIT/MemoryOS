@@ -11,7 +11,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import { ThemeProvider } from "@/features/theme/theme-provider";
-import { NewSessionPage } from "./new-session-page";
+import { SearchPage } from "./search-page";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const OWNER_SESSION: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
@@ -33,7 +34,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
     component: () => (
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
-          <NewSessionPage />
+          <SearchPage />
         </ThemeProvider>
       </ApplicationSessionProvider>
     ),
@@ -43,7 +44,11 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
   await router.load();
-  return render(<RouterProvider router={router} />);
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }
 
 afterEach(() => {
@@ -53,18 +58,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("NewSessionPage", () => {
-  it("renders New Session inside the authenticated application shell", async () => {
+describe("SearchPage", () => {
+  it("renders Search inside the authenticated application shell", async () => {
     await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "New Session" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
-    expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Ask MemoryOS" })).toBeDisabled();
+    expect(screen.getByRole("heading", { name: "Search your documents" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
   });
 

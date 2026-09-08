@@ -1,6 +1,8 @@
 package io.memoryos.document;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
@@ -31,7 +33,7 @@ class ExtractionArtifactLifecycleTest {
         jdbc = JdbcClient.create(source);
         transaction = new TransactionTemplate(new DataSourceTransactionManager(source));
         artifacts = new JdbcExtractionArtifactRepository(jdbc);
-        documents = new JdbcDocumentRepository(jdbc, new ObjectMapper());
+        documents = new JdbcDocumentRepository(jdbc, new ObjectMapper(), _ -> { });
         tenant = new TenantId(UUID.randomUUID());
         jdbc.sql("""
                 INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference)

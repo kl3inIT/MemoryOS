@@ -9,21 +9,21 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.iam.TenantId;
 import io.memoryos.ingestion.DispatchClaim;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.memoryos.iam.TenantId;
-
+import io.opentelemetry.api.OpenTelemetry;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.core.StreamOperations;
@@ -38,7 +38,7 @@ class RedisOperationRelayTest {
     private final RedisExecutionProperties properties = properties();
     private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private final RedisExecutionMetrics metrics = new RedisExecutionMetrics(registry, redis, properties);
-    private final RedisOperationRelay relay = new RedisOperationRelay(redis, dispatch, properties, metrics, io.opentelemetry.api.OpenTelemetry.noop());
+    private final RedisOperationRelay relay = new RedisOperationRelay(redis, dispatch, properties, metrics, OpenTelemetry.noop());
 
     @BeforeEach
     void configureStreamOperations() {
@@ -50,7 +50,7 @@ class RedisOperationRelayTest {
         DispatchClaim claim = claim();
         when(streams.size(properties.ingestion().stream())).thenReturn(0L);
         when(dispatch.claim(OperationWorkload.INGESTION, properties.ingestion().batchSize()))
-                .thenReturn(java.util.List.of(claim));
+                .thenReturn(List.of(claim));
         when(streams.add(eq(properties.ingestion().stream()), anyMap())).thenReturn(RecordId.of("1-0"));
 
         relay.relay(OperationWorkload.INGESTION);
@@ -81,7 +81,7 @@ class RedisOperationRelayTest {
         when(streams.size(properties.ingestion().stream())).thenReturn(properties.maxStreamDepth());
         when(streams.size(properties.cleanup().stream())).thenReturn(0L);
         when(dispatch.claim(OperationWorkload.CLEANUP, properties.cleanup().batchSize()))
-                .thenReturn(java.util.List.of(cleanupClaim));
+                .thenReturn(List.of(cleanupClaim));
         when(streams.add(eq(properties.cleanup().stream()), anyMap())).thenReturn(RecordId.of("2-0"));
 
         relay.relay(OperationWorkload.INGESTION);
@@ -96,7 +96,7 @@ class RedisOperationRelayTest {
         DispatchClaim claim = claim();
         when(streams.size(properties.ingestion().stream())).thenReturn(0L);
         when(dispatch.claim(OperationWorkload.INGESTION, properties.ingestion().batchSize()))
-                .thenReturn(java.util.List.of(claim));
+                .thenReturn(List.of(claim));
         when(streams.add(eq(properties.ingestion().stream()), anyMap()))
                 .thenThrow(new DataAccessResourceFailureException("unavailable"));
 
@@ -110,7 +110,7 @@ class RedisOperationRelayTest {
         DispatchClaim claim = claim();
         when(streams.size(properties.ingestion().stream())).thenReturn(0L);
         when(dispatch.claim(OperationWorkload.INGESTION, properties.ingestion().batchSize()))
-                .thenReturn(java.util.List.of(claim));
+                .thenReturn(List.of(claim));
         when(streams.add(eq(properties.ingestion().stream()), anyMap())).thenReturn(RecordId.of("1-0"));
         when(dispatch.recordPublished(claim, "1-0", properties.rediscoveryDelay()))
                 .thenThrow(new DataAccessResourceFailureException("database unavailable"));
@@ -126,12 +126,13 @@ class RedisOperationRelayTest {
                 .flatMap(meter -> meter.getId().getTags().stream())
                 .toList();
 
-        assertThat(tags).extracting(io.micrometer.core.instrument.Tag::getKey)
+        assertThat(tags).extracting(Tag::getKey)
                 .containsOnly("workload", "outcome");
-        assertThat(tags).extracting(io.micrometer.core.instrument.Tag::getValue)
+        assertThat(tags).extracting(Tag::getValue)
                 .containsOnly(
                         "ingestion",
                         "cleanup",
+                        "search",
                         "backpressure",
                         "published",
                         "stale",
@@ -171,7 +172,8 @@ class RedisOperationRelayTest {
                 Duration.ofMinutes(2),
                 1_000,
                 new RedisExecutionProperties.Workload("ingestion", "ingestion-workers", 8),
-                new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8)
+                new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8),
+                new RedisExecutionProperties.Workload("search", "search-workers", 2)
         );
     }
 }

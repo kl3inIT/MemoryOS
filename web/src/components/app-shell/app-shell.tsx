@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Menu,
-  SquarePen,
+  Search,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -122,12 +122,12 @@ function SidebarContents({
         {appArea ? (
           <SidebarTab
             to="/"
-            icon={<SquarePen className="size-4" />}
+            icon={<Search className="size-4" />}
             selected
             collapsed={collapsed}
             onClick={onNavigate}
           >
-            New Session
+            Search
           </SidebarTab>
         ) : (
           <div className="space-y-5">

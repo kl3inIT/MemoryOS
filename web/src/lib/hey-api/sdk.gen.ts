@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGroupData, GetGroupResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses } from './types.gen';
+import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGroupData, GetGroupResponses, GetSearchDocumentData, GetSearchDocumentResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, SearchDocumentsData, SearchDocumentsResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -170,6 +170,23 @@ export const createFileSource = <ThrowOnError extends boolean = false>(options: 
             type: 'apiKey'
         }],
     url: '/api/sources/file',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Search current documents with keyword and semantic retrieval
+ */
+export const searchDocuments = <ThrowOnError extends boolean = false>(options: Options<SearchDocumentsData, ThrowOnError>): RequestResult<SearchDocumentsResponses, unknown, ThrowOnError> => (options.client ?? client).post<SearchDocumentsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -467,6 +484,19 @@ export const getSourceOperation = <ThrowOnError extends boolean = false>(options
             type: 'apiKey'
         }],
     url: '/api/source-operations/{operationId}',
+    ...options
+});
+
+/**
+ * Read current document passages around a search result
+ */
+export const getSearchDocument = <ThrowOnError extends boolean = false>(options: Options<GetSearchDocumentData, ThrowOnError>): RequestResult<GetSearchDocumentResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSearchDocumentResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/documents/{documentId}',
     ...options
 });
 
