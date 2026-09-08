@@ -37,6 +37,6 @@ API and worker explicitly compose JPA support for IAM repositories and JDBC acce
 
 ## References
 
-- [Combined implementation design](../increments/active/mem-36-iam-jpa/design.md)
-- [Implementation plan](../increments/active/mem-36-iam-jpa/plan.md)
+- [Combined implementation design](../increments/completed/mem-36-iam-jpa/design.md)
+- [Implementation plan](../increments/completed/mem-36-iam-jpa/plan.md)
 - [Source persistence decision](0006-shared-connector-bundle-and-jdbc-source-persistence.md)

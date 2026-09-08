@@ -1,5 +1,7 @@
 # Delivery verification
 
+> Delivery status — 2026-09-08: [MEM-70](https://linear.app/memory-os/issue/MEM-70) is closed with task-owner-approved health-only staging acceptance. The GitHub deployment path below is implemented but its dedicated credentials and automatic activation are not configured; business smoke and live rollback rehearsal were not performed. This closure does not assert those gates passed.
+
 | Contract | Verification | Evidence boundary |
 | --- | --- | --- |
 | Required dependencies cannot silently skip integration | Mandatory Testcontainers classes; `clean check`; bounded no-Docker JUnit probe | Docker absence fails a required container; the three opt-in live Docling checks remain separate |
@@ -17,4 +19,4 @@
 | Real accepted Search flow | `web/tests/staging/search.spec.ts`, normal identity and FILE/Search UI | Dedicated account, real Keycloak/MinIO/worker/OpenSearch; prints only its own cleanup source ID |
 | Rollback is explicit and compatible | Prior image IDs/configuration, schema comparison, database backup, repeated live smoke | Backup catalogue is not restore proof; changed schema needs operator recovery |
 
-The first manual deployment, compatible rollback rehearsal and automatic-deploy activation require the environment and identity configuration in the [runbook](../runbooks/ci-cd.md). Do not report these as passed from local tests or workflow validation. In-flight commands/results belong in the [MEM-70 verification record](../increments/active/mem-70-testing-cicd/verification.md); post-merge runtime evidence belongs in Linear.
+The first manual deployment, compatible rollback rehearsal and automatic-deploy activation require the environment and identity configuration in the [runbook](../runbooks/ci-cd.md). Do not report these as passed from local tests or workflow validation. In-flight commands/results belong in the [MEM-70 verification record](../increments/completed/mem-70-testing-cicd/verification.md); post-merge runtime evidence belongs in Linear.

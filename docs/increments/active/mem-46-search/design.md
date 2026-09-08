@@ -4,7 +4,7 @@ Status: implementation được duyệt và bắt đầu ngày 2026-09-08 trên 
 
 Quyết định này thay yêu cầu cũ hoàn tất Search và Chat trong một issue. Search được nghiệm thu/đóng theo contract riêng, không phải chờ answer streaming hoặc LLM context expansion. Phần permission chi tiết tạm để bàn sau; tiếp tục dùng IAM/session/source boundaries hiện có, không thêm cơ chế permission mới trong bước lập kế hoạch này.
 
-[Plan](plan.md) giữ checklist Search; [Onyx cụ thể](onyx-search.md) phân biệt Search UI, SearchTool trong Chat và Search API. [Chat design](../mem-11-production-chat/design.md) giữ phần còn lại. Bộ [thiết kế gộp cũ](../mem-46-authorized-rag/design.md) chỉ là research/history; completion gate cũ không còn áp dụng.
+[Plan](plan.md) giữ checklist Search; [Onyx cụ thể](onyx-search.md) phân biệt Search UI, SearchTool trong Chat và Search API. [Chat design](../mem-11-production-chat/design.md) giữ phần còn lại. Bộ [thiết kế gộp cũ](../../superseded/mem-46-authorized-rag/design.md) chỉ là research/history; completion gate cũ không còn áp dụng.
 
 ## Kết quả cần có
 

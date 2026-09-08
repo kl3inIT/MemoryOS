@@ -1,5 +1,7 @@
 # CI and staging delivery
 
+> Delivery status — 2026-09-08: [MEM-70](https://linear.app/memory-os/issue/MEM-70) is closed with task-owner-approved health-only staging acceptance. The GitHub deployment path below is implemented but its dedicated credentials and automatic activation are not configured; business smoke and live rollback rehearsal were not performed. This closure does not assert those gates passed.
+
 The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.yml) verifies changes and publishes main releases; [Deploy staging](../../.github/workflows/deploy-staging.yml) promotes a verified release. Actions owns orchestration. The server runs [one Compose script](../../infrastructure/deployment/deploy-staging.sh); authenticated acceptance uses the existing [Playwright stack](../../web/tests/staging/search.spec.ts).
 
 ## Required verification and release identity

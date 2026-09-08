@@ -28,19 +28,13 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 ## Current active increments
 
-- [MEM-75 — Selected dependency upgrades](docs/increments/active/mem-75-dependency-upgrades/design.md) verifies the user-selected springdoc, Actions, Nginx and frontend updates while retaining Java 25 and Node 24.
+- [MEM-46 — Search](docs/increments/active/mem-46-search/design.md) is deployed and In Review; Search UI/UX completion and feature acceptance are assigned to `phamnhatanh811`.
+- [MEM-11 — Production Chat](docs/increments/active/mem-11-production-chat/design.md) is Todo; it consumes Search and remains blocked by MEM-46 and MEM-25 on Linear.
+- [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates MEM-9/MEM-10/MEM-63 and the MEM-76 selection/sync-history extension. These are In Progress with `nhuxuanviet27102004`; the provider is not yet merged into main.
 
-- [MEM-70 — Testing and CI/CD](docs/increments/active/mem-70-testing-cicd/design.md) is the current delivery priority. See its test audit and source-backed testing policy before expanding the suite.
+Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 
-- [MEM-55 — Users management](docs/increments/active/mem-55-users-management/design.md) and [MEM-36 — Unified JPA IAM and Groups](docs/increments/active/mem-36-iam-jpa/design.md) share one implementation branch.
-
-- [MEM-64 - Ingestion outcome metrics and observability conventions](docs/increments/active/mem-64-ingestion-observability/design.md)
-
-- [MEM-56 — Owner-only MinIO Console with Keycloak SSO](docs/increments/active/mem-56-minio-console-sso/design.md)
-
-- [MEM-46 — Search](docs/increments/active/mem-46-search/design.md) is being implemented first; [MEM-11 — Production Chat](docs/increments/active/mem-11-production-chat/design.md) is a separate planned increment depending on Search. The earlier combined RAG draft is superseded.
-
-Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
+Keep each active increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
 ## Canonical references
 

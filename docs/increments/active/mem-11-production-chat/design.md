@@ -29,7 +29,7 @@ Typed query plan giữ original question, semantic rewrite, keyword variants và
 
 Weighted RRF dùng rank positions giữa các query lists, tách khỏi lexical/vector fusion bên trong mỗi query. Chốt k/weights/duplicate-query semantics/ties từ evaluation, không sao chép Onyx defaults thành quality claim. Ghép adjacent/overlapping chunks trong cùng current artifact; giữ heading/table/provenance.
 
-Structured selection và extent decisions chỉ dùng server-owned candidate IDs/ranges; kiểm schema, allowlist/range/dedup và budget. Native structured output phải được test trên approved gateway; malformed output/timeouts có bounded retry/outcome. Neighbor context phải là text thực, không HyDE-generated evidence. Xem [Onyx thực tế](../mem-46-search/onyx-search.md) và [recipe review](../mem-46-authorized-rag/spring-ai-recipes-review.md).
+Structured selection và extent decisions chỉ dùng server-owned candidate IDs/ranges; kiểm schema, allowlist/range/dedup và budget. Native structured output phải được test trên approved gateway; malformed output/timeouts có bounded retry/outcome. Neighbor context phải là text thực, không HyDE-generated evidence. Xem [Onyx thực tế](../mem-46-search/onyx-search.md) và [recipe review](../../superseded/mem-46-authorized-rag/spring-ai-recipes-review.md).
 
 ## Conversation và streaming production
 
