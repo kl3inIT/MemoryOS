@@ -10,6 +10,10 @@ Require every CI Gate dependency to pass on the latest head, collect one complet
 
 Merge authorization is not deployment or live Google/Tasco acceptance. The review databases, running build outputs, Sources, credentials, selections, schedules and provider data stay untouched. The broad ingestion increment remains active while its separately recorded provider/customer-data/ACL acceptance is outstanding; do not close those issues merely because the implementation PR merges.
 
+PR [#89](https://github.com/kl3inIT/MemoryOS/pull/89) opened at head `48fc186a8229a772aee7b9bc196f8981b22165ca`. The single CodeRabbit request/pass reported a 100-file quota (286 eligible files) and insufficient usage credits; complete comments/reviews/inline/thread collection found no actionable output and no review threads. This is missing reviewer coverage, not an approval. Use the documented quota fallback only after latest-head CI is green and the base/head merge guard passes; do not request another review.
+
+Initial CI [34377420997](https://github.com/kl3inIT/MemoryOS/actions/runs/34377420997) flagged one historical secret-scan false positive from remote MEM-66 commit `e883751`: the model-output table entry `finish_reason=length`, not a credential. Gitleaks 8.30.1 reproduced the same single finding across remote histories. Add only its exact commit/path/rule/line fingerprint to the existing exception file; retain the full-history scan and all other checks.
+
 ## Publication and main refresh — 2026-09-09
 
 The user approved scoped commits, merging current `origin/main` into this feature branch, verification, push and Linear linkage. Source/Google Drive conflict resolution prioritizes `HEAD`; retain its behavior while integrating main Chat/JIT. This is not authorization to open or merge a PR, deploy, or mark MEM-76 Done.
