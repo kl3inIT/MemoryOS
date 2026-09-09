@@ -1,5 +1,6 @@
 package io.memoryos;
 
+import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
@@ -9,7 +10,6 @@ import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
 import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
@@ -36,28 +36,34 @@ public final class TestDatabase {
     private TestDatabase() {
     }
 
-
     /**
      * Resets the shared PostgreSQL container's public schema and applies production Flyway migrations.
+     * The caller owns the returned pool and must close it after the fixture, including failed setup.
      */
-    public static DriverManagerDataSource freshPostgres() throws SQLException {
+    public static HikariDataSource freshPostgres() throws SQLException {
         return freshPostgres("latest");
     }
 
-    public static DriverManagerDataSource freshPostgres(String targetVersion) throws SQLException {
+    public static HikariDataSource freshPostgres(String targetVersion) throws SQLException {
         PostgreSQLContainer container = postgres();
-        var dataSource = new DriverManagerDataSource(
-                container.getJdbcUrl(),
-                container.getUsername(),
-                container.getPassword()
-        );
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-            statement.execute("DROP SCHEMA public CASCADE");
-            statement.execute("CREATE SCHEMA public");
+        var dataSource = new HikariDataSource();
+        dataSource.setJdbcUrl(container.getJdbcUrl());
+        dataSource.setUsername(container.getUsername());
+        dataSource.setPassword(container.getPassword());
+        dataSource.setMaximumPoolSize(4);
+        dataSource.setMinimumIdle(1);
+        try {
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                statement.execute("DROP SCHEMA public CASCADE");
+                statement.execute("CREATE SCHEMA public");
+            }
+            Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                    .target(targetVersion).load().migrate();
+            return dataSource;
+        } catch (SQLException | RuntimeException | Error failure) {
+            dataSource.close();
+            throw failure;
         }
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
-                .target(targetVersion).load().migrate();
-        return dataSource;
     }
 
     public static <T> T transactionalProxy(

@@ -57,6 +57,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
+                "arconia.dev.services.redis.enabled=false",
                 "management.otlp.metrics.export.enabled=true",
                 "management.otlp.metrics.export.step=1s",
                 "management.otlp.metrics.export.aggregation-temporality=cumulative",
@@ -77,7 +78,13 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "memoryos.redis.ingestion.batch-size=4",
                 "memoryos.redis.cleanup.stream=memoryos:test:cutover:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-cutover-cleanup",
-                "memoryos.redis.cleanup.batch-size=4"
+                "memoryos.redis.cleanup.batch-size=4",
+                "memoryos.redis.search.stream=memoryos:test:cutover:search",
+                "memoryos.redis.search.group=memoryos-test-cutover-search",
+                "memoryos.redis.source-sync.stream=memoryos:test:cutover:source-sync",
+                "memoryos.redis.source-sync.group=memoryos-test-cutover-source-sync",
+                "memoryos.redis.selection-validation.stream=memoryos:test:cutover:selection-validation",
+                "memoryos.redis.selection-validation.group=memoryos-test-cutover-selection-validation"
         }
 )
 @org.springframework.context.annotation.Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
@@ -157,6 +164,17 @@ class WorkerFileProcessingIntegrationTest {
             .withPassword("memoryos");
 
     @Container
+    private static final GenericContainer<?> REDIS = new GenericContainer<>(
+            DockerImageName.parse(
+                    "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232"
+            )
+    )
+            .withExposedPorts(6379)
+            .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
+            .withStartupTimeout(Duration.ofSeconds(30));
+
+
+    @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
             DockerImageName.parse(
                     "minio/minio:RELEASE.2025-04-22T22-12-26Z"
@@ -197,12 +215,14 @@ class WorkerFileProcessingIntegrationTest {
     private RedisExecutionTopology topology;
 
     @DynamicPropertySource
-    static void databaseProperties(DynamicPropertyRegistry registry) {
+    static void serviceProperties(DynamicPropertyRegistry registry) {
         if (System.getenv("DOCLING_TEST_ENDPOINT") != null) {
             registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
         }
         registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
         WorkerPostgresDatabase.configure(registry, POSTGRES);
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         registry.add("memoryos.object-storage.s3.service-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
         registry.add("memoryos.object-storage.s3.upload-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
         registry.add("memoryos.object-storage.s3.region", () -> "us-east-1");
@@ -276,7 +296,7 @@ class WorkerFileProcessingIntegrationTest {
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
         worker.stop();
-        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of()).source().id();
+        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of()).id();
         boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
         byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
@@ -338,8 +358,8 @@ class WorkerFileProcessingIntegrationTest {
         worker.start();
 
         // The real isolated extractor permits 90 seconds, plus stream reclaim/startup.
-        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
-        assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
+        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).status() == SourceStatus.ACTIVE);
+        assertEquals(1L, sources.getSource(OWNER, sourceId).documentCount());
         await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count() == 1);
         var initialWait = registry.get("memoryos.operation.initial.queue.wait").tag("workload", "INGESTION").timer();
         assertEquals(1, initialWait.count());
@@ -399,7 +419,7 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(1, initialWait.count());
         assertEquals(1, registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count());
         sources.removeItem(OWNER, sourceId, upload.item().id());
-        await(() -> sources.getSource(OWNER, sourceId).items().isEmpty());
+        await(() -> sources.listItems(OWNER, sourceId, null, 25).items().isEmpty());
         extractionArtifacts.cleanup();
         await(() -> jdbcClient.sql("SELECT COUNT(*) FROM document_extraction_artifacts")
                 .query(Integer.class).single() == 0);

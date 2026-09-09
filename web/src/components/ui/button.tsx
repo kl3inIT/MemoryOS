@@ -15,9 +15,9 @@ const buttonSizes = cva(
   {
     variants: {
       size: {
-        sm: "h-[var(--control-height-sm)] gap-1.5 px-3 [&_svg:not([class*='size-'])]:size-[var(--control-icon-sm)]",
-        md: "h-[var(--control-height-md)] gap-2 px-4 [&_svg:not([class*='size-'])]:size-[var(--control-icon-md)]",
-        lg: "h-[var(--control-height-lg)] gap-2 px-5 [&_svg:not([class*='size-'])]:size-[var(--control-icon-lg)]",
+        sm: "h-[var(--control-height-sm)] gap-1.5 px-2 [&_svg:not([class*='size-'])]:size-[var(--control-icon-sm)]",
+        md: "h-[var(--control-height-md)] gap-2 px-3 [&_svg:not([class*='size-'])]:size-[var(--control-icon-md)]",
+        lg: "h-[var(--control-height-lg)] gap-2 px-3 [&_svg:not([class*='size-'])]:size-[var(--control-icon-lg)]",
       },
     },
     defaultVariants: {

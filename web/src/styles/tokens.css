@@ -1,31 +1,32 @@
 :root {
   color-scheme: light;
 
-  /* Monochrome primitive palette. Product components consume semantic roles below. */
-  --neutral-00: oklch(1 0 0);
-  --neutral-25: oklch(0.985 0.003 260);
-  --neutral-50: oklch(0.97 0.003 260);
-  --neutral-100: oklch(0.922 0.004 260);
-  --neutral-200: oklch(0.87 0.006 260);
-  --neutral-400: oklch(0.63 0.01 260);
-  --neutral-500: oklch(0.556 0.01 260);
-  --neutral-700: oklch(0.371 0.01 260);
-  --neutral-800: oklch(0.269 0.008 260);
-  --neutral-900: oklch(0.205 0.006 260);
-  --neutral-950: oklch(0.145 0.004 260);
+  /* Onyx/Opal MIT palette adapted to MemoryOS semantic roles; see /THIRD_PARTY_NOTICES.txt. */
+  --neutral-00: #ffffff;
+  --neutral-25: #fafafa;
+  --neutral-50: #f0f0f0;
+  --neutral-100: #e6e6e6;
+  --neutral-200: #cccccc;
+  --neutral-400: #a4a4a4;
+  --neutral-500: #808080;
+  --neutral-700: #555555;
+  --neutral-800: #333333;
+  --neutral-900: #1c1c1c;
+  --neutral-950: #000000;
 
   /* Semantic surfaces and content. */
-  --surface-canvas: var(--neutral-25);
-  --surface-base: var(--neutral-00);
+  --surface-canvas: #f0f0f1;
+  --surface-base: #fafafa;
   --surface-raised: var(--neutral-00);
-  --surface-subtle: var(--neutral-50);
-  --surface-sunken: var(--neutral-100);
+  --surface-subtle: #f0f0f1;
+  --surface-sunken: #e6e6e9;
   --surface-overlay: var(--neutral-00);
+  --surface-scrim: #00000066;
 
-  --content-primary: var(--neutral-950);
-  --content-secondary: var(--neutral-700);
-  --content-muted: var(--neutral-500);
-  --content-disabled: var(--neutral-400);
+  --content-primary: #000000e5;
+  --content-secondary: #000000bf;
+  --content-muted: #0000008c;
+  --content-disabled: #00000073;
   --content-inverse: var(--neutral-00);
 
   --border-subtle: var(--neutral-100);
@@ -43,17 +44,17 @@
   --action-default-primary-border-hover: transparent;
   --action-default-primary-border-active: transparent;
   --action-default-secondary-surface: var(--surface-base);
-  --action-default-secondary-surface-hover: var(--surface-subtle);
-  --action-default-secondary-surface-active: var(--surface-sunken);
-  --action-default-secondary-content: var(--content-primary);
+  --action-default-secondary-surface-hover: var(--surface-canvas);
+  --action-default-secondary-surface-active: var(--surface-raised);
+  --action-default-secondary-content: var(--content-secondary);
   --action-default-secondary-content-hover: var(--content-primary);
   --action-default-secondary-content-active: var(--content-primary);
-  --action-default-secondary-border: var(--border-default);
-  --action-default-secondary-border-hover: var(--border-strong);
-  --action-default-secondary-border-active: var(--border-strong);
+  --action-default-secondary-border: var(--border-subtle);
+  --action-default-secondary-border-hover: var(--border-default);
+  --action-default-secondary-border-active: var(--border-default);
   --action-default-tertiary-surface: transparent;
-  --action-default-tertiary-surface-hover: var(--surface-subtle);
-  --action-default-tertiary-surface-active: var(--surface-sunken);
+  --action-default-tertiary-surface-hover: var(--surface-canvas);
+  --action-default-tertiary-surface-active: var(--surface-raised);
   --action-default-tertiary-content: var(--content-secondary);
   --action-default-tertiary-content-hover: var(--content-primary);
   --action-default-tertiary-content-active: var(--content-primary);
@@ -61,8 +62,8 @@
   --action-default-tertiary-border-hover: transparent;
   --action-default-tertiary-border-active: transparent;
   --action-default-internal-surface: transparent;
-  --action-default-internal-surface-hover: var(--surface-subtle);
-  --action-default-internal-surface-active: var(--surface-sunken);
+  --action-default-internal-surface-hover: var(--surface-raised);
+  --action-default-internal-surface-active: var(--surface-raised);
   --action-default-internal-content: var(--content-secondary);
   --action-default-internal-content-hover: var(--content-primary);
   --action-default-internal-content-active: var(--content-primary);
@@ -74,19 +75,11 @@
   --action-default-disabled-border: var(--border-subtle);
 
   --action-danger-primary-surface: var(--status-danger-strong);
-  --action-danger-primary-surface-hover: color-mix(
-    in oklch,
-    var(--status-danger-strong),
-    var(--content-primary) 8%
-  );
-  --action-danger-primary-surface-active: color-mix(
-    in oklch,
-    var(--status-danger-strong),
-    var(--content-primary) 14%
-  );
-  --action-danger-primary-content: var(--content-inverse);
-  --action-danger-primary-content-hover: var(--content-inverse);
-  --action-danger-primary-content-active: var(--content-inverse);
+  --action-danger-primary-surface-hover: #e8594e;
+  --action-danger-primary-surface-active: #b02b27;
+  --action-danger-primary-content: var(--neutral-00);
+  --action-danger-primary-content-hover: var(--neutral-00);
+  --action-danger-primary-content-active: var(--neutral-00);
   --action-danger-primary-border: transparent;
   --action-danger-primary-border-hover: transparent;
   --action-danger-primary-border-active: transparent;
@@ -144,12 +137,12 @@
   --action-danger-disabled-surface: var(--surface-sunken);
   --action-danger-disabled-content: var(--content-disabled);
   --action-danger-disabled-border: var(--border-subtle);
-  --focus-ring: var(--neutral-400);
+  --focus-ring: var(--neutral-950);
 
   /* Shared control dimensions. */
-  --control-height-sm: 2rem;
-  --control-height-md: 2.5rem;
-  --control-height-lg: 2.75rem;
+  --control-height-sm: 1.75rem;
+  --control-height-md: 2.25rem;
+  --control-height-lg: 2.5rem;
   --control-icon-sm: 0.875rem;
   --control-icon-md: 1rem;
   --control-icon-lg: 1.125rem;
@@ -166,28 +159,28 @@
   --action-ghost-hover: var(--action-default-tertiary-surface-hover);
   --action-ghost-active: var(--action-default-tertiary-surface-active);
 
-  --status-danger-strong: oklch(0.577 0.245 27.325);
-  --status-danger-surface: oklch(0.97 0.025 27.325);
-  --status-danger-content: oklch(0.47 0.18 27.325);
-  --status-success-surface: oklch(0.97 0.03 155);
-  --status-success-content: oklch(0.43 0.13 155);
-  --status-warning-surface: oklch(0.975 0.04 85);
-  --status-warning-content: oklch(0.47 0.12 70);
-  --status-info-surface: var(--neutral-50);
-  --status-info-content: var(--neutral-700);
+  --status-danger-strong: #dc2626;
+  --status-danger-surface: #fceae7;
+  --status-danger-content: #c12222;
+  --status-success-surface: #e6f2e7;
+  --status-success-content: #007a2d;
+  --status-warning-surface: #fbeae4;
+  --status-warning-content: #b54204;
+  --status-info-surface: #e7effc;
+  --status-info-content: #245fda;
 
-  --elevation-1: 0 1px 2px oklch(0.16 0.01 260 / 0.05);
-  --elevation-2: 0 1px 2px oklch(0.16 0.01 260 / 0.06), 0 8px 24px oklch(0.16 0.01 260 / 0.07);
-  --radius: 0.625rem;
+  --elevation-1: 0 1px 2px #0000000d;
+  --elevation-2: 0 0 0 1px #00000005, 0 4px 8px -2px #00000014, 0 12px 24px -4px #00000014;
+  --radius: 0.5rem;
 
   /* Shared application-layout measurements. */
   --page-width-narrow: 42rem;
-  --page-width-standard: 56rem;
+  --page-width-standard: 54.5rem;
   --page-width-wide: 80rem;
-  --page-gutter: 2rem;
-  --page-gutter-compact: 1.25rem;
+  --page-gutter: 1rem;
+  --page-gutter-compact: 1rem;
   --sidebar-width: 15rem;
-  --sidebar-width-collapsed: 4rem;
+  --sidebar-width-collapsed: 3.25rem;
 
   /* shadcn compatibility aliases. */
   --background: var(--surface-base);
@@ -228,37 +221,40 @@
 .dark {
   color-scheme: dark;
 
-  --surface-canvas: oklch(0.125 0.009 260);
-  --surface-base: oklch(0.145 0.008 260);
-  --surface-raised: oklch(0.205 0.008 260);
-  --surface-subtle: oklch(0.269 0.008 260);
-  --surface-sunken: oklch(0.12 0.008 260);
-  --surface-overlay: oklch(0.105 0.006 260);
+  --surface-canvas: #26262b;
+  --surface-base: #19191e;
+  --surface-raised: #000000;
+  --surface-subtle: #26262b;
+  --surface-sunken: #323239;
+  --surface-overlay: #262626;
+  --surface-scrim: #00000099;
 
-  --content-primary: oklch(0.985 0.003 260);
-  --content-secondary: oklch(0.82 0.008 260);
-  --content-muted: oklch(0.708 0.01 260);
-  --content-disabled: oklch(0.5 0.01 260);
-  --content-inverse: var(--neutral-900);
+  --content-primary: #fffffff2;
+  --content-secondary: #ffffffd9;
+  --content-muted: #ffffff99;
+  --content-disabled: #ffffff73;
+  --content-inverse: #000000e5;
 
-  --border-subtle: oklch(1 0 0 / 10%);
-  --border-default: oklch(1 0 0 / 15%);
-  --border-strong: oklch(1 0 0 / 24%);
+  --border-subtle: #333333;
+  --border-default: #555555;
+  --border-strong: #808080;
 
-  --action-default-primary-surface: oklch(0.922 0.006 260);
-  --action-default-primary-surface-hover: oklch(0.985 0.003 260);
-  --action-default-primary-surface-active: oklch(0.84 0.008 260);
-  --focus-ring: var(--neutral-500);
+  --action-default-primary-surface: #e9e9e9;
+  --action-default-primary-surface-hover: #cacaca;
+  --action-default-primary-surface-active: #ffffff;
+  --action-danger-primary-surface-hover: #b02b27;
+  --action-danger-primary-surface-active: #e8594e;
+  --focus-ring: #ffffff;
 
-  --status-danger-strong: oklch(0.704 0.191 22.216);
-  --status-danger-surface: oklch(0.28 0.07 25);
-  --status-danger-content: oklch(0.8 0.11 25);
-  --status-success-surface: oklch(0.25 0.055 155);
-  --status-success-content: oklch(0.79 0.11 155);
-  --status-warning-surface: oklch(0.27 0.055 75);
-  --status-warning-content: oklch(0.82 0.12 80);
-  --status-info-surface: var(--surface-subtle);
-  --status-info-content: var(--content-secondary);
+  --status-danger-strong: #dc2626;
+  --status-danger-surface: #330b09;
+  --status-danger-content: #ff8276;
+  --status-success-surface: #002207;
+  --status-success-content: #48c775;
+  --status-warning-surface: #320d01;
+  --status-warning-content: #fb945d;
+  --status-info-surface: #091938;
+  --status-info-content: #8cb4ff;
 
   --elevation-1: 0 1px 2px oklch(0 0 0 / 0.24);
   --elevation-2: 0 1px 2px oklch(0 0 0 / 0.22), 0 12px 32px oklch(0 0 0 / 0.28);

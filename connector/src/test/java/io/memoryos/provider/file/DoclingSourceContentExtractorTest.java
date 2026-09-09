@@ -9,6 +9,7 @@ import ai.docling.serve.api.convert.response.DocumentResponse;
 import ai.docling.serve.api.convert.response.InBodyConvertDocumentResponse;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.connector.SourceInputDescriptor;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
@@ -69,10 +70,10 @@ class DoclingSourceContentExtractorTest {
     void plainTextDoesNotCallDoclingAndInputSizeIsValidated() throws Exception {
         try (var extractor = extractor()) {
             byte[] text = "MemoryOS indexing test".getBytes(StandardCharsets.UTF_8);
-            assertTrue(extractor.extract(new ByteArrayInputStream(text), text.length, "note.txt")
+            assertTrue(extractor.extract(new ByteArrayInputStream(text), text.length, "note.txt", SourceInputDescriptor.binary())
                     .normalizedText().contains("MemoryOS indexing test"));
             assertThrows(ExtractionException.class,
-                    () -> extractor.extract(new ByteArrayInputStream(text), text.length + 1, "note.txt"));
+                    () -> extractor.extract(new ByteArrayInputStream(text), text.length + 1, "note.txt", SourceInputDescriptor.binary()));
             verifyNoInteractions(client);
         }
     }
@@ -93,10 +94,10 @@ class DoclingSourceContentExtractorTest {
         }
         try (var extractor = extractor()) {
             assertEquals(ExtractionFailure.ENCRYPTED, assertThrows(ExtractionException.class,
-                    () -> extractor.extract(new ByteArrayInputStream(bytes), bytes.length, "encrypted.pdf")).failure());
+                    () -> extractor.extract(new ByteArrayInputStream(bytes), bytes.length, "encrypted.pdf", SourceInputDescriptor.binary())).failure());
             byte[] broken = "%PDF-1.7\nbroken".getBytes(StandardCharsets.UTF_8);
             assertEquals(ExtractionFailure.MALFORMED, assertThrows(ExtractionException.class,
-                    () -> extractor.extract(new ByteArrayInputStream(broken), broken.length, "broken.pdf")).failure());
+                    () -> extractor.extract(new ByteArrayInputStream(broken), broken.length, "broken.pdf", SourceInputDescriptor.binary())).failure());
             verifyNoInteractions(client);
         }
     }
@@ -108,6 +109,6 @@ class DoclingSourceContentExtractorTest {
             pdf.save(out);
             bytes = out.toByteArray();
         }
-        return extractor.extract(new ByteArrayInputStream(bytes), bytes.length, "file.pdf");
+        return extractor.extract(new ByteArrayInputStream(bytes), bytes.length, "file.pdf", SourceInputDescriptor.binary());
     }
 }

@@ -60,6 +60,18 @@ public class JdbcSourceOperationQueryRepository {
                                    cleanup.error_code
                             FROM connector_cleanup_attempts cleanup
                             WHERE cleanup.tenant_id = :tenantId AND cleanup.id = :operationId
+                            UNION ALL
+                            SELECT sync.id, sync.tenant_id, sync.source_id,
+                                   'SYNC_SOURCE' AS operation, sync.status, sync.created_at,
+                                   sync.completed_at, sync.error_code
+                            FROM source_sync_attempts sync
+                            WHERE sync.tenant_id = :tenantId AND sync.id = :operationId
+                            UNION ALL
+                            SELECT selection.id, selection.tenant_id, selection.source_id,
+                                   'VALIDATE_GOOGLE_DRIVE_SELECTION' AS operation, selection.status,
+                                   selection.created_at, selection.completed_at, selection.error_code
+                            FROM google_drive_selection_operations selection
+                            WHERE selection.tenant_id = :tenantId AND selection.id = :operationId
                         ) operation_row
                         WHERE EXISTS (
                             SELECT 1

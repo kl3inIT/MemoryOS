@@ -35,7 +35,9 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 
-Keep each active increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
+- [Google Drive structured ingestion — scoped MEM-9/MEM-10/MEM-60/MEM-63](docs/increments/active/google-drive-structured-ingestion/design.md)
+
+Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
 ## Canonical references
 

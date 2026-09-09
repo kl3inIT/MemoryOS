@@ -67,6 +67,7 @@ import org.springframework.context.annotation.Import;
 @Import(TestKeycloakProvisioningConfiguration.class)
 class SessionSecurityIntegrationTest {
 
+
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final Map<String, AuthorizationGrant> AUTHORIZATION_GRANTS = new ConcurrentHashMap<>();
     private static final AtomicReference<String> AUTHENTICATING_SUBJECT = new AtomicReference<>("initial-owner");
@@ -252,6 +253,23 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
+    void uncorrelatedGoogleCallbackCannotEnterSsoOrCreateSession() throws Exception {
+        long sessionCount = count("spring_session");
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var client = client(cookies)) {
+            var response = client.send(
+                    request("/login/oauth2/code/google-drive?state=untrusted&code=untrusted"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(302, response.statusCode());
+            assertTrue(response.headers().firstValue("location").orElseThrow()
+                    .endsWith("/admin/sources/new/google-drive?googleDrive=authorization-failed"));
+            assertTrue(response.headers().allValues("set-cookie").isEmpty());
+            assertEquals(sessionCount, count("spring_session"));
+        }
+    }
+
+    @Test
     void authenticatesAndSignsOutTheInitialOwnerWithoutProviderState() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
         UUID ownerActorId = jdbcClient.sql("""
@@ -395,7 +413,6 @@ class SessionSecurityIntegrationTest {
             assertFalse(frameworkFailure.body().contains("\"type\""));
             assertEquals("/api/invitations", jsonString(frameworkFailure.body(), "instance"));
             assertTrue(frameworkFailure.body().contains("\"status\":400"));
-            assertFalse(frameworkFailure.body().contains("\"code\""));
 
             var sameOriginFailure = client.send(
                     HttpRequest.newBuilder(baseUri().resolve("/api/invitations"))

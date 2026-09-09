@@ -4,30 +4,38 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.UUID;
 
 import javax.sql.DataSource;
 
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.NestedExceptionUtils;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
-import org.springframework.jdbc.datasource.init.ScriptStatementFailedException;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class IamSchemaMigrationTest {
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
 
     @Test
     void v14ClassifiesActorsAddsAuthorizationRevisionAndInvalidatesSerializedSessions() throws SQLException {
-        DataSource dataSource = databaseBeforeV14();
+        dataSource = TestDatabase.freshPostgres("13");
         JdbcClient jdbcClient = JdbcClient.create(dataSource);
         UUID actorId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -61,7 +69,7 @@ class IamSchemaMigrationTest {
 
     @Test
     void v14FailsActionablyRatherThanReclassifyingHistoricalAdminMemberships() throws SQLException {
-        DataSource dataSource = databaseBeforeV14();
+        dataSource = TestDatabase.freshPostgres("13");
         JdbcClient jdbcClient = JdbcClient.create(dataSource);
         seedActorTenantMembershipAndSession(
                 jdbcClient,
@@ -70,8 +78,8 @@ class IamSchemaMigrationTest {
                 "ADMIN"
         );
 
-        ScriptStatementFailedException failure = assertThrows(
-                ScriptStatementFailedException.class,
+        FlywayException failure = assertThrows(
+                FlywayException.class,
                 () -> applyV14(dataSource)
         );
         Throwable root = NestedExceptionUtils.getMostSpecificCause(failure);
@@ -88,34 +96,12 @@ class IamSchemaMigrationTest {
                 .single());
     }
 
-    private static DataSource databaseBeforeV14() throws SQLException {
-        DataSource dataSource = TestDatabase.freshPostgres();
-        try (Connection connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-            statement.execute("DROP SCHEMA public CASCADE");
-            statement.execute("CREATE SCHEMA public");
-            new ResourceDatabasePopulator(
-                    migration("V1__create_identity_tables.sql"),
-                    migration("V2__create_initial_organization_and_sessions.sql"),
-                    migration("V3__create_organization_invitations.sql"),
-                    migration("V4__collapse_workspace_into_organization.sql"),
-                    migration("V5__create_file_source_and_document_schema.sql"),
-                    migration("V6__cut_over_organization_to_tenant.sql"),
-                    migration("V13__create_actor_profiles.sql")
-            ).populate(connection);
-        }
-        return dataSource;
+
+    private static void applyV14(DataSource dataSource) {
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                .target("14").load().migrate();
     }
 
-    private static void applyV14(DataSource dataSource) throws SQLException {
-        try (Connection connection = dataSource.getConnection()) {
-            new ResourceDatabasePopulator(migration("V14__consolidate_iam_account_types.sql"))
-                    .populate(connection);
-        }
-    }
-
-    private static ClassPathResource migration(String fileName) {
-        return new ClassPathResource("db/migration/" + fileName);
-    }
 
     private static void seedActorTenantMembershipAndSession(
             JdbcClient jdbcClient,

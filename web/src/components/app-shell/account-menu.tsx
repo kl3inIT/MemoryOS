@@ -74,10 +74,13 @@ export function AccountMenu({
           side="right"
           align="end"
           sideOffset={10}
-          className="z-50 w-72 rounded-2xl border border-border-default bg-surface-overlay p-2 shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in"
+          collisionPadding={12}
+          className="z-50 max-h-[var(--radix-popover-content-available-height)] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-border-subtle bg-surface-overlay p-2 shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in"
         >
-          <p className="px-3 pt-2 font-main-ui-body text-content-primary">{tenant.displayName}</p>
-          <p className="px-3 pb-2 font-secondary-body text-content-secondary">{membershipLabel}</p>
+          <p className="break-words px-2 pt-2 font-main-ui-body text-content-primary">
+            {tenant.displayName}
+          </p>
+          <p className="px-2 pb-2 font-secondary-body text-content-muted">{membershipLabel}</p>
           <div className="mt-1 border-t border-border-subtle pt-1">
             <MenuItem
               icon={isDark ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
@@ -115,6 +118,17 @@ export function AccountMenu({
                 We couldn't sign you out. Try again.
               </p>
             ) : null}
+          </div>
+          <div className="mt-1 border-t border-border-subtle px-2 py-2">
+            <a
+              href="/THIRD_PARTY_NOTICES.txt"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-sm font-secondary-body text-content-muted underline-offset-4 outline-none hover:text-content-primary hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring"
+            >
+              Third-party notices
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
           </div>
         </Popover.Content>
       </Popover.Portal>

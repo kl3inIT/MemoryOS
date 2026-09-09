@@ -6,7 +6,7 @@ export function Brand({ compact = false }: BrandProps) {
   return (
     <span className="inline-flex items-center gap-2.5" aria-label="MemoryOS">
       <span
-        className="grid size-7 grid-cols-2 gap-px rounded-md border border-border-default bg-surface-raised p-1.5 text-content-primary shadow-xs"
+        className="grid size-7 grid-cols-2 gap-px rounded-md border border-border-default bg-surface-raised p-1.5 text-content-primary"
         aria-hidden="true"
       >
         <span className="bg-current" />

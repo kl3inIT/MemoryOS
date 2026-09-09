@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.Authority;
@@ -49,10 +50,11 @@ class PostgresIamAuthorizationTest {
     private IamLockRepository locks;
     private DefaultIamAuthorization authorization;
     private ExecutorService executor;
+    private HikariDataSource dataSource;
 
     @BeforeEach
     void setUp() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         locks = new IamLockRepository(jdbc);
@@ -83,9 +85,17 @@ class PostgresIamAuthorizationTest {
     }
 
     @AfterEach
-    void closeExecutor() throws InterruptedException {
-        executor.shutdownNow();
-        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+    void closeDatabase() throws InterruptedException {
+        try {
+            if (executor != null) {
+                executor.shutdownNow();
+                assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+            }
+        } finally {
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
     }
 
     @Test

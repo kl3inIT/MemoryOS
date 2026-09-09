@@ -2,7 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type {
   CurrentIdentity,
-  SourceDetail,
+  SourceSummary,
+  SourceItemPage,
   SourceOperation,
   SourceUploadAuthorization,
 } from "../../src/lib/hey-api/types.gen.ts";
@@ -72,8 +73,8 @@ test("real login, upload, indexing, Search, reader and denied anonymous access",
     const content = Buffer.from(
       `# Staging acceptance\n\nReference ${marker}. Acceptance number: 314159.\n`,
     );
-    const detail = await api<SourceDetail>(context.request, "/api/sources/file", { name: marker });
-    source = detail.source.id;
+    const detail = await api<SourceSummary>(context.request, "/api/sources/file", { name: marker });
+    source = detail.id;
     console.log(`Smoke-owned source for cleanup: ${source}`);
     const denied = await request.get(new URL(`/api/sources/${source}`, app).href, {
       maxRedirects: 0,
@@ -107,7 +108,7 @@ test("real login, upload, indexing, Search, reader and denied anonymous access",
     await expect
       .poll(
         async () => {
-          const value = await api<SourceDetail>(context.request, `/api/sources/${source}`);
+          const value = await api<SourceItemPage>(context.request, `/api/sources/${source}/items`);
           return value.items.length === 1 && value.items[0]?.searchStatus === "READY";
         },
         { timeout: 180_000, intervals: [2_000] },

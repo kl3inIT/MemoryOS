@@ -3,6 +3,7 @@ package io.memoryos.iam.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.GroupProvisioner;
@@ -33,12 +34,13 @@ class PostgresGroupProvisionerTest {
 
     private JdbcClient jdbc;
     private TestDatabase.JpaHarness jpa;
+    private HikariDataSource dataSource;
     private GroupProvisioner provisioner;
     private TransactionTemplate transactions;
 
     @BeforeEach
     void setUp() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         transactions = new TransactionTemplate(jpa.transactionManager());
@@ -64,8 +66,16 @@ class PostgresGroupProvisionerTest {
     }
 
     @AfterEach
-    void closeJpa() {
-        jpa.close();
+    void closeDatabase() {
+        try {
+            if (jpa != null) {
+                jpa.close();
+            }
+        } finally {
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
     }
 
     @Test

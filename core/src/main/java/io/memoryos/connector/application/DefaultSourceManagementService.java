@@ -1,9 +1,9 @@
 package io.memoryos.connector.application;
 
-import io.memoryos.connector.SourceDetail;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
+import io.memoryos.connector.SourceItemPage;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
@@ -64,6 +64,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final IamAuthorization authorization;
     private final GroupScopeService groupScopes;
     private final TransactionTemplate transactions;
+    private final io.memoryos.connector.persistence.JdbcSourceSyncRepository sync;
+    private final io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -77,7 +79,9 @@ public class DefaultSourceManagementService implements SourceManagementService {
             ObjectUploadService objectUploads,
             IamAuthorization authorization,
             GroupScopeService groupScopes,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            io.memoryos.connector.persistence.JdbcSourceSyncRepository sync,
+            io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
@@ -90,6 +94,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.objectUploads = Objects.requireNonNull(objectUploads, "objectUploads must not be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
         this.groupScopes = Objects.requireNonNull(groupScopes, "groupScopes must not be null");
+        this.sync = Objects.requireNonNull(sync);
+        this.selections = Objects.requireNonNull(selections);
         this.transactions = new TransactionTemplate(
                 Objects.requireNonNull(transactionManager, "transactionManager must not be null")
         );
@@ -97,7 +103,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional
-    public SourceDetail createFileSource(
+    public SourceSummary createFileSource(
             ActorId actorId,
             String name,
             Collection<GroupId> groupIds
@@ -120,7 +126,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         sourceGroups.replace(access.tenantId(), pair.sourceId(), associatedGroupIds);
         boolean globalDelete = authorization.effectiveCapabilities(requiredActorId)
                 .contains(IamCapability.SOURCES_DELETE);
-        return queries.detail(
+        return queries.summary(
                 access.tenantId(),
                 requiredActorId,
                 pair.sourceId(),
@@ -146,10 +152,10 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public SourceDetail getSource(ActorId actorId, SourceId sourceId) {
+    public SourceSummary getSource(ActorId actorId, SourceId sourceId) {
         ActorId requiredActorId = requireActorId(actorId);
         SourcePermissions permissions = readPermissions(requiredActorId);
-        return queries.detail(
+        return queries.summary(
                 permissions.tenantId(),
                 requiredActorId,
                 requireSourceId(sourceId),
@@ -240,7 +246,21 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit) {
+    public SourceItemPage listItems(ActorId actorId, SourceId sourceId, @Nullable String cursor, int size) {
+        ActorId requiredActorId = requireActorId(actorId);
+        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        queries.summary(permissions.tenantId(), requiredActorId, requiredSourceId,
+                permissions.globalRead(), permissions.globalManage(), permissions.globalDelete());
+        if (size < 1 || size > 100) {
+            throw SourceException.invalid("Page size must be between 1 and 100.", "invalid source item page size");
+        }
+        return queries.items(permissions.tenantId(), requiredSourceId, cursor, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public io.memoryos.connector.SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @Nullable String cursor, int limit) {
         ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         SourcePermissions permissions = readPermissions(requiredActorId);
@@ -252,7 +272,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 permissions.globalManage(),
                 permissions.globalDelete()
         );
-        return attempts.list(permissions.tenantId(), requiredSourceId, limit);
+        return attempts.list(permissions.tenantId(), requiredSourceId, cursor, limit);
     }
 
     @Override
@@ -263,7 +283,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     ) {
         ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
-        IamAccess initialAccess = requireManagedSource(requiredActorId, requiredSourceId);
+        IamAccess initialAccess = requireManagedFileSource(requiredActorId, requiredSourceId);
         Objects.requireNonNull(specification, "specification must not be null");
         ObjectUploadSpecification normalized = new ObjectUploadSpecification(
                 requireFilename(specification.filename()),
@@ -299,7 +319,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         ObjectUploadId requiredUploadId = Objects.requireNonNull(uploadId, "uploadId must not be null");
-        IamAccess initialAccess = requireManagedSource(requiredActorId, requiredSourceId);
+        IamAccess initialAccess = requireManagedFileSource(requiredActorId, requiredSourceId);
         SourceUploadReceipt existing = receipt(initialAccess.tenantId(), requiredSourceId, requiredUploadId);
         if (existing != null) {
             return existing;
@@ -384,6 +404,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 pair,
                 Objects.requireNonNull(itemId, "itemId must not be null")
         );
+        if (!attempts.canReplay(access.tenantId(), requiredSourceId, version.versionId()))
+            throw SourceException.conflict("source item must complete an authorized synchronization before reindexing");
         return attempts.findLive(access.tenantId(), requiredSourceId, version)
                 .orElseGet(() -> attempts.create(access.tenantId(), pair, version));
     }
@@ -424,6 +446,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         }
         var mutablePair = requireMutable(pair);
         items.lockCurrentVersion(access.tenantId(), mutablePair, requiredItemId);
+        sync.exclude(access.tenantId(), requiredSourceId, requiredItemId);
         items.markDeleting(access.tenantId(), mutablePair, requiredItemId);
         sourceDocuments.invalidateItem(access.tenantId(), requiredSourceId, requiredItemId);
         attempts.cancelForItem(access.tenantId(), requiredSourceId, requiredItemId);
@@ -473,6 +496,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
         sources.markDeleting(access.tenantId(), pair);
         sourceDocuments.invalidateSource(access.tenantId(), requiredSourceId);
         attempts.cancelForSource(access.tenantId(), requiredSourceId);
+        sync.cancel(access.tenantId(), requiredSourceId);
+        selections.cancelForSource(access.tenantId(), requiredSourceId);
         sources.supersedeItemCleanups(access.tenantId(), requiredSourceId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
@@ -513,10 +538,12 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 .orElse(null);
     }
 
-    private IamAccess requireManagedSource(ActorId actorId, SourceId sourceId) {
+    private IamAccess requireManagedFileSource(ActorId actorId, SourceId sourceId) {
         IamAccess access = authorization.require(actorId, IamCapability.SOURCES_MANAGE, true);
         boolean global = access.authority() == Authority.GLOBAL;
-        queries.summary(access.tenantId(), actorId, sourceId, global, global, false);
+        var source = queries.summary(access.tenantId(), actorId, sourceId, global, global, false);
+        if (source.type() != io.memoryos.connector.SourceType.FILE)
+            throw SourceException.conflict("browser uploads require a FILE source");
         return access;
     }
 

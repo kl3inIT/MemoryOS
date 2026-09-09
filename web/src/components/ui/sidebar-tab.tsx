@@ -29,6 +29,7 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
       to,
       onClick,
       variant = "heavy",
+      className: customClassName,
       ...elementProps
     },
     ref,
@@ -36,10 +37,11 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
     const label = typeof children === "string" ? children : undefined;
     const className = cn(
       actionVariants({ tone: "default", prominence: "internal" }),
-      "flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 font-main-ui-body",
-      selected && "bg-surface-sunken text-content-primary",
+      "flex h-9 w-full items-center gap-2 rounded-lg px-2 font-main-ui-body",
+      selected && "bg-surface-raised text-content-primary shadow-xs",
       !selected && variant === "light" && "text-content-muted",
       collapsed && "justify-center px-0",
+      customClassName,
     );
     const content = (
       <>
@@ -57,6 +59,7 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
         <Link
           {...elementProps}
           ref={ref as Ref<HTMLAnchorElement>}
+          data-slot="sidebar-tab"
           to={to}
           aria-current={selected ? "page" : undefined}
           aria-label={collapsed ? label : undefined}
@@ -73,6 +76,7 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
       <button
         {...elementProps}
         ref={ref as Ref<HTMLButtonElement>}
+        data-slot="sidebar-tab"
         type="button"
         aria-pressed={selected || undefined}
         aria-label={collapsed ? label : undefined}

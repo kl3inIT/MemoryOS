@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.IamException;
@@ -13,6 +14,7 @@ import io.memoryos.iam.persistence.GroupInvariantRepository;
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -34,10 +36,18 @@ class PostgresGroupAdministrationGuardTest {
     private JdbcClient jdbc;
     private TransactionTemplate transaction;
     private DefaultGroupAdministrationGuard guard;
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
 
     @BeforeEach
     void setUp() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         guard = new DefaultGroupAdministrationGuard(new GroupInvariantRepository(jdbc));

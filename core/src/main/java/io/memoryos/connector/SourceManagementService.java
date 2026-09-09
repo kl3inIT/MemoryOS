@@ -15,11 +15,15 @@ import org.jspecify.annotations.Nullable;
 
 public interface SourceManagementService {
 
-    SourceDetail createFileSource(ActorId actorId, String name, Collection<GroupId> groupIds);
+    SourceSummary createFileSource(ActorId actorId, String name, Collection<GroupId> groupIds);
 
     List<SourceSummary> listSources(ActorId actorId);
 
-    SourceDetail getSource(ActorId actorId, SourceId sourceId);
+    SourceSummary getSource(ActorId actorId, SourceId sourceId);
+
+    SourceItemPage listItems(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int size);
+
+    SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int limit);
 
     List<GroupIdentity> listSourceGroups(ActorId actorId, SourceId sourceId);
 
@@ -33,8 +37,6 @@ public interface SourceManagementService {
     );
 
     List<SourceSummary> listGroupSources(ActorId actorId, GroupId groupId);
-
-    List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit);
 
     ObjectUploadAuthorization initiateUpload(
             ActorId actorId,

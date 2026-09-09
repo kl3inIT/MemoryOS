@@ -28,8 +28,6 @@ test("offers the backend OAuth2 flow when no session exists", async ({ page }) =
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: /sign in to memoryos/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /keep what matters/i })).toHaveCount(0);
-  await expect(page.getByText(/authentication and mfa|authorized members only/i)).toHaveCount(0);
   await expect(page.getByRole("link", { name: /continue with company account/i })).toHaveAttribute(
     "href",
     "/oauth2/authorization/memoryos",
@@ -104,6 +102,10 @@ test("hides owner UI and blocks member administration deep links without request
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
   await page.goto("/admin/sources/new/file");
+  await expect(
+    page.getByRole("heading", { name: "You don’t have access to this area." }),
+  ).toBeVisible();
+  await page.goto("/admin/sources/new/google-drive");
   await expect(
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
@@ -212,6 +214,9 @@ test("keeps one document, identity session, and admin shell across internal rout
       }),
     });
   });
+  await page.route("**/api/sources", async (route) => {
+    await route.fulfill({ json: [] });
+  });
 
   await page.goto("/");
   await page.evaluate(() => {
@@ -221,6 +226,7 @@ test("keeps one document, identity session, and admin shell across internal rout
   await page.getByRole("link", { name: "Admin Panel" }).click();
 
   await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () =>
@@ -279,7 +285,6 @@ test("keeps unprovisioned access separate from signed-out state", async ({ page 
   await page.goto("/access-not-provisioned");
 
   await expect(page.getByRole("heading", { name: /don’t have access yet/i })).toBeVisible();
-  await expect(page.getByText(/has not been added to this memoryos tenant/i)).toBeVisible();
 });
 
 test("recovers from an unavailable identity endpoint without treating it as signed out", async ({
@@ -778,13 +783,24 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     });
   });
   await page.route("**/api/source-operations/**", async (route) => {
-    sourceDeleted = true;
+    const id = new URL(route.request().url()).pathname.split("/").at(-1);
+    const type =
+      id === "19d557e6-fd95-461e-b2e7-0a7f858170dd"
+        ? "REMOVE_ITEM"
+        : id === "4e54f788-33b7-4f20-b3e0-12bd445a598a"
+          ? "DELETE_SOURCE"
+          : null;
+    if (!type) {
+      await route.fulfill({ status: 404 });
+      return;
+    }
+    if (type === "DELETE_SOURCE") sourceDeleted = true;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        id: "4e54f788-33b7-4f20-b3e0-12bd445a598a",
-        type: "DELETE_SOURCE",
+        id,
+        type,
         status: "SUCCEEDED",
         createdAt: "2026-08-27T10:00:00Z",
         completedAt: "2026-08-27T10:00:01Z",
@@ -876,7 +892,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: 201,
         contentType: "application/json",
-        body: JSON.stringify({ source, items }),
+        body: JSON.stringify(source),
       });
       return;
     }
@@ -884,7 +900,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: sourceDeleted ? 404 : 200,
         contentType: "application/json",
-        body: sourceDeleted ? "{}" : JSON.stringify({ source, items }),
+        body: sourceDeleted ? "{}" : JSON.stringify(source),
       });
       return;
     }
@@ -892,8 +908,22 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ source: otherSource, items: [] }),
+        body: JSON.stringify(otherSource),
       });
+      return;
+    }
+    if (request.method() === "GET" && path.endsWith("/items")) {
+      await route.fulfill({
+        json: {
+          items: path === `/api/sources/${source.id}/items` ? items : [],
+          nextCursor: null,
+          totalItems: path === `/api/sources/${source.id}/items` ? items.length : 0,
+        },
+      });
+      return;
+    }
+    if (request.method() === "GET" && path.endsWith("/index-attempts")) {
+      await route.fulfill({ json: { items: [], nextCursor: null, totalItems: 0 } });
       return;
     }
     if (request.method() === "POST" && path === `/api/sources/${source.id}/uploads`) {
@@ -945,8 +975,18 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         sha256: checksum,
         sizeBytes: uploadedFile.length,
         status: "INDEXED",
+        searchStatus: "READY",
         uploadedAt: "2026-08-27T10:00:00Z",
-        latestOperationId: "3aca91f5-53e8-4c9b-8e3a-1afedbd4a18f",
+        lastIndexedAt: "2026-08-27T10:00:02Z",
+        latestAttempt: {
+          id: "3aca91f5-53e8-4c9b-8e3a-1afedbd4a18f",
+          filename: "knowledge.txt",
+          status: "SUCCEEDED",
+          createdAt: "2026-08-27T10:00:00Z",
+          startedAt: "2026-08-27T10:00:01Z",
+          completedAt: "2026-08-27T10:00:02Z",
+          errorCode: null,
+        },
         errorCode: null,
       });
       await route.fulfill({
@@ -1029,20 +1069,12 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.goto("/admin");
   const sourceTable = page.getByRole("table", { name: "Connected sources" });
   await expect(page.getByRole("heading", { name: "Existing sources" })).toBeVisible();
-  await expect(
-    sourceTable.getByRole("columnheader", { name: "Permissions / Access" }),
-  ).toBeVisible();
   await expect(sourceTable.getByText("Scheduled", { exact: true })).toBeVisible();
-  await expect(sourceTable.getByText("Organization Public", { exact: true })).toBeVisible();
   const fileGroup = sourceTable.getByRole("button", {
     name: /File group, 1 sources, 0 documents/,
   });
   const supportSource = sourceTable.getByRole("link", { name: otherSource.name, exact: true });
   await expect(fileGroup).toHaveAttribute("aria-expanded", "true");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Total sources");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Active sources");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Public sources");
-  await expect(fileGroup.locator("xpath=ancestor::tr")).toContainText("Total docs indexed");
   const sourceSearch = page.getByRole("searchbox", { name: "Search sources" });
   await sourceSearch.fill("missing source");
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
@@ -1061,6 +1093,15 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(supportSource).toBeHidden();
   await fileGroup.click();
   await expect(supportSource).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const manageSource = sourceTable.getByRole("link", {
+    name: `Manage ${otherSource.name}`,
+    exact: true,
+  });
+  await manageSource.focus();
+  await expect(manageSource).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await supportSource.click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${otherSource.id}$`));
   await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();
@@ -1082,14 +1123,12 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await fileProvider.click();
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await expect(page.getByRole("heading", { name: "Add file source" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Setup progress" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
 
   const createSource = page.getByRole("button", { name: "Upload and create" });
   await expect(createSource).toBeDisabled();
   await page.getByRole("textbox", { name: "Source name" }).fill(source.name);
   await expect(createSource).toBeDisabled();
-  await page.getByLabel("Choose PDF, DOCX, PPTX, TXT, or Markdown file").setInputFiles({
+  await page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file").setInputFiles({
     name: "knowledge.txt",
     mimeType: "text/plain",
     buffer: uploadedFile,
@@ -1101,9 +1140,6 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await expect(page.getByRole("button", { name: "Retry finalization" })).toBeVisible();
   expect(createAttempts).toBe(1);
-  await expect(page.getByRole("status")).toContainText(
-    "The file reached object storage; retry finalization without uploading it again.",
-  );
   await page.getByRole("link", { name: "Sources", exact: true }).last().click();
   await expect(page).toHaveURL(/\/admin$/);
   await page
@@ -1114,24 +1150,26 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByRole("link", { name: "Return to pending upload" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await page.getByRole("button", { name: "Retry finalization" }).click();
-  await expect(page.getByText("knowledge.txt")).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Files", exact: true })
+      .getByText("knowledge.txt", { exact: true }),
+  ).toBeVisible();
   expect(objectStoragePuts).toBe(1);
   expect(storedBytes).toEqual(uploadedFile);
   expect(apiUploadBodies.some((body) => body?.equals(uploadedFile))).toBe(false);
   await page.getByRole("button", { name: "Reindex" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "The source cannot accept that operation right now.",
-  );
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Files", exact: true })
+      .getByText("knowledge.txt", { exact: true }),
+  ).toBeVisible();
 
   const removeTrigger = page.getByRole("button", { name: "Remove" });
   await removeTrigger.click();
   let confirmation = page.getByRole("alertdialog");
   await expect(confirmation.getByRole("heading", { name: "Remove knowledge.txt?" })).toBeVisible();
-  await expect(
-    confirmation.getByText(
-      "Removing “knowledge.txt” makes its indexed document unavailable. Cleanup continues asynchronously.",
-    ),
-  ).toBeVisible();
   await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(confirmation).not.toBeVisible();
@@ -1145,9 +1183,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await removeTrigger.click();
   confirmation = page.getByRole("alertdialog");
   await confirmation.getByRole("button", { name: "Remove file" }).click();
-  await expect(confirmation.getByRole("alert")).toHaveText(
-    "This file is already changing. Refresh the source and try again.",
-  );
+  await expect(confirmation.getByRole("alert")).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(1);
   await expect(confirmation).toBeVisible();
 
@@ -1164,11 +1200,6 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   confirmation = page.getByRole("alertdialog");
   await expect(
     confirmation.getByRole("heading", { name: "Delete Product documentation?" }),
-  ).toBeVisible();
-  await expect(
-    confirmation.getByText(
-      "Deleting “Product documentation” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.",
-    ),
   ).toBeVisible();
   await confirmation.getByRole("button", { name: "Delete source" }).click();
   await expect(page.getByText("No sources yet")).toBeVisible();

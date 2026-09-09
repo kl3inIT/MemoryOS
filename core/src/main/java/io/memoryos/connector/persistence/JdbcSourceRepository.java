@@ -60,12 +60,46 @@ public class JdbcSourceRepository {
         return new SourcePair(connectorId, sourceId, SourceStatus.NOT_STARTED, 0);
     }
 
+    public SourcePair lock(TenantId tenantId, SourceId sourceId) {
+        jdbcClient.sql("SELECT id FROM tenants WHERE id = :tenant FOR SHARE")
+                .param("tenant", tenantId.value()).query(UUID.class).optional();
+        jdbcClient.sql("""
+                SELECT credential.id FROM credentials credential
+                WHERE credential.tenant_id = :tenant AND credential.credential_kind = 'GOOGLE_OAUTH'
+                  AND credential.id = (SELECT credential_id FROM connector_credential_pairs
+                    WHERE tenant_id = :tenant AND id = :source)
+                FOR UPDATE
+                """).param("tenant", tenantId.value()).param("source", sourceId.value())
+                .query(UUID.class).optional();
+        return jdbcClient.sql("""
+                        SELECT pair.connector_id, pair.status, pair.pair_sequence
+                        FROM connector_credential_pairs pair
+                        JOIN connectors connector ON connector.tenant_id = pair.tenant_id AND connector.id = pair.connector_id
+                        WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+                        FOR UPDATE
+                        """)
+                .param("tenantId", tenantId.value()).param("pairId", sourceId.value())
+                .query((row, _) -> new SourcePair(row.getObject("connector_id", UUID.class), sourceId,
+                        SourceStatus.valueOf(row.getString("status")), row.getLong("pair_sequence")))
+                .optional().orElseThrow(SourceException::notFound);
+    }
+
     public SourcePair lockAuthorized(
             TenantId tenantId,
             ActorId actorId,
             SourceId sourceId,
             boolean globalAccess
     ) {
+        jdbcClient.sql("SELECT id FROM tenants WHERE id = :tenant FOR SHARE")
+                .param("tenant", tenantId.value()).query(UUID.class).optional();
+        jdbcClient.sql("""
+                SELECT credential.id FROM credentials credential
+                WHERE credential.tenant_id = :tenant AND credential.credential_kind = 'GOOGLE_OAUTH'
+                  AND credential.id = (SELECT credential_id FROM connector_credential_pairs
+                    WHERE tenant_id = :tenant AND id = :source)
+                FOR UPDATE
+                """).param("tenant", tenantId.value()).param("source", sourceId.value())
+                .query(UUID.class).optional();
         return jdbcClient.sql("""
                         SELECT pair.connector_id, pair.status, pair.pair_sequence
                         FROM connector_credential_pairs pair
@@ -216,11 +250,15 @@ public class JdbcSourceRepository {
     public void recomputeStatus(TenantId tenantId, SourceId sourceId, boolean indexSucceeded) {
         jdbcClient.sql("""
                         WITH current_attempts AS (
-                            SELECT DISTINCT ON (connector_item_id) status, error_code, pair_sequence
-                            FROM index_attempts
-                            WHERE tenant_id = :tenantId
-                              AND connector_credential_pair_id = :pairId
-                            ORDER BY connector_item_id, pair_sequence DESC
+                            SELECT DISTINCT ON (attempt.connector_item_id) attempt.status, attempt.error_code, attempt.pair_sequence
+                            FROM index_attempts attempt
+                            JOIN connector_items item
+                              ON item.tenant_id = attempt.tenant_id AND item.id = attempt.connector_item_id
+                             AND item.current_version_id = attempt.connector_item_version_id
+                             AND item.status <> 'DELETING'
+                            WHERE attempt.tenant_id = :tenantId
+                              AND attempt.connector_credential_pair_id = :pairId
+                            ORDER BY attempt.connector_item_id, attempt.pair_sequence DESC
                         )
                         UPDATE connector_credential_pairs
                         SET document_count = (
@@ -265,6 +303,10 @@ public class JdbcSourceRepository {
                 .update();
     }
 
+    public boolean lockActiveTenant(TenantId tenantId) {
+        return jdbcClient.sql("SELECT id FROM tenants WHERE id = :tenant AND status = 'ACTIVE' FOR SHARE")
+                .param("tenant", tenantId.value()).query(UUID.class).optional().isPresent();
+    }
     private UUID ensureNoAuthCredential(TenantId tenantId) {
         Optional<UUID> existing = jdbcClient.sql("""
                         SELECT id FROM credentials
@@ -278,8 +320,8 @@ public class JdbcSourceRepository {
         }
         UUID credentialId = UUID.randomUUID();
         jdbcClient.sql("""
-                        INSERT INTO credentials (id, tenant_id, credential_kind, status)
-                        VALUES (:id, :tenantId, 'NO_AUTH', 'ACTIVE')
+                        INSERT INTO credentials (id, tenant_id, name, credential_kind, status)
+                        VALUES (:id, :tenantId, 'No authentication', 'NO_AUTH', 'ACTIVE')
                         """)
                 .param("id", credentialId)
                 .param("tenantId", tenantId.value())

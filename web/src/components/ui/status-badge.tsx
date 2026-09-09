@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const statusBadgeVariants = cva(
-  "inline-flex rounded-full px-2 py-0.5 font-figure-small-label tracking-wide",
+  "inline-flex items-center rounded-md px-2 py-0.5 font-secondary-body whitespace-nowrap",
   {
     variants: {
       tone: {
@@ -11,7 +11,7 @@ const statusBadgeVariants = cva(
         warning: "bg-status-warning-surface text-status-warning-content",
         danger: "bg-status-danger-surface text-status-danger-content",
         info: "bg-status-info-surface text-status-info-content",
-        neutral: "bg-status-info-surface text-content-muted",
+        neutral: "bg-surface-subtle text-content-muted",
       },
     },
     defaultVariants: {

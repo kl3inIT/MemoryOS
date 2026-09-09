@@ -17,3 +17,9 @@ The first broad gate exposed excessive heap use from constructing a separate O20
 The HTTP provider/issuer tests use local fixtures and real application filters, database transactions and the native OpenAI SDK. The additional live model check proves the existing OpenAI model path, not real Keycloak login, arbitrary local model behavior, hosted web search, image generation or UI model selection.
 
 Temporary scripts, process diagnostics and raw local test logs stayed under ignored `.tmp/`. No QA profile, test credential, provider fixture or operational bypass was added to production runtime. Production source includes the real OpenAI adapter only; the second adapter exists exclusively in the test source set.
+
+## PR #88 review and main integration — 2026-09-10
+
+The review fixes passed focused catalog/setup/configuration tests, API/OpenAPI integration, IDE build and `clean check` (23 tasks, 5m52s) before main advanced. The accepted internal HTTP policy is documented in the canonical catalog spec and reviewer instructions; it does not claim encrypted transport for HTTP.
+
+Main `274bc783b7a7a3d7097eb85fcdcb2db52a800835` adds Google Drive migrations V21–V32. The unpublished catalog migration is now V33. OpenAPI/client were regenerated from the combined runtime. The combined API/OpenAPI tests passed (2m20s), web check passed (93 tests, lint/typecheck/generated stability/build), and IDE inspection/build passed with reviewed HTTP/header and unattached SQL datasource hints. The first combined `clean check` reached the 10-minute core-test timeout without an assertion failure; a separate core retry and final CI evidence are tracked on PR #88. Do not substitute the earlier base's full-gate result for this integration's CI.

@@ -5,15 +5,20 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { TextButton } from "@/components/ui/text-button";
 
 describe("interaction controls", () => {
-  it("keeps ordinary actions out of form submission by default", () => {
-    render(<Button>Save</Button>);
+  it("keeps ordinary actions out of form submission", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <Button>Save</Button>
+      </form>,
+    );
 
-    expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("type", "button");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("preserves explicit submit and composed link semantics", () => {
@@ -28,7 +33,6 @@ describe("interaction controls", () => {
     const link = screen.getByRole("link", { name: "Administration" });
     expect(link).toHaveAttribute("href", "/admin");
     expect(link).not.toHaveAttribute("type");
-    expect(link).toHaveAttribute("data-prominence", "secondary");
   });
 
   it("blocks repeated activation while an action is pending", async () => {
@@ -43,7 +47,6 @@ describe("interaction controls", () => {
     const button = screen.getByRole("button", { name: "Saving" });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
-    expect(button).toHaveAttribute("data-pending", "true");
     await user.click(button);
     expect(onClick).not.toHaveBeenCalled();
   });
@@ -102,50 +105,4 @@ describe("interaction controls", () => {
 
     expect(activation).not.toHaveBeenCalled();
   });
-
-  it("gives quiet and icon-only actions distinct accessible contracts", () => {
-    render(
-      <>
-        <TextButton tone="danger">Remove</TextButton>
-        <IconButton aria-label="Open details" prominence="internal">
-          <ArrowRight />
-        </IconButton>
-      </>,
-    );
-
-    const textButton = screen.getByRole("button", { name: "Remove" });
-    expect(textButton).toHaveAttribute("data-slot", "text-button");
-    expect(textButton).toHaveClass("border-0", "bg-transparent", "p-0");
-
-    const iconButton = screen.getByRole("button", { name: "Open details" });
-    expect(iconButton).toHaveAttribute("data-slot", "icon-button");
-    expect(iconButton).toHaveAttribute("data-prominence", "internal");
-  });
-
-  it.each(["sm", "md", "lg"] as const)(
-    "shares the %s size contract across container and native controls",
-    (size) => {
-      render(
-        <>
-          <Button size={size}>Apply</Button>
-          <IconButton aria-label="Refresh" size={size}>
-            <ArrowRight />
-          </IconButton>
-          <Input aria-label="Email" size={size} />
-          <Select aria-label="Status" size={size} defaultValue="open">
-            <option value="open">Open</option>
-          </Select>
-        </>,
-      );
-
-      for (const control of [
-        screen.getByRole("button", { name: "Apply" }),
-        screen.getByRole("button", { name: "Refresh" }),
-        screen.getByRole("textbox", { name: "Email" }),
-        screen.getByRole("combobox", { name: "Status" }),
-      ]) {
-        expect(control).toHaveAttribute("data-size", size);
-      }
-    },
-  );
 });

@@ -1,132 +1,70 @@
 import { Link } from "@tanstack/react-router";
-import { CircleAlert, RefreshCw } from "lucide-react";
-import { Brand } from "@/components/brand";
+import { ArrowRight, CircleAlert, RefreshCw } from "lucide-react";
+import { AuthFrame } from "@/components/states/auth-frame";
 import { RoutePending } from "@/components/states/route-states";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 
 export function SignInScreen() {
   return (
-    <main className="grid min-h-svh place-items-center bg-background px-6 py-12 text-foreground">
-      <section className="w-full max-w-sm" aria-labelledby="sign-in-heading">
-        <div className="flex justify-center">
-          <Brand />
-        </div>
-
-        <h1
-          id="sign-in-heading"
-          className="mt-10 text-center text-2xl font-semibold tracking-[-0.035em]"
-        >
-          Sign in to MemoryOS
-        </h1>
-
-        <Button asChild size="lg" className="mt-8 w-full">
-          <a href="/oauth2/authorization/memoryos">Continue with company account</a>
-        </Button>
-      </section>
-    </main>
+    <AuthFrame>
+      <h1 className="font-heading-h2 text-content-primary">Sign in to MemoryOS</h1>
+      <p className="mt-2 font-main-ui-body text-content-muted">
+        Continue with your company account to open your workspace.
+      </p>
+      <Button asChild size="lg" className="mt-8 h-auto min-h-10 w-full py-2 whitespace-normal">
+        <a href="/oauth2/authorization/memoryos">
+          Continue with company account
+          <ArrowRight />
+        </a>
+      </Button>
+    </AuthFrame>
   );
 }
 
 export function AccessNotProvisionedScreen() {
   return (
-    <main className="flex min-h-svh flex-col bg-background text-foreground">
-      <header className="flex h-14 items-center justify-between border-b border-border px-5 sm:px-8">
-        <Brand />
-        <span className="text-xs text-muted-foreground">Access restricted</span>
-      </header>
-
-      <div className="grid flex-1 place-items-center px-6 py-12">
-        <Empty className="max-w-md">
-          <EmptyHeader>
-            <EmptyMedia variant="icon" className="bg-muted text-foreground">
-              <CircleAlert />
-            </EmptyMedia>
-            <EmptyTitle
-              role="heading"
-              aria-level={1}
-              className="text-2xl font-semibold tracking-[-0.03em]"
-            >
-              You don’t have access yet.
-            </EmptyTitle>
-            <EmptyDescription className="max-w-sm text-sm leading-6">
-              Your identity was verified, but it has not been added to this MemoryOS Tenant. Ask a
-              Tenant owner for access, or continue with another account.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button asChild size="lg">
-              <a href="/oauth2/authorization/memoryos">Try another account</a>
-            </Button>
-          </EmptyContent>
-        </Empty>
-      </div>
-    </main>
+    <AuthFrame>
+      <CircleAlert className="mb-4 size-6 text-content-muted" aria-hidden="true" />
+      <h1 className="font-heading-h2 text-content-primary">You don’t have access yet.</h1>
+      <p className="mt-3 font-main-ui-body text-content-muted">
+        Your identity was verified, but it has not been added to this MemoryOS Tenant. Ask a Tenant
+        owner for access, or continue with another account.
+      </p>
+      <Button asChild size="lg" className="mt-8 w-full">
+        <a href="/oauth2/authorization/memoryos">Try another account</a>
+      </Button>
+    </AuthFrame>
   );
 }
 
 export function AccessDeniedScreen() {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
-      <Empty className="max-w-md">
-        <EmptyHeader>
-          <EmptyMedia variant="icon" className="bg-muted text-foreground">
-            <CircleAlert />
-          </EmptyMedia>
-          <EmptyTitle
-            role="heading"
-            aria-level={1}
-            className="text-2xl font-semibold tracking-[-0.03em]"
-          >
-            You don’t have access to this area.
-          </EmptyTitle>
-          <EmptyDescription>
-            Your account is active, but it does not have permission to manage this area.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button asChild prominence="secondary">
-            <Link to="/">Return to MemoryOS</Link>
-          </Button>
-        </EmptyContent>
-      </Empty>
-    </main>
+    <AuthFrame>
+      <CircleAlert className="mb-4 size-6 text-content-muted" aria-hidden="true" />
+      <h1 className="font-heading-h2 text-content-primary">You don’t have access to this area.</h1>
+      <p className="mt-3 font-main-ui-body text-content-muted">
+        Your account is active, but it cannot manage this area. Return to your workspace to use the
+        actions available to you.
+      </p>
+      <Button asChild prominence="secondary" className="mt-8 w-full">
+        <Link to="/">Return to MemoryOS</Link>
+      </Button>
+    </AuthFrame>
   );
 }
 
 export function SessionErrorScreen({ onRetry }: { onRetry: () => void }) {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
-      <Empty className="max-w-md">
-        <EmptyHeader>
-          <EmptyMedia variant="icon" className="bg-muted text-foreground">
-            <RefreshCw />
-          </EmptyMedia>
-          <EmptyTitle
-            role="heading"
-            aria-level={1}
-            className="text-2xl font-semibold tracking-[-0.03em]"
-          >
-            We couldn’t confirm your session.
-          </EmptyTitle>
-          <EmptyDescription>
-            Your Tenant data is unchanged. Check the MemoryOS service and try again.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button prominence="secondary" onClick={onRetry}>
-            Try again
-          </Button>
-        </EmptyContent>
-      </Empty>
-    </main>
+    <AuthFrame>
+      <RefreshCw className="mb-4 size-6 text-content-muted" aria-hidden="true" />
+      <h1 className="font-heading-h2 text-content-primary">We couldn’t confirm your session.</h1>
+      <p className="mt-3 font-main-ui-body text-content-muted">
+        Your Tenant data is unchanged. Check the MemoryOS service and try again.
+      </p>
+      <Button prominence="secondary" onClick={onRetry} className="mt-8 w-full">
+        Try again
+      </Button>
+    </AuthFrame>
   );
 }
 

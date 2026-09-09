@@ -3,6 +3,7 @@ import { CloudUpload } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { sourceCategories, sourceProviders } from "./source-provider-catalog";
 
 export function SourceCatalogPage() {
@@ -17,16 +18,17 @@ export function SourceCatalogPage() {
   );
 
   return (
-    <section className="w-full px-5 py-8 sm:px-8">
-      <header className="flex items-center justify-between gap-4 border-b border-border-subtle pb-6">
-        <div>
-          <CloudUpload className="size-7 text-content-primary" aria-hidden="true" />
-          <h1 className="mt-2 font-heading-h3 text-content-primary">Add a source</h1>
-        </div>
-        <Button asChild size="sm">
-          <Link to="/admin">See sources</Link>
-        </Button>
-      </header>
+    <SettingsLayout wide>
+      <PageHeader
+        icon={<CloudUpload />}
+        title="Add a source"
+        description="Connect the content you want to keep in MemoryOS."
+        actions={
+          <Button asChild prominence="secondary">
+            <Link to="/admin">See sources</Link>
+          </Button>
+        }
+      />
 
       <Input
         type="search"
@@ -35,7 +37,7 @@ export function SourceCatalogPage() {
         autoFocus
         placeholder="Search sources"
         aria-label="Search sources"
-        className="mt-5 bg-surface-sunken"
+        className="bg-surface-sunken"
         onChange={(event) => setSearchQuery(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
@@ -47,7 +49,7 @@ export function SourceCatalogPage() {
               provider.category.toLowerCase().includes(currentQuery),
           );
           const provider = navigationMatches.at(0);
-          if (navigationMatches.length === 1 && provider) {
+          if (provider) {
             void navigate({ to: provider.setupPath });
           }
         }}
@@ -61,7 +63,7 @@ export function SourceCatalogPage() {
             <section
               key={category}
               aria-labelledby={`source-category-${category.toLowerCase()}`}
-              className="pt-14"
+              className="pt-2"
             >
               <h2
                 id={`source-category-${category.toLowerCase()}`}
@@ -69,17 +71,17 @@ export function SourceCatalogPage() {
               >
                 {category}
               </h2>
-              <div className="flex flex-wrap gap-4 p-4">
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:flex sm:flex-wrap">
                 {providers.map((provider) => {
                   const ProviderIcon = provider.icon;
                   return (
                     <Link
                       key={provider.type}
                       to={provider.setupPath}
-                      className="flex w-40 cursor-pointer flex-col items-center justify-center rounded-lg bg-surface-sunken p-4 text-center text-content-primary shadow-md transition-colors hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      className="flex min-h-36 min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border-subtle bg-surface-sunken p-4 text-center text-content-primary transition-colors hover:border-border-default hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-40"
                     >
-                      <ProviderIcon className="size-6" aria-hidden="true" />
-                      <span className="mt-2 text-sm font-medium">{provider.name}</span>
+                      <ProviderIcon className="size-8" aria-hidden="true" />
+                      <span className="text-sm font-medium">{provider.name}</span>
                     </Link>
                   );
                 })}
@@ -92,6 +94,6 @@ export function SourceCatalogPage() {
       {matchingProviders.length === 0 ? (
         <p className="pt-14 text-sm text-content-muted">No sources match your search.</p>
       ) : null}
-    </section>
+    </SettingsLayout>
   );
 }

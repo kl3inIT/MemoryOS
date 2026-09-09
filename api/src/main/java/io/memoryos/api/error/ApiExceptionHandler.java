@@ -2,6 +2,7 @@ package io.memoryos.api.error;
 
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
+import io.memoryos.connector.GoogleDriveProviderException;
 
 import java.net.URI;
 import java.util.Comparator;
@@ -12,6 +13,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -31,6 +33,27 @@ final class ApiExceptionHandler {
         problem.setType(problemType(exception.code()));
         problem.setProperty("code", exception.code());
         return problem;
+    }
+
+    @ExceptionHandler(GoogleDriveProviderException.class)
+    ProblemDetail handleGoogleDriveFailure(GoogleDriveProviderException exception) {
+        HttpStatus status = switch (exception.failure()) {
+            case AUTHENTICATION, INCONSISTENT -> HttpStatus.CONFLICT;
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case UNSUPPORTED, MALFORMED, LIMIT_EXCEEDED -> HttpStatus.BAD_REQUEST;
+            case QUOTA, UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        String code = "GOOGLE_DRIVE_" + exception.failure().name();
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Google Drive could not complete this operation.");
+        problem.setTitle(status.getReasonPhrase());
+        problem.setType(problemType(code));
+        problem.setProperty("code", code);
+        return problem;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ProblemDetail handleMalformedJson() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed JSON request.");
     }
 
 

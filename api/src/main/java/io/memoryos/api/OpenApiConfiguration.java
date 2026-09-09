@@ -1,6 +1,7 @@
 package io.memoryos.api;
 
 import io.memoryos.api.security.BrowserMutation;
+import io.memoryos.connector.SourceRunTrigger;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.HeaderParameter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -63,24 +65,28 @@ class OpenApiConfiguration {
                         openApi.setComponents(new Components());
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
-                    configureNullableReference(
-                            openApi.getComponents(), "CurrentIdentity", "tenant", "CurrentTenant"
-                    );
-                    configureNullableReference(
-                            openApi.getComponents(), "UserListItem", "role", "TenantMembershipRole"
-                    );
-                    configureNullableReference(
-                            openApi.getComponents(), "UserListItem", "accountType", "AccountType"
-                    );
-                    configureNullableReference(
-                            openApi.getComponents(), "UserGroup", "systemKey", "GroupSystemKey"
-                    );
-                    configureNullableReference(
-                            openApi.getComponents(), "GroupSummary", "systemKey", "GroupSystemKey"
-                    );
-                    configureNullableReference(
-                            openApi.getComponents(), "SourceGroup", "systemKey", "GroupSystemKey"
-                    );
+                    Components components = openApi.getComponents();
+                    configureNullableProperty(components, "CurrentIdentity", "tenant",
+                            new Schema<>().$ref("#/components/schemas/CurrentTenant"));
+                    configureNullableProperty(components, "GoogleDriveConfigurationResponse", "pendingSelectionOperation",
+                            new Schema<>().$ref("#/components/schemas/SourceOperation"));
+                    configureNullableProperty(components, "SourceItemPage", "nextCursor", new StringSchema());
+                    for (String summary : List.of("current", "lastCompleted", "lastSuccessful")) {
+                        configureNullableProperty(components, "SourceRunPage", summary,
+                                new Schema<>().$ref("#/components/schemas/SourceRun"));
+                    }
+                    configureNullableProperty(components, "SourceRun", "trigger",
+                            new StringSchema()._enum(Arrays.stream(SourceRunTrigger.values()).map(Enum::name).toList()));
+                    configureNullableProperty(components, "UserListItem", "role",
+                            new Schema<>().$ref("#/components/schemas/TenantMembershipRole"));
+                    configureNullableProperty(components, "UserListItem", "accountType",
+                            new Schema<>().$ref("#/components/schemas/AccountType"));
+                    configureNullableProperty(components, "UserGroup", "systemKey",
+                            new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
+                    configureNullableProperty(components, "GroupSummary", "systemKey",
+                            new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
+                    configureNullableProperty(components, "SourceGroup", "systemKey",
+                            new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
                 })
                 .build();
     }
@@ -105,27 +111,17 @@ class OpenApiConfiguration {
         };
     }
 
-    private static void configureNullableReference(
-            Components components,
-            String schemaName,
-            String propertyName,
-            String referenceName
-    ) {
+    private static void configureNullableProperty(
+            Components components, String schemaName, String propertyName, Schema<?> value) {
         Schema<?> parent = Objects.requireNonNull(
-                components.getSchemas().get(schemaName),
-                schemaName + " schema must exist"
-        );
-        Schema<?> generatedProperty = Objects.requireNonNull(
-                parent.getProperties().get(propertyName),
-                schemaName + "." + propertyName + " schema must exist"
-        );
-        Schema<Object> reference = new Schema<>();
-        reference.set$ref("#/components/schemas/" + referenceName);
+                components.getSchemas().get(schemaName), schemaName + " schema must exist");
+        Schema<?> generated = Objects.requireNonNull(
+                parent.getProperties().get(propertyName), schemaName + "." + propertyName + " schema must exist");
         Schema<Object> nullValue = new Schema<>();
         nullValue.setTypes(Set.of("null"));
         Schema<Object> nullableProperty = new Schema<>();
-        nullableProperty.setDescription(generatedProperty.getDescription());
-        nullableProperty.setOneOf(List.of(reference, nullValue));
+        nullableProperty.setDescription(generated.getDescription());
+        nullableProperty.setOneOf(List.of(value, nullValue));
         parent.addProperty(propertyName, nullableProperty);
     }
 

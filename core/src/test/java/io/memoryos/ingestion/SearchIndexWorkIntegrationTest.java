@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.TestDatabase;
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentContent;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -56,6 +58,7 @@ import tools.jackson.databind.ObjectMapper;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 @Testcontainers
 class SearchIndexWorkIntegrationTest {
+    private HikariDataSource dataSource;
     private JdbcClient jdbc;
     private TransactionTemplate tx;
     private JdbcSearchWorkRepository work;
@@ -75,7 +78,7 @@ class SearchIndexWorkIntegrationTest {
 
     @BeforeEach
     void setup() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         work = new JdbcSearchWorkRepository(jdbc);
@@ -94,6 +97,13 @@ class SearchIndexWorkIntegrationTest {
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'search-test','Search','ACTIVE','MEM-46')")
                 .param("id", tenant.value()).update();
         when(index.identity()).thenReturn(IDENTITY);
+    }
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
     }
 
     @Test
@@ -146,10 +156,10 @@ class SearchIndexWorkIntegrationTest {
         }
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations").query(String.class).single());
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY));
-        jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP WHERE document_id=:document")
+        jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND WHERE document_id=:document")
                 .param("document", document.value()).update();
         var first = tx.execute(_ -> work.claim(delivery(), IDENTITY).orElseThrow());
-        jdbc.sql("UPDATE search_index_operations SET lease_expires_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND, next_dispatch_at=CURRENT_TIMESTAMP WHERE document_id=:document")
+        jdbc.sql("UPDATE search_index_operations SET lease_expires_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND, next_dispatch_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND WHERE document_id=:document")
                 .param("document", document.value()).update();
         var second = tx.execute(_ -> work.claim(delivery(), IDENTITY).orElseThrow());
         assertNotEquals(first.token(), second.token());

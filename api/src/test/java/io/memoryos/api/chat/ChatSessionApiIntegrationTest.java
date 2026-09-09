@@ -14,7 +14,6 @@ import static org.mockito.Mockito.mock;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -298,21 +297,24 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get(path + "?after=" + id + ":0").with(authentication(actor)).header("Last-Event-ID", id + ":1"))
                 .andExpect(status().isBadRequest());
-        var streaming = mockMvc.perform(get(path).with(authentication(actor))).andReturn();
-        streaming.getAsyncResult(5000);
-        var response = mockMvc.perform(asyncDispatch(streaming)).andExpect(status().isOk()).andReturn().getResponse();
-        String frames = response.getContentAsString(UTF_8);
-        assertTrue(frames.contains("event:text-delta"), frames);
-        assertTrue(frames.contains("Answer 😀"), frames);
-        assertTrue(frames.contains("event:outcome"), frames);
-        assertTrue(frames.contains("\"status\":\"COMPLETED\""), frames);
-        assertEquals("no", response.getHeader("X-Accel-Buffering"));
-        var resumed = mockMvc.perform(get(path).with(authentication(actor)).header("Last-Event-ID", id + ":1")).andReturn();
-        resumed.getAsyncResult(5000);
-        String tail = mockMvc.perform(asyncDispatch(resumed)).andExpect(status().isOk()).andReturn()
-                .getResponse().getContentAsString(UTF_8);
-        assertFalse(tail.contains("event:text-delta"), tail);
-        assertTrue(tail.contains("event:outcome"), tail);
+        try (var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
+            String events = "http://127.0.0.1:" + port + path;
+            String token = token(actor);
+            var response = http.send(httpRequest(events, token).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
+            assertEquals(200, response.statusCode());
+            String frames = response.body();
+            assertTrue(frames.contains("event:text-delta"), frames);
+            assertTrue(frames.contains("Answer 😀"), frames);
+            assertTrue(frames.contains("event:outcome"), frames);
+            assertTrue(frames.contains("\"status\":\"COMPLETED\""), frames);
+            assertEquals("no", response.headers().firstValue("X-Accel-Buffering").orElseThrow());
+            var resumed = http.send(httpRequest(events, token).header("Last-Event-ID", id + ":1").build(),
+                    HttpResponse.BodyHandlers.ofString(UTF_8));
+            assertEquals(200, resumed.statusCode());
+            String tail = resumed.body();
+            assertFalse(tail.contains("event:text-delta"), tail);
+            assertTrue(tail.contains("event:outcome"), tail);
+        }
     }
 
     @Test
@@ -466,12 +468,14 @@ class ChatSessionApiIntegrationTest {
         complete.tryEmitValue(response(" late", "stop", 12));
         awaitOutcome(id, "FAILED");
         String path = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + id + "/events";
-        var result = mockMvc.perform(get(path).with(authentication(actor))).andReturn();
-        result.getAsyncResult(5000);
-        String frames = mockMvc.perform(asyncDispatch(result)).andExpect(status().isOk()).andReturn()
-                .getResponse().getContentAsString(UTF_8);
-        assertTrue(frames.contains("\"status\":\"FAILED\""), frames);
-        assertFalse(frames.contains("\"status\":\"COMPLETED\""), frames);
+        try (var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
+            var response = http.send(httpRequest("http://127.0.0.1:" + port + path, token(actor)).build(),
+                    HttpResponse.BodyHandlers.ofString(UTF_8));
+            assertEquals(200, response.statusCode());
+            String frames = response.body();
+            assertTrue(frames.contains("\"status\":\"FAILED\""), frames);
+            assertFalse(frames.contains("\"status\":\"COMPLETED\""), frames);
+        }
         assertEquals("CHAT_INTERRUPTED", jdbc.sql("SELECT failure_code FROM chat_message WHERE id = :id")
                 .param("id", UUID.fromString(id)).query(String.class).single());
     }

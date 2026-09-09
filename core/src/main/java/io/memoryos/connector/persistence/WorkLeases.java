@@ -106,7 +106,8 @@ final class WorkLeases {
         if (backoff.isNegative() || backoff.isZero()) {
             throw new IllegalArgumentException("backoff must be positive");
         }
-        Integer attempts = jdbcClient.sql("SELECT processing_attempts FROM " + table + """
+        String attemptCount = table.equals("index_attempts") ? "processing_attempts - deferred_attempts" : "processing_attempts";
+        Integer attempts = jdbcClient.sql("SELECT " + attemptCount + " FROM " + table + """
 
                         WHERE tenant_id = :tenantId
                           AND id = :operationId

@@ -25,16 +25,15 @@ class RedisStreamWorkerTracingTest {
     @org.junit.jupiter.api.Test
     void acknowledgementFailureDoesNotReclassifyOrDoubleCountCoordinatorOutcome() {
         var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
-        var coordinator = new io.memoryos.ingestion.application.DefaultIngestionCoordinator(
-                mock(io.memoryos.connector.ConnectorIndexingPort.class),
-                mock(io.memoryos.connector.ConnectorCleanupPort.class),
-                mock(io.memoryos.document.DocumentCommandPort.class),
-                mock(io.memoryos.ingestion.SourceContentExtractor.class),
-                mock(io.memoryos.objectstorage.ObjectStorage.class),
-                mock(io.memoryos.objectstorage.StoredObjectRegistry.class),
-                mock(org.springframework.transaction.support.TransactionTemplate.class),
-                mock(java.util.concurrent.ScheduledExecutorService.class),
-                mock(io.memoryos.document.ExtractionArtifactPort.class), registry);
+        var coordinator = new io.memoryos.ingestion.application.DefaultIngestionCoordinator(mock(io.memoryos.connector.ConnectorIndexingPort.class),
+        mock(io.memoryos.connector.ConnectorCleanupPort.class),
+        mock(io.memoryos.document.DocumentCommandPort.class),
+        mock(io.memoryos.ingestion.SourceContentExtractor.class),
+        mock(io.memoryos.objectstorage.ObjectStorage.class),
+        mock(io.memoryos.objectstorage.StoredObjectRegistry.class),
+        mock(org.springframework.transaction.support.TransactionTemplate.class),
+        mock(java.util.concurrent.ScheduledExecutorService.class),
+        mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), org.mockito.Mockito.mock(io.memoryos.ingestion.application.SelectionValidationProcessor.class));
         var redis = mock(StringRedisTemplate.class, RETURNS_DEEP_STUBS);
         var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8);
         var id = RecordId.of("1-0");

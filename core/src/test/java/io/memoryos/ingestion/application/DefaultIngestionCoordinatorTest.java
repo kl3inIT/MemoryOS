@@ -13,6 +13,7 @@ import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.document.DocumentCommandPort;
@@ -67,7 +68,8 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class), cleanup,
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), scheduler,
-                mock(ExtractionArtifactPort.class), registry);
+                mock(ExtractionArtifactPort.class), registry, mock(SourceSyncProcessor.class),
+                mock(SelectionValidationProcessor.class));
 
         assertThat(coordinator.process(delivery))
                 .isEqualTo(IngestionCoordinator.Outcome.FAILED);
@@ -90,20 +92,22 @@ class DefaultIngestionCoordinatorTest {
         var metadata = mock(ObjectMetadata.class);
         when(reference.metadata()).thenReturn(metadata);
         var work = new IndexWork(delivery.operationId(), delivery.tenantId(),
-                UUID.randomUUID(), new SourceId(UUID.randomUUID()), null, UUID.randomUUID(), reference, Duration.ofSeconds(2));
+                UUID.randomUUID(), new SourceId(UUID.randomUUID()), null, UUID.randomUUID(), reference,
+                SourceInputDescriptor.binary(), Duration.ofSeconds(2));
         when(indexing.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId())).thenReturn(Optional.of(work));
         var storage = mock(ObjectStorage.class);
         var content = mock(ObjectContent.class);
         when(storage.open(reference.key())).thenReturn(content);
         when(content.metadata()).thenReturn(metadata);
         var extractor = mock(SourceContentExtractor.class);
-        when(extractor.extract(content.inputStream(), metadata.sizeBytes(), reference.filename()))
+        when(extractor.extract(content.inputStream(), metadata.sizeBytes(), reference.filename(), work.input()))
                 .thenThrow(new ExtractionException(
                         ExtractionFailure.MALFORMED, "test failure"));
         var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), extractor, storage, mock(StoredObjectRegistry.class),
                 mock(TransactionTemplate.class), scheduler,
-                mock(ExtractionArtifactPort.class), registry);
+                mock(ExtractionArtifactPort.class), registry, mock(SourceSyncProcessor.class),
+                mock(SelectionValidationProcessor.class));
 
         assertThat(coordinator.process(delivery))
                 .isEqualTo(IngestionCoordinator.Outcome.FAILED);
@@ -154,7 +158,8 @@ class DefaultIngestionCoordinatorTest {
                 storedObjects,
                 transactions,
                 scheduler,
-                mock(ExtractionArtifactPort.class), registry
+                mock(ExtractionArtifactPort.class), registry,
+                mock(SourceSyncProcessor.class), mock(SelectionValidationProcessor.class)
         );
 
         coordinator.process(new OperationDelivery(tenantId, OperationWorkload.CLEANUP, operationId, deliveryId));
@@ -164,13 +169,15 @@ class DefaultIngestionCoordinatorTest {
         verify(cleanup).renew(work);
         verify(renewal).cancel(false);
     }
+
     @ParameterizedTest
     @EnumSource(value = OperationWorkload.class, names = {"INGESTION", "CLEANUP"})
     void missingClaimCountsSkippedWithoutQueueWait(OperationWorkload workload) {
         var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class), mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), mock(ScheduledExecutorService.class),
-                mock(ExtractionArtifactPort.class), registry);
+                mock(ExtractionArtifactPort.class), registry, mock(SourceSyncProcessor.class),
+                mock(SelectionValidationProcessor.class));
         coordinator.process(new OperationDelivery(new TenantId(UUID.randomUUID()), workload,
                 new SourceOperationId(UUID.randomUUID()), UUID.randomUUID()));
         assertOutcome(workload.name(), "SKIPPED");
@@ -185,7 +192,8 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), mock(ScheduledExecutorService.class),
-                mock(ExtractionArtifactPort.class), registry);
+                mock(ExtractionArtifactPort.class), registry, mock(SourceSyncProcessor.class),
+                mock(SelectionValidationProcessor.class));
         assertThatThrownBy(() -> coordinator.process(new OperationDelivery(
                 new TenantId(UUID.randomUUID()), OperationWorkload.INGESTION,
                 new SourceOperationId(UUID.randomUUID()), UUID.randomUUID()))).isSameAs(failure);
@@ -207,7 +215,8 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class), mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), mock(ScheduledExecutorService.class),
-                mock(ExtractionArtifactPort.class), failingRegistry);
+                mock(ExtractionArtifactPort.class), failingRegistry, mock(SourceSyncProcessor.class),
+                mock(SelectionValidationProcessor.class));
         assertThat(coordinator.process(new OperationDelivery(new TenantId(UUID.randomUUID()),
                 OperationWorkload.INGESTION, new SourceOperationId(UUID.randomUUID()), UUID.randomUUID())))
                 .isEqualTo(IngestionCoordinator.Outcome.SKIPPED);
