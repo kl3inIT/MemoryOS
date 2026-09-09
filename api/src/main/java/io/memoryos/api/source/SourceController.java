@@ -2,9 +2,9 @@ package io.memoryos.api.source;
 
 import io.memoryos.api.source.contract.CreateFileSourceRequest;
 import io.memoryos.api.source.contract.InitiateSourceUploadRequest;
-import io.memoryos.api.source.contract.SourceDetailResponse;
-import io.memoryos.api.source.contract.SourceItemResponse;
+import io.memoryos.api.source.contract.SourceItemPageResponse;
 import io.memoryos.api.source.contract.SourceOperationResponse;
+import io.memoryos.api.source.contract.SourceOperationPageResponse;
 import io.memoryos.api.source.contract.SourceSummaryResponse;
 import io.memoryos.api.source.contract.SourceUploadAuthorizationResponse;
 import io.memoryos.api.source.contract.SourceUploadReceiptResponse;
@@ -55,11 +55,11 @@ final class SourceController {
     )
     @PostMapping(value = "/file", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    SourceDetailResponse createFileSource(
+    SourceSummaryResponse createFileSource(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
             @Valid @RequestBody CreateFileSourceRequest request
     ) {
-        return SourceDetailResponse.from(sources.createFileSource(identityContext.actorId(), request.name()));
+        return SourceSummaryResponse.from(sources.createFileSource(identityContext.actorId(), request.name()));
     }
 
     @Operation(operationId = "listSources", summary = "List Tenant sources")
@@ -72,36 +72,36 @@ final class SourceController {
                 .toList();
     }
 
-    @Operation(operationId = "getSource", summary = "Get one source with current items")
+    @Operation(operationId = "getSource", summary = "Get one source summary")
     @GetMapping("/{sourceId}")
-    SourceDetailResponse getSource(
+    SourceSummaryResponse getSource(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
             @PathVariable UUID sourceId
     ) {
-        return SourceDetailResponse.from(sources.getSource(identityContext.actorId(), new SourceId(sourceId)));
+        return SourceSummaryResponse.from(sources.getSource(identityContext.actorId(), new SourceId(sourceId)));
     }
 
-    @Operation(operationId = "listSourceItems", summary = "List current source items")
+    @Operation(operationId = "listSourceItems", summary = "List a page of current source items")
     @GetMapping("/{sourceId}/items")
-    List<SourceItemResponse> listItems(
+    SourceItemPageResponse listItems(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
-            @PathVariable UUID sourceId
+            @PathVariable UUID sourceId,
+            @RequestParam(required = false) @org.jspecify.annotations.Nullable String cursor,
+            @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size
     ) {
-        return sources.getSource(identityContext.actorId(), new SourceId(sourceId)).items().stream()
-                .map(SourceItemResponse::from)
-                .toList();
+        return SourceItemPageResponse.from(sources.listItems(
+                identityContext.actorId(), new SourceId(sourceId), cursor, size));
     }
 
     @Operation(operationId = "listSourceIndexAttempts", summary = "List source indexing attempts")
     @GetMapping("/{sourceId}/index-attempts")
-    List<SourceOperationResponse> listIndexAttempts(
+    SourceOperationPageResponse listIndexAttempts(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
             @PathVariable UUID sourceId,
+            @RequestParam(required = false) @org.jspecify.annotations.Nullable String cursor,
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size
     ) {
-        return sources.listIndexAttempts(identityContext.actorId(), new SourceId(sourceId), size).stream()
-                .map(SourceOperationResponse::from)
-                .toList();
+        return SourceOperationPageResponse.from(sources.listIndexAttempts(identityContext.actorId(), new SourceId(sourceId), cursor, size));
     }
 
     @Operation(operationId = "initiateSourceUpload", summary = "Authorize one direct FILE source upload")

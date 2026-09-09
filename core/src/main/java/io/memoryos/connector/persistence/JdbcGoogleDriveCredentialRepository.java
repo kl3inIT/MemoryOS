@@ -304,7 +304,22 @@ public class JdbcGoogleDriveCredentialRepository {
             jdbc.sql("UPDATE google_drive_membership SET eligible = FALSE WHERE tenant_id = :tenant AND source_id = :source")
                     .param("tenant", tenantId.value()).param("source", source.value()).update();
             jdbc.sql("""
-                    UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP, error_code = NULL
+                    UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP, error_code = NULL,
+                      discovery_revision = discovery_revision + CASE WHEN scope_mode = 'SPECIFIC' THEN 1 ELSE 0 END,
+                      discovered_at = NULL, discovery_scope_revision = NULL, discovery_credential_revision = NULL
+                    WHERE tenant_id = :tenant AND source_id = :source
+                    """).param("tenant", tenantId.value()).param("source", source.value()).update();
+            jdbc.sql("DELETE FROM google_drive_link_origins WHERE tenant_id = :tenant AND source_id = :source")
+                    .param("tenant", tenantId.value()).param("source", source.value()).update();
+            jdbc.sql("DELETE FROM google_drive_discovery_errors WHERE tenant_id = :tenant AND source_id = :source")
+                    .param("tenant", tenantId.value()).param("source", source.value()).update();
+            jdbc.sql("""
+                    DELETE FROM google_drive_linked_documents d WHERE d.tenant_id = :tenant AND d.source_id = :source
+                    AND NOT EXISTS (SELECT 1 FROM google_drive_link_approvals a
+                      WHERE a.tenant_id = d.tenant_id AND a.source_id = d.source_id AND a.file_id = d.file_id)
+                    """).param("tenant", tenantId.value()).param("source", source.value()).update();
+            jdbc.sql("""
+                    UPDATE google_drive_linked_documents SET status = 'UNAVAILABLE'
                     WHERE tenant_id = :tenant AND source_id = :source
                     """).param("tenant", tenantId.value()).param("source", source.value()).update();
             sources.recomputeStatus(tenantId, source, false);

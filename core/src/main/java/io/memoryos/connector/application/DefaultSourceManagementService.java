@@ -1,9 +1,9 @@
 package io.memoryos.connector.application;
 
-import io.memoryos.connector.SourceDetail;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
+import io.memoryos.connector.SourceItemPage;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
@@ -47,6 +47,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final TenantAccessResolver tenantAccess;
     private final TransactionTemplate transactions;
     private final io.memoryos.connector.persistence.JdbcSourceSyncRepository sync;
+    private final io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -58,7 +59,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
             ObjectUploadService objectUploads,
             TenantAccessResolver tenantAccess,
             PlatformTransactionManager transactionManager,
-            io.memoryos.connector.persistence.JdbcSourceSyncRepository sync
+            io.memoryos.connector.persistence.JdbcSourceSyncRepository sync,
+            io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
@@ -69,6 +71,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.objectUploads = Objects.requireNonNull(objectUploads, "objectUploads must not be null");
         this.tenantAccess = Objects.requireNonNull(tenantAccess, "tenantAccess must not be null");
         this.sync = Objects.requireNonNull(sync);
+        this.selections = Objects.requireNonNull(selections);
         this.transactions = new TransactionTemplate(
                 Objects.requireNonNull(transactionManager, "transactionManager must not be null")
         );
@@ -76,10 +79,10 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional
-    public SourceDetail createFileSource(ActorId actorId, String name) {
+    public SourceSummary createFileSource(ActorId actorId, String name) {
         TenantId tenantId = requireOwner(actorId);
         var pair = sources.createFileSource(tenantId, requireName(name));
-        return queries.detail(tenantId, pair.sourceId());
+        return queries.summary(tenantId, pair.sourceId());
     }
 
     @Override
@@ -90,16 +93,27 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public SourceDetail getSource(ActorId actorId, SourceId sourceId) {
-        return queries.detail(requireOwner(actorId), requireSourceId(sourceId));
+    public SourceSummary getSource(ActorId actorId, SourceId sourceId) {
+        return queries.summary(requireOwner(actorId), requireSourceId(sourceId));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit) {
+    public SourceItemPage listItems(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int size) {
         TenantId tenantId = requireOwner(actorId);
         queries.summary(tenantId, requireSourceId(sourceId));
-        return attempts.list(tenantId, sourceId, limit);
+        if (size < 1 || size > 100) {
+            throw SourceException.invalid("Page size must be between 1 and 100.", "invalid source item page size");
+        }
+        return queries.items(tenantId, sourceId, cursor, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public io.memoryos.connector.SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int limit) {
+        TenantId tenantId = requireOwner(actorId);
+        queries.summary(tenantId, requireSourceId(sourceId));
+        return attempts.list(tenantId, sourceId, cursor, limit);
     }
 
     @Override
@@ -263,6 +277,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         sourceDocuments.invalidateSource(tenantId, requiredSourceId);
         attempts.cancelForSource(tenantId, requiredSourceId);
         sync.cancel(tenantId, requiredSourceId);
+        selections.cancelForSource(tenantId, requiredSourceId);
         sources.supersedeItemCleanups(tenantId, requiredSourceId);
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
@@ -282,6 +297,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return attempts.findById(tenantId, requiredOperationId)
                 .or(() -> sources.findCleanupById(tenantId, requiredOperationId))
                 .or(() -> sync.find(tenantId, requiredOperationId))
+                .or(() -> selections.find(tenantId, requiredOperationId))
                 .orElseThrow(SourceException::notFound);
     }
 

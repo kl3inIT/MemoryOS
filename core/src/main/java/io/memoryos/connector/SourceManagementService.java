@@ -9,13 +9,15 @@ import java.util.List;
 
 public interface SourceManagementService {
 
-    SourceDetail createFileSource(ActorId actorId, String name);
+    SourceSummary createFileSource(ActorId actorId, String name);
 
     List<SourceSummary> listSources(ActorId actorId);
 
-    SourceDetail getSource(ActorId actorId, SourceId sourceId);
+    SourceSummary getSource(ActorId actorId, SourceId sourceId);
 
-    List<SourceOperationView> listIndexAttempts(ActorId actorId, SourceId sourceId, int limit);
+    SourceItemPage listItems(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int size);
+
+    SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int limit);
 
     ObjectUploadAuthorization initiateUpload(
             ActorId actorId,

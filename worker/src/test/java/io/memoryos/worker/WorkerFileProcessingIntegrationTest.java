@@ -80,9 +80,13 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                         + "classpath:db/migration/V17__scope_google_sync_to_explicit_roots.sql,"
                         + "classpath:db/migration/V18__reuse_google_drive_credentials.sql,"
                         + "classpath:db/migration/V19__add_google_drive_sync_interval.sql,"
-                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql",
+                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql,"
+                        + "classpath:db/migration/V21__add_google_drive_linked_documents.sql,"
+                        + "classpath:db/migration/V22__add_google_drive_selection_operations.sql,"
+                        + "classpath:db/migration/V23__add_source_run_history.sql",
+                "spring.sql.init.separator=" + org.springframework.jdbc.datasource.init.ScriptUtils.EOF_STATEMENT_SEPARATOR,
                 "db-scheduler.enabled=true",
-                "arconia.dev.services.redis.port=0",
+                "arconia.dev.services.redis.enabled=false",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
@@ -179,6 +183,16 @@ class WorkerFileProcessingIntegrationTest {
             .withPassword("memoryos");
 
     @Container
+    private static final GenericContainer<?> REDIS = new GenericContainer<>(
+            DockerImageName.parse(
+                    "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232"
+            )
+    )
+            .withExposedPorts(6379)
+            .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
+            .withStartupTimeout(Duration.ofSeconds(30));
+
+    @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
             DockerImageName.parse(
                     "minio/minio:RELEASE.2025-04-22T22-12-26Z"
@@ -219,7 +233,7 @@ class WorkerFileProcessingIntegrationTest {
     private RedisExecutionTopology topology;
 
     @DynamicPropertySource
-    static void databaseProperties(DynamicPropertyRegistry registry) {
+    static void serviceProperties(DynamicPropertyRegistry registry) {
         if (System.getenv("DOCLING_TEST_ENDPOINT") != null) {
             registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
         }
@@ -227,6 +241,8 @@ class WorkerFileProcessingIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         registry.add("memoryos.object-storage.s3.service-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
         registry.add("memoryos.object-storage.s3.upload-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
         registry.add("memoryos.object-storage.s3.region", () -> "us-east-1");
@@ -272,7 +288,7 @@ class WorkerFileProcessingIntegrationTest {
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
         worker.stop();
-        var sourceId = sources.createFileSource(OWNER, "Worker knowledge").source().id();
+        var sourceId = sources.createFileSource(OWNER, "Worker knowledge").id();
         boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
         byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
@@ -334,8 +350,8 @@ class WorkerFileProcessingIntegrationTest {
         worker.start();
 
         // The real isolated extractor permits 90 seconds, plus stream reclaim/startup.
-        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).source().status() == SourceStatus.ACTIVE);
-        assertEquals(1L, sources.getSource(OWNER, sourceId).source().documentCount());
+        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).status() == SourceStatus.ACTIVE);
+        assertEquals(1L, sources.getSource(OWNER, sourceId).documentCount());
         await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count() == 1);
         var initialWait = registry.get("memoryos.operation.initial.queue.wait").tag("workload", "INGESTION").timer();
         assertEquals(1, initialWait.count());
@@ -395,7 +411,7 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(1, initialWait.count());
         assertEquals(1, registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count());
         sources.removeItem(OWNER, sourceId, upload.item().id());
-        await(() -> sources.getSource(OWNER, sourceId).items().isEmpty());
+        await(() -> sources.listItems(OWNER, sourceId, null, 25).items().isEmpty());
         extractionArtifacts.cleanup();
         await(() -> jdbcClient.sql("SELECT COUNT(*) FROM document_extraction_artifacts")
                 .query(Integer.class).single() == 0);

@@ -40,6 +40,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     private final io.memoryos.document.ExtractionArtifactPort artifacts;
     private final IngestionMetrics metrics;
     private final SourceSyncProcessor sourceSync;
+    private final SelectionValidationProcessor selectionValidation;
 
     public DefaultIngestionCoordinator(
             ConnectorIndexingPort indexingPort,
@@ -52,7 +53,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             ScheduledExecutorService leaseScheduler,
             io.memoryos.document.ExtractionArtifactPort artifacts,
             io.micrometer.core.instrument.MeterRegistry registry,
-            SourceSyncProcessor sourceSync
+            SourceSyncProcessor sourceSync,
+            SelectionValidationProcessor selectionValidation
     ) {
         this.metrics = new IngestionMetrics(registry);
         this.indexingPort = Objects.requireNonNull(indexingPort, "indexingPort must not be null");
@@ -65,6 +67,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         this.leaseScheduler = Objects.requireNonNull(leaseScheduler, "leaseScheduler must not be null");
         this.artifacts = Objects.requireNonNull(artifacts, "artifacts must not be null");
         this.sourceSync = Objects.requireNonNull(sourceSync);
+        this.selectionValidation = Objects.requireNonNull(selectionValidation);
     }
 
     @Override
@@ -96,6 +99,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     )
                     .map(this::processCleanup).orElse(Outcome.SKIPPED);
             case SOURCE_SYNC -> sourceSync.process(delivery);
+            case GOOGLE_DRIVE_SELECTION_VALIDATION -> selectionValidation.process(delivery);
         };
     }
 
@@ -109,6 +113,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         );
         LOGGER.atInfo().addKeyValue("event", "ingestion.started")
                 .addKeyValue("operation_id", work.operationId().value()).log("Indexing started");
+        String failureStage = "SOURCE_STORAGE_READ";
         try {
             var expected = work.object().metadata();
             final io.memoryos.document.DocumentContent content;
@@ -116,6 +121,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 if (!expected.equals(objectContent.metadata())) {
                     throw new IllegalStateException("stored object metadata changed after adoption");
                 }
+                failureStage = "SOURCE_EXTRACTION";
                 content = extractor.extract(
                         objectContent.inputStream(),
                         expected.sizeBytes(),
@@ -123,7 +129,9 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                         work.input()
                 );
             }
+            failureStage = "SOURCE_STORAGE_WRITE";
             var staged = artifacts.stage(work.tenantId(), content);
+            failureStage = "SOURCE_PUBLICATION";
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
                         work.tenantId(),
@@ -156,19 +164,21 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             }
             return Outcome.FAILED;
         } catch (RuntimeException exception) {
+            String errorCode = failureStage + "_" + (exception instanceof io.memoryos.objectstorage.ObjectStorageException storageFailure
+                    ? io.memoryos.connector.SourceStorageFailure.code(storageFailure) : "INTERNAL");
             LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
                     .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("error_type", exception.getClass().getName())
                     .log("Indexing failed; applying retry policy");
             if (!indexingPort.retry(
                     work,
-                    "SOURCE_EXTRACTION_INTERNAL",
+                    errorCode,
                     MAX_PROCESSING_ATTEMPTS,
                     RETRY_BACKOFF
             )) {
                 LOGGER.atDebug().addKeyValue("event", "ingestion.retry.stale")
                     .addKeyValue("operation_id", work.operationId().value())
-                    .log("Ignored stale internal extraction failure");
+                    .log("Ignored stale indexing failure");
             }
             return Outcome.FAILED;
         } finally {

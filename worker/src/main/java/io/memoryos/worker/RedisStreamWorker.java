@@ -86,9 +86,9 @@ final class RedisStreamWorker implements SmartLifecycle {
                 Thread.ofVirtual().name("memoryos-redis-consumer-", 0).factory()
         );
         consumers = startedConsumers;
-        startedConsumers.submit(() -> consume(OperationWorkload.INGESTION, startedConsumers));
-        startedConsumers.submit(() -> consume(OperationWorkload.CLEANUP, startedConsumers));
-        startedConsumers.submit(() -> consume(OperationWorkload.SOURCE_SYNC, startedConsumers));
+        for (var workload : OperationWorkload.values()) {
+            startedConsumers.submit(() -> consume(workload, startedConsumers));
+        }
     }
 
     @Override

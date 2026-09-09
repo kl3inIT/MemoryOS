@@ -1,6 +1,7 @@
 package io.memoryos.api;
 
 import io.memoryos.api.security.BrowserMutation;
+import io.memoryos.connector.SourceRunTrigger;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.HeaderParameter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -60,7 +62,18 @@ class OpenApiConfiguration {
                         openApi.setComponents(new Components());
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
-                    configureNullableCurrentTenant(openApi.getComponents());
+                    Components components = openApi.getComponents();
+                    configureNullableProperty(components, "CurrentIdentity", "tenant",
+                            new Schema<>().$ref("#/components/schemas/CurrentTenant"));
+                    configureNullableProperty(components, "GoogleDriveConfigurationResponse", "pendingSelectionOperation",
+                            new Schema<>().$ref("#/components/schemas/SourceOperation"));
+                    configureNullableProperty(components, "SourceItemPage", "nextCursor", new StringSchema());
+                    for (String summary : List.of("current", "lastCompleted", "lastSuccessful")) {
+                        configureNullableProperty(components, "SourceRunPage", summary,
+                                new Schema<>().$ref("#/components/schemas/SourceRun"));
+                    }
+                    configureNullableProperty(components, "SourceRun", "trigger",
+                            new StringSchema()._enum(Arrays.stream(SourceRunTrigger.values()).map(Enum::name).toList()));
                 })
                 .build();
     }
@@ -82,23 +95,18 @@ class OpenApiConfiguration {
         };
     }
 
-    private static void configureNullableCurrentTenant(Components components) {
-        Schema<?> currentIdentity = Objects.requireNonNull(
-                components.getSchemas().get("CurrentIdentity"),
-                "CurrentIdentity schema must exist"
-        );
-        Schema<?> generatedTenant = Objects.requireNonNull(
-                currentIdentity.getProperties().get("tenant"),
-                "CurrentIdentity.tenant schema must exist"
-        );
-        Schema<Object> tenantReference = new Schema<>();
-        tenantReference.set$ref("#/components/schemas/CurrentTenant");
+    private static void configureNullableProperty(
+            Components components, String schemaName, String propertyName, Schema<?> value) {
+        Schema<?> parent = Objects.requireNonNull(
+                components.getSchemas().get(schemaName), schemaName + " schema must exist");
+        Schema<?> generated = Objects.requireNonNull(
+                parent.getProperties().get(propertyName), schemaName + "." + propertyName + " schema must exist");
         Schema<Object> nullValue = new Schema<>();
         nullValue.setTypes(Set.of("null"));
-        Schema<Object> nullableTenant = new Schema<>();
-        nullableTenant.setDescription(generatedTenant.getDescription());
-        nullableTenant.setOneOf(List.of(tenantReference, nullValue));
-        currentIdentity.addProperty("tenant", nullableTenant);
+        Schema<Object> nullableProperty = new Schema<>();
+        nullableProperty.setDescription(generated.getDescription());
+        nullableProperty.setOneOf(List.of(value, nullValue));
+        parent.addProperty(propertyName, nullableProperty);
     }
 
     private static Schema<?> apiProblemSchema() {

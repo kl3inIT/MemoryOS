@@ -22,8 +22,11 @@ public record SourceItemResponse(
         String status,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         Instant uploadedAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Most recent retained successful indexing completion for the current file version. Null means no retained success is known, not necessarily never indexed.")
+        @Nullable Instant lastIndexedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
-        @Nullable UUID latestOperationId,
+        @Nullable SourceIndexAttemptResponse latestAttempt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String errorCode
 ) {
@@ -35,7 +38,8 @@ public record SourceItemResponse(
                 item.sizeBytes(),
                 item.status().name(),
                 item.uploadedAt(),
-                item.latestOperationId() == null ? null : item.latestOperationId().value(),
+                item.lastIndexedAt(),
+                item.latestAttempt() == null ? null : SourceIndexAttemptResponse.from(item.latestAttempt()),
                 item.errorCode()
         );
     }

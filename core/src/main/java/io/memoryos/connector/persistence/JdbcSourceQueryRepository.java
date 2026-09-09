@@ -1,13 +1,14 @@
 package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.SourceAccess;
-import io.memoryos.connector.SourceDetail;
+import io.memoryos.connector.SourceItemPage;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceItemStatus;
 import io.memoryos.connector.SourceItemView;
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceIndexAttemptView;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
@@ -15,10 +16,13 @@ import io.memoryos.tenant.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -53,7 +57,19 @@ public class JdbcSourceQueryRepository {
              AND connector.id = pair.connector_id
             """;
 
-    private static final String ITEM_SELECT = """
+    private static final String ITEM_CANDIDATES = """
+            SELECT item.id, item.tenant_id, item.current_version_id,
+                   item.content_sha256, item.status, item.created_at
+            FROM connector_items item
+            WHERE item.tenant_id = :tenantId
+              AND item.connector_id = (
+                  SELECT pair.connector_id FROM connector_credential_pairs pair
+                  WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+              )
+              AND item.current_version_id IS NOT NULL
+            """;
+
+    private static final String ITEM_PROJECTION = """
             SELECT item.id,
                    version.filename,
                    item.content_sha256,
@@ -61,26 +77,40 @@ public class JdbcSourceQueryRepository {
                    item.status,
                    item.created_at,
                    attempt.id AS attempt_id,
-                   attempt.error_code
-            FROM connector_credential_pairs pair
-            JOIN connector_items item
-              ON item.tenant_id = pair.tenant_id
-             AND item.connector_id = pair.connector_id
+                   attempt.error_code,
+                   attempt.status AS attempt_status,
+                   attempt.created_at AS attempt_created_at,
+                   attempt.started_at AS attempt_started_at,
+                   attempt.completed_at AS attempt_completed_at,
+                   attempt.filename AS attempt_filename,
+                   success.completed_at AS last_indexed_at
+            FROM candidate_items item
             JOIN connector_item_versions version
               ON version.tenant_id = item.tenant_id
              AND version.id = item.current_version_id
-            LEFT JOIN index_attempts attempt
-              ON attempt.tenant_id = pair.tenant_id
-             AND attempt.connector_credential_pair_id = pair.id
-             AND attempt.connector_item_id = item.id
-             AND attempt.pair_sequence = (
-                 SELECT MAX(latest.pair_sequence)
-                 FROM index_attempts latest
-                 WHERE latest.tenant_id = pair.tenant_id
-                   AND latest.connector_credential_pair_id = pair.id
-                   AND latest.connector_item_id = item.id
-             )
-            WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+            LEFT JOIN LATERAL (
+                SELECT latest.id, latest.error_code, latest.status, latest.created_at,
+                       latest.started_at, latest.completed_at, attempted_version.filename
+                FROM index_attempts latest
+                LEFT JOIN connector_item_versions attempted_version
+                  ON attempted_version.tenant_id = latest.tenant_id
+                 AND attempted_version.id = latest.connector_item_version_id
+                WHERE latest.tenant_id = item.tenant_id
+                  AND latest.connector_credential_pair_id = :pairId
+                  AND latest.connector_item_id = item.id
+                ORDER BY latest.pair_sequence DESC
+                LIMIT 1
+            ) attempt ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT completed_at FROM index_attempts successful
+                WHERE successful.tenant_id = item.tenant_id
+                  AND successful.connector_credential_pair_id = :pairId
+                  AND successful.connector_item_id = item.id
+                  AND successful.connector_item_version_id = item.current_version_id
+                  AND successful.status = 'SUCCEEDED'
+                ORDER BY successful.pair_sequence DESC
+                LIMIT 1
+            ) success ON TRUE
             """;
 
     private final JdbcClient jdbcClient;
@@ -110,22 +140,31 @@ public class JdbcSourceQueryRepository {
                 .orElseThrow(SourceException::notFound);
     }
 
-    public SourceDetail detail(TenantId tenantId, SourceId sourceId) {
-        SourceSummary source = summary(tenantId, sourceId);
-        List<SourceItemView> items = jdbcClient.sql(ITEM_SELECT + """
-                        ORDER BY item.created_at, item.id
-                        """)
+    public SourceItemPage items(TenantId tenantId, SourceId sourceId, @Nullable String cursor, int size) {
+        String scope = tenantId.value() + "|" + sourceId.value() + "|ITEM|";
+        ItemCursor position = itemCursor(cursor, scope);
+        String sql = "WITH candidate_items AS MATERIALIZED (" + ITEM_CANDIDATES
+                + (position == null ? "" : " AND (item.created_at, item.id) < (:cursorTime, :cursorId)")
+                + " ORDER BY item.created_at DESC, item.id DESC LIMIT :limit) "
+                + ITEM_PROJECTION + " ORDER BY item.created_at DESC, item.id DESC";
+        var statement = jdbcClient.sql(sql)
                 .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
-                .query(JdbcSourceQueryRepository::item)
-                .list();
-        return new SourceDetail(source, items);
+                .param("limit", size + 1);
+        if (position != null) {
+            statement.param("cursorTime", position.createdAt()).param("cursorId", position.id());
+        }
+        List<SourceItemView> found = statement.query(JdbcSourceQueryRepository::item).list();
+        boolean more = found.size() > size;
+        var page = more ? List.copyOf(found.subList(0, size)) : found;
+        String nextCursor = more ? SourceHistoryCursor.encode(
+                scope, page.getLast().uploadedAt() + "|" + page.getLast().id().value()) : null;
+        return new SourceItemPage(page, nextCursor);
     }
 
     public SourceItemView item(TenantId tenantId, SourceId sourceId, SourceItemId itemId) {
-        return jdbcClient.sql(ITEM_SELECT + """
-                          AND item.id = :itemId
-                        """)
+        return jdbcClient.sql("WITH candidate_items AS (" + ITEM_CANDIDATES
+                        + " AND item.id = :itemId) " + ITEM_PROJECTION)
                 .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
                 .param("itemId", itemId.value())
@@ -133,6 +172,23 @@ public class JdbcSourceQueryRepository {
                 .optional()
                 .orElseThrow(SourceException::notFound);
     }
+
+    private static @Nullable ItemCursor itemCursor(@Nullable String token, String scope) {
+        try {
+            String position = SourceHistoryCursor.decode(token, scope);
+            if (position == null) return null;
+            String[] fields = position.split("\\|", -1);
+            if (fields.length != 2) throw new IllegalArgumentException();
+            OffsetDateTime createdAt = WorkLeases.sqlTime(Instant.parse(fields[0]));
+            // Only finite PostgreSQL timestamp values can be positions emitted by this endpoint.
+            if (createdAt.getYear() < -4712 || createdAt.getYear() > 294276) throw new IllegalArgumentException();
+            return new ItemCursor(createdAt, UUID.fromString(fields[1]));
+        } catch (SourceException | IllegalArgumentException | java.time.DateTimeException exception) {
+            throw SourceException.invalid("The Files cursor is invalid. Reload the list.", "invalid or mismatched source item cursor");
+        }
+    }
+
+    private record ItemCursor(OffsetDateTime createdAt, UUID id) {}
 
     private static SourceSummary summary(ResultSet resultSet, int ignored) throws SQLException {
         SourceStatus status = SourceStatus.valueOf(resultSet.getString("status"));
@@ -159,7 +215,14 @@ public class JdbcSourceQueryRepository {
                 resultSet.getLong("size_bytes"),
                 SourceItemStatus.valueOf(resultSet.getString("status")),
                 resultSet.getTimestamp("created_at").toInstant(),
-                attemptId == null ? null : new SourceOperationId(attemptId),
+                JdbcSourceRepository.instant(resultSet, "last_indexed_at"),
+                attemptId == null ? null : new SourceIndexAttemptView(
+                        new SourceOperationId(attemptId), resultSet.getString("attempt_filename"),
+                        JdbcSourceRepository.operationStatus(resultSet.getString("attempt_status")),
+                        resultSet.getTimestamp("attempt_created_at").toInstant(),
+                        JdbcSourceRepository.instant(resultSet, "attempt_started_at"),
+                        JdbcSourceRepository.instant(resultSet, "attempt_completed_at"),
+                        resultSet.getString("error_code")),
                 resultSet.getString("error_code")
         );
     }

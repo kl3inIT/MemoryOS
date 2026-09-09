@@ -27,9 +27,9 @@ final class RedisExecutionTopology {
     }
 
     void ensureTopology() {
-        ensureGroup(properties.ingestion());
-        ensureGroup(properties.cleanup());
-        ensureGroup(properties.sourceSync());
+        for (var workload : io.memoryos.ingestion.OperationWorkload.values()) {
+            ensureGroup(properties.workload(workload));
+        }
     }
 
     private void ensureGroup(RedisExecutionProperties.Workload workload) {

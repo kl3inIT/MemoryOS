@@ -2,6 +2,7 @@ package io.memoryos.connector.application;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveSourceService;
@@ -15,6 +16,9 @@ import io.memoryos.connector.GoogleDriveConnectionService;
 import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveLinkReader;
+import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -26,6 +30,10 @@ import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
+import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
+import io.memoryos.connector.GoogleDriveSelectionProcessor;
+import io.memoryos.connector.SourceOperationStatus;
+import io.memoryos.connector.GoogleDriveSourceService.SelectionReceipt;
 import io.memoryos.identity.ActorId;
 import io.memoryos.tenant.TenantId;
 import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
@@ -42,9 +50,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -55,6 +65,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class GoogleDriveCredentialAuthorityTest {
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
+
     private JdbcClient jdbc;
     private JdbcGoogleDriveCredentialRepository credentials;
     private GoogleDriveAuthorizationService authorizations;
@@ -67,10 +86,13 @@ class GoogleDriveCredentialAuthorityTest {
     private JdbcGoogleDriveSourceRepository roots;
     private JdbcSourceRepository sources;
     private JdbcSourceSyncRepository sync;
+    private final GoogleDriveLinkReader linkReader = mock(GoogleDriveLinkReader.class);
+    private JdbcGoogleDriveSelectionRepository selections;
+    private GoogleDriveSelectionProcessor processor;
 
     @BeforeEach
     void setup() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         var manager = new DataSourceTransactionManager(dataSource);
         transactions = new TransactionTemplate(manager);
@@ -92,8 +114,11 @@ class GoogleDriveCredentialAuthorityTest {
         var attempts = new JdbcIndexAttemptRepository(jdbc, sources, documents, connections);
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials,
                 new JdbcTenantAccessResolver(jdbc)), GoogleDriveAuthorizationService.class, manager);
-        drive = new DefaultGoogleDriveSourceService(new JdbcTenantAccessResolver(jdbc), connections, roots, sources,
-                sync, attempts, documents, manager);
+        selections = new JdbcGoogleDriveSelectionRepository(jdbc);
+        var service = new DefaultGoogleDriveSourceService(new JdbcTenantAccessResolver(jdbc), connections, roots, sources,
+                sync, attempts, documents, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728));
+        drive = service;
+        processor = new DefaultGoogleDriveSelectionProcessor(selections, service, connections, manager);
     }
 
     @Test
@@ -205,7 +230,7 @@ class GoogleDriveCredentialAuthorityTest {
         var shared = credential(source);
         SourceId second = transactions.execute(_ -> {
             assertTrue(connections.currentCredential(tenant, shared, 1));
-            return roots.create(tenant, "Other Source", shared, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(new GoogleDriveSourceService.Root("other", "Other", "text/plain")));
+            return roots.create(tenant, new SourceId(UUID.randomUUID()), "Other Source", shared, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(new GoogleDriveSourceService.Root("other", "Other", "text/plain")));
         });
         var locked = new CountDownLatch(1);
         var release = new CountDownLatch(1);
@@ -313,20 +338,20 @@ class GoogleDriveCredentialAuthorityTest {
     void oneCredentialCreatesIndependentSourcesAndSurvivesTheirCleanup() {
         var id = authorize();
         mockSelection();
-        SourceId first = drive.create(owner, "First", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("one")));
-        SourceId second = drive.create(owner, "Second", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("two")));
+        SourceId first = create(owner, "First", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("one")));
+        SourceId second = create(owner, "Second", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("two")));
         assertNotEquals(first, second);
         assertEquals(id, drive.configuration(owner, first).credentialId());
         assertEquals(id, drive.configuration(owner, second).credentialId());
-        assertEquals(List.of("one"), drive.configuration(owner, first).roots().stream().map(GoogleDriveSourceService.Root::id).toList());
-        assertEquals(List.of("two"), drive.configuration(owner, second).roots().stream().map(GoogleDriveSourceService.Root::id).toList());
+        assertEquals(List.of(link("one")), drive.selectionDraft(owner, first).links());
+        assertEquals(List.of(link("two")), drive.selectionDraft(owner, second).links());
         assertTrue(drive.configuration(owner, first).pendingWork());
         assertTrue(drive.configuration(owner, second).pendingWork());
         assertEquals(2, authorizations.list(owner).getFirst().sourceCount());
         assertThrows(SourceException.class, () -> authorizations.delete(owner, id, 1));
-        drive.replaceRoots(owner, first, 1, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("three")));
+        replace(owner, first, 1, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("three")), List.of());
         assertEquals(1, drive.configuration(owner, second).revision());
-        assertEquals("two", drive.configuration(owner, second).roots().getFirst().id());
+        assertEquals(List.of(link("two")), drive.selectionDraft(owner, second).links());
         cleanup(first);
         assertEquals(1, authorizations.list(owner).getFirst().sourceCount());
         cleanup(second);
@@ -351,12 +376,12 @@ class GoogleDriveCredentialAuthorityTest {
                     "1", null, null, false, List.of(), null, null);
         }).when(session).metadata("root");
 
-        var source = drive.create(owner, "General source", id, ScopeMode.GENERAL, List.of());
+        var source = create(owner, "General source", id, ScopeMode.GENERAL, List.of());
 
         var configuration = drive.configuration(owner, source);
         assertEquals(id, configuration.credentialId());
         assertEquals(ScopeMode.GENERAL, configuration.scopeMode());
-        assertTrue(configuration.roots().isEmpty());
+        assertTrue(drive.selectionDraft(owner, source).links().isEmpty());
         assertTrue(configuration.pendingWork());
         assertEquals(List.of("own-root"), roots.roots(tenant, source).stream().map(GoogleDriveSourceService.Root::id).toList());
         assertEquals(1, authorizations.list(owner).getFirst().sourceCount());
@@ -366,22 +391,61 @@ class GoogleDriveCredentialAuthorityTest {
     void invalidScopeAndMixedLinksCannotCreateOrReplaceAnAcceptedSelection() {
         var id = authorize();
         mockSelection();
-        var source = drive.create(owner, "Specific source", id, ScopeMode.SPECIFIC, List.of(link("one")));
+        var source = create(owner, "Specific source", id, ScopeMode.SPECIFIC, List.of(link("one")));
 
-        assertThrows(SourceException.class, () -> drive.create(owner, "Missing mode", id, null, List.of(link("two"))));
-        assertThrows(SourceException.class, () -> drive.create(owner, "Mixed", id, ScopeMode.GENERAL, List.of(link("two"))));
-        assertThrows(SourceException.class, () -> drive.create(owner, "Null links", id, ScopeMode.GENERAL, null));
-        assertThrows(SourceException.class, () -> drive.create(owner, "Empty specific", id, ScopeMode.SPECIFIC, List.of()));
-        assertThrows(SourceException.class, () -> drive.replaceRoots(owner, source, 1, null, List.of(link("two"))));
-        assertThrows(SourceException.class, () -> drive.replaceRoots(owner, source, 1, ScopeMode.GENERAL, List.of(link("two"))));
-        assertThrows(SourceException.class, () -> drive.replaceRoots(owner, source, 1, ScopeMode.GENERAL, null));
-        assertThrows(SourceException.class, () -> drive.replaceRoots(owner, source, 1, ScopeMode.SPECIFIC, List.of()));
+        assertThrows(SourceException.class, () -> create(owner, "Missing mode", id, null, List.of(link("two"))));
+        assertThrows(SourceException.class, () -> create(owner, "Mixed", id, ScopeMode.GENERAL, List.of(link("two"))));
+        assertThrows(SourceException.class, () -> create(owner, "Null links", id, ScopeMode.GENERAL, null));
+        assertThrows(SourceException.class, () -> create(owner, "Empty specific", id, ScopeMode.SPECIFIC, List.of()));
+        assertThrows(SourceException.class, () -> replace(owner, source, 1, null, List.of(link("two")), List.of()));
+        assertThrows(SourceException.class, () -> replace(owner, source, 1, ScopeMode.GENERAL, List.of(link("two")), List.of()));
+        assertThrows(SourceException.class, () -> replace(owner, source, 1, ScopeMode.GENERAL, null, List.of()));
+        assertThrows(SourceException.class, () -> replace(owner, source, 1, ScopeMode.SPECIFIC, List.of(), List.of()));
 
         var configuration = drive.configuration(owner, source);
         assertEquals(ScopeMode.SPECIFIC, configuration.scopeMode());
         assertEquals(1, configuration.revision());
-        assertEquals(List.of("one"), configuration.roots().stream().map(GoogleDriveSourceService.Root::id).toList());
+        assertEquals(List.of(link("one")), drive.selectionDraft(owner, source).links());
         assertEquals(1, authorizations.list(owner).getFirst().sourceCount());
+    }
+
+    @ParameterizedTest
+    @EnumSource(ScopeMode.class)
+    void scopeModeChangesAreRejectedBeforeProviderAccessAndPreserveSourceAuthority(ScopeMode savedMode) {
+        var id = authorize();
+        var session = mockSelection();
+        doReturn(new GoogleDriveProvider.FileMetadata("own-root", "My Drive", "application/vnd.google-apps.folder",
+                "1", null, null, false, List.of(), null, null)).when(session).metadata("root");
+        var source = create(owner, "Immutable mode", id, savedMode,
+                savedMode == ScopeMode.GENERAL ? List.of() : List.of(link("one")));
+        drive.updateSchedule(owner, source, 1, 17);
+        seedPublished(source);
+        var configuration = drive.configuration(owner, source);
+        var before = preservedScheduleState();
+        var due = nextSyncAt(source);
+        var requestedMode = savedMode == ScopeMode.GENERAL ? ScopeMode.SPECIFIC : ScopeMode.GENERAL;
+        clearInvocations(provider, session);
+        when(provider.open(any())).thenThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.AUTHENTICATION));
+
+        var rejected = assertThrows(SourceException.class, () -> replace(owner, source, 1, requestedMode, requestedMode == ScopeMode.GENERAL ? List.of() : List.of(link("two")), List.of()));
+
+        assertEquals("SOURCE_INVALID_REQUEST", rejected.code());
+        assertEquals(configuration, drive.configuration(owner, source));
+        assertEquals(before, preservedScheduleState());
+        assertEquals(due, nextSyncAt(source));
+        assertTrue(current(source, 1));
+        verifyNoInteractions(provider, session);
+
+        var repositoryRejected = assertThrows(SourceException.class, () -> roots.replace(tenant, source, 1, requestedMode,
+                List.of(new GoogleDriveSourceService.Root("two", "Two", "text/plain"))));
+        assertEquals("SOURCE_INVALID_REQUEST", repositoryRejected.code());
+        assertEquals(configuration, drive.configuration(owner, source));
+        assertEquals(before, preservedScheduleState());
+        assertEquals(due, nextSyncAt(source));
+        assertEquals("SOURCE_GOOGLE_REVISION_CONFLICT", assertThrows(SourceException.class,
+                () -> roots.replace(tenant, source, 0, savedMode, List.of())).code());
+        assertEquals(before, preservedScheduleState());
+        assertEquals(due, nextSyncAt(source));
     }
 
     @ParameterizedTest
@@ -389,7 +453,7 @@ class GoogleDriveCredentialAuthorityTest {
     void generalRootValidationRejectsUnverifiedShapesWithoutChangingSelection(String shape) {
         var id = authorize();
         var session = mockSelection();
-        var source = drive.create(owner, "Specific source", id, ScopeMode.SPECIFIC, List.of(link("one")));
+        var source = create(owner, "Specific source", id, ScopeMode.SPECIFIC, List.of(link("one")));
         var root = new GoogleDriveProvider.FileMetadata(
                 "alias".equals(shape) ? "root" : "invalid-id".equals(shape) ? "invalid/id" : "own-root",
                 "nameless".equals(shape) ? "" : "My Drive",
@@ -398,8 +462,8 @@ class GoogleDriveCredentialAuthorityTest {
                 "shared-drive".equals(shape) ? "own-root" : null, "shortcut".equals(shape) ? "target" : null);
         doReturn(root).when(session).metadata("root");
 
-        assertThrows(GoogleDriveProviderException.class, () -> drive.create(owner, "Rejected General", id, ScopeMode.GENERAL, List.of()));
-        assertThrows(GoogleDriveProviderException.class, () -> drive.replaceRoots(owner, source, 1, ScopeMode.GENERAL, List.of()));
+        var rejected = drive.create(owner, UUID.randomUUID(), "Rejected General", id, ScopeMode.GENERAL, List.of());
+        assertEquals(SourceOperationStatus.FAILED, process(rejected).status());
 
         assertEquals(1, drive.configuration(owner, source).revision());
         assertEquals(ScopeMode.SPECIFIC, drive.configuration(owner, source).scopeMode());
@@ -418,7 +482,8 @@ class GoogleDriveCredentialAuthorityTest {
                     "1", null, null, false, List.of(), null, null);
         }).when(session).metadata("root");
 
-        assertThrows(SourceException.class, () -> drive.create(owner, "Racing General", id, ScopeMode.GENERAL, List.of()));
+        var rejected = drive.create(owner, UUID.randomUUID(), "Racing General", id, ScopeMode.GENERAL, List.of());
+        assertEquals(SourceOperationStatus.SUPERSEDED, process(rejected).status());
 
         assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM connector_credential_pairs").query(Integer.class).single());
         assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM source_sync_attempts").query(Integer.class).single());
@@ -429,19 +494,21 @@ class GoogleDriveCredentialAuthorityTest {
     void failedOrConcurrentRootValidationCannotLeavePartialSourceRows() {
         var id = authorize();
         var session = mockSelection();
-        assertThrows(SourceException.class, () -> drive.create(owner, "Invalid", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of("https://example.com/file")));
+        assertThrows(SourceException.class, () -> create(owner, "Invalid", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of("https://example.com/file")));
         when(session.metadata("missing")).thenThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.NOT_FOUND));
-        assertThrows(GoogleDriveProviderException.class, () -> drive.create(owner, "Missing", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("missing"))));
+        assertEquals(SourceOperationStatus.FAILED, process(drive.create(owner, UUID.randomUUID(), "Missing", id,
+                ScopeMode.SPECIFIC, List.of(link("missing")))).status());
         when(session.metadata("oversized")).thenReturn(new GoogleDriveProvider.FileMetadata(
                 "oversized", "x".repeat(256), "text/plain", "1", null, null, false, List.of(), null, null));
-        assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
-                () -> drive.create(owner, "Rolled back", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("oversized"))));
+        assertEquals(SourceOperationStatus.FAILED, process(drive.create(owner, UUID.randomUUID(), "Oversized", id,
+                ScopeMode.SPECIFIC, List.of(link("oversized")))).status());
         when(session.metadata("racing")).thenAnswer(_ -> {
             assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
             authorizations.disconnect(owner, id, 1);
             return metadata("racing");
         });
-        assertThrows(SourceException.class, () -> drive.create(owner, "Racing", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("racing"))));
+        assertEquals(SourceOperationStatus.SUPERSEDED, process(drive.create(owner, UUID.randomUUID(), "Racing", id,
+                ScopeMode.SPECIFIC, List.of(link("racing")))).status());
         for (String table : List.of("connectors", "connector_credential_pairs", "google_drive_sources", "google_drive_roots", "source_sync_attempts")) {
             assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM " + table).query(Integer.class).single());
         }
@@ -453,8 +520,8 @@ class GoogleDriveCredentialAuthorityTest {
     void sharedReauthorizationRevokeAndAuthenticationFailureFenceEveryAttachedSource() {
         var id = authorize();
         mockSelection();
-        var first = drive.create(owner, "First", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("one")));
-        var second = drive.create(owner, "Second", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("two")));
+        var first = create(owner, "First", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("one")));
+        var second = create(owner, "Second", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("two")));
         seedPublished(first);
         seedPublished(second);
         reauthorize(first, 1, "replacement");
@@ -510,8 +577,8 @@ class GoogleDriveCredentialAuthorityTest {
     void scheduleEditsPreserveSharedCredentialScopeDocumentsAndLiveWork() {
         var id = authorize();
         mockSelection();
-        var first = drive.create(owner, "First", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("one")));
-        var second = drive.create(owner, "Second", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("two")));
+        var first = create(owner, "First", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("one")));
+        var second = create(owner, "Second", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(link("two")));
         seedPublished(first);
         seedPublished(second);
         var before = preservedScheduleState();
@@ -525,7 +592,7 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(17, updated.syncIntervalMinutes());
         assertEquals(2, updated.scheduleRevision());
         assertEquals(1, updated.revision());
-        assertEquals(List.of("one"), updated.roots().stream().map(GoogleDriveSourceService.Root::id).toList());
+        assertEquals(List.of(link("one")), drive.selectionDraft(owner, first).links());
         assertTrue(updated.pendingWork());
         assertEquals(before, preservedScheduleState());
         assertEquals(otherDue, nextSyncAt(second));
@@ -592,8 +659,9 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(1, roots.configuration(tenant, source).scheduleRevision());
     }
 
-    @Test
-    void scheduleRechecksOwnerAfterWaitingForTheSourceLock() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"schedule", "discovery", "selection"})
+    void sourceCommandsRecheckOwnerAfterWaitingForTheSourceLock(String command) throws Exception {
         var source = connect();
         var checked = new CountDownLatch(1);
         var tenants = spy(new JdbcTenantAccessResolver(jdbc));
@@ -603,13 +671,16 @@ class GoogleDriveCredentialAuthorityTest {
             return result;
         }).when(tenants).findActiveOwnerTenant(owner);
         var documents = new JdbcSourceDocumentRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(tenants, connections, roots, sources, sync,
-                new JdbcIndexAttemptRepository(jdbc, sources, documents, connections), documents,
-                java.util.Objects.requireNonNull(transactions.getTransactionManager()));
+        var service = new DefaultGoogleDriveSourceService(tenants, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, connections), documents, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), java.util.Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728));
         try (var executor = Executors.newSingleThreadExecutor()) {
             var update = transactions.execute(_ -> {
                 sources.lock(tenant, source);
-                var future = executor.submit(() -> service.updateSchedule(owner, source, 1, 15));
+                var future = executor.submit(() -> switch (command) {
+                    case "schedule" -> service.updateSchedule(owner, source, 1, 15);
+                    case "discovery" -> service.discoverLinkedDocuments(owner, source, 1);
+                    case "selection" -> service.replaceRoots(owner, UUID.randomUUID(), source, 1, 0, 1, ScopeMode.SPECIFIC, List.of(link("selected")), List.of());
+                    default -> throw new AssertionError(command);
+                });
                 try {
                     assertTrue(checked.await(5, TimeUnit.SECONDS));
                     assertThrows(TimeoutException.class, () -> future.get(100, TimeUnit.MILLISECONDS));
@@ -627,6 +698,96 @@ class GoogleDriveCredentialAuthorityTest {
         }
         assertEquals(1, roots.configuration(tenant, source).scheduleRevision());
         assertEquals(5, roots.configuration(tenant, source).syncIntervalMinutes());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"owner", "credential", "roots", "deleting"})
+    void discoveryRejectsAuthorityLostDuringAcquisitionWithoutPublishingCandidates(String change) {
+        var source = connect();
+        var session = mockDiscovery();
+        doAnswer(invocation -> {
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            switch (change) {
+                case "owner" -> jdbc.sql("UPDATE tenant_memberships SET role='MEMBER' WHERE actor_id=:actor").param("actor", owner.value()).update();
+                case "credential" -> reauthorize(source, 1, "replaced");
+                case "roots" -> replace(owner, source, 1, ScopeMode.SPECIFIC, List.of(link("replacement")), List.of());
+                case "deleting" -> transactions.executeWithoutResult(_ -> sources.markDeleting(tenant, sources.lock(tenant, source)));
+                default -> throw new AssertionError(change);
+            }
+            return acquired(invocation.getArgument(0));
+        }).when(session).acquire(any());
+        assertThrows(SourceException.class, () -> drive.discoverLinkedDocuments(owner, source, 1));
+        assertTrue(roots.linkedDocuments(tenant, source).isEmpty());
+        assertNull(roots.configuration(tenant, source).discoveredAt());
+    }
+
+    @Test
+    void olderDiscoveryCannotOverwriteANewerDiscoveryAndDoesNotAdvanceScopeRevision() {
+        var source = connect();
+        var session = mockDiscovery();
+        var first = new java.util.concurrent.atomic.AtomicBoolean(true);
+        doAnswer(invocation -> {
+            if (first.getAndSet(false)) drive.discoverLinkedDocuments(owner, source, 1);
+            return acquired(invocation.getArgument(0));
+        }).when(session).acquire(any());
+        assertEquals("SOURCE_GOOGLE_REVISION_CONFLICT",
+                assertThrows(SourceException.class, () -> drive.discoverLinkedDocuments(owner, source, 1)).code());
+        var accepted = drive.configuration(owner, source);
+        assertEquals(1, accepted.revision());
+        assertEquals(1, accepted.discoveryRevision());
+        var page = drive.selection(owner, source, null, GoogleDriveSourceService.SelectionKind.LINKED, null, 25);
+        assertEquals(List.of("remote"), page.items().stream().map(GoogleDriveSourceService.SelectionItem::id).toList());
+        assertFalse(page.items().getFirst().selected());
+    }
+
+    @Test
+    void freshApprovalRechecksCredentialAfterMetadataAndRevocationPreservesOnlyExistingApprovals() {
+        var source = connect();
+        var session = mockDiscovery();
+        drive.discoverLinkedDocuments(owner, source, 1);
+        doAnswer(_ -> {
+            reauthorize(source, 1, "changed-during-validation");
+            return metadata("remote");
+        }).when(session).metadata("remote");
+        var proposedDraft = drive.selectionDraft(owner, source);
+        var proposed = drive.replaceRoots(owner, UUID.randomUUID(), source, 1,
+                proposedDraft.discoveryRevision(), proposedDraft.credentialRevision(),
+                ScopeMode.SPECIFIC, List.of(link("selected")), List.of("remote"));
+        assertEquals(SourceOperationStatus.SUPERSEDED, process(proposed).status());
+        assertTrue(roots.approvedIds(tenant, source).isEmpty());
+        assertEquals(1, roots.configuration(tenant, source).revision());
+        assertThrows(SourceException.class,
+                () -> replace(owner, source, 1, ScopeMode.SPECIFIC, List.of(link("selected")), List.of("remote")));
+
+        doReturn(metadata("remote")).when(session).metadata("remote");
+        drive.discoverLinkedDocuments(owner, source, 1);
+        replace(owner, source, 1, ScopeMode.SPECIFIC, List.of(link("selected")), List.of("remote"));
+        authorizations.disconnect(owner, credential(source), 2);
+        var selected = drive.selection(owner, source, null, GoogleDriveSourceService.SelectionKind.LINKED, null, 25).items().getFirst();
+        assertTrue(selected.selected());
+        assertEquals("remote", selected.name());
+        assertTrue(selected.origins().isEmpty());
+        assertEquals(GoogleDriveSourceService.LinkedDocumentStatus.UNAVAILABLE, selected.status());
+        cleanup(source);
+        for (String table : List.of("google_drive_linked_documents", "google_drive_link_origins",
+                "google_drive_link_approvals", "google_drive_discovery_errors")) {
+            assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM " + table).query(Integer.class).single());
+        }
+    }
+
+    private GoogleDriveProvider.Session mockDiscovery() {
+        var session = mockSelection();
+        when(session.acquire(any())).thenAnswer(invocation -> {
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            return acquired(invocation.getArgument(0));
+        });
+        when(linkReader.read(any())).thenReturn(List.of(new GoogleDriveLinkReader.Link(link("remote"), "Paragraph 1")));
+        return session;
+    }
+
+    private static GoogleDriveProvider.AcquiredContent acquired(GoogleDriveProvider.FileMetadata file) {
+        return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain", bytes("linked source"),
+                new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(), link(file.id())));
     }
 
     private Map<String, List<String>> preservedScheduleState() {
@@ -719,7 +880,7 @@ class GoogleDriveCredentialAuthorityTest {
             var id = authorizations.complete(owner, prepare(), grant);
             return transactions.execute(_ -> {
                 assertTrue(connections.currentCredential(tenant, id, 1));
-                return roots.create(tenant, "Drive Source", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(new GoogleDriveSourceService.Root("selected", "Selected", "text/plain")));
+                return roots.create(tenant, new SourceId(UUID.randomUUID()), "Drive Source", id, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(new GoogleDriveSourceService.Root("selected", "Selected", "text/plain")));
             });
         }
     }
@@ -729,5 +890,30 @@ class GoogleDriveCredentialAuthorityTest {
     private static Grant grant(String token) { return new Grant("subject", "owner@example.com", scopes(), token.getBytes(StandardCharsets.UTF_8)); }
     private static HashSet<String> scopes() {
         var scopes = new HashSet<>(GoogleDriveAuthorizationService.REQUIRED_SCOPES); scopes.add("email"); return scopes;
+    }
+
+    private SourceId create(ActorId actor, String name, CredentialId credential, ScopeMode mode, List<String> links) {
+        var receipt = drive.create(actor, UUID.randomUUID(), name, credential, mode, links);
+        assertEquals(SourceOperationStatus.SUCCEEDED, process(receipt).status());
+        return receipt.sourceId();
+    }
+
+    private void replace(ActorId actor, SourceId source, long revision, ScopeMode mode, List<String> links, List<String> approvals) {
+        var draft = drive.selectionDraft(actor, source);
+        var receipt = drive.replaceRoots(actor, UUID.randomUUID(), source, revision,
+                draft.discoveryRevision(), draft.credentialRevision(), mode, links, approvals);
+        assertEquals(SourceOperationStatus.SUCCEEDED, process(receipt).status());
+    }
+
+    private io.memoryos.connector.SourceOperationView process(SelectionReceipt receipt) {
+        for (int batch = 0; batch < 200; batch++) {
+            var operation = selections.find(tenant, receipt.operation().id()).orElseThrow();
+            if (operation.status() != SourceOperationStatus.NOT_STARTED && operation.status() != SourceOperationStatus.IN_PROGRESS) return operation;
+            UUID delivery = UUID.randomUUID();
+            jdbc.sql("UPDATE google_drive_selection_operations SET delivery_id=:delivery WHERE id=:id")
+                    .param("delivery", delivery).param("id", operation.id().value()).update();
+            processor.execute(processor.claim(tenant, operation.id(), delivery).orElseThrow());
+        }
+        throw new AssertionError("Selection did not terminate");
     }
 }

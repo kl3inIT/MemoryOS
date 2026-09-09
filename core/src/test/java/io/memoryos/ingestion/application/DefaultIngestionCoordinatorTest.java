@@ -50,7 +50,7 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class), cleanup,
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), scheduler,
-                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class));
+                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), mock(SelectionValidationProcessor.class));
 
         org.assertj.core.api.Assertions.assertThat(coordinator.process(delivery))
                 .isEqualTo(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED);
@@ -87,7 +87,7 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), extractor, storage, mock(StoredObjectRegistry.class),
                 mock(TransactionTemplate.class), scheduler,
-                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class));
+                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), mock(SelectionValidationProcessor.class));
 
         org.assertj.core.api.Assertions.assertThat(coordinator.process(delivery))
                 .isEqualTo(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED);
@@ -137,7 +137,7 @@ class DefaultIngestionCoordinatorTest {
         storedObjects,
         transactions,
         scheduler,
-        mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class));
+        mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), mock(SelectionValidationProcessor.class));
 
         coordinator.process(new OperationDelivery(tenantId, OperationWorkload.CLEANUP, operationId, deliveryId));
 
@@ -152,7 +152,7 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class), mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), mock(ScheduledExecutorService.class),
-                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class));
+                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), mock(SelectionValidationProcessor.class));
         coordinator.process(new OperationDelivery(new TenantId(UUID.randomUUID()), workload,
                 new SourceOperationId(UUID.randomUUID()), UUID.randomUUID()));
         assertOutcome(workload.name(), "SKIPPED");
@@ -167,7 +167,7 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), mock(ScheduledExecutorService.class),
-                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class));
+                mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), mock(SelectionValidationProcessor.class));
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> coordinator.process(new OperationDelivery(
                 new TenantId(UUID.randomUUID()), OperationWorkload.INGESTION,
                 new SourceOperationId(UUID.randomUUID()), UUID.randomUUID()))).isSameAs(failure);
@@ -188,7 +188,7 @@ class DefaultIngestionCoordinatorTest {
         var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class), mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), mock(SourceContentExtractor.class), mock(ObjectStorage.class),
                 mock(StoredObjectRegistry.class), mock(TransactionTemplate.class), mock(ScheduledExecutorService.class),
-                mock(io.memoryos.document.ExtractionArtifactPort.class), failingRegistry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class));
+                mock(io.memoryos.document.ExtractionArtifactPort.class), failingRegistry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), mock(SelectionValidationProcessor.class));
         org.assertj.core.api.Assertions.assertThat(coordinator.process(new OperationDelivery(new TenantId(UUID.randomUUID()),
                 OperationWorkload.INGESTION, new SourceOperationId(UUID.randomUUID()), UUID.randomUUID())))
                 .isEqualTo(io.memoryos.ingestion.IngestionCoordinator.Outcome.SKIPPED);

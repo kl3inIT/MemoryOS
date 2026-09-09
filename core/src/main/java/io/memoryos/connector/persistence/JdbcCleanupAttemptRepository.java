@@ -76,6 +76,13 @@ public class JdbcCleanupAttemptRepository {
     public void removeItemRows(CleanupWork work) {
         SourceItemId itemId = Objects.requireNonNull(work.itemId(), "REMOVE_ITEM requires itemId");
         jdbcClient.sql("""
+                UPDATE index_attempts SET status = 'CANCELLED', completed_at = CURRENT_TIMESTAMP,
+                    claim_token = NULL, lease_expires_at = NULL
+                WHERE tenant_id = :tenant AND connector_credential_pair_id = :source
+                    AND connector_item_id = :item AND status IN ('NOT_STARTED', 'IN_PROGRESS')
+                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
+                .param("item", itemId.value()).update();
+        jdbcClient.sql("""
                         DELETE FROM index_attempts
                         WHERE tenant_id = :tenantId
                           AND connector_credential_pair_id = :pairId
@@ -121,6 +128,12 @@ public class JdbcCleanupAttemptRepository {
     }
 
     public void deleteSourceRows(CleanupWork work, UUID connectorId) {
+        jdbcClient.sql("""
+                UPDATE index_attempts SET status = 'CANCELLED', completed_at = CURRENT_TIMESTAMP,
+                    claim_token = NULL, lease_expires_at = NULL
+                WHERE tenant_id = :tenant AND connector_credential_pair_id = :source
+                    AND status IN ('NOT_STARTED', 'IN_PROGRESS')
+                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();
         jdbcClient.sql("""
                         DELETE FROM index_attempts
                         WHERE tenant_id = :tenantId

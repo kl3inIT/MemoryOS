@@ -101,6 +101,10 @@ memoryos:
       stream: memoryos:execution:source-sync:operations:v1
       group: memoryos:execution:source-sync:workers:v1
       batch-size: ${MEMORYOS_WORKER_SOURCE_SYNC_BATCH_SIZE:2}
+    selection-validation:
+      stream: memoryos:execution:selection-validation:operations:v1
+      group: memoryos:execution:selection-validation:workers:v1
+      batch-size: ${MEMORYOS_WORKER_SELECTION_VALIDATION_BATCH_SIZE:2}
   object-storage:
     upload:
       lifetime: ${MEMORYOS_OBJECT_UPLOAD_LIFETIME:15m}

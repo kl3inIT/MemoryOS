@@ -10,10 +10,11 @@ import java.util.UUID;
 
 @Schema(name = "CreateGoogleDriveSourceRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record CreateGoogleDriveSourceRequest(
+        @NotNull @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID requestId,
         @NotBlank @Size(max = 120) @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
         @NotNull @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID credentialId,
         @NotNull @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "GENERAL includes the connected account's My Drive tree; SPECIFIC includes selected links.") ScopeMode scopeMode,
-        @NotNull @Size(max = 20) @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
-                description = "Empty for GENERAL; 1–20 distinct, non-overlapping file or folder links for SPECIFIC.")
+        @NotNull @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Empty for GENERAL; distinct non-overlapping links bounded by the selection policy for SPECIFIC.")
         List<@NotBlank @Size(max = 2048) String> links) {}

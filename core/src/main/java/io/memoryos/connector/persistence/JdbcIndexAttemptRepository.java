@@ -4,9 +4,11 @@ import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceIndexAttemptView;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
+import io.memoryos.connector.SourceOperationPage;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.objectstorage.ContentSha256;
@@ -20,7 +22,6 @@ import io.memoryos.tenant.TenantId;
 import java.time.Duration;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +29,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.jspecify.annotations.Nullable;
 
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -94,6 +96,15 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
             JdbcSourceRepository.SourcePair pair,
             JdbcSourceItemRepository.ItemVersion itemVersion
     ) {
+        return create(tenantId, pair, itemVersion, null);
+    }
+
+    public SourceOperationView create(
+            TenantId tenantId,
+            JdbcSourceRepository.SourcePair pair,
+            JdbcSourceItemRepository.ItemVersion itemVersion,
+            @Nullable SourceOperationId sourceSyncAttemptId
+    ) {
         long pairSequence = pair.pairSequence() + 1;
         Long itemSequence = jdbcClient.sql("""
                         SELECT COALESCE(MAX(item_sequence), 0) + 1
@@ -127,10 +138,10 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         INSERT INTO index_attempts (
                             id, tenant_id, connector_id, connector_credential_pair_id,
                             connector_item_id, connector_item_version_id,
-                            pair_sequence, item_sequence, status, origin_trace_id, origin_span_id
+                            pair_sequence, item_sequence, status, origin_trace_id, origin_span_id, source_sync_attempt_id
                         ) VALUES (
                             :id, :tenantId, :connectorId, :pairId,
-                            :itemId, :versionId, :pairSequence, :itemSequence, 'NOT_STARTED', :originTraceId, :originSpanId
+                            :itemId, :versionId, :pairSequence, :itemSequence, 'NOT_STARTED', :originTraceId, :originSpanId, :sourceSyncAttemptId
                         )
                         """)
                 .param("id", attemptId.value())
@@ -143,6 +154,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .param("itemSequence", itemSequence)
                 .param("originTraceId", trace == null ? null : trace.traceId())
                 .param("originSpanId", trace == null ? null : trace.spanId())
+                .param("sourceSyncAttemptId", sourceSyncAttemptId == null ? null : sourceSyncAttemptId.value())
                 .update();
         return findById(tenantId, attemptId).orElseThrow();
     }
@@ -162,20 +174,45 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .optional();
     }
 
-    public List<SourceOperationView> list(TenantId tenantId, SourceId sourceId, int limit) {
-        return jdbcClient.sql("""
-                        SELECT id, status, created_at, completed_at, error_code
-                        FROM index_attempts
-                        WHERE tenant_id = :tenantId
-                          AND connector_credential_pair_id = :pairId
-                        ORDER BY pair_sequence DESC
-                        LIMIT :limit
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("pairId", sourceId.value())
-                .param("limit", limit)
-                .query((resultSet, ignored) -> operation(resultSet))
-                .list();
+    public SourceOperationPage list(TenantId tenantId, SourceId sourceId, @Nullable String cursor, int limit) {
+        String scope = tenantId.value() + "|" + sourceId.value() + "|INDEX|";
+        String position = SourceHistoryCursor.decode(cursor, scope);
+        long before = Long.MAX_VALUE;
+        if (position != null) {
+            try {
+                before = Long.parseLong(position);
+                if (before < 1) throw new NumberFormatException();
+            } catch (NumberFormatException exception) {
+                throw SourceHistoryCursor.invalid();
+            }
+        }
+        record Row(long sequence, SourceIndexAttemptView operation) {}
+        var rows = jdbcClient.sql("""
+                SELECT attempt.id, attempt.status, attempt.created_at, attempt.started_at,
+                       attempt.completed_at, attempt.error_code, attempt.pair_sequence, version.filename
+                FROM index_attempts attempt
+                LEFT JOIN connector_item_versions version ON version.tenant_id = attempt.tenant_id
+                    AND version.id = attempt.connector_item_version_id
+                WHERE attempt.tenant_id = :tenant AND attempt.connector_credential_pair_id = :source
+                    AND attempt.pair_sequence < :before
+                ORDER BY attempt.pair_sequence DESC LIMIT :limit
+                """).param("tenant", tenantId.value()).param("source", sourceId.value())
+                .param("before", before).param("limit", limit + 1)
+                .query((r, _) -> new Row(r.getLong("pair_sequence"), new SourceIndexAttemptView(
+                        new SourceOperationId(r.getObject("id", UUID.class)), r.getString("filename"),
+                        JdbcSourceRepository.operationStatus(r.getString("status")),
+                        r.getTimestamp("created_at").toInstant(), JdbcSourceRepository.instant(r, "started_at"),
+                        JdbcSourceRepository.instant(r, "completed_at"), r.getString("error_code")))).list();
+        boolean more = rows.size() > limit;
+        var page = more ? rows.subList(0, limit) : rows;
+        long totalItems = jdbcClient.sql("""
+                SELECT count(*) FROM index_attempts
+                WHERE tenant_id = :tenant AND connector_credential_pair_id = :source
+                """).param("tenant", tenantId.value()).param("source", sourceId.value())
+                .query(Long.class).single();
+        return new SourceOperationPage(page.stream().map(Row::operation).toList(),
+                more ? SourceHistoryCursor.encode(scope, Long.toString(page.getLast().sequence())) : null,
+                totalItems);
     }
 
     public void cancelForItem(

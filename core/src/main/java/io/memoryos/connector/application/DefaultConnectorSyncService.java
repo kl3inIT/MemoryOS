@@ -10,6 +10,8 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
+import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.connector.SourceStorageFailure;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
@@ -18,6 +20,7 @@ import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository.Node;
 import io.memoryos.objectstorage.ObjectWriteService;
+import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.tenant.TenantId;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -81,7 +84,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                     var state = connections.state(due.tenantId(), due.sourceId());
                     sync.postpone(due.tenantId(), due.sourceId());
                     if (!connections.current(due.tenantId(), due.sourceId(), state.credentialRevision())) return false;
-                    sync.enqueue(due.tenantId(), due.sourceId(), state.credentialRevision());
+                    sync.enqueue(due.tenantId(), due.sourceId(), state.credentialRevision(), SourceRunTrigger.SCHEDULED, null);
                     return true;
                 }));
                 if (accepted) count++;
@@ -100,11 +103,12 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 if (connection.credentialRevision() != work.credentialRevision()) throw new StaleSyncException();
                 Set<String> roots = new HashSet<>();
                 drive.roots(work.tenantId(), work.sourceId()).forEach(root -> roots.add(root.id()));
+                Set<String> approved = Set.copyOf(drive.approvedIds(work.tenantId(), work.sourceId()));
                 String generalRoot = scopeMode == ScopeMode.GENERAL
                         ? verifyGeneralRoot(connection.session(), roots) : null;
                 long deadline = System.nanoTime() + EXECUTION_NANOS;
                 for (int step = 0; step < MAX_STEPS && System.nanoTime() < deadline; step++) {
-                    var result = step(work, connection.session(), roots, generalRoot);
+                    var result = step(work, connection.session(), roots, approved, generalRoot);
                     if (result != null) return result;
                 }
             }
@@ -140,14 +144,14 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
     }
 
     private @Nullable Result step(Work work, GoogleDriveProvider.Session session, Set<String> roots,
-            @Nullable String generalRoot) {
+            Set<String> approved, @Nullable String generalRoot) {
         if ("START".equals(sync.phase(work))) {
             fenced(work, () -> { sync.start(work); return true; });
             return null;
         }
         var pending = sync.next(work);
         if (pending.isPresent()) {
-            processNode(work, pending.get(), session, roots, generalRoot);
+            processNode(work, pending.get(), session, roots, approved, generalRoot);
             return null;
         }
         if (generalRoot != null) verifyGeneralRoot(session, roots);
@@ -166,6 +170,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 sources.createCleanup(new SourceOperationId(UUID.randomUUID()), work.tenantId(),
                         SourceOperationType.REMOVE_ITEM, "ITEM:" + item.value(), work.sourceId(), item);
             }
+            sync.removed(work, missing.size());
             if (!missing.isEmpty()) return null;
             sync.finish(work);
             sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
@@ -175,10 +180,11 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
 
 
     private void processNode(Work work, Node node, GoogleDriveProvider.Session session, Set<String> roots,
-            @Nullable String generalRoot) {
+            Set<String> approved, @Nullable String generalRoot) {
         boolean generalRootNode = node.fileId().equals(generalRoot);
         try {
             var file = session.metadata(node.fileId());
+            if (!file.folder()) fenced(work, () -> { sync.observeLeaf(work, file.id(), file.name()); return true; });
             if (generalRootNode) {
                 GoogleDriveRootValidation.requireMyDriveRoot(file);
                 if (!node.fileId().equals(file.id())) {
@@ -189,7 +195,9 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 absent(work, node);
                 return;
             }
-            String root = membership(file, roots, session);
+            if (approved.contains(file.id()) && file.folder() && !roots.contains(file.id()))
+                throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.UNSUPPORTED);
+            String root = approved.contains(file.id()) && !file.folder() ? file.id() : membership(file, roots, session);
             if (root == null || sync.excluded(work, file.id())) {
                 absent(work, node);
                 return;
@@ -208,7 +216,10 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                     throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.MALFORMED);
                 fenced(work, () -> {
                     sync.observe(work, file.id(), root, file.version());
-                    page.files().forEach(child -> sync.enqueueNode(work, child.id(), "FILE"));
+                    page.files().forEach(child -> {
+                        sync.enqueueNode(work, child.id(), "FILE");
+                        if (!child.folder()) sync.observeLeaf(work, child.id(), child.name());
+                    });
                     sync.checkpoint(work, node, page.nextPageToken());
                     return true;
                 });
@@ -235,9 +246,12 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             }
         } catch (StaleSyncException exception) {
             throw exception;
+        } catch (ObjectStorageException exception) {
+            String code = "SOURCE_STORAGE_WRITE_" + SourceStorageFailure.code(exception);
+            fenced(work, () -> { sync.failedNode(work, node, code, false); return true; });
         } catch (RuntimeException exception) {
             if (generalRootNode) throw exception;
-            fenced(work, () -> { sync.failedNode(work, node, "SOURCE_GOOGLE_ACQUISITION_FAILED", false); return true; });
+            fenced(work, () -> { sync.failedNode(work, node, "SOURCE_ACQUISITION_INTERNAL", false); return true; });
         }
     }
 
@@ -247,6 +261,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             var version = items.unchanged(work, file.id(), file.version());
             if (version.isEmpty()) return false;
             sync.observe(work, file.id(), root, file.version());
+            sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(), version.get()).isPresent());
             sync.checkpoint(work, node, null);
             return true;
         });
@@ -266,7 +281,8 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 var version = items.acceptRemote(work, pair, staged.object(), content.descriptor());
                 indexing.cancelForItem(work.tenantId(), work.sourceId(), version.itemId());
                 documents.invalidateItem(work.tenantId(), work.sourceId(), version.itemId());
-                indexing.create(work.tenantId(), pair, version);
+                indexing.create(work.tenantId(), pair, version, work.operationId());
+                sync.acquired(work, file.id());
                 sync.checkpoint(work, node, null);
                 return true;
             });
@@ -278,6 +294,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
     private void absent(Work work, Node node) {
         fenced(work, () -> {
             sync.observe(work, node.fileId(), null, null);
+            sync.skipped(work, node.fileId());
             sync.checkpoint(work, node, null);
             return true;
         });

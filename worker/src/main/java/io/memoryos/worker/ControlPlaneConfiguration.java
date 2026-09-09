@@ -91,9 +91,21 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
+    RecurringTask<Void> selectionValidationRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
+        return Tasks.recurring("memoryos-redis-selection-validation-relay-v1", FixedDelay.of(properties.relayInterval()))
+                .execute((_, _) -> relay.relay(OperationWorkload.GOOGLE_DRIVE_SELECTION_VALIDATION));
+    }
+
+    @Bean
     RecurringTask<Void> dueSourceSyncTask(io.memoryos.connector.ConnectorSyncPort sync) {
         return Tasks.recurring("memoryos-due-source-sync-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> sync.enqueueDue(16));
+    }
+
+    @Bean
+    RecurringTask<Void> sourceRunHistoryRetentionTask(io.memoryos.connector.SourceRunHistoryMaintenance history) {
+        return Tasks.recurring("memoryos-source-run-history-retention-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> history.pruneHistory(100));
     }
 
     @Bean

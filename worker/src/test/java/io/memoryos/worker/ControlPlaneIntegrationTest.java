@@ -21,6 +21,8 @@ import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -43,7 +45,7 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "arconia.dev.services.redis.port=0",
+                "arconia.dev.services.redis.enabled=false",
                 "memoryos.worker.enabled=false",
                 "memoryos.redis.topology-interval=1h",
                 "memoryos.redis.relay-interval=100ms",
@@ -73,7 +75,11 @@ import org.springframework.test.context.DynamicPropertySource;
                         + "classpath:db/migration/V17__scope_google_sync_to_explicit_roots.sql,"
                         + "classpath:db/migration/V18__reuse_google_drive_credentials.sql,"
                         + "classpath:db/migration/V19__add_google_drive_sync_interval.sql,"
-                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql",
+                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql,"
+                        + "classpath:db/migration/V21__add_google_drive_linked_documents.sql,"
+                        + "classpath:db/migration/V22__add_google_drive_selection_operations.sql,"
+                        + "classpath:db/migration/V23__add_source_run_history.sql",
+                "spring.sql.init.separator=" + org.springframework.jdbc.datasource.init.ScriptUtils.EOF_STATEMENT_SEPARATOR,
                 "spring.data.redis.repositories.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "db-scheduler.enabled=true",
@@ -102,6 +108,16 @@ class ControlPlaneIntegrationTest {
             .withUsername("memoryos")
             .withPassword("memoryos");
 
+    @Container
+    private static final GenericContainer<?> REDIS = new GenericContainer<>(
+            DockerImageName.parse(
+                    "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232"
+            )
+    )
+            .withExposedPorts(6379)
+            .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
+            .withStartupTimeout(Duration.ofSeconds(30));
+
     @Autowired
     private JdbcClient jdbcClient;
     @Autowired
@@ -116,10 +132,12 @@ class ControlPlaneIntegrationTest {
     private AtomicBoolean topologyTaskRanOnVirtualThread;
 
     @DynamicPropertySource
-    static void databaseProperties(DynamicPropertyRegistry registry) {
+    static void serviceProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }
 
     @Test

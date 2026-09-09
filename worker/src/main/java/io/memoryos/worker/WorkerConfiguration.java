@@ -38,7 +38,8 @@ class WorkerConfiguration {
             ScheduledExecutorService claimLeaseScheduler,
             io.memoryos.document.ExtractionArtifactPort artifacts,
             io.micrometer.core.instrument.MeterRegistry registry,
-            io.memoryos.connector.ConnectorSyncPort sourceSync
+            io.memoryos.connector.ConnectorSyncPort sourceSync,
+            io.memoryos.connector.GoogleDriveSelectionProcessor selections
     ) {
         return new DefaultIngestionCoordinator(
                 indexingPort,
@@ -51,7 +52,8 @@ class WorkerConfiguration {
                 claimLeaseScheduler,
                 artifacts,
                 registry,
-                new io.memoryos.ingestion.application.SourceSyncProcessor(sourceSync, claimLeaseScheduler, registry)
+                new io.memoryos.ingestion.application.SourceSyncProcessor(sourceSync, claimLeaseScheduler, registry),
+                new io.memoryos.ingestion.application.SelectionValidationProcessor(selections, claimLeaseScheduler, registry)
         );
     }
 }

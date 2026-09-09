@@ -27,7 +27,8 @@ class RedisExecutionTopologyTest {
                     1_000,
                     new RedisExecutionProperties.Workload("ingestion", "ingestion-workers", 8),
                     new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8),
-                    new RedisExecutionProperties.Workload("sync", "sync-workers", 2)
+                    new RedisExecutionProperties.Workload("sync", "sync-workers", 2),
+                    new RedisExecutionProperties.Workload("selection", "selection-workers", 2)
             )
     );
 

@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -24,6 +26,9 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveProviderException;
+import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentId;
 import io.memoryos.connector.ConnectorIndexingPort;
@@ -64,6 +69,8 @@ import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -124,6 +131,9 @@ class SourceApiIntegrationTest {
     private JdbcClient jdbcClient;
 
     @Autowired
+    private io.memoryos.connector.SourceManagementService sourceManagement;
+
+    @Autowired
     private SourceDocumentAccessResolver documentAccess;
 
     @Autowired
@@ -145,6 +155,9 @@ class SourceApiIntegrationTest {
     private io.memoryos.connector.ConnectorSyncPort sourceSync;
 
     @Autowired
+    private io.memoryos.connector.GoogleDriveSelectionProcessor selections;
+
+    @Autowired
     private io.memoryos.document.ExtractionArtifactPort extractionArtifacts;
 
     @Autowired
@@ -161,6 +174,7 @@ class SourceApiIntegrationTest {
 
     @MockitoBean
     private GoogleDriveProvider googleProvider;
+    private GoogleDriveProvider.Session googleSession;
 
     private ActorAuthenticationToken owner;
     private ActorAuthenticationToken member;
@@ -224,6 +238,63 @@ class SourceApiIntegrationTest {
     }
 
     @Test
+    @Transactional
+    void itemPagesEnforceTheDefaultBoundAndFinishWithoutDuplicateRows() throws Exception {
+        var actor = owner.getPrincipal().actorId();
+        var source = sourceManagement.createFileSource(actor, "Paged API files");
+        var expected = new HashSet<String>();
+        for (int index = 0; index < 26; index++) {
+            byte[] content = ("API page content " + index).getBytes(UTF_8);
+            var authorization = sourceManagement.initiateUpload(actor, source.id(),
+                    new io.memoryos.objectstorage.ObjectUploadSpecification(
+                            "page-" + index + ".txt", "text/plain", content.length, InMemoryObjectStorage.checksum(content)));
+            objectStorage.put(authorization.authorization().uri(), content);
+            expected.add(sourceManagement.finalizeUpload(actor, source.id(), authorization.uploadId()).item().id().value().toString());
+        }
+        String firstBody = mockMvc.perform(get("/api/sources/{id}/items", source.id().value()).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(25))
+                .andExpect(jsonPath("$.nextCursor").isString())
+                .andReturn().getResponse().getContentAsString();
+        var first = io.swagger.v3.core.util.Json.mapper().readTree(firstBody);
+        String secondBody = mockMvc.perform(get("/api/sources/{id}/items", source.id().value()).with(authentication(owner))
+                        .param("cursor", first.path("nextCursor").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()))
+                .andReturn().getResponse().getContentAsString();
+        var observed = new HashSet<String>();
+        first.path("items").forEach(item -> assertTrue(observed.add(item.path("id").asText())));
+        io.swagger.v3.core.util.Json.mapper().readTree(secondBody).path("items")
+                .forEach(item -> assertTrue(observed.add(item.path("id").asText())));
+        assertEquals(expected, observed);
+        mockMvc.perform(get("/api/sources/{id}/items", source.id().value()).with(authentication(owner)).param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(26))
+                .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()));
+
+        String attemptsBody = mockMvc.perform(get("/api/sources/{id}/index-attempts", source.id().value())
+                        .with(authentication(owner)).param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
+                .andExpect(jsonPath("$.totalItems").value(26))
+                .andReturn().getResponse().getContentAsString();
+        String next = io.swagger.v3.core.util.Json.mapper().readTree(attemptsBody).path("nextCursor").asText();
+        mockMvc.perform(get("/api/sources/{id}/index-attempts", source.id().value())
+                        .with(authentication(owner)).param("size", "5").param("cursor", next))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
+                .andExpect(jsonPath("$.totalItems").value(26));
+        var empty = sourceManagement.createFileSource(actor, "Empty history");
+        mockMvc.perform(get("/api/sources/{id}/index-attempts", empty.id().value()).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.totalItems").value(0));
+        mockMvc.perform(get("/api/sources/{id}/index-attempts", source.id().value()).with(authentication(member)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void indexesAndCleansUpOneFileThroughTheAuthorizedApi() throws Exception {
         String sourceBody = mockMvc.perform(post("/api/sources/file")
                         .with(authentication(owner))
@@ -231,10 +302,11 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Product documentation\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.source.status").value("NOT_STARTED"))
+                .andExpect(jsonPath("$.status").value("NOT_STARTED"))
+                .andExpect(jsonPath("$.items").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
         String sourceId = io.swagger.v3.core.util.Json.mapper().readTree(sourceBody)
-                .path("source").path("id").textValue();
+                .path("id").textValue();
 
         byte[] file = "MemoryOS FILE connector content".getBytes(UTF_8);
         String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file));
@@ -283,9 +355,14 @@ class SourceApiIntegrationTest {
         ));
         mockMvc.perform(get("/api/sources/{sourceId}", sourceId).with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.source.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.source.documentCount").value(1))
-                .andExpect(jsonPath("$.items[0].status").value("INDEXED"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.documentCount").value(1))
+                .andExpect(jsonPath("$.items").doesNotExist());
+        mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(itemId))
+                .andExpect(jsonPath("$.items[0].status").value("INDEXED"))
+                .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()));
 
         mockMvc.perform(post("/api/sources/{sourceId}/items/{itemId}/remove", sourceId, itemId)
                         .with(authentication(owner))
@@ -298,13 +375,18 @@ class SourceApiIntegrationTest {
         ));
         mockMvc.perform(get("/api/sources/{sourceId}", sourceId).with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.source.pendingWork").value(true))
+                .andExpect(jsonPath("$.pendingWork").value(true));
+        mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].status").value("DELETING"));
         processDispatchedWork();
         mockMvc.perform(get("/api/sources/{sourceId}", sourceId).with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.source.pendingWork").value(false))
-                .andExpect(jsonPath("$.items").isEmpty());
+                .andExpect(jsonPath("$.pendingWork").value(false));
+        mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()));
 
         String deleteBody = mockMvc.perform(post("/api/sources/{sourceId}/delete", sourceId)
                         .with(authentication(owner))
@@ -378,6 +460,14 @@ class SourceApiIntegrationTest {
                 VALUES (:tenant, :actor, 'OWNER', 'ACTIVE')
                 """).param("tenant", tenantId).param("actor", actorId).update();
         var otherOwner = token(actorId);
+        mockMvc.perform(get("/api/sources/{id}", foreignSource).with(authentication(otherOwner)))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        mockMvc.perform(get("/api/sources/{id}/items", foreignSource).with(authentication(otherOwner))
+                        .param("cursor", "invalid"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", foreignSource).with(authentication(otherOwner))
+                        .param("parentId", "foreign-root"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
         mockMvc.perform(get("/api/credentials/google-drive").with(authentication(otherOwner)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
         for (UUID id : List.of(credential.value(), UUID.randomUUID())) {
@@ -405,7 +495,10 @@ class SourceApiIntegrationTest {
                     .andExpect(status().isNotFound());
         mockMvc.perform(put("/api/sources/{id}/google-drive/roots", foreignSource)
                         .with(authentication(otherOwner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"scopeMode\":\"GENERAL\",\"links\":[]}"))
+                        .contentType(MediaType.APPLICATION_JSON).content(replaceRequest(foreignSource, "{\"scopeMode\":\"GENERAL\",\"links\":[],\"linkedDocumentIds\":[]}")))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", foreignSource)
+                        .with(authentication(otherOwner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
                 .andExpect(status().isNotFound());
         jdbcClient.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE tenant_id = :tenant AND actor_id = :actor")
                 .param("tenant", tenantId).param("actor", actorId).update();
@@ -424,8 +517,8 @@ class SourceApiIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.credentialId").value(credential.value().toString()))
                     .andExpect(jsonPath("$.credentialStatus").value("ACTIVE"))
-                    .andExpect(jsonPath("$.scopeMode").value("SPECIFIC"))
-                    .andExpect(jsonPath("$.roots[0].id").value(source.equals(first) ? "first-doc" : "second-doc"));
+                    .andExpect(jsonPath("$.scopeMode").value("SPECIFIC"));
+            assertSelectedRoot(source, source.equals(first) ? "first-doc" : "second-doc");
         }
         var catalog = mockMvc.perform(get("/api/credentials/google-drive").with(authentication(owner)))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
@@ -520,8 +613,8 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.syncIntervalMinutes").value(17))
                 .andExpect(jsonPath("$.scheduleRevision").value(2))
                 .andExpect(jsonPath("$.revision").value(1))
-                .andExpect(jsonPath("$.pendingWork").value(true))
-                .andExpect(jsonPath("$.roots[0].id").value("scheduled-doc"));
+                .andExpect(jsonPath("$.pendingWork").value(true));
+        assertSelectedRoot(source, "scheduled-doc");
         mockMvc.perform(put("/api/sources/{id}/google-drive/schedule", source)
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":30}"))
@@ -593,46 +686,67 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.scheduleRevision").value(1));
     }
 
-    @Test
-    void scopeSwitchesPersistWithCurrentRevisionWithoutChangingTheSchedule() throws Exception {
-        var credential = googleCredential("General scope account");
+    @ParameterizedTest
+    @ValueSource(strings = {"GENERAL", "SPECIFIC"})
+    void scopeModeIsCreationOnlyAndRejectedChangesPreserveConfigurationAndSchedule(String savedMode) throws Exception {
+        var credential = googleCredential("Immutable scope account");
+        boolean general = "GENERAL".equals(savedMode);
         String body = mockMvc.perform(post("/api/sources/google-drive").with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"My Drive\",\"credentialId\":\"" + credential.value()
-                                + "\",\"scopeMode\":\"GENERAL\",\"links\":[]}"))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        String source = io.swagger.v3.core.util.Json.mapper().readTree(body).path("source").path("id").asText();
-        mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(header().string("ETag", "\"1\""))
-                .andExpect(jsonPath("$.scopeMode").value("GENERAL")).andExpect(jsonPath("$.roots").isEmpty());
+                        .content(general ? selectionRequest("{\"name\":\"My Drive\",\"credentialId\":\"" + credential.value()
+                                + "\",\"scopeMode\":\"GENERAL\",\"links\":[]}")
+                                : googleSourceBody(credential, "Selected documents", "chosen-doc")))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+        String source = activateSelection(body);
         mockMvc.perform(put("/api/sources/{id}/google-drive/schedule", source)
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":1}"))
                 .andExpect(status().isOk());
+        clearInvocations(googleProvider);
+
         mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/chosen-doc/view\"]}"))
-                .andExpect(status().isOk()).andExpect(header().string("ETag", "\"2\""))
-                .andExpect(jsonPath("$.scopeMode").value("SPECIFIC"))
-                .andExpect(jsonPath("$.roots[0].id").value("chosen-doc"))
-                .andExpect(jsonPath("$.syncIntervalMinutes").value(1))
+                        .content(replaceRequest(source, general ? "{\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/other-doc/view\"],\"linkedDocumentIds\":[]}"
+                                : "{\"scopeMode\":\"GENERAL\",\"links\":[],\"linkedDocumentIds\":[]}")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+
+        var unchanged = mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(header().string("ETag", "\"1\""))
+                .andExpect(jsonPath("$.scopeMode").value(savedMode))
+                .andExpect(jsonPath("$.syncIntervalMinutes").value(1)).andExpect(jsonPath("$.scheduleRevision").value(2))
+                .andExpect(jsonPath("$.pendingWork").value(true));
+        if (general) unchanged.andExpect(jsonPath("$.counts.files").value(0));
+        else assertSelectedRoot(source, "chosen-doc");
+        verifyNoInteractions(googleProvider);
+    }
+
+    @Test
+    void specificLinksRemainEditableWithCurrentRevisionAndPreserveTheSchedule() throws Exception {
+        String source = createGoogleSource(googleCredential("Editable links"), "Selected documents", "chosen-doc");
+        mockMvc.perform(put("/api/sources/{id}/google-drive/schedule", source)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":1}"))
+                .andExpect(status().isOk());
+        String accepted = mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(replaceRequest(source, "{\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/other-doc/view\"],\"linkedDocumentIds\":[]}")))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+        assertSelectedRoot(source, "chosen-doc");
+        activateSelection(accepted);
+        mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(1))
                 .andExpect(jsonPath("$.scheduleRevision").value(2));
         mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"scopeMode\":\"GENERAL\",\"links\":[]}"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(replaceRequest(source, "{\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/chosen-doc/view\"],\"linkedDocumentIds\":[]}")))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SOURCE_GOOGLE_REVISION_CONFLICT"));
         mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.scopeMode").value("SPECIFIC"))
-                .andExpect(jsonPath("$.roots[0].id").value("chosen-doc"));
-        mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
-                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"2\"")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"scopeMode\":\"GENERAL\",\"links\":[]}"))
-                .andExpect(status().isOk()).andExpect(header().string("ETag", "\"3\""));
-        mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.scopeMode").value("GENERAL"))
-                .andExpect(jsonPath("$.roots").isEmpty())
-                .andExpect(jsonPath("$.syncIntervalMinutes").value(1)).andExpect(jsonPath("$.scheduleRevision").value(2));
+                .andExpect(status().isOk()).andExpect(header().string("ETag", "\"2\""))
+                .andExpect(jsonPath("$.scopeMode").value("SPECIFIC"));
+        assertSelectedRoot(source, "other-doc");
     }
 
     @Test
@@ -645,23 +759,23 @@ class SourceApiIntegrationTest {
                 "\"scopeMode\":\"GENERAL\",\"links\":[\"https://drive.google.com/file/d/retained-doc/view\"]")) {
             mockMvc.perform(post("/api/sources/google-drive").with(authentication(owner))
                             .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"name\":\"Invalid scope\",\"credentialId\":\"" + credential.value() + "\"," + selection + "}"))
+                            .content(selectionRequest("{\"name\":\"Invalid scope\",\"credentialId\":\"" + credential.value() + "\"," + selection + "}")))
                     .andExpect(status().isBadRequest());
             mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
                             .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
-                            .contentType(MediaType.APPLICATION_JSON).content("{" + selection + "}"))
+                            .contentType(MediaType.APPLICATION_JSON).content(replaceRequest(source, "{" + selection + ",\"linkedDocumentIds\":[]}")))
                     .andExpect(status().isBadRequest());
         }
         mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
                 .andExpect(status().isOk()).andExpect(header().string("ETag", "\"1\""))
-                .andExpect(jsonPath("$.scopeMode").value("SPECIFIC"))
-                .andExpect(jsonPath("$.roots[0].id").value("retained-doc"));
+                .andExpect(jsonPath("$.scopeMode").value("SPECIFIC"));
+        assertSelectedRoot(source, "retained-doc");
     }
 
     @Test
-    void broadeningScopeStillRequiresAuthenticationOwnerAndCsrf() throws Exception {
+    void scopeReplacementRequiresAuthenticationOwnerAndCsrf() throws Exception {
         String source = createGoogleSource(googleCredential("Private scope"), "Private scope source", "private-doc");
-        String selection = "{\"scopeMode\":\"GENERAL\",\"links\":[]}";
+        String selection = replaceRequest(source, "{\"scopeMode\":\"GENERAL\",\"links\":[],\"linkedDocumentIds\":[]}");
         mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
                         .header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content(selection))
@@ -675,14 +789,196 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(selection))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.scopeMode").value("SPECIFIC"))
-                .andExpect(jsonPath("$.roots[0].id").value("private-doc"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.scopeMode").value("SPECIFIC"));
+        assertSelectedRoot(source, "private-doc");
+    }
+
+    @Test
+    void linkedDiscoveryReturnsUnselectedCandidatesAndSavesApprovalAtomicallyWithRoots() throws Exception {
+        String source = createGoogleSource(googleCredential("Linked documents"), "Linked source", "linked-root");
+        when(googleSession.acquire(any())).thenAnswer(invocation -> {
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            GoogleDriveProvider.FileMetadata file = invocation.getArgument(0);
+            return new GoogleDriveProvider.AcquiredContent(file.name() + ".txt", "text/plain",
+                    "References https://drive.google.com/file/d/linked-target/view".getBytes(UTF_8),
+                    new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(),
+                            "https://drive.google.com/file/d/" + file.id() + "/view"));
+        });
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
+                .andExpect(status().isOk()).andExpect(header().string("ETag", "\"1\""))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.discoveryRevision").value(1)).andExpect(jsonPath("$.discoveredAt").isString())
+                .andExpect(jsonPath("$.discoveryErrors").isEmpty());
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection?kind=LINKED", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value("linked-target"))
+                .andExpect(jsonPath("$.items[0].selected").value(false))
+                .andExpect(jsonPath("$.items[0].coveredByRoots").value(false))
+                .andExpect(jsonPath("$.items[0].status").value("AVAILABLE"))
+                .andExpect(jsonPath("$.items[0].origins[0].rootId").value("linked-root"))
+                .andExpect(jsonPath("$.items[0].origins[0].parentId").value("linked-root"));
+        org.mockito.Mockito.verify(googleSession, org.mockito.Mockito.never()).acquire(org.mockito.ArgumentMatchers.argThat(
+                file -> file.id().equals("linked-target")));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value("linked-root"))
+                .andExpect(jsonPath("$.items[0].expandable").value(true));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner))
+                        .param("parentId", "linked-root"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value("linked-target"))
+                .andExpect(jsonPath("$.items[0].kind").value("LINKED"))
+                .andExpect(jsonPath("$.items[0].selected").value(false))
+                .andExpect(jsonPath("$.items[0].expandable").value(false))
+                .andExpect(jsonPath("$.items[0].origins[0].parentId").value("linked-root"));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner))
+                        .param("parentId", "linked-target"))
+                .andExpect(status().isNotFound());
+        String accepted = mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(replaceRequest(source, "{\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/linked-root/view\"],\"linkedDocumentIds\":[\"linked-target\"]}")))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+        activateSelection(accepted);
+        assertSelectedRoot(source, "linked-root");
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection?kind=LINKED", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].selected").value(true));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner))
+                        .param("parentId", "linked-root"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].selected").value(true));
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SOURCE_GOOGLE_REVISION_CONFLICT"));
+    }
+
+    @Test
+    void linkedDiscoveryAndSelectionRejectMissingPreconditionsUnauthorizedAndUnknownTargets() throws Exception {
+        var credential = googleCredential("Private linked source");
+        String source = createGoogleSource(credential, "Private linked source", "linked-root");
+        clearInvocations(googleProvider);
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                        .header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                        .with(authentication(owner)).header("If-Match", "\"1\""))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                        .with(authentication(member)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+        for (String revision : List.of("1", "W/\"1\"", "*", "\"1\", \"2\"")) {
+            mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                            .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", revision))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isBadRequest());
+        for (String ids : List.of("", ",\"linkedDocumentIds\":null", ",\"linkedDocumentIds\":[\"arbitrary\"]",
+                ",\"linkedDocumentIds\":[\"duplicate\",\"duplicate\"]")) {
+            mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
+                            .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(replaceRequest(source, "{\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/linked-root/view\"]" + ids + "}")))
+                    .andExpect(status().isBadRequest());
+        }
+        verifyNoInteractions(googleProvider);
+        mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1))
+                .andExpect(jsonPath("$.discoveryRevision").value(0)).andExpect(jsonPath("$.counts.linkedDocuments").value(0));
+        googleAuthorizations.disconnect(owner.getPrincipal().actorId(), credential, 1);
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void generalCannotDiscoverOrApproveAndDiscoveryFailureDoesNotPretendToBeComplete() throws Exception {
+        var credential = googleCredential("Discovery failures");
+        String generalBody = mockMvc.perform(post("/api/sources/google-drive").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content(selectionRequest("{\"name\":\"General\",\"credentialId\":\"" + credential.value() + "\",\"scopeMode\":\"GENERAL\",\"links\":[]}")))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+        String general = activateSelection(generalBody);
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", general)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/sources/{id}/google-drive", general).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.discoveryRevision").value(0))
+                .andExpect(jsonPath("$.discoveredAt").isEmpty()).andExpect(jsonPath("$.counts.linkedDocuments").value(0))
+                .andExpect(jsonPath("$.discoveryErrors").isEmpty());
+        mockMvc.perform(put("/api/sources/{id}/google-drive/roots", general)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content(replaceRequest(general, "{\"scopeMode\":\"GENERAL\",\"links\":[],\"linkedDocumentIds\":[\"arbitrary\"]}")))
+                .andExpect(status().isBadRequest());
+
+        String specific = createGoogleSource(credential, "Specific", "linked-root");
+        when(googleSession.acquire(any())).thenThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.LIMIT_EXCEEDED));
+        mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", specific)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("GOOGLE_DRIVE_LIMIT_EXCEEDED"));
+        mockMvc.perform(get("/api/sources/{id}/google-drive", specific).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.discoveryRevision").value(0))
+                .andExpect(jsonPath("$.discoveredAt").isEmpty()).andExpect(jsonPath("$.counts.linkedDocuments").value(0));
+    }
+
+    @Test
+    void selectionTreeExpandsActualFoldersWithoutLinksAndKeepsOwnerAndProviderErrorBoundaries() throws Exception {
+        var credential = googleCredential("Tree account");
+        var folder = new GoogleDriveProvider.FileMetadata("tree-folder", "Selected folder", "application/vnd.google-apps.folder",
+                "1", null, null, false, List.of("my-drive-root"), null, null);
+        var nested = new GoogleDriveProvider.FileMetadata("tree-nested", "Nested folder", "application/vnd.google-apps.folder",
+                "1", null, null, false, List.of("tree-folder"), null, null);
+        var file = new GoogleDriveProvider.FileMetadata("tree-file", "A file without links", "text/plain",
+                "1", null, null, false, List.of("tree-nested"), null, null);
+        when(googleSession.metadata("tree-folder")).thenReturn(folder);
+        when(googleSession.metadata("tree-nested")).thenReturn(nested);
+        when(googleSession.metadata("tree-file")).thenReturn(file);
+        when(googleSession.listFiles("tree-folder", null)).thenReturn(new GoogleDriveProvider.FilePage(List.of(nested), null));
+        when(googleSession.listFiles("tree-nested", null)).thenAnswer(_ -> {
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            return new GoogleDriveProvider.FilePage(List.of(file), null);
+        });
+        String source = createGoogleSource(credential, "Nested tree", "tree-folder");
+        clearInvocations(googleSession, googleProvider);
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(member)))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.items[0].id").value("tree-folder"))
+                .andExpect(jsonPath("$.items[0].expandable").value(true))
+                .andExpect(jsonPath("$.nextCursor").isEmpty());
+        verifyNoInteractions(googleSession, googleProvider);
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner))
+                        .param("parentId", "tree-folder"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value("tree-nested"))
+                .andExpect(jsonPath("$.items[0].expandable").value(true));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner))
+                        .param("parentId", "tree-nested"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value("tree-file"))
+                .andExpect(jsonPath("$.items[0].kind").value("FILE"))
+                .andExpect(jsonPath("$.items[0].coveredByRoots").value(true))
+                .andExpect(jsonPath("$.items[0].expandable").value(false));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner))
+                        .param("parentId", "tree-file"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty());
+        org.mockito.Mockito.verify(googleSession, org.mockito.Mockito.never()).acquire(any());
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner)).param("size", "101"))
+                .andExpect(status().isBadRequest());
+        when(googleSession.listFiles("tree-folder", null)).thenThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.QUOTA));
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner))
+                        .param("parentId", "tree-folder"))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("GOOGLE_DRIVE_QUOTA"));
+        mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1))
+                .andExpect(jsonPath("$.discoveryRevision").value(0));
     }
 
     private CredentialId googleCredential(String name) {
         var scopes = new HashSet<>(GoogleDriveAuthorizationService.REQUIRED_SCOPES);
         scopes.add("email");
         var providerSession = mock(GoogleDriveProvider.Session.class);
+        googleSession = providerSession;
         when(googleProvider.open(any())).thenReturn(providerSession);
         when(providerSession.metadata(anyString())).thenAnswer(invocation -> {
             String id = invocation.getArgument(0);
@@ -703,14 +999,52 @@ class SourceApiIntegrationTest {
         String body = mockMvc.perform(post("/api/sources/google-drive").with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                         .content(googleSourceBody(credential, name, root)))
-                .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(status().isAccepted()).andExpect(header().string("Cache-Control", "no-store"))
                 .andReturn().getResponse().getContentAsString();
-        return io.swagger.v3.core.util.Json.mapper().readTree(body).path("source").path("id").asText();
+        return activateSelection(body);
     }
 
     private static String googleSourceBody(CredentialId credential, String name, String root) {
-        return "{\"name\":\"" + name + "\",\"credentialId\":\"" + credential.value()
-                + "\",\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/" + root + "/view\"]}";
+        return selectionRequest("{\"name\":\"" + name + "\",\"credentialId\":\"" + credential.value()
+                + "\",\"scopeMode\":\"SPECIFIC\",\"links\":[\"https://drive.google.com/file/d/" + root + "/view\"]}");
+    }
+
+    private static String selectionRequest(String body) {
+        return "{\"requestId\":\"" + UUID.randomUUID() + "\"," + body.substring(1);
+    }
+
+    private String replaceRequest(String source, String body) throws Exception {
+        String response = mockMvc.perform(get("/api/sources/{id}/google-drive/selection-draft", source)
+                        .with(authentication(owner)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var draft = io.swagger.v3.core.util.Json.mapper().readTree(response);
+        return selectionRequest("{\"discoveryRevision\":" + draft.path("discoveryRevision").asLong()
+                + ",\"credentialRevision\":" + draft.path("credentialRevision").asLong() + "," + body.substring(1));
+    }
+
+    private String activateSelection(String receiptBody) throws Exception {
+        var receipt = io.swagger.v3.core.util.Json.mapper().readTree(receiptBody);
+        var metrics = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var processor = new io.memoryos.ingestion.application.SelectionValidationProcessor(selections, scheduler, metrics);
+            for (int batch = 0; batch < 256; batch++) {
+                var claims = operationDispatch.claim(OperationWorkload.GOOGLE_DRIVE_SELECTION_VALIDATION, 8);
+                if (claims.isEmpty()) break;
+                claims.forEach(claim -> processor.process(claim.delivery()));
+            }
+        } finally {
+            metrics.close();
+        }
+        mockMvc.perform(get("/api/source-operations/{id}", receipt.path("operation").path("id").asText())
+                        .with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUCCEEDED"));
+        return receipt.path("sourceId").asText();
+    }
+
+    private void assertSelectedRoot(String source, String root) throws Exception {
+        mockMvc.perform(get("/api/sources/{id}/google-drive/selection?kind=FILE", source).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(root))
+                .andExpect(jsonPath("$.items[0].selected").value(true));
     }
 
     @Test
@@ -740,11 +1074,19 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         String sourceId = io.swagger.v3.core.util.Json.mapper().readTree(sourceBody)
-                .path("source").path("id").textValue();
+                .path("id").textValue();
         mockMvc.perform(get("/api/sources/{sourceId}/index-attempts?size=0", sourceId)
                         .with(authentication(owner)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
+        mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(member)))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+        mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)).param("size", "0"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
+        mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)).param("size", "101"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
+        mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)).param("cursor", "!"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
 
         mockMvc.perform(post("/api/sources/file")
                         .with(authentication(owner))
@@ -780,7 +1122,8 @@ class SourceApiIntegrationTest {
                     leaseScheduler,
                     extractionArtifacts,
                     metrics,
-                    new io.memoryos.ingestion.application.SourceSyncProcessor(sourceSync, leaseScheduler, metrics)
+                    new io.memoryos.ingestion.application.SourceSyncProcessor(sourceSync, leaseScheduler, metrics),
+                    new io.memoryos.ingestion.application.SelectionValidationProcessor(selections, leaseScheduler, metrics)
             );
             for (OperationWorkload workload : OperationWorkload.values()) {
                 operationDispatch.claim(workload, 8)
