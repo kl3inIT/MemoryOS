@@ -148,7 +148,8 @@ test("searches merged sections, filters, pages and opens each best match with es
   await page.getByRole("button", { name: "Close document preview" }).click();
   await expect(relatedMatchButton).toBeFocused();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect.poll(() => requests.at(-1)).toMatchObject({ mediaTypes: [], page: 0 });
+  await expect(page.getByRole("button", { name: "File type: All file types" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clear filters" })).toHaveCount(0);
   await expect(titleButton).toBeVisible();
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.getByRole("button", { name: "Quy định bổ sung", exact: true })).toBeVisible();
@@ -172,7 +173,17 @@ test("handles unavailable, retry, empty and a pending search", async ({ page }) 
           candidateLimit: 500,
           results:
             request.query === "slow"
-              ? [{ documentId, generation, title: "Old result", sections }]
+              ? [
+                  {
+                    documentId,
+                    generation,
+                    title: "Old result",
+                    mediaType: "application/pdf",
+                    updatedAt: "2026-09-08T00:00:00Z",
+                    score: 0.8,
+                    sections,
+                  },
+                ]
               : [],
         },
       })

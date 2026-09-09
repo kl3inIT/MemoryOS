@@ -244,6 +244,10 @@ describe("SearchPage", () => {
       ),
     );
     expect(screen.getByRole("button", { name: "Updated: Past 30 days" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByRole("button", { name: "File type: All file types" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Updated: All time" })).toBeInTheDocument();
   });
 
   it("uses the loading screen for a repeated search immediately", async () => {

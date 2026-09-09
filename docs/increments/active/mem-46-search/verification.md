@@ -204,5 +204,5 @@ Live staging provisioning, authenticated Discover inspection and exact-SHA deplo
 
 ## 2026-09-09 — Browser CI follow-up
 
-- Corrected browser fixtures for the integrated Chat/Search routing: Search mobile coverage now opens `/search`, not the Chat home route. Filter reset waits for its new request before asserting its payload.
+- Corrected browser fixtures for the integrated Chat/Search routing: Search mobile coverage now opens `/search`, not the Chat home route. Browser and component coverage assert the post-reset filter controls; returning to the still-fresh unfiltered query correctly uses the TanStack Query cache instead of forcing an unnecessary HTTP request.
 - Search empty and unavailable states now expose their titles as level-two headings, aligning the browser assertion with an accessible state hierarchy.
