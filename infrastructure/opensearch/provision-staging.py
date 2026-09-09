@@ -37,6 +37,13 @@ def write(path, text, mode=0o600):
     path.chmod(mode)
 
 
+def write_dashboards_bootstrap_config(directory):
+    password = (directory / "dashboards-password.txt").read_text(encoding="utf-8").strip()
+    if not password or any(character in password for character in '\\"\r\n'):
+        raise RuntimeError("invalid Dashboards password for curl configuration")
+    write(directory / "dashboards-bootstrap.curl", 'user = "memoryos-dashboards:' + password + '"\n')
+
+
 def certificate(directory, name, subject, extensions, authority=None):
     authority = authority or directory
     run("openssl", "genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:2048", "-out", str(directory / (name + ".key")))
@@ -163,6 +170,7 @@ def main():
             for filename in ("service-password.txt", "dashboards-password.txt", "oidc-client-secret.txt", "cookie-password.txt"):
                 write(temporary / filename, run("openssl", "rand", "-hex", "32").strip() + "\n")
             write(temporary / "health.curl", 'user = "memoryos-service:' + (temporary / "service-password.txt").read_text().strip() + '"\n')
+            write_dashboards_bootstrap_config(temporary)
             (temporary / "ca.crt").chmod(0o444)
             reconcile(temporary, issuer)
             temporary.rename(directory)
@@ -175,6 +183,7 @@ def main():
         certificate(directory, "dashboards", *LEAF_CERTIFICATES["dashboards"])
     if not (directory / "dashboards.crt").is_file() or not (directory / "dashboards.key").is_file():
         raise RuntimeError("partial Dashboards TLS certificate pair")
+    write_dashboards_bootstrap_config(directory)
     reconcile(directory, issuer)
     print("OpenSearch Security YAML reconciled; existing TLS and credentials preserved")
 

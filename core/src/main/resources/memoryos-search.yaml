@@ -12,6 +12,7 @@ memoryos:
     embedding-concurrency: ${MEMORYOS_EMBEDDING_CONCURRENCY:2}
     candidate-limit: ${MEMORYOS_SEARCH_CANDIDATE_LIMIT:500}
     keyword-weight: ${MEMORYOS_SEARCH_KEYWORD_WEIGHT:0.5}
+    minimum-semantic-score: ${MEMORYOS_SEARCH_MINIMUM_SEMANTIC_SCORE:0.70}
     timeout: ${MEMORYOS_SEARCH_TIMEOUT:30s}
     index-prefix: ${MEMORYOS_SEARCH_INDEX_PREFIX:memoryos-chunks}
     replicas: ${MEMORYOS_SEARCH_REPLICAS:1}

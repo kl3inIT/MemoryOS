@@ -18,7 +18,7 @@ const sections = [
     endOrdinal: 3,
     matchingOrdinal: 3,
     score: 0.8,
-    content: `${passage.content}\n${nextPassage.content}`,
+    content: `Title: HR-2026 Quy định nghỉ phép\n${"Thông tin nội bộ và hướng dẫn thực hiện. ".repeat(12)}${passage.content}\n${nextPassage.content}`,
     provenance: [
       { ordinal: 2, provenanceJson: "[]" },
       { ordinal: 3, provenanceJson: "[]" },
@@ -98,31 +98,60 @@ test("searches merged sections, filters, pages and opens each best match with es
   });
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("chính sách nghỉ phép");
-  await page.getByLabel("File type").selectOption("application/pdf");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép" })).toBeVisible();
-  await expect(page.getByText(sections[0].content, { exact: true })).toBeVisible();
-  await expect(page.getByText("Passages 3–4", { exact: true })).toBeVisible();
-  await expect(page.getByText("Passage 41", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "File type: All file types" }).click();
+  await page.getByRole("menuitemradio", { name: "PDF", exact: true }).click();
+  const titleButton = page.getByRole("button", {
+    name: "HR-2026 Quy định nghỉ phép",
+    exact: true,
+  });
+  const resultCard = page.locator("article").filter({ has: titleButton });
+  await expect(titleButton).toBeVisible();
+  await expect(page.getByText(sections[0].content, { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Title: HR-2026 Quy định nghỉ phép", { exact: true })).toHaveCount(0);
+  await expect(resultCard.getByText("PDF", { exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "File types on this page" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "PDF: 1 result on this page" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByText("application/pdf", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Best match", { exact: true })).toBeVisible();
+  await expect(page.getByText("Related match 2", { exact: true })).toBeVisible();
+  await expect(page.locator("mark").filter({ hasText: "nghỉ" }).first()).toBeVisible();
+  await expect(page.locator("script").filter({ hasText: "alert('x')" })).toHaveCount(0);
+  await expect(resultCard.getByText(/<script>alert\('x'\)<\/script>/)).toBeVisible();
   expect(requests[0]).toMatchObject({
     query: "chính sách nghỉ phép",
-    mediaTypes: ["application/pdf"],
+    mediaTypes: [],
     page: 0,
   });
-  await page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép" }).click();
-  await expect(page.getByRole("region", { name: "Document passages" })).toContainText("Passage 3");
-  await expect(page.getByRole("region", { name: "Document passages" })).toContainText(
-    nextPassage.content,
-  );
+  expect(requests[1]).toMatchObject({ mediaTypes: ["application/pdf"], page: 0 });
+  await titleButton.click();
+  const reader = page.getByRole("dialog", { name: "HR-2026 Quy định nghỉ phép" });
+  await expect(reader).toContainText("Selected match");
+  await expect(reader).toContainText(nextPassage.content);
   expect(previewOffsets).toEqual([2]);
-  await page.getByRole("button", { name: "Read passage 41 in document" }).click();
-  await expect(page.getByRole("region", { name: "Document passages" })).toContainText("Passage 41");
+  await reader.getByRole("button", { name: "Match 2" }).click();
+  await expect(reader).toContainText(sections[1].content);
   expect(previewOffsets).toEqual([2, 39]);
-  await page.getByRole("button", { name: "Read passages 3–4 in document" }).click();
-  await expect(page.getByRole("region", { name: "Document passages" })).toContainText("Passage 3");
-  await page.getByRole("button", { name: "Close document" }).click();
+  await reader.getByRole("button", { name: "Match 1" }).click();
+  await expect(reader).toContainText(nextPassage.content);
+  await page.keyboard.press("Escape");
+  await expect(reader).toHaveCount(0);
+  await expect(titleButton).toBeFocused();
+  const relatedMatchButton = page.getByRole("button", {
+    name: "Open related match 2 in HR-2026 Quy định nghỉ phép",
+  });
+  await relatedMatchButton.click();
+  await expect(reader).toContainText(sections[1].content);
+  await page.getByRole("button", { name: "Close document preview" }).click();
+  await expect(relatedMatchButton).toBeFocused();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(titleButton).toBeVisible();
+  expect(requests.at(-1)).toMatchObject({ mediaTypes: [], page: 0 });
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Quy định bổ sung" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Quy định bổ sung", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
 });
 
@@ -162,9 +191,76 @@ test("handles unavailable, retry, empty and a newer query overtaking an older on
   await input.fill("slow");
   await search.click();
   await expect(page.getByRole("status")).toContainText("Searching");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("heading", { name: "Search your workspace" })).toBeVisible();
+  await expect(input).toBeFocused();
+  await input.fill("slow");
+  await search.click();
+  await expect(page.getByRole("status")).toContainText("Searching");
   await input.fill("newer");
   await search.click();
   await expect(page.getByRole("heading", { name: "No matching documents" })).toBeVisible();
   await page.waitForTimeout(900);
-  await expect(page.getByRole("button", { name: "Old result" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Old result", exact: true })).toHaveCount(0);
+});
+
+test("keeps the document preview usable inside a mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        candidateLimit: 500,
+        results: [
+          {
+            documentId,
+            generation,
+            title: "HR-2026 Quy định nghỉ phép",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "HR-2026 Quy định nghỉ phép",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép", exact: true }).click();
+
+  const dialog = page.getByRole("dialog", { name: "HR-2026 Quy định nghỉ phép" });
+  await expect(dialog).toBeVisible();
+  const bounds = await dialog.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await expect
+    .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+    .toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  await expect
+    .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+    .toBe(true);
 });

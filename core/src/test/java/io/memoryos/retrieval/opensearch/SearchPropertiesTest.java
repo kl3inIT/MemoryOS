@@ -23,8 +23,23 @@ class SearchPropertiesTest {
         assertDoesNotThrow(() -> properties("http://127.0.0.1:8080/v1", ""));
     }
 
+    @Test
+    void rejectsSemanticScoresOutsideCosineScoreRange() {
+        for (double score : new double[] {-0.01, 1.01, Double.NaN, Double.POSITIVE_INFINITY}) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> properties("https://api.openai.com/v1", "test-only-credential", score));
+        }
+        assertDoesNotThrow(() -> properties("https://api.openai.com/v1", "test-only-credential", 0));
+        assertDoesNotThrow(() -> properties("https://api.openai.com/v1", "test-only-credential", 1));
+    }
+
     private static SearchProperties properties(String embeddingEndpoint, String apiKey) {
+        return properties(embeddingEndpoint, apiKey, .70);
+    }
+
+    private static SearchProperties properties(String embeddingEndpoint, String apiKey, double minimumSemanticScore) {
         return new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "", embeddingEndpoint, apiKey,
-                "text-embedding-3-large", 3072, 32, 2, 500, .5, Duration.ofSeconds(3), "memoryos-test", 0);
+                "text-embedding-3-large", 3072, 32, 2, 500, .5, minimumSemanticScore,
+                Duration.ofSeconds(3), "memoryos-test", 0);
     }
 }

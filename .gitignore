@@ -2,6 +2,7 @@
 **/build/
 .tmp/
 .idea/
+.run/*
 *.iml
 out/
 **/bin/
@@ -17,3 +18,4 @@ web/.playwright-cli/
 .memoryos-dev.yaml.*.tmp
 secrets/
 __pycache__/
+graphify-out/
