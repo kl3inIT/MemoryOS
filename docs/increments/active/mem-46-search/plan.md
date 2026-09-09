@@ -39,7 +39,8 @@ Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credent
 
 ## 4. Recovery và nghiệm thu riêng Search
 
-- [ ] Tạo PR, một lần trigger/triage CodeRabbit và CI theo đúng head; deploy PR SHA lên staging, chưa merge main.
+- [x] Tạo PR, một lần trigger/triage CodeRabbit và CI theo đúng head; giữ review history, không dismiss hoặc override manual-review requirement.
+- [ ] Deploy PR SHA lên staging theo release path được duyệt, chưa merge main.
 - [ ] Provision OpenSearch staging TLS/service role/volume, cấu hình Infisical và CA mount; backup trước V17, rollout API/worker/web và kiểm SHA/health/Search runtime. Credential embedding hợp lệ là điều kiện để nghiệm thu Search chạy thật.
 
 - [ ] Versioned physical indices/mappings/aliases; readable-index reuse, snapshot restore/catch-up và full index+snapshot-loss regeneration. Verify completeness/current generation trước cutover/cleanup.
