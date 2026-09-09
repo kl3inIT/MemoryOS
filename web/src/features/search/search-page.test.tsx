@@ -63,7 +63,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
-    path: "/",
+    path: "/search",
     component: () => (
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
@@ -74,7 +74,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([indexRoute]),
-    history: createMemoryHistory({ initialEntries: ["/"] }),
+    history: createMemoryHistory({ initialEntries: ["/search"] }),
   });
   await router.load();
   return render(
@@ -105,7 +105,7 @@ describe("SearchPage", () => {
     expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Add to search" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search by voice" })).toBeDisabled();
-    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getAllByRole("status").some((status) => status.textContent === "")).toBe(true);
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
   });
 

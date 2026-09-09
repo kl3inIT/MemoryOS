@@ -23,10 +23,14 @@
     "check": "pnpm check:api && pnpm check:ci && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm check:routes"
   },
   "dependencies": {
+    "@assistant-ui/ai-sdk": "0.0.4",
+    "@assistant-ui/react": "0.15.18",
+    "@assistant-ui/react-markdown": "0.14.14",
     "@fontsource-variable/hanken-grotesk": "5.3.0",
     "@tanstack/react-query": "5.102.8",
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-table": "9.2.3",
+    "ai": "7.0.94",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "1.34.0",

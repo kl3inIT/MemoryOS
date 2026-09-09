@@ -7,8 +7,17 @@ plugins {
 // Keep the SDK aligned with the instrumentation train; Boot still owns autoconfiguration.
 extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
 
+// Springdoc uses the Jakarta artifact; the non-Jakarta jar contains duplicate annotation classes.
+configurations.configureEach {
+    exclude(group = "io.swagger.core.v3", module = "swagger-annotations")
+}
+
 dependencies {
     implementation(project(":core"))
+    implementation(platform(libs.spring.ai.bom))
+    implementation(libs.embabel.platform)
+    implementation(libs.embabel.openai)
+    implementation(libs.spring.ai.model.tool)
     implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
     implementation(libs.arconia.multitenancy.web)

@@ -1,0 +1,210 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryOsChatTransport } from "./chat-transport";
+import { loadChatHistory } from "./chat-api";
+import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
+import type { UIMessageChunk } from "ai";
+
+const session: ChatSession = {
+  id: "5230ab53-dab0-4441-acbf-840636b52953",
+  rootMessageId: "49b9bc3c-5b2b-4560-a2cf-e69ce5dbe627",
+  personaId: "cc9aa9f0-bcb7-4f28-ae4e-a43b5b44ce43",
+  title: "Test",
+  createdAt: "2026-09-09T00:00:00Z",
+  updatedAt: "2026-09-09T00:00:00Z",
+};
+const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
+const userId = "9a1b5318-f15b-4e37-899a-0809354cda6f";
+const requestId = "e7a05ee5-cfd5-470b-9641-f4c322a3b4bb";
+const row: ChatMessage = {
+  id: runId,
+  sessionId: session.id,
+  parentMessageId: userId,
+  latestChildMessageId: null,
+  role: "ASSISTANT",
+  content: "Hello 👋",
+  status: "COMPLETED",
+  createdAt: session.createdAt,
+  finishedAt: session.createdAt,
+};
+const json = (data: unknown, status = 200) => Response.json(data, { status });
+function packet(sequence: number, event: string, data: object) {
+  return `id: ${runId}:${sequence}\nevent: ${event}\ndata: ${JSON.stringify({ assistantMessageId: runId, sequence, ...data })}\n\n`;
+}
+const delta = packet(1, "text-delta", { text: "Hello 👋" });
+const terminal = (status = "COMPLETED") => packet(2, "outcome", { status, failureCode: null });
+const sse = (body: string) =>
+  new Response(body, { headers: { "content-type": "text/event-stream" } });
+function fixture(
+  stream: (request: Request) => Response | Promise<Response>,
+  status: ChatMessage["status"] = "COMPLETED",
+) {
+  const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input.clone() : new Request(input, init);
+    const path = new URL(request.url).pathname;
+    if (path.endsWith("/events")) return stream(request);
+    if (path.endsWith("/cancel"))
+      return json({ assistantMessageId: runId, status: "RUNNING" }, 202);
+    if (request.method === "POST")
+      return json({ userMessageId: userId, assistantMessageId: runId }, 202);
+    if (path.endsWith("/messages"))
+      return json(
+        new URL(request.url).searchParams.get("after") === runId ? [] : [{ ...row, status }],
+      );
+    return json(session);
+  });
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+}
+async function send(transport: MemoryOsChatTransport) {
+  return transport.sendMessages({
+    chatId: session.id,
+    messageId: undefined,
+    abortSignal: undefined,
+    trigger: "submit-message",
+    messages: [{ id: requestId, role: "user", parts: [{ type: "text", text: "Question" }] }],
+  });
+}
+async function collect(stream: ReadableStream<UIMessageChunk>) {
+  const reader = stream.getReader();
+  const chunks: UIMessageChunk[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  return chunks;
+}
+afterEach(() => vi.unstubAllGlobals());
+
+describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
+  it("uses server IDs and stable request identity, ignores duplicate replay and finishes only on outcome", async () => {
+    const fetch = fixture(() => sse(delta + delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    const accepted = vi.fn();
+    transport.callbacks.accepted = accepted;
+    const chunks = await collect(await send(transport));
+    expect(accepted).toHaveBeenCalledWith(session, userId, requestId);
+    expect(chunks.filter((chunk) => chunk.type === "text-delta")).toEqual([
+      { type: "text-delta", id: runId, delta: "Hello 👋" },
+    ]);
+    expect(chunks.at(-1)).toEqual({ type: "finish", finishReason: "stop" });
+    const request = new Request(fetch.mock.calls[0]![0], fetch.mock.calls[0]![1]);
+    expect(await request.json()).toMatchObject({
+      clientRequestId: requestId,
+      parentMessageId: session.rootMessageId,
+    });
+    expect(request.headers.get("X-MemoryOS-CSRF")).toBe("1");
+  });
+
+  it("reconnects after clean EOF with a cursor and never sends a second inference", async () => {
+    let streams = 0;
+    const fetch = fixture((request) => {
+      streams++;
+      if (streams === 1) return sse(delta);
+      expect(new URL(request.url).searchParams.get("after")).toBe(`${runId}:1`);
+      return sse(terminal());
+    });
+    expect((await collect(await send(new MemoryOsChatTransport(session)))).at(-1)?.type).toBe(
+      "finish",
+    );
+    expect(
+      fetch.mock.calls.filter(([input, init]) => new Request(input, init).method === "POST"),
+    ).toHaveLength(1);
+  });
+
+  it.each(["reset", "gap"])(
+    "uses durable history on %s without duplicating partial text",
+    async (mode) => {
+      fixture(() =>
+        sse(
+          delta +
+            (mode === "reset"
+              ? `event: reset\ndata: ${JSON.stringify({ assistantMessageId: runId, reason: "BUFFER_MISSING" })}\n\n`
+              : packet(4, "outcome", { status: "COMPLETED" })),
+        ),
+      );
+      const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+      expect(chunks.filter((chunk) => chunk.type === "text-delta")).toHaveLength(1);
+      expect(chunks.at(-1)?.type).toBe("finish");
+    },
+  );
+
+  it("keeps a failed partial reply and never emits finish", async () => {
+    fixture(() => sse(delta + terminal("FAILED")));
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.some((chunk) => chunk.type === "text-delta")).toBe(true);
+    expect(chunks.at(-1)?.type).toBe("error");
+    expect(chunks.some((chunk) => chunk.type === "finish")).toBe(false);
+  });
+
+  it("does not mark Stop complete at the 202 response; committed cancellation triggers native cancel", async () => {
+    fixture(() => sse(delta + terminal("CANCELED")));
+    const transport = new MemoryOsChatTransport(session);
+    const canceled = vi.fn();
+    transport.callbacks.canceled = canceled;
+    const stream = await send(transport);
+    await transport.stop();
+    expect(canceled).not.toHaveBeenCalled();
+    const chunks = await collect(stream);
+    expect(canceled).toHaveBeenCalledOnce();
+    expect(chunks.some((chunk) => chunk.type === "finish")).toBe(false);
+  });
+
+  it("keeps a completed winner when Stop races with completion", async () => {
+    fixture(() => sse(delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    const canceled = vi.fn();
+    transport.callbacks.canceled = canceled;
+    const stream = await send(transport);
+    await transport.stop();
+    expect((await collect(stream)).at(-1)?.type).toBe("finish");
+    expect(canceled).not.toHaveBeenCalled();
+  });
+
+  it("remembers Stop while the send reservation is pending", async () => {
+    const fetch = fixture(() => sse(delta + terminal("CANCELED")));
+    const acceptance = Promise.withResolvers<Response>();
+    fetch.mockImplementationOnce(() => acceptance.promise);
+    const transport = new MemoryOsChatTransport(session);
+    const canceled = vi.fn();
+    transport.callbacks.canceled = canceled;
+    const sending = send(transport);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await transport.stop();
+    expect(canceled).not.toHaveBeenCalled();
+    acceptance.resolve(json({ userMessageId: userId, assistantMessageId: runId }, 202));
+    await collect(await sending);
+    expect(fetch.mock.calls.some(([input]) => new Request(input).url.endsWith("/cancel"))).toBe(
+      true,
+    );
+    expect(canceled).toHaveBeenCalledOnce();
+  });
+
+  it.each([401, 403, 404])(
+    "fails closed on stream HTTP %s without retry or history",
+    async (status) => {
+      const fetch = fixture(() => json({}, status));
+      const transport = new MemoryOsChatTransport(session);
+      const error = vi.fn();
+      transport.callbacks.error = error;
+      await expect(collect(await send(transport))).rejects.toMatchObject({ status });
+      expect(error).toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("rejects foreign-run events and bounds history traversal", async () => {
+    fixture(() => sse(delta.replaceAll(runId, userId)));
+    await expect(collect(await send(new MemoryOsChatTransport(session)))).rejects.toThrow(
+      "Unexpected reply event",
+    );
+    const fetch = vi.fn(async (input: RequestInfo | URL) =>
+      new URL(new Request(input).url).pathname.endsWith("/messages") ? json([row]) : json(session),
+    );
+    vi.stubGlobal("fetch", fetch);
+    await expect(loadChatHistory(session.id, new AbortController().signal)).rejects.toThrow(
+      "cursor did not advance",
+    );
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+});

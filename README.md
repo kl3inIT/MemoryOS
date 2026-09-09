@@ -32,12 +32,14 @@ On Windows, enable Developer Mode or use an elevated terminal, and clone with
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Six closed capability implementations; JPA IAM lifecycle, JDBC resource persistence, transactions, and the provider-neutral object-storage contract/S3 adapter |
+| `core` | Seven closed capability implementations; JPA IAM lifecycle, JDBC resource persistence, transactions, and the provider-neutral object-storage contract/S3 adapter |
 | `connector` | Shared provider adapter bundle; FILE uses Docling for PDF/DOCX/PPTX and Apache Tika 4 for TXT/Markdown |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root |
 | `worker` | Persistence-backed indexing and cleanup composition root |
 
-Current core capabilities are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, and `retrieval`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, and `chat`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+
+Chat is the application home, with private conversation history, streamed answers, Stop and reconnect through assistant-ui and a Vercel AI SDK transport adapter. Search remains available at `/search`. Java owns native Embabel/Spring AI background execution, persisted outcomes and bounded RAM replay. See the [Chat contract](docs/specs/chat.md).
 
 ## Build and verify
 
@@ -87,7 +89,7 @@ The staging application is available at `https://memoryos.72-62-193-33.nip.io`; 
 
 ## Current runtime behavior
 
-API startup runs Flyway through V16, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
+API startup runs Flyway through V20, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
 
 V14 invalidates existing Spring Sessions for the `io.memoryos.iam.ActorId` package cutover. Deploy API and worker as one coordinated version transition; existing browser users sign in again.
 
