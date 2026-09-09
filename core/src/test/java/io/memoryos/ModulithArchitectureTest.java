@@ -16,7 +16,8 @@ class ModulithArchitectureTest {
             "connector",
             "document",
             "ingestion",
-            "retrieval"
+            "retrieval",
+            "chat"
     );
 
     private final ApplicationModules modules = ApplicationModules.of(MemoryOsModules.class);

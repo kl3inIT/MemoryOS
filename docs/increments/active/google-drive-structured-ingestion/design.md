@@ -2,7 +2,7 @@
 
 ## Main refresh for publication — 2026-09-09
 
-The user approved merging main `287ca9c` (Chat and trusted-broker JIT admission) into the existing Drive integration branch before publishing scoped commits and linking Linear. Preserve both capabilities; resolve combined runtime/dependency/UI documentation and regenerate OpenAPI/clients rather than choosing one generated side.
+The user approved merging main `287ca9c` (Chat and trusted-broker JIT admission), then explicitly requested any newer main changes before publication. The follow-up fetch found `3f236d5` (Search PRs #83/#87), including the Search workspace/filter/preview, semantic-candidate threshold and test/cache fixes. Source/Google Drive conflicts prioritize `HEAD`: preserve its setup, authorization, pagination, credentials, group associations and stale-state guards. Integrate main Chat/JIT/Search around those contracts and regenerate OpenAPI/clients rather than choosing one generated side.
 
 Main now owns applied migrations V1–V20. Reconcile the unpublished Drive chain by moving V18–V29 to V21–V32 without changing SQL bodies or main migration contents, and update migration-target fixtures and current documentation. This continues the prior branch-integration numbering policy; it does not authorize rewriting an existing database's Flyway history.
 
@@ -19,7 +19,7 @@ Rendered-browser verification exposed a cache boundary: after retention or exter
 No extraction fix, credential migration, Source mutation, permission-policy change or database migration is included. The current review runtime uses the separately approved clean `memoryos_main_review` database; preserve user-created Sources and the old review database. Verify totals at the repository/API boundary and inspect the actual web surface in desktop/mobile and light/dark modes.
 
 
-Status: branch implementation and main contracts are integrated and locally verified at the recorded backend/frontend/browser and isolated runtime boundaries. [Current integration scope and evidence](plan.md#isolated-main-integration--2026-09-09) govern the combined tree, including cleanup and the unresolved root cause of the host Docker/WSL instability. Migration references here use V18–V29; earlier runtime/test observations remain historical rather than new verification. Historic Owner wording describes the original review persona; current Google management uses global `SOURCES_MANAGE`, generic reads use global/scoped `SOURCES_READ`, and reusable credentials remain Tenant-owned. The increment remains active; no push, PR merge or deployment is implied.
+Historical integration snapshot below: the earlier combined FILE/Drive implementation was locally verified at the recorded backend/frontend/browser and isolated runtime boundaries in [the prior integration ledger](plan.md#isolated-main-integration--2026-09-09), including cleanup and unresolved host Docker/WSL instability. Its migration references use V18–V29 and remain historical. The publication refresh above owns the current V21–V32 Drive layout and new verification. Historic Owner wording describes the original review persona; current Google management uses global `SOURCES_MANAGE`, generic reads use global/scoped `SOURCES_READ`, and reusable credentials remain Tenant-owned. The increment remains active; no PR merge or deployment is implied.
 
 ## Wider upstream delivery boundaries retained
 

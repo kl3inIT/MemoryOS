@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Menu,
-  Search,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -20,6 +19,7 @@ import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useAdminAccess } from "@/features/identity/application-session-context";
 import { cn } from "@/lib/utils";
+import { ChatModeMenu, ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
 export type AdminPage = "sources" | "users" | "groups";
@@ -170,15 +170,7 @@ function SidebarContents({
         {sourceSetupStep !== undefined ? (
           <SourceSetupSidebarSteps step={sourceSetupStep} />
         ) : appArea ? (
-          <SidebarTab
-            to="/"
-            icon={<Search className="size-4" />}
-            selected
-            collapsed={collapsed}
-            onClick={onNavigate}
-          >
-            Search
-          </SidebarTab>
+          <ChatNavigation collapsed={collapsed} onNavigate={onNavigate} />
         ) : (
           <div className="space-y-5">
             {canManageUsers || canReadGroups ? (
@@ -311,14 +303,28 @@ export function AppShell({
 
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-base">
         <Dialog.Root open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
-          <header className="flex h-13 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3 md:hidden">
+          <header
+            className={cn(
+              "flex shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3",
+              sourceSetupStep === undefined && area === "app" ? "h-14" : "h-13 md:hidden",
+            )}
+          >
             <Dialog.Trigger asChild>
-              <IconButton prominence="internal" size="md" aria-label="Open navigation">
+              <IconButton
+                prominence="internal"
+                size="md"
+                aria-label="Open navigation"
+                className="md:hidden"
+              >
                 <Menu />
               </IconButton>
             </Dialog.Trigger>
             <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
-              {pageTitle}
+              {sourceSetupStep === undefined && area === "app" ? (
+                <ChatModeMenu mode={pageTitle === "Search" ? "Search" : "Chat"} />
+              ) : (
+                pageTitle
+              )}
             </span>
           </header>
 

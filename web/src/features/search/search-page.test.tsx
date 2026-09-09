@@ -30,7 +30,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
-    path: "/",
+    path: "/search",
     component: () => (
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
@@ -41,7 +41,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([indexRoute]),
-    history: createMemoryHistory({ initialEntries: ["/"] }),
+    history: createMemoryHistory({ initialEntries: ["/search"] }),
   });
   await router.load();
   return render(

@@ -15,11 +15,16 @@ poi = "5.5.1"
 commons-csv = "1.14.1"
 commons-compress = "1.28.0"
 spring-ai = "2.0.1"
+embabel = "1.5.1"
 opensearch-java = "3.9.0"
 
 [libraries]
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
 spring-ai-openai = { module = "org.springframework.ai:spring-ai-openai" }
+embabel-api = { module = "com.embabel.agent:embabel-agent-api", version.ref = "embabel" }
+embabel-platform = { module = "com.embabel.agent:embabel-agent-starter-platform", version.ref = "embabel" }
+embabel-openai = { module = "com.embabel.agent:embabel-agent-openai", version.ref = "embabel" }
+spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigure-model-tool" }
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }

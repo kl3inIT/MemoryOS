@@ -1,0 +1,16 @@
+{
+  "name": "memoryos-identity-provider",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-usersessionmodel-note-mapper",
+  "consentRequired": false,
+  "config": {
+    "user.session.note": "identity_provider",
+    "claim.name": "memoryos_identity_provider",
+    "jsonType.label": "String",
+    "id.token.claim": "true",
+    "access.token.claim": "false",
+    "userinfo.token.claim": "false",
+    "introspection.token.claim": "false",
+    "access.tokenResponse.claim": "false"
+  }
+}

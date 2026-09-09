@@ -68,7 +68,7 @@ Google grant lifecycle, revision-fenced provider sessions, and root configuratio
 
 Each `SourceItem` carries separate `searchStatus` for downstream Search readiness, nullable `lastIndexedAt`, the latest successful attempt completion for its current version only, and nullable `latestAttempt` with `id`, nullable `filename`, `status`, `createdAt`, nullable `startedAt`, nullable `completedAt` and nullable safe `errorCode`. Missing history remains unknown rather than using upload time. `uploadedAt` remains original item creation. The obsolete `latestOperationId` field is removed. `/index-attempts` returns the same richer file-attempt projection; generic operation polling is unchanged.
 
-`JdbcSourceQueryRepository` materializes at most `size + 1` item candidates before projecting versions, the latest attempt and successful completion for the current version. V29 provides Source item keyset and latest-attempt indexes. Summary polling, paged items, run history and item-attempt history remain separate read contracts.
+`JdbcSourceQueryRepository` materializes at most `size + 1` item candidates before projecting versions, the latest attempt and successful completion for the current version. V32 provides Source item keyset and latest-attempt indexes. Summary polling, paged items, run history and item-attempt history remain separate read contracts.
 
 ## Google authorization and credential authority
 

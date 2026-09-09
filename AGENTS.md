@@ -17,8 +17,9 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - Classify knowledge before writing: current implementation in `ARCHITECTURE.md` or `docs/specs/`; product intent in `docs/vision.md`; cross-cutting engineering policy in `docs/conventions.md` or `docs/guidelines/`; change-local reasoning in the active increment.
 - Treat `core` as capability implementation, not a framework-free domain layer. Capability code may use Spring, `JdbcClient`, transactions, or JPA when they reduce real complexity; forbid dependency inversion violations and speculative layers, not framework use.
 - Keep SQL, row mapping, locks, claims, and bulk persistence mechanics in concrete capability `persistence` repositories. Application services own authorization, validation, orchestration, and cross-repository transaction boundaries; do not add single-implementation repository interfaces. See [persistence policy](docs/guidelines/persistence.md).
-- Keep `core` limited to implemented capabilities. Current modules are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, and `retrieval`; IAM owns identity, Tenant membership, invitations, Users, Groups, and authorization. The shared `connector` Gradle integration bundle is organized by provider folders. Never predeclare empty future capability or provider packages.
+- Keep `core` limited to implemented capabilities. Current modules are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, and `chat`; IAM owns identity, Tenant membership, invitations, Users, Groups, and authorization. The shared `connector` Gradle integration bundle is organized by provider folders. Never predeclare empty future capability or provider packages.
 - Start non-trivial work with an increment directory containing `design.md` and `plan.md`. Update both as scope changes.
+- Preserve the accepted reference baseline and scope while delivering production quality from the start. Scope control must not remove necessary hardening. Before proposing a departure, apply [reference-based design and scope control](docs/conventions.md#reference-based-design-and-scope-control); for Chat, follow the [accepted Onyx baseline](docs/increments/active/mem-11-production-chat/design.md#baseline-da-chot). Do not turn speculative improvements into requirements.
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
 - After verification, consolidate durable facts into architecture/spec/test/guideline documents in the same change. Keep the increment under `active/` until the pull request merges; then move it to `completed/` and reconcile the roadmap.
 - Never ship a temporary runtime mode, one-shot application profile, speculative endpoint, or unused abstraction to make an incomplete flow operable. Implement the real authorized runtime path, or keep the capability absent. See [ADR 0002](docs/decisions/0002-no-speculative-operational-surfaces.md).
@@ -29,7 +30,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [MEM-46 — Search](docs/increments/active/mem-46-search/design.md) is deployed and In Review; Search UI/UX completion and feature acceptance are assigned to `phamnhatanh811`.
-- [MEM-11 — Production Chat](docs/increments/active/mem-11-production-chat/design.md) is Todo; it consumes Search and remains blocked by MEM-46 and MEM-25 on Linear.
+- [MEM-11 — Production Chat](docs/increments/active/mem-11-production-chat/design.md) has Phases 2.1–2.4 persistence, native execution, provider baseline, local Stop, RAM replay/SSE and browser Chat implemented on phase/integration branches. Retrieval tools and editor/sharing remain later phases. MEM-46/MEM-25 Linear dependency metadata is unchanged by this local work.
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates MEM-9/MEM-10/MEM-63 and the MEM-76 selection/sync-history extension. These are In Progress with `nhuxuanviet27102004`; the provider is not yet merged into main.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
@@ -40,6 +41,8 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 
 ## Canonical references
 
+- [Chat session contract](docs/specs/chat.md)
+- [Chat verification matrix](docs/tests/chat.md)
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)
 - [Roadmap](docs/roadmap.md)

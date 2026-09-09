@@ -2,14 +2,16 @@
 
 ## Publication and main refresh — 2026-09-09
 
-The user approved scoped commits, merging current `origin/main` into this feature branch, verification, push and Linear linkage. This is not authorization to open or merge a PR, deploy, or mark MEM-76 Done.
+The user approved scoped commits, merging current `origin/main` into this feature branch, verification, push and Linear linkage. Source/Google Drive conflict resolution prioritizes `HEAD`; retain its behavior while integrating main Chat/JIT. This is not authorization to open or merge a PR, deploy, or mark MEM-76 Done.
 
 - [x] Separate source-page contracts, shared Users/Groups pagination, Source presentation/pagination, and stale-Source synchronization guards into conventional commits; preserve existing Docling commit `819c54e`.
-- [ ] Merge main `287ca9c`, retaining Chat/JIT and Drive behavior, regenerating the combined API/client, and reconciling migration versions.
+- [ ] Merge main `287ca9c` (Chat/JIT), then the user-requested fresh main `3f236d5` (Search PRs #83/#87), retaining HEAD Source behavior and regenerating the combined API/client.
 - [ ] Verify the combined tree with fresh build outputs and disposable test databases, without modifying the running review database or its Flyway history.
 - [ ] Push the feature branch, prove the remote SHA, and link the commit chain and integration evidence to MEM-76.
 
-Main V1–V20 is authoritative. Branch-only Drive V18–V29 will move to V21–V32 with unchanged SQL bodies. Existing `memoryos_main_review` and `memoryos_drive_review` databases retain their historical layouts and are not upgrade targets for this integration; do not start the new schema layout against either database. Publication and repository integration do not constitute a runtime database cutover.
+Main V1–V20 is authoritative. Branch-only Drive V18–V29 moved to V21–V32; all twelve renamed files retain their original Git blob hashes. Existing `memoryos_main_review` and `memoryos_drive_review` databases retain their historical layouts and are not upgrade targets for this integration; do not start the new schema layout against either database. Publication and repository integration do not constitute a runtime database cutover.
+
+The follow-up fetch found main `3f236d5`: Search workspace/filter/preview changes, semantic-candidate threshold and test/cache corrections. Finish the current merge before merging that new tip; its final combined tree requires fresh verification. The earlier `287ca9c` integration passed shifted migration fixtures and API generation (5m15s), `pnpm check` (83 tests in 17 files), and read-only Source/Chat smoke. Those results are intermediate evidence, not substitutes for the newest main gate.
 
 ## Source detail consistency — 2026-09-09
 

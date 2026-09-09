@@ -21,7 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class GoogleDriveOAuthClientMigrationTest {
     @Test
     void legacyGrantsLoseAuthorityWhileSourceRootsDocumentsAndFileWorkSurvive() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres("20");
+        try (var dataSource = TestDatabase.freshPostgres("23");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -47,7 +47,7 @@ class GoogleDriveOAuthClientMigrationTest {
                 }
                 connection.commit();
                 Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
-                        .target("21").load().migrate();
+                        .target("24").load().migrate();
 
                 var credential = jdbc.sql("SELECT * FROM google_drive_credentials").query().singleRow();
                 assertEquals("NEEDS_REAUTHORIZATION", credential.get("connection_status"));
@@ -82,7 +82,7 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void reusableCredentialMigrationPreservesEncryptedAuthorityAndAllSourceData() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres("22");
+        try (var dataSource = TestDatabase.freshPostgres("25");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -126,7 +126,7 @@ class GoogleDriveOAuthClientMigrationTest {
                 }
                 connection.commit();
                 Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
-                        .target("23").load().migrate();
+                        .target("26").load().migrate();
                 for (var snapshot : snapshots.entrySet()) {
                     assertEquals(snapshot.getValue(), jdbc.sql("SELECT row_to_json(r)::text FROM " + snapshot.getKey() + " r ORDER BY row_to_json(r)::text")
                             .query(String.class).list(), snapshot.getKey());
@@ -162,7 +162,7 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void scheduleMigrationPreservesDueTimestampsAndEnforcesPositiveStoredValues() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres("23");
+        try (var dataSource = TestDatabase.freshPostgres("26");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -185,7 +185,7 @@ class GoogleDriveOAuthClientMigrationTest {
 
                 connection.commit();
                 Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
-                        .target("24").load().migrate();
+                        .target("27").load().migrate();
 
                 assertEquals(before, jdbc.sql("SELECT (to_jsonb(s) - 'sync_interval_minutes' - 'schedule_revision')::text FROM google_drive_sources s")
                         .query(String.class).single());
@@ -216,7 +216,7 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void scopeMigrationDefaultsExistingSelectionsToSpecificWithoutChangingDataOrSchedules() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres("22");
+        try (var dataSource = TestDatabase.freshPostgres("25");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -234,7 +234,7 @@ class GoogleDriveOAuthClientMigrationTest {
                         """).param("t", tenant).param("id", source).update();
                 connection.commit();
                 Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
-                        .target("24").load().migrate();
+                        .target("27").load().migrate();
                 jdbc.sql("""
                         INSERT INTO google_drive_sources (tenant_id, source_id, revision, generation, sync_interval_minutes,
                             schedule_revision, next_sync_at, last_synced_at)
@@ -261,7 +261,7 @@ class GoogleDriveOAuthClientMigrationTest {
 
                 connection.commit();
                 Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
-                        .target("25").load().migrate();
+                        .target("28").load().migrate();
 
                 assertEquals(sourceBefore, jdbc.sql("SELECT (to_jsonb(s) - 'scope_mode')::text FROM google_drive_sources s").query(String.class).single());
                 for (var snapshot : snapshots.entrySet()) {

@@ -116,7 +116,7 @@ test("real login, upload, indexing, Search, reader and denied anonymous access",
       .toBe(true);
 
     phase = "Search and reader";
-    await page.goto(app.href);
+    await page.goto(new URL("/search", app).href);
     await page.getByRole("textbox", { name: "Search documents" }).fill(marker);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await page.getByRole("button", { name: `${marker}.md`, exact: true }).click();

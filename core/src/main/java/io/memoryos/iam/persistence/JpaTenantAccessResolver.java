@@ -11,14 +11,28 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Repository
 public class JpaTenantAccessResolver implements TenantAccessResolver {
 
     private final JpaTenantRepository tenants;
 
-    public JpaTenantAccessResolver(JpaTenantRepository tenants) {
+    private final IamLockRepository locks;
+
+    public JpaTenantAccessResolver(JpaTenantRepository tenants, IamLockRepository locks) {
+        this.locks = Objects.requireNonNull(locks, "locks must not be null");
         this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<TenantMembership> lockActiveMembership(ActorId actorId) {
+        var before = findActiveMembership(actorId);
+        if (before.isEmpty()) return Optional.empty();
+        locks.lockTenantShared(before.orElseThrow().tenantId());
+        return findActiveMembership(actorId)
+                .filter(after -> after.tenantId().equals(before.orElseThrow().tenantId()));
     }
 
     @Override

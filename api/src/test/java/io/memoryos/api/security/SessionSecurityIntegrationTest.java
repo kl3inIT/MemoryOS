@@ -75,6 +75,7 @@ class SessionSecurityIntegrationTest {
             new AtomicReference<>("owner@example.com");
     private static final AtomicReference<Boolean> AUTHENTICATING_EMAIL_VERIFIED =
             new AtomicReference<>(true);
+    private static final AtomicReference<Object> AUTHENTICATING_PROVIDER = new AtomicReference<>();
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
     private static final String ISSUER = "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final String CLIENT_ID = "memoryos-web";
@@ -93,6 +94,7 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> ISSUER);
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> ISSUER + "/jwks");
         registry.add("memoryos.identity.audience", () -> "memoryos-api");
+        registry.add("memoryos.identity.jit.allowed-provider-aliases", () -> "tasco");
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
         registry.add(
@@ -125,6 +127,114 @@ class SessionSecurityIntegrationTest {
     @AfterAll
     static void stopIdentityServer() {
         IDENTITY_SERVER.stop(0);
+    }
+
+    @Test
+    void admitsTrustedBrowserIdentityWithoutEmailVerificationOrConsumingInvitationAndDeniesReactivation() throws Exception {
+        String subject = "jit-member-" + UUID.randomUUID();
+        String email = subject + "@example.test";
+        try {
+            try (var ownerClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
+                AUTHENTICATING_SUBJECT.set("initial-owner");
+                AUTHENTICATING_EMAIL.set("owner@example.test");
+                AUTHENTICATING_EMAIL_VERIFIED.set(true);
+                completeOAuth(ownerClient, "/oauth2/authorization/memoryos");
+                assertEquals(201, ownerClient.send(invitationMutation("{\"email\":\"" + email + "\"}"),
+                        HttpResponse.BodyHandlers.ofString()).statusCode());
+            }
+            AUTHENTICATING_SUBJECT.set(subject);
+            AUTHENTICATING_EMAIL.set(email);
+            AUTHENTICATING_EMAIL_VERIFIED.set(false);
+            AUTHENTICATING_PROVIDER.set("tasco");
+            UUID actor;
+            try (var memberClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
+                var callback = completeOAuth(memberClient, "/oauth2/authorization/memoryos");
+                assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
+                var response = memberClient.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+                assertEquals(200, response.statusCode());
+                var identity = Json.mapper().readTree(response.body());
+                actor = UUID.fromString(identity.path("actorId").asText());
+                assertEquals("MEMBER", identity.path("tenant").path("role").asText());
+                assertTrue(identity.path("capabilities").isEmpty());
+                assertTrue(identity.path("scopedCapabilities").isEmpty());
+                assertEquals(false, jdbcClient.sql("SELECT email_verified FROM actor_profiles WHERE actor_id = :actor")
+                        .param("actor", actor).query(Boolean.class).single());
+                assertPersistedSessionsContainNoProviderOrInvitationState();
+            }
+            assertEquals("PENDING", jdbcClient.sql("SELECT status FROM tenant_invitations WHERE normalized_email = :email")
+                    .param("email", email).query(String.class).single());
+
+            // An existing active Actor does not need the JIT claim on a later login.
+            AUTHENTICATING_PROVIDER.set(null);
+            try (var returningClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
+                completeOAuth(returningClient, "/oauth2/authorization/memoryos");
+                var identity = returningClient.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+                assertEquals(200, identity.statusCode());
+                assertEquals(actor.toString(), jsonString(identity.body(), "actorId"));
+            }
+            jdbcClient.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
+                    .param("actor", actor).update();
+            AUTHENTICATING_PROVIDER.set("tasco");
+            try (var revokedClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
+                var callback = completeOAuth(revokedClient, "/oauth2/authorization/memoryos");
+                assertEquals(baseUri().resolve("/access-not-provisioned").toString(),
+                        callback.headers().firstValue("location").orElseThrow());
+                assertEquals(401, revokedClient.send(request("/api/identity/me"),
+                        HttpResponse.BodyHandlers.ofString()).statusCode());
+            }
+            assertEquals("INACTIVE", jdbcClient.sql("SELECT status FROM tenant_memberships WHERE actor_id = :actor")
+                    .param("actor", actor).query(String.class).single());
+            assertEquals("PENDING", jdbcClient.sql("SELECT status FROM tenant_invitations WHERE normalized_email = :email")
+                    .param("email", email).query(String.class).single());
+        } finally {
+            AUTHENTICATING_PROVIDER.set(null);
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(subject, email);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
+    @Test
+    void rejectsUntrustedOrMalformedBrowserProviderClaimsAndNeverJitsBearerClaims() throws Exception {
+        String subject = "untrusted-jit-" + UUID.randomUUID();
+        long actors = count("actors");
+        long memberships = count("tenant_memberships");
+        AUTHENTICATING_SUBJECT.set(subject);
+        AUTHENTICATING_EMAIL.set("owner@example.test");
+        AUTHENTICATING_EMAIL_VERIFIED.set(true);
+        try {
+            for (Object provider : List.of("local", "TASCO", " tasco ", List.of("tasco"), Map.of("alias", "tasco"))) {
+                AUTHENTICATING_PROVIDER.set(provider);
+                try (var browser = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
+                    var callback = completeOAuth(browser, "/oauth2/authorization/memoryos");
+                    assertEquals(baseUri().resolve("/access-not-provisioned").toString(),
+                            callback.headers().firstValue("location").orElseThrow());
+                    assertEquals(401, browser.send(request("/api/identity/me"),
+                            HttpResponse.BodyHandlers.ofString()).statusCode());
+                }
+            }
+            String bearer = signedToken(new JWTClaimsSet.Builder().issuer(ISSUER).subject(subject)
+                    .audience("memoryos-api").issueTime(new Date())
+                    .expirationTime(Date.from(Instant.now().plusSeconds(300)))
+                    .claim("memoryos_identity_provider", "tasco").build());
+            long sessions = count("spring_session");
+            try (var bearerClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
+                var response = bearerClient.send(HttpRequest.newBuilder(baseUri().resolve("/api/identity/me"))
+                        .header("Authorization", "Bearer " + bearer).GET().build(), HttpResponse.BodyHandlers.ofString());
+                assertEquals(401, response.statusCode());
+                assertEquals(sessions, count("spring_session"));
+            }
+            assertEquals(actors, count("actors"));
+            assertEquals(memberships, count("tenant_memberships"));
+        } finally {
+            AUTHENTICATING_PROVIDER.set(null);
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
     }
 
     @Test
@@ -1169,6 +1279,7 @@ class SessionSecurityIntegrationTest {
                 AUTHENTICATING_SUBJECT.get(),
                 AUTHENTICATING_EMAIL.get(),
                 AUTHENTICATING_EMAIL_VERIFIED.get(),
+                AUTHENTICATING_PROVIDER.get(),
                 parameters.get("code_challenge")
         ));
         String separator = parameters.get("redirect_uri").contains("?") ? "&" : "?";
@@ -1195,6 +1306,7 @@ class SessionSecurityIntegrationTest {
                 .audience(CLIENT_ID)
                 .claim("email", grant.email())
                 .claim("email_verified", grant.emailVerified())
+                .claim("memoryos_identity_provider", grant.provider())
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(now.plusSeconds(300)))
                 .claim("nonce", grant.nonce())
@@ -1275,6 +1387,7 @@ class SessionSecurityIntegrationTest {
             String subject,
             String email,
             boolean emailVerified,
+            Object provider,
             String codeChallenge
     ) {
     }

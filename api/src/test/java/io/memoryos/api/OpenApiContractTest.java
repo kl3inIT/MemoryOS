@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.sun.net.httpserver.HttpServer;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -17,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.TreeSet;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +49,11 @@ class OpenApiContractTest {
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
+            "/api/chat/sessions",
+            "/api/chat/sessions/{sessionId}",
+            "/api/chat/sessions/{sessionId}/messages",
+            "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel",
+            "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events",
             "/api/search",
             "/api/search/documents/{documentId}",
             "/api/identity/me",
@@ -135,6 +142,14 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        for (var path : BROWSER_API_PATHS.stream().filter(value -> value.startsWith("/api/chat/")).toList()) {
+            for (var operation : actual.path("paths").path(path)) {
+                for (var code : Set.of("400", "403", "404")) {
+                    assertEquals("#/components/schemas/ApiProblem", operation.path("responses").path(code)
+                            .path("content").path("application/problem+json").path("schema").path("$ref").textValue(), path + " " + code);
+                }
+            }
+        }
         JsonNode revokeOperation = actual.path("paths")
                 .path("/api/invitations/{invitationId}/revoke")
                 .path("post");
@@ -172,7 +187,7 @@ class OpenApiContractTest {
         );
         assertEquals("null", tenantSchema.path("oneOf").path(1).path("type").textValue());
 
-        for (String name : Set.of("SearchPage", "Result", "Section", "ChunkProvenance", "Passage", "SearchDocument")) {
+        for (String name : Set.of("SearchPage", "Result", "Section", "ChunkProvenance", "Passage", "SearchDocument", "ChatSession", "ChatMessage")) {
             JsonNode schema = actual.path("components").path("schemas").path(name);
             Set<String> fields = new TreeSet<>();
             schema.path("properties").fieldNames().forEachRemaining(fields::add);

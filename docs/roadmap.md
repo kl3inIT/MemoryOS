@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-09 for the isolated Google Drive/main integration.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-09 for the Google Drive branch refresh targeting main `287ca9c` (Chat/JIT). Current verification is recorded in the [publication and main-refresh record](increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09), separately from historical branch/main evidence. This refresh does not claim a PR, merge into main, deployment, or live-provider completion.
 
 ## Delivered
 
@@ -49,9 +49,10 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | Docling environment configuration | External deployment settings for all Docling service envs, with unchanged defaults and a configurable Worker processing budget up to fifteen minutes; no runtime rollout or HUT completion claim | [Design](increments/active/docling-timeout-configuration/design.md) · [Plan](increments/active/docling-timeout-configuration/plan.md) |
-| Google Drive structured ingestion — MEM-76; scoped MEM-9/MEM-10/MEM-60/MEM-63 | Branch-implemented reusable OAuth credentials, immutable scopes, independent schedules, explicit linked approvals, asynchronous selection, paginated tree/Files reads and acquisition → owned-index history. Isolated integration of checkpoint `290357a` with main `fb835f9` is in progress; all recorded branch checks are pre-integration evidence, not merged verification. Google/Tasco/ACL issues and this increment remain active until their release gates and PR merge. | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Integration plan](increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) · [Prior evidence](increments/active/google-drive-structured-ingestion/plan.md#mem-76-verification--2026-09-08) |
+| Google Drive structured ingestion — MEM-76; scoped MEM-9/MEM-10/MEM-60/MEM-63 | Branch-implemented reusable OAuth credentials, immutable scopes, independent schedules, explicit linked approvals, asynchronous selection, paginated tree/Files reads and acquisition → owned-index history. The current branch refresh targets main `287ca9c`, retaining Source improvements alongside Chat/JIT. Prior integration and branch checks remain historical evidence, not verification of this refresh. MEM-76, the broad Google/Tasco/ACL issues and this increment remain active; branch publication does not close their release or provider-acceptance gates. | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Current refresh verification](increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09) · [Prior evidence](increments/active/google-drive-structured-ingestion/plan.md#mem-76-verification--2026-09-08) |
 | [MEM-46](https://linear.app/memory-os/issue/MEM-46) | Search first: current JSON/chunks, Spring AI embeddings, OpenSearch-only vectors, hybrid retrieval, API/UI and index recovery; absorbs MEM-62/47/48/49/50 | [Design](increments/active/mem-46-search/design.md) · [Plan](increments/active/mem-46-search/plan.md) · [Onyx Search implementation](increments/active/mem-46-search/onyx-search.md); In Review, assigned to `phamnhatanh811`; [verification and runtime boundaries](increments/active/mem-46-search/verification.md) |
-| [MEM-11](https://linear.app/memory-os/issue/MEM-11) | Production Chat after MEM-46: shared retrieval, multi-query/weighted RRF, context selection/expansion, streaming answer/citations and durable conversations; absorbs MEM-71/72 | [Design](increments/active/mem-11-production-chat/design.md) · [Plan](increments/active/mem-11-production-chat/plan.md); Todo, blocked by MEM-46 and MEM-25, implementation pending |
+| [MEM-11](https://linear.app/memory-os/issue/MEM-11) | Production Chat after MEM-46: shared retrieval, multi-query/weighted RRF, context selection/expansion, streaming answer/citations and durable conversations; absorbs MEM-71/72 | [Design](increments/active/mem-11-production-chat/design.md) · [Plan](increments/active/mem-11-production-chat/plan.md); Linear dependency metadata unchanged; main `287ca9c` supplies Phases 2.1–2.4 persistence, provider binding, native execution/local Stop, RAM replay/SSE, Chat home/history UI and native AI SDK adapter. Broader retrieval/tool, editor/sharing and provider acceptance remain active, not completed by this refresh; [historical verification](increments/active/mem-11-production-chat/verification.md) |
+| [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Tasco browser-only JIT: explicit empty-default provider allowlist, Keycloak ID-token session-note claim, exact Actor binding, active MEMBER/non-manager Basic, no invitation mutation or bearer JIT | [Design](increments/active/mem-59-tasco-jit/design.md) · [Plan](increments/active/mem-59-tasco-jit/plan.md) · [Historical verification](increments/active/mem-59-tasco-jit/verification.md); main `287ca9c` supplies the implementation and its prior repository-gate evidence. This refresh does not establish live broker simulator or actual Tasco acceptance; the increment remains active |
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 
@@ -59,7 +60,7 @@ MEM-36 and MEM-55 are Done. MEM-25/MEM-59/MEM-68/MEM-69 remain In Progress with 
 
 | Issue | Follow-up boundary |
 | --- | --- |
-| [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Enterprise broker, safe account linking and future JIT/pending approval; separate simulator and actual provider acceptance |
+| [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Active [Tasco browser JIT increment](increments/active/mem-59-tasco-jit/design.md); no email-based linking or pending-approval flow in this slice; simulator and actual provider acceptance remain separate |
 | [MEM-68](https://linear.app/memory-os/issue/MEM-68) | Provider/broker revocation across bearer tokens and browser sessions, with explicit propagation and outage semantics |
 | [MEM-69](https://linear.app/memory-os/issue/MEM-69) | Absolute browser-session lifetime and reauthentication policy beyond idle timeout |
 | [MEM-25](https://linear.app/memory-os/issue/MEM-25) | Audit evidence and viewer after a named consumer/retention/access contract |
@@ -67,7 +68,7 @@ MEM-36 and MEM-55 are Done. MEM-25/MEM-59/MEM-68/MEM-69 remain In Progress with 
 
 ## Google Drive delivery in progress
 
-[MEM-60](https://linear.app/memory-os/issue/MEM-60) coordinates the [Google Drive plan](increments/active/google-drive-structured-ingestion/design.md). MEM-9/MEM-10/MEM-63 and MEM-76 are In Progress with `nhuxuanviet27102004`; upstream main `fb835f9` had FILE only, while checkpoint `290357a` contains the implemented Google provider. Their isolated integration is not yet verified or a completed deployment.
+[MEM-60](https://linear.app/memory-os/issue/MEM-60) coordinates the [Google Drive plan](increments/active/google-drive-structured-ingestion/design.md). MEM-9/MEM-10/MEM-63 and MEM-76 are In Progress with `nhuxuanviet27102004`. The earlier checkpoint `290357a` / main `fb835f9` integration is historical context; current branch publication refreshes against main `287ca9c` while preserving the Drive implementation and subsequent Source improvements. Verification belongs to the [current refresh record](increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09), not that earlier evidence. Preserve the old histories in `memoryos_main_review` and `memoryos_drive_review`; the new main V1–V20 plus Drive V21–V32 migration layout must not start against either review database.
 
 - MEM-9 owns OAuth and source selection; MEM-10 owns source sync and current Document publication. Its wider Google source ACL/authorized-reading acceptance remains outside the user-approved ingestion-only slice and is not delivered by this integration.
 - MEM-63 owns [native Sheets/Docs and bounded table readers](increments/active/google-drive-structured-ingestion/native-readers.md). MEM-61 extraction is already delivered and is reused.
@@ -76,6 +77,8 @@ MEM-36 and MEM-55 are Done. MEM-25/MEM-59/MEM-68/MEM-69 remain In Progress with 
 - Provider testing currently uses synthetic documents. Actual Tasco source data has not been supplied; working provider tests do not establish acceptance of Tasco data.
 
 ## Other tracked work
+
+- [MEM-77](https://linear.app/memory-os/issue/MEM-77), model catalog and multiple providers via native Embabel/Spring AI, is Backlog with `phamnhatanh811` and blocked by MEM-11. Scope: user model selection, admin configuration and organization BYOK following Onyx; personal BYOK excluded. MEM-11 retains one provider and one API process; main `287ca9c` supplies RAM replay/local Stop and the native provider binding/contract-test baseline; catalog expansion remains MEM-77.
 
 - [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
 - [MEM-75](https://linear.app/memory-os/issue/MEM-75) remains In Progress for the dependency proposals outside the delivered selected batch; it does not keep that completed increment active.

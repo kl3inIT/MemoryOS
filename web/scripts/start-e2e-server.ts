@@ -1,9 +1,11 @@
 import { createServer as createHttpServer } from "node:http";
+import { handleChatFixture } from "../tests/fixtures/chat-server.ts";
 
 const host = "127.0.0.1";
 const frontendPort = 4173;
 
-const backend = createHttpServer((request, response) => {
+const backend = createHttpServer(async (request, response) => {
+  if (await handleChatFixture(request, response)) return;
   if (request.url === "/oauth2/authorization/memoryos") {
     response.writeHead(302, {
       location: "/login/oauth2/code/memoryos?code=test&state=test",
