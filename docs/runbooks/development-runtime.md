@@ -36,6 +36,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_IDENTITY_AUDIENCE` | No | Required API audience claim; rejects a valid Keycloak token minted for another client/resource. |
 | `MEMORYOS_BROWSER_CLIENT_ID` | No | Confidential OAuth2 browser client registration name, currently `memoryos-web`. |
 | `MEMORYOS_BROWSER_CLIENT_SECRET` | Yes | OAuth2 authorization-code/token-exchange credential for `memoryos-web`; never a browser/Vite variable. |
+| `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES` | No | Optional browser-only JIT allowlist mapped to `memoryos.identity.jit.allowed-provider-aliases`; empty by default. Explicit `tasco` opt-in trusts only that String provider alias in the configured Keycloak issuer's validated ID token. Does not enable bearer provisioning or provider configuration. |
 | `MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL` | No | Internal Keycloak base URL used only by the Identity-owned invitation provisioner. Staging uses the shared Keycloak container alias; browser issuer URLs remain public and exact. |
 | `MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET` | Yes | Client-credentials secret for realm-local `memoryos-user-provisioner`; never a browser variable or operator administrator credential. |
 | `MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI` | No | Exact public `https://<memoryos-origin>/invite/activate` return target registered on `memoryos-web`; wildcards are forbidden. |
@@ -138,6 +139,21 @@ Run the script from a controlled operator shell with `jq` available. The bootstr
 If a future invitee email is already owned by an unrelated unverified Keycloak user, invitation issue fails closed. An operator must inspect that exact user in the `memoryos` realm, confirm ownership out of band, and delete or repair it through the Keycloak admin console before retrying. MemoryOS never takes over or deletes the account automatically.
 
 Record the script's `subject=<uuid>` result in managed deployment configuration as `MEMORYOS_INITIAL_OWNER_SUBJECT`. Do not use username or email in its place.
+
+### Opt in to Tasco browser JIT
+
+The same reconciliation upserts `memoryos-identity-provider` only on `memoryos-web`, mapping Keycloak User Session Note `identity_provider` to String ID-token claim `memoryos_identity_provider`. Access-token, UserInfo, introspection, and token-response emission are disabled. It uses the existing mapper create/update/unchanged contract and does not add or edit an upstream provider, linking flow, other client, or user attribute for JIT. The existing realm-level verified-email policy is unchanged; MemoryOS JIT itself does not require `email_verified`.
+
+Keep `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES` absent or empty unless the environment has approved the trust relationship. To enable Tasco, supply `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES=tasco` through the API's managed deployment configuration and restart/redeploy the API. Retain the exact configured Keycloak issuer and `MEMORYOS_TENANT_ID`; do not substitute Tasco's upstream issuer or derive Tenant ownership from token claims.
+
+Before enabling production admission:
+
+1. Reconcile against an isolated Keycloak environment and replay it: the mapper must retain one UUID on `memoryos-web` and report `action=unchanged`; correct a deliberately drifted copy and confirm convergence. Verify the new mapper is absent from other clients.
+2. Exercise a real brokered Authorization Code + PKCE browser login. Inspect only safe claim metadata: the ID token must carry a String alias from the broker session note, while access token and UserInfo must not expose the claim. Never copy raw tokens, cookies, or client credentials into evidence.
+3. Verify first/repeat/concurrent admission, exact binding reuse, Basic-only non-manager authority, inactive-member/Tenant denial, ActorId-only session persistence, no invitation changes, and bearer non-provisioning against the [MEM-59 gates](../increments/active/mem-59-tasco-jit/plan.md).
+4. Record simulator evidence separately from acceptance with the actual approved Tasco provider and accounts. A simulator login does not establish actual Tasco acceptance; both remain pending until evidence is recorded.
+
+Removing the opt-in and restarting the API stops future JIT admission only. Already admitted members still use the existing active-member path, and existing sessions continue to resolve current application authority. Use authorized membership deactivation for application revocation; never delete identity/invitation rows as rollback. Upstream/Keycloak revocation propagation and absolute session lifetime remain outside this increment.
 
 ## Run the API and worker through managed Infisical `dev`
 
@@ -433,7 +449,7 @@ The singleton bootstrap row serializes concurrent replicas, while `tenants.deplo
 | `GET /` | Initial owner after Keycloak login | Authenticated `New Session` application shell |
 | `GET /access-not-provisioned` | Public browser route | Accessible `ACCESS_NOT_PROVISIONED` explanation |
 
-Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keycloak request contains `code_challenge_method=S256`. After callback, confirm the session cookie changes, `/api/identity/me` returns the bootstrapped actor ID, refresh retains the authenticated shell, and an unprovisioned Keycloak account receives `ACCESS_NOT_PROVISIONED`. The browser shell does not display the raw actor UUID.
+Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keycloak request contains `code_challenge_method=S256`. After callback, confirm the session cookie changes, `/api/identity/me` returns the bootstrapped actor ID, refresh retains the authenticated shell, and an unprovisioned Keycloak account without trusted JIT or an eligible invitation receives `ACCESS_NOT_PROVISIONED`. The browser shell does not display the raw actor UUID. Explicit Tasco opt-in requires the separate JIT checks above.
 
 ## Run the worker
 

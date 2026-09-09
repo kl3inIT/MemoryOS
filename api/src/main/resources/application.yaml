@@ -80,6 +80,8 @@ management:
 memoryos:
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
+    jit:
+      allowed-provider-aliases: ${MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES:}
     keycloak:
       admin:
         server-url: ${MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL}

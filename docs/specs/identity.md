@@ -15,7 +15,7 @@ An `ExternalIdentity` is the exact, case-sensitive pair `(issuer, subject)`. Bot
 - One exact external identity may reference only one actor.
 - A binding must reference an existing actor.
 - An actor with bindings cannot be deleted.
-- Authentication never creates an actor for an unknown binding.
+- Bearer authentication never creates an actor for an unknown binding; browser creation requires authorized invitation acceptance or explicitly trusted JIT admission.
 
 PostgreSQL enforces these invariants through the `(issuer, subject)` primary key, the foreign key to `actors.id`, and `ON DELETE RESTRICT`.
 
@@ -23,7 +23,7 @@ PostgreSQL enforces these invariants through the `(issuer, subject)` primary key
 
 Bearer authentication validates JWT signature, exact configured issuer, configured audience, expiry, not-before, and nonblank `sub`. It resolves exact `(iss, sub)` through `ExternalIdentityResolver`; a missing binding fails with `401`.
 
-Browser authentication validates the OIDC Authorization Code + PKCE callback, then resolves the same exact pair. The actor must also have active Tenant authority, or an eligible pending invitation must atomically establish it. Only after admission succeeds does the callback record the provider's latest nullable display-name/email observation and email-verification flag against that Actor and exact binding. It then replaces the provider principal with an application principal containing only `ActorId`, explicitly overwrites the HTTP-session security context, and discards the authorized client. Unknown or unauthorized identities receive `ACCESS_NOT_PROVISIONED` and no durable authenticated session. Authentication performs no just-in-time Actor or membership creation outside the authorized invitation transaction.
+Browser authentication validates the OIDC Authorization Code + PKCE callback, then resolves the same exact pair. Admission preserves the existing active-member path, otherwise selects trusted browser JIT when eligible, otherwise retains eligible invitation acceptance. Only after admission succeeds does the callback record the provider's latest nullable display-name/email observation and email-verification flag against that Actor and exact binding. It then replaces the provider principal with an application principal containing only `ActorId`, explicitly overwrites the HTTP-session security context, and discards the authorized client. Unknown or unauthorized identities receive `ACCESS_NOT_PROVISIONED` and no durable authenticated session.
 
 Every `/api/**` endpoint accepts either a bound bearer identity or an `ActorAuthenticationToken` restored from the JDBC-backed browser session. The API security chain may read an existing session but never creates one and never saves bearer authentication into one.
 
@@ -48,13 +48,23 @@ Application membership/Group revocation and provider session revocation are sepa
 
 Capabilities come from current Group grants, not membership role. A Basic-only active member has empty capability sets. A bound Actor without active membership receives `tenant: null`, empty global/scoped sets and revision `0`; ordinary browser admission still requires active Tenant authority. The projection suppresses forbidden UI but never authorizes a server operation. Every protected API resolves durable authority for the operation. Sessions retain no capabilities, Group edges or revision.
 
+## Trusted browser JIT admission
+
+`memoryos.identity.jit.allowed-provider-aliases`, supplied by optional `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES`, defaults to empty. The configured Keycloak issuer remains the only trusted issuer. JIT requires `memoryos_identity_provider` directly in the validated ID token to be a strict String exactly matching an allowed provider alias; Tasco requires explicit `tasco` opt-in. Missing, blank, non-String, or unlisted values do not select JIT. UserInfo, access-token claims, request parameters, email domains, and provider roles/scopes cannot substitute.
+
+For a trusted browser identity without active membership, the IAM application transaction locks the configured `MEMORYOS_TENANT_ID` Tenant before Actor, rejects an inactive Tenant or inactive/incompatible existing membership, creates or reuses the exact `(issuer, sub)` STANDARD Actor, and grants only active MEMBER plus a non-manager Basic edge. The concrete persistence layer owns SQL and locks. New Actor/binding/membership/Basic state commits atomically or rolls back; repeat and concurrent same-identity admission are idempotent. JIT never reactivates an inactive member or elevates an existing role/Group edge.
+
+Email and `email_verified` are profile observations, not JIT eligibility or linking inputs. JIT never creates, consumes, or modifies an invitation. Existing active-member admission has precedence; when the provider does not qualify, the existing invitation path retains its own verified-email rules. Bearer authentication remains resolve-only even if a token contains this provider claim.
+
+Realm reconciliation maps the Keycloak User Session Note `identity_provider` into String ID-token claim `memoryos_identity_provider` on `memoryos-web` only. Access-token, UserInfo, introspection, and token-response emission are disabled. This mapper neither changes an upstream provider nor grants authority by itself. [MEM-59](../increments/active/mem-59-tasco-jit/design.md) separates pending simulator verification from actual Tasco acceptance.
+
 ## Account classification and Group authority
 
 `AccountType` belongs to Actor and is neither a membership role nor a permission. Only persisted `STANDARD` interactive accounts are implemented; Users exposes that classification for membership rows. Invitations do not fabricate an Actor or account classification before admission. No bot, anonymous, service-account, SCIM or Requests creation/control surface exists.
 
 Explicit capabilities are `IAM_ADMIN`, `USERS_MANAGE`, `GROUPS_READ`, `GROUPS_MANAGE`, `SOURCES_READ`, `SOURCES_MANAGE` and `SOURCES_DELETE`. Authority is the union of active membership's Group grants, expanded centrally: `IAM_ADMIN` implies all implemented capabilities; `GROUPS_MANAGE` implies `GROUPS_READ`; `SOURCES_MANAGE` and `SOURCES_DELETE` each imply `SOURCES_READ`. No effective-permission cache or role-derived fallback exists.
 
-Every Tenant has protected Admin and Basic system Groups. Only Admin may carry `IAM_ADMIN`, and Admin accepts no other explicit grant; Basic accepts none. The owner belongs to both. Invitation acceptance adds only a non-manager Basic edge. Ordinary Groups carry explicit non-admin grants and an `isManager` flag on individual membership edges, not a global manager role. Tenant-qualified keys prevent cross-Tenant associations.
+Every Tenant has protected Admin and Basic system Groups. Only Admin may carry `IAM_ADMIN`, and Admin accepts no other explicit grant; Basic accepts none. The owner belongs to both. Invitation acceptance and trusted JIT admission add only a non-manager Basic edge. Ordinary Groups carry explicit non-admin grants and an `isManager` flag on individual membership edges, not a global manager role. Tenant-qualified keys prevent cross-Tenant associations.
 
 `IamAuthorization` resolves `GLOBAL`, `SCOPED` or `NONE`. A global capability authorizes its operation across the Tenant. Without it, an ordinary-Group manager receives only eligible scoped Group/Source operations on concrete associated resources. Invalid or inactive authority fails closed. Read projections filter scope before exposing rows or totals.
 
@@ -89,11 +99,11 @@ Flyway owns the schema under `core/src/main/resources/db/migration/`. Applied mi
 
 ## Binding lifecycle boundary
 
-No generic account-linking endpoint, administrative binding endpoint, provisioning CLI or unauthenticated identity write surface exists. Initial Tenant bootstrap and authorized invitation acceptance inside IAM are the only production binding writers; ordinary authentication never creates an Actor.
+No generic account-linking endpoint, administrative binding endpoint, provisioning CLI or unauthenticated identity write surface exists. Initial Tenant bootstrap, authorized invitation acceptance, and explicitly trusted browser JIT admission inside IAM are the production binding writers; bearer authentication never creates an Actor.
 
 ## Local-Keycloak invitation provisioning
 
-Keycloak is the fixed MemoryOS authentication plane and the intended enterprise OIDC/SAML broker. The checked-in realm reconciliation configures application clients and local invitation provisioning; it does not configure or verify an upstream enterprise IdP. MEM-59 owns that future broker/admission flow and its separate simulator and real-provider acceptance. MemoryOS PostgreSQL remains authoritative for Actors and application authority. IAM owns the concrete Keycloak Admin Client used by invitation provisioning; no provider-neutral provisioning adapter exists, and the Users directory never administers provider accounts.
+Keycloak is the fixed MemoryOS authentication plane and enterprise OIDC/SAML broker. The checked-in realm reconciliation configures application clients, the browser provider-note mapper, and local invitation provisioning; it does not configure or verify an upstream enterprise IdP. MEM-59 keeps simulator and actual Tasco acceptance separate. MemoryOS PostgreSQL remains authoritative for Actors and application authority. IAM owns the concrete Keycloak Admin Client used by invitation provisioning; no provider-neutral provisioning adapter exists, and the Users directory never administers provider accounts.
 
 Invitation issue resolves one exact normalized email in the `memoryos` realm. An absent user is created enabled with email-as-username, `emailVerified=false`, minimal MemoryOS origin evidence, and bounded `VERIFY_EMAIL` plus `UPDATE_PASSWORD` required actions. A MemoryOS-created unverified user is reused on retry. An exact existing verified user is reused without required actions or password reset. An unrelated unverified or ambiguous account fails closed.
 
