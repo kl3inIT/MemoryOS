@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveSourceItemData, RemoveSourceItemResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses } from './types.gen';
+import type { CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponses, DeleteSourceData, DeleteSourceResponses, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, GetSourceRunData, GetSourceRunResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourceRunErrorsData, ListSourceRunErrorsResponses, ListSourceRunsData, ListSourceRunsResponses, ListSourcesData, ListSourcesResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveSourceItemData, RemoveSourceItemResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -36,7 +36,7 @@ export const updateGoogleDriveSchedule = <ThrowOnError extends boolean = false>(
 });
 
 /**
- * Replace Google Drive scope mode and selected roots atomically
+ * Replace selected Google Drive roots without changing the creation-time scope mode
  */
 export const replaceGoogleDriveRoots = <ThrowOnError extends boolean = false>(options: Options<ReplaceGoogleDriveRootsData, ThrowOnError>): RequestResult<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError> => (options.client ?? client).put<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -118,6 +118,19 @@ export const synchronizeGoogleDriveSource = <ThrowOnError extends boolean = fals
             type: 'apiKey'
         }],
     url: '/api/sources/{sourceId}/google-drive/sync',
+    ...options
+});
+
+/**
+ * Discover linked documents without approving or synchronizing them
+ */
+export const discoverGoogleDriveLinkedDocuments = <ThrowOnError extends boolean = false>(options: Options<DiscoverGoogleDriveLinkedDocumentsData, ThrowOnError>): RequestResult<DiscoverGoogleDriveLinkedDocumentsResponses, unknown, ThrowOnError> => (options.client ?? client).post<DiscoverGoogleDriveLinkedDocumentsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive/linked-documents/discover',
     ...options
 });
 
@@ -272,7 +285,7 @@ export const listSources = <ThrowOnError extends boolean = false>(options?: Opti
 });
 
 /**
- * Get one source with current items
+ * Get one source summary
  */
 export const getSource = <ThrowOnError extends boolean = false>(options: Options<GetSourceData, ThrowOnError>): RequestResult<GetSourceResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -285,7 +298,46 @@ export const getSource = <ThrowOnError extends boolean = false>(options: Options
 });
 
 /**
- * List current source items
+ * List source synchronization runs and independent activity summaries
+ */
+export const listSourceRuns = <ThrowOnError extends boolean = false>(options: Options<ListSourceRunsData, ThrowOnError>): RequestResult<ListSourceRunsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceRunsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/runs',
+    ...options
+});
+
+/**
+ * Get acquisition and owned indexing outcomes for one source run
+ */
+export const getSourceRun = <ThrowOnError extends boolean = false>(options: Options<GetSourceRunData, ThrowOnError>): RequestResult<GetSourceRunResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceRunResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/runs/{runId}',
+    ...options
+});
+
+/**
+ * List retained safe run and file errors
+ */
+export const listSourceRunErrors = <ThrowOnError extends boolean = false>(options: Options<ListSourceRunErrorsData, ThrowOnError>): RequestResult<ListSourceRunErrorsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceRunErrorsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/runs/{runId}/errors',
+    ...options
+});
+
+/**
+ * List a page of current source items
  */
 export const listSourceItems = <ThrowOnError extends boolean = false>(options: Options<ListSourceItemsData, ThrowOnError>): RequestResult<ListSourceItemsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceItemsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -320,6 +372,71 @@ export const getGoogleDriveConfiguration = <ThrowOnError extends boolean = false
             type: 'apiKey'
         }],
     url: '/api/sources/{sourceId}/google-drive',
+    ...options
+});
+
+/**
+ * Page selected roots and verified linked documents within a pinned Source snapshot
+ */
+export const getGoogleDriveSelection = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive/selection',
+    ...options
+});
+
+/**
+ * Expand selected Google Drive folders, files, and discovered links within the Source scope
+ */
+export const getGoogleDriveSelectionTree = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionTreeData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionTreeResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionTreeResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive/selection-tree',
+    ...options
+});
+
+/**
+ * Get the complete bounded active selection for editing
+ */
+export const getGoogleDriveSelectionDraft = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionDraftData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionDraftResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionDraftResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/google-drive/selection-draft',
+    ...options
+});
+
+/**
+ * Recover an accepted selection receipt for the initiating owner
+ */
+export const getGoogleDriveSelectionRequest = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionRequestData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionRequestResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionRequestResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/google-drive/selection-requests/{requestId}',
+    ...options
+});
+
+/**
+ * Get the configured selection admission limits
+ */
+export const getGoogleDriveSelectionPolicy = <ThrowOnError extends boolean = false>(options?: Options<GetGoogleDriveSelectionPolicyData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionPolicyResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetGoogleDriveSelectionPolicyResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/google-drive/selection-policy',
     ...options
 });
 

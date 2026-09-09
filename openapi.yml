@@ -45,7 +45,8 @@ paths:
     put:
       tags:
       - Sources
-      summary: Replace Google Drive scope mode and selected roots atomically
+      summary: Replace selected Google Drive roots without changing the creation-time
+        scope mode
       operationId: replaceGoogleDriveRoots
       parameters:
       - name: sourceId
@@ -66,12 +67,12 @@ paths:
               $ref: "#/components/schemas/ReplaceGoogleDriveRootsRequest"
         required: true
       responses:
-        "200":
-          description: OK
+        "202":
+          description: Accepted
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+                $ref: "#/components/schemas/GoogleDriveSelectionReceiptResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -254,6 +255,42 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/google-drive/linked-documents/discover:
+    post:
+      tags:
+      - Sources
+      summary: Discover linked documents without approving or synchronizing them
+      operationId: discoverGoogleDriveLinkedDocuments
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/delete:
     post:
       tags:
@@ -307,12 +344,12 @@ paths:
               $ref: "#/components/schemas/CreateGoogleDriveSourceRequest"
         required: true
       responses:
-        "201":
-          description: Created
+        "202":
+          description: Accepted
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceDetail"
+                $ref: "#/components/schemas/GoogleDriveSelectionReceiptResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -343,7 +380,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceDetail"
+                $ref: "#/components/schemas/SourceSummary"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -658,7 +695,7 @@ paths:
     get:
       tags:
       - Sources
-      summary: Get one source with current items
+      summary: Get one source summary
       operationId: getSource
       parameters:
       - name: sourceId
@@ -673,18 +710,99 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SourceDetail"
+                $ref: "#/components/schemas/SourceSummary"
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/sources/{sourceId}/items:
+  /api/sources/{sourceId}/runs:
     get:
       tags:
       - Sources
-      summary: List current source items
-      operationId: listSourceItems
+      summary: List source synchronization runs and independent activity summaries
+      operationId: listSourceRuns
       parameters:
       - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - QUEUED
+          - ACQUIRING
+          - RETRY_SCHEDULED
+          - RECOVERY_PENDING
+          - INDEXING
+          - SUCCEEDED
+          - COMPLETED_WITH_ERRORS
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
+          - UNKNOWN
+      - name: trigger
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SCHEDULED
+          - MANUAL
+          - INITIAL
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceRunPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/runs/{runId}:
+    get:
+      tags:
+      - Sources
+      summary: Get acquisition and owned indexing outcomes for one source run
+      operationId: getSourceRun
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: runId
         in: path
         required: true
         schema:
@@ -696,9 +814,87 @@ paths:
           content:
             '*/*':
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SourceItem"
+                $ref: "#/components/schemas/SourceRun"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/runs/{runId}/errors:
+    get:
+      tags:
+      - Sources
+      summary: List retained safe run and file errors
+      operationId: listSourceRunErrors
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceRunErrorPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/items:
+    get:
+      tags:
+      - Sources
+      summary: List a page of current source items
+      operationId: listSourceItems
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceItemPage"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -715,6 +911,11 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
       - name: size
         in: query
         required: false
@@ -730,9 +931,7 @@ paths:
           content:
             '*/*':
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SourceOperation"
+                $ref: "#/components/schemas/SourceOperationPage"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -756,6 +955,159 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/google-drive/selection:
+    get:
+      tags:
+      - Sources
+      summary: Page selected roots and verified linked documents within a pinned Source
+        snapshot
+      operationId: getGoogleDriveSelection
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - FOLDER
+          - FILE
+          - LINKED
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveSelectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/google-drive/selection-tree:
+    get:
+      tags:
+      - Sources
+      summary: "Expand selected Google Drive folders, files, and discovered links\
+        \ within the Source scope"
+      operationId: getGoogleDriveSelectionTree
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: parentId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveSelectionTreeResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/google-drive/selection-draft:
+    get:
+      tags:
+      - Sources
+      summary: Get the complete bounded active selection for editing
+      operationId: getGoogleDriveSelectionDraft
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveSelectionDraftResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/google-drive/selection-requests/{requestId}:
+    get:
+      tags:
+      - Sources
+      summary: Recover an accepted selection receipt for the initiating owner
+      operationId: getGoogleDriveSelectionRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/google-drive/selection-policy:
+    get:
+      tags:
+      - Sources
+      summary: Get the configured selection admission limits
+      operationId: getGoogleDriveSelectionPolicy
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveSelectionPolicyResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -913,12 +1265,21 @@ components:
           enum:
           - GENERAL
           - SPECIFIC
-        roots:
+        counts:
+          $ref: "#/components/schemas/GoogleDriveSelectionCountsResponse"
+        discoveryRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        discoveredAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        discoveryErrors:
           type: array
-          description: "Selected roots for SPECIFIC; empty for GENERAL, whose My Drive\
-            \ root is server-managed."
           items:
-            $ref: "#/components/schemas/GoogleDriveRootResponse"
+            $ref: "#/components/schemas/GoogleDriveDiscoveryErrorResponse"
         lastSyncedAt:
           type:
           - string
@@ -930,39 +1291,107 @@ components:
           type:
           - string
           - "null"
+        pendingSelectionOperation:
+          oneOf:
+          - $ref: "#/components/schemas/SourceOperation"
+          - type: "null"
       required:
       - accountEmail
+      - counts
       - credentialId
       - credentialRevision
       - credentialStatus
+      - discoveredAt
+      - discoveryErrors
+      - discoveryRevision
       - errorCode
       - lastSyncedAt
       - oauthClientConfigured
+      - pendingSelectionOperation
       - pendingWork
       - revision
-      - roots
       - scheduleRevision
       - scopeMode
       - sourceId
       - syncIntervalMinutes
-    GoogleDriveRootResponse:
+    GoogleDriveDiscoveryErrorResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        fileId:
+          type: string
+        fileName:
+          type: string
+        code:
+          type: string
+      required:
+      - code
+      - fileId
+      - fileName
+    GoogleDriveSelectionCountsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        folders:
+          type: integer
+          format: int64
+        files:
+          type: integer
+          format: int64
+        linkedDocuments:
+          type: integer
+          format: int64
+        approvedLinkedDocuments:
+          type: integer
+          format: int64
+      required:
+      - approvedLinkedDocuments
+      - files
+      - folders
+      - linkedDocuments
+    SourceOperation:
       type: object
       additionalProperties: false
       properties:
         id:
           type: string
-        name:
+          format: uuid
+        type:
           type: string
-        mimeType:
+        status:
           type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
       required:
+      - completedAt
+      - createdAt
+      - errorCode
       - id
-      - mimeType
-      - name
+      - status
+      - type
     ReplaceGoogleDriveRootsRequest:
       type: object
       additionalProperties: false
       properties:
+        requestId:
+          type: string
+          format: uuid
+        discoveryRevision:
+          type: integer
+          format: int64
+        credentialRevision:
+          type: integer
+          format: int64
         scopeMode:
           type: string
           description: GENERAL includes the connected account's My Drive tree; SPECIFIC
@@ -972,17 +1401,42 @@ components:
           - SPECIFIC
         links:
           type: array
-          description: "Empty for GENERAL; 1–20 distinct, non-overlapping file or\
-            \ folder links for SPECIFIC."
+          description: Empty for GENERAL; distinct non-overlapping links bounded by
+            the selection policy for SPECIFIC.
           items:
             type: string
             maxLength: 2048
             minLength: 0
-          maxItems: 20
+        linkedDocumentIds:
+          type: array
+          description: Distinct discovered document IDs explicitly approved for ingestion.
+            Empty for GENERAL.
+          items:
+            type: string
+            minLength: 1
+            pattern: "[A-Za-z0-9_-]{1,256}"
+          maxItems: 500
           minItems: 0
+          uniqueItems: true
       required:
+      - credentialRevision
+      - discoveryRevision
+      - linkedDocumentIds
       - links
+      - requestId
       - scopeMode
+    GoogleDriveSelectionReceiptResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        operation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - operation
+      - sourceId
     InitiateSourceUploadRequest:
       type: object
       additionalProperties: false
@@ -1034,6 +1488,46 @@ components:
       - requiredHeaders
       - uploadId
       - uploadUrl
+    SourceIndexAttempt:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type:
+          - string
+          - "null"
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: Actual first processing start; null when not started or unavailable
+            in retained history.
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - completedAt
+      - createdAt
+      - errorCode
+      - filename
+      - id
+      - startedAt
+      - status
     SourceItem:
       type: object
       additionalProperties: false
@@ -1053,11 +1547,17 @@ components:
         uploadedAt:
           type: string
           format: date-time
-        latestOperationId:
+        lastIndexedAt:
           type:
           - string
           - "null"
-          format: uuid
+          format: date-time
+          description: "Most recent retained successful indexing completion for the\
+            \ current file version. Null means no retained success is known, not necessarily\
+            \ never indexed."
+        latestAttempt:
+          type: "null"
+          $ref: "#/components/schemas/SourceIndexAttempt"
         errorCode:
           type:
           - string
@@ -1066,41 +1566,12 @@ components:
       - errorCode
       - filename
       - id
-      - latestOperationId
+      - lastIndexedAt
+      - latestAttempt
       - sha256
       - sizeBytes
       - status
       - uploadedAt
-    SourceOperation:
-      type: object
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-        status:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        completedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        errorCode:
-          type:
-          - string
-          - "null"
-      required:
-      - completedAt
-      - createdAt
-      - errorCode
-      - id
-      - status
-      - type
     SourceUploadReceipt:
       type: object
       additionalProperties: false
@@ -1116,6 +1587,9 @@ components:
       type: object
       additionalProperties: false
       properties:
+        requestId:
+          type: string
+          format: uuid
         name:
           type: string
           maxLength: 120
@@ -1132,32 +1606,28 @@ components:
           - SPECIFIC
         links:
           type: array
-          description: "Empty for GENERAL; 1–20 distinct, non-overlapping file or\
-            \ folder links for SPECIFIC."
+          description: Empty for GENERAL; distinct non-overlapping links bounded by
+            the selection policy for SPECIFIC.
           items:
             type: string
             maxLength: 2048
             minLength: 0
-          maxItems: 20
-          minItems: 0
       required:
       - credentialId
       - links
       - name
+      - requestId
       - scopeMode
-    SourceDetail:
+    CreateFileSourceRequest:
       type: object
       additionalProperties: false
       properties:
-        source:
-          $ref: "#/components/schemas/SourceSummary"
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/SourceItem"
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
       required:
-      - items
-      - source
+      - name
     SourceSummary:
       type: object
       additionalProperties: false
@@ -1197,16 +1667,6 @@ components:
       - pendingWork
       - status
       - type
-    CreateFileSourceRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-      required:
-      - name
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -1320,6 +1780,533 @@ components:
           type: string
       required:
       - authorizationUrl
+    SourceRun:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        sourceId:
+          type: string
+          format: uuid
+        trigger:
+          oneOf:
+          - type: string
+            enum:
+            - SCHEDULED
+            - MANUAL
+            - INITIAL
+          - type: "null"
+        actorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        status:
+          type: string
+          enum:
+          - QUEUED
+          - ACQUIRING
+          - RETRY_SCHEDULED
+          - RECOVERY_PENDING
+          - INDEXING
+          - SUCCEEDED
+          - COMPLETED_WITH_ERRORS
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
+          - UNKNOWN
+        acquisitionStatus:
+          type: string
+          enum:
+          - QUEUED
+          - ACQUIRING
+          - RETRY_SCHEDULED
+          - RECOVERY_PENDING
+          - INDEXING
+          - SUCCEEDED
+          - COMPLETED_WITH_ERRORS
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
+          - UNKNOWN
+        indexingStatus:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - PENDING
+          - RETRY_SCHEDULED
+          - RECOVERY_PENDING
+          - SUCCEEDED
+          - COMPLETED_WITH_ERRORS
+          - UNKNOWN
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        acquisitionCompletedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        scopeRevision:
+          type: integer
+          format: int64
+        credentialRevision:
+          type: integer
+          format: int64
+        nextRetryAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+        detailsExpired:
+          type: boolean
+        counts:
+          $ref: "#/components/schemas/SourceRunCounts"
+      required:
+      - acquisitionCompletedAt
+      - acquisitionStatus
+      - actorId
+      - completedAt
+      - counts
+      - createdAt
+      - credentialRevision
+      - detailsExpired
+      - errorCode
+      - id
+      - indexingStatus
+      - nextRetryAt
+      - scopeRevision
+      - sourceId
+      - startedAt
+      - status
+      - trigger
+    SourceRunCounts:
+      type: object
+      additionalProperties: false
+      properties:
+        scanned:
+          type:
+          - integer
+          - "null"
+          format: int64
+        acquired:
+          type:
+          - integer
+          - "null"
+          format: int64
+        published:
+          type:
+          - integer
+          - "null"
+          format: int64
+        unchanged:
+          type:
+          - integer
+          - "null"
+          format: int64
+        alreadyPending:
+          type:
+          - integer
+          - "null"
+          format: int64
+        acquisitionFailed:
+          type:
+          - integer
+          - "null"
+          format: int64
+        indexingFailed:
+          type:
+          - integer
+          - "null"
+          format: int64
+        skipped:
+          type:
+          - integer
+          - "null"
+          format: int64
+        removed:
+          type:
+          - integer
+          - "null"
+          format: int64
+        indexingPending:
+          type:
+          - integer
+          - "null"
+          format: int64
+        indexingSuperseded:
+          type:
+          - integer
+          - "null"
+          format: int64
+        indexingCancelled:
+          type:
+          - integer
+          - "null"
+          format: int64
+      required:
+      - acquired
+      - acquisitionFailed
+      - alreadyPending
+      - indexingCancelled
+      - indexingFailed
+      - indexingPending
+      - indexingSuperseded
+      - published
+      - removed
+      - scanned
+      - skipped
+      - unchanged
+    SourceRunPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceRun"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        current:
+          oneOf:
+          - $ref: "#/components/schemas/SourceRun"
+          - type: "null"
+        lastCompleted:
+          oneOf:
+          - $ref: "#/components/schemas/SourceRun"
+          - type: "null"
+        lastSuccessful:
+          oneOf:
+          - $ref: "#/components/schemas/SourceRun"
+          - type: "null"
+      required:
+      - current
+      - items
+      - lastCompleted
+      - lastSuccessful
+      - nextCursor
+    SourceRunError:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        runId:
+          type: string
+          format: uuid
+        operationId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        itemId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        fileId:
+          type:
+          - string
+          - "null"
+        fileName:
+          type:
+          - string
+          - "null"
+        stage:
+          type: string
+          enum:
+          - PROVIDER
+          - STORAGE_READ
+          - STORAGE_WRITE
+          - EXTRACTION
+          - PUBLICATION
+          - SYSTEM
+        code:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+      required:
+      - code
+      - fileId
+      - fileName
+      - id
+      - itemId
+      - occurredAt
+      - operationId
+      - runId
+      - stage
+    SourceRunErrorPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceRunError"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - items
+      - nextCursor
+    SourceItemPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceItem"
+        nextCursor:
+          oneOf:
+          - type: string
+          - type: "null"
+      required:
+      - items
+      - nextCursor
+    SourceOperationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceIndexAttempt"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - nextCursor
+      - totalItems
+    GoogleDriveLinkOriginResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        rootId:
+          type: string
+        parentId:
+          type: string
+        parentName:
+          type: string
+        location:
+          type: string
+      required:
+      - location
+      - parentId
+      - parentName
+      - rootId
+    GoogleDriveSelectionItemResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        mimeType:
+          type: string
+        kind:
+          type: string
+          enum:
+          - FOLDER
+          - FILE
+          - LINKED
+        selected:
+          type: boolean
+        coveredByRoots:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+          - UNAVAILABLE
+          - UNSUPPORTED
+        origins:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoogleDriveLinkOriginResponse"
+      required:
+      - coveredByRoots
+      - id
+      - kind
+      - mimeType
+      - name
+      - origins
+      - selected
+      - status
+    GoogleDriveSelectionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          format: int64
+        discoveryRevision:
+          type: integer
+          format: int64
+        credentialRevision:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoogleDriveSelectionItemResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        counts:
+          $ref: "#/components/schemas/GoogleDriveSelectionCountsResponse"
+      required:
+      - counts
+      - credentialRevision
+      - discoveryRevision
+      - items
+      - nextCursor
+      - revision
+    GoogleDriveSelectionTreeItemResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        mimeType:
+          type: string
+        kind:
+          type: string
+          enum:
+          - FOLDER
+          - FILE
+          - LINKED
+        selected:
+          type: boolean
+        coveredByRoots:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+          - UNAVAILABLE
+          - UNSUPPORTED
+        origins:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoogleDriveLinkOriginResponse"
+        expandable:
+          type: boolean
+      required:
+      - coveredByRoots
+      - expandable
+      - id
+      - kind
+      - mimeType
+      - name
+      - origins
+      - selected
+      - status
+    GoogleDriveSelectionTreeResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          format: int64
+        discoveryRevision:
+          type: integer
+          format: int64
+        credentialRevision:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoogleDriveSelectionTreeItemResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        counts:
+          $ref: "#/components/schemas/GoogleDriveSelectionCountsResponse"
+      required:
+      - counts
+      - credentialRevision
+      - discoveryRevision
+      - items
+      - nextCursor
+      - revision
+    GoogleDriveSelectionDraftResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          format: int64
+        discoveryRevision:
+          type: integer
+          format: int64
+        credentialRevision:
+          type: integer
+          format: int64
+        links:
+          type: array
+          items:
+            type: string
+        linkedDocumentIds:
+          type: array
+          items:
+            type: string
+      required:
+      - credentialRevision
+      - discoveryRevision
+      - linkedDocumentIds
+      - links
+      - revision
+    GoogleDriveSelectionPolicyResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        maxExplicitRootsPerSource:
+          type: integer
+          format: int32
+        maxRequestBytes:
+          type: integer
+          format: int32
+        maxLinkedDocuments:
+          type: integer
+          format: int32
+      required:
+      - maxExplicitRootsPerSource
+      - maxLinkedDocuments
+      - maxRequestBytes
     InvitationPage:
       type: object
       additionalProperties: false
