@@ -1,5 +1,11 @@
 # MEM-46 — Implementation evidence
 
+## 2026-09-09 — Search-only add menu correction
+
+- Replaced the direct `Add file source` icon link with a ChatGPT-familiar `Add to search` menu while keeping the capability strictly inside MEM-46 Search. The menu offers the real FILE Source upload flow to global `SOURCES_MANAGE` and connected-source browsing to global/scoped `SOURCES_READ`; sessions without either authority receive no unusable control. It does not add Chat actions, generate answers or attach an unindexed local file to the Search API.
+- The Radix trigger exposes menu/expanded state and inherits keyboard navigation, Escape dismissal and trigger focus return. Both labeled items use Lucide icons as decorative context, bounded responsive width, visible highlight/focus states and reduced-motion-safe entrance.
+- Focused component verification passed 13/13 Search page tests, including two-item owner scope, Escape focus return, no source action for unauthorized members, and browse-only behavior for scoped readers. Full `pnpm --dir web check` passed generated API/route stability, image policy, lint, format, TypeScript, 63/63 unit/component tests and the production build. Per user direction, Playwright was not run locally; the pull-request browser gate remains the runtime browser evidence.
+
 ## 2026-09-09 — Search composer Source and voice actions
 
 - Added three explicit composer actions around the controlled Search input: a capability-gated `Add file source` link, browser voice input and the existing Search submit. The Source action is present only for global `SOURCES_MANAGE` and deep-links to `/admin/sources/new/file`; scoped/read-only members do not receive it.

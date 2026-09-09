@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -103,13 +103,36 @@ describe("SearchPage", () => {
     expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
-    expect(screen.getByRole("link", { name: "Add file source" })).toHaveAttribute(
-      "href",
-      "/admin/sources/new/file",
-    );
+    const addToSearch = screen.getByRole("button", { name: "Add to search" });
+    expect(addToSearch).toHaveAttribute("aria-haspopup", "menu");
+    expect(addToSearch).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "Search by voice" })).toBeDisabled();
     expect(screen.getAllByRole("status")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
+  });
+
+  it("opens a Search-only add menu and returns focus to its trigger on Escape", async () => {
+    const user = userEvent.setup();
+    await renderNewSession();
+
+    const trigger = screen.getByRole("button", { name: "Add to search" });
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Add content to Search")).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: /Upload a document/ })).toHaveAttribute(
+      "href",
+      "/admin/sources/new/file",
+    );
+    expect(screen.getByRole("menuitem", { name: /Browse connected sources/ })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+    expect(within(screen.getByRole("menu")).getAllByRole("menuitem")).toHaveLength(2);
+
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
   it("adds a spoken transcript to the controlled query without searching automatically", async () => {
@@ -243,7 +266,25 @@ describe("SearchPage", () => {
 
     expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Add file source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add to search" })).not.toBeInTheDocument();
+  });
+
+  it("lets scoped source readers browse sources without exposing upload", async () => {
+    const user = userEvent.setup();
+    await renderNewSession({
+      ...OWNER_SESSION,
+      tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
+      capabilities: [],
+      scopedCapabilities: ["SOURCES_READ"],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add to search" }));
+
+    expect(screen.getByRole("menuitem", { name: /Browse connected sources/ })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+    expect(screen.queryByRole("menuitem", { name: /Upload a document/ })).not.toBeInTheDocument();
   });
   it("routes user-only administrators to users", async () => {
     await renderNewSession({
