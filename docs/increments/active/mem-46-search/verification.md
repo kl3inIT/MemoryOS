@@ -1,5 +1,11 @@
 # MEM-46 — Implementation evidence
 
+## 2026-09-09 — Remove Chat-oriented add action from Search
+
+- Removed the `+` trigger and the complete `SearchAddMenu` component after product clarification that attachment/add-context belongs to Chat, not direct document Search. Search no longer exposes FILE upload or Source browsing inside its query composer; those existing administration routes remain available through the Admin surface.
+- Preserved the controlled Search input, clear action, browser voice input and Search submit without changing API requests, filters or result behavior. The landing retains one primary task and avoids advertising a capability outside MEM-46.
+- The Search page regression test now explicitly asserts that `Add to search` is absent for the owner session. Focused verification passed 11/11 Search page tests. Full `pnpm --dir web check` passed generated API/route stability, image policy, lint, format, TypeScript, 61/61 unit/component tests and the production build. Per user direction, Playwright was not run locally; pull-request CI remains the browser evidence.
+
 ## 2026-09-09 — Search-only add menu correction
 
 - Replaced the direct `Add file source` icon link with a ChatGPT-familiar `Add to search` menu while keeping the capability strictly inside MEM-46 Search. The menu offers the real FILE Source upload flow to global `SOURCES_MANAGE` and connected-source browsing to global/scoped `SOURCES_READ`; sessions without either authority receive no unusable control. It does not add Chat actions, generate answers or attach an unindexed local file to the Search API.

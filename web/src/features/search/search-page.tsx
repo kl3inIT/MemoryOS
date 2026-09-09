@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
-import { SearchAddMenu } from "./search-add-menu";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
@@ -299,7 +298,6 @@ export function SearchPage() {
           >
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="flex min-w-0 flex-1 items-center rounded-lg border border-transparent bg-surface-sunken pr-1 transition-[border-color,box-shadow] duration-150 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/30 hover:border-border-subtle motion-reduce:transition-none">
-                <SearchAddMenu />
                 <Input
                   ref={searchInputRef}
                   size="lg"
