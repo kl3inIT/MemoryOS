@@ -249,6 +249,7 @@ class SourceApiIntegrationTest {
         String firstBody = mockMvc.perform(get("/api/sources/{id}/items", source.id().value()).with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(25))
+                .andExpect(jsonPath("$.totalItems").value(26))
                 .andExpect(jsonPath("$.nextCursor").isString())
                 .andReturn().getResponse().getContentAsString();
         var first = io.swagger.v3.core.util.Json.mapper().readTree(firstBody);
@@ -256,6 +257,7 @@ class SourceApiIntegrationTest {
                         .param("cursor", first.path("nextCursor").asText()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.totalItems").value(26))
                 .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()))
                 .andReturn().getResponse().getContentAsString();
         var observed = new HashSet<String>();
@@ -266,6 +268,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/{id}/items", source.id().value()).with(authentication(owner)).param("size", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(26))
+                .andExpect(jsonPath("$.totalItems").value(26))
                 .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()));
 
         String attemptsBody = mockMvc.perform(get("/api/sources/{id}/index-attempts", source.id().value())
@@ -281,11 +284,70 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.items.length()").value(5))
                 .andExpect(jsonPath("$.totalItems").value(26));
         var empty = sourceManagement.createFileSource(actor, "Empty history", List.of());
+        mockMvc.perform(get("/api/sources/{id}/items", empty.id().value()).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.totalItems").value(0));
         mockMvc.perform(get("/api/sources/{id}/index-attempts", empty.id().value()).with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty())
                 .andExpect(jsonPath("$.totalItems").value(0));
         mockMvc.perform(get("/api/sources/{id}/index-attempts", source.id().value()).with(authentication(member)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @Transactional
+    void runPageTotalsRemainFilteredAndSourceScopedAcrossPages() throws Exception {
+        var actor = owner.getPrincipal().actorId();
+        var source = sourceManagement.createFileSource(actor, "API run history", List.of());
+        jdbcClient.sql("""
+                UPDATE connectors SET connector_type = 'GOOGLE_DRIVE'
+                WHERE id = (SELECT connector_id FROM connector_credential_pairs WHERE id = :source)
+                """).param("source", source.id().value()).update();
+        jdbcClient.sql("""
+                INSERT INTO google_drive_sources (tenant_id, source_id, scope_mode)
+                SELECT tenant_id, id, 'SPECIFIC' FROM connector_credential_pairs WHERE id = :source
+                """).param("source", source.id().value()).update();
+        jdbcClient.sql("""
+                INSERT INTO source_sync_attempts (
+                    id, tenant_id, source_id, scope_revision, credential_revision, generation,
+                    history_version, trigger_kind, status, created_at, completed_at, run_completed_at,
+                    acquired, unchanged, published, indexing_pending, indexing_failed, indexing_cancelled, indexing_superseded)
+                SELECT gen_random_uuid(), pair.tenant_id, pair.id, 1, 1, run.ordinal,
+                    1, run.trigger, 'SUCCEEDED', TIMESTAMPTZ '2026-01-01 00:00:00+00' + run.ordinal * INTERVAL '1 second',
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 0, 0, 0, 0, 0
+                FROM connector_credential_pairs pair
+                CROSS JOIN (VALUES (1, 'MANUAL'), (2, 'MANUAL'), (3, 'SCHEDULED')) run(ordinal, trigger)
+                WHERE pair.id = :source
+                """).param("source", source.id().value()).update();
+        String body = mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(owner))
+                        .param("size", "1").param("status", "SUCCEEDED").param("trigger", "MANUAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.nextCursor").isString())
+                .andReturn().getResponse().getContentAsString();
+        var first = Json.mapper().readTree(body);
+        mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(owner))
+                        .param("size", "1").param("status", "SUCCEEDED").param("trigger", "MANUAL")
+                        .param("cursor", first.path("nextCursor").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(org.hamcrest.Matchers.not(first.path("items").get(0).path("id").asText())))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()));
+        var empty = sourceManagement.createFileSource(actor, "No source runs", List.of());
+        mockMvc.perform(get("/api/sources/{id}/runs", empty.id().value()).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.totalItems").value(0));
+        mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(owner))
+                        .param("status", "FAILED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.totalItems").value(0));
+        mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(member)))
                 .andExpect(status().isForbidden());
     }
 

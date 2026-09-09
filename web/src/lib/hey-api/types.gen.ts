@@ -363,6 +363,7 @@ export type SourceRunPage = {
     current: SourceRun | null;
     lastCompleted: SourceRun | null;
     lastSuccessful: SourceRun | null;
+    totalItems: number;
 };
 
 export type SourceRunError = {
@@ -385,6 +386,7 @@ export type SourceRunErrorPage = {
 export type SourceItemPage = {
     items: Array<SourceItem>;
     nextCursor: string | null;
+    totalItems: number;
 };
 
 export type SourceOperationPage = {

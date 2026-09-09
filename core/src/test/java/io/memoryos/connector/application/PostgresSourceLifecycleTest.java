@@ -220,6 +220,7 @@ class PostgresSourceLifecycleTest {
         var empty = service.listItems(owner, sourceId, null, 2);
         assertTrue(empty.items().isEmpty());
         assertNull(empty.nextCursor());
+        assertEquals(0L, empty.totalItems());
         var uploaded = new ArrayList<SourceItemView>();
         for (int index = 0; index < 4; index++) {
             var item = upload(owner, sourceId, "item-" + index + ".txt",
@@ -228,21 +229,36 @@ class PostgresSourceLifecycleTest {
             jdbcClient.sql("UPDATE connector_items SET created_at = TIMESTAMPTZ '2026-01-01 00:00:00.123456+00' WHERE id = :id")
                     .param("id", item.id().value()).update();
         }
+        jdbcClient.sql("UPDATE connector_items SET status = 'FAILED' WHERE id = :id")
+                .param("id", uploaded.getFirst().id().value()).update();
+        SourceId other = service.createFileSource(owner, "Other files", List.of()).id();
+        upload(owner, other, "other.txt", "other source content".getBytes(StandardCharsets.UTF_8));
+        assertEquals(1L, service.listItems(owner, other, null, 2).totalItems());
+        assertEquals(0L, new JdbcSourceQueryRepository(jdbcClient)
+                .items(new TenantId(UUID.randomUUID()), sourceId, null, 2).totalItems());
         var expected = uploaded.stream()
                 .sorted((left, right) -> right.id().value().toString().compareTo(left.id().value().toString()))
                 .map(SourceItemView::id).toList();
         var complete = service.listItems(owner, sourceId, null, 4);
         assertEquals(expected, complete.items().stream().map(SourceItemView::id).toList());
         assertNull(complete.nextCursor());
+        assertEquals(4L, complete.totalItems());
 
         var first = service.listItems(owner, sourceId, null, 2);
         assertEquals(expected.subList(0, 2), first.items().stream().map(SourceItemView::id).toList());
         assertNotNull(first.nextCursor());
+        assertEquals(4L, first.totalItems());
         var newest = upload(owner, sourceId, "new.txt", "new page content".getBytes(StandardCharsets.UTF_8)).item();
         var second = service.listItems(owner, sourceId, first.nextCursor(), 2);
         assertEquals(expected.subList(2, 4), second.items().stream().map(SourceItemView::id).toList());
         assertNull(second.nextCursor());
+        assertEquals(5L, second.totalItems());
         assertEquals(newest.id(), service.listItems(owner, sourceId, null, 1).items().getFirst().id());
+        jdbcClient.sql("UPDATE connector_items SET created_at = CURRENT_TIMESTAMP WHERE id IN (:first, :second)")
+                .param("first", expected.get(2).value()).param("second", expected.get(3).value()).update();
+        var exhausted = service.listItems(owner, sourceId, first.nextCursor(), 2);
+        assertTrue(exhausted.items().isEmpty());
+        assertEquals(5L, exhausted.totalItems());
     }
 
     @Test

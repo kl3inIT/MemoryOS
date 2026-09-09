@@ -14,6 +14,6 @@ public interface SourceRunHistoryService {
     record Query(@Nullable String cursor, int size, @Nullable SourceRunStatus status,
             @Nullable SourceRunTrigger trigger, @Nullable Instant from, @Nullable Instant to) {}
     record Page(List<SourceRun> items, @Nullable String nextCursor, @Nullable SourceRun current,
-            @Nullable SourceRun lastCompleted, @Nullable SourceRun lastSuccessful) {}
+            @Nullable SourceRun lastCompleted, @Nullable SourceRun lastSuccessful, long totalItems) {}
     record ErrorPage(List<SourceRunError> items, @Nullable String nextCursor) {}
 }

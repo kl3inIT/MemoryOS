@@ -14,6 +14,7 @@ import io.memoryos.iam.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -73,28 +74,34 @@ public class JdbcSourceRunHistoryRepository {
     public SourceRunHistoryService.Page list(TenantId tenant, SourceId source, SourceRunHistoryService.Query query) {
         String scope = scope(tenant, source, "RUN", query.status(), query.trigger(), query.from(), query.to());
         Cursor cursor = decode(query.cursor(), scope);
-        String sql = "SELECT * FROM (" + PROJECTION + ") runs WHERE TRUE"
+        String filteredRuns = " FROM (" + PROJECTION + ") runs WHERE TRUE"
                 + (query.status() == null ? "" : " AND run_state = :status")
                 + (query.trigger() == null ? "" : " AND trigger_kind = :trigger")
                 + (query.from() == null ? "" : " AND created_at >= :from")
-                + (query.to() == null ? "" : " AND created_at < :to")
+                + (query.to() == null ? "" : " AND created_at < :to");
+        var parameters = new HashMap<String, Object>();
+        parameters.put("tenant", tenant.value());
+        parameters.put("source", source.value());
+        if (query.status() != null) parameters.put("status", query.status().name());
+        if (query.trigger() != null) parameters.put("trigger", query.trigger().name());
+        if (query.from() != null) parameters.put("from", WorkLeases.sqlTime(query.from()));
+        if (query.to() != null) parameters.put("to", WorkLeases.sqlTime(query.to()));
+        var statement = jdbc.sql("SELECT *" + filteredRuns
                 + (cursor == null ? "" : " AND (created_at, id) < (:cursorTime, :cursorId)")
-                + " ORDER BY created_at DESC, id DESC LIMIT :limit";
-        var statement = jdbc.sql(sql).param("tenant", tenant.value()).param("source", source.value()).param("limit", query.size() + 1);
-        if (query.status() != null) statement.param("status", query.status().name());
-        if (query.trigger() != null) statement.param("trigger", query.trigger().name());
-        if (query.from() != null) statement.param("from", WorkLeases.sqlTime(query.from()));
-        if (query.to() != null) statement.param("to", WorkLeases.sqlTime(query.to()));
+                + " ORDER BY created_at DESC, id DESC LIMIT :limit")
+                .params(parameters).param("limit", query.size() + 1);
         if (cursor != null) statement.param("cursorTime", WorkLeases.sqlTime(cursor.time())).param("cursorId", cursor.id());
         List<SourceRun> found = statement.query(this::run).list();
         boolean more = found.size() > query.size();
         var items = more ? List.copyOf(found.subList(0, query.size())) : found;
         var last = items.isEmpty() ? null : items.getLast();
+        long totalItems = jdbc.sql("SELECT count(*)" + filteredRuns).params(parameters).query(Long.class).single();
         return new SourceRunHistoryService.Page(items,
                 more && last != null ? encode(scope, last.createdAt(), last.id()) : null,
                 latest(tenant, source, "(history_version = 1 AND run_completed_at IS NULL) OR status IN ('NOT_STARTED','IN_PROGRESS')", "created_at"),
                 latest(tenant, source, "run_completed_at IS NOT NULL", "run_completed_at"),
-                latest(tenant, source, "run_completed_at IS NOT NULL AND status = 'SUCCEEDED' AND indexing_failed = 0 AND indexing_cancelled = 0 AND indexing_superseded = 0", "run_completed_at"));
+                latest(tenant, source, "run_completed_at IS NOT NULL AND status = 'SUCCEEDED' AND indexing_failed = 0 AND indexing_cancelled = 0 AND indexing_superseded = 0", "run_completed_at"),
+                totalItems);
     }
 
     public SourceRun get(TenantId tenant, SourceId source, UUID runId) {

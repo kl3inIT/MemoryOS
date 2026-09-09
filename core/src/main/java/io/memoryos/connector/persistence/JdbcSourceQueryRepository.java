@@ -248,7 +248,10 @@ public class JdbcSourceQueryRepository {
         var page = more ? List.copyOf(found.subList(0, size)) : found;
         String nextCursor = more ? SourceHistoryCursor.encode(
                 scope, page.getLast().uploadedAt() + "|" + page.getLast().id().value()) : null;
-        return new SourceItemPage(page, nextCursor);
+        long totalItems = jdbcClient.sql("SELECT count(*) FROM (" + ITEM_CANDIDATES + ") items")
+                .param("tenantId", tenantId.value()).param("pairId", sourceId.value())
+                .query(Long.class).single();
+        return new SourceItemPage(page, nextCursor, totalItems);
     }
 
     public List<SourceSummary> listForGroup(

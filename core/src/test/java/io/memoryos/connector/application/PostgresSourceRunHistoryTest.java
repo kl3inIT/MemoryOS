@@ -266,13 +266,18 @@ class PostgresSourceRunHistoryTest {
         var newest = finish(enqueue());
         var page = history.list(owner, source, query(null, 2));
         assertThat(page.items()).extracting(SourceRun::id).containsExactly(newest.id(), middle.id());
+        assertThat(page.totalItems()).isEqualTo(3);
         var later = finish(enqueue());
-        assertThat(history.list(owner, source, query(page.nextCursor(), 2)).items()).extracting(SourceRun::id).containsExactly(oldest.id());
+        var next = history.list(owner, source, query(page.nextCursor(), 2));
+        assertThat(next.items()).extracting(SourceRun::id).containsExactly(oldest.id());
+        assertThat(next.totalItems()).isEqualTo(4);
         assertThat(history.list(owner, source, query(null, 2)).lastSuccessful().id()).isEqualTo(later.id());
         assertThatThrownBy(() -> history.list(owner, source, new SourceRunHistoryService.Query(page.nextCursor(), 2,
                 SourceRunStatus.FAILED, null, null, null))).isInstanceOf(SourceException.class);
         var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, "Other"))).sourceId();
         assertThatThrownBy(() -> history.list(owner, foreign, query(page.nextCursor(), 2))).isInstanceOf(SourceException.class);
+        assertThat(history.list(owner, foreign, query(null, 2)).totalItems()).isZero();
+        assertThat(queries.list(new TenantId(UUID.randomUUID()), source, query(null, 2)).totalItems()).isZero();
         assertThatThrownBy(() -> history.get(owner, foreign, oldest.id())).isInstanceOf(SourceException.class);
         assertThatThrownBy(() -> history.get(new ActorId(UUID.randomUUID()), source, oldest.id())).isInstanceOf(IamException.class);
         assertThatThrownBy(() -> history.list(owner, source, query(null, 101))).isInstanceOf(SourceException.class);
@@ -292,6 +297,43 @@ class PostgresSourceRunHistoryTest {
     }
 
     @Test
+    void totalsUseDerivedStatusTriggerAndHalfOpenDatesWithoutCursorRestrictions() {
+        var before = finish(enqueue());
+        var oldest = finish(enqueue());
+        var newest = finish(enqueue());
+        var scheduled = finish(enqueue());
+        list(file("pending", "1"));
+        var indexing = finish(enqueue());
+        var after = finish(enqueue());
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        var runs = List.of(before, oldest, newest, scheduled, indexing, after);
+        for (int index = 0; index < runs.size(); index++) {
+            jdbc.sql("UPDATE source_sync_attempts SET created_at = :created WHERE id = :id")
+                    .param("created", java.sql.Timestamp.from(start.plusSeconds(index)))
+                    .param("id", runs.get(index).id()).update();
+        }
+        jdbc.sql("UPDATE source_sync_attempts SET trigger_kind = 'SCHEDULED' WHERE id = :id")
+                .param("id", scheduled.id()).update();
+        var first = history.list(owner, source, new SourceRunHistoryService.Query(null, 1,
+                SourceRunStatus.SUCCEEDED, SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5)));
+        assertThat(first.items()).extracting(SourceRun::id).containsExactly(newest.id());
+        assertThat(first.totalItems()).isEqualTo(2);
+        var secondQuery = new SourceRunHistoryService.Query(first.nextCursor(), 1,
+                SourceRunStatus.SUCCEEDED, SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5));
+        var second = history.list(owner, source, secondQuery);
+        assertThat(second.items()).extracting(SourceRun::id).containsExactly(oldest.id());
+        assertThat(second.totalItems()).isEqualTo(2);
+        assertThat(second.nextCursor()).isNull();
+        assertThat(second.current().id()).isEqualTo(indexing.id());
+        assertThat(second.lastSuccessful().id()).isEqualTo(after.id());
+        jdbc.sql("UPDATE source_sync_attempts SET status = 'FAILED' WHERE id = :id")
+                .param("id", oldest.id()).update();
+        var exhausted = history.list(owner, source, secondQuery);
+        assertThat(exhausted.items()).isEmpty();
+        assertThat(exhausted.totalItems()).isEqualTo(1);
+    }
+
+    @Test
     void retentionCompactsTerminalDetailsButRetainsCurrentInputsAndUnresolvedErrors() {
         list(file("one", "1"));
         var first = finish(enqueue());
@@ -303,6 +345,7 @@ class PostgresSourceRunHistoryTest {
         tx.executeWithoutResult(_ -> retention.prune(Instant.now().minus(Duration.ofDays(90)), Instant.now().minus(Duration.ofDays(14)), 25));
         assertThat(run(first.id()).detailsExpired()).isTrue();
         assertThat(run(first.id()).counts()).isEqualTo(before);
+        assertThat(history.list(owner, source, query(null, 1)).totalItems()).isEqualTo(1);
         assertThat(jdbc.sql("SELECT COUNT(*) FROM index_attempts WHERE source_sync_attempt_id=:id").param("id", first.id()).query(Long.class).single()).isEqualTo(1);
         list(file("one", "2"));
         var failed = finish(enqueue());
@@ -314,6 +357,7 @@ class PostgresSourceRunHistoryTest {
         assertThatThrownBy(() -> run(first.id())).isInstanceOf(SourceException.class);
         assertThat(run(failed.id()).detailsExpired()).isFalse();
         assertThat(history.errors(owner, source, failed.id(), null, 25).items()).hasSize(1);
+        assertThat(history.list(owner, source, query(null, 1)).totalItems()).isEqualTo(1);
     }
 
     @Test

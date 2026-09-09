@@ -3270,12 +3270,17 @@ components:
           oneOf:
           - $ref: "#/components/schemas/SourceRun"
           - type: "null"
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
       required:
       - current
       - items
       - lastCompleted
       - lastSuccessful
       - nextCursor
+      - totalItems
     SourceRunError:
       type: object
       additionalProperties: false
@@ -3355,9 +3360,14 @@ components:
           oneOf:
           - type: string
           - type: "null"
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
       required:
       - items
       - nextCursor
+      - totalItems
     SourceOperationPage:
       type: object
       additionalProperties: false
