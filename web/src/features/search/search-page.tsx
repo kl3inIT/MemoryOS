@@ -203,7 +203,7 @@ export function SearchPage() {
             )}
           >
             <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative min-w-0 flex-1">
+              <div className="flex min-w-0 flex-1 items-center rounded-lg border border-transparent bg-surface-sunken pr-1 transition-[border-color,box-shadow] duration-150 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/30 hover:border-border-subtle motion-reduce:transition-none">
                 <Input
                   ref={searchInputRef}
                   size="lg"
@@ -211,14 +211,14 @@ export function SearchPage() {
                   value={query}
                   maxLength={1000}
                   placeholder="Search connected sources"
-                  className="border-transparent bg-surface-sunken pr-20 pl-4 hover:border-border-subtle focus-visible:border-focus-ring"
+                  className="min-w-0 flex-1 border-transparent bg-transparent pr-2 pl-4 hover:border-transparent focus-visible:border-transparent focus-visible:ring-0"
                   onChange={(event) => setQuery(event.target.value)}
                 />
                 {query ? (
                   <button
                     type="button"
                     aria-label="Clear search"
-                    className="absolute top-1/2 right-11 z-10 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
+                    className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
                     onClick={() => {
                       setQuery("");
                       searchInputRef.current?.focus();
@@ -232,7 +232,7 @@ export function SearchPage() {
                   size="sm"
                   aria-label="Search"
                   disabled={!query.trim()}
-                  className="absolute top-1/2 right-1.5 z-10 w-8 -translate-y-1/2 px-0"
+                  className="w-8 px-0"
                 >
                   <Search className="size-3.5" aria-hidden="true" />
                 </Button>
