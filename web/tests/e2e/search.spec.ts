@@ -155,9 +155,7 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
 });
 
-test("handles unavailable, retry, empty and a newer query overtaking an older one", async ({
-  page,
-}) => {
+test("handles unavailable, retry, empty and a pending search", async ({ page }) => {
   let failures = 1;
   await page.route("**/api/search", async (route) => {
     const request = route.request().postDataJSON();
@@ -191,17 +189,9 @@ test("handles unavailable, retry, empty and a newer query overtaking an older on
   await input.fill("slow");
   await search.click();
   await expect(page.getByRole("status")).toContainText("Searching");
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("heading", { name: "Search your workspace" })).toBeVisible();
-  await expect(input).toBeFocused();
-  await input.fill("slow");
-  await search.click();
-  await expect(page.getByRole("status")).toContainText("Searching");
-  await input.fill("newer");
-  await search.click();
-  await expect(page.getByRole("heading", { name: "No matching documents" })).toBeVisible();
-  await page.waitForTimeout(900);
-  await expect(page.getByRole("button", { name: "Old result", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cancel" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Search is loading" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Old result", exact: true })).toBeVisible();
 });
 
 test("keeps the document preview usable inside a mobile viewport", async ({ page }) => {

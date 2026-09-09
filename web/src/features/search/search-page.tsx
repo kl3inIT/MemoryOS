@@ -381,21 +381,6 @@ export function SearchPage() {
                   </IconButton>
                 )}
               </div>
-              {isSearchUpdating ? (
-                <Button
-                  type="button"
-                  prominence="secondary"
-                  size="lg"
-                  onClick={() => {
-                    searchInputRef.current?.focus();
-                    setSelected(null);
-                    setSubmitFeedback(false);
-                    setRequest(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-              ) : null}
             </div>
 
             {request ? (
