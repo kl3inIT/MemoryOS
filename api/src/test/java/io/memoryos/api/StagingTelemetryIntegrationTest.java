@@ -44,6 +44,7 @@ import org.springframework.test.context.TestPropertySource;
         "MEMORYOS_RELEASE=telemetry-contract-test"
 })
 class StagingTelemetryIntegrationTest {
+
     private record Export(String path, byte[] body) {}
     private static final List<Export> EXPORTS = new CopyOnWriteArrayList<>();
     private static final HttpServer COLLECTOR = collector();

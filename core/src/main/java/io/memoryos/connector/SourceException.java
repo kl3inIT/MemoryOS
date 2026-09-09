@@ -35,4 +35,24 @@ public final class SourceException extends BusinessException {
                 diagnosticMessage
         );
     }
+
+    public static SourceException invalidRootLink(String safeMessage) {
+        return new SourceException("SOURCE_GOOGLE_ROOT_LINK_INVALID", FailureCategory.VALIDATION,
+                safeMessage, "invalid, duplicate or account-wide Google Drive link");
+    }
+
+    public static SourceException staleConfiguration() {
+        return new SourceException("SOURCE_GOOGLE_REVISION_CONFLICT", FailureCategory.CONFLICT,
+                "The Drive configuration changed. Reload it before saving.", "stale Drive configuration revision");
+    }
+
+    public static SourceException overlappingRoots() {
+        return new SourceException("SOURCE_GOOGLE_ROOTS_OVERLAP", FailureCategory.VALIDATION,
+                "Select either a folder or its descendants, not both.", "overlapping Drive roots");
+    }
+
+    public static SourceException unsupportedRoot() {
+        return new SourceException("SOURCE_GOOGLE_ROOT_UNSUPPORTED", FailureCategory.VALIDATION,
+                "Shortcuts and trashed files cannot be selected.", "unsupported Drive root");
+    }
 }

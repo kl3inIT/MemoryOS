@@ -12,6 +12,7 @@ type SourceGroupPickerProps = {
   knownGroups?: readonly SourceGroup[];
   required?: boolean;
   disabled?: boolean;
+  className?: string;
   onChange: (groupIds: Set<string>) => void;
 };
 
@@ -20,6 +21,7 @@ export function SourceGroupPicker({
   knownGroups = [],
   required = false,
   disabled = false,
+  className,
   onChange,
 }: SourceGroupPickerProps) {
   const [searchDraft, setSearchDraft] = useState("");
@@ -44,8 +46,13 @@ export function SourceGroupPicker({
     .filter((group): group is SourceGroup => Boolean(group));
   const rows = options.data?.items ?? [];
 
+  function searchGroups() {
+    setSearch(searchDraft.trim());
+    setPage(0);
+  }
+
   return (
-    <div>
+    <div className={className}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-secondary-action text-content-primary">Access groups</h3>
@@ -77,15 +84,7 @@ export function SourceGroupPicker({
         </div>
       ) : null}
 
-      <form
-        role="search"
-        className="mt-3 flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSearch(searchDraft.trim());
-          setPage(0);
-        }}
-      >
+      <div role="search" className="mt-3 flex gap-2">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search groups available to this Source</span>
           <Search
@@ -101,12 +100,23 @@ export function SourceGroupPicker({
             placeholder="Search groups…"
             className="bg-surface-sunken pl-9"
             onChange={(event) => setSearchDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              searchGroups();
+            }}
           />
         </label>
-        <Button type="submit" size="sm" prominence="secondary" disabled={disabled}>
+        <Button
+          type="button"
+          size="sm"
+          prominence="secondary"
+          disabled={disabled}
+          onClick={searchGroups}
+        >
           Search
         </Button>
-      </form>
+      </div>
 
       {options.isPending ? (
         <p role="status" className="mt-4 px-2 py-5 font-main-ui-body text-content-muted">
@@ -135,7 +145,10 @@ export function SourceGroupPicker({
           </p>
         </div>
       ) : (
-        <div className="mt-3 max-h-72 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised">
+        <div
+          data-slot="source-group-options"
+          className="mt-3 max-h-72 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised"
+        >
           {rows.map((group) => {
             const checked = selected.has(group.id);
             const limitReached = disabled || (selected.size >= 100 && !checked);

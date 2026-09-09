@@ -10,6 +10,7 @@ import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -101,7 +102,8 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
                             .overrideConfiguration(c -> c.apiCallTimeout(java.time.Duration.ofMinutes(2)))
                             .contentType(mediaType).contentLength((long) content.length)
                             .checksumSHA256(checksum).ifNoneMatch("*").build(),
-                    software.amazon.awssdk.core.sync.RequestBody.fromBytes(content));
+                    software.amazon.awssdk.core.sync.RequestBody.fromContentProvider(
+                            () -> new ByteArrayInputStream(content), content.length, mediaType));
         } catch (java.security.NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         } catch (S3Exception | SdkClientException exception) {

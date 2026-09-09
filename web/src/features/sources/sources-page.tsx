@@ -7,21 +7,19 @@ import {
   Files,
   ListFilter,
   LoaderCircle,
-  Lock,
   Settings,
-  Unlock,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { findSourceProvider } from "./source-provider-catalog";
-import { SourceStatusBadge } from "./source-status-badge";
+import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 
 export function SourcesPage() {
   const canCreate = useGlobalCapability("SOURCES_MANAGE");
@@ -34,18 +32,19 @@ export function SourcesPage() {
   const sources = sourcesQuery.data ?? [];
 
   return (
-    <section className="w-full px-5 py-8 sm:px-8">
-      <header className="flex items-center justify-between gap-4 border-b border-border-subtle pb-6">
-        <div>
-          <BookOpen className="size-7 text-content-primary" aria-hidden="true" />
-          <h1 className="mt-2 font-heading-h3 text-content-primary">Existing sources</h1>
-        </div>
-        {canCreate ? (
-          <Button asChild size="sm">
-            <Link to="/admin/sources/new">Add source</Link>
-          </Button>
-        ) : null}
-      </header>
+    <SettingsLayout wide>
+      <PageHeader
+        icon={<BookOpen />}
+        title="Existing sources"
+        description="Manage connected content and monitor indexing."
+        actions={
+          canCreate ? (
+            <Button asChild>
+              <Link to="/admin/sources/new">Add source</Link>
+            </Button>
+          ) : null
+        }
+      />
 
       {sourcesQuery.isPending ? (
         <div className="flex min-h-52 items-center justify-center">
@@ -84,13 +83,14 @@ export function SourcesPage() {
       ) : (
         <SourceList sources={sources} />
       )}
-    </section>
+    </SettingsLayout>
   );
 }
 
 function SourceList({ sources }: { sources: SourceSummary[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [providerFilter, setProviderFilter] = useState("");
   const [accessFilter, setAccessFilter] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(() => new Set());
@@ -103,13 +103,14 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           source.name.toLowerCase().includes(query) ||
           providerName.toLowerCase().includes(query)) &&
         (!statusFilter || source.status === statusFilter) &&
+        (!providerFilter || source.type === providerFilter) &&
         (!accessFilter || source.access === accessFilter)
       );
     });
-  }, [accessFilter, searchQuery, sources, statusFilter]);
+  }, [accessFilter, providerFilter, searchQuery, sources, statusFilter]);
   const groups = useMemo(() => groupSources(filteredSources), [filteredSources]);
   const hasExpandedGroups = groups.some((group) => !collapsedTypes.has(group.type));
-  const hasActiveFilters = Boolean(statusFilter || accessFilter);
+  const hasActiveFilters = Boolean(statusFilter || providerFilter || accessFilter);
 
   function toggle(type: string) {
     setCollapsedTypes((current) => {
@@ -126,17 +127,17 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
 
   return (
     <>
-      <div className="mt-5 flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Input
           type="search"
           size="sm"
           value={searchQuery}
           placeholder="Search sources"
           aria-label="Search sources"
-          className="min-w-0 flex-1 bg-surface-sunken"
+          className="min-w-40 flex-1 bg-surface-sunken"
           onChange={(event) => setSearchQuery(event.target.value)}
         />
-        <Button size="sm" onClick={toggleAll}>
+        <Button size="sm" prominence="tertiary" onClick={toggleAll}>
           {hasExpandedGroups ? "Collapse all" : "Expand all"}
         </Button>
         <IconButton
@@ -154,7 +155,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
       {filtersOpen ? (
         <div
           id="source-filters"
-          className="mt-2 grid gap-3 border border-border-subtle bg-surface-raised p-4 sm:grid-cols-[minmax(10rem,14rem)_minmax(10rem,14rem)_auto] sm:items-end"
+          className="mt-2 grid gap-3 border border-border-subtle bg-surface-raised p-4 sm:grid-cols-2 sm:items-end lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]"
         >
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             Status
@@ -172,6 +173,18 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
             </Select>
           </label>
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
+            Provider
+            <Select
+              size="sm"
+              value={providerFilter}
+              onChange={(event) => setProviderFilter(event.target.value)}
+            >
+              <option value="">All providers</option>
+              <option value="FILE">File</option>
+              <option value="GOOGLE_DRIVE">Google Drive</option>
+            </Select>
+          </label>
+          <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             Access
             <Select
               size="sm"
@@ -179,7 +192,8 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
               onChange={(event) => setAccessFilter(event.target.value)}
             >
               <option value="">All access</option>
-              <option value="PUBLIC">Organization public</option>
+              <option value="PUBLIC">Workspace members</option>
+              <option value="RESTRICTED">Restricted</option>
             </Select>
           </label>
           <Button
@@ -188,6 +202,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
             disabled={!hasActiveFilters}
             onClick={() => {
               setStatusFilter("");
+              setProviderFilter("");
               setAccessFilter("");
             }}
           >
@@ -196,13 +211,21 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         </div>
       ) : null}
 
-      <div className="mt-8 overflow-x-auto">
+      <div
+        className="relative overflow-x-auto rounded-lg"
+        tabIndex={0}
+        role="region"
+        aria-label="Connected sources table"
+      >
         <table className="w-full min-w-[64rem] table-fixed border-collapse">
           <caption className="sr-only">Connected sources</caption>
           <colgroup>
-            {Array.from({ length: 6 }, (_, index) => (
-              <col key={index} className="w-1/6" />
-            ))}
+            <col />
+            <col className="w-40" />
+            <col className="w-40" />
+            <col className="w-60" />
+            <col className="w-44" />
+            <col className="w-16" />
           </colgroup>
           {groups.map((group) => (
             <SourceGroupBody
@@ -245,7 +268,7 @@ function SourceGroupBody({
   const ProviderIcon = provider?.icon ?? Files;
   const documentCount = group.sources.reduce((total, source) => total + source.documentCount, 0);
   const activeCount = group.sources.filter((source) => source.status === "ACTIVE").length;
-  const publicCount = group.sources.filter((source) => source.access === "PUBLIC").length;
+  const workspaceAccessCount = group.sources.filter((source) => source.access === "PUBLIC").length;
 
   return (
     <tbody>
@@ -274,7 +297,10 @@ function SourceGroupBody({
         </th>
         <SummaryMetric label="Total sources" value={group.sources.length} />
         <SummaryMetric label="Active sources" value={`${activeCount}/${group.sources.length}`} />
-        <SummaryMetric label="Public sources" value={`${publicCount}/${group.sources.length}`} />
+        <SummaryMetric
+          label="Workspace-visible sources"
+          value={`${workspaceAccessCount}/${group.sources.length}`}
+        />
         <SummaryMetric label="Total docs indexed" value={documentCount} />
         <td className="border-y border-r border-border-subtle" />
       </tr>
@@ -284,7 +310,7 @@ function SourceGroupBody({
             <SourceColumnHeader>Name</SourceColumnHeader>
             <SourceColumnHeader>Last indexed</SourceColumnHeader>
             <SourceColumnHeader>Status</SourceColumnHeader>
-            <SourceColumnHeader>Permissions / Access</SourceColumnHeader>
+            <SourceColumnHeader>Access</SourceColumnHeader>
             <SourceColumnHeader>Total docs</SourceColumnHeader>
             <SourceColumnHeader>
               <span className="sr-only">Manage</span>
@@ -302,7 +328,7 @@ function SourceGroupBody({
 function SummaryMetric({ label, value }: { label: string; value: string | number }) {
   return (
     <td className="border-y border-border-subtle px-4">
-      <span className="block text-sm text-content-muted">{label}</span>
+      <span className="block text-sm whitespace-nowrap text-content-muted">{label}</span>
       <span className="mt-1 block text-xl font-semibold tabular-nums text-content-primary">
         {value}
       </span>
@@ -312,7 +338,7 @@ function SummaryMetric({ label, value }: { label: string; value: string | number
 
 function SourceColumnHeader({ children }: { children: ReactNode }) {
   return (
-    <th scope="col" className="px-4 text-sm font-medium text-content-muted">
+    <th scope="col" className="px-4 text-sm font-medium whitespace-nowrap text-content-muted">
       {children}
     </th>
   );
@@ -353,20 +379,6 @@ function SourceRow({ source }: { source: SourceSummary }) {
   );
 }
 
-function SourceAccessBadge({ access }: { access: string }) {
-  const isPublic = access === "PUBLIC";
-  const AccessIcon = isPublic ? Unlock : Lock;
-  return (
-    <StatusBadge
-      tone={isPublic ? "success" : "neutral"}
-      className="items-center gap-1.5 tracking-normal normal-case"
-    >
-      <AccessIcon className="size-3" aria-hidden="true" />
-      {isPublic ? "Organization Public" : titleCase(access)}
-    </StatusBadge>
-  );
-}
-
 function groupSources(sources: SourceSummary[]) {
   const groups = new Map<string, SourceSummary[]>();
   for (const source of sources) {
@@ -375,14 +387,6 @@ function groupSources(sources: SourceSummary[]) {
     else groups.set(source.type, [source]);
   }
   return Array.from(groups, ([type, groupedSources]) => ({ type, sources: groupedSources }));
-}
-
-function titleCase(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
 
 const sourceDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });

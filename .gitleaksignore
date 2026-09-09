@@ -8,3 +8,5 @@ a36727cf1d6cffa1e3a588c10eb2fce430ccd592:docs/increments/completed/mem-13-produc
 acb095789de626ec6d0b652067e3e00c9840e254:docs/increments/active/mem-13-production-web-foundation/verification.md:generic-api-key:25
 b825e962effd2d7b3d194b9980d32c954f90c428:docs/increments/active/mem-8-organization-workspace-browser-onboarding/verification.md:generic-api-key:44
 b825e962effd2d7b3d194b9980d32c954f90c428:docs/increments/active/mem-8-organization-workspace-browser-onboarding/verification.md:generic-api-key:64
+# Model-output table prose (`finish_reason=length`), not an API credential.
+e883751aeb968c7f0dce030dc50de43a794d4437:docs/increments/active/mem-66-vllm-cpu-gateway-research/verification.md:generic-api-key:51

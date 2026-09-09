@@ -13,6 +13,15 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
     const canReadSources = useCapabilityAuthority("SOURCES_READ") !== "none";
     const matchRoute = useMatchRoute();
+    const sourceSetupStep = matchRoute({
+      to: "/admin/sources/new/google-drive",
+      search: { step: "connector" },
+      includeSearch: true,
+    })
+      ? 1
+      : matchRoute({ to: "/admin/sources/new/google-drive" })
+        ? 0
+        : undefined;
     const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
     const page = usersSelected ? "users" : groupsSelected ? "groups" : "sources";
@@ -28,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
         area="admin"
         adminPage={page}
         pageTitle={page === "users" ? "Users" : page === "groups" ? "Groups" : "Sources"}
+        sourceSetupStep={sourceSetupStep}
       >
         <SourceUploadRecoveryProvider>
           <Outlet />

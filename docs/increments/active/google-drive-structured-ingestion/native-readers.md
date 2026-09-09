@@ -1,6 +1,6 @@
 # Native Workspace and table readers
 
-Status: MEM-63 is In Progress with `nhuxuanviet27102004`, reconciled 2026-09-08. This is the native-reader contract for the Google Drive integration branch, not a claim that readers are merged into main or accepted against Tasco data. Reader/fixture work can proceed using the delivered MEM-61 artifact contract; Google integration is exercised with MEM-9/MEM-10.
+Status: MEM-63 is In Progress with `nhuxuanviet27102004`, reconciled 2026-09-08. This is the native-reader contract for the Google Drive integration branch, not a claim that readers are merged into main or accepted against Tasco data. Checkpoint `290357a` contains implemented native acquisition/offline readers and pre-integration fixtures, preserved during isolated integration with main `fb835f9`; combined verification remains pending. The rows below remain broader acceptance gates, not assertions that the implemented readers are absent. Google document ACL/authorized-read acceptance is outside the approved ingestion-only slice. See the [current integration record](plan.md#isolated-main-integration--2026-09-09).
 
 Tracking: [MEM-63](https://linear.app/memory-os/issue/MEM-63), child of [MEM-60](https://linear.app/memory-os/issue/MEM-60). Shares the MEM-61 canonical output contract; service deployment is not required to read Sheets.
 
@@ -8,7 +8,7 @@ Tracking: [MEM-63](https://linear.app/memory-os/issue/MEM-63), child of [MEM-60]
 
 Implement native content acquisition for Google Sheets and Google Docs inside the Google Drive Source, plus reusable Java XLSX/CSV readers. Reuse the existing TXT/Markdown adapter where its contract is sufficient. Do not create a separate Sheets connector or run native structured data through OCR.
 
-Use the [current Document contract](../../../specs/document.md): publish current metadata and artifact reference without DocumentVersion history, processing-profile uniqueness or stored PostgreSQL normalized text. The existing canonical schema has heading/table/page-bounding-box provenance; add native Sheet ranges and Doc element references compatibly with fixtures rather than assuming those fields already exist. Actual Tasco source data is unavailable; provider tests use synthetic documents.
+Use the [current Document contract](../../../specs/document.md): publish current metadata and artifact reference without DocumentVersion history, processing-profile uniqueness or stored PostgreSQL normalized text. The implemented canonical schema preserves heading/table/page-bounding-box provenance plus native Sheet ranges and Doc element references; pre-integration reader fixtures are catalogued in the [Ingestion evidence](../../../tests/ingestion.md). Their compatibility with main Search requires the integrated gate. Actual Tasco source data is unavailable; provider tests use synthetic documents.
 
 ## Work and acceptance
 

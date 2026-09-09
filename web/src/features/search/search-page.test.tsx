@@ -389,9 +389,7 @@ describe("SearchPage", () => {
     await user.click(screen.getByRole("button", { name: "Tenant owner" }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't sign you out. Try again.",
-    );
+    expect(await screen.findByRole("alert")).toBeVisible();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
   });
 });

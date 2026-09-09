@@ -31,7 +31,7 @@ export function ApplicationError({
   return (
     <main
       className={cn(
-        "flex min-h-svh items-center justify-center bg-background p-6 text-foreground",
+        "flex min-h-dvh items-center justify-center bg-surface-base p-6 text-content-primary",
         className,
       )}
       {...props}
@@ -41,7 +41,9 @@ export function ApplicationError({
           <EmptyMedia variant="icon" className="bg-muted text-foreground">
             <TriangleAlert />
           </EmptyMedia>
-          <EmptyTitle className="text-2xl font-semibold tracking-[-0.03em]">{title}</EmptyTitle>
+          <EmptyTitle role="heading" aria-level={1} className="font-heading-h2">
+            {title}
+          </EmptyTitle>
           <EmptyDescription>{description}</EmptyDescription>
           {details && (
             <p className="max-w-md break-words font-mono text-xs text-content-muted">{details}</p>

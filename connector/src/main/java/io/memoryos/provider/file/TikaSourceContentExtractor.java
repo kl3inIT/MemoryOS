@@ -1,6 +1,7 @@
 package io.memoryos.provider.file;
 
 import io.memoryos.document.DocumentContent;
+import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.ingestion.SourceContentExtractor;
@@ -41,7 +42,8 @@ public final class TikaSourceContentExtractor implements SourceContentExtractor,
     }
 
     @Override
-    public DocumentContent extract(InputStream content, long sizeBytes, String filename) throws ExtractionException {
+    public DocumentContent extract(InputStream content, long sizeBytes, String filename,
+            SourceInputDescriptor input) throws ExtractionException {
         Objects.requireNonNull(content, "content must not be null");
         Objects.requireNonNull(filename, "filename must not be null");
         if (closed.get()) {

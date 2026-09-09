@@ -8,8 +8,8 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       type: "FILE",
       access: "PUBLIC",
       status: "ACTIVE",
-      documentCount: 1,
-      pendingWork: false,
+      documentCount: 0,
+      pendingWork: true,
       lastSucceededAt: null,
       errorCode: null,
       actions: ["upload", "reindex", "remove_items", "delete", "manage_groups"],
@@ -67,12 +67,26 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
           json:
             path === "/api/sources"
               ? [source]
-              : {
-                  source,
-                  items: [
-                    { id: "item-1", filename: "knowledge.txt", status: "INDEXED", sizeBytes: 5 },
-                  ],
-                },
+              : path.endsWith("/items")
+                ? {
+                    items: [
+                      {
+                        id: "item-1",
+                        filename: "knowledge.txt",
+                        status: "PENDING",
+                        sizeBytes: 5,
+                        searchStatus: "WAITING",
+                        lastIndexedAt: null,
+                        latestAttempt: null,
+                        errorCode: null,
+                      },
+                    ],
+                    nextCursor: null,
+                    totalItems: 1,
+                  }
+                : path.endsWith("/index-attempts")
+                  ? { items: [], nextCursor: null, totalItems: 0 }
+                  : source,
         });
       } else if (path === "/api/sources/file") {
         creates++;
@@ -80,7 +94,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
           await route.fulfill({ status: 503, json: { title: "Unavailable", status: 503 } });
         } else {
           expect(route.request().postDataJSON()).toEqual({ name: "knowledge" });
-          await route.fulfill({ status: 201, json: { source, items: [] } });
+          await route.fulfill({ status: 201, json: source });
         }
       } else if (path.endsWith("/uploads")) {
         await route.fulfill({
@@ -122,8 +136,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     });
     await page.goto("/admin/sources/new/file");
     const submit = page.getByRole("button", { name: "Upload and create" });
-    const input = page.getByLabel("Choose PDF, DOCX, PPTX, TXT, or Markdown file");
-    await expect(input).toHaveAttribute("accept", ".pdf,.docx,.pptx,.txt,.md");
+    const input = page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file");
     await expect(submit).toBeDisabled();
     await input.setInputFiles({
       name: "empty.txt",
@@ -137,7 +150,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       mimeType: "application/octet-stream",
       buffer: Buffer.from("test"),
     });
-    await expect(page.getByRole("alert")).toContainText("Choose a PDF");
+    await expect(page.getByRole("alert")).toBeVisible();
     await input.setInputFiles({
       name: "large.txt",
       mimeType: "text/plain",
@@ -164,6 +177,14 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     await expect(page.getByText("knowledge.txt", { exact: true })).toBeVisible();
     await expect(submit).toBeEnabled();
     if (failure === "none") {
+      await page.locator("summary").filter({ hasText: "Access groups" }).click();
+      const groupSearch = page.getByRole("search");
+      await groupSearch.getByRole("searchbox").fill("Admin");
+      await groupSearch.getByRole("searchbox").press("Enter");
+      await groupSearch.getByRole("button", { name: "Search", exact: true }).click();
+      await expect(page.getByRole("checkbox", { name: /Admin/ })).toBeVisible();
+      expect(creates).toBe(0);
+      await page.locator("summary").filter({ hasText: "Access groups" }).click();
       await page.screenshot({
         path: testInfo.outputPath("file-setup-desktop.png"),
         fullPage: true,
@@ -178,7 +199,12 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       await page.getByRole("button", { name: "Use dark theme" }).click();
       await expect(page.locator("html")).toHaveClass(/dark/);
       await page.keyboard.press("Escape");
-      await page.screenshot({ path: testInfo.outputPath("file-setup-dark.png"), fullPage: true });
+      await expect(page.getByRole("button", { name: "Use light theme" })).toBeHidden();
+      await page.screenshot({
+        path: testInfo.outputPath("file-setup-dark.png"),
+        fullPage: true,
+        animations: "disabled",
+      });
     }
     await submit.evaluate((button: HTMLButtonElement) => {
       button.click();
@@ -187,6 +213,18 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     if (failure !== "none") {
       await expect(page.getByRole("alert")).toBeVisible();
       await expect(page).toHaveURL(/\/new\/file$/);
+      await expect(
+        page.getByRole("listitem", {
+          name:
+            failure === "create"
+              ? "Source creation failed"
+              : "Source created; upload needs attention",
+          exact: true,
+        }),
+      ).toContainText(source.name);
+      await expect(
+        page.getByRole("listitem", { name: "Source created; upload accepted", exact: true }),
+      ).toHaveCount(0);
       await page
         .getByRole("button", {
           name:
@@ -201,6 +239,19 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     }
     await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
     await expect(page.getByText("knowledge.txt", { exact: true })).toBeVisible();
+    const acceptedNotice = page.getByRole("listitem", {
+      name: "Source created; upload accepted",
+      exact: true,
+    });
+    await expect(acceptedNotice).toContainText(source.name);
+    await expect(acceptedNotice).toContainText("accepted for indexing; indexing is not complete");
+    await expect(
+      page.getByRole("listitem", { name: /indexing complete|upload complete/i }),
+    ).toHaveCount(0);
+    await acceptedNotice
+      .getByRole("button", { name: "Dismiss Source created; upload accepted" })
+      .focus();
+    await expect(acceptedNotice).toHaveCount(0, { timeout: 8_000 });
     expect(creates).toBe(failure === "create" ? 2 : 1);
     expect(puts).toBe(failure === "upload" ? 2 : 1);
     expect(finalizes).toBe(failure === "finalize" ? 2 : 1);

@@ -42,6 +42,15 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             WHERE tenant.status = 'ACTIVE'
               AND pair.status <> 'DELETING'
               AND item.status <> 'DELETING'
+              AND item.current_version_id = attempt.connector_item_version_id
+              AND (item.provider_file_id IS NULL OR EXISTS (
+                  SELECT 1 FROM google_drive_membership m
+                  JOIN google_drive_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
+                  JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
+                  WHERE m.tenant_id = pair.tenant_id AND m.source_id = pair.id
+                    AND m.file_id = item.provider_file_id AND m.eligible AND NOT m.excluded
+                    AND v.scope_revision = s.revision
+              ))
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (
@@ -65,6 +74,31 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             ORDER BY created_at, id
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
+            """;
+
+    private static final String SYNC_CANDIDATES = """
+            SELECT attempt.id, attempt.tenant_id, attempt.origin_trace_id, attempt.origin_span_id
+            FROM source_sync_attempts attempt
+            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+            JOIN connector_credential_pairs pair ON pair.tenant_id = attempt.tenant_id AND pair.id = attempt.source_id
+            WHERE tenant.status = 'ACTIVE' AND pair.status <> 'DELETING'
+              AND attempt.next_dispatch_at <= :now
+              AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
+              AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
+            ORDER BY attempt.created_at, attempt.id LIMIT :limit
+            FOR UPDATE OF attempt SKIP LOCKED
+            """;
+
+    private static final String SELECTION_CANDIDATES = """
+            SELECT attempt.id, attempt.tenant_id, attempt.origin_trace_id, attempt.origin_span_id
+            FROM google_drive_selection_operations attempt
+            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+            WHERE tenant.status = 'ACTIVE'
+              AND attempt.next_dispatch_at <= :now
+              AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
+              AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
+            ORDER BY attempt.created_at, attempt.id LIMIT :limit
+            FOR UPDATE OF attempt SKIP LOCKED
             """;
 
     private final JdbcClient jdbcClient;
@@ -218,12 +252,38 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
     @Transactional
     public int cancelInactiveTenantIndexing(int batchSize) {
         return jdbcClient.sql("""
-                        WITH cancellation_candidates AS (
+                        WITH inactive_tenants AS MATERIALIZED (
+                            SELECT tenant.id
+                            FROM tenants tenant
+                            WHERE tenant.status <> 'ACTIVE'
+                              AND EXISTS (
+                                  SELECT 1 FROM index_attempts attempt
+                                  WHERE attempt.tenant_id = tenant.id
+                                    AND attempt.status IN ('NOT_STARTED', 'IN_PROGRESS')
+                              )
+                            ORDER BY tenant.id
+                            LIMIT :limit
+                            FOR UPDATE OF tenant SKIP LOCKED
+                        ), locked_sources AS MATERIALIZED (
+                            SELECT pair.tenant_id, pair.id
+                            FROM connector_credential_pairs pair
+                            JOIN inactive_tenants tenant ON tenant.id = pair.tenant_id
+                            WHERE EXISTS (
+                                SELECT 1 FROM index_attempts attempt
+                                WHERE attempt.tenant_id = pair.tenant_id
+                                  AND attempt.connector_credential_pair_id = pair.id
+                                  AND attempt.status IN ('NOT_STARTED', 'IN_PROGRESS')
+                            )
+                            ORDER BY pair.tenant_id, pair.id
+                            LIMIT :limit
+                            FOR UPDATE OF pair SKIP LOCKED
+                        ), cancellation_candidates AS (
                             SELECT attempt.id
                             FROM index_attempts attempt
-                            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+                            JOIN locked_sources pair
+                              ON pair.tenant_id = attempt.tenant_id
+                             AND pair.id = attempt.connector_credential_pair_id
                             WHERE attempt.status IN ('NOT_STARTED', 'IN_PROGRESS')
-                              AND tenant.status <> 'ACTIVE'
                             ORDER BY attempt.created_at, attempt.id
                             LIMIT :limit
                             FOR UPDATE OF attempt SKIP LOCKED
@@ -250,6 +310,8 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
         return switch (workload) {
             case INGESTION -> "index_attempts";
             case CLEANUP -> "connector_cleanup_attempts";
+            case SOURCE_SYNC -> "source_sync_attempts";
+            case GOOGLE_DRIVE_SELECTION_VALIDATION -> "google_drive_selection_operations";
             case SEARCH -> "search_index_operations";
         };
     }
@@ -258,6 +320,8 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
         return switch (workload) {
             case INGESTION -> INDEX_CANDIDATES;
             case CLEANUP -> CLEANUP_CANDIDATES;
+            case SOURCE_SYNC -> SYNC_CANDIDATES;
+            case GOOGLE_DRIVE_SELECTION_VALIDATION -> SELECTION_CANDIDATES;
             case SEARCH -> SEARCH_CANDIDATES;
         };
     }

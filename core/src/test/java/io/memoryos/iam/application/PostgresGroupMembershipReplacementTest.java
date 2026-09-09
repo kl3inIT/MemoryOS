@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.GroupAdministrationGuard;
@@ -43,11 +44,12 @@ class PostgresGroupMembershipReplacementTest {
 
     private JdbcClient jdbc;
     private TestDatabase.JpaHarness jpa;
+    private HikariDataSource dataSource;
     private GroupService groups;
 
     @BeforeEach
     void setUp() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
 
         jpa = TestDatabase.jpa(dataSource);
@@ -80,8 +82,16 @@ class PostgresGroupMembershipReplacementTest {
     }
 
     @AfterEach
-    void closeEntityManagerFactory() {
-        jpa.close();
+    void closeDatabase() {
+        try {
+            if (jpa != null) {
+                jpa.close();
+            }
+        } finally {
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
     }
 
     @Test

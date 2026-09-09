@@ -10,6 +10,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { SourceGroupPicker } from "./source-group-picker";
 import { sourceMutationError } from "./source-errors";
+import { SourceSectionIcon } from "./source-section-icon";
 
 type SourceGroupsSectionProps = {
   sourceId: string;
@@ -67,21 +68,17 @@ export function SourceGroupsSection({
   return (
     <section
       aria-labelledby="source-groups-heading"
-      className="border-t border-border-subtle p-5 sm:p-6"
+      className="mt-8 border-t border-border-subtle pt-6"
     >
-      <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-secondary">
-          <UsersRound className="size-4" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 id="source-groups-heading" className="font-heading-h3 text-content-primary">
-            Group associations
-          </h2>
-          <p className="mt-1 font-main-ui-body text-content-muted">
-            These groups define who can manage this Source within their authorized surface.
-          </p>
-        </div>
+      <div className="flex items-center gap-3">
+        <SourceSectionIcon icon={UsersRound} />
+        <h2 id="source-groups-heading" className="font-heading-h3 text-content-primary">
+          Group associations
+        </h2>
       </div>
+      <p className="mt-3 font-main-ui-body text-content-muted">
+        These groups define who can manage this Source within their authorized surface.
+      </p>
 
       {error ? (
         <p
@@ -114,14 +111,15 @@ export function SourceGroupsSection({
           </Button>
         </div>
       ) : editable ? (
-        <div className="mt-4 rounded-xl border border-border-default bg-surface-subtle p-4 sm:p-5">
+        <div className="mt-4">
           <SourceGroupPicker
+            className="[--control-height-sm:var(--control-height-md)] [&_[data-slot=input]:enabled]:bg-surface-raised [&_[data-slot=source-group-options]]:rounded-none [&_[data-slot=source-group-options]]:border-x-0 [&_[data-slot=source-group-options]]:bg-transparent"
             selected={selectedIds}
             knownGroups={currentGroups}
             required
             onChange={setSelectedIds}
           />
-          <div className="mt-4 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:justify-end">
+          <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               prominence="secondary"
               disabled={!dirty || updateGroups.isPending}

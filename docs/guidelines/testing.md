@@ -24,6 +24,12 @@ Vitest uses two isolated workers. Browser CI uses one worker and no retry; brows
 
 `DoclingServeIntegrationTest` has three live checks enabled by `DOCLING_TEST_ENDPOINT`. Its owner is the file-extraction capability maintainer. Run it against the pinned Docling service when extraction formats, the client contract or service image change; record an explicit unverified provider gap when the endpoint is absent. The always-running HTTP fixture tests cover parser mapping and failure behavior, not OCR/model quality. No Docker-backed database or transport test shares this optional status.
 
+## Fixture ownership
+
+- `TestDatabase.freshPostgres()` returns a fixture-owned bounded connection pool. Close it in `@AfterEach` or try-with-resources, including setup/failure paths; do not open a new physical connection for every statement or leave pools across schema resets.
+- Redis-dependent worker integration tests own their JUnit container and dynamic host/port. Their execution must not depend on a developer Redis port, the `CI` environment or Arconia Dev Services activation.
+- When a fixture deliberately advances a scheduled operation, make its due time unambiguously past. Database `CURRENT_TIMESTAMP` followed by an immediate JVM-clock claim is not deterministic across Windows/Docker clocks. Do not conceal that race with sleeps or retries.
+
 ## Required gates
 
 1. Run focused tests while changing a contract.

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ActorId;
@@ -27,12 +28,13 @@ class JpaExternalIdentityRegistryTest {
 
     private JdbcClient jdbcClient;
     private JpaHarness jpa;
+    private HikariDataSource dataSource;
     private JpaExternalIdentityRegistry registry;
     private TransactionTemplate transaction;
 
     @BeforeEach
     void setUp() throws SQLException {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         registry = new JpaExternalIdentityRegistry(jpa.entityManager());
@@ -40,8 +42,16 @@ class JpaExternalIdentityRegistryTest {
     }
 
     @AfterEach
-    void closeJpa() {
-        jpa.close();
+    void closeDatabase() {
+        try {
+            if (jpa != null) {
+                jpa.close();
+            }
+        } finally {
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
     }
 
     @Test

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ActorId;
@@ -49,13 +50,14 @@ class DefaultInitialTenantBootstrapperTest {
 
     private JdbcClient jdbcClient;
     private JpaHarness jpa;
+    private HikariDataSource dataSource;
     private JpaTenantRepository tenants;
     private JpaExternalIdentityRegistry identities;
     private IamLockRepository locks;
 
     @BeforeEach
     void setUp() throws SQLException {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         tenants = new JpaTenantRepository(jpa.entityManager());
@@ -64,8 +66,16 @@ class DefaultInitialTenantBootstrapperTest {
     }
 
     @AfterEach
-    void closeJpa() {
-        jpa.close();
+    void closeDatabase() {
+        try {
+            if (jpa != null) {
+                jpa.close();
+            }
+        } finally {
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
     }
 
     @Test

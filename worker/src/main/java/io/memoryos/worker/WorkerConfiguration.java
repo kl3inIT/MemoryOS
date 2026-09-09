@@ -2,6 +2,8 @@ package io.memoryos.worker;
 
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
+import io.memoryos.connector.ConnectorSyncPort;
+import io.memoryos.connector.GoogleDriveSelectionProcessor;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.ExtractionArtifactPort;
@@ -10,6 +12,8 @@ import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 import io.memoryos.ingestion.application.SearchIngestionCoordinator;
+import io.memoryos.ingestion.application.SelectionValidationProcessor;
+import io.memoryos.ingestion.application.SourceSyncProcessor;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.StoredObjectRegistry;
@@ -43,6 +47,8 @@ class WorkerConfiguration {
             ScheduledExecutorService claimLeaseScheduler,
             ExtractionArtifactPort artifacts,
             MeterRegistry registry,
+            ConnectorSyncPort sourceSync,
+            GoogleDriveSelectionProcessor selections,
             JdbcSearchWorkRepository searchWork,
             DocumentChunkPort chunks,
             SearchIndex searchIndex
@@ -57,7 +63,9 @@ class WorkerConfiguration {
                 new TransactionTemplate(transactionManager),
                 claimLeaseScheduler,
                 artifacts,
-                registry
+                registry,
+                new SourceSyncProcessor(sourceSync, claimLeaseScheduler, registry),
+                new SelectionValidationProcessor(selections, claimLeaseScheduler, registry)
         );
         var search = new SearchIngestionCoordinator(searchWork, chunks, searchIndex,
                 new TransactionTemplate(transactionManager), claimLeaseScheduler, registry);

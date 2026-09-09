@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.connector.SourceInputDescriptor;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -119,7 +120,7 @@ class TikaSourceContentExtractorTest {
             byte[] content,
             String filename
     ) throws ExtractionException {
-        return extractor.extract(new ByteArrayInputStream(content), content.length, filename);
+        return extractor.extract(new ByteArrayInputStream(content), content.length, filename, SourceInputDescriptor.binary());
     }
 
     private static byte[] pdf() throws Exception {

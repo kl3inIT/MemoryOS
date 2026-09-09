@@ -3,6 +3,7 @@ package io.memoryos.iam.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ActorId;
@@ -48,12 +49,13 @@ class DefaultTenantMemberManagementTest {
 
     private JdbcClient jdbcClient;
     private JpaHarness jpa;
+    private HikariDataSource dataSource;
     private ActorId owner;
     private TenantMemberManagement memberManagement;
 
     @BeforeEach
     void setUp() throws SQLException {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         var tenants = new JpaTenantRepository(jpa.entityManager());
@@ -102,8 +104,16 @@ class DefaultTenantMemberManagementTest {
     }
 
     @AfterEach
-    void closeJpa() {
-        jpa.close();
+    void closeDatabase() {
+        try {
+            if (jpa != null) {
+                jpa.close();
+            }
+        } finally {
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
     }
 
     @Test

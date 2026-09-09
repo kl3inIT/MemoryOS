@@ -10,7 +10,8 @@ public record SourceItemView(
         long sizeBytes,
         SourceItemStatus status,
         Instant uploadedAt,
-        @Nullable SourceOperationId latestOperationId,
+        @Nullable Instant lastIndexedAt,
+        @Nullable SourceIndexAttemptView latestAttempt,
         @Nullable String errorCode,
         String searchStatus
 ) {

@@ -43,6 +43,7 @@ public class JdbcSourceDocumentRepository {
                           AND pair.access_type = 'PUBLIC'
                           AND pair.status = 'ACTIVE'
                           AND connector.status = 'ACTIVE'
+                          AND connector.connector_type = 'FILE'
                           AND document.status = 'ELIGIBLE'
                         """)
                 .param("tenantId", tenantId.value())

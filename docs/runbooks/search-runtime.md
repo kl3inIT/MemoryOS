@@ -12,7 +12,7 @@ docker compose -f infrastructure/deployment/compose.search.local.yaml up -d
 
 The pinned OpenSearch 3.8.0 service persists its data in a dedicated volume and publishes only `127.0.0.1:9200`. Authentication is disabled for this loopback development service. API and worker use their existing development launch paths, with Infisical `dev` supplying `SPRING_AI_OPENAI_API_KEY`. Set `MEMORYOS_SEARCH_REPLICAS=0` for this single-node environment; server deployments default to one replica and require enough data nodes to allocate it. Never use `down -v` as an ordinary restart.
 
-Start API first for Flyway V17, then worker. Upload/reindex a FILE through the existing Source UI. Extraction produces canonical JSON; the SEARCH workload then produces chunks/vectors. Wait for the item's separate Search status to become Ready, then search from the application home and open its passages. No ChatModel or Chat configuration is needed.
+Start API first for the complete current Flyway chain (through V29 in the isolated integration; Search itself is introduced by main V17), then worker. Never point an unverified integration binary at the preserved Google review database. Upload/reindex a FILE through the existing Source UI. Extraction produces canonical JSON; the SEARCH workload then produces chunks/vectors. Wait for the item's separate Search status to become Ready, then search from the application home and open its passages. No ChatModel or Chat configuration is needed.
 
 ## Server configuration
 

@@ -2,10 +2,12 @@ package io.memoryos.iam.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
@@ -14,10 +16,18 @@ class GroupMigrationSeedTest {
     private static final UUID TENANT = uuid("10000000-0000-0000-0000-000000000058");
     private static final UUID OWNER = uuid("20000000-0000-0000-0000-000000000058");
     private static final UUID INACTIVE_MEMBER = uuid("30000000-0000-0000-0000-000000000058");
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
 
     @Test
     void seedsAdminOwnerAndEveryExistingMembershipIntoBasicWithoutChangingActivation() throws Exception {
-        var dataSource = TestDatabase.freshPostgres("14");
+        dataSource = TestDatabase.freshPostgres("14");
         JdbcClient jdbc = JdbcClient.create(dataSource);
         jdbc.sql("""
                         INSERT INTO tenants (

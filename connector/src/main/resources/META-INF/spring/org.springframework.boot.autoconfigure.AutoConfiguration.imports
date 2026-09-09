@@ -1,1 +1,3 @@
 io.memoryos.provider.file.FileProviderAutoConfiguration
+io.memoryos.provider.SourceContentExtractorAutoConfiguration
+io.memoryos.provider.google.GoogleDriveProviderAutoConfiguration

@@ -8,6 +8,46 @@
   }
 
   body {
-    @apply min-w-80 bg-background text-foreground antialiased;
+    @apply min-w-80 bg-background font-main-ui-body text-foreground antialiased;
+  }
+
+  :where(button, input, select, textarea, a) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :where(input, textarea, select)[aria-invalid="true"] {
+    border-color: var(--status-danger-content);
+  }
+
+  @media (pointer: coarse) {
+    :root {
+      --sidebar-width-collapsed: 4rem;
+    }
+
+    [data-slot="icon-button"] {
+      min-width: 2.75rem;
+    }
+    :where(
+      [data-slot="button"],
+      [data-slot="icon-button"],
+      [data-slot="text-button"],
+      [data-slot="sidebar-tab"],
+      [data-slot="menu-item"],
+      [data-slot="input"],
+      [data-slot="select"]
+    ) {
+      min-height: 2.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

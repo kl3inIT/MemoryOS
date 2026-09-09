@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ActorId;
@@ -28,11 +29,12 @@ class JpaTenantAccessResolverTest {
 
     private JdbcClient jdbcClient;
     private JpaHarness jpa;
+    private HikariDataSource dataSource;
     private TenantAccessResolver resolver;
 
     @BeforeEach
     void setUp() throws SQLException {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         resolver = TestDatabase.transactionalProxy(
@@ -44,8 +46,16 @@ class JpaTenantAccessResolverTest {
     }
 
     @AfterEach
-    void closeJpa() {
-        jpa.close();
+    void closeDatabase() {
+        try {
+            if (jpa != null) {
+                jpa.close();
+            }
+        } finally {
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
     }
 
     @Test

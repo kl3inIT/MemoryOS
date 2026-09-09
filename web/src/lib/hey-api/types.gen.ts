@@ -4,6 +4,76 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type UpdateGoogleDriveScheduleRequest = {
+    syncIntervalMinutes: number;
+};
+
+export type GoogleDriveConfigurationResponse = {
+    sourceId: string;
+    credentialId: string;
+    accountEmail: string;
+    credentialStatus: string;
+    credentialRevision: number;
+    oauthClientConfigured: boolean;
+    revision: number;
+    syncIntervalMinutes: number;
+    scheduleRevision: number;
+    scopeMode: 'GENERAL' | 'SPECIFIC';
+    counts: GoogleDriveSelectionCountsResponse;
+    discoveryRevision: number;
+    discoveredAt: string | null;
+    discoveryErrors: Array<GoogleDriveDiscoveryErrorResponse>;
+    lastSyncedAt: string | null;
+    pendingWork: boolean;
+    errorCode: string | null;
+    pendingSelectionOperation: SourceOperation | null;
+};
+
+export type GoogleDriveDiscoveryErrorResponse = {
+    fileId: string;
+    fileName: string;
+    code: string;
+};
+
+export type GoogleDriveSelectionCountsResponse = {
+    folders: number;
+    files: number;
+    linkedDocuments: number;
+    approvedLinkedDocuments: number;
+};
+
+export type SourceOperation = {
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string;
+    completedAt: string | null;
+    errorCode: string | null;
+};
+
+export type ReplaceGoogleDriveRootsRequest = {
+    requestId: string;
+    discoveryRevision: number;
+    credentialRevision: number;
+    /**
+     * GENERAL includes the connected account's My Drive tree; SPECIFIC includes selected links.
+     */
+    scopeMode: 'GENERAL' | 'SPECIFIC';
+    /**
+     * Empty for GENERAL; distinct non-overlapping links bounded by the selection policy for SPECIFIC.
+     */
+    links: Array<string>;
+    /**
+     * Distinct discovered document IDs explicitly approved for ingestion. Empty for GENERAL.
+     */
+    linkedDocumentIds: Array<string>;
+};
+
+export type GoogleDriveSelectionReceiptResponse = {
+    sourceId: string;
+    operation: SourceOperation;
+};
+
 export type ReplaceUserGroupsRequest = {
     groupIds: Array<string>;
 };
@@ -25,6 +95,19 @@ export type SourceUploadAuthorization = {
     expiresAt: string;
 };
 
+export type SourceIndexAttempt = {
+    id: string;
+    filename: string | null;
+    status: string;
+    createdAt: string;
+    /**
+     * Actual first processing start; null when not started or unavailable in retained history.
+     */
+    startedAt: string | null;
+    completedAt: string | null;
+    errorCode: string | null;
+};
+
 export type SourceItem = {
     id: string;
     filename: string;
@@ -32,18 +115,13 @@ export type SourceItem = {
     sizeBytes: number;
     status: string;
     uploadedAt: string;
-    latestOperationId: string | null;
+    /**
+     * Most recent retained successful indexing completion for the current file version. Null means no retained success is known, not necessarily never indexed.
+     */
+    lastIndexedAt: string | null;
+    latestAttempt: SourceIndexAttempt;
     errorCode: string | null;
     searchStatus: 'WAITING' | 'INDEXING' | 'READY' | 'FAILED';
-};
-
-export type SourceOperation = {
-    id: string;
-    type: string;
-    status: string;
-    createdAt: string;
-    completedAt: string | null;
-    errorCode: string | null;
 };
 
 export type SourceUploadReceipt = {
@@ -55,14 +133,23 @@ export type UpdateSourceGroupsRequest = {
     groupIds: Array<string>;
 };
 
+export type CreateGoogleDriveSourceRequest = {
+    requestId: string;
+    name: string;
+    credentialId: string;
+    /**
+     * GENERAL includes the connected account's My Drive tree; SPECIFIC includes selected links.
+     */
+    scopeMode: 'GENERAL' | 'SPECIFIC';
+    /**
+     * Empty for GENERAL; distinct non-overlapping links bounded by the selection policy for SPECIFIC.
+     */
+    links: Array<string>;
+};
+
 export type CreateFileSourceRequest = {
     name: string;
     groupIds?: Array<string> | null;
-};
-
-export type SourceDetail = {
-    source: SourceSummary;
-    items: Array<SourceItem>;
 };
 
 export type SourceSummary = {
@@ -172,6 +259,21 @@ export type ReplaceGroupCapabilitiesRequest = {
     capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
 };
 
+export type RevokeGoogleDriveCredentialRequest = {
+    expectedCredentialRevision: number;
+};
+
+export type StartGoogleDriveAuthorizationRequest = {
+    name: string;
+    credentialId?: string;
+    expectedCredentialRevision?: number;
+    oauthClientJson?: string;
+};
+
+export type GoogleDriveAuthorizationResponse = {
+    authorizationUrl: string;
+};
+
 export type CreateChatSession = {
     title: string;
 };
@@ -249,6 +351,79 @@ export type UserPage = {
     counts: UserCounts;
 };
 
+export type SourceRun = {
+    id: string;
+    sourceId: string;
+    trigger: 'SCHEDULED' | 'MANUAL' | 'INITIAL' | null;
+    actorId: string | null;
+    status: 'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN';
+    acquisitionStatus: 'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN';
+    indexingStatus: 'NOT_REQUIRED' | 'PENDING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'UNKNOWN';
+    createdAt: string;
+    startedAt: string | null;
+    acquisitionCompletedAt: string | null;
+    completedAt: string | null;
+    scopeRevision: number;
+    credentialRevision: number;
+    nextRetryAt: string | null;
+    errorCode: string | null;
+    detailsExpired: boolean;
+    counts: SourceRunCounts;
+};
+
+export type SourceRunCounts = {
+    scanned: number | null;
+    acquired: number | null;
+    published: number | null;
+    unchanged: number | null;
+    alreadyPending: number | null;
+    acquisitionFailed: number | null;
+    indexingFailed: number | null;
+    skipped: number | null;
+    removed: number | null;
+    indexingPending: number | null;
+    indexingSuperseded: number | null;
+    indexingCancelled: number | null;
+};
+
+export type SourceRunPage = {
+    items: Array<SourceRun>;
+    nextCursor: string | null;
+    current: SourceRun | null;
+    lastCompleted: SourceRun | null;
+    lastSuccessful: SourceRun | null;
+    totalItems: number;
+};
+
+export type SourceRunError = {
+    id: string;
+    runId: string;
+    operationId: string | null;
+    itemId: string | null;
+    fileId: string | null;
+    fileName: string | null;
+    stage: 'PROVIDER' | 'STORAGE_READ' | 'STORAGE_WRITE' | 'EXTRACTION' | 'PUBLICATION' | 'SYSTEM';
+    code: string;
+    occurredAt: string;
+};
+
+export type SourceRunErrorPage = {
+    items: Array<SourceRunError>;
+    nextCursor: string | null;
+};
+
+export type SourceItemPage = {
+    items: Array<SourceItem>;
+    nextCursor: string | null;
+    totalItems: number;
+};
+
+export type SourceOperationPage = {
+    items: Array<SourceIndexAttempt>;
+    nextCursor: string | null;
+    totalItems: number;
+};
+
 export type SourceGroup = {
     id: string;
     name: string;
@@ -259,12 +434,74 @@ export type SourceGroupList = {
     items: Array<SourceGroup>;
 };
 
+export type GoogleDriveLinkOriginResponse = {
+    rootId: string;
+    parentId: string;
+    parentName: string;
+    location: string;
+};
+
+export type GoogleDriveSelectionItemResponse = {
+    id: string;
+    name: string;
+    mimeType: string;
+    kind: 'FOLDER' | 'FILE' | 'LINKED';
+    selected: boolean;
+    coveredByRoots: boolean;
+    status: 'AVAILABLE' | 'UNAVAILABLE' | 'UNSUPPORTED';
+    origins: Array<GoogleDriveLinkOriginResponse>;
+};
+
+export type GoogleDriveSelectionResponse = {
+    revision: number;
+    discoveryRevision: number;
+    credentialRevision: number;
+    items: Array<GoogleDriveSelectionItemResponse>;
+    nextCursor: string | null;
+    counts: GoogleDriveSelectionCountsResponse;
+};
+
+export type GoogleDriveSelectionTreeItemResponse = {
+    id: string;
+    name: string;
+    mimeType: string;
+    kind: 'FOLDER' | 'FILE' | 'LINKED';
+    selected: boolean;
+    coveredByRoots: boolean;
+    status: 'AVAILABLE' | 'UNAVAILABLE' | 'UNSUPPORTED';
+    origins: Array<GoogleDriveLinkOriginResponse>;
+    expandable: boolean;
+};
+
+export type GoogleDriveSelectionTreeResponse = {
+    revision: number;
+    discoveryRevision: number;
+    credentialRevision: number;
+    items: Array<GoogleDriveSelectionTreeItemResponse>;
+    nextCursor: string | null;
+    counts: GoogleDriveSelectionCountsResponse;
+};
+
+export type GoogleDriveSelectionDraftResponse = {
+    revision: number;
+    discoveryRevision: number;
+    credentialRevision: number;
+    links: Array<string>;
+    linkedDocumentIds: Array<string>;
+};
+
 export type SourceGroupPage = {
     items: Array<SourceGroup>;
     page: number;
     size: number;
     totalItems: number;
     totalPages: number;
+};
+
+export type GoogleDriveSelectionPolicyResponse = {
+    maxExplicitRootsPerSource: number;
+    maxRequestBytes: number;
+    maxLinkedDocuments: number;
 };
 
 export type Passage = {
@@ -373,6 +610,18 @@ export type GroupCapability = {
     implies: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
 };
 
+export type GoogleDriveCredentialResponse = {
+    id: string;
+    name: string;
+    accountEmail: string;
+    status: string;
+    credentialRevision: number;
+    oauthClientConfigured: boolean;
+    createdAt: string;
+    updatedAt: string;
+    sourceCount: number;
+};
+
 export type ChatMessage = {
     id: string;
     sessionId: string;
@@ -429,6 +678,48 @@ export type ApiProblem = {
      */
     code?: string;
 };
+
+export type UpdateGoogleDriveScheduleData = {
+    body: UpdateGoogleDriveScheduleRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/schedule';
+};
+
+export type UpdateGoogleDriveScheduleResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveConfigurationResponse;
+};
+
+export type UpdateGoogleDriveScheduleResponse = UpdateGoogleDriveScheduleResponses[keyof UpdateGoogleDriveScheduleResponses];
+
+export type ReplaceGoogleDriveRootsData = {
+    body: ReplaceGoogleDriveRootsRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/roots';
+};
+
+export type ReplaceGoogleDriveRootsResponses = {
+    /**
+     * Accepted
+     */
+    202: GoogleDriveSelectionReceiptResponse;
+};
+
+export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
 
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
@@ -694,6 +985,55 @@ export type UpdateSourceGroupsResponses = {
 
 export type UpdateSourceGroupsResponse = UpdateSourceGroupsResponses[keyof UpdateSourceGroupsResponses];
 
+export type SynchronizeGoogleDriveSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/sync';
+};
+
+export type SynchronizeGoogleDriveSourceResponses = {
+    /**
+     * Accepted
+     */
+    202: SourceOperation;
+};
+
+export type SynchronizeGoogleDriveSourceResponse = SynchronizeGoogleDriveSourceResponses[keyof SynchronizeGoogleDriveSourceResponses];
+
+export type DiscoverGoogleDriveLinkedDocumentsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/linked-documents/discover';
+};
+
+export type DiscoverGoogleDriveLinkedDocumentsResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveConfigurationResponse;
+};
+
+export type DiscoverGoogleDriveLinkedDocumentsResponse = DiscoverGoogleDriveLinkedDocumentsResponses[keyof DiscoverGoogleDriveLinkedDocumentsResponses];
+
 export type DeleteSourceData = {
     body?: never;
     headers: {
@@ -718,6 +1058,28 @@ export type DeleteSourceResponses = {
 
 export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceResponses];
 
+export type CreateGoogleDriveSourceData = {
+    body: CreateGoogleDriveSourceRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/sources/google-drive';
+};
+
+export type CreateGoogleDriveSourceResponses = {
+    /**
+     * Accepted
+     */
+    202: GoogleDriveSelectionReceiptResponse;
+};
+
+export type CreateGoogleDriveSourceResponse = CreateGoogleDriveSourceResponses[keyof CreateGoogleDriveSourceResponses];
+
 export type CreateFileSourceData = {
     body: CreateFileSourceRequest;
     headers: {
@@ -735,7 +1097,7 @@ export type CreateFileSourceResponses = {
     /**
      * Created
      */
-    201: SourceDetail;
+    201: SourceSummary;
 };
 
 export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFileSourceResponses];
@@ -1184,6 +1546,52 @@ export type ReplaceGroupCapabilitiesResponses = {
 
 export type ReplaceGroupCapabilitiesResponse = ReplaceGroupCapabilitiesResponses[keyof ReplaceGroupCapabilitiesResponses];
 
+export type RevokeGoogleDriveCredentialData = {
+    body: RevokeGoogleDriveCredentialRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/google-drive/{credentialId}/revoke';
+};
+
+export type RevokeGoogleDriveCredentialResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeGoogleDriveCredentialResponse = RevokeGoogleDriveCredentialResponses[keyof RevokeGoogleDriveCredentialResponses];
+
+export type StartGoogleDriveAuthorizationData = {
+    body: StartGoogleDriveAuthorizationRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/credentials/google-drive/authorization';
+};
+
+export type StartGoogleDriveAuthorizationResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveAuthorizationResponse;
+};
+
+export type StartGoogleDriveAuthorizationResponse = StartGoogleDriveAuthorizationResponses[keyof StartGoogleDriveAuthorizationResponses];
+
 export type ListChatSessionsData = {
     body?: never;
     path?: never;
@@ -1486,17 +1894,86 @@ export type GetSourceResponses = {
     /**
      * OK
      */
-    200: SourceDetail;
+    200: SourceSummary;
 };
 
 export type GetSourceResponse = GetSourceResponses[keyof GetSourceResponses];
+
+export type ListSourceRunsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        cursor?: string;
+        size?: number;
+        status?: 'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN';
+        trigger?: 'SCHEDULED' | 'MANUAL' | 'INITIAL';
+        from?: string;
+        to?: string;
+    };
+    url: '/api/sources/{sourceId}/runs';
+};
+
+export type ListSourceRunsResponses = {
+    /**
+     * OK
+     */
+    200: SourceRunPage;
+};
+
+export type ListSourceRunsResponse = ListSourceRunsResponses[keyof ListSourceRunsResponses];
+
+export type GetSourceRunData = {
+    body?: never;
+    path: {
+        sourceId: string;
+        runId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/runs/{runId}';
+};
+
+export type GetSourceRunResponses = {
+    /**
+     * OK
+     */
+    200: SourceRun;
+};
+
+export type GetSourceRunResponse = GetSourceRunResponses[keyof GetSourceRunResponses];
+
+export type ListSourceRunErrorsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+        runId: string;
+    };
+    query?: {
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/sources/{sourceId}/runs/{runId}/errors';
+};
+
+export type ListSourceRunErrorsResponses = {
+    /**
+     * OK
+     */
+    200: SourceRunErrorPage;
+};
+
+export type ListSourceRunErrorsResponse = ListSourceRunErrorsResponses[keyof ListSourceRunErrorsResponses];
 
 export type ListSourceItemsData = {
     body?: never;
     path: {
         sourceId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        size?: number;
+    };
     url: '/api/sources/{sourceId}/items';
 };
 
@@ -1504,7 +1981,7 @@ export type ListSourceItemsResponses = {
     /**
      * OK
      */
-    200: Array<SourceItem>;
+    200: SourceItemPage;
 };
 
 export type ListSourceItemsResponse = ListSourceItemsResponses[keyof ListSourceItemsResponses];
@@ -1515,6 +1992,7 @@ export type ListSourceIndexAttemptsData = {
         sourceId: string;
     };
     query?: {
+        cursor?: string;
         size?: number;
     };
     url: '/api/sources/{sourceId}/index-attempts';
@@ -1524,10 +2002,91 @@ export type ListSourceIndexAttemptsResponses = {
     /**
      * OK
      */
-    200: Array<SourceOperation>;
+    200: SourceOperationPage;
 };
 
 export type ListSourceIndexAttemptsResponse = ListSourceIndexAttemptsResponses[keyof ListSourceIndexAttemptsResponses];
+
+export type GetGoogleDriveConfigurationData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive';
+};
+
+export type GetGoogleDriveConfigurationResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveConfigurationResponse;
+};
+
+export type GetGoogleDriveConfigurationResponse = GetGoogleDriveConfigurationResponses[keyof GetGoogleDriveConfigurationResponses];
+
+export type GetGoogleDriveSelectionData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        search?: string;
+        kind?: 'FOLDER' | 'FILE' | 'LINKED';
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/sources/{sourceId}/google-drive/selection';
+};
+
+export type GetGoogleDriveSelectionResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveSelectionResponse;
+};
+
+export type GetGoogleDriveSelectionResponse = GetGoogleDriveSelectionResponses[keyof GetGoogleDriveSelectionResponses];
+
+export type GetGoogleDriveSelectionTreeData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        parentId?: string;
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/sources/{sourceId}/google-drive/selection-tree';
+};
+
+export type GetGoogleDriveSelectionTreeResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveSelectionTreeResponse;
+};
+
+export type GetGoogleDriveSelectionTreeResponse = GetGoogleDriveSelectionTreeResponses[keyof GetGoogleDriveSelectionTreeResponses];
+
+export type GetGoogleDriveSelectionDraftData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/selection-draft';
+};
+
+export type GetGoogleDriveSelectionDraftResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveSelectionDraftResponse;
+};
+
+export type GetGoogleDriveSelectionDraftResponse = GetGoogleDriveSelectionDraftResponses[keyof GetGoogleDriveSelectionDraftResponses];
 
 export type ListSourceGroupOptionsData = {
     body?: never;
@@ -1548,6 +2107,40 @@ export type ListSourceGroupOptionsResponses = {
 };
 
 export type ListSourceGroupOptionsResponse = ListSourceGroupOptionsResponses[keyof ListSourceGroupOptionsResponses];
+
+export type GetGoogleDriveSelectionRequestData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/sources/google-drive/selection-requests/{requestId}';
+};
+
+export type GetGoogleDriveSelectionRequestResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveSelectionReceiptResponse;
+};
+
+export type GetGoogleDriveSelectionRequestResponse = GetGoogleDriveSelectionRequestResponses[keyof GetGoogleDriveSelectionRequestResponses];
+
+export type GetGoogleDriveSelectionPolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sources/google-drive/selection-policy';
+};
+
+export type GetGoogleDriveSelectionPolicyResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveSelectionPolicyResponse;
+};
+
+export type GetGoogleDriveSelectionPolicyResponse = GetGoogleDriveSelectionPolicyResponses[keyof GetGoogleDriveSelectionPolicyResponses];
 
 export type GetSourceOperationData = {
     body?: never;
@@ -1710,6 +2303,22 @@ export type ListGroupCapabilitiesResponses = {
 
 export type ListGroupCapabilitiesResponse = ListGroupCapabilitiesResponses[keyof ListGroupCapabilitiesResponses];
 
+export type ListGoogleDriveCredentialsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/credentials/google-drive';
+};
+
+export type ListGoogleDriveCredentialsResponses = {
+    /**
+     * OK
+     */
+    200: Array<GoogleDriveCredentialResponse>;
+};
+
+export type ListGoogleDriveCredentialsResponse = ListGoogleDriveCredentialsResponses[keyof ListGoogleDriveCredentialsResponses];
+
 export type GetChatSessionData = {
     body?: never;
     path: {
@@ -1797,3 +2406,24 @@ export type StreamChatMessageResponses = {
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
+
+export type DeleteGoogleDriveCredentialData = {
+    body?: never;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/google-drive/{credentialId}';
+};
+
+export type DeleteGoogleDriveCredentialResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteGoogleDriveCredentialResponse = DeleteGoogleDriveCredentialResponses[keyof DeleteGoogleDriveCredentialResponses];

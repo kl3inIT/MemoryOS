@@ -3,8 +3,42 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activateUser, addGroupMembers, assignGroupManager, cancelChatMessage, createChatSession, createFileSource, createGroup, createInvitation, deactivateUser, deleteGroup, deleteSource, finalizeSourceUpload, getChatHistory, getChatSession, getCurrentIdentity, getCurrentInvitation, getGroup, getSearchDocument, getSource, getSourceOperation, initiateSourceUpload, listChatSessions, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGroupCapabilities, replaceUserGroups, revokeInvitation, rotateInvitation, searchDocuments, sendChatMessage, updateSourceGroups } from '../sdk.gen';
-import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGroupData, GetGroupResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, cancelChatMessage, createChatSession, createFileSource, createGoogleDriveSource, createGroup, createInvitation, deactivateUser, deleteGoogleDriveCredential, deleteGroup, deleteSource, discoverGoogleDriveLinkedDocuments, finalizeSourceUpload, getChatHistory, getChatSession, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getSearchDocument, getSource, getSourceOperation, getSourceRun, initiateSourceUpload, listChatSessions, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceUserGroups, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, searchDocuments, sendChatMessage, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, updateGoogleDriveSchedule, updateSourceGroups } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
+
+/**
+ * Update the automatic Google Drive sync interval
+ */
+export const updateGoogleDriveScheduleMutation = (options?: Partial<Options<UpdateGoogleDriveScheduleData>>): UseMutationOptions<UpdateGoogleDriveScheduleResponse, DefaultError, Options<UpdateGoogleDriveScheduleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateGoogleDriveScheduleResponse, DefaultError, Options<UpdateGoogleDriveScheduleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateGoogleDriveSchedule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace selected Google Drive roots without changing the creation-time scope mode
+ */
+export const replaceGoogleDriveRootsMutation = (options?: Partial<Options<ReplaceGoogleDriveRootsData>>): UseMutationOptions<ReplaceGoogleDriveRootsResponse, DefaultError, Options<ReplaceGoogleDriveRootsData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceGoogleDriveRootsResponse, DefaultError, Options<ReplaceGoogleDriveRootsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceGoogleDriveRoots({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 /**
  * Replace a user's ordinary Group memberships
@@ -194,12 +228,63 @@ export const updateSourceGroupsMutation = (options?: Partial<Options<UpdateSourc
 };
 
 /**
+ * Schedule durable Google Drive synchronization
+ */
+export const synchronizeGoogleDriveSourceMutation = (options?: Partial<Options<SynchronizeGoogleDriveSourceData>>): UseMutationOptions<SynchronizeGoogleDriveSourceResponse, DefaultError, Options<SynchronizeGoogleDriveSourceData>> => {
+    const mutationOptions: UseMutationOptions<SynchronizeGoogleDriveSourceResponse, DefaultError, Options<SynchronizeGoogleDriveSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await synchronizeGoogleDriveSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Discover linked documents without approving or synchronizing them
+ */
+export const discoverGoogleDriveLinkedDocumentsMutation = (options?: Partial<Options<DiscoverGoogleDriveLinkedDocumentsData>>): UseMutationOptions<DiscoverGoogleDriveLinkedDocumentsResponse, DefaultError, Options<DiscoverGoogleDriveLinkedDocumentsData>> => {
+    const mutationOptions: UseMutationOptions<DiscoverGoogleDriveLinkedDocumentsResponse, DefaultError, Options<DiscoverGoogleDriveLinkedDocumentsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await discoverGoogleDriveLinkedDocuments({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Start durable source deletion
  */
 export const deleteSourceMutation = (options?: Partial<Options<DeleteSourceData>>): UseMutationOptions<DeleteSourceResponse, DefaultError, Options<DeleteSourceData>> => {
     const mutationOptions: UseMutationOptions<DeleteSourceResponse, DefaultError, Options<DeleteSourceData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await deleteSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Create a Google Drive source using a reusable credential
+ */
+export const createGoogleDriveSourceMutation = (options?: Partial<Options<CreateGoogleDriveSourceData>>): UseMutationOptions<CreateGoogleDriveSourceResponse, DefaultError, Options<CreateGoogleDriveSourceData>> => {
+    const mutationOptions: UseMutationOptions<CreateGoogleDriveSourceResponse, DefaultError, Options<CreateGoogleDriveSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createGoogleDriveSource({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -604,6 +689,40 @@ export const replaceGroupCapabilitiesMutation = (options?: Partial<Options<Repla
     return mutationOptions;
 };
 
+/**
+ * Revoke a shared Google Drive credential and disconnect all attached Sources
+ */
+export const revokeGoogleDriveCredentialMutation = (options?: Partial<Options<RevokeGoogleDriveCredentialData>>): UseMutationOptions<RevokeGoogleDriveCredentialResponse, DefaultError, Options<RevokeGoogleDriveCredentialData>> => {
+    const mutationOptions: UseMutationOptions<RevokeGoogleDriveCredentialResponse, DefaultError, Options<RevokeGoogleDriveCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeGoogleDriveCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Authorize a reusable Google Drive credential
+ */
+export const startGoogleDriveAuthorizationMutation = (options?: Partial<Options<StartGoogleDriveAuthorizationData>>): UseMutationOptions<StartGoogleDriveAuthorizationResponse, DefaultError, Options<StartGoogleDriveAuthorizationData>> => {
+    const mutationOptions: UseMutationOptions<StartGoogleDriveAuthorizationResponse, DefaultError, Options<StartGoogleDriveAuthorizationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startGoogleDriveAuthorization({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listChatSessionsQueryKey = (options?: Options<ListChatSessionsData>) => createQueryKey('listChatSessions', options);
 
 /**
@@ -820,7 +939,7 @@ export const listSourcesOptions = (options?: Options<ListSourcesData>) => queryO
 export const getSourceQueryKey = (options: Options<GetSourceData>) => createQueryKey('getSource', options);
 
 /**
- * Get one source with current items
+ * Get one source summary
  */
 export const getSourceOptions = (options: Options<GetSourceData>) => queryOptions<GetSourceResponse, DefaultError, GetSourceResponse, ReturnType<typeof getSourceQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -835,10 +954,124 @@ export const getSourceOptions = (options: Options<GetSourceData>) => queryOption
     queryKey: getSourceQueryKey(options)
 });
 
+export const listSourceRunsQueryKey = (options: Options<ListSourceRunsData>) => createQueryKey('listSourceRuns', options);
+
+/**
+ * List source synchronization runs and independent activity summaries
+ */
+export const listSourceRunsOptions = (options: Options<ListSourceRunsData>) => queryOptions<ListSourceRunsResponse, DefaultError, ListSourceRunsResponse, ReturnType<typeof listSourceRunsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourceRuns({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourceRunsQueryKey(options)
+});
+
+export const listSourceRunsInfiniteQueryKey = (options: Options<ListSourceRunsData>): QueryKey<Options<ListSourceRunsData>> => createQueryKey('listSourceRuns', options, true);
+
+/**
+ * List source synchronization runs and independent activity summaries
+ */
+export const listSourceRunsInfiniteOptions = (options: Options<ListSourceRunsData>) => {
+    const opts = infiniteQueryOptions<ListSourceRunsResponse, DefaultError, InfiniteData<ListSourceRunsResponse>, QueryKey<Options<ListSourceRunsData>>, string | Pick<QueryKey<Options<ListSourceRunsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListSourceRunsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listSourceRuns({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listSourceRunsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const getSourceRunQueryKey = (options: Options<GetSourceRunData>) => createQueryKey('getSourceRun', options);
+
+/**
+ * Get acquisition and owned indexing outcomes for one source run
+ */
+export const getSourceRunOptions = (options: Options<GetSourceRunData>) => queryOptions<GetSourceRunResponse, DefaultError, GetSourceRunResponse, ReturnType<typeof getSourceRunQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSourceRun({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSourceRunQueryKey(options)
+});
+
+export const listSourceRunErrorsQueryKey = (options: Options<ListSourceRunErrorsData>) => createQueryKey('listSourceRunErrors', options);
+
+/**
+ * List retained safe run and file errors
+ */
+export const listSourceRunErrorsOptions = (options: Options<ListSourceRunErrorsData>) => queryOptions<ListSourceRunErrorsResponse, DefaultError, ListSourceRunErrorsResponse, ReturnType<typeof listSourceRunErrorsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourceRunErrors({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourceRunErrorsQueryKey(options)
+});
+
+export const listSourceRunErrorsInfiniteQueryKey = (options: Options<ListSourceRunErrorsData>): QueryKey<Options<ListSourceRunErrorsData>> => createQueryKey('listSourceRunErrors', options, true);
+
+/**
+ * List retained safe run and file errors
+ */
+export const listSourceRunErrorsInfiniteOptions = (options: Options<ListSourceRunErrorsData>) => {
+    const opts = infiniteQueryOptions<ListSourceRunErrorsResponse, DefaultError, InfiniteData<ListSourceRunErrorsResponse>, QueryKey<Options<ListSourceRunErrorsData>>, string | Pick<QueryKey<Options<ListSourceRunErrorsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListSourceRunErrorsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listSourceRunErrors({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listSourceRunErrorsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
 export const listSourceItemsQueryKey = (options: Options<ListSourceItemsData>) => createQueryKey('listSourceItems', options);
 
 /**
- * List current source items
+ * List a page of current source items
  */
 export const listSourceItemsOptions = (options: Options<ListSourceItemsData>) => queryOptions<ListSourceItemsResponse, DefaultError, ListSourceItemsResponse, ReturnType<typeof listSourceItemsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -852,6 +1085,36 @@ export const listSourceItemsOptions = (options: Options<ListSourceItemsData>) =>
     },
     queryKey: listSourceItemsQueryKey(options)
 });
+
+export const listSourceItemsInfiniteQueryKey = (options: Options<ListSourceItemsData>): QueryKey<Options<ListSourceItemsData>> => createQueryKey('listSourceItems', options, true);
+
+/**
+ * List a page of current source items
+ */
+export const listSourceItemsInfiniteOptions = (options: Options<ListSourceItemsData>) => {
+    const opts = infiniteQueryOptions<ListSourceItemsResponse, DefaultError, InfiniteData<ListSourceItemsResponse>, QueryKey<Options<ListSourceItemsData>>, string | Pick<QueryKey<Options<ListSourceItemsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListSourceItemsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listSourceItems({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listSourceItemsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
 
 export const listSourceIndexAttemptsQueryKey = (options: Options<ListSourceIndexAttemptsData>) => createQueryKey('listSourceIndexAttempts', options);
 
@@ -869,6 +1132,168 @@ export const listSourceIndexAttemptsOptions = (options: Options<ListSourceIndexA
         return data;
     },
     queryKey: listSourceIndexAttemptsQueryKey(options)
+});
+
+export const listSourceIndexAttemptsInfiniteQueryKey = (options: Options<ListSourceIndexAttemptsData>): QueryKey<Options<ListSourceIndexAttemptsData>> => createQueryKey('listSourceIndexAttempts', options, true);
+
+/**
+ * List source indexing attempts
+ */
+export const listSourceIndexAttemptsInfiniteOptions = (options: Options<ListSourceIndexAttemptsData>) => {
+    const opts = infiniteQueryOptions<ListSourceIndexAttemptsResponse, DefaultError, InfiniteData<ListSourceIndexAttemptsResponse>, QueryKey<Options<ListSourceIndexAttemptsData>>, string | Pick<QueryKey<Options<ListSourceIndexAttemptsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListSourceIndexAttemptsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listSourceIndexAttempts({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listSourceIndexAttemptsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const getGoogleDriveConfigurationQueryKey = (options: Options<GetGoogleDriveConfigurationData>) => createQueryKey('getGoogleDriveConfiguration', options);
+
+/**
+ * Get Google Drive source configuration
+ */
+export const getGoogleDriveConfigurationOptions = (options: Options<GetGoogleDriveConfigurationData>) => queryOptions<GetGoogleDriveConfigurationResponse, DefaultError, GetGoogleDriveConfigurationResponse, ReturnType<typeof getGoogleDriveConfigurationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGoogleDriveConfiguration({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGoogleDriveConfigurationQueryKey(options)
+});
+
+export const getGoogleDriveSelectionQueryKey = (options: Options<GetGoogleDriveSelectionData>) => createQueryKey('getGoogleDriveSelection', options);
+
+/**
+ * Page selected roots and verified linked documents within a pinned Source snapshot
+ */
+export const getGoogleDriveSelectionOptions = (options: Options<GetGoogleDriveSelectionData>) => queryOptions<GetGoogleDriveSelectionResponse, DefaultError, GetGoogleDriveSelectionResponse, ReturnType<typeof getGoogleDriveSelectionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGoogleDriveSelection({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGoogleDriveSelectionQueryKey(options)
+});
+
+export const getGoogleDriveSelectionInfiniteQueryKey = (options: Options<GetGoogleDriveSelectionData>): QueryKey<Options<GetGoogleDriveSelectionData>> => createQueryKey('getGoogleDriveSelection', options, true);
+
+/**
+ * Page selected roots and verified linked documents within a pinned Source snapshot
+ */
+export const getGoogleDriveSelectionInfiniteOptions = (options: Options<GetGoogleDriveSelectionData>) => {
+    const opts = infiniteQueryOptions<GetGoogleDriveSelectionResponse, DefaultError, InfiniteData<GetGoogleDriveSelectionResponse>, QueryKey<Options<GetGoogleDriveSelectionData>>, string | Pick<QueryKey<Options<GetGoogleDriveSelectionData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<GetGoogleDriveSelectionData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await getGoogleDriveSelection({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: getGoogleDriveSelectionInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const getGoogleDriveSelectionTreeQueryKey = (options: Options<GetGoogleDriveSelectionTreeData>) => createQueryKey('getGoogleDriveSelectionTree', options);
+
+/**
+ * Expand selected Google Drive folders, files, and discovered links within the Source scope
+ */
+export const getGoogleDriveSelectionTreeOptions = (options: Options<GetGoogleDriveSelectionTreeData>) => queryOptions<GetGoogleDriveSelectionTreeResponse, DefaultError, GetGoogleDriveSelectionTreeResponse, ReturnType<typeof getGoogleDriveSelectionTreeQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGoogleDriveSelectionTree({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGoogleDriveSelectionTreeQueryKey(options)
+});
+
+export const getGoogleDriveSelectionTreeInfiniteQueryKey = (options: Options<GetGoogleDriveSelectionTreeData>): QueryKey<Options<GetGoogleDriveSelectionTreeData>> => createQueryKey('getGoogleDriveSelectionTree', options, true);
+
+/**
+ * Expand selected Google Drive folders, files, and discovered links within the Source scope
+ */
+export const getGoogleDriveSelectionTreeInfiniteOptions = (options: Options<GetGoogleDriveSelectionTreeData>) => {
+    const opts = infiniteQueryOptions<GetGoogleDriveSelectionTreeResponse, DefaultError, InfiniteData<GetGoogleDriveSelectionTreeResponse>, QueryKey<Options<GetGoogleDriveSelectionTreeData>>, string | Pick<QueryKey<Options<GetGoogleDriveSelectionTreeData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<GetGoogleDriveSelectionTreeData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await getGoogleDriveSelectionTree({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: getGoogleDriveSelectionTreeInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const getGoogleDriveSelectionDraftQueryKey = (options: Options<GetGoogleDriveSelectionDraftData>) => createQueryKey('getGoogleDriveSelectionDraft', options);
+
+/**
+ * Get the complete bounded active selection for editing
+ */
+export const getGoogleDriveSelectionDraftOptions = (options: Options<GetGoogleDriveSelectionDraftData>) => queryOptions<GetGoogleDriveSelectionDraftResponse, DefaultError, GetGoogleDriveSelectionDraftResponse, ReturnType<typeof getGoogleDriveSelectionDraftQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGoogleDriveSelectionDraft({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGoogleDriveSelectionDraftQueryKey(options)
 });
 
 export const listSourceGroupOptionsQueryKey = (options?: Options<ListSourceGroupOptionsData>) => createQueryKey('listSourceGroupOptions', options);
@@ -918,6 +1343,42 @@ export const listSourceGroupOptionsInfiniteOptions = (options?: Options<ListSour
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
+
+export const getGoogleDriveSelectionRequestQueryKey = (options: Options<GetGoogleDriveSelectionRequestData>) => createQueryKey('getGoogleDriveSelectionRequest', options);
+
+/**
+ * Recover an accepted selection receipt for the initiating owner
+ */
+export const getGoogleDriveSelectionRequestOptions = (options: Options<GetGoogleDriveSelectionRequestData>) => queryOptions<GetGoogleDriveSelectionRequestResponse, DefaultError, GetGoogleDriveSelectionRequestResponse, ReturnType<typeof getGoogleDriveSelectionRequestQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGoogleDriveSelectionRequest({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGoogleDriveSelectionRequestQueryKey(options)
+});
+
+export const getGoogleDriveSelectionPolicyQueryKey = (options?: Options<GetGoogleDriveSelectionPolicyData>) => createQueryKey('getGoogleDriveSelectionPolicy', options);
+
+/**
+ * Get the configured selection admission limits
+ */
+export const getGoogleDriveSelectionPolicyOptions = (options?: Options<GetGoogleDriveSelectionPolicyData>) => queryOptions<GetGoogleDriveSelectionPolicyResponse, DefaultError, GetGoogleDriveSelectionPolicyResponse, ReturnType<typeof getGoogleDriveSelectionPolicyQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGoogleDriveSelectionPolicy({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGoogleDriveSelectionPolicyQueryKey(options)
+});
 
 export const getSourceOperationQueryKey = (options: Options<GetSourceOperationData>) => createQueryKey('getSourceOperation', options);
 
@@ -1095,6 +1556,24 @@ export const listGroupCapabilitiesOptions = (options?: Options<ListGroupCapabili
     queryKey: listGroupCapabilitiesQueryKey(options)
 });
 
+export const listGoogleDriveCredentialsQueryKey = (options?: Options<ListGoogleDriveCredentialsData>) => createQueryKey('listGoogleDriveCredentials', options);
+
+/**
+ * List reusable Tenant-owned Google Drive credentials
+ */
+export const listGoogleDriveCredentialsOptions = (options?: Options<ListGoogleDriveCredentialsData>) => queryOptions<ListGoogleDriveCredentialsResponse, DefaultError, ListGoogleDriveCredentialsResponse, ReturnType<typeof listGoogleDriveCredentialsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGoogleDriveCredentials({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGoogleDriveCredentialsQueryKey(options)
+});
+
 export const getChatSessionQueryKey = (options: Options<GetChatSessionData>) => createQueryKey('getChatSession', options);
 
 /**
@@ -1112,3 +1591,20 @@ export const getChatSessionOptions = (options: Options<GetChatSessionData>) => q
     },
     queryKey: getChatSessionQueryKey(options)
 });
+
+/**
+ * Delete an unused Google Drive credential with a revision precondition
+ */
+export const deleteGoogleDriveCredentialMutation = (options?: Partial<Options<DeleteGoogleDriveCredentialData>>): UseMutationOptions<DeleteGoogleDriveCredentialResponse, DefaultError, Options<DeleteGoogleDriveCredentialData>> => {
+    const mutationOptions: UseMutationOptions<DeleteGoogleDriveCredentialResponse, DefaultError, Options<DeleteGoogleDriveCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteGoogleDriveCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

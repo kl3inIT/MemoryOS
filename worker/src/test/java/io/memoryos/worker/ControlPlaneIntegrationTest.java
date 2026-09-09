@@ -32,6 +32,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -40,6 +42,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
+                "arconia.dev.services.redis.enabled=false",
                 "memoryos.worker.enabled=false",
                 "memoryos.redis.topology-interval=1h",
                 "memoryos.redis.relay-interval=100ms",
@@ -47,6 +50,12 @@ import org.testcontainers.utility.DockerImageName;
                 "memoryos.redis.ingestion.group=memoryos-test-control-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:control:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-control-cleanup-workers",
+                "memoryos.redis.search.stream=memoryos:test:control:search",
+                "memoryos.redis.search.group=memoryos-test-control-search-workers",
+                "memoryos.redis.source-sync.stream=memoryos:test:control:source-sync",
+                "memoryos.redis.source-sync.group=memoryos-test-control-source-sync",
+                "memoryos.redis.selection-validation.stream=memoryos:test:control:selection-validation",
+                "memoryos.redis.selection-validation.group=memoryos-test-control-selection-validation",
                 "spring.data.redis.repositories.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "db-scheduler.enabled=true",
@@ -75,6 +84,17 @@ class ControlPlaneIntegrationTest {
             .withUsername("memoryos")
             .withPassword("memoryos");
 
+    @Container
+    private static final GenericContainer<?> REDIS = new GenericContainer<>(
+            DockerImageName.parse(
+                    "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232"
+            )
+    )
+            .withExposedPorts(6379)
+            .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
+            .withStartupTimeout(Duration.ofSeconds(30));
+
+
     @Autowired
     private JdbcClient jdbcClient;
     @Autowired
@@ -91,6 +111,8 @@ class ControlPlaneIntegrationTest {
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
         WorkerPostgresDatabase.configure(registry, POSTGRES);
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }
 
     @Test
@@ -104,6 +126,8 @@ class ControlPlaneIntegrationTest {
         assertTrue(groupExists(redisProperties.ingestion()));
         assertTrue(groupExists(redisProperties.cleanup()));
         assertTrue(groupExists(redisProperties.search()));
+        assertTrue(groupExists(redisProperties.sourceSync()));
+        assertTrue(groupExists(redisProperties.selectionValidation()));
         assertEquals(
                 HttpStatus.OK,
                 http.getForEntity("/actuator/health/readiness", String.class).getStatusCode()

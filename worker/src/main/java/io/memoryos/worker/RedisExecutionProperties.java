@@ -17,7 +17,9 @@ public record RedisExecutionProperties(
         long maxStreamDepth,
         Workload ingestion,
         Workload cleanup,
-        Workload search
+        Workload search,
+        Workload sourceSync,
+        Workload selectionValidation
 ) {
 
     public RedisExecutionProperties {
@@ -33,6 +35,8 @@ public record RedisExecutionProperties(
         }
         Objects.requireNonNull(ingestion, "ingestion must not be null");
         Objects.requireNonNull(cleanup, "cleanup must not be null");
+        Objects.requireNonNull(sourceSync, "sourceSync must not be null");
+        Objects.requireNonNull(selectionValidation, "selectionValidation must not be null");
         Objects.requireNonNull(search, "search must not be null");
     }
 
@@ -40,6 +44,8 @@ public record RedisExecutionProperties(
         return switch (Objects.requireNonNull(workload, "workload must not be null")) {
             case INGESTION -> ingestion;
             case CLEANUP -> cleanup;
+            case SOURCE_SYNC -> sourceSync;
+            case GOOGLE_DRIVE_SELECTION_VALIDATION -> selectionValidation;
             case SEARCH -> search;
         };
     }

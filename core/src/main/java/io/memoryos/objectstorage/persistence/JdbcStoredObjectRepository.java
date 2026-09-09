@@ -32,22 +32,37 @@ public class JdbcStoredObjectRepository {
             ObjectUploadSpecification specification,
             Instant expiresAt
     ) {
+        create(tenantId, id, key, specification.filename(),
+                new ObjectMetadata(specification.sizeBytes(), specification.mediaType(), specification.checksum()),
+                false, expiresAt);
+    }
+
+    public void create(
+            TenantId tenantId,
+            StoredObjectId id,
+            ObjectKey key,
+            String filename,
+            ObjectMetadata metadata,
+            boolean nativeSnapshot,
+            Instant expiresAt
+    ) {
         jdbcClient.sql("""
                         INSERT INTO stored_objects (
                             id, tenant_id, object_key, filename, declared_media_type,
-                            size_bytes, content_sha256, state, expires_at
+                            size_bytes, content_sha256, input_kind, state, expires_at
                         ) VALUES (
                             :id, :tenantId, :objectKey, :filename, :mediaType,
-                            :sizeBytes, :sha256, 'STAGED', :expiresAt
+                            :sizeBytes, :sha256, :inputKind, 'STAGED', :expiresAt
                         )
                         """)
                 .param("id", id.value())
                 .param("tenantId", tenantId.value())
                 .param("objectKey", key.value())
-                .param("filename", specification.filename())
-                .param("mediaType", specification.mediaType())
-                .param("sizeBytes", specification.sizeBytes())
-                .param("sha256", specification.checksum().value())
+                .param("filename", filename)
+                .param("mediaType", metadata.mediaType())
+                .param("sizeBytes", metadata.sizeBytes())
+                .param("sha256", metadata.checksum().value())
+                .param("inputKind", nativeSnapshot ? "NATIVE_SNAPSHOT" : "BINARY")
                 .param("expiresAt", Timestamp.from(expiresAt))
                 .update();
     }

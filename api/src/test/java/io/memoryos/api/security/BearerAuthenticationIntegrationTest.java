@@ -53,6 +53,7 @@ class BearerAuthenticationIntegrationTest {
     private static final String AUDIENCE = "memoryos-api";
     private static final String BOUND_SUBJECT = "bound-subject";
     private static final String ACTOR_ID = "00000000-0000-0000-0000-000000000001";
+
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final RSAKey WRONG_KEY = rsaKey();
     private static final HttpServer JWK_SERVER = startJwkServer();

@@ -4,6 +4,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.TenantId;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -21,10 +23,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresInvitationRepositoryReadConcurrencyTest {
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
 
     @Test
     void readOnlyLookupsDoNotWaitForJpaLifecycleRowLock() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         var jdbcClient = JdbcClient.create(dataSource);
         try (JpaHarness jpa = TestDatabase.jpa(dataSource)) {
             var repository = new JpaInvitationRepository(jpa.entityManager());

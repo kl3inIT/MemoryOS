@@ -3,10 +3,12 @@ package io.memoryos.iam.persistence;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,10 +22,19 @@ class GroupSchemaIntegrityTest {
     private static final UUID GROUP = uuid("40000000-0000-0000-0000-000000000057");
 
     private JdbcClient jdbc;
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
 
     @BeforeEach
     void setUp() throws Exception {
-        jdbc = JdbcClient.create(TestDatabase.freshPostgres());
+        dataSource = TestDatabase.freshPostgres();
+        jdbc = JdbcClient.create(dataSource);
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT ck_tenants_deployment_slot").update();
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         persistTenant(TENANT_ONE, "one", 1);
@@ -109,8 +120,8 @@ class GroupSchemaIntegrityTest {
                 .param("tenantId", TENANT_ONE)
                 .update();
         jdbc.sql("""
-                        INSERT INTO credentials (id, tenant_id, credential_kind, status)
-                        VALUES (:id, :tenantId, 'NO_AUTH', 'ACTIVE')
+                        INSERT INTO credentials (id, tenant_id, name, credential_kind, status)
+                        VALUES (:id, :tenantId, 'File credential', 'NO_AUTH', 'ACTIVE')
                         """)
                 .param("id", credential)
                 .param("tenantId", TENANT_ONE)

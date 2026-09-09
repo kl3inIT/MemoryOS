@@ -5,15 +5,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
+import java.util.ArrayList;
+import org.junit.jupiter.api.AfterEach;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.SourceAction;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceItemView;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceUploadReceipt;
@@ -90,6 +95,15 @@ import tools.jackson.databind.ObjectMapper;
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresSourceLifecycleTest {
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
+
 
     private JdbcClient jdbcClient;
     private DataSourceTransactionManager transactionManager;
@@ -109,7 +123,7 @@ class PostgresSourceLifecycleTest {
 
     @BeforeEach
     void migrateAndSeed() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbcClient = JdbcClient.create(dataSource);
         transactionManager = new DataSourceTransactionManager(dataSource);
         objectMapper = new ObjectMapper();
@@ -138,7 +152,8 @@ class PostgresSourceLifecycleTest {
 
         var sourceRepository = new JdbcSourceRepository(jdbcClient);
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
-        attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments);
+        attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
+                org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class));
         var documents = new JdbcDocumentRepository(jdbcClient, objectMapper, _ -> { });
         sourceUploads = new JdbcSourceUploadRepository(jdbcClient);
         objectStorage = new InMemoryObjectStorage();
@@ -171,7 +186,9 @@ class PostgresSourceLifecycleTest {
                         sourceUploads,
                         documents,
                         objectUploads,
-                        storedObjects
+                        storedObjects,
+                        new JdbcSourceItemRepository(jdbcClient),
+                        org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectWriteService.class)
                 ),
                 ConnectorCleanupPort.class,
                 transactionManager
@@ -198,9 +215,95 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
+    void itemPagesUseStableDescendingKeysWhileNewUploadsArrive() {
+        SourceId sourceId = service.createFileSource(owner, "Paged files", List.of()).id();
+        var empty = service.listItems(owner, sourceId, null, 2);
+        assertTrue(empty.items().isEmpty());
+        assertNull(empty.nextCursor());
+        assertEquals(0L, empty.totalItems());
+        var uploaded = new ArrayList<SourceItemView>();
+        for (int index = 0; index < 4; index++) {
+            var item = upload(owner, sourceId, "item-" + index + ".txt",
+                    ("page content " + index).getBytes(StandardCharsets.UTF_8)).item();
+            uploaded.add(item);
+            jdbcClient.sql("UPDATE connector_items SET created_at = TIMESTAMPTZ '2026-01-01 00:00:00.123456+00' WHERE id = :id")
+                    .param("id", item.id().value()).update();
+        }
+        jdbcClient.sql("UPDATE connector_items SET status = 'FAILED' WHERE id = :id")
+                .param("id", uploaded.getFirst().id().value()).update();
+        SourceId other = service.createFileSource(owner, "Other files", List.of()).id();
+        upload(owner, other, "other.txt", "other source content".getBytes(StandardCharsets.UTF_8));
+        assertEquals(1L, service.listItems(owner, other, null, 2).totalItems());
+        assertEquals(0L, new JdbcSourceQueryRepository(jdbcClient)
+                .items(new TenantId(UUID.randomUUID()), sourceId, null, 2).totalItems());
+        var expected = uploaded.stream()
+                .sorted((left, right) -> right.id().value().toString().compareTo(left.id().value().toString()))
+                .map(SourceItemView::id).toList();
+        var complete = service.listItems(owner, sourceId, null, 4);
+        assertEquals(expected, complete.items().stream().map(SourceItemView::id).toList());
+        assertNull(complete.nextCursor());
+        assertEquals(4L, complete.totalItems());
+
+        var first = service.listItems(owner, sourceId, null, 2);
+        assertEquals(expected.subList(0, 2), first.items().stream().map(SourceItemView::id).toList());
+        assertNotNull(first.nextCursor());
+        assertEquals(4L, first.totalItems());
+        var newest = upload(owner, sourceId, "new.txt", "new page content".getBytes(StandardCharsets.UTF_8)).item();
+        var second = service.listItems(owner, sourceId, first.nextCursor(), 2);
+        assertEquals(expected.subList(2, 4), second.items().stream().map(SourceItemView::id).toList());
+        assertNull(second.nextCursor());
+        assertEquals(5L, second.totalItems());
+        assertEquals(newest.id(), service.listItems(owner, sourceId, null, 1).items().getFirst().id());
+        jdbcClient.sql("UPDATE connector_items SET created_at = CURRENT_TIMESTAMP WHERE id IN (:first, :second)")
+                .param("first", expected.get(2).value()).param("second", expected.get(3).value()).update();
+        var exhausted = service.listItems(owner, sourceId, first.nextCursor(), 2);
+        assertTrue(exhausted.items().isEmpty());
+        assertEquals(5L, exhausted.totalItems());
+    }
+
+    @Test
+    void itemCursorsRejectOtherSourcesTenantsKindsAndMalformedPositionsAfterAuthorityChecks() {
+        SourceId sourceId = service.createFileSource(owner, "Cursor scope", List.of()).id();
+        for (int index = 0; index < 2; index++) {
+            upload(owner, sourceId, "cursor-" + index + ".txt",
+                    ("cursor content " + index).getBytes(StandardCharsets.UTF_8));
+        }
+        var page = service.listItems(owner, sourceId, null, 1);
+        assertNotNull(page.nextCursor());
+        SourceId other = service.createFileSource(owner, "Other cursor scope", List.of()).id();
+        assertEquals("SOURCE_INVALID_REQUEST", assertThrows(SourceException.class,
+                () -> service.listItems(owner, other, page.nextCursor(), 1)).code());
+        String scope = tenantId + "|" + sourceId.value() + "|ITEM|";
+        for (String position : List.of(
+                UUID.randomUUID() + "|" + sourceId.value() + "|ITEM|2026-01-01T00:00:00Z|" + UUID.randomUUID(),
+                tenantId + "|" + sourceId.value() + "|INDEX|1",
+                scope + "invalid-date|" + UUID.randomUUID(),
+                scope + "+294277-01-01T00:00:00Z|" + UUID.randomUUID(),
+                scope + Instant.MAX + "|" + UUID.randomUUID(),
+                scope + "2026-01-01T00:00:00Z|invalid-id")) {
+            String cursor = java.util.Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(position.getBytes(StandardCharsets.UTF_8));
+            assertEquals("SOURCE_INVALID_REQUEST", assertThrows(SourceException.class,
+                    () -> service.listItems(owner, sourceId, cursor, 1)).code());
+        }
+        assertEquals("SOURCE_INVALID_REQUEST", assertThrows(SourceException.class,
+                () -> service.listItems(owner, sourceId, "!", 1)).code());
+        assertEquals("SOURCE_INVALID_REQUEST", assertThrows(SourceException.class,
+                () -> service.listItems(owner, sourceId, null, 0)).code());
+        assertEquals("SOURCE_INVALID_REQUEST", assertThrows(SourceException.class,
+                () -> service.listItems(owner, sourceId, null, 101)).code());
+        assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
+                () -> service.listItems(owner, new SourceId(UUID.randomUUID()), "!", 1)).code());
+        jdbcClient.sql("DELETE FROM iam_group_memberships WHERE actor_id = :actor")
+                .param("actor", owner.value()).update();
+        assertEquals("IAM_ACCESS_DENIED", assertThrows(IamException.class,
+                () -> service.listItems(owner, sourceId, page.nextCursor(), 1)).code());
+    }
+
+    @Test
     void sourceCreationAssociatesAdminByDefaultAndRejectsUnknownGroupsAtomically() {
         var defaultSource = service.createFileSource(owner, "Admin source", List.of());
-        var defaultGroups = service.listSourceGroups(owner, defaultSource.source().id());
+        var defaultGroups = service.listSourceGroups(owner, defaultSource.id());
         assertEquals(1, defaultGroups.size());
         assertEquals(GroupSystemKey.ADMIN, defaultGroups.getFirst().systemKey());
 
@@ -231,25 +334,25 @@ class PostgresSourceLifecycleTest {
         var hidden = service.createFileSource(owner, "Hidden source", List.of());
         var managedUpload = upload(
                 manager,
-                managed.source().id(),
+                managed.id(),
                 "managed.txt",
                 "managed content".getBytes(StandardCharsets.UTF_8)
         );
         var hiddenUpload = upload(
                 owner,
-                hidden.source().id(),
+                hidden.id(),
                 "hidden.txt",
                 "hidden content".getBytes(StandardCharsets.UTF_8)
         );
 
         var visible = service.listSources(manager);
         assertEquals(1, visible.size());
-        assertEquals(managed.source().id(), visible.getFirst().id());
+        assertEquals(managed.id(), visible.getFirst().id());
         assertEquals(
                 List.of(SourceAction.UPLOAD, SourceAction.REINDEX),
                 visible.getFirst().actions()
         );
-        assertThrows(SourceException.class, () -> service.getSource(manager, hidden.source().id()));
+        assertThrows(SourceException.class, () -> service.getSource(manager, hidden.id()));
         assertEquals(
                 managedUpload.operation(),
                 service.getOperation(manager, managedUpload.operation().id())
@@ -258,15 +361,15 @@ class PostgresSourceLifecycleTest {
                 SourceException.class,
                 () -> service.getOperation(manager, hiddenUpload.operation().id())
         );
-        service.reindex(manager, managed.source().id(), managedUpload.item().id());
+        service.reindex(manager, managed.id(), managedUpload.item().id());
         IamException deleteDenied = assertThrows(
                 IamException.class,
-                () -> service.removeItem(manager, managed.source().id(), managedUpload.item().id())
+                () -> service.removeItem(manager, managed.id(), managedUpload.item().id())
         );
         assertEquals("IAM_ACCESS_DENIED", deleteDenied.code());
         assertThrows(
                 IamException.class,
-                () -> service.deleteSource(manager, managed.source().id())
+                () -> service.deleteSource(manager, managed.id())
         );
         assertThrows(
                 IamException.class,
@@ -276,7 +379,7 @@ class PostgresSourceLifecycleTest {
                 IamException.class,
                 () -> service.replaceSourceGroups(
                         manager,
-                        managed.source().id(),
+                        managed.id(),
                         List.of(managedGroupId)
                 )
         );
@@ -287,11 +390,11 @@ class PostgresSourceLifecycleTest {
 
         service.replaceSourceGroups(
                 owner,
-                managed.source().id(),
+                managed.id(),
                 List.of(adminGroupId())
         );
         assertTrue(service.listSources(manager).isEmpty());
-        assertThrows(SourceException.class, () -> service.getSource(manager, managed.source().id()));
+        assertThrows(SourceException.class, () -> service.getSource(manager, managed.id()));
         assertThrows(
                 SourceException.class,
                 () -> service.getOperation(manager, managedUpload.operation().id())
@@ -306,7 +409,7 @@ class PostgresSourceLifecycleTest {
                 owner,
                 "Revoked source",
                 List.of(managedGroupId)
-        ).source().id();
+        ).id();
         byte[] content = "revoked during verification".getBytes(StandardCharsets.UTF_8);
         ObjectUploadAuthorization upload = service.initiateUpload(
                 manager,
@@ -364,7 +467,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void duplicateUploadConvergesOnOneItemVersionAndAttempt() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Files", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Files", List.of()).id();
         byte[] content = "same MemoryOS content".getBytes(StandardCharsets.UTF_8);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> upload(owner, sourceId, "first.txt", content));
@@ -381,7 +484,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void finalizeReplayReturnsThePersistedReceiptWithoutAdoptingTwice() {
-        SourceId sourceId = service.createFileSource(owner, "Lost response", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Lost response", List.of()).id();
         byte[] content = "lost finalize response".getBytes(StandardCharsets.UTF_8);
         ObjectUploadAuthorization authorization = service.initiateUpload(
                 owner,
@@ -401,7 +504,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void duplicateDiscardAndAdoptedRemovalReleaseEveryObjectReference() {
-        SourceId sourceId = service.createFileSource(owner, "Duplicate cleanup", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Duplicate cleanup", List.of()).id();
         byte[] content = "duplicate cleanup content".getBytes(StandardCharsets.UTF_8);
         SourceUploadReceipt first = upload(owner, sourceId, "first.txt", content);
         SourceUploadReceipt duplicate = upload(owner, sourceId, "duplicate.txt", content);
@@ -433,7 +536,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void concurrentRelayClaimsOnceAndRediscoveryRepublishesFromPostgres() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Relay", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Relay", List.of()).id();
         var upload = upload(owner, sourceId, "relay.txt", "relay content".getBytes(StandardCharsets.UTF_8));
 
         int claimed;
@@ -465,7 +568,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void transportFailureDefersWithoutFailingTheOperation() {
-        SourceId sourceId = service.createFileSource(owner, "Transport", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Transport", List.of()).id();
         upload(owner, sourceId, "transport.txt", "transport".getBytes(StandardCharsets.UTF_8));
         var claim = operationDispatch.claim(OperationWorkload.INGESTION, 1).getFirst();
 
@@ -485,7 +588,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void unexpectedProcessingFailureRetriesThenTerminatesDurably() {
-        SourceId sourceId = service.createFileSource(owner, "Retry", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Retry", List.of()).id();
         upload(owner, sourceId, "retry.txt", "retry".getBytes(StandardCharsets.UTF_8));
 
         for (int attempt = 1; attempt <= 3; attempt++) {
@@ -538,7 +641,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void staleWorkerTokenCannotCompleteAfterLeaseReclaim() {
-        SourceId sourceId = service.createFileSource(owner, "Lease", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Lease", List.of()).id();
         byte[] content = "lease content".getBytes(StandardCharsets.UTF_8);
         upload(owner, sourceId, "lease.txt", content);
         OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
@@ -576,44 +679,63 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void recoveredAttemptsClearHistoricalErrorsWithoutHidingOtherItemFailures() {
-        SourceId sourceId = service.createFileSource(owner, "Recovery", List.of()).source().id();
-        var uploads = List.of(
-                upload(owner, sourceId, "first.txt", "first".getBytes(StandardCharsets.UTF_8)),
-                upload(owner, sourceId, "second.txt", "second".getBytes(StandardCharsets.UTF_8))
-        );
-        for (int index = 0; index < uploads.size(); index++) {
-            OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
-            var work = attempts.claim(
-                    delivery.tenantId(), delivery.operationId(), delivery.deliveryId()
-            ).orElseThrow();
-            assertTrue(attempts.fail(work, "SOURCE_EXTRACTION_TIMEOUT"));
+    void successfulReindexClearsOnlyRecoveredItemFailures() throws Exception {
+        SourceId sourceId = service.createFileSource(owner, "Recovery", List.of()).id();
+        var uploads = new java.util.ArrayList<SourceUploadReceipt>();
+        String[] failures = {"SOURCE_EXTRACTION_MALFORMED", "SOURCE_EXTRACTION_TIMEOUT"};
+        for (int index = 0; index < failures.length; index++) {
+            uploads.add(upload(owner, sourceId, "item-" + index + ".txt",
+                    ("content " + index).getBytes(StandardCharsets.UTF_8)));
+            var delivery = dispatch(OperationWorkload.INGESTION);
+            var work = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
+            assertTrue(attempts.fail(work, failures[index]));
         }
+        assertEquals(failures[1], service.getSource(owner, sourceId).errorCode());
 
-        for (int index = 0; index < uploads.size(); index++) {
-            service.reindex(owner, sourceId, uploads.get(index).item().id());
-            OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
-            var work = attempts.claim(
-                    delivery.tenantId(), delivery.operationId(), delivery.deliveryId()
-            ).orElseThrow();
+        for (int index = uploads.size() - 1; index >= 0; index--) {
+            var itemId = uploads.get(index).item().id();
+            var reindex = service.reindex(owner, sourceId, itemId);
+            var item = service.listItems(owner, sourceId, null, 25).items().stream()
+                    .filter(current -> current.id().equals(itemId)).findFirst().orElseThrow();
+            assertEquals(reindex.id(), item.latestAttempt().id());
+            assertNull(item.lastIndexedAt());
+            assertNull(item.latestAttempt().startedAt());
+            assertNull(item.errorCode());
+            var delivery = dispatch(OperationWorkload.INGESTION);
+            var work = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
             DocumentId documentId = new DocumentId(UUID.randomUUID());
-            jdbcClient.sql("INSERT INTO documents (id, tenant_id, status) VALUES (:id, :tenantId, 'ELIGIBLE')")
+            jdbcClient.sql("""
+                            INSERT INTO documents (id, tenant_id, status)
+                            VALUES (:id, :tenantId, 'ELIGIBLE')
+                            """)
                     .param("id", documentId.value())
                     .param("tenantId", tenantId)
                     .update();
             assertTrue(attempts.complete(work, documentId));
-            assertEquals(
-                    index == 0 ? "SOURCE_EXTRACTION_TIMEOUT" : null,
-                    service.getSource(owner, sourceId).source().errorCode()
-            );
+            var indexed = service.listItems(owner, sourceId, null, 25).items().stream()
+                    .filter(current -> current.id().equals(itemId)).findFirst().orElseThrow();
+            assertEquals(service.getOperation(owner, reindex.id()).completedAt(), indexed.lastIndexedAt());
+            assertNotNull(indexed.latestAttempt().startedAt());
+            var historyAttempt = service.listIndexAttempts(owner, sourceId, null, 25).items().stream()
+                    .filter(current -> current.id().equals(reindex.id())).findFirst().orElseThrow();
+            assertEquals("item-" + index + ".txt", historyAttempt.filename());
+            assertEquals(indexed.lastIndexedAt(), historyAttempt.completedAt());
+            var source = service.getSource(owner, sourceId);
+            assertEquals(index == 1 ? failures[0] : null, source.errorCode());
+            assertEquals(uploads.size() - index, source.documentCount());
         }
-        assertEquals(2L, jdbcClient.sql("SELECT COUNT(*) FROM index_attempts WHERE status = 'FAILED'")
-                .query(Long.class).single());
+        var previouslyIndexed = service.listItems(owner, sourceId, null, 25).items().getFirst();
+        var pending = service.reindex(owner, sourceId, previouslyIndexed.id());
+        var reindexing = service.listItems(owner, sourceId, null, 25).items().stream()
+                .filter(current -> current.id().equals(previouslyIndexed.id())).findFirst().orElseThrow();
+        assertEquals(previouslyIndexed.lastIndexedAt(), reindexing.lastIndexedAt());
+        assertEquals(pending.id(), reindexing.latestAttempt().id());
+        assertNull(reindexing.latestAttempt().completedAt());
     }
 
     @Test
     void uploadRejectsAnItemWhoseRemovalIsPending() {
-        SourceId sourceId = service.createFileSource(owner, "Deleting item", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Deleting item", List.of()).id();
         byte[] content = "pending removal".getBytes(StandardCharsets.UTF_8);
         var upload = upload(owner, sourceId, "pending.txt", content);
         service.removeItem(owner, sourceId, upload.item().id());
@@ -650,7 +772,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void removeRechecksSourceDeletionAfterWaitingForTheSourceLock() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Cleanup race", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Cleanup race", List.of()).id();
         byte[] content = "cleanup race".getBytes(StandardCharsets.UTF_8);
         var upload = upload(owner, sourceId, "race.txt", content);
         var coordinatedRepository = new CoordinatedSourceRepository(jdbcClient);
@@ -682,7 +804,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void concurrentReindexAndCleanupLeaseReclaimRemainSingleFlight() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Single flight", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Single flight", List.of()).id();
         byte[] content = "single flight".getBytes(StandardCharsets.UTF_8);
         var upload = upload(owner, sourceId, "single.txt", content);
         OperationDelivery initialDelivery = dispatch(OperationWorkload.INGESTION);
@@ -728,7 +850,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void inactiveTenantCancelsPendingIndexWorkWithoutPublishing() {
-        SourceId sourceId = service.createFileSource(owner, "Inactive", List.of()).source().id();
+        SourceId sourceId = service.createFileSource(owner, "Inactive", List.of()).id();
         byte[] content = "inactive content".getBytes(StandardCharsets.UTF_8);
         upload(owner, sourceId, "inactive.txt", content);
         upload(owner, sourceId, "second.txt", "second".getBytes(StandardCharsets.UTF_8));
@@ -871,7 +993,8 @@ class PostgresSourceLifecycleTest {
         var target = new DefaultSourceManagementService(
                 sourceRepository,
                 new JdbcSourceItemRepository(jdbcClient),
-                new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments),
+                new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
+                        org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class)),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 new JdbcSourceOperationQueryRepository(jdbcClient),
@@ -886,7 +1009,9 @@ class PostgresSourceLifecycleTest {
                         new GroupInvariantRepository(jdbcClient),
                         new GroupProjectionRepository(jdbcClient)
                 ),
-                transactionManager
+                transactionManager,
+                new io.memoryos.connector.persistence.JdbcSourceSyncRepository(jdbcClient),
+                new io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository(jdbcClient)
         );
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }
