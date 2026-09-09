@@ -179,8 +179,8 @@ Live staging provisioning, authenticated Discover inspection and exact-SHA deplo
 ## 2026-09-09 — Search landing and repeated-query feedback
 
 - Simplified the initial Search workspace to one visible `Search your workspace` heading above the centered composer; the prior document icon, eyebrow and helper sentence were removed to keep the product-specific Search route quiet and distinct from Chat.
-- A submitted query now changes the fixed-size submit control to a spinner immediately, including during the render hand-off to TanStack Query. Existing results remain in place and retain their `Updating` marker while the new response is pending; the existing Cancel action remains available. This prevents a second query from appearing to do nothing or causing the composer layout to jump.
-- `pnpm --dir web check` passed: generated API/route stability, lint, formatting, TypeScript, production build and 62/62 unit/component tests. The dedicated Search test holds a second response pending and proves that the prior result, spinner and `Updating` signal coexist until it resolves. Per user direction, no Playwright run was made.
+- Every submitted query now changes the fixed-size submit control to a spinner immediately, including during the render hand-off to TanStack Query, and uses the same `Searching documents…` loading screen even when a prior result exists. The existing Cancel action remains available; this gives each Search operation an explicit, consistent loading state.
+- `pnpm --dir web check` is rerun after this change. The dedicated Search test holds a second response pending and proves that the loading screen replaces the prior result until it resolves. Per user direction, no Playwright run is made.
 
 ## 2026-09-09 — Artifact and structured-chunk golden cases
 

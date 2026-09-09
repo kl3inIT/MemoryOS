@@ -306,7 +306,7 @@ export function SearchPage() {
     label: friendlyMediaType(option.value),
     count: resultFacetCounts[option.value] ?? 0,
   }));
-  const isInitialLoading = result.isFetching && !result.data;
+  const showLoadingScreen = isSearchUpdating;
 
   return (
     <AppShell pageTitle="Search">
@@ -472,7 +472,7 @@ export function SearchPage() {
         </p>
 
         <div className="mt-6" aria-busy={isSearchUpdating}>
-          {!request ? null : isInitialLoading ? (
+          {!request ? null : showLoadingScreen ? (
             <div className="flex animate-in items-center justify-center gap-2 py-12 text-content-secondary duration-200 fade-in motion-reduce:animate-none">
               <LoaderCircle
                 className="size-5 animate-spin motion-reduce:animate-none"

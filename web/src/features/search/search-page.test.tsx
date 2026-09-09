@@ -246,7 +246,7 @@ describe("SearchPage", () => {
     expect(screen.getByRole("button", { name: "Updated: Past 30 days" })).toBeInTheDocument();
   });
 
-  it("keeps prior results visible and acknowledges a repeated search immediately", async () => {
+  it("uses the loading screen for a repeated search immediately", async () => {
     const user = userEvent.setup();
     searchDocumentsMock.mockResolvedValueOnce({
       data: {
@@ -284,9 +284,9 @@ describe("SearchPage", () => {
     await user.type(input, "onboarding");
     await user.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(screen.getByText("Existing policy document")).toBeVisible();
+    expect(screen.queryByText("Existing policy document")).not.toBeInTheDocument();
+    expect(screen.getByText("Searching documents…")).toBeVisible();
     expect(screen.getByRole("button", { name: "Search is loading" })).toBeDisabled();
-    expect(screen.getByText("Updating")).toBeVisible();
 
     resolveSecondSearch({
       data: {
