@@ -156,10 +156,10 @@ class SearchIndexWorkIntegrationTest {
         }
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations").query(String.class).single());
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY));
-        jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP WHERE document_id=:document")
+        jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND WHERE document_id=:document")
                 .param("document", document.value()).update();
         var first = tx.execute(_ -> work.claim(delivery(), IDENTITY).orElseThrow());
-        jdbc.sql("UPDATE search_index_operations SET lease_expires_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND, next_dispatch_at=CURRENT_TIMESTAMP WHERE document_id=:document")
+        jdbc.sql("UPDATE search_index_operations SET lease_expires_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND, next_dispatch_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND WHERE document_id=:document")
                 .param("document", document.value()).update();
         var second = tx.execute(_ -> work.claim(delivery(), IDENTITY).orElseThrow());
         assertNotEquals(first.token(), second.token());

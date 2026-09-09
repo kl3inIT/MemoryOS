@@ -55,6 +55,68 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void tableExpandsMergedColumnHeadersAndRepeatedRowHeaders() {
+        var chunks = chunker.chunk("Báo cáo tài chính", """
+                {"schema":"memoryos-extraction-v1","blocks":[{"index":7,"kind":"TABLE","table":{
+                  "table_cells":[
+                    {"text":"Chỉ tiêu","column_header":true,"start_row_offset_idx":0,"start_col_offset_idx":0},
+                    {"text":"Kết quả","column_header":true,"start_row_offset_idx":0,"start_col_offset_idx":1,"end_col_offset_idx":3},
+                    {"text":"Doanh thu","column_header":true,"start_row_offset_idx":1,"start_col_offset_idx":1},
+                    {"text":"Chi phí","column_header":true,"start_row_offset_idx":1,"start_col_offset_idx":2},
+                    {"text":"Miền Bắc","row_header":true,"start_row_offset_idx":2,"end_row_offset_idx":4,"start_col_offset_idx":0},
+                    {"text":"120 tỷ","start_row_offset_idx":2,"start_col_offset_idx":1},
+                    {"text":"80 tỷ","start_row_offset_idx":2,"start_col_offset_idx":2},
+                    {"text":"130 tỷ","start_row_offset_idx":3,"start_col_offset_idx":1},
+                    {"text":"75 tỷ","start_row_offset_idx":3,"start_col_offset_idx":2}
+                  ]}}]}
+                """);
+
+        assertEquals(2, chunks.size());
+        assertTrue(chunks.get(0).content().contains("Row: Miền Bắc"));
+        assertTrue(chunks.get(0).content().contains("Kết quả / Doanh thu: 120 tỷ"));
+        assertTrue(chunks.get(0).content().contains("Kết quả / Chi phí: 80 tỷ"));
+        assertTrue(chunks.get(1).content().contains("Row: Miền Bắc"));
+        assertTrue(chunks.get(1).content().contains("Kết quả / Doanh thu: 130 tỷ"));
+        assertEquals(2, mapper.readTree(chunks.get(0).provenanceJson()).path("tableRow").asInt());
+        assertEquals(3, mapper.readTree(chunks.get(1).provenanceJson()).path("tableRow").asInt());
+    }
+
+    @Test
+    void wideTableRowsRemainBoundedAndKeepEveryValue() {
+        var root = mapper.createObjectNode().put("schema", "memoryos-extraction-v1");
+        var blocks = root.putArray("blocks");
+        var block = blocks.addObject().put("index", 9).put("kind", "TABLE");
+        var cells = block.putObject("table").putArray("table_cells");
+        for (int column = 0; column < 80; column++) {
+            cells.addObject().put("text", "Cột " + column).put("column_header", true)
+                    .put("start_row_offset_idx", 0).put("start_col_offset_idx", column);
+            cells.addObject().put("text", "Giá trị " + column + " — " + "dữ liệu ".repeat(20))
+                    .put("start_row_offset_idx", 1).put("start_col_offset_idx", column);
+        }
+
+        var chunks = chunker.chunk("Bảng rộng", mapper.writeValueAsString(root));
+
+        assertTrue(chunks.size() > 1);
+        assertTrue(chunks.stream().allMatch(chunk -> chunk.tokenCount() <= StructuredDocumentChunker.MAX_TOKENS));
+        String combined = chunks.stream().map(DocumentChunk::content).reduce("", (left, right) -> left + "\n" + right);
+        for (int column = 0; column < 80; column++) {
+            assertTrue(combined.contains("Cột " + column + ": Giá trị " + column));
+        }
+        assertTrue(chunks.stream().allMatch(chunk ->
+                mapper.readTree(chunk.provenanceJson()).path("tableRow").asInt() == 1));
+    }
+
+    @Test
+    void rejectsOversizedTableSpans() {
+        assertThrows(IllegalArgumentException.class, () -> chunker.chunk("Bảng lỗi", """
+                {"schema":"memoryos-extraction-v1","blocks":[{"kind":"TABLE","table":{"table_cells":[
+                  {"text":"Quá rộng","column_header":true,"start_row_offset_idx":0,
+                   "start_col_offset_idx":0,"end_col_offset_idx":2049}
+                ]}}]}
+                """));
+    }
+
+    @Test
     void boundsLongUnicodePassagesWithoutLosingTheLastFact() {
         String text = "Nhân viên được hoàn trả chi phí đi công tác 🚗. ".repeat(400) + "Mã kết thúc: CT-2026-999.";
         String json = mapper.writeValueAsString(Map.of("schema", "memoryos-extraction-v1", "blocks",

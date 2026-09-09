@@ -174,7 +174,11 @@ public class OpenSearchIndexService implements SearchIndex {
         Object filter = Map.of("bool", Map.of("filter", filters));
         Object keyword = Map.of("bool", Map.of("filter", filters, "must", List.of(Map.of("multi_match", Map.of(
                 "query", query, "fields", List.of("title^2", "title.folded^2", "content", "content.folded"))))));
-        Object semantic = Map.of("knn", Map.of("vector", Map.of("vector", vector, "k", properties.candidateLimit(), "filter", filter)));
+        Object semantic = Map.of("knn", Map.of("vector", Map.of(
+                "vector", vector,
+                "min_score", properties.minimumSemanticScore(),
+                "method_parameters", Map.of("ef_search", properties.candidateLimit()),
+                "filter", filter)));
         var response = gateway.json("POST", "/" + readAlias() + "/_search", Map.of("search_pipeline", pipeline()), Map.of(
                 "size", properties.candidateLimit(), "_source", Map.of("excludes", List.of("vector")),
                 "query", Map.of("hybrid", Map.of("pagination_depth", properties.candidateLimit(), "queries", List.of(keyword, semantic)))));

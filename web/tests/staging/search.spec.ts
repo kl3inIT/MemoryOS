@@ -120,7 +120,7 @@ test("real login, upload, indexing, Search, reader and denied anonymous access",
     await page.getByRole("textbox", { name: "Search documents" }).fill(marker);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await page.getByRole("button", { name: `${marker}.md`, exact: true }).click();
-    const reader = page.getByRole("region", { name: "Document passages" });
+    const reader = page.getByRole("dialog", { name: `${marker}.md` });
     await expect(reader).toContainText(marker);
     await expect(reader).toContainText("314159");
   } catch {
