@@ -1,15 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { CheckCircle2, ChevronRight, History, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { listSourceIndexAttemptsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { terminalOperationStatuses } from "./source-operations";
 import { sourceStatusMessage } from "./source-errors";
 import { historyDuration } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
+import { SourceSectionIcon } from "./source-section-icon";
 
 export function SourceItemHistory({ sourceId }: { sourceId: string }) {
   const [open, setOpen] = useState(false);
@@ -20,6 +22,7 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
     ...listSourceIndexAttemptsOptions({ path: { sourceId }, query: { size, cursor } }),
     enabled: open,
     retry: false,
+    staleTime: 0,
     refetchInterval: (query) =>
       query.state.data?.items.some(
         (operation) => !Object.hasOwn(terminalOperationStatuses, operation.status),
@@ -27,14 +30,25 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
         ? 1_500
         : false,
   });
+  const totalPages = history.data ? Math.ceil(history.data.totalItems / size) : undefined;
+  if (totalPages !== undefined && previous.length >= Math.max(totalPages, 1)) {
+    setCursor(undefined);
+    setPrevious([]);
+  }
+
   return (
     <details
-      className="relative mt-6 min-w-0 border-t border-border-subtle pt-4"
+      className="group/history relative mt-8 min-w-0 border-t border-border-subtle pt-6"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="min-h-11 cursor-pointer py-3 pr-24 font-heading-h3 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring">
-        <span className="inline-flex items-center gap-2 align-middle">
+      <summary className="min-h-10 cursor-pointer list-none pr-24 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&::-webkit-details-marker]:hidden">
+        <h2 className="inline-flex items-center gap-3 align-middle font-heading-h3">
+          <SourceSectionIcon icon={History} />
           <span>File indexing attempts</span>
+          <ChevronRight
+            className="size-4 shrink-0 group-open/history:rotate-90"
+            aria-hidden="true"
+          />
           <HelpPopover label="File indexing attempts">
             <p>
               Each row processes one file version, including manual reindexing. Files above is the
@@ -42,11 +56,11 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
               only when the actual processing start was not recorded.
             </p>
           </HelpPopover>
-        </span>
+        </h2>
       </summary>
       {open ? (
-        <section aria-label="File indexing attempts" className="min-w-0 space-y-2">
-          <div className="absolute right-0 top-6 flex items-center gap-1">
+        <section aria-label="File indexing attempts" className="mt-4 min-w-0 space-y-2">
+          <div className="absolute right-0 top-7 flex items-center gap-1">
             <Button
               size="sm"
               prominence="tertiary"
@@ -170,17 +184,31 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
                   </tbody>
                 </table>
               </div>
-              <nav
-                aria-label="Indexing attempt pages"
-                className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle px-3 py-3 text-xs text-content-muted"
+              <TablePagination
+                label="Indexing attempt pages"
+                page={previous.length}
+                totalPages={totalPages}
+                previousLabel="Previous indexing attempts"
+                nextLabel="Next indexing attempts"
+                previousDisabled={!previous.length || history.isFetching}
+                nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
+                onPrevious={() => {
+                  setCursor(previous.at(-1));
+                  setPrevious((pages) => pages.slice(0, -1));
+                }}
+                onNext={() => {
+                  setPrevious((pages) => [...pages, cursor]);
+                  setCursor(history.data?.nextCursor ?? undefined);
+                }}
               >
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
                   Rows
                   <Select
                     aria-label="Rows per page"
                     size="sm"
                     className="w-auto px-2"
                     value={size}
+                    disabled={history.isFetching}
                     onChange={(event) => {
                       setSize(Number(event.target.value));
                       setCursor(undefined);
@@ -194,36 +222,7 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
                     ))}
                   </Select>
                 </label>
-                <div className="flex items-center gap-2">
-                  <span aria-live="polite">
-                    {previous.length + 1}/{Math.max(1, Math.ceil(history.data.totalItems / size))}
-                  </span>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    aria-label="Previous indexing attempts"
-                    disabled={!previous.length || history.isFetching}
-                    onClick={() => {
-                      setCursor(previous.at(-1));
-                      setPrevious((pages) => pages.slice(0, -1));
-                    }}
-                  >
-                    <ChevronLeft aria-hidden="true" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    aria-label="Next indexing attempts"
-                    disabled={!history.data.nextCursor || history.isFetching}
-                    onClick={() => {
-                      setPrevious((pages) => [...pages, cursor]);
-                      setCursor(history.data.nextCursor ?? undefined);
-                    }}
-                  >
-                    <ChevronRight aria-hidden="true" />
-                  </Button>
-                </div>
-              </nav>
+              </TablePagination>
             </>
           ) : null}
         </section>

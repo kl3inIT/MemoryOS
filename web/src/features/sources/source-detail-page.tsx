@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
   DatabaseZap,
   FileText,
   LoaderCircle,
@@ -17,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
@@ -45,6 +44,7 @@ import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
+import { SourceSectionIcon } from "./source-section-icon";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
@@ -113,6 +113,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     }),
     enabled: Boolean(sourceQuery.data),
     retry: false,
+    staleTime: 0,
     refetchInterval: (query) =>
       sourceQuery.data?.pendingWork ||
       query.state.data?.items.some(
@@ -126,6 +127,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           ? 5_000
           : false,
   });
+  const filesTotalPages = itemsQuery.data
+    ? Math.ceil(itemsQuery.data.totalItems / filesSize)
+    : undefined;
+  if (filesTotalPages !== undefined && previous.length >= Math.max(filesTotalPages, 1)) {
+    setCursor(undefined);
+    setPrevious([]);
+  }
 
   const initiateUpload = useMutation(initiateSourceUploadMutation());
   const finalizeUpload = useMutation(finalizeSourceUploadMutation());
@@ -605,6 +613,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           <div>
             <PageHeader
               icon={<ProviderIcon />}
+              iconSize={detail.type === "GOOGLE_DRIVE" ? "lg" : "sm"}
               title={detail.name}
               description={findSourceProvider(detail.type)?.name ?? detail.type}
               actions={
@@ -647,7 +656,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 }}
               >
                 <div>
-                  <h2 className="font-heading-h3 text-content-primary">Upload content</h2>
+                  <div className="flex items-center gap-3">
+                    <SourceSectionIcon icon={Upload} />
+                    <h2 className="font-heading-h3 text-content-primary">Upload content</h2>
+                  </div>
                   <p className="mt-2 text-sm text-content-muted">
                     PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 10 MiB per file
                   </p>
@@ -754,7 +766,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               className="mt-8 border-t border-border-subtle pt-6"
             >
               <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <SourceSectionIcon icon={FileText} />
                   <h2
                     ref={filesHeading}
                     id="source-files-heading"
@@ -930,11 +943,29 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   </table>
                 </div>
               ) : null}
-              <nav
-                aria-label="Files pagination"
-                className="mt-3 flex flex-wrap items-center justify-between gap-3 px-3 py-3 text-xs text-content-muted"
+              <TablePagination
+                label="Files pagination"
+                className="mt-3"
+                page={previous.length}
+                totalPages={filesTotalPages}
+                previousLabel="Previous files"
+                nextLabel="Next files"
+                previousDisabled={!previous.length || itemsQuery.isFetching}
+                nextDisabled={
+                  !itemsQuery.data?.nextCursor || itemsQuery.isFetching || itemsQuery.isError
+                }
+                onPrevious={() => {
+                  filesHeading.current?.focus();
+                  setCursor(previous.at(-1));
+                  setPrevious((pages) => pages.slice(0, -1));
+                }}
+                onNext={() => {
+                  filesHeading.current?.focus();
+                  setPrevious((pages) => [...pages, cursor]);
+                  setCursor(itemsQuery.data?.nextCursor ?? undefined);
+                }}
               >
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
                   Rows
                   <Select
                     aria-label="Files per page"
@@ -955,38 +986,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     ))}
                   </Select>
                 </label>
-                <div className="flex items-center gap-2">
-                  <span role="status">Page {previous.length + 1}</span>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    aria-label="Previous files"
-                    disabled={!previous.length || itemsQuery.isFetching}
-                    onClick={() => {
-                      filesHeading.current?.focus();
-                      setCursor(previous.at(-1));
-                      setPrevious((pages) => pages.slice(0, -1));
-                    }}
-                  >
-                    <ChevronLeft aria-hidden="true" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    aria-label="Next files"
-                    disabled={
-                      !itemsQuery.data?.nextCursor || itemsQuery.isFetching || itemsQuery.isError
-                    }
-                    onClick={() => {
-                      filesHeading.current?.focus();
-                      setPrevious((pages) => [...pages, cursor]);
-                      setCursor(itemsQuery.data?.nextCursor ?? undefined);
-                    }}
-                  >
-                    <ChevronRight aria-hidden="true" />
-                  </Button>
-                </div>
-              </nav>
+              </TablePagination>
             </section>
             {detail.type === "GOOGLE_DRIVE" ? (
               <SourceRunHistory key={selectedId} sourceId={selectedId} />

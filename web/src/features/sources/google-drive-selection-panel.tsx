@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FolderTree } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/ui/help-popover";
@@ -31,6 +32,7 @@ import {
   sourceMutationError,
   sourceStatusMessage,
 } from "./source-errors";
+import { SourceSectionIcon } from "./source-section-icon";
 
 type Draft = {
   saved: GoogleDriveSelectionDraftResponse;
@@ -388,8 +390,9 @@ export function GoogleDriveSelectionPanel({
   return (
     <section aria-label="Selected content" className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="font-heading-h3 text-content-primary">Selected content</h3>
+        <div className="flex items-center gap-3">
+          <SourceSectionIcon icon={FolderTree} />
+          <h2 className="font-heading-h3 text-content-primary">Selected content</h2>
           <HelpPopover label="Selected content">
             <p>
               {configuration.scopeMode === "GENERAL"

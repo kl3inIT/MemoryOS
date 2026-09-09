@@ -407,9 +407,19 @@ async function enterprisePage(page: Page, existing = false) {
       await route.fulfill({ json: entry.configuration });
     } else if (path.endsWith("/index-attempts"))
       await route.fulfill({ json: { items: [], nextCursor: null, totalItems: 0 } });
-    else if (path.endsWith("/runs")) await route.fulfill({ json: { items: [], nextCursor: null } });
+    else if (path.endsWith("/runs"))
+      await route.fulfill({
+        json: {
+          items: [],
+          nextCursor: null,
+          totalItems: 0,
+          current: null,
+          lastCompleted: null,
+          lastSuccessful: null,
+        },
+      });
     else if (path.endsWith("/items"))
-      await route.fulfill({ json: { items: [], nextCursor: null } });
+      await route.fulfill({ json: { items: [], nextCursor: null, totalItems: 0 } });
     else await route.fulfill({ json: entry.source });
   });
   return {

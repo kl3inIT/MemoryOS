@@ -1,5 +1,5 @@
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, RefreshCw, Unplug } from "lucide-react";
+import { ChevronDown, KeyRound, RefreshCw, Unplug } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
@@ -41,7 +41,7 @@ import {
   sourceMutationError,
   sourceStatusMessage,
 } from "./source-errors";
-import { GoogleDriveIcon } from "./google-drive-icon";
+import { SourceSectionIcon } from "./source-section-icon";
 import { SourceSummaryCard } from "./source-summary-card";
 
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {
@@ -636,7 +636,8 @@ export function GoogleDrivePanel({
         </div>
       </SourceSummaryCard>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <SourceSectionIcon icon={RefreshCw} />
           <h2 className="font-heading-h3 text-content-primary">Synchronization</h2>
           <HelpPopover label="Synchronization">
             <p>
@@ -692,129 +693,137 @@ export function GoogleDrivePanel({
           Reconnect the same Google account to save links and synchronize. Saved roots are retained.
         </p>
       ) : null}
-      <details
-        className="group border-b border-border-subtle pb-5"
-        open={!connected ? true : undefined}
+      <section
+        aria-labelledby="source-credentials-heading"
+        className="space-y-3 border-b border-border-subtle pb-5"
       >
-        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
-          <GoogleDriveIcon className="size-5" aria-hidden="true" />
-          <span className="font-medium text-content-primary">Credentials</span>
-          <StatusBadge tone={connected ? "success" : "warning"}>
-            {connected ? "Connected" : "Needs reconnect"}
-          </StatusBadge>
-          <span className="min-w-0 break-all text-content-muted">{configuration.accountEmail}</span>
-          <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
-            <span className="group-open:hidden">Manage connection</span>
-            <span className="hidden group-open:inline">Close</span>
-            <ChevronDown
-              className="size-4 group-open:rotate-180 motion-safe:transition-transform"
-              aria-hidden="true"
-            />
-          </span>
-        </summary>
-        <div className="mt-4 space-y-4">
-          <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-            This credential is shared. Reconnecting or disconnecting affects all Sources using it
-            {credential ? ` (${credential.sourceCount} Sources)` : ""}, not just this Source. Saved
-            links and indexed documents are retained.
-          </p>
-          {credentials.isError ? (
-            <div className="space-y-2">
-              <p role="alert" className="text-sm text-status-danger-content">
-                Credential details could not be loaded. Refresh before reconnecting.
-              </p>
-              <Button
-                prominence="secondary"
-                pending={credentials.isFetching}
-                onClick={() => void refreshCredentials()}
-              >
-                Retry credential details
-              </Button>
-            </div>
-          ) : null}
-          <div className="space-y-3">
-            {!configuration.oauthClientConfigured ? (
-              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                This connection has no owner-supplied OAuth app. Upload or paste your Google Web
-                OAuth client JSON below, then reconnect the same Google account. Saved files and
-                folders are retained.
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-content-secondary">
-                  Reconnect reuses the OAuth app saved with this shared credential unless you
-                  replace it.
-                </p>
-                <label className="flex items-center gap-2 text-sm text-content-primary">
-                  <input
-                    type="checkbox"
-                    checked={replaceClient}
-                    disabled={controlsDisabled || hasSelectionChanges}
-                    className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
-                    onChange={(event) => {
-                      clientInput.current?.clear();
-                      setClientReady(false);
-                      setReplaceClient(event.target.checked);
-                    }}
-                  />
-                  Replace OAuth app on reconnect
-                </label>
-              </>
-            )}
-            {needsClient ? (
-              <GoogleDriveOAuthClientInput
-                key={configuration.credentialRevision}
-                ref={clientInput}
-                disabled={controlsDisabled || hasSelectionChanges}
-                onReadyChange={setClientReady}
+        <div className="flex items-center gap-3">
+          <SourceSectionIcon icon={KeyRound} />
+          <h2 id="source-credentials-heading" className="font-heading-h3 text-content-primary">
+            Credentials
+          </h2>
+        </div>
+        <details className="group" open={!connected ? true : undefined}>
+          <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+            <StatusBadge tone={connected ? "success" : "warning"}>
+              {connected ? "Connected" : "Needs reconnect"}
+            </StatusBadge>
+            <span className="min-w-0 break-all text-content-muted">
+              {configuration.accountEmail}
+            </span>
+            <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
+              <span className="group-open:hidden">Manage connection</span>
+              <span className="hidden group-open:inline">Close</span>
+              <ChevronDown
+                className="size-4 group-open:rotate-180 motion-safe:transition-transform"
+                aria-hidden="true"
               />
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <ConfirmDialog
-              trigger={
+            </span>
+          </summary>
+          <div className="mt-4 space-y-4">
+            <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+              This credential is shared. Reconnecting or disconnecting affects all Sources using it
+              {credential ? ` (${credential.sourceCount} Sources)` : ""}, not just this Source.
+              Saved links and indexed documents are retained.
+            </p>
+            {credentials.isError ? (
+              <div className="space-y-2">
+                <p role="alert" className="text-sm text-status-danger-content">
+                  Credential details could not be loaded. Refresh before reconnecting.
+                </p>
                 <Button
                   prominence="secondary"
-                  disabled={
-                    controlsDisabled ||
-                    !credential ||
-                    credentials.isError ||
-                    hasSelectionChanges ||
-                    (needsClient && !clientReady)
-                  }
-                  pending={activeAction === "authorize" || leaving}
+                  pending={credentials.isFetching}
+                  onClick={() => void refreshCredentials()}
                 >
-                  Reconnect Google Drive
+                  Retry credential details
                 </Button>
-              }
-              title="Reconnect shared Google credential?"
-              description={`Reconnecting changes the authorization used by all ${credential?.sourceCount ?? "attached"} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.`}
-              confirmLabel="Reconnect"
-              pendingLabel="Reconnecting"
-              onConfirm={() => perform("authorize", reconnect)}
-              errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
-            />
-            {configuration.credentialStatus !== "REVOKED" ? (
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {!configuration.oauthClientConfigured ? (
+                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                  This connection has no owner-supplied OAuth app. Upload or paste your Google Web
+                  OAuth client JSON below, then reconnect the same Google account. Saved files and
+                  folders are retained.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-content-secondary">
+                    Reconnect reuses the OAuth app saved with this shared credential unless you
+                    replace it.
+                  </p>
+                  <label className="flex items-center gap-2 text-sm text-content-primary">
+                    <input
+                      type="checkbox"
+                      checked={replaceClient}
+                      disabled={controlsDisabled || hasSelectionChanges}
+                      className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
+                      onChange={(event) => {
+                        clientInput.current?.clear();
+                        setClientReady(false);
+                        setReplaceClient(event.target.checked);
+                      }}
+                    />
+                    Replace OAuth app on reconnect
+                  </label>
+                </>
+              )}
+              {needsClient ? (
+                <GoogleDriveOAuthClientInput
+                  key={configuration.credentialRevision}
+                  ref={clientInput}
+                  disabled={controlsDisabled || hasSelectionChanges}
+                  onReadyChange={setClientReady}
+                />
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
               <ConfirmDialog
                 trigger={
-                  <Button tone="danger" prominence="tertiary" disabled={controlsDisabled}>
-                    <Unplug /> Disconnect
+                  <Button
+                    prominence="secondary"
+                    disabled={
+                      controlsDisabled ||
+                      !credential ||
+                      credentials.isError ||
+                      hasSelectionChanges ||
+                      (needsClient && !clientReady)
+                    }
+                    pending={activeAction === "authorize" || leaving}
+                  >
+                    Reconnect Google Drive
                   </Button>
                 }
-                title="Disconnect shared Google credential?"
-                description={`Disconnecting stops acquisition for all ${credential?.sourceCount ?? "attached"} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.`}
-                confirmLabel="Disconnect"
-                pendingLabel="Disconnecting"
-                onConfirm={() => perform("disconnect", disconnect)}
+                title="Reconnect shared Google credential?"
+                description={`Reconnecting changes the authorization used by all ${credential?.sourceCount ?? "attached"} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.`}
+                confirmLabel="Reconnect"
+                pendingLabel="Reconnecting"
+                onConfirm={() => perform("authorize", reconnect)}
                 errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
               />
-            ) : null}
+              {configuration.credentialStatus !== "REVOKED" ? (
+                <ConfirmDialog
+                  trigger={
+                    <Button tone="danger" prominence="tertiary" disabled={controlsDisabled}>
+                      <Unplug /> Disconnect
+                    </Button>
+                  }
+                  title="Disconnect shared Google credential?"
+                  description={`Disconnecting stops acquisition for all ${credential?.sourceCount ?? "attached"} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.`}
+                  confirmLabel="Disconnect"
+                  pendingLabel="Disconnecting"
+                  onConfirm={() => perform("disconnect", disconnect)}
+                  errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
+                />
+              ) : null}
+            </div>
+            <p className="text-xs text-content-muted">
+              Document access and viewing are not configured by this connection.
+            </p>
           </div>
-          <p className="text-xs text-content-muted">
-            Document access and viewing are not configured by this connection.
-          </p>
-        </div>
-      </details>
+        </details>
+      </section>
       <GoogleDriveSelectionPanel
         key={`${session.actorId}:${capabilities}:${source.id}`}
         sourceId={source.id}

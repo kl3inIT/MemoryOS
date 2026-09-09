@@ -914,7 +914,11 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     }
     if (request.method() === "GET" && path.endsWith("/items")) {
       await route.fulfill({
-        json: { items: path === `/api/sources/${source.id}/items` ? items : [], nextCursor: null },
+        json: {
+          items: path === `/api/sources/${source.id}/items` ? items : [],
+          nextCursor: null,
+          totalItems: path === `/api/sources/${source.id}/items` ? items.length : 0,
+        },
       });
       return;
     }

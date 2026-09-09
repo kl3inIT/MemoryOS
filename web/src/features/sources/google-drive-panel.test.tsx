@@ -200,6 +200,7 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
         return Response.json({
           items: [],
           nextCursor: null,
+          totalItems: 0,
           current: null,
           lastCompleted: null,
           lastSuccessful: null,
@@ -543,7 +544,7 @@ describe("Google Drive enterprise selection", () => {
   it("never caches owner-supplied OAuth secrets and ignores late authorization after actor change", async () => {
     const user = userEvent.setup();
     const server = setup();
-    await user.click(await screen.findByText("Credentials"));
+    await user.click(await screen.findByText("Manage connection"));
     await user.click(screen.getByRole("checkbox", { name: "Replace OAuth app on reconnect" }));
     const input = screen.getByRole("textbox", { name: "Upload or paste OAuth app JSON" });
     const secret = "synthetic-secret-never-persist";

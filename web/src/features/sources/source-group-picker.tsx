@@ -12,6 +12,7 @@ type SourceGroupPickerProps = {
   knownGroups?: readonly SourceGroup[];
   required?: boolean;
   disabled?: boolean;
+  className?: string;
   onChange: (groupIds: Set<string>) => void;
 };
 
@@ -20,6 +21,7 @@ export function SourceGroupPicker({
   knownGroups = [],
   required = false,
   disabled = false,
+  className,
   onChange,
 }: SourceGroupPickerProps) {
   const [searchDraft, setSearchDraft] = useState("");
@@ -50,7 +52,7 @@ export function SourceGroupPicker({
   }
 
   return (
-    <div>
+    <div className={className}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-secondary-action text-content-primary">Access groups</h3>
@@ -143,7 +145,10 @@ export function SourceGroupPicker({
           </p>
         </div>
       ) : (
-        <div className="mt-3 max-h-72 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised">
+        <div
+          data-slot="source-group-options"
+          className="mt-3 max-h-72 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised"
+        >
           {rows.map((group) => {
             const checked = selected.has(group.id);
             const limitReached = disabled || (selected.size >= 100 && !checked);

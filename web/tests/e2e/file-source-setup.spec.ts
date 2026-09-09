@@ -82,6 +82,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
                       },
                     ],
                     nextCursor: null,
+                    totalItems: 1,
                   }
                 : path.endsWith("/index-attempts")
                   ? { items: [], nextCursor: null, totalItems: 0 }

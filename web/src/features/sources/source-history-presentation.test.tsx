@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceRun } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { historyDuration, runHasNoChanges } from "./source-history";
@@ -44,11 +44,24 @@ afterEach(() => {
   cleanup();
   for (const client of clients) client.clear();
   clients.length = 0;
+  vi.unstubAllGlobals();
 });
 
 function showHistory(items: SourceRun[]) {
+  const historyPage = {
+    items,
+    nextCursor: null,
+    totalItems: items.length,
+    current: null,
+    lastCompleted: null,
+    lastSuccessful: null,
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json(historyPage)),
+  );
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    defaultOptions: { queries: { retry: false } },
   });
   clients.push(client);
   client.setQueryData(
@@ -56,13 +69,7 @@ function showHistory(items: SourceRun[]) {
       path: { sourceId: run.sourceId },
       query: { size: 5, cursor: undefined },
     }),
-    {
-      items,
-      nextCursor: null,
-      current: null,
-      lastCompleted: null,
-      lastSuccessful: null,
-    },
+    historyPage,
   );
   const result = render(
     <QueryClientProvider client={client}>

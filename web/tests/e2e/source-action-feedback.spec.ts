@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { SourceOperation } from "../../src/lib/hey-api/types.gen";
+import type { SourceIndexAttempt, SourceOperation } from "../../src/lib/hey-api/types.gen";
 
 async function sourcePage(
   page: Page,
@@ -176,6 +176,7 @@ async function sourcePage(
         json: {
           items: [],
           nextCursor: null,
+          totalItems: 0,
           current: null,
           lastCompleted: null,
           lastSuccessful: null,
@@ -217,18 +218,17 @@ async function sourcePage(
       const candidates = cursor
         ? items.slice(items.findIndex((item) => item.id === cursor) + 1)
         : items;
-      const visibleItems = candidates.filter(
-        (item) =>
-          !operations.some(
-            (operation) =>
-              removals.get(operation.id) === item.id && operation.status === "SUCCEEDED",
-          ),
-      );
+      const isVisible = (item: (typeof items)[number]) =>
+        !operations.some(
+          (operation) => removals.get(operation.id) === item.id && operation.status === "SUCCEEDED",
+        );
+      const visibleItems = candidates.filter(isVisible);
       const pageItems = pathname.includes(otherSource.id) ? [] : visibleItems.slice(0, size);
       await route.fulfill({
         json: {
           items: pageItems,
           nextCursor: pageItems.length && visibleItems.length > size ? pageItems.at(-1)!.id : null,
+          totalItems: pathname.includes(otherSource.id) ? 0 : items.filter(isVisible).length,
         },
       });
     } else {
@@ -261,7 +261,7 @@ test("Files paging preserves concurrent item operations and uploads return to th
   const row = (filename: string) =>
     files.getByRole("row").filter({ has: page.getByText(filename, { exact: true }) });
   await expect(files.getByRole("row")).toHaveCount(26);
-  await expect(files.getByRole("status")).toContainText("Page 1");
+  await expect(files.getByRole("status")).toHaveText("1 / 3");
   await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
   const release = server.holdNextOperation();
   await row("File-1.txt").getByRole("button", { name: "Reindex" }).click();
@@ -290,7 +290,7 @@ test("Files paging preserves concurrent item operations and uploads return to th
   );
   await expect.poll(() => server.itemPageReads.length).toBeGreaterThan(0);
   expect(server.itemPageReads.every((cursor) => cursor === laterCursor)).toBe(true);
-  await expect(files.getByRole("status")).toContainText("Page 2");
+  await expect(files.getByRole("status")).toHaveText("2 / 3");
 
   const uploaded = {
     ...server.items[0]!,
@@ -330,7 +330,7 @@ test("Files paging preserves concurrent item operations and uploads return to th
   });
   await page.getByRole("button", { name: "Upload file", exact: true }).click();
   await expect(row(uploaded.filename)).toBeVisible();
-  await expect(files.getByRole("status")).toContainText("Page 1");
+  await expect(files.getByRole("status")).toHaveText("1 / 3");
   await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
   await expect(files.getByRole("row")).toHaveCount(26);
   await expect(page.getByRole("listitem", { name: "Upload accepted", exact: true })).toContainText(
@@ -345,27 +345,27 @@ test("Files paging preserves concurrent item operations and uploads return to th
   await expect(row("File-26.txt").getByRole("button", { name: "Reindex" })).toBeEnabled();
   await expect(row(uploaded.filename)).toHaveCount(0);
   await files.getByRole("combobox", { name: "Files per page" }).selectOption("10");
-  await expect(files.getByRole("status")).toHaveText("Page 1");
+  await expect(files.getByRole("status")).toHaveText("1 / 6");
   await expect(row(uploaded.filename)).toBeVisible();
   await expect(row("File-10.txt")).toHaveCount(0);
   await files.getByRole("button", { name: "Next files" }).click();
-  await expect(files.getByRole("status")).toHaveText("Page 2");
+  await expect(files.getByRole("status")).toHaveText("2 / 6");
   await expect(row("File-10.txt")).toBeVisible();
   await expect(row(uploaded.filename)).toHaveCount(0);
   await files.getByRole("combobox", { name: "Files per page" }).selectOption("50");
-  await expect(files.getByRole("status")).toHaveText("Page 1");
+  await expect(files.getByRole("status")).toHaveText("1 / 2");
   await expect(row(uploaded.filename)).toBeVisible();
   await expect(row("File-26.txt")).toBeVisible();
   await expect(files.getByRole("button", { name: "Next files" })).toBeEnabled();
   await files.getByRole("button", { name: "Next files" }).click();
-  await expect(files.getByRole("status")).toHaveText("Page 2");
+  await expect(files.getByRole("status")).toHaveText("2 / 2");
   await expect(row("File-50.txt")).toBeVisible();
   await expect(row("File-51.txt")).toBeVisible();
   await expect(row(uploaded.filename)).toHaveCount(0);
   await expect(files.getByRole("button", { name: "Next files" })).toBeDisabled();
 });
 
-test("a failed or emptied later Files page can recover without losing its previous page", async ({
+test("a failed later Files page recovers and shrinking totals return to a valid page", async ({
   page,
 }) => {
   const server = await sourcePage(
@@ -385,17 +385,50 @@ test("a failed or emptied later Files page can recover without losing its previo
   const lastRow = files.getByRole("row").filter({ hasText: "File-26.txt" });
   await expect(lastRow).toBeVisible();
   await expect(files.getByRole("button", { name: "Next files" })).toBeDisabled();
-  await lastRow.getByRole("button", { name: "Remove", exact: true }).click();
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Remove file", exact: true })
-    .click();
-  server.operations[0]!.status = "SUCCEEDED";
-  await expect(files.getByRole("heading", { name: "No files on this page" })).toBeVisible();
-  await expect(files.getByRole("status")).toContainText("Page 2");
-  await files.getByRole("button", { name: "Previous files" }).click();
+  server.items.pop();
+  await files.getByRole("button", { name: "Refresh files" }).click();
+  await expect(files.getByRole("status")).toHaveText("1 / 1");
+  await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
   await expect(files.getByRole("row").filter({ hasText: "File-1.txt" })).toBeVisible();
   await expect(files.getByRole("button", { name: "Next files" })).toBeDisabled();
+});
+
+test("refreshed FILE history reloads the first page after retained attempts shrink", async ({
+  page,
+}) => {
+  await sourcePage(page);
+  let attempts: SourceIndexAttempt[] = Array.from({ length: 6 }, (_, index) => ({
+    id: `25f8cb72-2628-4d75-bcf1-${index.toString().padStart(12, "0")}`,
+    filename: `Attempt-${index + 1}.txt`,
+    status: "SUCCEEDED",
+    createdAt: "2026-09-09T09:00:00Z",
+    startedAt: "2026-09-09T09:01:00Z",
+    completedAt: "2026-09-09T09:01:30Z",
+    errorCode: null,
+  }));
+  await page.route("**/api/sources/*/index-attempts**", (route) => {
+    const url = new URL(route.request().url());
+    const offset = Number(url.searchParams.get("cursor") ?? 0);
+    const size = Number(url.searchParams.get("size") ?? 5);
+    return route.fulfill({
+      json: {
+        items: attempts.slice(offset, offset + size),
+        nextCursor: offset + size < attempts.length ? String(offset + size) : null,
+        totalItems: attempts.length,
+      },
+    });
+  });
+  await page.locator("summary").filter({ hasText: "File indexing attempts" }).click();
+  const history = page.getByRole("region", { name: "File indexing attempts", exact: true });
+  await expect(history.getByRole("status")).toHaveText("1 / 2");
+  await history.getByRole("button", { name: "Next indexing attempts" }).click();
+  await expect(history.getByRole("cell", { name: "Attempt-6.txt", exact: true })).toBeVisible();
+  attempts = attempts.slice(0, 1);
+  await history.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(history.getByRole("status")).toHaveText("1 / 1");
+  await expect(history.getByRole("row")).toHaveCount(2);
+  await expect(history.getByRole("cell", { name: "Attempt-1.txt", exact: true })).toBeVisible();
+  await expect(history.getByRole("button", { name: "Next indexing attempts" })).toBeDisabled();
 });
 
 test("reindex reports each requested operation rather than aggregate source state", async ({
@@ -737,7 +770,7 @@ test("upload failures retain retry state and finalization acceptance never claim
   );
   const files = page.getByRole("region", { name: "Files", exact: true });
   await files.getByRole("button", { name: "Next files" }).click();
-  await expect(files.getByRole("status")).toContainText("Page 2");
+  await expect(files.getByRole("status")).toHaveText("2 / 2");
   let objectFailure = true;
   let finalizeFailure = true;
   let puts = 0;
@@ -834,7 +867,7 @@ test("upload failures retain retry state and finalization acceptance never claim
   await expect(page.getByRole("region", { name: "Files", exact: true })).toContainText(
     "Processing",
   );
-  await expect(files.getByRole("status")).toContainText("Page 1");
+  await expect(files.getByRole("status")).toHaveText("1 / 2");
   await expect(files.getByRole("row").filter({ hasText: "New.txt" })).toBeVisible();
   await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Retry finalization", exact: true })).toHaveCount(

@@ -27,12 +27,14 @@ export function PageHeader({
   title,
   description,
   icon,
+  iconSize = "sm",
   actions,
   eyebrow,
 }: {
   title: string;
   description?: ReactNode;
   icon?: ReactNode;
+  iconSize?: "sm" | "lg";
   actions?: ReactNode;
   eyebrow?: string;
 }) {
@@ -43,7 +45,10 @@ export function PageHeader({
         <div className="flex items-center gap-3">
           {icon && (
             <span
-              className="grid size-6 shrink-0 place-items-center text-content-secondary [&_svg]:size-6"
+              className={cn(
+                "grid shrink-0 place-items-center text-content-secondary",
+                iconSize === "lg" ? "size-10 [&_svg]:size-10" : "size-6 [&_svg]:size-6",
+              )}
               aria-hidden="true"
             >
               {icon}
@@ -53,7 +58,10 @@ export function PageHeader({
         </div>
         {description && (
           <div
-            className={cn("mt-2 max-w-2xl font-main-ui-body text-content-muted", icon && "sm:ml-9")}
+            className={cn(
+              "mt-2 max-w-2xl font-main-ui-body text-content-muted",
+              icon && (iconSize === "lg" ? "sm:ml-13" : "sm:ml-9"),
+            )}
           >
             {description}
           </div>
