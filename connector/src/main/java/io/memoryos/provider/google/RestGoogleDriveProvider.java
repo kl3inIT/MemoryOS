@@ -168,7 +168,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
                 for (int row = 0; row < rows; row += 500) {
                     String range = "'" + title.replace("'", "''") + "'!A" + (row + 1) + ":" + columnName(columns) + Math.min(rows, row + 500);
                     JsonNode response = get(properties.sheetsApiBaseUrl(), path + "?ranges=" + encode(range)
-                            + "&includeGridData=true&fields=" + encode("sheets(properties(sheetId),data(startRow,startColumn,rowData(values(userEnteredValue,effectiveValue,formattedValue,userEnteredFormat(numberFormat),effectiveFormat(numberFormat),note,hyperlink,textFormatRuns))))"), budget);
+                            + "&includeGridData=true&fields=" + encode("sheets(properties(sheetId),data(startRow,startColumn,rowData(values(userEnteredValue,effectiveValue,formattedValue,userEnteredFormat(numberFormat,textFormat(link)),effectiveFormat(numberFormat,textFormat(link)),note,hyperlink,textFormatRuns,chipRuns))))"), budget);
                     JsonNode responseSheets = array(response, "sheets");
                     if (responseSheets.size() != 1 || responseSheets.get(0).path("properties").path("sheetId").asInt(0)
                             != props.path("sheetId").asInt(0)) throw failure(INCONSISTENT);

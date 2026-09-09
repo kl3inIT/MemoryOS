@@ -85,9 +85,11 @@ class RestGoogleDriveProviderTest {
             if (query.contains("A501")) return ok("""
                     {"sheets":[{"properties":{},"data":[{"startRow":500,"rowData":[{"values":[{"effectiveValue":{"numberValue":7},"formattedValue":"7"}]}]}]}]}
                     """);
-            return ok("""
-                    {"sheets":[{"properties":{},"data":[{"rowData":[{"values":[{"effectiveValue":{"numberValue":0}}]}]}]}]}
-                    """);
+            String chip = query.contains("chipRuns")
+                    ? ",\"chipRuns\":[{\"chip\":{\"richLinkProperties\":{\"uri\":\"https://docs.google.com/document/d/linked1/edit\"}}}]"
+                    : "";
+            return ok("{\"sheets\":[{\"properties\":{},\"data\":[{\"rowData\":[{\"values\":[{\"effectiveValue\":{\"numberValue\":0}"
+                    + chip + "}]}]}]}]}");
         }); var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
             var acquired = session.acquire(session.metadata("file1"));
             assertEquals(SourceInputFormat.GOOGLE_SHEETS, acquired.descriptor().format());
@@ -97,6 +99,9 @@ class RestGoogleDriveProviderTest {
             var result = new GoogleSheetsSourceContentExtractor(mapper).extract(new ByteArrayInputStream(acquired.bytes()),
                     acquired.bytes().length, acquired.filename(), acquired.descriptor());
             assertEquals("O'Brien\nA1: 0\nA501: 7", result.normalizedText());
+            assertEquals(List.of(new io.memoryos.connector.GoogleDriveLinkReader.Link(
+                    "https://docs.google.com/document/d/linked1/edit", "O'Brien!A1")),
+                    new OfflineGoogleDriveLinkReader(mapper).read(acquired));
         }
     }
 

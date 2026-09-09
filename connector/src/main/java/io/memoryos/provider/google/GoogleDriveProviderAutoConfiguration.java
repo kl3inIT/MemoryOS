@@ -1,5 +1,6 @@
 package io.memoryos.provider.google;
 
+import io.memoryos.connector.GoogleDriveLinkReader;
 import io.memoryos.connector.GoogleDriveProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,5 +15,11 @@ public class GoogleDriveProviderAutoConfiguration {
     @ConditionalOnMissingBean(GoogleDriveProvider.class)
     RestGoogleDriveProvider googleDriveProvider(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
         return new RestGoogleDriveProvider(properties, mapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(GoogleDriveLinkReader.class)
+    GoogleDriveLinkReader googleDriveLinkReader(ObjectMapper mapper) {
+        return new OfflineGoogleDriveLinkReader(mapper);
     }
 }
