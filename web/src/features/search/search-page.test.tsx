@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -31,6 +31,33 @@ const OWNER_SESSION: ApplicationSession = {
   scopedCapabilities: [],
 };
 
+class MockSpeechRecognition {
+  static current: MockSpeechRecognition | null = null;
+
+  continuous = false;
+  interimResults = false;
+  lang = "";
+  onend: (() => void) | null = null;
+  onerror: ((event: { error: string }) => void) | null = null;
+  onresult:
+    | ((event: {
+        results: ArrayLike<{
+          readonly isFinal: boolean;
+          readonly length: number;
+          readonly [index: number]: { transcript: string };
+        }>;
+      }) => void)
+    | null = null;
+  onstart: (() => void) | null = null;
+  abort = vi.fn();
+  start = vi.fn(() => this.onstart?.());
+  stop = vi.fn(() => this.onend?.());
+
+  constructor() {
+    MockSpeechRecognition.current = this;
+  }
+}
+
 async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
   vi.stubGlobal("scrollTo", vi.fn());
   const rootRoute = createRootRoute();
@@ -58,6 +85,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
 }
 
 afterEach(() => {
+  MockSpeechRecognition.current = null;
   searchDocumentsMock.mockReset();
   window.localStorage.clear();
   document.documentElement.classList.remove("dark");
@@ -75,7 +103,63 @@ describe("SearchPage", () => {
     expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
+    expect(screen.getByRole("link", { name: "Add file source" })).toHaveAttribute(
+      "href",
+      "/admin/sources/new/file",
+    );
+    expect(screen.getByRole("button", { name: "Search by voice" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
+  });
+
+  it("adds a spoken transcript to the controlled query without searching automatically", async () => {
+    vi.stubGlobal("SpeechRecognition", MockSpeechRecognition);
+    const user = userEvent.setup();
+    await renderNewSession();
+
+    const input = screen.getByRole("textbox", { name: "Search documents" });
+    await user.type(input, "quy định");
+    await user.click(screen.getByRole("button", { name: "Search by voice" }));
+
+    expect(screen.getByRole("button", { name: "Stop voice search" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByText("Listening… Speak now, then review your query.")).toBeVisible();
+
+    act(() => {
+      MockSpeechRecognition.current?.onresult?.({
+        results: [{ 0: { transcript: "nghỉ phép" }, isFinal: true, length: 1 }],
+      });
+    });
+
+    expect(input).toHaveValue("quy định nghỉ phép");
+    expect(searchDocumentsMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Stop voice search" }));
+    expect(screen.getByRole("button", { name: "Search by voice" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(input).toHaveFocus();
+  });
+
+  it("explains how to recover when microphone permission is denied", async () => {
+    vi.stubGlobal("SpeechRecognition", MockSpeechRecognition);
+    const user = userEvent.setup();
+    await renderNewSession();
+
+    await user.click(screen.getByRole("button", { name: "Search by voice" }));
+    act(() => MockSpeechRecognition.current?.onerror?.({ error: "not-allowed" }));
+
+    expect(
+      screen.getByText(
+        "Microphone access was not granted. Enable it in your browser and try again.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Search by voice" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("renders the result workspace and applies the compact filter menus", async () => {
@@ -158,6 +242,7 @@ describe("SearchPage", () => {
 
     expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Add file source" })).not.toBeInTheDocument();
   });
   it("routes user-only administrators to users", async () => {
     await renderNewSession({

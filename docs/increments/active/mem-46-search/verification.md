@@ -1,5 +1,12 @@
 # MEM-46 — Implementation evidence
 
+## 2026-09-09 — Search composer Source and voice actions
+
+- Added three explicit composer actions around the controlled Search input: a capability-gated `Add file source` link, browser voice input and the existing Search submit. The Source action is present only for global `SOURCES_MANAGE` and deep-links to `/admin/sources/new/file`; scoped/read-only members do not receive it.
+- Voice input uses the browser-provided `SpeechRecognition`/`webkitSpeechRecognition` implementation. It appends interim/final transcript text to the current query for review and never auto-submits or sends audio through the MemoryOS API. Listening, unsupported-browser, permission-denied and generic failure states have pressed/disabled semantics, concise live feedback and unmount cleanup; nonessential pulse animation honors reduced motion.
+- Focused `search-page.test.tsx` verification passed 11/11 tests, including unsupported-browser state, Source shortcut authorization, transcript composition without an API call, stopping/focus return and microphone-permission recovery. Full `pnpm --dir web check` passed generated API/route stability, image policy, lint, format, TypeScript, 61/61 unit/component tests and the production build.
+- Manual authenticated Chrome inspection (not Playwright) at a 1005×1032 window confirmed the three controls remain aligned in the centered landing, the Source shortcut resolves to the real FILE setup route and accessibility exposes named link/button/pressed semantics. Per user direction, Playwright was not rerun locally; CI remains the post-push browser signal.
+
 ## 2026-09-08 — Start and runtime prerequisites
 
 - User approved implementation of the single Onyx-aligned normalized hybrid Search flow and selected OpenAI credentials for embedding.

@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock3, FileStack, LoaderCircle, Search, X } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Clock3, FileStack, LoaderCircle, Mic, Plus, Search, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
 import { SearchResultCard } from "./search-result-card";
@@ -38,7 +41,43 @@ const TIME_RANGE_OPTIONS: readonly SearchFilterOption[] = [
 
 type SearchTimeRange = "all" | "7d" | "30d" | "365d";
 
+type SpeechRecognitionAlternativeLike = {
+  transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+  readonly isFinal: boolean;
+  readonly length: number;
+  readonly [index: number]: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionEventLike = {
+  readonly results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionErrorEventLike = {
+  readonly error: string;
+};
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onstart: (() => void) | null;
+  abort: () => void;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+type VoiceStatus = "idle" | "listening" | "permission-denied" | "error";
+
 export function SearchPage() {
+  const canAddFileSource = useGlobalCapability("SOURCES_MANAGE");
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
@@ -48,6 +87,12 @@ export function SearchPage() {
   const searchFormRef = useRef<HTMLFormElement | null>(null);
   const previousSearchTopRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceQueryPrefixRef = useRef("");
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
+  const SpeechRecognition = getSpeechRecognitionConstructor();
+  const voiceSearchSupported = SpeechRecognition !== null;
+  const isListening = voiceStatus === "listening";
   const hasRequest = request !== null;
   const result = useQuery({
     queryKey: ["document-search", request],
@@ -85,6 +130,58 @@ export function SearchPage() {
     );
     return () => animation.cancel();
   }, [hasRequest]);
+
+  useEffect(
+    () => () => {
+      const recognition = speechRecognitionRef.current;
+      speechRecognitionRef.current = null;
+      recognition?.abort();
+    },
+    [],
+  );
+
+  function toggleVoiceSearch() {
+    if (isListening) {
+      speechRecognitionRef.current?.stop();
+      return;
+    }
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    voiceQueryPrefixRef.current = query.trim();
+    recognition.lang = document.documentElement.lang || navigator.language || "vi-VN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onstart = () => setVoiceStatus("listening");
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((speechResult) => speechResult[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      const prefix = voiceQueryPrefixRef.current;
+      setQuery([prefix, transcript].filter(Boolean).join(" "));
+    };
+    recognition.onerror = (event) => {
+      setVoiceStatus(
+        event.error === "not-allowed" || event.error === "service-not-allowed"
+          ? "permission-denied"
+          : "error",
+      );
+    };
+    recognition.onend = () => {
+      speechRecognitionRef.current = null;
+      setVoiceStatus((current) => (current === "listening" ? "idle" : current));
+      searchInputRef.current?.focus();
+    };
+    speechRecognitionRef.current = recognition;
+    setVoiceStatus("listening");
+    try {
+      recognition.start();
+    } catch {
+      speechRecognitionRef.current = null;
+      setVoiceStatus("error");
+    }
+  }
 
   function submit() {
     if (!query.trim()) return;
@@ -204,6 +301,19 @@ export function SearchPage() {
           >
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="flex min-w-0 flex-1 items-center rounded-lg border border-transparent bg-surface-sunken pr-1 transition-[border-color,box-shadow] duration-150 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/30 hover:border-border-subtle motion-reduce:transition-none">
+                {canAddFileSource ? (
+                  <IconButton
+                    asChild
+                    size="lg"
+                    prominence="internal"
+                    aria-label="Add file source"
+                    title="Add file source"
+                  >
+                    <Link to="/admin/sources/new/file">
+                      <Plus aria-hidden="true" />
+                    </Link>
+                  </IconButton>
+                ) : null}
                 <Input
                   ref={searchInputRef}
                   size="lg"
@@ -227,15 +337,32 @@ export function SearchPage() {
                     <X className="size-3.5" aria-hidden="true" />
                   </button>
                 ) : null}
-                <Button
-                  type="submit"
-                  size="sm"
-                  aria-label="Search"
-                  disabled={!query.trim()}
-                  className="w-8 px-0"
+                <IconButton
+                  type="button"
+                  size="lg"
+                  prominence="internal"
+                  tone={isListening ? "danger" : "default"}
+                  aria-label={isListening ? "Stop voice search" : "Search by voice"}
+                  aria-pressed={isListening}
+                  aria-describedby="voice-search-status"
+                  disabled={!voiceSearchSupported}
+                  title={
+                    voiceSearchSupported
+                      ? isListening
+                        ? "Stop listening"
+                        : "Search by voice"
+                      : "Voice search is not supported in this browser"
+                  }
+                  onClick={toggleVoiceSearch}
                 >
-                  <Search className="size-3.5" aria-hidden="true" />
-                </Button>
+                  <Mic
+                    className={cn(isListening && "animate-pulse motion-reduce:animate-none")}
+                    aria-hidden="true"
+                  />
+                </IconButton>
+                <IconButton type="submit" size="lg" aria-label="Search" disabled={!query.trim()}>
+                  <Search aria-hidden="true" />
+                </IconButton>
               </div>
               {result.isFetching ? (
                 <Button
@@ -282,6 +409,18 @@ export function SearchPage() {
                 ) : null}
               </div>
             ) : null}
+            <p
+              id="voice-search-status"
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "px-2 font-secondary-body",
+                voiceStatus === "idle" && "sr-only",
+                isListening ? "mt-2 text-content-secondary" : "mt-2 text-status-danger-content",
+              )}
+            >
+              {voiceStatusMessage(voiceStatus, voiceSearchSupported)}
+            </p>
           </form>
         </div>
 
@@ -433,6 +572,25 @@ export function SearchPage() {
       ) : null}
     </AppShell>
   );
+}
+
+function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") return null;
+  const speechWindow = window as typeof window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function voiceStatusMessage(status: VoiceStatus, supported: boolean) {
+  if (!supported) return "Voice search is not supported in this browser.";
+  if (status === "listening") return "Listening… Speak now, then review your query.";
+  if (status === "permission-denied") {
+    return "Microphone access was not granted. Enable it in your browser and try again.";
+  }
+  if (status === "error") return "Voice search stopped unexpectedly. Please try again.";
+  return "Voice search is ready.";
 }
 
 function updatedSinceForTimeRange(timeRange: SearchTimeRange): string | undefined {
