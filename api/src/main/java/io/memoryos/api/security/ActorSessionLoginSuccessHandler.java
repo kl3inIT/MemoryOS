@@ -6,12 +6,16 @@ import io.memoryos.iam.ActorProfileRecorder;
 import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.ExternalIdentityResolver;
 import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.IamException;
+import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.InvitationAcceptance;
 import io.memoryos.iam.InvitationException;
 import io.memoryos.iam.InvitationFailureReason;
 import io.memoryos.iam.InvitationService;
 import io.memoryos.iam.VerifiedEmailInvitationAcceptance;
 import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.iam.TenantId;
+import io.memoryos.iam.TrustedIdentityAdmission;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -39,6 +43,10 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     private final TenantAccessResolver tenantAccessResolver;
     private final InvitationService invitationService;
     private final ActorProfileRecorder profileRecorder;
+    private final TrustedIdentityAdmission trustedIdentityAdmission;
+    private final JitAdmissionProperties jitProperties;
+    private final TenantId tenantId;
+    private final String trustedIssuer;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
@@ -46,7 +54,11 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             ExternalIdentityResolver identityResolver,
             TenantAccessResolver tenantAccessResolver,
             InvitationService invitationService,
-            ActorProfileRecorder profileRecorder
+            ActorProfileRecorder profileRecorder,
+            TrustedIdentityAdmission trustedIdentityAdmission,
+            JitAdmissionProperties jitProperties,
+            TenantId tenantId,
+            String trustedIssuer
     ) {
         this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
         this.tenantAccessResolver = Objects.requireNonNull(
@@ -58,6 +70,10 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                 "invitationService must not be null"
         );
         this.profileRecorder = Objects.requireNonNull(profileRecorder, "profileRecorder must not be null");
+        this.trustedIdentityAdmission = Objects.requireNonNull(trustedIdentityAdmission);
+        this.jitProperties = Objects.requireNonNull(jitProperties);
+        this.tenantId = Objects.requireNonNull(tenantId);
+        this.trustedIssuer = Objects.requireNonNull(trustedIssuer);
     }
 
     @Override
@@ -72,8 +88,9 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             return;
         }
 
-        var issuer = oidcUser.getIssuer();
-        String subject = oidcUser.getSubject();
+        var idToken = oidcUser.getIdToken();
+        var issuer = idToken.getIssuer();
+        String subject = idToken.getSubject();
         if (issuer == null || subject == null || subject.isBlank()) {
             rejectLogin(request, response);
             return;
@@ -82,7 +99,24 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         var externalIdentity = new ExternalIdentity(issuer.toString(), subject);
         var actorId = identityResolver.resolve(externalIdentity).orElse(null);
         if (actorId == null || !tenantAccessResolver.hasActiveTenant(actorId)) {
-            actorId = acceptInvitation(request, response, oidcUser, externalIdentity);
+            if (trustedIssuer.equals(externalIdentity.issuer())
+                    && jitProperties.allows(idToken.getClaims().get("memoryos_identity_provider"))) {
+                try {
+                    actorId = trustedIdentityAdmission.admit(tenantId, externalIdentity);
+                } catch (IamException exception) {
+                    if (!IamFailureReason.ACCESS_DENIED.code().equals(exception.code())) {
+                        invalidatePartialSession(request);
+                        throw exception;
+                    }
+                    rejectLogin(request, response);
+                    return;
+                } catch (RuntimeException exception) {
+                    invalidatePartialSession(request);
+                    throw exception;
+                }
+            } else {
+                actorId = acceptInvitation(request, response, oidcUser, externalIdentity);
+            }
             if (actorId == null) {
                 return;
             }

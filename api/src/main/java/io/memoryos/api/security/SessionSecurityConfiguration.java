@@ -4,7 +4,12 @@ import io.memoryos.iam.ActorProfileRecorder;
 import io.memoryos.iam.ExternalIdentityResolver;
 import io.memoryos.iam.InvitationService;
 import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.iam.TenantId;
+import io.memoryos.iam.TrustedIdentityAdmission;
 
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +22,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(BrowserLoginProperties.class)
+@EnableConfigurationProperties({BrowserLoginProperties.class, JitAdmissionProperties.class})
 class SessionSecurityConfiguration {
 
     @Bean
@@ -29,7 +34,11 @@ class SessionSecurityConfiguration {
             TenantAccessResolver tenantAccessResolver,
             InvitationService invitationService,
             ActorProfileRecorder profileRecorder,
-            BrowserLoginProperties browserLoginProperties
+            BrowserLoginProperties browserLoginProperties,
+            TrustedIdentityAdmission trustedIdentityAdmission,
+            JitAdmissionProperties jitProperties,
+            @Value("${memoryos.initial-tenant.id}") UUID tenantId,
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String trustedIssuer
     ) {
         var clientRegistration = clientRegistrationRepository.findByRegistrationId(browserLoginProperties.registrationId());
         if (clientRegistration == null) {
@@ -61,7 +70,11 @@ class SessionSecurityConfiguration {
                                 identityResolver,
                                 tenantAccessResolver,
                                 invitationService,
-                                profileRecorder
+                                profileRecorder,
+                                trustedIdentityAdmission,
+                                jitProperties,
+                                new TenantId(tenantId),
+                                trustedIssuer
                         ))
                         .failureHandler(new OAuth2LoginFailureHandler()))
                 .logout(logout -> logout

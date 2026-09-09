@@ -488,6 +488,7 @@ upsert_client memoryos-integration "$SCRIPT_DIR/memoryos-client.json"
 upsert_mapper memoryos-api-audience memoryos-audience-mapper.json
 
 upsert_client memoryos-web "$BROWSER_CLIENT_FILE"
+upsert_mapper memoryos-identity-provider memoryos-identity-provider-mapper.json
 jq -cn '{secret: env.MEMORYOS_BROWSER_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
         --config "$CONFIG_FILE" \
