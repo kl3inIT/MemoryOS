@@ -1,0 +1,33 @@
+{
+  "properties": [
+    {
+      "name": "memoryos.chat.provider.api-key",
+      "type": "java.lang.String",
+      "description": "Credential for the configured Chat provider. Inject from the runtime secret store."
+    },
+    {
+      "name": "memoryos.chat.provider.base-url",
+      "type": "java.lang.String",
+      "defaultValue": "https://api.openai.com/v1",
+      "description": "Base URL of the supported OpenAI protocol endpoint."
+    },
+    {
+      "name": "memoryos.chat.provider.input-price-per-million",
+      "type": "java.lang.Double",
+      "defaultValue": -1,
+      "description": "Input price in USD per million tokens; -1 means unknown."
+    },
+    {
+      "name": "memoryos.chat.provider.output-price-per-million",
+      "type": "java.lang.Double",
+      "defaultValue": -1,
+      "description": "Output price in USD per million tokens; -1 means unknown."
+    },
+    {
+      "name": "memoryos.chat.execution.maintenance-interval",
+      "type": "java.time.Duration",
+      "defaultValue": "1s",
+      "description": "Interval for pending terminal persistence and stale deadline reconciliation."
+    }
+  ]
+}

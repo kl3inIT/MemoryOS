@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activateUser, addGroupMembers, assignGroupManager, createFileSource, createGroup, createInvitation, deactivateUser, deleteGroup, deleteSource, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getGroup, getSearchDocument, getSource, getSourceOperation, initiateSourceUpload, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGroupCapabilities, replaceUserGroups, revokeInvitation, rotateInvitation, searchDocuments, updateSourceGroups } from '../sdk.gen';
-import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGroupData, GetGroupResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, cancelChatMessage, createChatSession, createFileSource, createGroup, createInvitation, deactivateUser, deleteGroup, deleteSource, finalizeSourceUpload, getChatHistory, getChatSession, getCurrentIdentity, getCurrentInvitation, getGroup, getSearchDocument, getSource, getSourceOperation, initiateSourceUpload, listChatSessions, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGroupCapabilities, replaceUserGroups, revokeInvitation, rotateInvitation, searchDocuments, sendChatMessage, updateSourceGroups } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGroupData, GetGroupResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
 
 /**
  * Replace a user's ordinary Group memberships
@@ -604,6 +604,153 @@ export const replaceGroupCapabilitiesMutation = (options?: Partial<Options<Repla
     return mutationOptions;
 };
 
+export const listChatSessionsQueryKey = (options?: Options<ListChatSessionsData>) => createQueryKey('listChatSessions', options);
+
+/**
+ * List the actor's private chat sessions
+ */
+export const listChatSessionsOptions = (options?: Options<ListChatSessionsData>) => queryOptions<ListChatSessionsResponse, ListChatSessionsError, ListChatSessionsResponse, ReturnType<typeof listChatSessionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatSessions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatSessionsQueryKey(options)
+});
+
+export const listChatSessionsInfiniteQueryKey = (options?: Options<ListChatSessionsData>): QueryKey<Options<ListChatSessionsData>> => createQueryKey('listChatSessions', options, true);
+
+/**
+ * List the actor's private chat sessions
+ */
+export const listChatSessionsInfiniteOptions = (options?: Options<ListChatSessionsData>) => {
+    const opts = infiniteQueryOptions<ListChatSessionsResponse, ListChatSessionsError, InfiniteData<ListChatSessionsResponse>, QueryKey<Options<ListChatSessionsData>>, number | Pick<QueryKey<Options<ListChatSessionsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListChatSessionsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listChatSessions({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listChatSessionsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Create a private chat session
+ */
+export const createChatSessionMutation = (options?: Partial<Options<CreateChatSessionData>>): UseMutationOptions<CreateChatSessionResponse, CreateChatSessionError, Options<CreateChatSessionData>> => {
+    const mutationOptions: UseMutationOptions<CreateChatSessionResponse, CreateChatSessionError, Options<CreateChatSessionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createChatSession({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getChatHistoryQueryKey = (options: Options<GetChatHistoryData>) => createQueryKey('getChatHistory', options);
+
+/**
+ * Read the selected chat branch after a message cursor
+ */
+export const getChatHistoryOptions = (options: Options<GetChatHistoryData>) => queryOptions<GetChatHistoryResponse, GetChatHistoryError, GetChatHistoryResponse, ReturnType<typeof getChatHistoryQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatHistory({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatHistoryQueryKey(options)
+});
+
+export const getChatHistoryInfiniteQueryKey = (options: Options<GetChatHistoryData>): QueryKey<Options<GetChatHistoryData>> => createQueryKey('getChatHistory', options, true);
+
+/**
+ * Read the selected chat branch after a message cursor
+ */
+export const getChatHistoryInfiniteOptions = (options: Options<GetChatHistoryData>) => {
+    const opts = infiniteQueryOptions<GetChatHistoryResponse, GetChatHistoryError, InfiniteData<GetChatHistoryResponse>, QueryKey<Options<GetChatHistoryData>>, string | Pick<QueryKey<Options<GetChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<GetChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    after: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await getChatHistory({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: getChatHistoryInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Reserve and execute a chat reply in the background
+ */
+export const sendChatMessageMutation = (options?: Partial<Options<SendChatMessageData>>): UseMutationOptions<SendChatMessageResponse, SendChatMessageError, Options<SendChatMessageData>> => {
+    const mutationOptions: UseMutationOptions<SendChatMessageResponse, SendChatMessageError, Options<SendChatMessageData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await sendChatMessage({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Request Stop; read history for the committed terminal outcome
+ */
+export const cancelChatMessageMutation = (options?: Partial<Options<CancelChatMessageData>>): UseMutationOptions<CancelChatMessageResponse, CancelChatMessageError, Options<CancelChatMessageData>> => {
+    const mutationOptions: UseMutationOptions<CancelChatMessageResponse, CancelChatMessageError, Options<CancelChatMessageData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await cancelChatMessage({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listUsersQueryKey = (options?: Options<ListUsersData>) => createQueryKey('listUsers', options);
 
 /**
@@ -946,4 +1093,22 @@ export const listGroupCapabilitiesOptions = (options?: Options<ListGroupCapabili
         return data;
     },
     queryKey: listGroupCapabilitiesQueryKey(options)
+});
+
+export const getChatSessionQueryKey = (options: Options<GetChatSessionData>) => createQueryKey('getChatSession', options);
+
+/**
+ * Read an owned chat session
+ */
+export const getChatSessionOptions = (options: Options<GetChatSessionData>) => queryOptions<GetChatSessionResponse, GetChatSessionError, GetChatSessionResponse, ReturnType<typeof getChatSessionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatSession({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatSessionQueryKey(options)
 });

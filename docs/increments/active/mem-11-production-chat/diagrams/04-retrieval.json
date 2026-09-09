@@ -1,0 +1,158 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MemoryOS · Search tool bám sát Onyx",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "query",
+      "label": "Query và truy xuất"
+    },
+    {
+      "id": "context",
+      "label": "Context và nguồn"
+    },
+    {
+      "id": "output",
+      "label": "Kết quả cho agent"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "question",
+      "lane": "query",
+      "col": 0,
+      "type": "backend",
+      "label": "Câu hỏi",
+      "sublabel": "Giữ original",
+      "width": 132
+    },
+    {
+      "id": "plan",
+      "lane": "query",
+      "col": 1,
+      "type": "backend",
+      "label": "Query plan",
+      "sublabel": "Semantic / keyword",
+      "width": 132
+    },
+    {
+      "id": "search",
+      "lane": "query",
+      "col": 2,
+      "type": "backend",
+      "label": "Hybrid Search",
+      "sublabel": "Fan-out có giới hạn",
+      "width": 132
+    },
+    {
+      "id": "fusion",
+      "lane": "query",
+      "col": 3,
+      "type": "backend",
+      "label": "Weighted RRF",
+      "sublabel": "Ghép nhiều query",
+      "width": 132
+    },
+    {
+      "id": "merge",
+      "lane": "context",
+      "col": 3,
+      "type": "backend",
+      "label": "Ghép sections",
+      "sublabel": "Adjacent / overlap",
+      "width": 132
+    },
+    {
+      "id": "select",
+      "lane": "context",
+      "col": 4,
+      "type": "backend",
+      "label": "Chọn sections",
+      "sublabel": "Validate IDs / budget",
+      "width": 132
+    },
+    {
+      "id": "evidence",
+      "lane": "output",
+      "col": 4,
+      "type": "database",
+      "label": "Evidence bundle",
+      "sublabel": "Text + citation map",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "question-plan",
+      "from": "question",
+      "to": "plan",
+      "label": "Rewrite theo history",
+      "variant": "default"
+    },
+    {
+      "id": "plan-search",
+      "from": "plan",
+      "to": "search",
+      "label": "Queries đã validate",
+      "variant": "default"
+    },
+    {
+      "id": "search-fusion",
+      "from": "search",
+      "to": "fusion",
+      "label": "Ranked chunks",
+      "variant": "default"
+    },
+    {
+      "id": "fusion-merge",
+      "from": "fusion",
+      "to": "merge",
+      "label": "Dedup theo identity",
+      "variant": "default"
+    },
+    {
+      "id": "merge-select",
+      "from": "merge",
+      "to": "select",
+      "label": "Candidates",
+      "variant": "default"
+    },
+    {
+      "id": "select-evidence",
+      "from": "select",
+      "to": "evidence",
+      "label": "Đọc lân cận",
+      "variant": "default"
+    }
+  ],
+  "mainPath": [
+    "question",
+    "plan",
+    "search",
+    "fusion",
+    "merge",
+    "select",
+    "evidence"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Reuse hiện có",
+      "items": [
+        "Một backend Retrieval và một index hiện có.",
+        "Source ACL được kiểm lại khi đọc context."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Mở rộng nguồn",
+      "items": [
+        "Evidence giữ provider + identity + provenance.",
+        "Web adapter tương lai dùng cùng evidence contract."
+      ]
+    }
+  ]
+}
