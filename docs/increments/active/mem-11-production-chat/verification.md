@@ -1,6 +1,27 @@
 # MEM-11 implementation verification
 
-Current scope, 2026-09-09: one API process and one provider. Phase 2.3 implements RAM replay, local Stop and provider-specific composition in the working tree. Multi-provider catalog/user/admin/organization BYOK are [MEM-77](https://linear.app/memory-os/issue/MEM-77), assigned to `phamnhatanh811` and blocked by MEM-11; personal BYOK is excluded. Browser Chat remains Phase 2.4. The former Redis/replica plan is superseded by [design](design.md#baseline-một-provider-và-phần-mở-rộng) and [plan](plan.md#23--stream-buffer-và-http-contract).
+Current scope, 2026-09-09: one API process and one provider. Phase 2.3 implements RAM replay, local Stop and provider-specific composition; Phase 2.4 adds the browser Chat integration on `feat/mem-11-phase-2-ui`. Multi-provider catalog/user/admin/organization BYOK are [MEM-77](https://linear.app/memory-os/issue/MEM-77), assigned to `phamnhatanh811` and blocked by MEM-11; personal BYOK is excluded. The former Redis/replica plan is superseded by [design](design.md#baseline-một-provider-và-phần-mở-rộng) and [plan](plan.md#23--stream-buffer-và-http-contract).
+
+## Phase 2.4 — 2026-09-09
+
+Implemented Chat home/session routes, shared sidebar history and Chat/Search mode menu, native assistant-ui composer/thread/markdown, and a public Vercel AI SDK ChatTransport adapter. Backend wire contract, Embabel ownership, JDBC persistence, local Stop and RAM buffer are unchanged. The phase branch is based on the backend integration branch; this is not main/staging delivery.
+
+| Verification | Evidence and boundary |
+| --- | --- |
+| `gradlew.bat clean check --no-daemon` | PASS in 6m56s: 267 passed, zero failures/errors, four optional checks skipped (three Docling, one opt-in live Chat test). Full API contexts and real PostgreSQL run in Testcontainers. |
+| `corepack pnpm@11.22.0 check` in `web/` | PASS: OpenAPI/client and route drift, lint without warnings, formatting, TypeScript, 64 unit tests and production bundle. |
+| Production transport contracts | Twelve unit tests exercise generated clients/parser, server IDs, UUID request identity, duplicate replay, cursor reconnect, gap/reset fallback, partial failure, Stop during admission, committed cancellation/complete race, authorization failures and invalid history cursor. |
+| Whole browser suite | 29 tests passed with `pnpm test:e2e --workers=1`. An initial default-parallel run timed out loading pages under concurrent local load; it is not reported as passed. |
+| Final Chat browser coverage | Eight scenarios with native runtime and incremental HTTP fixture: multiple turns/IME/code copy, reload RUNNING/Stop, disconnect, buffer reset, FAILED partial, mobile/navigation reader cleanup, denied stream, and preserving scroll position while new output arrives. Fixture execution/auth is not real Java/model acceptance. |
+| Real product browser path | Normal Java API with isolated PostgreSQL migrated through V20, managed `dev` Keycloak and provider configuration, and Vite same-origin proxy. Two temporary normal OIDC users were created; active MEMBER/identity-binding rows were seeded only in the isolated database. No authentication filter, provider or product endpoint was mocked. This does not test invitation provisioning. |
+| Real model results | First turn completed and persisted; reload restored it. Second turn reloaded while RUNNING, replayed the same reply and committed CANCELED on Stop with 1098 saved characters. Another real OIDC MEMBER received 404 on the private session and could not render its transcript. Browser reported no page errors. |
+| Cleanup | Both successful-run OIDC users and both users from an initial email-login correction were deleted, with HTTP 204 confirmations. API/Vite processes stopped; the isolated PostgreSQL container was stopped and removed. No staging/main data or configuration changed. |
+
+The initial local `bootRun` lacked a JDBC URL because the managed dev environment does not supply database credentials and Dev Services did not supply one in that invocation. Verification then used an explicitly configured isolated PostgreSQL container with the same production migrations and ordinary application properties; no temporary runtime profile or endpoint was added.
+
+JetBrains inspected the new source and changed supported files with warnings enabled. Type imports and the deprecated Thread.Messages components prop were corrected. Remaining suggestions concern deliberate catch/rethrow lifecycle handling, small duplicate helpers, existing test fragments and the shell anchor that exists in rendered HTML. The fixture's relative type import is needed by Node's test-server module resolution. Some IDE requests timed out or were canceled, so a fully clean IDE result is not claimed; compiler/linter and behavioral gates passed. The lazy Chat chunk is approximately 589 kB minified / 172 kB gzip and triggers Vite's advisory 500 kB warning; the warning threshold was not raised.
+
+Raw logs, screenshots, live scripts and comparison probes remain ignored under `.tmp/` or standard ignored browser test outputs. Desktop/narrow-viewport captures were inspected. Physical mobile keyboard behavior, staging deployment, actual Search/tools/citations, editor/sharing and multi-provider catalog remain outside this phase's demonstrated acceptance. Real model reload exercised RAM replay; reset/EOF/race fault injection is covered at the transport/browser-fixture and existing backend boundaries, not represented as provider-outage acceptance.
 
 ## Phase 2.3 — Provider binding, local Stop and HTTP stream, 2026-09-09
 

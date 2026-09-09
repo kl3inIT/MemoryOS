@@ -30,7 +30,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [MEM-46 — Search](docs/increments/active/mem-46-search/design.md) is deployed and In Review; Search UI/UX completion and feature acceptance are assigned to `phamnhatanh811`.
-- [MEM-11 — Production Chat](docs/increments/active/mem-11-production-chat/design.md) has Phase 2.1–2.3 persistence, native background execution, provider baseline, local Stop and RAM replay/SSE implemented in the working tree; Chat UI is Phase 2.4. It consumes Search; MEM-46/MEM-25 Linear dependency metadata is unchanged by this local work.
+- [MEM-11 — Production Chat](docs/increments/active/mem-11-production-chat/design.md) has Phases 2.1–2.4 persistence, native execution, provider baseline, local Stop, RAM replay/SSE and browser Chat implemented on phase/integration branches. Retrieval tools and editor/sharing remain later phases. MEM-46/MEM-25 Linear dependency metadata is unchanged by this local work.
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates MEM-9/MEM-10/MEM-63 and the MEM-76 selection/sync-history extension. These are In Progress with `nhuxuanviet27102004`; the provider is not yet merged into main.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.

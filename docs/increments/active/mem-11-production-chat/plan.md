@@ -82,11 +82,12 @@ Exit đạt ở backend/contract boundary: provider baseline có extension tests
 
 ### 2.4 — UI thật và nghiệm thu Phase 2
 
-- [ ] Chat routes trong authenticated boundary; sidebar tạo/chọn session, composer/thread với assistant-ui; runtime adapter nối generated client và SSE.
-- [ ] Giữ message identity khi stream/Stop/reload; hiển thị partial/error và trạng thái chờ Stop đúng; auth change dọn subscriptions/private state theo app conventions.
-- [ ] Browser end-to-end dùng IAM/PostgreSQL/model thật và buffer RAM của runtime: tạo session, send nhiều lượt, reload trong/sau lượt, Stop, reconnect/gap và Actor khác bị từ chối. UI branch editing/Persona editor/Search tools vẫn thuộc phase đã phân công.
-- [ ] Quan sát lifecycle/latency/errors/resource release theo conventions; không ghi prompt/secret vào logs. Chuyển các contracts cần giữ từ scratch sang product tests.
-- [ ] Chạy static/IDE theo skill, wrapper clean check, OpenAPI và frontend/browser gates phù hợp; cập nhật architecture/spec/test docs với phần thực sự đã triển khai, QA/raw receipts giữ trong ignored scratch.
+- [x] So sánh ba runtime bằng native hooks và HTTP/browser fixture, gồm tools/replay/Stop; xem [UI runtime verification](ui-runtime-verification.md). Đã chốt và triển khai `useChatRuntime` + public `ChatTransport`; xem product verification.
+- [x] Chat routes trong authenticated boundary; sidebar tạo/chọn session, composer/thread với assistant-ui; runtime adapter nối generated client và SSE.
+- [x] Giữ message identity khi stream/Stop/reload; hiển thị partial/error và trạng thái chờ Stop đúng; auth change dọn subscriptions/private state theo app conventions.
+- [x] Browser end-to-end dùng IAM/PostgreSQL/model thật và buffer RAM của runtime: tạo session, send nhiều lượt, reload trong/sau lượt, Stop/replay và Actor khác bị từ chối. Reset/gap/EOF kiểm bằng incremental HTTP fixture qua adapter thật; không đánh đồng với provider outage. UI branch editing/Persona editor/Search tools vẫn thuộc phase đã phân công.
+- [x] Giữ native server observations; kiểm lifecycle, lỗi và reader release qua runtime/browser; không ghi prompt/secret vào logs. Chuyển các contracts cần giữ từ scratch sang product tests.
+- [x] Chạy static/IDE theo skill, wrapper clean check, OpenAPI và frontend/browser gates phù hợp; cập nhật architecture/spec/test docs với phần thực sự đã triển khai, QA/raw receipts giữ trong ignored scratch.
 
 Exit Phase 2: send/stream/save/reload/Stop/reconnect hoạt động xuyên sản phẩm với quyền thật, outcome bền vững và failure handling đã kiểm. Search/citations nguồn thật ở Phase 3, loop/tools đầy đủ ở Phase 4, editor/sharing ở Phase 5; hardening cần cho Phase 2 không đẩy sang các phase đó.
 

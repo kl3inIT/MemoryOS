@@ -2,7 +2,19 @@
 
 ## Implemented scope
 
-MEM-11 implements private sessions, native background execution, local Stop and bounded RAM replay/SSE in the working tree through Phase 2.3. The application home remains Search; Chat UI is Phase 2.4. [Design and future scope](../increments/active/mem-11-production-chat/design.md), [verification matrix](../tests/chat.md) and [ADR 0009](../decisions/0009-chat-session-persistence-and-iam-boundary.md) distinguish these boundaries from complete Chat acceptance.
+MEM-11 implements private sessions, native background execution, local Stop, bounded RAM replay/SSE and the Phase 2.4 browser integration. Chat is the application home; Search lives at `/search`. [Design and future scope](../increments/active/mem-11-production-chat/design.md), [verification matrix](../tests/chat.md) and [ADR 0009](../decisions/0009-chat-session-persistence-and-iam-boundary.md) distinguish the delivered foundation from the remaining retrieval/tools/editor/sharing phases.
+
+## Browser integration
+
+`/` starts a new conversation; `/chat/{sessionId}` loads a private selected-branch transcript. The shared application sidebar contains New chat, Search and paginated conversation history. The header Chat/Search menu switches routes without changing a running inference. The mobile sidebar is the existing modal drawer. No model selector, attachments, editor or sharing controls are exposed before their backend contracts exist.
+
+`useChatRuntime` from `@assistant-ui/ai-sdk` connects native assistant-ui primitives to Vercel AI SDK message state. `MemoryOsChatTransport` implements public `ChatTransport` and uses the generated Java API client and SSE parser. It converts named events into UI message chunks; it does not execute tools or create another message store. Stable UUID request IDs and server-assigned user/assistant IDs are retained. A new session is created lazily from the first question; after acceptance the URL changes to its session and the new view hydrates/replays the existing run.
+
+The composer supports native Enter/Shift+Enter and IME handling, with a 32000-character limit. Markdown/code blocks and copy use native message parts; links use explicit HTTP(S) URLs and open outside the app. Native viewport behavior follows output while at the bottom, preserves an upward-scrolling reader, and offers a return-to-latest control. Stop calls the Java cancel endpoint while retaining the reader; only committed cancellation invokes native runtime cancel. History metadata renders saved FAILED/CANCELED outcomes after reload.
+
+The adapter ignores duplicate sequences, checks run IDs/cursors, and makes at most three stream connection attempts with a 65-second per-connection limit. It resumes from the last applied cursor. Reset/gap or exhausted reconnect falls back to saved history, polling only the reply after its stable USER parent every two seconds for at most 31 minutes, covering the server's maximum 30-minute deadline and finalization grace. It never resubmits the question automatically. EOF is not a successful terminal outcome. If status cannot be confirmed, sending remains disabled and Check conversation reloads authoritative history. Stop during send admission is retained until the reservation supplies an assistant ID. HTTP 401/403/404 hides the current transcript and refreshes identity. Route unmount and authority changes release subscriptions; they do not cancel backend execution.
+
+Browser bounds: stream response 8 MiB per connection, reply 1000000 characters, complete history 8000000 characters/100 pages and a 30-second history fetch deadline. Exceeding history bounds reports an unavailable conversation instead of silently dropping its prefix. These are browser protection limits, not configurable backend context limits or a claim of unlimited history support. The transport retains only the current text prefix needed to reconcile a durable fallback with SDK-owned text.
 
 ## Ownership and names
 

@@ -1,6 +1,8 @@
 # MEM-11 — Chat theo baseline Onyx
 
-Cập nhật ngày 2026-09-09. Phase 2.1–2.3 persistence, native background execution, provider binding, local Stop và RAM replay/SSE đã triển khai trong working tree; Chat UI thuộc Phase 2.4. [Verification hiện tại](verification.md) và [Chat spec](../../../specs/chat.md) phân biệt implementation với thiết kế còn lại. [Plan](plan.md), [parity](onyx-parity.md), [framework reuse](onyx-config-and-framework-reuse.md), [reference review](spring-ai-reference-review.md) và [Phase 1 verification](phase-1-verification.md) ghi phạm vi và bằng chứng. Áp dụng [quy tắc thiết kế theo reference](../../../conventions.md#reference-based-design-and-scope-control).
+Frontend runtime đã chốt và triển khai ở Phase 2.4 ngày 2026-09-09: `useChatRuntime` + public `ChatTransport`, giữ wire contract Phase 2.3; xem [so sánh và giới hạn kiểm chứng](ui-runtime-verification.md). Product contracts và verification nằm trong Chat spec và verification của increment; probe so sánh vẫn giữ đúng ranh giới fixture.
+
+Cập nhật ngày 2026-09-09. Phase 2.1–2.3 persistence, native background execution, provider binding, local Stop và RAM replay/SSE đã triển khai trong working tree; Chat UI Phase 2.4 đã nối qua adapter, không đổi wire contract của backend. [Verification hiện tại](verification.md) và [Chat spec](../../../specs/chat.md) phân biệt implementation với thiết kế còn lại. [Plan](plan.md), [parity](onyx-parity.md), [framework reuse](onyx-config-and-framework-reuse.md), [reference review](spring-ai-reference-review.md) và [Phase 1 verification](phase-1-verification.md) ghi phạm vi và bằng chứng. Áp dụng [quy tắc thiết kế theo reference](../../../conventions.md#reference-based-design-and-scope-control).
 
 ## Phạm vi
 
