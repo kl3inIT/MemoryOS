@@ -34,17 +34,21 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     private static final TokenCountEstimator TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
 
     public static void validateQuestion(String instructions, String text, int contextTokenLimit) {
-        if (TOKENS.estimate(instructions) + TOKENS.estimate(text) + 64 > contextTokenLimit)
+        validateQuestion(instructions, text, contextTokenLimit, TOKENS);
+    }
+
+    public static void validateQuestion(String instructions, String text, int contextTokenLimit, TokenCountEstimator tokens) {
+        if (tokens.estimate(instructions) + tokens.estimate(text) + 64 > contextTokenLimit)
             throw ChatException.invalid("The current question exceeds the configured context limit.");
     }
 
     public static ChatTurnSetup resolve(UUID session, UUID assistant, TurnContext context, int contextTokenLimit,
                                         ChatModelBinding binding) {
         var selected = new ArrayList<Message>();
-        int tokens = TOKENS.estimate(context.instructions()) + 32;
+        int tokens = binding.tokens().estimate(context.instructions()) + 32;
         for (var message : context.newestFirst()) {
             if (message.content() == null || message.content().isEmpty()) continue;
-            int size = TOKENS.estimate(message.content()) + 32;
+            int size = binding.tokens().estimate(message.content()) + 32;
             if (tokens + size > contextTokenLimit) break;
             tokens += size;
             selected.add(message.role() == ChatMessage.Role.USER
@@ -55,6 +59,6 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         Collections.reverse(selected);
         if (selected.getFirst() instanceof AssistantMessage) selected.removeFirst();
         selected.addFirst(new SystemMessage(context.instructions()));
-        return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), context.model(), selected, context.deadline(), binding);
+        return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, context.deadline(), binding);
     }
 }

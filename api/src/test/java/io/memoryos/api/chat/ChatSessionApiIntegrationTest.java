@@ -15,9 +15,18 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import io.memoryos.chat.catalog.ModelSettings;
+import io.memoryos.chat.catalog.ModelCatalogService;
 import com.sun.net.httpserver.HttpServer;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -71,6 +80,12 @@ import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.never;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import io.memoryos.chat.catalog.ChatProviderAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Mono;
@@ -78,6 +93,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
@@ -98,6 +114,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
+        "memoryos.chat.catalog.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.chat.stream.heartbeat=100ms",
         "springdoc.api-docs.enabled=true",
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
@@ -132,6 +149,8 @@ class ChatSessionApiIntegrationTest {
     private int port;
     @MockitoBean(name = "chatProviderModel")
     private ChatModel model;
+    @MockitoSpyBean
+    private OpenAiChatProviderAdapter providerAdapter;
     private ActorAuthenticationToken actor;
     private ActorAuthenticationToken other;
 
@@ -155,7 +174,11 @@ class ChatSessionApiIntegrationTest {
     }
 
     @BeforeEach
+    @SuppressWarnings("resource") // Mockito records a factory call; the runtime cache owns the actual client.
     void actors() {
+        doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
+                call.getArgument(1), call.getArgument(2), model), () -> {}))
+                .when(providerAdapter).create(any(), any(), any(), any());
         actor = actor();
         other = actor();
     }
@@ -455,6 +478,339 @@ class ChatSessionApiIntegrationTest {
         }
         assertEquals("CHAT_INTERRUPTED", jdbc.sql("SELECT failure_code FROM chat_message WHERE id = :id")
                 .param("id", UUID.fromString(id)).query(String.class).single());
+    }
+
+    @Test
+    void catalogRequiresDedicatedAuthorityRedactsCredentialsAndRejectsStaleWrites() throws Exception {
+        mockMvc.perform(get("/api/chat/providers").with(authentication(actor))).andExpect(status().isForbidden());
+        grantModelManagement();
+        var provider = createProvider("http://model.internal:8000/v1", true);
+        assertTrue(provider.path("credentialConfigured").asBoolean());
+        assertFalse(provider.toString().contains("fixture-byok"));
+        assertFalse(provider.has("credential"));
+        String stored = jdbc.sql("SELECT credential FROM llm_provider WHERE id=:id")
+                .param("id", UUID.fromString(provider.path("id").asText())).query(String.class).single();
+        assertTrue(stored.startsWith("v1:"));
+        assertFalse(stored.contains("fixture-byok"));
+        String path = "/api/chat/providers/" + provider.path("id").asText();
+        var body = providerBody("http://new.internal/v1", true).putObject("credential").put("action", "KEEP");
+        var update = providerBody("http://new.internal/v1", true);
+        update.set("credential", body);
+        mockMvc.perform(put(path).param("revision", "1").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(update.toString())).andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(2));
+        mockMvc.perform(put(path).param("revision", "1").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(update.toString())).andExpect(status().isConflict());
+        mockMvc.perform(get("/api/chat/providers").with(authentication(other))).andExpect(status().isForbidden());
+        var invalid = providerBody("https://user:secret@host/v1", true);
+        var failed = mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(invalid.toString())).andExpect(status().isBadRequest()).andReturn();
+        assertFalse(failed.getResponse().getContentAsString().contains("fixture-byok"));
+    }
+
+    @Test
+    void concreteIdsRouteSameNamedModelsAndIdempotencyIncludesSelection() throws Exception {
+        grantModelManagement();
+        var first = createConfiguredModel(createProvider("http://first.internal/v1", true), "same-model", 0.2);
+        var second = createConfiguredModel(createProvider("http://second.internal/v1", true), "same-model", 0.7);
+        assertNotEquals(first.path("id").asText(), second.path("id").asText());
+        var prompt = new AtomicReference<Prompt>();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> { prompt.set(call.getArgument(0)); return Flux.just(response("Answer", "stop", 3)); });
+        var session = create();
+        String request = UUID.randomUUID().toString();
+        var sent = sendWithModel(session, request, second.path("id").asText(), 202);
+        awaitOutcome(sent.path("assistantMessageId").asText(), "COMPLETED");
+        assertEquals(second.path("id").asText(), sent.path("modelConfigurationId").asText());
+        var actualOptions = prompt.get().getOptions();
+        assertNotNull(actualOptions);
+        assertEquals("same-model", actualOptions.getModel());
+        assertEquals(0.7, actualOptions.getTemperature());
+        var repeated = sendWithModel(session, request, second.path("id").asText(), 202);
+        assertEquals(sent, repeated);
+        sendWithModel(session, request, first.path("id").asText(), 409);
+        assertEquals(2, history(session).size());
+        mockMvc.perform(delete("/api/chat/models/" + second.path("id").asText()).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertEquals(2, history(session).size());
+        assertEquals(sent, sendWithModel(session, request, second.path("id").asText(), 202));
+    }
+
+    @Test
+    void personaSelectionAndUnavailableExplicitSelectionUseOnlyAuthorizedDefault() throws Exception {
+        grantModelManagement();
+        var chosen = createConfiguredModel(createProvider("http://persona.internal/v1", true), "persona-model", 0.4);
+        var session = create();
+        String personaId = session.path("personaId").asText();
+        var saved = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        try {
+            mockMvc.perform(put("/api/chat/personas/" + personaId + "/model").param("revision", saved.path("revision").asText())
+                    .param("modelConfigurationId", chosen.path("id").asText()).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk());
+            when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 3)));
+            var sent = send(session, UUID.randomUUID().toString());
+            awaitOutcome(sent.path("assistantMessageId").asText(), "COMPLETED");
+            assertEquals(chosen.path("id").asText(), sent.path("modelConfigurationId").asText());
+            var nextSession = create();
+            var fallback = sendWithModel(nextSession, UUID.randomUUID().toString(), UUID.randomUUID().toString(), 202);
+            awaitOutcome(fallback.path("assistantMessageId").asText(), "COMPLETED");
+            assertEquals("SELECTION_UNAVAILABLE", fallback.path("fallbackReason").asText());
+            assertNotEquals(chosen.path("id").asText(), fallback.path("modelConfigurationId").asText());
+        } finally {
+            mockMvc.perform(put("/api/chat/personas/" + personaId + "/model").param("revision", Long.toString(saved.path("revision").asLong() + 1))
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void restrictedProviderUsesGroupAccessAndPersonaAllowlistAlsoAppliesToManagers() throws Exception {
+        grantModelManagement();
+        var provider = createProvider("http://restricted.internal/v1", false);
+        var configured = createConfiguredModel(provider, "restricted-model", 0.3);
+        String modelId = configured.path("id").asText();
+        String allowedBefore = mockMvc.perform(get("/api/chat/models").with(authentication(other)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(allowedBefore.contains(modelId));
+        var session = create();
+        String personaId = session.path("personaId").asText();
+        UUID group = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
+                .param("tenant", TENANT).param("id", group).param("name", group.toString()).update();
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:group,:actor)")
+                .param("tenant", TENANT).param("group", group).param("actor", other.getPrincipal().actorId().value()).update();
+        var update = providerBody("http://restricted.internal/v1", false);
+        update.putArray("groupIds").add(group.toString());
+        update.putArray("personaIds").add(personaId);
+        update.putObject("credential").put("action", "KEEP");
+        mockMvc.perform(put("/api/chat/providers/" + provider.path("id").asText()).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(update.toString()))
+                .andExpect(status().isOk());
+        assertTrue(mockMvc.perform(get("/api/chat/models").with(authentication(other))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString().contains(modelId));
+        jdbc.sql("DELETE FROM iam_group_memberships WHERE tenant_id=:tenant AND group_id=:group AND actor_id=:actor")
+                .param("tenant", TENANT).param("group", group).param("actor", other.getPrincipal().actorId().value()).update();
+        assertFalse(mockMvc.perform(get("/api/chat/models").with(authentication(other))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString().contains(modelId));
+        // A second Persona excludes the selected session even for the model manager.
+        UUID differentPersona = UUID.randomUUID();
+        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,:key,'Other','','model')")
+                .param("id", differentPersona).param("tenant", TENANT).param("key", differentPersona.toString().substring(0, 20)).update();
+        update.putArray("personaIds").add(differentPersona.toString());
+        mockMvc.perform(put("/api/chat/providers/" + provider.path("id").asText()).param("revision", "2")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(update.toString()))
+                .andExpect(status().isOk());
+        assertFalse(mockMvc.perform(get("/api/chat/models").param("sessionId", session.path("id").asText()).with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString().contains(modelId));
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Fallback", "stop", 3)));
+        var fallback = sendWithModel(session, UUID.randomUUID().toString(), modelId, 202);
+        awaitOutcome(fallback.path("assistantMessageId").asText(), "COMPLETED");
+        assertEquals("SELECTION_UNAVAILABLE", fallback.path("fallbackReason").asText());
+        mockMvc.perform(get("/api/chat/models").param("sessionId", session.path("id").asText()).with(authentication(other)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void defaultsCannotBeHiddenDeletedOrRevokedAndValidationDoesNotExposeProviderErrors() throws Exception {
+        grantModelManagement();
+        var defaultState = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-default").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String defaultId = defaultState.path("modelConfigurationId").asText();
+        mockMvc.perform(delete("/api/chat/models/" + defaultId).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
+        UUID providerId = jdbc.sql("SELECT provider_id FROM model_configuration WHERE id=:id")
+                .param("id", UUID.fromString(defaultId)).query(UUID.class).single();
+        mockMvc.perform(delete("/api/chat/providers/" + providerId).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
+        var hidden = modelBody("gpt-5-mini", 0.5).put("visible", false);
+        mockMvc.perform(put("/api/chat/models/" + defaultId).param("revision", "1").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(hidden.toString()))
+                .andExpect(status().isBadRequest());
+        var provider = createProvider("http://validate.internal/v1", true);
+        var configured = createConfiguredModel(provider, "validation-model", 0.2);
+        String path = "/api/chat/models/" + configured.path("id").asText() + "/validate";
+        mockMvc.perform(post(path).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isForbidden());
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.error(new IllegalStateException("secret-provider-payload")));
+        var failed = mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reachable").value(false)).andReturn();
+        assertFalse(failed.getResponse().getContentAsString().contains("secret-provider-payload"));
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("OK", "stop", 2), new ChatResponse(List.of())));
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reachable").value(true));
+    }
+
+    @Test
+    void changingModelOptionsWhileRunningAffectsOnlyTheNextTurn() throws Exception {
+        grantModelManagement();
+        var configured = createConfiguredModel(createProvider("http://revision.internal/v1", true), "revision-model", 0.1);
+        var ongoing = Sinks.many().unicast().<ChatResponse>onBackpressureBuffer();
+        var prompts = new CopyOnWriteArrayList<Prompt>();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            prompts.add(call.getArgument(0));
+            return prompts.size() == 1 ? ongoing.asFlux() : Flux.just(response("New", "stop", 3));
+        });
+        var first = sendWithModel(create(), UUID.randomUUID().toString(), configured.path("id").asText(), 202);
+        await().atMost(Duration.ofSeconds(10)).until(() -> prompts.size() == 1);
+        var update = modelBody("revision-model", 0.8);
+        mockMvc.perform(put("/api/chat/models/" + configured.path("id").asText()).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(update.toString()))
+                .andExpect(status().isOk());
+        var second = sendWithModel(create(), UUID.randomUUID().toString(), configured.path("id").asText(), 202);
+        awaitOutcome(second.path("assistantMessageId").asText(), "COMPLETED");
+        assertNotNull(prompts.getFirst().getOptions());
+        assertNotNull(prompts.getLast().getOptions());
+        assertEquals(0.1, prompts.getFirst().getOptions().getTemperature());
+        assertEquals(0.8, prompts.getLast().getOptions().getTemperature());
+        ongoing.tryEmitNext(response("Old", "stop", 3));
+        ongoing.tryEmitComplete();
+        awaitOutcome(first.path("assistantMessageId").asText(), "COMPLETED");
+    }
+
+    @Test
+    @SuppressWarnings("resource") // The spy call installs behavior; the runtime owns clients created during the request.
+    void configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome() throws Exception {
+        grantModelManagement();
+        var requests = new AtomicInteger();
+        var captured = new AtomicReference<JsonNode>();
+        var authorization = new AtomicReference<String>();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            requests.incrementAndGet();
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            captured.set(Json.mapper().readTree(exchange.getRequestBody().readAllBytes()));
+            byte[] bytes = """
+                    data: {"id":"fixture","object":"chat.completion.chunk","created":1,"model":"wire-model","choices":[{"index":0,"delta":{"role":"assistant","content":"Wire answer"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}}
+
+                    data: [DONE]
+
+                    """.getBytes(UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        server.start();
+        try (var http = HttpClient.newHttpClient()) {
+            doCallRealMethod().when(providerAdapter).create(any(), any(), any(), any());
+            String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+            var configured = createConfiguredModel(createProvider(endpoint, true), "wire-model", 0.6);
+            var session = create();
+            String token = token(actor);
+            var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                    .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Question").put("modelConfigurationId", configured.path("id").asText());
+            var response = http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port
+                            + "/api/chat/sessions/" + session.path("id").asText() + "/messages"))
+                    .header("Authorization", "Bearer " + token).header("Content-Type", "application/json").header("X-MemoryOS-CSRF", "1")
+                    .POST(HttpRequest.BodyPublishers.ofString(body.toString())).build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(202, response.statusCode(), response.body());
+            var sent = Json.mapper().readTree(response.body());
+            awaitOutcome(sent.path("assistantMessageId").asText(), "COMPLETED");
+            assertEquals("Wire answer", history(session).get(1).path("content").asText());
+            assertEquals(1, requests.get(), "No capability probe or automatic retry may precede the actual turn");
+            assertEquals("Bearer fixture-byok", authorization.get());
+            assertEquals("wire-model", captured.get().path("model").asText());
+            assertEquals(0.6, captured.get().path("temperature").asDouble());
+            assertEquals(512, captured.get().path("max_tokens").asInt());
+            assertFalse(captured.get().has("max_completion_tokens"));
+            assertEquals(10L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id")
+                    .param("id", UUID.fromString(sent.path("assistantMessageId").asText())).query(Long.class).single());
+        } finally { server.stop(0); }
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    @NullMarked
+    static class LocalAdapterFixture {
+        @Bean
+        ChatProviderAdapter fixtureLocalAdapter() {
+            return new ChatProviderAdapter() {
+                @Override public String type() { return "fixture-local"; }
+                @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.NONE; }
+                @Override public void validate(String url, String name, ModelSettings settings) {
+                    ModelCatalogService.validateEndpoint(url);
+                }
+                @Override public Client create(Connection connection, String name, ModelSettings settings, Duration timeout) {
+                    ChatModel nativeModel = new ChatModel() {
+                        @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
+                        @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
+                    };
+                    return new Client(new ChatModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p), () -> {});
+                }
+            };
+        }
+    }
+
+    @Test
+    void secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials() throws Exception {
+        grantModelManagement();
+        var body = providerBody("http://local.internal/v1", true).put("adapterType", "fixture-local");
+        body.putObject("credential").put("action", "REMOVE");
+        var provider = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        assertFalse(provider.path("credentialConfigured").asBoolean());
+        var configured = createConfiguredModel(provider, "local-model", 0.5);
+        var session = create();
+        var sent = sendWithModel(session, UUID.randomUUID().toString(), configured.path("id").asText(), 202);
+        awaitOutcome(sent.path("assistantMessageId").asText(), "COMPLETED");
+        assertEquals("Local adapter answer", history(session).get(1).path("content").asText());
+        verify(model, never()).stream(any(Prompt.class));
+    }
+
+    @Test
+    void nullModelOptionsReturnBadRequest() throws Exception {
+        grantModelManagement();
+        var provider = createProvider("http://validation.internal/v1", true);
+        var body = modelBody("null-options", 0.2);
+        ((ObjectNode) body.path("settings").path("options")).putNull("temperature");
+        mockMvc.perform(post("/api/chat/providers/" + provider.path("id").asText() + "/models")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest());
+    }
+
+    private void grantModelManagement() {
+        UUID group = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
+                .param("tenant", TENANT).param("id", group).param("name", group.toString()).update();
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:group,:actor)")
+                .param("tenant", TENANT).param("group", group).param("actor", actor.getPrincipal().actorId().value()).update();
+        jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:group,'MODELS_MANAGE')")
+                .param("tenant", TENANT).param("group", group).update();
+    }
+
+    private ObjectNode providerBody(String url, boolean isPublic) {
+        var body = Json.mapper().createObjectNode().put("name", "Provider " + UUID.randomUUID()).put("adapterType", "openai")
+                .put("baseUrl", url).put("enabled", true).put("isPublic", isPublic);
+        body.putArray("groupIds");
+        body.putArray("personaIds");
+        body.putObject("credential").put("action", "REPLACE").put("value", "fixture-byok");
+        return body;
+    }
+
+    private JsonNode createProvider(String url, boolean isPublic) throws Exception {
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(providerBody(url, isPublic).toString()))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+    }
+
+    private ObjectNode modelBody(String name, double temperature) {
+        var body = Json.mapper().createObjectNode().put("modelName", name).put("displayName", name).put("visible", true);
+        var settings = body.putObject("settings").put("contextWindow", 8192).put("maxOutputTokens", 512);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false);
+        settings.putObject("options").put("maxCompletionTokens", false).put("temperature", temperature);
+        return body;
+    }
+
+    private JsonNode createConfiguredModel(JsonNode provider, String name, double temperature) throws Exception {
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers/" + provider.path("id").asText() + "/models")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(modelBody(name, temperature).toString())).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+    }
+
+    private JsonNode sendWithModel(JsonNode session, String request, String modelId, int expectedStatus) throws Exception {
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", request).put("text", "Question").put("modelConfigurationId", modelId);
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString())).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString());
     }
 
     private JsonNode create() throws Exception {

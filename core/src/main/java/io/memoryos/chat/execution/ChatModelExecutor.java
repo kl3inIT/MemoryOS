@@ -4,7 +4,6 @@ import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.streaming.StreamingPromptRunnerBuilder;
 import com.embabel.agent.core.AgentProcessRepository;
 import com.embabel.agent.core.Budget;
-import io.memoryos.chat.ChatException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Consumer;
@@ -18,30 +17,16 @@ import reactor.core.publisher.Mono;
 public final class ChatModelExecutor {
     private final ObjectProvider<ExecutingOperationContext> contexts;
     private final AgentProcessRepository processes;
-    private final ChatModelBinding binding;
     private final ChatExecutionProperties limits;
-    private final boolean providerConfigured;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
-            ChatModelBinding binding, ChatExecutionProperties limits, boolean providerConfigured) {
+            ChatExecutionProperties limits) {
         this.contexts = contexts;
         this.processes = processes;
-        this.binding = binding;
         this.limits = limits;
-        this.providerConfigured = providerConfigured;
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
-
-    public void requireAvailable() {
-        if (!providerConfigured) throw ChatException.providerUnavailable();
-    }
-
-    public ChatModelBinding resolve(String modelName) {
-        requireAvailable();
-        if (!binding.service().getName().equals(modelName)) throw ChatException.providerUnavailable();
-        return binding;
-    }
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
             Consumer<String> output, Consumer<Accounting> accounting) {
@@ -56,7 +41,7 @@ public final class ChatModelExecutor {
         try {
             var service = new StreamingLlmService(selected.withModel(guard));
             var runner = context.ai().withLlmService(service);
-            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withMaxTokens(limits.maxOutputTokens()))
+            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withMaxTokens(Math.min(limits.maxOutputTokens(), selected.maxOutputTokens())))
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             Duration remaining = Duration.between(Instant.now(), setup.deadline());
             if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");

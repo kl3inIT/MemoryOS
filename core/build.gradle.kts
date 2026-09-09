@@ -15,6 +15,7 @@ dependencies {
     implementation(libs.opensearch.java)
     implementation(libs.httpclient5)
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.security.crypto)
     implementation(libs.jakarta.persistence.api)
     compileOnly(libs.spring.boot.starter.actuator)
     implementation(libs.micrometer.core)

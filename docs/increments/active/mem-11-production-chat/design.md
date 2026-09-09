@@ -4,6 +4,8 @@ Frontend runtime đã chốt và triển khai ở Phase 2.4 ngày 2026-09-09: `u
 
 Cập nhật ngày 2026-09-09. Phase 2.1–2.3 persistence, native background execution, provider binding, local Stop và RAM replay/SSE đã triển khai trong working tree; Chat UI Phase 2.4 đã nối qua adapter, không đổi wire contract của backend. [Verification hiện tại](verification.md) và [Chat spec](../../../specs/chat.md) phân biệt implementation với thiết kế còn lại. [Plan](plan.md), [parity](onyx-parity.md), [framework reuse](onyx-config-and-framework-reuse.md), [reference review](spring-ai-reference-review.md) và [Phase 1 verification](phase-1-verification.md) ghi phạm vi và bằng chứng. Áp dụng [quy tắc thiết kế theo reference](../../../conventions.md#reference-based-design-and-scope-control).
 
+Backend provider/model foundation bổ sung được theo dõi tại [increment riêng](../mem-77-provider-backend/design.md); đây là phần nền backend đã được yêu cầu, không thêm UI/web search/image generation. Phases 2.1–2.4 đã merge qua PR #86; các ghi chú working-tree lịch sử phía dưới không đại diện trạng thái merge hiện tại.
+
 ## Phạm vi
 
 Production là yêu cầu ngay từ đầu cho phạm vi đã chọn: đúng chức năng/quyền, toàn vẹn dữ liệu, giới hạn tài nguyên, xử lý lỗi, quan sát và kiểm chứng vận hành phù hợp. Kiểm soát scope không được dùng để bỏ hardening cần thiết hoặc hạ mục tiêu thành prototype. Mỗi cơ chế phải gắn với yêu cầu hoặc tình huống lỗi cụ thể; không cần chờ sự cố thật mới xử lý.

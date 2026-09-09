@@ -1,15 +1,12 @@
 package io.memoryos.api.chat;
 
-import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
-import com.embabel.agent.openai.ModelCapabilities;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.embabel.common.ai.model.PricingModel;
 import com.openai.client.OpenAIClient;
 import com.openai.client.OpenAIClientAsync;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.client.okhttp.OpenAIOkHttpClientAsync;
 import io.memoryos.chat.execution.ChatExecutionProperties;
-import io.memoryos.chat.execution.ChatModelBinding;
+import io.memoryos.chat.catalog.ModelCatalogService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 
@@ -61,26 +58,11 @@ class OpenAiChatProviderConfiguration {
                 .observationRegistry(observations).meterRegistry(meters).build();
     }
 
+    // Embabel's platform default metadata; Chat turns select their explicit catalog service.
     @Bean
     SpringAiLlmService chatLlmService(@Lazy ChatModel chatProviderModel,
-                                      @Value("${memoryos.chat.persona.model:gpt-5-mini}") String model, ChatExecutionProperties limits,
-                                      @Value("${memoryos.chat.provider.input-price-per-million:-1}") double inputPrice,
-                                      @Value("${memoryos.chat.provider.output-price-per-million:-1}") double outputPrice) {
-        if (!model.startsWith("gpt-5"))
-            throw new IllegalArgumentException("Chat currently requires the verified GPT-5 options family");
-        if (!Double.isFinite(inputPrice) || !Double.isFinite(outputPrice) || inputPrice < -1 || outputPrice < -1
-                || ((inputPrice < 0) != (outputPrice < 0)))
-            throw new IllegalArgumentException("Invalid Chat pricing configuration");
-        var pricing = inputPrice < 0 ? null : PricingModel.usdPer1MTokens(inputPrice, outputPrice);
-        if (pricing == null && limits.costBudgetUsd() < Double.MAX_VALUE)
-            throw new IllegalArgumentException("A Chat cost cap requires configured model pricing");
-        return new SpringAiLlmService(model, "OpenAI", chatProviderModel,
-                new CapabilityAwareOpenAiOptionsConverter(ModelCapabilities.GPT5_FAMILY), null, List.of(), pricing);
-    }
-
-    @Bean
-    ChatModelBinding chatModelBinding(SpringAiLlmService chatLlmService) {
-        return new ChatModelBinding(chatLlmService, OpenAiChatProviderConfiguration::withoutTools);
+                                     ModelCatalogService.Deployment deployment) {
+        return OpenAiChatProviderAdapter.binding(deployment.modelName(), deployment.settings(), chatProviderModel).service();
     }
 
     static Prompt withoutTools(Prompt prompt) {

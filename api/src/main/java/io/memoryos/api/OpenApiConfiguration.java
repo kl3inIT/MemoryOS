@@ -26,6 +26,9 @@ import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @Configuration(proxyBeanMethods = false)
 @OpenAPIDefinition(
@@ -91,7 +94,10 @@ class OpenApiConfiguration {
     /** Documents the header the mutation interceptor enforces on every unsafe API operation. */
     private static OperationCustomizer browserMutationHeader() {
         return (operation, handlerMethod) -> {
-            if (handlerMethod.hasMethodAnnotation(PostMapping.class)) {
+            if (handlerMethod.hasMethodAnnotation(PostMapping.class)
+                    || handlerMethod.hasMethodAnnotation(PutMapping.class)
+                    || handlerMethod.hasMethodAnnotation(PatchMapping.class)
+                    || handlerMethod.hasMethodAnnotation(DeleteMapping.class)) {
                 List<io.swagger.v3.oas.models.parameters.Parameter> parameters =
                         operation.getParameters() == null ? new ArrayList<>() : operation.getParameters();
                 parameters.addFirst(new HeaderParameter()

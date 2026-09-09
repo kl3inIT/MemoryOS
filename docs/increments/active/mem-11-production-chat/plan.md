@@ -2,6 +2,10 @@
 
 [Design](design.md#baseline-da-chot) sở hữu quyết định kiến trúc; [parity](onyx-parity.md) sở hữu phạm vi. [Product verification](verification.md) ghi phần đã triển khai và kiểm: 2.1 persistence, 2.2 execution và 2.3 provider binding/local Stop/HTTP replay. Browser Chat thuộc 2.4. Web search/deep research nằm ngoài lần giao đầu.
 
+## Bổ sung nền provider/model
+
+Phases 2.1–2.4 đã merge qua PR #86. Trước Phase 3, hoàn thiện backend catalog/selection/BYOK và public adapter theo [plan backend](../mem-77-provider-backend/plan.md). UI vẫn chưa thuộc phần bổ sung này; Đức Anh nhận phần adapter local.
+
 ## Phân chia PR
 
 `feat/mem-11-production-chat` là nhánh tích hợp tạm, bắt đầu cùng revision với `main`. PR `feat/mem-11-phase-2-backend` gộp 2.1–2.3 vì persistence, execution và streaming tạo thành một backend contract đã kiểm chung. Phase 2.4 UI sẽ là PR riêng target nhánh tích hợp sau khi backend được review và merge vào nhánh đó. Các phần sau được nhóm theo contract có thể review độc lập, giữ mỗi PR dưới 100 file; số file không thay thế việc kiểm CI và nội dung review. Cuối increment mới đưa nhánh tích hợp vào `main`; chưa đóng MEM-11 chỉ vì backend đã xong.

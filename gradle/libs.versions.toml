@@ -65,6 +65,7 @@ spring-boot-starter-flyway = { module = "org.springframework.boot:spring-boot-st
 spring-boot-starter-actuator-test = { module = "org.springframework.boot:spring-boot-starter-actuator-test" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
 spring-security-test = { module = "org.springframework.security:spring-security-test" }
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }

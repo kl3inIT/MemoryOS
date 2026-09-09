@@ -47,6 +47,8 @@ public class DefaultGroupService implements GroupService {
     private static final int MAX_GROUP_NAME_LENGTH = 200;
     private static final int MAX_BATCH_SIZE = 100;
     private static final List<GroupCapabilityMetadata> CAPABILITY_REGISTRY = List.of(
+            metadata(IamCapability.MODELS_MANAGE, "Manage models",
+                    "Configure Chat providers, credentials, models and access within the Tenant.", true),
             metadata(
                     IamCapability.IAM_ADMIN,
                     "IAM administration",

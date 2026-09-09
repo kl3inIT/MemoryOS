@@ -14,6 +14,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
+import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
 
@@ -55,8 +56,8 @@ class ChatTurnController {
     @ApiResponse(responseCode = "202", description = "Reserved reply", useReturnTypeSchema = true)
     Accepted send(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                   @PathVariable UUID sessionId, @Valid @RequestBody Send request) {
-        var accepted = turns.send(identity.actorId(), sessionId, request.parentMessageId(), request.clientRequestId(), request.text());
-        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId());
+        var accepted = turns.send(identity.actorId(), sessionId, request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId());
+        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
     @PostMapping("/{assistantMessageId}/cancel")
@@ -70,11 +71,12 @@ class ChatTurnController {
     }
 
     record Send(@NotNull UUID parentMessageId, @NotNull UUID clientRequestId,
-                @NotBlank @Size(max = 32000) String text) {
+                @NotBlank @Size(max = 32000) String text, @Nullable UUID modelConfigurationId) {
     }
 
     record Accepted(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userMessageId,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId) {
+                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId,
+                    @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {
     }
 
     record Cancellation(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId,

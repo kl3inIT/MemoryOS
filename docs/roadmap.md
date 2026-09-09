@@ -78,7 +78,7 @@ MEM-36 and MEM-55 are Done. MEM-25/MEM-59/MEM-68/MEM-69 remain In Progress with 
 
 ## Other tracked work
 
-- [MEM-77](https://linear.app/memory-os/issue/MEM-77), model catalog and multiple providers via native Embabel/Spring AI, is Backlog with `phamnhatanh811` and blocked by MEM-11. Scope: user model selection, admin configuration and organization BYOK following Onyx; personal BYOK excluded. MEM-11 retains one provider and one API process; main `287ca9c` supplies RAM replay/local Stop and the native provider binding/contract-test baseline; catalog expansion remains MEM-77.
+- [MEM-77](https://linear.app/memory-os/issue/MEM-77): the [backend foundation](increments/active/mem-77-provider-backend/design.md) implements provider/model catalog, model selection/access, organization BYOK and native adapter/client lifecycle on `feat/mem-77-provider-backend`. User requested Đức Anh own the local adapter extension; provider/model UI remains separate. Linear assignment/dependency reconciliation and merge are not implied by local implementation.
 
 - [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
 - [MEM-75](https://linear.app/memory-os/issue/MEM-75) remains In Progress for the dependency proposals outside the delivered selected batch; it does not keep that completed increment active.

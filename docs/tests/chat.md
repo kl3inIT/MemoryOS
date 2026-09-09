@@ -37,3 +37,24 @@
 | Closed capability and persistence ownership | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |
 
 API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx tests authenticate signed JWTs through the actual resource-server filter and binding/membership lookup. They do not certify live Keycloak browser login. The optional live-model check delegates to the product provider composition. Browser Chat acceptance remains Phase 2.4. Missing-buffer/expiry tests establish the reset/fallback contract, not process recovery or token durability. No two-replica deployment or load acceptance is claimed. Phase 1 probes are not substituted for product checks; see the [current plan](../increments/active/mem-11-production-chat/plan.md).
+
+## Backend model catalog
+
+| Contract | Verification |
+| --- | --- |
+| Tenant provider/model/default/association FKs | `ModelCatalogConstraintsTest` (adversarial fixture relaxes only the single-Tenant deployment slot) |
+| BYOK encryption, IV uniqueness, tamper and owner binding, KEEP/REMOVE | `ProviderCredentialsTest` |
+| Same client reuse, configuration retirement, active leases and capacity/shutdown | `ChatModelClientsTest` |
+| Slow client initialization/cleanup does not block cached model leases; initialization failure releases capacity for retry | Concurrent cases in `ChatModelClientsTest` |
+| Explicit deployment capabilities override name defaults; finite cost budget fails startup without pricing | `ChatModelCatalogConfigurationTest` |
+| Null option keys/values are validation errors and valid options are copied | `ModelSettingsTest`; `ChatSessionApiIntegrationTest.nullModelOptionsReturnBadRequest` verifies HTTP 400 |
+| Validation schema is distinct from Search; every unsafe browser operation declares the CSRF header | `OpenApiContractTest` and generated-client checks |
+| Native standard/completion-token conversion, reasoning, rejected options and unknown pricing | `OpenAiChatProviderAdapterTest` |
+| Dedicated authority, redaction, stale writes, same-name model selection and idempotency | Catalog cases in `ChatSessionApiIntegrationTest` |
+| Persona precedence, fallback, Group revoke, Persona restrictions on manager, default protection | Catalog cases in `ChatSessionApiIntegrationTest` |
+| Old turn retains options; next turn uses new settings | `changingModelOptionsWhileRunningAffectsOnlyTheNextTurn` |
+| Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
+| Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |
+| Explicit validation hides provider exceptions and handles trailing usage frames | `defaultsCannotBeHiddenDeletedOrRevokedAndValidationDoesNotExposeProviderErrors` |
+
+Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
