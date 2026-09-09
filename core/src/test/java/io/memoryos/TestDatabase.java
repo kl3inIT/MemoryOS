@@ -1,10 +1,10 @@
 package io.memoryos;
 
+import com.zaxxer.hikari.HikariDataSource;
 import java.sql.SQLException;
 
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
@@ -32,7 +32,7 @@ public final class TestDatabase {
      * The current production schema: every migration in order.
      */
     public static ResourceDatabasePopulator migrations() {
-        return new ResourceDatabasePopulator(
+        var migrations = new ResourceDatabasePopulator(
                 new ClassPathResource("db/migration/V1__create_identity_tables.sql"),
                 new ClassPathResource("db/migration/V2__create_initial_organization_and_sessions.sql"),
                 new ClassPathResource("db/migration/V3__create_organization_invitations.sql"),
@@ -52,24 +52,34 @@ public final class TestDatabase {
                 new ClassPathResource("db/migration/V17__scope_google_sync_to_explicit_roots.sql"),
                 new ClassPathResource("db/migration/V18__reuse_google_drive_credentials.sql"),
                 new ClassPathResource("db/migration/V19__add_google_drive_sync_interval.sql"),
-                new ClassPathResource("db/migration/V20__add_google_drive_scope_mode.sql")
+                new ClassPathResource("db/migration/V20__add_google_drive_scope_mode.sql"),
+                new ClassPathResource("db/migration/V21__add_google_drive_linked_documents.sql"),
+                new ClassPathResource("db/migration/V22__add_google_drive_selection_operations.sql"),
+                new ClassPathResource("db/migration/V23__add_source_run_history.sql")
         );
+        migrations.setSeparator(org.springframework.jdbc.datasource.init.ScriptUtils.EOF_STATEMENT_SEPARATOR);
+        return migrations;
     }
 
     /**
      * Resets the shared PostgreSQL container's public schema and applies {@link #migrations()}.
+     * The caller owns the returned pool and must close it after the fixture, including failed setup.
      */
-    public static DriverManagerDataSource freshPostgres() throws SQLException {
+    public static HikariDataSource freshPostgres() throws SQLException {
         PostgreSQLContainer container = postgres();
-        var dataSource = new DriverManagerDataSource(
-                container.getJdbcUrl(),
-                container.getUsername(),
-                container.getPassword()
-        );
+        var dataSource = new HikariDataSource();
+        dataSource.setJdbcUrl(container.getJdbcUrl());
+        dataSource.setUsername(container.getUsername());
+        dataSource.setPassword(container.getPassword());
+        dataSource.setMaximumPoolSize(4);
+        dataSource.setMinimumIdle(1);
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
             statement.execute("DROP SCHEMA public CASCADE");
             statement.execute("CREATE SCHEMA public");
             migrations().populate(connection);
+        } catch (SQLException | RuntimeException | Error failure) {
+            dataSource.close();
+            throw failure;
         }
         return dataSource;
     }

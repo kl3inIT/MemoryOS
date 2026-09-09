@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.identity.ActorId;
 import io.memoryos.identity.ExternalIdentity;
 import io.memoryos.identity.ExternalIdentityRegistrar;
@@ -42,10 +43,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.LockSupport;
 
+import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -58,10 +60,18 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 Objects.requireNonNull(expiresAt);
                 return KeycloakRecipientProvisioning.EXISTING_VERIFIED;
             };
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
 
     @Test
     void concurrentAcceptanceSerializesOnInvitationAndCreatesOneMember() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         var jdbcClient = JdbcClient.create(dataSource);
         var transactionManager = new DataSourceTransactionManager(dataSource);
         var resolver = new JdbcExternalIdentityResolver(jdbcClient);
@@ -244,10 +254,11 @@ class PostgresInvitationAcceptanceConcurrencyTest {
     }
 
     private static void assertDigestLookupUsesIndex(
-            DriverManagerDataSource dataSource,
+            DataSource dataSource,
             java.util.UUID invitationId
     ) throws java.sql.SQLException {
         try (var connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
             String digest;
             try (var digestStatement = connection.prepareStatement("""
                     SELECT secret_digest
@@ -262,7 +273,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             }
 
             try (var setting = connection.createStatement()) {
-                setting.execute("SET enable_seqscan = off");
+                setting.execute("SET LOCAL enable_seqscan = off");
             }
             var plan = new StringBuilder();
             try (var explain = connection.prepareStatement("""
@@ -282,6 +293,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                     plan.toString().contains("uq_tenant_invitations_secret_digest"),
                     plan::toString
             );
+            connection.rollback();
         }
     }
 

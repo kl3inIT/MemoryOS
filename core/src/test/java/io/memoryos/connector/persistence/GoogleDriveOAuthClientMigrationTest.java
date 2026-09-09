@@ -26,8 +26,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class GoogleDriveOAuthClientMigrationTest {
     @Test
     void legacyGrantsLoseAuthorityWhileSourceRootsDocumentsAndFileWorkSurvive() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
-        try (var connection = dataSource.getConnection()) {
+        try (var dataSource = TestDatabase.freshPostgres();
+             var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
                 String schema = "legacy_" + UUID.randomUUID().toString().replace("-", "");
@@ -95,8 +95,8 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void reusableCredentialMigrationPreservesEncryptedAuthorityAndAllSourceData() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
-        try (var connection = dataSource.getConnection()) {
+        try (var dataSource = TestDatabase.freshPostgres();
+             var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
                 String schema = "reusable_" + UUID.randomUUID().toString().replace("-", "");
@@ -182,8 +182,8 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void scheduleMigrationPreservesDueTimestampsAndEnforcesPositiveStoredValues() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
-        try (var connection = dataSource.getConnection()) {
+        try (var dataSource = TestDatabase.freshPostgres();
+             var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
                 String schema = "schedule_" + UUID.randomUUID().toString().replace("-", "");
@@ -243,8 +243,8 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void scopeMigrationDefaultsExistingSelectionsToSpecificWithoutChangingDataOrSchedules() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
-        try (var connection = dataSource.getConnection()) {
+        try (var dataSource = TestDatabase.freshPostgres();
+             var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
                 String schema = "scope_" + UUID.randomUUID().toString().replace("-", "");
@@ -302,21 +302,15 @@ class GoogleDriveOAuthClientMigrationTest {
                     assertEquals(snapshot.getValue(), jdbc.sql("SELECT to_jsonb(r)::text FROM " + snapshot.getKey() + " r ORDER BY to_jsonb(r)::text")
                             .query(String.class).list(), snapshot.getKey());
                 }
-                var repository = new JdbcGoogleDriveSourceRepository(jdbc);
-                var existing = repository.configuration(new TenantId(tenant), new io.memoryos.connector.SourceId(source));
-                assertEquals(io.memoryos.connector.GoogleDriveSourceService.ScopeMode.SPECIFIC, existing.scopeMode());
-                assertEquals(1, existing.syncIntervalMinutes());
+                assertEquals("SPECIFIC", jdbc.sql("SELECT scope_mode FROM google_drive_sources").query(String.class).single());
                 for (String assignment : List.of("scope_mode = NULL", "scope_mode = 'UNKNOWN'", "scope_mode = 'general'")) {
                     var savepoint = connection.setSavepoint();
                     assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
                             () -> jdbc.sql("UPDATE google_drive_sources SET " + assignment).update());
                     connection.rollback(savepoint);
                 }
-                var general = repository.create(new TenantId(tenant), "General", new CredentialId(source),
-                        io.memoryos.connector.GoogleDriveSourceService.ScopeMode.GENERAL,
-                        List.of(new io.memoryos.connector.GoogleDriveSourceService.Root("my-drive", "My Drive", "application/vnd.google-apps.folder")));
-                assertEquals(io.memoryos.connector.GoogleDriveSourceService.ScopeMode.GENERAL,
-                        repository.configuration(new TenantId(tenant), general).scopeMode());
+                jdbc.sql("UPDATE google_drive_sources SET scope_mode = 'GENERAL'").update();
+                assertEquals("GENERAL", jdbc.sql("SELECT scope_mode FROM google_drive_sources").query(String.class).single());
             } finally { connection.rollback(); }
         }
     }

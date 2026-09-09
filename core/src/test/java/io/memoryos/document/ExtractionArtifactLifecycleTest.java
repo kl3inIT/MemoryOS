@@ -2,6 +2,7 @@ package io.memoryos.document;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
@@ -9,6 +10,7 @@ import io.memoryos.tenant.TenantId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -19,6 +21,15 @@ import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers(disabledWithoutDocker = true)
 class ExtractionArtifactLifecycleTest {
+    private HikariDataSource source;
+
+    @AfterEach
+    void closeDatabase() {
+        if (source != null) {
+            source.close();
+        }
+    }
+
     private JdbcClient jdbc;
     private JdbcExtractionArtifactRepository artifacts;
     private JdbcDocumentRepository documents;
@@ -27,7 +38,7 @@ class ExtractionArtifactLifecycleTest {
 
     @BeforeEach
     void setup() throws Exception {
-        var source = TestDatabase.freshPostgres();
+        source = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(source);
         transaction = new TransactionTemplate(new DataSourceTransactionManager(source));
         artifacts = new JdbcExtractionArtifactRepository(jdbc);
