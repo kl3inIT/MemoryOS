@@ -1,4 +1,6 @@
 # Reviewed historical false positives only; never allowlist whole docs/test paths.
+# Output-token limit result in MEM-66 research: finish_reason=length, not a credential.
+e883751aeb968c7f0dce030dc50de43a794d4437:docs/increments/active/mem-66-vllm-cpu-gateway-research/verification.md:generic-api-key:51
 # Prose describing browser escaping and unavailable/retry/empty states.
 aed6ac4da0e3cb05929eac7cf1a8b7a7d41bc835:docs/increments/active/mem-46-search/verification.md:generic-api-key:28
 # Deterministic UTF-8 key used exclusively by the historical cipher unit test.
