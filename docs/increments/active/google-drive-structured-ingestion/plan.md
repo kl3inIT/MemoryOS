@@ -1,5 +1,31 @@
 # FILE–Drive integration plan
 
+## Publication and main refresh — 2026-09-09
+
+The user approved scoped commits, merging current `origin/main` into this feature branch, verification, push and Linear linkage. This is not authorization to open or merge a PR, deploy, or mark MEM-76 Done.
+
+- [x] Separate source-page contracts, shared Users/Groups pagination, Source presentation/pagination, and stale-Source synchronization guards into conventional commits; preserve existing Docling commit `819c54e`.
+- [ ] Merge main `287ca9c`, retaining Chat/JIT and Drive behavior, regenerating the combined API/client, and reconciling migration versions.
+- [ ] Verify the combined tree with fresh build outputs and disposable test databases, without modifying the running review database or its Flyway history.
+- [ ] Push the feature branch, prove the remote SHA, and link the commit chain and integration evidence to MEM-76.
+
+Main V1–V20 is authoritative. Branch-only Drive V18–V29 will move to V21–V32 with unchanged SQL bodies. Existing `memoryos_main_review` and `memoryos_drive_review` databases retain their historical layouts and are not upgrade targets for this integration; do not start the new schema layout against either database. Publication and repository integration do not constitute a runtime database cutover.
+
+## Source detail consistency — 2026-09-09
+
+Pre-publication verification: all requested UI and counted-page changes were implemented and verified on the integrated branch. Focused backend tests, the serial repository gate, `pnpm check` (70 unit tests), all 39 selected browser tests and final read-only browser smoke passed. See the [Source detail consistency evidence](../../../tests/connector.md#source-detail-consistency--2026-09-09). These results precede the subsequent main refresh above; they are not proof of that newer integrated tree. The increment remains active.
+
+- [x] Files: required authorized `totalItems`, shared Users/Groups-style pagination and current/total pages.
+- [x] Indexing histories: required filtered Source-run `totalItems`; shared pagination for Source runs and existing counted file attempts.
+- [x] Source header: larger Drive logo without changing other provider marks globally.
+- [x] Major section headings: consistent icon-backed presentation, including Upload content, Synchronization, Selected content, Files and indexing histories.
+- [x] Credentials: full section heading with key icon; remove its redundant Drive logo and preserve connection actions.
+- [x] Group associations: match the upper sections' surfaces, borders and controls without changing grants or dirty-state behavior.
+- [x] Verification: compile/test authorized totals, regenerate OpenAPI/client, pass frontend and selected browser gates, visually inspect desktop/mobile/light/dark Source surfaces, and consolidate architecture/spec/test evidence. No IDE was connected, so no IDE-clean claim. Read-only Chromium smoke used controlled HTTP responses and made no user-data writes; it is not live Google or Orca embedded-browser acceptance.
+
+Main owns pagination wiring, generated artifacts, documentation and final verification. Independent backend-total and section-style owners skip build/lint/tests/formatting while edits are concurrent. No reindex, extraction retry or alteration of user Sources/credentials is authorized by this UI task.
+
+
 ## Isolated main integration — 2026-09-09
 
 Status: the combined backend, generated-contract, frontend and browser gates pass; isolated FILE/Google ingestion, Search eligibility, UI and lifecycle cleanup were exercised successfully at the boundaries below. Conflict resolution is complete; this is local integration, not a PR merge or deployment. This section supersedes earlier branch-only authorization, migration-number and no-local-merge instructions without widening the Google ingestion delivery.
