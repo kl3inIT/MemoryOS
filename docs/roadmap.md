@@ -49,7 +49,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | [MEM-46](https://linear.app/memory-os/issue/MEM-46) | Search first: current JSON/chunks, Spring AI embeddings, OpenSearch-only vectors, hybrid retrieval, API/UI and index recovery; absorbs MEM-62/47/48/49/50 | [Design](increments/active/mem-46-search/design.md) · [Plan](increments/active/mem-46-search/plan.md) · [Onyx Search implementation](increments/active/mem-46-search/onyx-search.md); In Review, assigned to `phamnhatanh811`; [verification and runtime boundaries](increments/active/mem-46-search/verification.md) |
-| [MEM-11](https://linear.app/memory-os/issue/MEM-11) | Production Chat after MEM-46: shared retrieval, multi-query/weighted RRF, context selection/expansion, streaming answer/citations and durable conversations; absorbs MEM-71/72 | [Design](increments/active/mem-11-production-chat/design.md) · [Plan](increments/active/mem-11-production-chat/plan.md); Todo, blocked by MEM-46 and MEM-25, implementation pending |
+| [MEM-11](https://linear.app/memory-os/issue/MEM-11) | Production Chat after MEM-46: shared retrieval, multi-query/weighted RRF, context selection/expansion, streaming answer/citations and durable conversations; absorbs MEM-71/72 | [Design](increments/active/mem-11-production-chat/design.md) · [Plan](increments/active/mem-11-production-chat/plan.md); Linear dependency metadata unchanged; Phase 2.1–2.3 persistence, provider binding, execution/local Stop and RAM replay/SSE implemented in the working tree; Phase 2.4 Chat UI and native AI SDK adapter implemented on the phase branch; [verification](increments/active/mem-11-production-chat/verification.md) |
 | [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Tasco browser-only JIT: explicit empty-default provider allowlist, Keycloak ID-token session-note claim, exact Actor binding, active MEMBER/non-manager Basic, no invitation mutation or bearer JIT | [Design](increments/active/mem-59-tasco-jit/design.md) · [Plan](increments/active/mem-59-tasco-jit/plan.md) · [Verification](increments/active/mem-59-tasco-jit/verification.md); implementation and repository gate passed; live broker simulator and actual Tasco acceptance remain separate |
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
@@ -75,6 +75,8 @@ MEM-36 and MEM-55 are Done. MEM-25/MEM-59/MEM-68/MEM-69 remain In Progress with 
 - Provider testing currently uses synthetic documents. Actual Tasco source data has not been supplied; working provider tests do not establish acceptance of Tasco data.
 
 ## Other tracked work
+
+- [MEM-77](https://linear.app/memory-os/issue/MEM-77), model catalog and multiple providers via native Embabel/Spring AI, is Backlog with `phamnhatanh811` and blocked by MEM-11. Scope: user model selection, admin configuration and organization BYOK following Onyx; personal BYOK excluded. MEM-11 retains one provider and one API process; Phase 2.3 implements RAM replay/local Stop and the native provider binding/contract-test baseline in the working tree; catalog expansion remains MEM-77.
 
 - [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
 - [MEM-75](https://linear.app/memory-os/issue/MEM-75) remains In Progress for the dependency proposals outside the delivered selected batch; it does not keep that completed increment active.

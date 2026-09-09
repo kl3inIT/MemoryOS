@@ -5,6 +5,9 @@ import java.util.Optional;
 
 public interface TenantAccessResolver {
 
+    /** Requires a write transaction; serializes membership validation with IAM revocation. */
+    Optional<TenantMembership> lockActiveMembership(ActorId actorId);
+
     boolean isActiveTenant(TenantId tenantId);
 
     Optional<TenantMembership> findActiveMembership(ActorId actorId);

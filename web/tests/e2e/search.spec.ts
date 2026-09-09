@@ -96,7 +96,7 @@ test("searches merged sections, filters, pages and opens each best match with es
       },
     });
   });
-  await page.goto("/");
+  await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("chính sách nghỉ phép");
   await page.getByLabel("File type").selectOption("application/pdf");
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -151,7 +151,7 @@ test("handles unavailable, retry, empty and a newer query overtaking an older on
       })
       .catch(() => {});
   });
-  await page.goto("/");
+  await page.goto("/search");
   const input = page.getByRole("textbox", { name: "Search documents" });
   const search = page.getByRole("button", { name: "Search", exact: true });
   await input.fill("test");

@@ -36,7 +36,8 @@ class JpaTenantAccessResolverTest {
         jdbcClient = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         resolver = TestDatabase.transactionalProxy(
-                new JpaTenantAccessResolver(new JpaTenantRepository(jpa.entityManager())),
+                new JpaTenantAccessResolver(new JpaTenantRepository(jpa.entityManager()),
+                        new IamLockRepository(jdbcClient)),
                 TenantAccessResolver.class,
                 jpa.transactionManager()
         );

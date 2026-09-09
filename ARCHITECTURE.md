@@ -8,7 +8,7 @@ MemoryOS is a controlled Spring Modulith monolith with four flat Gradle modules:
 
 | Module | Runtime role | Dependency rule |
 | --- | --- | --- |
-| `core` | Six closed capability implementations: public contracts, transactions, JPA IAM lifecycle, JDBC resource persistence, and the object-storage S3 adapter | Must not depend on `connector` or a deployable |
+| `core` | Seven closed capability implementations: public contracts, transactions, JPA IAM lifecycle, JDBC resource persistence, and the object-storage S3 adapter | Must not depend on `connector` or a deployable |
 | `connector` | Shared provider integration bundle; `provider.file` routes PDF/DOCX/PPTX to Docling Serve and text to bounded Tika 4 | Depends only on public `core` APIs |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root | Depends on `core`; MEM-35 excludes `connector`/Tika |
 | `worker` | PostgreSQL-authoritative Redis Stream execution and control-plane composition root | Depends on `core`, selects `connector` at runtime, and alone composes Redis/db-scheduler |
@@ -27,9 +27,11 @@ The web design system remains local to the single application. `styles/tokens.cs
 
 ## Capability boundaries
 
-`core` contains six implemented closed Spring Modulith modules: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, and `retrieval`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Capability roots expose identifiers and operation/projection contracts, never entities. Application services own authorization, validation, orchestration, and transaction boundaries; concrete `persistence` repositories own JPA lifecycle operations, SQL projections, row mapping, locks, claims, and bulk operations.
+`core` contains seven implemented closed Spring Modulith modules: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, and `chat`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Capability roots expose identifiers and operation/projection contracts, never entities. Application services own authorization, validation, orchestration, and transaction boundaries; concrete `persistence` repositories own JPA lifecycle operations, SQL projections, row mapping, locks, claims, and bulk operations.
 
-`iam` does not depend on another capability. `objectstorage` depends on public `iam`, owns generic object/upload persistence, and contains its S3 adapter without exposing AWS SDK types. `document` depends on public `iam` and `objectstorage`. `connector` depends on public `iam`, `document`, and `objectstorage`; it owns Source/Connector/Credential/Pair/item state, Source–Group associations, provenance, upload receipts, and adopted FILE-object cleanup. `ingestion` depends on public `connector`, `document`, `objectstorage`, `iam`, and `retrieval`. `retrieval` depends on public `document`, `connector`, and `iam`; it owns embedding/OpenSearch adapters and has no dependency on Ingestion. No cross-capability JPA relationships exist. Spring Modulith and ArchUnit reject cycles, cross-capability persistence imports, deployable dependencies, and provider imports of capability internals.
+`iam` does not depend on another capability. `objectstorage` depends on public `iam`, owns generic object/upload persistence, and contains its S3 adapter without exposing AWS SDK types. `document` depends on public `iam` and `objectstorage`. `connector` depends on public `iam`, `document`, and `objectstorage`; it owns Source/Connector/Credential/Pair/item state, Source–Group associations, provenance, upload receipts, and adopted FILE-object cleanup. `ingestion` depends on public `connector`, `document`, `objectstorage`, `iam`, and `retrieval`. `retrieval` depends on public `document`, `connector`, and `iam`; it owns embedding/OpenSearch adapters and has no dependency on Ingestion. `chat` depends only on public `iam`; it owns private sessions/messages/Persona and concrete JDBC persistence. No cross-capability JPA relationships exist. Spring Modulith and ArchUnit reject cycles, cross-capability persistence imports, deployable dependencies, and provider imports of capability internals.
+Chat exposes private sessions/history, send/local Stop and SSE through `api.chat`. `ChatTurnService` owns admission and product lifecycle; Spring owns its virtual-thread executor, and Reactor cancellation reaches the native Embabel PromptRunner stream. `ChatTurnSetup` holds resolved native messages/model binding in RAM. Embabel owns inference/tools/accounting; a public LlmService delegate avoids capability probe calls, and a ChatModel decorator handles stream metadata. Provider composition owns clients, options conversion and final-request policy. PostgreSQL stores transcript/outcome/deadline; the API reconciles expired runs without polling active rows for Stop. `StreamBufferWriter` holds bounded RAM replay, and the MVC controller returns `Flux<ServerSentEvent>` through a reader independent of model lifetime. Terminal events follow committed DB outcomes. There is one API process, no Chat worker/Redis journal, and the browser uses native assistant-ui/AI SDK with a public ChatTransport adapter over the generated Java client. Chat at `/` and `/chat/{sessionId}` supports private history, Stop/partial and replay/history recovery; Search is `/search`. Authority changes remount the chat runtime and release its reader. `TenantAccessResolver.lockActiveMembership` revalidates under the shared IAM Tenant lock before Chat writes. See the [Chat contract](docs/specs/chat.md) and [verification matrix](docs/tests/chat.md).
+
 
 `api` scans `io.memoryos` and composes Arconia fixed Tenant resolution. Worker scans its own package plus Connector, Document, Ingestion, Object Storage, Retrieval's embedding/OpenSearch adapters, and IAM persistence; it explicitly imports only the IAM authorization and Group-scope services needed by Connector. Both roots scan IAM entities and expose a shared `EntityManager` for constructor-injected concrete repositories. They do not load one another's API/security composition. Durable worker records carry the explicit `TenantId` used by repository predicates. Redis and db-scheduler remain worker composition concerns.
 
@@ -37,7 +39,7 @@ Audit is intentionally absent until a real evidence consumer defines attribution
 
 ## Persistence and startup
 
-Flyway owns seventeen migrations:
+Flyway owns nineteen migrations:
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
 - `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
@@ -55,6 +57,9 @@ Flyway owns seventeen migrations:
 - `V14__consolidate_iam_account_types.sql`: persists `STANDARD` Actor classification and Tenant authorization revision, and invalidates pre-cutover serialized Spring Sessions.
 - `V15__create_iam_groups.sql`: Tenant-qualified Groups, explicit memberships/manager flags and capability grants; seeds protected Admin/Basic Groups and enforces system-grant constraints.
 - `V16__create_source_group_grants.sql`: Tenant-qualified Source–Group associations, seeded to Admin for existing Sources.
+- `V18__create_chat.sql`: Persona and owner-scoped sessions, parent/latest-child message tree, command uniqueness and one active assistant reply.
+- `V19__chat_execution.sql`: durable Stop marker and answer model/token/cost metadata, plus bounded deadline reconciliation index.
+- `V20__chat_local_stop.sql`: removes the former Stop marker for the accepted one-process local cancellation path; transcript/outcome/deadline remain in PostgreSQL.
 - `V17__add_document_chunks_and_search_work.sql`: current content/chunk/search generations, bounded chunk text/provenance, protected artifact readers and durable SEARCH projection operations; no PostgreSQL vectors.
 
 IAM lifecycle entities and relationships remain inside `io.memoryos.iam.persistence`. Both composition roots deliberately use JPA transaction management on the same DataSource as JDBC work, with Hibernate `validate`, open-in-view disabled, and ORM caches disabled. Flyway is the only DDL owner. IAM projections/locks and Source, Document, Object Storage, and Ingestion persistence remain JDBC-first. See [ADR 0007](docs/decisions/0007-unified-jpa-iam-and-group-authorization.md).
@@ -135,7 +140,7 @@ The staging application origin is `https://memoryos.72-62-193-33.nip.io`, termin
 
 Structured extraction is documented in the [Document contract](docs/specs/document.md) and [Ingestion contract](docs/specs/ingestion.md). The base deployment includes a digest-pinned CPU Docling service on the private network, without host ports or object-storage credentials. Worker publishes checksum-verified canonical artifacts to MinIO and updates the current Document reference transactionally; a separate recurring sweep reclaims unreferenced artifacts. This is extraction, not chunking, embedding or search indexing.
 
-No multi-Tenant switcher, dynamic broker configuration surface, audit history, non-`STANDARD` account-creation/credential flow, SCIM/Requests surface, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen, or chat runtime exists. Add deferred components only through capability-owned vertical slices with verified production paths.
+No multi-Tenant switcher, dynamic broker configuration surface, audit history, non-`STANDARD` account-creation/credential flow, SCIM/Requests surface, OpenFGA client, Google connector, MCP server, GraphRAG engine, account-linking endpoint, durable memory screen exists. Add deferred components only through capability-owned vertical slices with verified production paths.
 
 ## Staging observability
 
