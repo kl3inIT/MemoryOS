@@ -78,7 +78,7 @@ describe("SearchPage", () => {
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
   });
 
-  it("renders the result workspace and applies a file-type facet", async () => {
+  it("renders the result workspace and applies the compact filter menus", async () => {
     const user = userEvent.setup();
     searchDocumentsMock.mockResolvedValue({
       data: {
@@ -119,7 +119,8 @@ describe("SearchPage", () => {
     const pdfFacet = screen.getByRole("button", { name: "PDF: 1 result on this page" });
     expect(pdfFacet).toHaveAttribute("aria-pressed", "false");
 
-    await user.click(pdfFacet);
+    await user.click(screen.getByRole("button", { name: "File type: All file types" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "PDF" }));
 
     await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(2));
     expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
@@ -131,6 +132,20 @@ describe("SearchPage", () => {
         "true",
       ),
     );
+
+    await user.click(screen.getByRole("button", { name: "Updated: All time" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+
+    await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(3));
+    expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      body: {
+        query: "nghỉ phép",
+        mediaTypes: ["application/pdf"],
+        page: 0,
+        updatedSince: expect.stringMatching(/T00:00:00\.000Z$/),
+      },
+    });
+    expect(screen.getByRole("button", { name: "Updated: Past 30 days" })).toBeInTheDocument();
   });
 
   it("removes owner administration affordances for a member", async () => {

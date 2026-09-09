@@ -98,8 +98,9 @@ test("searches merged sections, filters, pages and opens each best match with es
   });
   await page.goto("/");
   await page.getByRole("textbox", { name: "Search documents" }).fill("chính sách nghỉ phép");
-  await page.getByLabel("File type").selectOption("application/pdf");
   await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "File type: All file types" }).click();
+  await page.getByRole("menuitemradio", { name: "PDF", exact: true }).click();
   const titleButton = page.getByRole("button", {
     name: "HR-2026 Quy định nghỉ phép",
     exact: true,
@@ -122,9 +123,10 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(resultCard.getByText(/<script>alert\('x'\)<\/script>/)).toBeVisible();
   expect(requests[0]).toMatchObject({
     query: "chính sách nghỉ phép",
-    mediaTypes: ["application/pdf"],
+    mediaTypes: [],
     page: 0,
   });
+  expect(requests[1]).toMatchObject({ mediaTypes: ["application/pdf"], page: 0 });
   await titleButton.click();
   const reader = page.getByRole("dialog", { name: "HR-2026 Quy định nghỉ phép" });
   await expect(reader).toContainText("Selected match");

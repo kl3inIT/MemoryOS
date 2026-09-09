@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, FileStack, LoaderCircle, Search, SlidersHorizontal, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { Clock3, FileStack, LoaderCircle, Search, X } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
+import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -14,14 +14,41 @@ import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
 import type { Result as SearchResult, SearchRequest, Section } from "@/lib/hey-api/types.gen";
 
+const FILE_TYPE_OPTIONS: readonly SearchFilterOption[] = [
+  { value: "all", label: "All file types" },
+  { value: "application/pdf", label: "PDF" },
+  {
+    value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    label: "Word",
+  },
+  {
+    value: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    label: "PowerPoint",
+  },
+  { value: "text/plain", label: "Text" },
+  { value: "text/markdown", label: "Markdown" },
+];
+
+const TIME_RANGE_OPTIONS: readonly SearchFilterOption[] = [
+  { value: "all", label: "All time" },
+  { value: "7d", label: "Past 7 days" },
+  { value: "30d", label: "Past 30 days" },
+  { value: "365d", label: "Past year" },
+];
+
+type SearchTimeRange = "all" | "7d" | "30d" | "365d";
+
 export function SearchPage() {
   const [query, setQuery] = useState("");
-  const [mediaType, setMediaType] = useState("");
-  const [since, setSince] = useState("");
+  const [mediaType, setMediaType] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
   const [request, setRequest] = useState<SearchRequest | null>(null);
   const [selected, setSelected] = useState<DocumentSelection | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchFormRef = useRef<HTMLFormElement | null>(null);
+  const previousSearchTopRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const hasRequest = request !== null;
   const result = useQuery({
     queryKey: ["document-search", request],
     queryFn: async ({ signal }) => {
@@ -38,13 +65,37 @@ export function SearchPage() {
     staleTime: 0,
   });
 
+  useLayoutEffect(() => {
+    const previousTop = previousSearchTopRef.current;
+    const form = searchFormRef.current;
+    previousSearchTopRef.current = null;
+    if (
+      previousTop === null ||
+      !form ||
+      typeof form.animate !== "function" ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    const offset = previousTop - form.getBoundingClientRect().top;
+    if (Math.abs(offset) < 1) return;
+    const animation = form.animate(
+      [{ transform: `translateY(${offset}px)` }, { transform: "translateY(0)" }],
+      { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+    return () => animation.cancel();
+  }, [hasRequest]);
+
   function submit() {
     if (!query.trim()) return;
+    if (!request) {
+      previousSearchTopRef.current = searchFormRef.current?.getBoundingClientRect().top ?? null;
+    }
     setSelected(null);
     const nextRequest: SearchRequest = {
       query: query.trim(),
       mediaTypes: mediaType ? [mediaType] : [],
-      updatedSince: since ? new Date(`${since}T00:00:00`).toISOString() : undefined,
+      updatedSince: updatedSinceForTimeRange(timeRange),
       page: 0,
       pageSize: 10,
     };
@@ -53,11 +104,33 @@ export function SearchPage() {
   }
 
   function clearFilters() {
-    setMediaType("");
-    setSince("");
+    setMediaType(null);
+    setTimeRange("all");
     setSelected(null);
     if (request) {
       setRequest({ ...request, mediaTypes: [], updatedSince: undefined, page: 0 });
+    }
+  }
+
+  function selectMediaType(value: string) {
+    const nextMediaType = value === "all" ? null : value;
+    setMediaType(nextMediaType);
+    setSelected(null);
+    if (request) {
+      setRequest({ ...request, mediaTypes: nextMediaType ? [nextMediaType] : [], page: 0 });
+    }
+  }
+
+  function selectTimeRange(value: string) {
+    const nextTimeRange = value as SearchTimeRange;
+    setTimeRange(nextTimeRange);
+    setSelected(null);
+    if (request) {
+      setRequest({
+        ...request,
+        updatedSince: updatedSinceForTimeRange(nextTimeRange),
+        page: 0,
+      });
     }
   }
 
@@ -85,7 +158,7 @@ export function SearchPage() {
   }
 
   const statusMessage = searchStatus(request, result);
-  const hasFilters = Boolean(mediaType || since);
+  const hasFilters = Boolean(mediaType || timeRange !== "all");
   const typeFacets = result.data?.results.reduce<
     Array<{ mediaType: string; label: string; count: number }>
   >((facets, item) => {
@@ -117,6 +190,7 @@ export function SearchPage() {
             </header>
           ) : null}
           <form
+            ref={searchFormRef}
             onSubmit={(event) => {
               event.preventDefault();
               submit();
@@ -144,7 +218,7 @@ export function SearchPage() {
                   <button
                     type="button"
                     aria-label="Clear search"
-                    className="absolute top-1/2 right-11 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
+                    className="absolute top-1/2 right-11 z-10 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
                     onClick={() => {
                       setQuery("");
                       searchInputRef.current?.focus();
@@ -158,7 +232,7 @@ export function SearchPage() {
                   size="sm"
                   aria-label="Search"
                   disabled={!query.trim()}
-                  className="absolute top-1/2 right-1.5 w-8 -translate-y-1/2 px-0"
+                  className="absolute top-1/2 right-1.5 z-10 w-8 -translate-y-1/2 px-0"
                 >
                   <Search className="size-3.5" aria-hidden="true" />
                 </Button>
@@ -180,57 +254,27 @@ export function SearchPage() {
             </div>
 
             {request ? (
-              <div className="mt-2 grid gap-2 border-t border-border-subtle px-1 pt-2 sm:grid-cols-[auto_minmax(0,13rem)_minmax(0,13rem)_1fr] sm:items-center">
-                <span className="hidden items-center gap-2 px-2 font-secondary-action text-content-muted sm:flex">
-                  <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                  Filters
-                </span>
-                <label className="relative">
-                  <span className="sr-only">File type</span>
-                  <FileStack
-                    className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-content-muted"
-                    aria-hidden="true"
-                  />
-                  <Select
-                    size="sm"
-                    className="pl-8"
-                    aria-label="File type"
-                    value={mediaType}
-                    onChange={(event) => setMediaType(event.target.value)}
-                  >
-                    <option value="">All types</option>
-                    <option value="application/pdf">PDF</option>
-                    <option value="application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                      Word
-                    </option>
-                    <option value="application/vnd.openxmlformats-officedocument.presentationml.presentation">
-                      PowerPoint
-                    </option>
-                    <option value="text/plain">Text</option>
-                    <option value="text/markdown">Markdown</option>
-                  </Select>
-                </label>
-                <label className="relative">
-                  <span className="sr-only">Updated since</span>
-                  <CalendarDays
-                    className="pointer-events-none absolute top-1/2 left-3 z-10 size-3.5 -translate-y-1/2 text-content-muted"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    size="sm"
-                    type="date"
-                    aria-label="Updated since"
-                    className="pl-8"
-                    value={since}
-                    onChange={(event) => setSince(event.target.value)}
-                  />
-                </label>
+              <div className="mt-2 flex animate-in flex-wrap items-center gap-1 border-t border-border-subtle px-1 pt-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
+                <SearchFilterMenu
+                  label="Updated"
+                  value={timeRange}
+                  options={TIME_RANGE_OPTIONS}
+                  icon={<Clock3 className="size-3.5" />}
+                  onChange={selectTimeRange}
+                />
+                <SearchFilterMenu
+                  label="File type"
+                  value={mediaType ?? "all"}
+                  options={FILE_TYPE_OPTIONS}
+                  icon={<FileStack className="size-3.5" />}
+                  onChange={selectMediaType}
+                />
                 {hasFilters ? (
                   <Button
                     type="button"
                     size="sm"
                     prominence="tertiary"
-                    className="justify-self-start sm:justify-self-end"
+                    className="ml-auto"
                     onClick={clearFilters}
                   >
                     Clear filters
@@ -247,7 +291,7 @@ export function SearchPage() {
 
         <div className="mt-5" aria-busy={result.isFetching}>
           {!request ? null : result.isFetching ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-content-secondary">
+            <div className="flex animate-in items-center justify-center gap-2 py-12 text-content-secondary duration-200 fade-in motion-reduce:animate-none">
               <LoaderCircle
                 className="size-5 animate-spin motion-reduce:animate-none"
                 aria-hidden="true"
@@ -255,7 +299,10 @@ export function SearchPage() {
               Searching documents…
             </div>
           ) : result.isError ? (
-            <div role="alert" className="rounded-xl border border-border-default p-6">
+            <div
+              role="alert"
+              className="mx-auto max-w-lg animate-in rounded-xl border border-border-default p-6 duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
+            >
               <h2 className="font-heading-h3">Search is temporarily unavailable</h2>
               <p className="mt-2 text-content-secondary">Please try again in a moment.</p>
               <Button className="mt-4" onClick={() => void result.refetch()}>
@@ -263,7 +310,7 @@ export function SearchPage() {
               </Button>
             </div>
           ) : !result.data?.results.length ? (
-            <div className="py-12 text-center">
+            <div className="animate-in py-12 text-center duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
               <h2 className="font-heading-h3">No matching documents</h2>
               <p className="mt-2 text-content-secondary">
                 Try a broader phrase, remove a filter, or check the document code.
@@ -275,7 +322,7 @@ export function SearchPage() {
               ) : null}
             </div>
           ) : (
-            <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_14rem]">
+            <div className="grid min-w-0 animate-in gap-8 duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none lg:grid-cols-[minmax(0,1fr)_14rem]">
               <section aria-labelledby="search-results-heading" className="min-w-0">
                 <header className="flex flex-wrap items-end justify-between gap-2 border-b border-border-default pb-3">
                   <div>
@@ -386,6 +433,15 @@ export function SearchPage() {
       ) : null}
     </AppShell>
   );
+}
+
+function updatedSinceForTimeRange(timeRange: SearchTimeRange): string | undefined {
+  if (timeRange === "all") return undefined;
+  const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 365;
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  since.setUTCDate(since.getUTCDate() - days);
+  return since.toISOString();
 }
 
 function searchStatus(
