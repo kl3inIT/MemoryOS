@@ -5,9 +5,9 @@
 | Bounded checksum-verified artifact reads release object/reader resources on rejection; Vietnamese headings/page provenance; merged/repeated table headers, numeric values, row provenance, wide/oversized table bounds and bounded Unicode | `DocumentChunkServiceTest`, `StructuredDocumentChunkerTest` |
 | Response count/order/model/dimension/finite values, defensive copies and safe provider failures | `ValidatedEmbeddingServiceTest` |
 | Null/invalid media filters produce validation errors; immutable request filters | `SearchRequestTest` |
-| Embedding credentials require HTTPS; transport/malformed provider JSON is sanitized without masking programming failures | `SearchPropertiesTest`, `OpenSearchGatewayTest` |
+| Embedding credentials require HTTPS; semantic score floor stays in the cosine-score range; transport/malformed provider JSON is sanitized without masking programming failures | `SearchPropertiesTest`, `OpenSearchGatewayTest` |
 | Actual Spring AI OpenAI HTTP request, explicit model/dimensions/FLOAT input, response decoding and 401 handling | `SpringAiEmbeddingHttpTest`; local HTTP provider fixture |
-| Native 3072-dimensional Faiss mapping, normalized hybrid query, Tenant/MIME filtering, vector reuse, old-generation cleanup, delete and full index loss/rebuild | `OpenSearchRetrievalIntegrationTest`; real pinned OpenSearch 3.8.0 |
+| Native 3072-dimensional Faiss mapping, normalized hybrid query, radial semantic score floor with bounded `ef_search`, orthogonal-vector rejection, Tenant/MIME filtering, vector reuse, old-generation cleanup, delete and full index loss/rebuild | `OpenSearchRetrievalIntegrationTest`; real pinned OpenSearch 3.8.0 |
 | Alias inspection remains restricted to its actual target indexes and rejects an alias spanning multiple physical indexes | `OpenSearchRetrievalIntegrationTest`; secured staging checks recorded in MEM-46 |
 | Transactional publication/outbox, bounded chunks, durable retry, duplicate deliveries, stale completion and DELETE surviving Document deletion | `SearchIndexWorkIntegrationTest`; real PostgreSQL/Flyway |
 | JdbcClient multi-row publication across 259 chunks, Unicode/quoted text round-trip, and rollback of replacement when a later INSERT fails | `SearchIndexWorkIntegrationTest.publishesMultipleChunkBatchesAndRollsBackReplacementWhenALaterBatchFails`; real PostgreSQL |

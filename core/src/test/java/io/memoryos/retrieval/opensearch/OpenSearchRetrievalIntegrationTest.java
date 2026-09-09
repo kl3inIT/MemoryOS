@@ -54,7 +54,7 @@ class OpenSearchRetrievalIntegrationTest {
         var config = new SearchInfrastructureConfiguration();
         var properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
                 "", "", "", "https://api.openai.com/v1", "", "text-embedding-3-large", 3072, 32, 2, 50, .5,
-                Duration.ofSeconds(30), "memoryos-test", 0);
+                .70, Duration.ofSeconds(30), "memoryos-test", 0);
         var mapper = new ObjectMapper();
         var documents = mock(DocumentChunkPort.class);
         var model = mock(EmbeddingModel.class);
@@ -92,8 +92,9 @@ class OpenSearchRetrievalIntegrationTest {
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
             var hits = index.search(tenant, "quy định nghỉ phép", List.of(), null);
-            assertFalse(hits.isEmpty());
+            assertEquals(1, hits.size());
             assertEquals(leave.documentId().value(), hits.getFirst().documentId());
+            assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(unrelated.documentId().value())));
             assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(foreign.documentId().value())));
             assertTrue(index.search(tenant, "HR-2026", List.of("application/pdf"), null).isEmpty());
             var replacement = new DocumentChunkSet(tenant, leave.documentId(), UUID.randomUUID(), leave.title(), leave.mediaType(), Instant.now(), leave.chunks());

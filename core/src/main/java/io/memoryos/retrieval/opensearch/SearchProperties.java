@@ -21,6 +21,7 @@ public record SearchProperties(
         @DefaultValue("2") int embeddingConcurrency,
         @DefaultValue("500") int candidateLimit,
         @DefaultValue("0.5") double keywordWeight,
+        @DefaultValue("0.70") double minimumSemanticScore,
         @DefaultValue("30s") Duration timeout,
         @DefaultValue("memoryos-chunks") String indexPrefix,
         @DefaultValue("1") int replicas) {
@@ -41,6 +42,7 @@ public record SearchProperties(
         }
         if (!indexPrefix.matches("[a-z][a-z0-9-]{0,59}") || !Double.isFinite(keywordWeight)
                 || keywordWeight <= 0 || keywordWeight >= 1 || candidateLimit < 50 || candidateLimit > 1000
+                || !Double.isFinite(minimumSemanticScore) || minimumSemanticScore < 0 || minimumSemanticScore > 1
                 || dimensions < 1 || dimensions > 16000 || replicas < 0 || replicas > 3
                 || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(1)) > 0) {
             throw new IllegalArgumentException("invalid search configuration");

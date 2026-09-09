@@ -10,6 +10,8 @@ Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credent
 - [x] Resolve Spring AI 2.0.1 với Boot 4.1.1/OTLP; OpenAI `text-embedding-3-large`, 3072 dimensions, API key từ Infisical; pin input convention/tokenizer và batch/time/concurrency limits, ghi rõ giới hạn provider model alias.
 - [ ] Chọn OpenSearch server/client/transport; kiểm TLS/Infisical, JSON-P/Jackson và dependency convergence bằng integration smoke.
 - [x] Chốt native OpenSearch hybrid theo Onyx: BM25 title/content + vector k-NN, min_max + arithmetic_mean, weights 0.5/0.5. Không triển khai A/B thuật toán hoặc RRF trong một query.
+- [x] Tái hiện top-K semantic false positives bằng exact/semantic/nonsense queries trên corpus local; đối chiếu Onyx, OpenSearch, Typesense, Meilisearch và Elastic. Chốt raw semantic radial threshold thay vì combined min-max threshold hoặc browser filtering.
+- [x] Thay semantic top-K bằng configurable radial `min_score=0.70`, giữ `candidate-limit` làm `ef_search`/response budget; validate cấu hình và chứng minh bằng unit + real-OpenSearch integration tests.
 - [ ] Corpus tiếng Việt/mã định danh/bảng, exact-ID/semantic/table quality assertions và latency evidence cho duy nhất đường hybrid đã chọn.
 
 ## 2. JSON -> chunks -> index thật
@@ -37,6 +39,7 @@ Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credent
 - [x] Rà apply/reset filters, loading/cancel/retry/empty, paging, result/section switching, keyboard và mobile overflow; giới hạn `aria-live` ở status text ngắn.
 - [x] Search API contract qua backend OpenAPI/Hey API và browser thật; Chat không được hiển thị như tính năng đã chạy trước MEM-11.
 - [ ] Golden search cases: exact IDs/abbreviations, Vietnamese paraphrases, multiple matching chunks, table headers, no match, changed artifact và query/model/index mismatch/outage.
+- [ ] Chạy lại authenticated local API acceptance ở ngưỡng `0.70`: ba exact unique phrases chỉ trả document đúng, semantic paraphrase giữ document liên quan và nonsense query trả empty; không suy rộng corpus ba tài liệu thành production quality benchmark.
 
 ## 4. Recovery và nghiệm thu riêng Search
 

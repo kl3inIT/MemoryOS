@@ -50,7 +50,7 @@ flowchart LR
     UI[Search page] --> API[POST /api/search]
     API --> E[Same EmbeddingModel: query vector]
     API --> B[BM25 title/content]
-    E --> K[OpenSearch filtered k-NN]
+    E --> K[OpenSearch filtered radial k-NN above semantic floor]
     B --> F[min_max + arithmetic_mean: 0.5 / 0.5]
     K --> F
     F --> P[Current ready generation + existing source eligibility]
@@ -61,13 +61,15 @@ flowchart LR
     D --> C[Current PostgreSQL passages]
 ```
 
-`DocumentSearchService` resolves the Actor's active Tenant, executes one native hybrid query, batch-checks current ready generations and existing Source eligibility, and sorts deterministic score ties by Document ID/ordinal. For each Document/current generation, it deduplicates ordinals keeping the best hit, sorts by ordinal and merges consecutive retrieved chunks into sections. Gaps stay separate; it does not fetch missing neighbors. Text is joined with a newline in document order, without guessing at repeated prefixes or overlap removal.
+`DocumentSearchService` resolves the Actor's active Tenant and executes one native hybrid query. The BM25 clause can independently retain lexical matches. The semantic clause uses Faiss radial k-NN and admits only vectors at or above `memoryos.search.minimum-semantic-score` before min-max fusion; the default `0.70` equals cosine similarity `0.40` because this index's `cosinesimil` score is `(1 + cosine similarity) / 2`. `candidate-limit` remains the HNSW `ef_search`, hybrid pagination depth and response-size budget. This avoids treating every nearest neighbor as relevant and avoids an absolute threshold on query-relative combined min-max scores. Changing the embedding model or representative corpus requires evaluation and possible threshold retuning.
+
+After retrieval, the service batch-checks current ready generations and existing Source eligibility, and sorts deterministic score ties by Document ID/ordinal. For each Document/current generation, it deduplicates ordinals keeping the best hit, sorts by ordinal and merges consecutive retrieved chunks into sections. Gaps stay separate; it does not fetch missing neighbors. Text is joined with a newline in document order, without guessing at repeated prefixes or overlap removal.
 
 Each result exposes `sections`, with `startOrdinal`, `endOrdinal`, `matchingOrdinal`, best-member `score`, combined `content`, and `provenance` entries preserving each member's ordinal and original `provenanceJson`. All ordinals are zero-based and endpoints are inclusive. A section ranks at its best member's position; equal scores use that member's ordinal. Merging precedes the limit of three sections per document, so a contiguous run can contain more than three chunks. Documents retain their best-hit ranking. Section content remains bounded by the query candidate budget; there is no extra three-chunk text truncation. No index migration or embedding call is required for this step.
 
 For example, ranked hits `11, 40, 10` become section `10–11` anchored at match `11`, then section `40`. This follows Onyx's `merge_individual_chunks` and newline concatenation at reference commit `06aa2b09cc4aa5135fa2627e5235814e996f1514`. MemoryOS additionally presents these sections inside one document card and pages documents. Existing public-source eligibility is preserved; no additional permission model is introduced.
 
-`POST /api/search` accepts a trimmed query of 1–1000 characters, up to ten MIME-type filters, optional `updatedSince`, zero-based `page` up to 49 and `pageSize` 1–20. Candidate collection defaults to 500 per subquery and stays fixed across pages. `hasMore` describes the bounded grouped candidate set, not a global exact document count. Paging recomputes retrieval and can reflect concurrent source updates. Server configuration owns hybrid weight and candidate limits; the browser cannot select a provider/model/backend or arbitrary search DSL.
+`POST /api/search` accepts a trimmed query of 1–1000 characters, up to ten MIME-type filters, optional `updatedSince`, zero-based `page` up to 49 and `pageSize` 1–20. The retrieval budget defaults to 500 and stays fixed across pages; it bounds keyword collection/hybrid pagination/response size and semantic `ef_search`, while the semantic score floor decides vector eligibility. `hasMore` describes the bounded grouped candidate set, not a global exact document count. Paging recomputes retrieval and can reflect concurrent source updates. Server configuration owns hybrid weight, semantic score floor and candidate limits; the browser cannot select a provider/model/backend or arbitrary search DSL.
 
 `GET /api/search/documents/{documentId}?generation=...&from=...` returns up to 20 current passages. Missing, obsolete or ineligible documents return `SEARCH_DOCUMENT_UNAVAILABLE` (404); changed documents require a fresh search. It reads the current extracted passages, not an original-file download URL. Search dependency failures return `SEARCH_UNAVAILABLE` (503), without credentials, provider payloads or query text in diagnostics. Unsafe browser API requests keep the existing same-origin mutation-header requirement.
 

@@ -27,7 +27,8 @@ Both deployables read `classpath:memoryos-search.yaml`. Supply a managed OpenSea
 | `MEMORYOS_EMBEDDING_ENDPOINT` | `https://api.openai.com/v1` |
 | `MEMORYOS_EMBEDDING_MODEL`, `MEMORYOS_EMBEDDING_DIMENSIONS` | `text-embedding-3-large`, `3072`; changes select a different index |
 | `MEMORYOS_EMBEDDING_BATCH_SIZE`, `MEMORYOS_EMBEDDING_CONCURRENCY` | `32`, `2` per deployable |
-| `MEMORYOS_SEARCH_CANDIDATE_LIMIT`, `MEMORYOS_SEARCH_KEYWORD_WEIGHT` | `500`, `0.5`; native min-max/arithmetic-mean fusion |
+| `MEMORYOS_SEARCH_CANDIDATE_LIMIT`, `MEMORYOS_SEARCH_KEYWORD_WEIGHT` | `500`, `0.5`; exploration/response budget and native min-max/arithmetic-mean fusion weight |
+| `MEMORYOS_SEARCH_MINIMUM_SEMANTIC_SCORE` | `0.70`; raw Faiss cosine-space score floor before fusion (`0.40` cosine similarity). Re-evaluate with representative judgments when changing model/corpus |
 | `MEMORYOS_SEARCH_TIMEOUT` | `30s` provider/response timeout; OpenSearch connect timeout is 3 seconds |
 | `MEMORYOS_SEARCH_INDEX_PREFIX` | `memoryos-chunks`; changing it forces a distinct projection |
 | `MEMORYOS_SEARCH_REPLICAS` | `1`; use `0` explicitly for single-node development |
