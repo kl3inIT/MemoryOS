@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-09 for the Google Drive branch refresh targeting main `3f236d5` (Chat/JIT and Search PRs #83/#87). Current verification is recorded in the [publication and main-refresh record](increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09), separately from historical branch/main evidence. This refresh does not claim a PR, merge into main, deployment, or live-provider completion.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-09 for the verified Google Drive/Source branch integrated with main `3f236d5` (Chat/JIT and Search PRs #83/#87). The user has authorized a PR and merge-when-green; exact-head CI, review and merge receipts belong to the [publication record](increments/active/google-drive-structured-ingestion/plan.md#pull-request-and-guarded-merge). Deployment and outstanding live-provider/customer-data acceptance remain separate.
 
 ## Delivered
 

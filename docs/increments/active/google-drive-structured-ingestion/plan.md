@@ -1,5 +1,15 @@
 # FILE–Drive integration plan
 
+## Pull request and guarded merge
+
+After publication at `5e3eb997ed36c3730f536d4d16a6d1ad0266f05d`, the user explicitly authorized opening a PR into main and merging when all checks are green. This supersedes the earlier no-PR/no-merge publication restriction below. Preserve scoped commit history with a GitHub merge commit and an exact-head guard; do not squash, rebase or force-push.
+
+The preflight checkout is clean and already contains current main `3f236d55a99299df3f1741fe997dc71e1339f4dd`. The feature diff contains the prior Drive implementation, Source follow-ups, preserved Docling settings and integration-fixture corrections, not just the last UI commits. The preceding local gates and rendered smoke remain the behavioral evidence; authorization/status edits in this step change documentation only.
+
+Require every CI Gate dependency to pass on the latest head, collect one complete CodeRabbit review pass, classify every actionable finding and merge only when the branch is fresh and mergeable. Review bounds: at most one manual request, one 600-second watch, three pushed fix rounds and two no-code CI reruns; a documented quota/silent-review fallback may be used only under the repository PR-loop conditions. Record PR/head/main CI URLs, review decisions and merge SHA in the PR and MEM-76.
+
+Merge authorization is not deployment or live Google/Tasco acceptance. The review databases, running build outputs, Sources, credentials, selections, schedules and provider data stay untouched. The broad ingestion increment remains active while its separately recorded provider/customer-data/ACL acceptance is outstanding; do not close those issues merely because the implementation PR merges.
+
 ## Publication and main refresh — 2026-09-09
 
 The user approved scoped commits, merging current `origin/main` into this feature branch, verification, push and Linear linkage. Source/Google Drive conflict resolution prioritizes `HEAD`; retain its behavior while integrating main Chat/JIT. This is not authorization to open or merge a PR, deploy, or mark MEM-76 Done.

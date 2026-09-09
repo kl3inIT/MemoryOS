@@ -1,6 +1,6 @@
 # MemoryOS architecture
 
-Integration status: this branch refresh targets main `3f236d5` (Chat/JIT and Search PRs #83/#87), retaining the Google Drive integration and subsequent Source improvements. Current verification is recorded in the [publication and main-refresh record](docs/increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09); earlier branch/main checks remain historical evidence, not a pass for this refresh. This is branch publication only: no PR, merge into main, deployment, or live-provider completion is claimed.
+Integration status: the Google Drive and Source changes are verified and published against main `3f236d5` (Chat/JIT and Search PRs #83/#87). The user has authorized a PR into main and an exact-head merge commit only after green CI and resolved actionable review findings; current progress and evidence belong to the [publication record](docs/increments/active/google-drive-structured-ingestion/plan.md#pull-request-and-guarded-merge). Repository integration does not establish deployment or live-provider completion.
 
 This document describes the system implemented in this repository. Product intent lives in [docs/vision.md](docs/vision.md); accepted rationale lives in [ADRs](docs/decisions).
 

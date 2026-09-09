@@ -6,7 +6,7 @@ The user approved merging main `287ca9c` (Chat and trusted-broker JIT admission)
 
 Main now owns applied migrations V1–V20. Reconcile the unpublished Drive chain by moving V18–V29 to V21–V32 without changing SQL bodies or main migration contents, and update migration-target fixtures and current documentation. This continues the prior branch-integration numbering policy; it does not authorize rewriting an existing database's Flyway history.
 
-Keep the existing review databases and running backend build outputs untouched. Verification must use isolated build outputs and disposable databases with the combined schema. Starting the new migration layout on an old review database is explicitly excluded; a later authorized runtime cutover requires its own data-preserving plan. No PR, merge-to-main, shared deployment, Google mutation or MEM closure is authorized by this publication request.
+Keep the existing review databases and running backend build outputs untouched. Verification must use isolated build outputs and disposable databases with the combined schema. Starting the new migration layout on an old review database is explicitly excluded; a later authorized runtime cutover requires its own data-preserving plan. The subsequent user instruction authorizes a PR into main and a merge commit after latest-head CI and review convergence, superseding the initial publication-only restriction. Shared deployment, Google mutation and closing wider acceptance issues remain excluded.
 
 ## Source detail consistency — 2026-09-09
 
