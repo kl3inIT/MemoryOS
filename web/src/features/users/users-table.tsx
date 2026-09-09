@@ -1,9 +1,9 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle, UserRound } from "lucide-react";
 import { Fragment, useRef, useState, type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
 import type { UserListItem } from "@/lib/hey-api/types.gen";
 import { GroupTags } from "./group-tags";
@@ -215,49 +215,31 @@ export function UsersTable({
         </table>
       </div>
 
-      <nav
-        aria-label="User pages"
-        className="flex flex-col gap-3 border-t border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      <TablePagination
+        label="User pages"
+        page={page}
+        totalPages={totalPages}
+        summary={`Showing ${firstItem}–${lastItem} of ${totalItems}`}
+        previousDisabled={page <= 0}
+        nextDisabled={page + 1 >= totalPages}
+        onPrevious={() => onPageChange(page - 1)}
+        onNext={() => onPageChange(page + 1)}
       >
-        <p className="font-secondary-body tabular-nums text-content-muted">
-          Showing {firstItem}–{lastItem} of {totalItems}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-            Rows
-            <Select
-              aria-label="Rows per page"
-              value={size}
-              size="sm"
-              className="w-auto px-2"
-              onChange={(event) => onSizeChange(Number(event.target.value) as UsersSearch["size"])}
-            >
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </Select>
-          </label>
-          <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-secondary">
-            Page {page + 1} of {Math.max(totalPages, 1)}
-          </span>
-          <Button
+        <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
+          Rows
+          <Select
+            aria-label="Rows per page"
+            value={size}
             size="sm"
-            prominence="secondary"
-            disabled={page <= 0}
-            onClick={() => onPageChange(page - 1)}
+            className="w-auto px-2"
+            onChange={(event) => onSizeChange(Number(event.target.value) as UsersSearch["size"])}
           >
-            Previous
-          </Button>
-          <Button
-            size="sm"
-            prominence="secondary"
-            disabled={page + 1 >= totalPages}
-            onClick={() => onPageChange(page + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </nav>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </Select>
+        </label>
+      </TablePagination>
 
       {groupEditorEntry ? (
         <UserGroupsDialog

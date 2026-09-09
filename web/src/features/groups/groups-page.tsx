@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { listGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { GroupCard } from "./group-card";
@@ -164,52 +165,34 @@ export function GroupsPage() {
       </div>
 
       {page && page.totalItems > 0 ? (
-        <nav
-          aria-label="Group pages"
-          className="mt-6 flex flex-col gap-3 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-between"
+        <TablePagination
+          label="Group pages"
+          className="mt-6 px-0 pt-4"
+          page={search.page}
+          totalPages={page.totalPages}
+          summary={`Showing ${page.totalItems === 0 ? 0 : search.page * search.size + 1}–${Math.min((search.page + 1) * search.size, page.totalItems)} of ${page.totalItems}`}
+          previousDisabled={search.page === 0}
+          nextDisabled={search.page + 1 >= page.totalPages}
+          onPrevious={() => updateView({ page: search.page - 1 })}
+          onNext={() => updateView({ page: search.page + 1 })}
         >
-          <p className="font-secondary-body tabular-nums text-content-muted">
-            Showing {page.totalItems === 0 ? 0 : search.page * search.size + 1}–
-            {Math.min((search.page + 1) * search.size, page.totalItems)} of {page.totalItems}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-              Rows
-              <Select
-                size="sm"
-                value={search.size}
-                className="w-auto px-2"
-                aria-label="Groups per page"
-                onChange={(event) =>
-                  updateView({ size: Number(event.target.value) as GroupsSearch["size"] }, true)
-                }
-              >
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </Select>
-            </label>
-            <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-secondary">
-              Page {search.page + 1} of {Math.max(page.totalPages, 1)}
-            </span>
-            <Button
+          <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
+            Rows
+            <Select
               size="sm"
-              prominence="secondary"
-              disabled={search.page === 0}
-              onClick={() => updateView({ page: search.page - 1 })}
+              value={search.size}
+              className="w-auto px-2"
+              aria-label="Groups per page"
+              onChange={(event) =>
+                updateView({ size: Number(event.target.value) as GroupsSearch["size"] }, true)
+              }
             >
-              Previous
-            </Button>
-            <Button
-              size="sm"
-              prominence="secondary"
-              disabled={search.page + 1 >= page.totalPages}
-              onClick={() => updateView({ page: search.page + 1 })}
-            >
-              Next
-            </Button>
-          </div>
-        </nav>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </Select>
+          </label>
+        </TablePagination>
       ) : null}
     </section>
   );
