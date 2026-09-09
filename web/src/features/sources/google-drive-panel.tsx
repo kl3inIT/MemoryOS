@@ -52,10 +52,12 @@ const MAX_SYNC_INTERVAL_MINUTES = 2_147_483_647;
 
 export function GoogleDrivePanel({
   source,
+  sourceStale,
   disabled = false,
   onBusyChange,
 }: {
   source: SourceSummary;
+  sourceStale: boolean;
   disabled?: boolean;
   onBusyChange: (busy: boolean) => void;
 }) {
@@ -114,7 +116,7 @@ export function GoogleDrivePanel({
   const [observingSynchronization, setObservingSynchronization] = useState(false);
   const busy = activeAction !== null || leaving;
   const configuration = configurationQuery.data;
-  const stale = configurationQuery.isError;
+  const stale = sourceStale || configurationQuery.isError;
   const controlsDisabled = disabled || !canManage || busy || stale;
   const connected =
     configuration?.credentialStatus === "ACTIVE" && configuration.oauthClientConfigured;

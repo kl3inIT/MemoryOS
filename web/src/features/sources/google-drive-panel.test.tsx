@@ -285,11 +285,11 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
       throw new Error(`Unexpected request ${request.method} ${url.pathname}`);
     }),
   );
-  const tree = (session: ApplicationSession) => (
+  const tree = (session: ApplicationSession, sourceStale = false) => (
     <QueryClientProvider client={queryClient}>
       <ApplicationSessionProvider session={session}>
         <ActionNotifications>
-          <GoogleDrivePanel source={source} onBusyChange={() => {}} />
+          <GoogleDrivePanel source={source} sourceStale={sourceStale} onBusyChange={() => {}} />
         </ActionNotifications>
       </ApplicationSessionProvider>
     </QueryClientProvider>
@@ -312,6 +312,9 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
     },
     changeSession(session: ApplicationSession) {
       view.rerender(tree(session));
+    },
+    setSourceStale(stale: boolean) {
+      view.rerender(tree(owner, stale));
     },
     setConfiguration(next: Partial<GetGoogleDriveConfigurationResponse>) {
       configuration = { ...configuration, ...next };
@@ -352,6 +355,21 @@ async function edit(user: UserEvent) {
 }
 
 describe("Google Drive enterprise selection", () => {
+  it("keeps synchronization guarded until the Source summary is fresh again", async () => {
+    const server = setup();
+    const synchronize = await screen.findByRole("button", { name: "Synchronize now" });
+    expect(synchronize).toBeEnabled();
+
+    server.setSourceStale(true);
+    expect(screen.getByRole("alert")).toBeVisible();
+    expect(synchronize).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Refresh status" })).toBeEnabled();
+
+    server.setSourceStale(false);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(synchronize).toBeEnabled();
+  });
+
   it("withdraws cached Drive administration when a user retains only scoped source authority", async () => {
     const server = setup();
     await screen.findByRole("button", { name: "Synchronize now" });

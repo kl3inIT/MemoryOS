@@ -19,6 +19,7 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   deleteSourceMutation,
@@ -57,6 +58,7 @@ export function SourceDetailPage() {
 
 function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const navigate = useNavigate({ from: "/admin/sources/$sourceId" });
+  const canManageDrive = useApplicationSession().capabilities.includes("SOURCES_MANAGE");
   const queryClient = useQueryClient();
   const notify = useActionNotifications();
   const [reindexControllers] = useState(() => new Map<string, AbortController>());
@@ -564,7 +566,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         </p>
       ) : null}
 
-      {sourceQuery.isError && detail ? (
+      {sourceQuery.isError && detail && (detail.type !== "GOOGLE_DRIVE" || !canManageDrive) ? (
         <div className="mt-5 space-y-3">
           <p role="alert" className="text-sm text-status-danger-content">
             Source status could not be refreshed. Displayed values may be out of date.
@@ -756,6 +758,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             ) : detail.type === "GOOGLE_DRIVE" ? (
               <GoogleDrivePanel
                 source={detail}
+                sourceStale={sourceQuery.isError}
                 disabled={managementBusy || detail.status === "DELETING"}
                 onBusyChange={setDriveBusy}
               />
