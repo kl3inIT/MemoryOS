@@ -1,8 +1,71 @@
 # FILE–Drive integration plan
 
-Status: **reusable Google Drive credentials, independent Source creation and per-Source Automatic interval are implemented.** Backend, frontend and controlled browser gates pass. The owner session is restored; live save/reload preserves the user's one-minute interval and three indexed Sheets, and a subsequent automatic synchronization is verified. Source action feedback is implemented; the final all-notification five-second expiry review is recorded below. The earlier reusable-credential scenario created, indexed and removed a second Source without consent. Branch `nhuxuanviet/google-drive-structured-ingestion`, based on main `09d738ed7e42d077d312e5c3ee184eb4ab5f8b11`. Approved decisions: [design.md](design.md). No PR, push, merge or shared application deployment was performed.
+Status: **MEM-76 selection policy, durable asynchronous validation, paged selection/drafts, acquisition → indexing run history and the approved Files pagination extension are implemented and locally verified.** Final uncached backend, frontend and all 39 browser scenarios passed. Root/history capacity, controlled 100k-file no-change traversal and real desktop/mobile/light/dark UI over 100k item rows are consolidated below. Google OAuth/Drive/Docs used controlled fixtures, not live Google; metadata seeding and no-change traversal are not initial acquisition/indexing proof. Private runtime/database and throwaway scaffolds were removed after verification; sanitized evidence/screenshots remain ignored. The increment and broader issues stay active; no push/PR/merge/deploy.
 
 User-approved scope: acquisition, synchronization, extraction and current Document only. No source ACL collection/enforcement, reader identity linking or document-read API/UI. Preserve Tenant/Owner authorization and exclude Drive from FILE PUBLIC. This is not all MEM-10/MEM-60 acceptance. The user authorized selective port, a backed-up fresh local database, isolated local MinIO, reuse of the existing Drive corpus and UI verification in Orca's embedded browser. No PR, push, merge or shared deployment is authorized here.
+
+User-approved UI revision — 2026-09-09: remove the Source Run history component, its list/detail/error requests and dedicated browser scenario. Replace the verbose item-processing list with a compact Onyx-informed Indexing attempts table and server-side page sizes 5 (default), 10, 25 and 50. Keep backend run contracts/data/retention, synchronization controls, selection and Files unchanged. Verify desktop/mobile rendering, page-size changes and cursor reset; the earlier 39-scenario evidence below describes the pre-removal UI.
+
+## Enterprise source operations plan
+
+Issue thực hiện: [MEM-76](https://linear.app/memory-os/issue/MEM-76/mo-rong-google-drive-selection-va-bo-sung-lich-su-djong-bo-co-ket-qua), In Progress, assign Nhữ Xuân Việt (`nhuxuanviet27102004`); parent MEM-60, related MEM-9/MEM-10/MEM-39/MEM-64. Chỉ tạo một issue phát sinh có scope/rationale rõ, không chia nhỏ thành ticket cho từng chỉnh sửa.
+
+**Implementation approved — 2026-09-08; integrated and locally verified.** Selection/backend history/web implementation and additive V22/V23/V24 are present. Final backend/frontend, actual rendered UI, isolated runtime and separate root/history/corpus measurements are consolidated in canonical verification matrices below. No user Source, network or shared deployment changes were made. [Design and trade-offs](design.md#enterprise-source-operations-proposal) remain the implementation boundary; this is not live-provider or broader ACL/Tasco acceptance.
+
+### Kết quả cần đạt
+
+1. Folders/Files phân nhóm trong cùng một selection; thao tác số lượng lớn không làm mất lựa chọn ngoài trang hoặc biến selection đang xác minh thành phạm vi đang chạy.
+2. Loại bỏ cap 20 hardcode bằng backend policy và asynchronous durable verification có quota/budget/fencing, không thay bằng unlimited hoặc HTTP timeout lớn hơn.
+3. Run history phản ánh đầy đủ acquisition → indexing, thành công không thay đổi, lỗi từng file/toàn run và phục hồi; không nhầm current Source count với số tài liệu của một run.
+
+### Approved implementation sequence and acceptance criteria
+
+| Bước | Thay đổi và phạm vi file | Điều kiện hoàn thành |
+| --- | --- | --- |
+| 1. Chốt contract và sizing | `DefaultGoogleDriveSourceService`, request/response contracts, `GoogleDriveProvider` budgets, increment design. Chốt policy nguồn duy nhất, operation activation, counter dictionary và API cursor. Benchmark ma trận 20/21/100/1.000 roots, depth/overlap/shared ancestors và approvals; mục tiêu corpus 100.000 file bằng controlled fixtures. | Có số request, thời gian, DB/heap và quota rejection rõ. Chọn quota phát hành từ kết quả đạt, không coi mục tiêu 1.000 là năng lực đã đo. Chốt byte budget độc lập đủ cho max roots và link-length hiện có. |
+| 2. Durable schema và query foundation | Migration mới trong `core/.../db/migration`; concrete connector persistence cho proposed selection, run attribution/outcomes và query history. Reuse current sync/index attempts, không thêm generic audit store. Bổ sung composite tenant/source/time/ID indexes, snapshot metadata, retention/compaction và deletion dependencies. | Migration giữ credential/Source/roots/interval/input/current Documents. Legacy facts không có thì nullable/Unknown. Không backfill fabricated counters; live claims và stored-object references không bị retention xóa. |
+| 3. Async selection và quota | `DefaultGoogleDriveSourceService`, capability selection operation/repositories, existing relay/lease/worker composition, create/replace request contracts. Admission nhanh → durable candidate → checkpointed provider verification → atomic activation; receipt chống submit trùng, pending cancellation/fencing, limits dùng policy. | Create/Save trả `202` không chờ Google. Reload/restart không mất operation; retries không tạo hai Sources hoặc tăng revision hai lần. Invalid/overlap/quota/permission/revoke/stale candidate giữ nguyên active selection và lịch; không có small-sync/large-async fallback. |
+| 4. Run lifecycle, attribution và lỗi | `DefaultConnectorSyncService`, `JdbcSourceSyncRepository`, `JdbcIndexAttemptRepository`, item intake/publication and cleanup paths; error mapping tại provider/storage/extraction boundary. Ghi attribution cùng adoption, chốt counters bằng fenced transitions, giữ acquisition terminal độc lập với run-level indexing. | Zero-change, partial acquisition, storage failure, extraction failure, reused pending attempt, retry/duplicate delivery, supersession và credential loss có kết quả đúng, không double-count hoặc sửa lại completed history. Current run không che Last completed/Last successful. |
+| 5. Authorized read API và clean client cutover | `api/.../source`, query repositories, typed selection receipt và dedicated `SourceRunResponse`, `openapi.yml`, generated Hey API client. Policy endpoint; paged selection/provenance; source run list/detail/errors; paged item-attempt history. `/api/sources/{sourceId}/runs` và `/api/sources/{sourceId}/runs/{runId}` là runs; `/index-attempts` vẫn là item-processing history, không alias. Generic operation polling không nhận run-only fields. | Owner/Tenant/CSRF/If-Match giữ nguyên; foreign IDs và cursor không thành oracle. Keyset pages ổn định khi run mới vào; pinned selection revision không bị trộn. Status polling không tải full trees; mọi caller được migrate trong cùng cutover. |
+| 6. UI selection và Run history | `google-drive-selection.ts`, `google-drive-links.tsx`, `google-drive-panel.tsx`, `create-google-drive-source-page.tsx`, `source-detail-page.tsx`, `source-errors.ts` và existing shared primitives. Nhóm Folders/Files, provenance labels, tìm/lọc/phân trang, bulk draft, pending-validation receipt, history table/detail/errors và summary trạng thái đúng. | Keyboard/mobile/light/dark dùng được. Draft không mất do paging/polling; Save toàn selection, Cancel không ghi; approved IDs vẫn đồng bộ ở mọi nhánh. Unknown khác 0; loading khác empty; lỗi hiển thị một đúng nơi và không bị run mới xóa. |
+| 6a. Files pagination — approved extension | Tách summary khỏi items; `GET /sources/{id}` và FILE create trả `SourceSummary`, reuse `/items` cho keyset `SourceItemPage`, default 25/max 100; V24 page index, generated clean cutover, UI Previous/Next và mutation/polling ownership. | Không tải/join/render toàn corpus cho status hoặc page. Tenant/Owner/cursor giữ đúng; upload/finalize/reindex/remove hoạt động qua page changes. Nghiệm thu real UI với 100.000 seeded rows, không dùng số đo traversal để thay UI. |
+| 7. Regression và capacity gates | Retained Google authority/sync/PostgreSQL lifecycle/HTTP tests, focused browser cases, `gradlew.bat clean check`, generated-contract drift và `pnpm check`. Kiểm tra changed IDE-supported files khi JetBrains khả dụng; không nhận IDE-clean nếu tool vắng. Controlled load dùng service/provider boundaries thật với fixture server, không chỉ test parser URLs. | Unique attribution/counters giữ đúng qua restart/Redis replay; không prune incomplete scope; query có bounded rows/heap và không N+1. Mục tiêu history page p95 ≤500ms với 100.000 terminal summaries và page 25/max 100 trên môi trường benchmark được ghi; thời gian Google không được ngụy trang thành SLO đã đạt. |
+| 8. Nghiệm thu runtime được cấp quyền | Source mô phỏng riêng qua owner/browser bình thường: mixed folder/file → selection >20 → activation → scheduled/manual sync → index → thay nội dung → no-change → provider/storage failure → recovery. Exercise FILE upload/reindex/history để bảo toàn provider đang có. | Có run IDs, counters, phase errors và ảnh UI desktop/mobile đối chiếu PostgreSQL; storage/network thật phải hoạt động. Giữ Source gốc do user chọn; simulated Google proof không phải dữ liệu Tasco. Không coi các gate cũ là nghiệm thu cho thay đổi mới. |
+
+### Phụ thuộc và ownership
+
+- Main giữ contract, schema/migration numbering, API/client integration và docs. Sau bước 1–2, selection worker và run-attribution có thể làm độc lập trên vùng sở hữu riêng; file enum/composition/schema chung chỉ một integration owner sửa. UI tích hợp trên contract đã chốt, không tự tạo mock-only controls hoặc tự thương lượng contract giữa các worker.
+- MEM-9: selection/quotas và UI; MEM-10: sync/history/typed outcomes; MEM-60: nghiệm thu end-to-end. MEM-63 giữ reader contract, chỉ thay đổi nếu regression chứng minh cần; phối hợp vocabulary với MEM-64 nhưng không chuyển durable history sang metrics. Theo chỉ đạo mới ngày 2026-09-08, tạo issue phát sinh riêng liên kết các việc hiện tại, assign Nhữ Xuân Việt và lưu bối cảnh/lý do/alternatives/acceptance để tra cứu; không đóng hoặc chuyển assignee các issue nền.
+- Scope/credential authority, publication fences, incomplete-generation pruning và FILE behavior là release blockers. ACL/document-read, account-wide browsing, new provider formats, search và shared deployment không tự được đưa vào vì nhãn enterprise.
+- Canonical docs distinguish final local gates and actual UI/runtime proof from controlled root/history/corpus measurements and unverified live Google/production capacity. The approved Files extension and receipt reload/activation are complete at that local boundary. Linear changes use the authorized notification/coordination flow; broader linked issues remain open.
+
+### Rủi ro và điểm duyệt
+
+- Async validation thay đổi create/save từ phản hồi tức thời sang accepted operation; UI phải hiển thị bản đang áp dụng và bản pending riêng. Đổi quota nhưng giữ synchronous Google validation bị loại vì không giải quyết request amplification/timeouts.
+- Per-run/per-file attribution and retention are backend contracts, not only UI tables. Defaults are implemented at 90 days for terminal summaries and 14 days for detailed outcomes/errors, with live/current-reference/unresolved-error protection. These are not compliance/audit guarantees; full retention and runtime gates remain separate.
+- Phê duyệt plan đồng nghĩa chọn mục tiêu ingest vận hành được và có số đo; không đồng nghĩa mọi người dùng đã được đọc tài liệu. ACL và search readiness là các điều kiện riêng trước khi gọi sản phẩm đầy đủ enterprise-ready.
+- The previously observed review-network DNS/storage fault remains outside this delivery; the isolated fixture runtime does not prove that shared endpoint has recovered. No hosts/DNS or shared-runtime changes are part of this verification.
+
+### MEM-76 verification — 2026-09-08
+
+| Evidence field | Current result and boundary |
+| --- | --- |
+| Implemented contract | V22 selection receipts/intents/checkpoints, V23 exact run attribution/counters/errors and V24 bounded Files-read indexes. Default selection policy remains 1,000 explicit roots, 3,145,728 request bytes and 500 linked approvals; configured bounds are not live Google capacity. |
+| Targeted backend | Selection/history/lifecycle/coordinator/authorized HTTP checks passed. Post-pagination lifecycle, Source API/OpenAPI and real-Docling FILE worker checks passed in 1m57s. The final clock-fixture correction was followed by a passing 1m22s sync/history regression run and then the complete gate below. |
+| Selection and history capacity | Completed 20/21/100/1,000 mixed-root CREATE/APPROVE, depth/shared-ancestor/checkpoint continuation, 1,001-root rejection and overlap scenarios. The separate 100,000-summary fixture has zero owned children. Exact timings/calls/checkpoints/database/heap and provider-port/JDBC limitations are canonical in the [Connector matrix](../../../tests/connector.md#measured-selection-and-history-capacity--2026-09-08), not duplicated here. Neither proves a 100,000-file corpus. |
+| Frontend and generated contract | Final `pnpm check` passed generated drift, lint/format/TypeScript, 55 tests/15 files, routes, production build and font assets. All **39** routed browser scenarios passed in 3.2 minutes with one worker and zero retries, including Files paging regressions. [Canonical evidence](../../../tests/connector.md#frontend-and-browser-acceptance--2026-09-08). |
+| Rendered browser | Actual headless desktop 1440/mobile 390 light/dark surfaces visually inspected, including 100k-item Files pages; no page-level overflow and mobile touch Next reached Page 2. This is not Orca embedded-browser proof. [Canonical UI evidence](../../../tests/connector.md#real-ui-files-pagination-over-100k-items). |
+| Isolated runtime | Owner Keycloak login plus real PostgreSQL/Redis/MinIO/API/worker with controlled Google HTTP fixtures. Change/no-change, provider/storage recovery, linked approval/scheduling and separate FILE history were exercised. Final pending selection survived hard reload, then activated revision 3 and a successful 23-file run. Real Files upload/reindex/removal survived page changes. [Canonical run IDs/counters](../../../tests/ingestion.md#mem-76-isolated-runtime--2026-09-08). |
+| Final repository backend gate | Post-pagination `clean check --rerun-tasks` passed in **4m28s**, 24/24 tasks executed; all **367** backend tests passed with zero skips, including endpoint-enabled real Docling and owned Redis fixtures. `CI=true`; Arconia Dev Services disabled. [Exact command, counts and warning boundary](../../../tests/ingestion.md). |
+| Corpus-capacity evidence | Completed 100,000 known unchanged files through the real sync processor/JDBC/HTTP adapter: full convergence in 45m20s, durable continuation/duplicate skips and abandoned-claim recovery. Incomplete listing retained all existing items/Documents. [Canonical counters/resources/provenance](../../../tests/ingestion.md#controlled-100k-file-traversal). V23 fixture, disabled fsync, controlled HTTP and one physical JDBC connection; not new-file acquisition/indexing, live Google, Redis/JVM crash recovery or a production SLO. |
+| Approved Files extension | Complete: direct SourceSummary, bounded keyset pages and migrated API/client/UI. Real UI with 100,000 item rows loaded/rendered 25 rows per page; Previous/Next had no overlap, upload reset to Page 1 and exact reindex/removal observers survived paging. [Canonical 100k-item fixture and operation IDs](../../../tests/connector.md#real-ui-files-pagination-over-100k-items). |
+| IDE inspection | No JetBrains MCP or LSP available; no IDE-clean claim. Compiler/project gates are the available fallback. |
+| Data/authorization | No real user Source/provider content, shared runtime or DNS/hosts changed by MEM-76 verification. No push/PR/merge/deploy. Actual Tasco data is unavailable; increment and broader issues remain active. |
+| Cleanup | Stopped owned API/worker/web/provider/dependency processes, removed private Compose containers/network and only database `memoryos_mem76_smoke`. Removed 44 throwaway probe/SQL/launch/fixture-secret files; retained ten sanitized reports and ten screenshots outside version control. Shared PostgreSQL, Docling and user data were preserved. |
+| Documentation | Checked 160 relative file/heading links across ten touched documents; zero missing files or headings. |
+| Linear | Final acceptance and approved Files scope recorded on MEM-76 in comment `710c257f-aa8e-42e6-a7b7-986478ee2d09`; issue/parent statuses and assignees were not changed. |
+
+Contracts are canonical in [Connector](../../../specs/connector.md), [Ingestion](../../../specs/ingestion.md) and [architecture](../../../../ARCHITECTURE.md); exact measured/runtime evidence lives in their verification matrices. No final local MEM-76 gate or approved UI scenario remains pending. Historical sections below retain their original live-Google/Orca boundaries and do not establish current MEM-76 live-provider acceptance. Keep the increment active until the authorized PR/merge lifecycle and broader issue acceptance are addressed.
 
 ## Owner-credential and explicit-link cutover
 
@@ -100,17 +163,19 @@ Target: `C:/Users/adim/orca/workspaces/MemoryOS/google-drive-structured-ingestio
 | --- | --- | --- |
 | `api/.../source` | `GoogleDriveCredentialController`, `GoogleDriveSourceController`, `GoogleDriveOAuthCallbackController`, `GoogleDriveAuthorizationSessionState`, `GoogleDriveAccountClient`, `GoogleDriveOAuthProperties`, request/response records | Independent credential catalog/consent/lifecycle and explicit Source creation; owner-bound state/PKCE/nonce and dedicated acquisition callback |
 | `api/.../security` | `GoogleDriveCallbackSecurityConfiguration` | Exact callback chain; main Keycloak/invitation login and Actor-only session remain intact |
-| `core/.../connector/application` | `DefaultGoogleDriveAuthorizationService`, `DefaultGoogleDriveConnectionService`, `DefaultGoogleDriveSourceService` | Owner/account pinning, shared credential authority versus payload CAS, atomic Source creation, root validation/revisions and scheduling |
-| `core/.../connector/persistence` | `GoogleDriveCredentialCipher`, `GoogleDriveCredentialConfiguration`, `JdbcGoogleDriveCredentialRepository`, `JdbcGoogleDriveSourceRepository` | Tenant/credential AAD, encrypted grant storage, selected roots and atomic authority transitions; no manifests or ACL/Groups tables |
+| `core/.../connector/application` | `DefaultGoogleDriveAuthorizationService`, `DefaultGoogleDriveConnectionService`, `DefaultGoogleDriveSourceService`, `GoogleDriveSelectionPolicy`, `DefaultGoogleDriveSelectionProcessor` | Owner/account pinning, shared authority versus payload CAS, bounded async admission/receipt recovery, checkpointed provider verification and fenced activation; independent scheduling |
+| `core/.../connector/persistence` | Credential cipher/configuration/repository, `JdbcGoogleDriveSourceRepository`, `JdbcGoogleDriveSelectionRepository` | Encrypted credentials, immutable candidate/receipt/policy/revision snapshots, metadata/ancestor checkpoints, source-scoped selection pages/drafts and atomic activation; no ACL/Groups tables |
 | `core/.../connector` | `GoogleDriveProvider`, `ConnectorSyncPort`, `SourceInputFormat`, `SourceInputDescriptor`, extended `IndexWork` | Provider-neutral network/session and stored-input contracts; no SDK/Jackson type or live fetch instruction crosses into ingestion work |
 | `core/.../connector/application` and `persistence` | `DefaultConnectorSyncService`, `JdbcSourceSyncRepository` | Resumable selected-root reconciliation, complete-generation pruning, confirmed-input release, raw adoption and shared credential fencing; no Changes feed |
+| `core/.../connector/application` and `persistence` | `DefaultSourceRunHistoryService`, `DefaultSourceRunHistoryMaintenance`, `JdbcSourceRunHistoryRepository`, `JdbcSourceRunRetentionRepository` | Exact run/owned-child counters and safe errors, bounded indexed queries, independent activity/completion/success summaries and protected retention |
+| `api/.../source` and `web/src/features/sources` | `SourceRunController`, typed run responses, `source-item-history.tsx`, `google-drive-selection-panel.tsx`, selection-operation recovery hook | Backend run list/detail/errors; compact paged Indexing attempts UI; pending selection receipts, full drafts and revision-pinned page rendering. Run history UI removed by the 2026-09-09 revision. |
 | Existing Connector repositories/services | `JdbcSourceItemRepository`, `JdbcIndexAttemptRepository`, `JdbcSourceQueryRepository`, `JdbcSourceDocumentRepository`, source/cleanup services and repositories | Keep FILE hash dedup; add Drive remote identity, current-input publication and reconciliation deferral; include cleanup in pending-work projection; explicitly keep Drive outside FILE PUBLIC |
 | `core/.../objectstorage` | `ObjectWriteService`, `DefaultObjectWriteService`, `JdbcObjectWriteRepository`, extended stored-object persistence | Reservation before PUT, verified completion, transaction-bound adoption/release, uncertain-write tombstones; reuse S3 IO without browser receipt or artifact-lifecycle substitution |
 | `connector/.../provider/google` | `RestGoogleDriveProvider`, properties/auto-configuration, `NativeSnapshot`, `GoogleSheetsSourceContentExtractor`, `GoogleDocsSourceContentExtractor` | Bounded native acquisition and offline structural extraction; replace donor aggregate Changes and manifest control flow |
 | `connector/.../provider` and `provider/file` | `SourceContentExtractorRouter`, `SourceContentExtractorAutoConfiguration`, `StructuredContent`, `SpreadsheetSourceContentExtractor` | Native descriptor first, detected binary format second; XLSX/CSV Java tables; retained Docling PDF/DOCX/PPTX and Tika UTF-8 text leaves |
-| `core/.../ingestion` | `SourceSyncProcessor`, `DefaultIngestionCoordinator`, workload/dispatch/metrics integration | SOURCE_SYNC joins the existing PostgreSQL → Redis → fenced processing path; INGESTION opens adopted MinIO input without Google access |
-| `worker` | Existing composition, control-plane, topology, relay and consumer classes | Due-source enqueue, third workload and abandoned raw-write cleanup; no Google-specific executor or alternate polling mode |
-| `core/.../db/migration` | V13 tracked writes; V14 credentials; V15 durable sync; V16 owner apps; V17 explicit roots; V18 reusable credentials | Separate authority/payload revisions, selected-root progress and preservation-safe credential reuse; applied migrations remain unchanged |
+| `core/.../ingestion` | `SourceSyncProcessor`, `SelectionValidationProcessor`, `DefaultIngestionCoordinator`, workload/dispatch/metrics integration | Selection verification and SOURCE_SYNC use the existing PostgreSQL → Redis → fenced processing path; INGESTION reads adopted MinIO input without Google |
+| `worker` | Existing composition, control-plane, topology, relay and consumer classes | Four workloads, due-source enqueue, bounded history maintenance and abandoned raw-write cleanup; no Google-specific executor or alternate polling mode |
+| `core/.../db/migration` | V13–V21 retained; V22 durable selection operations; V23 source run history | Additive policy/receipt/checkpoint and exact attribution/counter/error/index/retention schema; no edits to previously applied migrations |
 | Gradle/runtime/MinIO composition | Shared `connector` dependency in API, provider configuration, explicit worker extractor composition, worker `raw/*` PUT policy | Four modules remain; private storage and existing secret delivery remain; no staging rollout performed |
 | `web/src/features/sources` and routes | Google credential catalog, OAuth modal, Connector explicit-link form and management panel; FILE CSV/XLSX admission; generated route/API clients | Real owner management only, visible RESTRICTED boundary, no document viewer or donor approval/manifest UI |
 
@@ -119,6 +184,9 @@ Target: `C:/Users/adim/orca/workspaces/MemoryOS/google-drive-structured-ingestio
 ```text
 Reusable credential + separately named Source with explicit roots
   → GoogleDriveSourceController / DefaultGoogleDriveSourceService
+  → durable selection receipt / JdbcGoogleDriveSelectionRepository
+  → existing relay / GOOGLE_DRIVE_SELECTION_VALIDATION / checkpointed verification
+  → fenced atomic Source + roots + initial-sync activation
   → durable SOURCE_SYNC / JdbcSourceSyncRepository
   → existing relay / RedisStreamWorker / SourceSyncProcessor
   → DefaultConnectorSyncService / GoogleDriveProvider
@@ -311,3 +379,161 @@ Delivery authorization: create focused commits and push `nhuxuanviet/google-driv
 - DOM observations measured sync acceptance/completion notices at 5.004/5.007 seconds and the deletion-success notice at 5.004 seconds across navigation. The ordinary deletion-acceptance notice did not leak onto the destination route.
 - After cleanup, the original Source retained exactly its saved credential, root and Item identities, `SPECIFIC`, public configuration `revision: 6`, `credentialRevision: 1`, `credentialStatus: ACTIVE`, one-minute interval and `scheduleRevision: 3`. All three Items remained `INDEXED`, all three Documents remained present, and the reusable credential returned to one attached Source.
 - Removed the temporary browser observer after verification. Private screenshots/configuration backups remain ignored; no test Source, credential mutation, PR, merge or shared deployment is part of this delivery. Whole-My-Drive live traversal and the broader provider acceptance recorded above remain unclaimed. JetBrains IDE inspection was unavailable; the checked-in Gradle gate, compiler checks and exercised runtime are the verification evidence.
+
+## Creation-only scope correction after Onyx review
+
+Owner approved removing post-creation General/Specific switching. The inspected Onyx reference (`ec08b5f948165d4640f51343e04e77081b33ea32`) renders scope controls in creation and read-only connector configuration in detail. This supersedes the mode-switch acceptance above, not the recorded historical test evidence. Specific link editing remains supported; mode, credentials, existing content and schedules are not migrated.
+
+- [x] Reject mode changes before provider access and preserve the mode in transactional root persistence; cover both directions and unchanged state.
+- [x] Keep both creation choices, render saved mode without detail radios, and remove mode drafts/General selection-save controls.
+- [x] Update affected regressions and contracts, run gates, then restart and inspect the actual local UI/API without changing the user's scope.
+
+Verification after the correction:
+
+- Refreshed the controller-owned OpenAPI snapshot and generated client; the replacement operation now documents the fixed creation-time mode.
+- `./gradlew.bat clean check :api:bootJar :worker:bootJar --no-daemon --no-parallel --max-workers=1` passed with JDK 25 and the real Docling endpoint (8m 41s). No JetBrains inspection tool was available; compiler and repository gates provide the static/build evidence. Existing JVM CDS/Unsafe dependency warnings remain.
+- `corepack pnpm check` passed: generated-client stability, lint, formatting, TypeScript, 14 unit-test files/68 tests and production build. `corepack pnpm test:e2e --workers=2 --retries=0` passed all 35 browser tests. Reviewed saved Specific/General mobile screenshots under `web/test-results/`.
+- Restarted the local API and worker with their preserved runtime configuration; both readiness endpoints returned UP. During live API smoke, the worker remained stopped: two disposable Sources exercised both mode-change directions, each returning HTTP 400 `SOURCE_INVALID_REQUEST` with identical configuration and ETag. A same-mode Specific link edit succeeded at revision 2 and preserved its independent 17-minute schedule.
+- Both disposable Sources were marked for deletion before worker restart, preventing a General crawl. Cleanup operations `029f59b8-d744-4bab-85d2-db4007d859f3` and `0a4c218d-a468-4127-8764-010a61c7a4f2` completed SUCCEEDED.
+- The original Source retains SPECIFIC mode, scope revision 6, the same three roots/three Documents, credential authority revision 1, and interval 1 minute/schedule revision 3. Live detail has zero mode radios and retains its Specific links editor. Reviewed `.tmp/drive-review-private/scope-creation-only-live.jpg`; PNG capture failed in the Orca CLI, while JPEG capture succeeded without restarting Orca.
+
+## Selection feedback and root-list polish
+
+- [x] Move selection save/reload errors beneath the links input with accessible field association; preserve independent synchronization/interval feedback and clear the field error when editing or retrying.
+- [x] Remove the Saved scope heading and replace root kind suffixes with file/folder MIME-aware icons and accessible type labels. The owner's subsequent reference replaces outline glyphs with filled color blocks and white file-type marks, implemented as local SVG without new dependencies.
+- [x] Verify overlap feedback/recovery, creation/detail rendering and the actual local Source without changing its saved selection.
+
+Verification:
+
+- After the final filled-icon revision, `corepack pnpm check` passed API/route generation stability, lint, formatting, TypeScript, all 68 unit tests and the production build. `corepack pnpm test:e2e --workers=2 --retries=0` passed all 35 scenarios.
+- The existing overlap regression now checks the error within Selected content, exactly one persistent alert, an invalid textarea described by the overlap message, retention across status refresh, clearing on edit and a successful corrected save.
+- Visually inspected the mobile native-Docs selection capture at ignored `web/test-results/google-drive-source-setup--20ddc-ith-separate-explicit-roots-chromium/google-selection-saved-mobile.png`: filled blue document icon, no redundant heading and no horizontal overflow. Live Orca DOM inspection confirmed filled Google Sheets marks and the removed heading; the actual rendered Sheets SVG was exported to ignored `.tmp/drive-review-private/selection-sheet-icon.svg` and visually inspected against the requested green-block/white-mark style.
+- Orca viewport screenshots returned `runtime_unavailable`; no successful live viewport capture is claimed. No live Source, credential or schedule mutation was submitted for this polish. Backend contracts and running services were intentionally unchanged; no new test file, runtime dependency or throwaway script remains.
+
+## Explicit selection editing
+
+- [x] Keep Specific detail links read-only until Edit selection; retain direct entry at creation and no General editor.
+- [x] Use a revision-pinned draft with local Cancel, success-only return to read-only, editable failure recovery, explicit reload and focus restoration; preserve interval and authority guards.
+- [x] Update existing unit/browser workflows, run frontend gates and inspect the actual edit/cancel UI without submitting changes to the user's saved selection.
+
+Verification:
+
+- `corepack pnpm check` passed API/route generation stability, CI-image validation, Oxlint, Oxfmt, TypeScript, all 68 unit tests and the production build. `corepack pnpm test:e2e --workers=2 --retries=0` passed all 35 scenarios.
+- Existing browser coverage proves creation remains directly editable, detail starts read-only, keyboard entry focuses the textarea, Cancel restores saved links with zero roots writes, and a successful save returns to read-only and restores Edit focus. Existing unit coverage rejects typing while read-only and retains editable failure/reload recovery and authority, revision, interval and status-refresh guards.
+- Visually inspected the mobile editing and saved states in `web/test-results/google-drive-source-setup--20ddc-ith-separate-explicit-roots-chromium/google-selection-editor-mobile.png` and `google-selection-saved-mobile.png`: Edit replaces save controls at rest; editing exposes Save selection, Cancel and conditional Reload without horizontal overflow.
+- The actual Source at `http://127.0.0.1:8080/admin/sources/45a91ebf-c73d-47ba-95f6-04e96f7cf808` was observed read-only, then editable with textarea focus and Save/Cancel after Edit. After requesting Cancel, a fresh DOM inspection confirmed read-only with no unsaved changes. A final GET confirmed Specific scope, selection revision 10, three saved roots and schedule revision 3. No live Save was submitted. Orca control calls intermittently timed out; the visual captures above are browser-fixture screenshots, not live viewport captures.
+- Canonical connector contract and verification matrix now describe the edit guard. No backend/API contract, running service or saved Source was changed; no new test file or throwaway script was introduced.
+
+## Linked-document selection tree
+
+- [x] Define and implement bounded content-link discovery with named targets, parent/location provenance, per-file outcomes and no automatic approval.
+- [x] Persist discovery and approved targets separately; atomically save root links and target choices under current owner, credential, scope and discovery authority.
+- [x] Reuse durable SOURCE_SYNC frontier, identity, membership, fencing and complete-generation pruning for approved targets without changing folder traversal.
+- [x] Render the expandable tree in Selected content with view-only expansion, explicit Edit/Save/Cancel, Select all, unavailable/already-included states and manual discovery.
+- [ ] Regenerate the API/client contracts, run server/frontend/browser gates, exercise actual discovery and verify saved-target synchronization using a disposable Source without modifying the user's existing selection.
+
+Current verification evidence:
+
+- `corepack pnpm check` passed API/client generation stability, lint/format/types, 77 unit tests and production build; `corepack pnpm test:e2e --workers=2 --retries=0` passed 36 scenarios. Desktop/mobile expanded-tree captures were visually inspected. These browser scenarios use routed API fixtures, not live Google acceptance.
+- New backend discovery, approval, fencing and frontier regressions passed in earlier runs, but those runs do not establish a successful whole-repository gate. Windows runs encountered intermittent PostgreSQL socket `BindException`; Linux bridge verification rejected non-loopback HTTP upload endpoints as intended, and later host-network runs encountered Docker interruption and Ryuk connectivity failure. No production security guard was weakened and no retry or test exclusion was added. The current recovered native gate is tracked separately.
+- JDK 25's XML depth admission originally raised its own malformed-input error before the reader's typed bound. The Office reader now keeps JAXP bounded at 101 while its admission rejects depth above 100 first. Migration fixtures include V21; the historical V20 test asserts its own SQL contract rather than invoking the current repository against an intentionally old schema.
+- The built API and worker reached readiness on the real local runtime and Flyway recorded `21:true`. Read-only database checks confirmed the original Source's exact three root IDs, Specific scope revision 10, one-minute interval and schedule revision 3 were preserved; discovery revision remains 0. Backups and prior JARs remain private and retained.
+- Live discovery/approval/saved-target synchronization is not yet verified. The prior owner session expired; normal shared Keycloak sign-in is required. Orca navigation/capture works, but snapshot/eval currently close their runtime connection, including on a fresh tab. An independent browser reached the real login page without mocks or an authorization bypass.
+- All current Google inputs are self-created simulated documents. Actual Tasco source data has not been provided; no Tasco-data acceptance is claimed. JetBrains MCP/LSP inspection was unavailable; compilation and the recorded project gates are the available fallback, not an IDE-inspection claim.
+
+Recovered native gate: `gradlew.bat clean :api:bootJar :worker:bootJar check --no-parallel --max-workers=1 --no-daemon` completed **BUILD SUCCESSFUL in 5m 6s** on JDK 25 after Docker recovery, with process-local `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`. Core executed afresh: 199 tests, zero failures/errors/skips. API 68, connector 55 and worker 25 test results were restored from Gradle's successful cache: 347 total, zero failures/errors/skips. Both JARs were rebuilt. This verifies the gate under the recorded environment; it does not establish the root cause or a permanent fix for the earlier socket/Ryuk failures. The temporary XML diagnostic source and owned Linux Gradle cache volume were removed; runtime/database backups remain retained.
+
+Post-gate runtime confirmation: both rebuilt API and worker reached readiness. The original Source's saved invariant and exact root IDs still match the pre-change baseline; Flyway remains `21:true`. An unauthenticated request to its Google Drive configuration returns HTTP 401, so live acceptance remains blocked on normal owner sign-in rather than being simulated or bypassed. Latest proof was synchronized to MEM-9/MEM-10/MEM-63/MEM-60; all remain In Progress.
+
+### Selection presentation and folder-sync diagnosis
+
+- Follow-up screenshots exposed weak Edit affordance and read-only focus without inner spacing. Edit now uses the shared secondary button; read-only links remain copyable, transparent and non-resizable, with Read only text. Both states retain 12px horizontal/8px vertical padding. Google provider errors stay in Synchronization, without the duplicate Source-header message; unrelated Source/file errors remain.
+- The final frontend `pnpm check` passed all 77 tests, lint/format/types, stable API/route generation and production build. An isolated browser using existing fixture-shaped responses exercised desktop/mobile focused read-only → Edit → Cancel: both states had 12px padding, Cancel restored read-only, zero mutation requests. A failed-source fixture displayed exactly one persistent synchronization error; screenshots were inspected. This proves presentation, not live provider behavior.
+- The user subsequently added folder `1. VETC`, advancing the original Source to revision 11; this is user-owned state, not a failed preservation invariant. The folder FILE/FOLDER nodes completed, while four content files (including the three prior Sheets) exhausted acquisition attempts. Recent object-write reservations remained incomplete/discarded; the failure is after acquisition during storage staging, not folder URL validation.
+- Local DNS resolver `10.22.103.10` returned `94.140.14.33` for `memoryos-objects.72-62-193-33.nip.io`, differing from the documented server `72.62.193.33`. The worker JDK's credential-free HEAD failed with TLS `internal_error`. A diagnostic request pinned to the documented IP retained hostname/certificate verification, and the current worker credential read its readiness object with HTTP 200. No secrets or signed URL are recorded. Direct independent DNS timed out; SSH to the documented server also timed out. No application TLS guard, Google selection, system DNS or hosts configuration was changed. End-to-end sync recovery requires correcting the workstation/network DNS route.
+
+## Source history UI revision — 2026-09-09
+
+Completed the user-approved removal of Run history and compact Indexing attempts redesign. Removed the unused run-history component and its dedicated browser scenario/fixtures; kept backend contracts and all synchronization/selection/Files controls. Indexing attempts now uses a compact semantic table, inline help/refresh, and 5/10/25/50-row cursor pages with default 5 and reset on size/Source changes.
+
+Verification: full `pnpm check` (55 unit tests plus build/static/generated checks), all three retained enterprise browser scenarios, and a throwaway rendered-browser pagination smoke passed. Final header refinement passed focused formatting/lint and repeated smoke. Dark 1440px/390px screenshots confirm compact rendering and container-only horizontal scrolling; the smoke sent no writes or run-history requests. [Canonical verification and limitations](../../../tests/connector.md#compact-indexing-attempts-ui--2026-09-09). README, architecture and Connector contract now describe the current surface rather than the removed panel. Historical backend/run verification above remains applicable; historical UI counts are not claims about the current suite. No push, PR, shared deployment or user data change.
+
+Follow-up screenshots — 2026-09-09: place Automatic interval/value/Edit in the Source summary card, not below or beside the Synchronization heading. Share the existing summary rendering between FILE and Google Drive without moving schedule state out of its owner. Preserve edit/cancel/save/conflict behavior and the user's saved interval. Also replace Indexing attempts' Page N indicator with current/total pages backed by an exact server count; verify page-size changes and actual rendering.
+
+The clarified summary-card placement and server-counted current/total pagination are implemented. Shared SourceSummaryCard avoids duplicated summary markup or schedule state. OpenAPI/client generation, the focused PostgreSQL-backed API paging contract, core/API/worker compilation and the full frontend check passed. Independent Chromium smokes confirmed desktop/mobile layout, interval edit/cancel/save behavior in fixtures and 1/7 → 2/7 → 1/4 pagination under size changes. The API was repackaged and restarted with its existing runtime settings; readiness was observed. [Evidence and inspection limits](../../../tests/connector.md#summary-interval-and-exact-history-totals--2026-09-09).
+
+## Selection clarity and discovery verification — 2026-09-09
+
+- [x] Inspect the user's retained discovery and current selected content to distinguish unique target IDs from reference locations; exercise the authorized real discovery path.
+- [x] Deduplicate direct-root/linked rows at the backend read boundary, preserving origins and consistent counts/filter/cursor behavior. Compact the UI into one list with grouped reference details and explicit document/reference semantics.
+- [x] Keep help adjacent to section titles, including Indexing attempts. Preserve pending validation, whole-draft approval/save/cancel, search/paging and current user configuration.
+- [x] Verify regression behavior and actual desktop/mobile UI; distinguish real-provider evidence from controlled fixtures and record access limitations.
+
+Completed evidence is canonical in [Unique selection and real linked discovery](../../../tests/connector.md#unique-selection-and-real-linked-discovery--2026-09-09). The live bounded discovery action succeeded; the updated API exposes four unique selected rows with all eight references retained on their one target. Selection revision and interval were preserved. Two focused PostgreSQL regressions, frontend checks and the final 20-scenario browser run passed; the earlier broad backend timeout, initial browser setup timeout and unavailable IDE/Orca snapshot inspection remain explicitly recorded rather than represented as successful gates. The API was rebuilt/restarted with its existing local configuration; worker and shared services were not restarted.
+
+### Expanded saved-links correction — 2026-09-09
+
+- [x] Remove the duplicated section header/help/scope from the saved-links disclosure and detail editor; retain the creation scope controls and a labelled, copyable read-only field.
+- [x] Verify expanded saved links and Edit/Cancel in the real authenticated dark desktop/mobile UI, as well as the existing creation/selection checks. Preserve all saved links and runtime selection state.
+
+The [expanded-state evidence](../../../tests/connector.md#expanded-saved-links-layout--2026-09-09) records one heading/help in both copy and editing states, preserved four-link values and Cancel focus, the full frontend gate and three passing enterprise browser scenarios. The user's screenshot identifies a gap in the earlier collapsed-state verification; it is not treated as a discovery/backend failure.
+
+### Folder-first selection and linked sync affordance — 2026-09-09
+
+- [x] Add owner-authorized, Source-scoped, bounded lazy tree reads with actual folder contents, discovered file links, orphan retention and revision/credential fencing.
+- [x] Render expandable folder/file/link branches, retain unique search results and shared draft approval across repeated references, and expose Select for sync without bypassing Save/validation.
+- [x] Remove Technical paths, retain useful locations and errors, and verify files without links, paging, shared targets, keyboard operation and Cancel.
+- [x] Generate the API/client contract, run backend/frontend gates, and exercise the actual authenticated Google folder/file/link surface without changing the saved selection.
+
+### File and indexing history clarity — 2026-09-09
+
+- [x] Inspect actual Onyx table/counter semantics against MemoryOS Source-run and per-file contracts.
+- [x] Surface each current file's real indexing time and clarify its latest per-file processing details.
+- [x] Replace Drive's ambiguous per-file history table with actual per-Source execution outcomes and truthful counters, preserving FILE behavior and avoiding the removed run dashboard.
+- [x] Verify no-change, unknown/legacy, active indexing, failure and current-file timestamps in focused checks and the actual authenticated UI.
+
+### Selection disclosure refinements — 2026-09-09
+
+- [x] Move Edit selection and its editor into the below-tree disclosure; rename Copy saved root links to File and folder links and reveal Edit only while expanded.
+- [x] Remove the persistent selected-folder/file/linked-document count subtitle above the tree.
+- [x] Verify collapsed/expanded keyboard behavior, Select for sync opening the disclosure, Cancel focus and unchanged persisted selection on the final desktop/mobile UI.
+
+### Reduce repetitive file and run text — 2026-09-09
+
+- [x] Fold Added and file-attempt details into Last indexed instead of repeating subtitles beneath each filename.
+- [x] Remove repeated run trigger/indexing captions and all-zero auxiliary details while retaining meaningful counters, unknown values, retry timing and errors.
+- [x] Verify the quieter final desktop/mobile rows, timestamp disclosure and final frontend/browser gates.
+
+### Files pagination bar — 2026-09-09
+
+- [x] Replace the page/file-count/order subtitle with below-table Rows, current page and labelled previous/next icon buttons.
+- [x] Preserve bounded keyset navigation, reset on size changes and refresh first-page uploads at the selected size; extend the existing concurrent-operation pagination scenario.
+- [x] Verify final row-size transitions, desktop/mobile layout and serialized frontend/browser gates.
+
+Final evidence: `clean check :api:bootJar :worker:bootJar` passed in 8m55s with reachable Docling; final `pnpm check` passed all 61 tests in 16 files plus generated-client/route stability, lint, formatting, TypeScript, build and font checks. The three Source/identity/Drive browser suites passed all 33 scenarios with two workers and no retries in 1.5m, including the extended size-change/concurrent-operation pagination scenario. The final mobile-only filename minimum-width adjustment separately passed formatter/lint and actual 390px visual verification (256px filename column, approximately 77px rows, no document overflow). Gate/client generation and browser suite startup were serialized after an earlier overlapping generation transiently removed an import.
+
+Actual authenticated smoke verified folder → real file → linked TARGET with eight locations; draft-only selection, automatic links-disclosure expansion, keyboard and Cancel focus; actual current-file timestamps and Source run counts 3/0/3; Files sizes 5/100/25 with unchanged content and correctly disabled end navigation. Final saved draft exactly equals the baseline: scope revision 12, discovery revision 9, three roots, zero linked approvals and one-minute interval. No live mutation commands were issued. Desktop/mobile screenshots remain ignored under `.tmp/drive-review-private/`; canonical details are in the [connector verification matrix](../../../tests/connector.md#folder-tree-and-truthful-history--2026-09-09). JetBrains/LSP semantic inspection was unavailable. The increment remains active; this is not a merge or production-capacity claim.
+
+### Plain timestamps and inline duration — 2026-09-09
+
+- [x] Remove the Last indexed disclosure and obsolete component/test, and align its help and canonical documentation.
+- [x] Render completed run duration beside the completion time without wrapping.
+- [x] Verify the actual desktop/mobile surface and run frontend validation.
+
+`pnpm check` passed 60 tests and all frontend gates. Actual desktop/mobile screenshots and bounding-box checks confirmed plain file timestamps and same-line run durations without document overflow. See [timestamp verification evidence](../../../tests/connector.md#plain-timestamps-and-inline-duration--2026-09-09).
+
+### Independent linked-document approval — 2026-09-09
+
+- [x] Separate root editor visibility from draft approval; preserve selection, reload, save/cancel and focus behavior.
+- [x] Extend existing tree browser coverage for closed disclosure, draft-mode transitions and complete saved payload.
+- [x] Verify actual desktop/mobile UI and frontend/browser gates, then reconcile canonical guidance.
+
+Frontend check passed 60 tests and all gates; the three browser suites passed 33 scenarios. Live SAVICO approval, explicit Edit and both Cancel paths passed with unchanged saved draft and no live write. README, architecture and connector contract now distinguish approval-only controls from explicit root editing. See [independent approval evidence](../../../tests/connector.md#independent-linked-document-approval--2026-09-09).
+
+### Reversible saved linked approval — 2026-09-09
+
+- [x] Expose persisted approval removal without opening root editing; preserve availability and root-coverage boundaries.
+- [x] Verify Cancel and saved removal preserve other approvals/roots, including unavailable approved targets.
+- [x] Run browser/frontend gates, exercise the live surface without saving and align canonical guidance.
+
+Frontend check passed 60 tests and all gates; browser suites passed 34 scenarios. Actual desktop/mobile VETC deselection and Cancel preserved the saved draft and never opened root editing. README and connector guidance now describe reversible saved approvals. See [saved-approval verification](../../../tests/connector.md#reversible-saved-linked-approval--2026-09-09).

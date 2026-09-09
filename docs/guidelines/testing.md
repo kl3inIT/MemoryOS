@@ -12,6 +12,12 @@ Use the narrowest boundary that owns the contract:
 - HTTP authentication: application integration test with signed JWT and database-backed actor resolution.
 - Identity-provider integration: real Authorization Code + PKCE smoke test with a normal temporary user.
 
+## Fixture ownership
+
+- `TestDatabase.freshPostgres()` returns a fixture-owned bounded connection pool. Close it in `@AfterEach` or try-with-resources, including setup/failure paths; do not open a new physical connection for every statement or leave pools across schema resets.
+- Redis-dependent worker integration tests own their JUnit container and dynamic host/port. Their execution must not depend on a developer Redis port, the `CI` environment or Arconia Dev Services activation.
+- When a fixture deliberately advances a scheduled operation, make its due time unambiguously past. Database `CURRENT_TIMESTAMP` followed by an immediate JVM-clock claim is not deterministic across Windows/Docker clocks. Do not conceal that race with sleeps or retries.
+
 ## Required gates
 
 1. Run focused tests while changing a contract.
