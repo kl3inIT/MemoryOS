@@ -109,6 +109,11 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(page.getByText(sections[0].content, { exact: true })).toHaveCount(0);
   await expect(page.getByText("Title: HR-2026 Quy định nghỉ phép", { exact: true })).toHaveCount(0);
   await expect(resultCard.getByText("PDF", { exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "File types on this page" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "PDF: 1 result on this page" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect(page.getByText("application/pdf", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Best match", { exact: true })).toBeVisible();
   await expect(page.getByText("Related match 2", { exact: true })).toBeVisible();

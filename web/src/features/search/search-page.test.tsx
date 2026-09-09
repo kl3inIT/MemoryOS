@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -13,6 +13,12 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { SearchPage } from "./search-page";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const searchDocumentsMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/hey-api/sdk.gen", () => ({
+  searchDocuments: searchDocumentsMock,
+}));
 
 const OWNER_SESSION: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
@@ -52,6 +58,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
 }
 
 afterEach(() => {
+  searchDocumentsMock.mockReset();
   window.localStorage.clear();
   document.documentElement.classList.remove("dark");
   document.documentElement.style.removeProperty("color-scheme");
@@ -65,9 +72,65 @@ describe("SearchPage", () => {
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
-    expect(screen.getByRole("heading", { name: "Search your documents" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
+  });
+
+  it("renders the result workspace and applies a file-type facet", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        page: 0,
+        hasMore: false,
+        candidateLimit: 500,
+        results: [
+          {
+            documentId: "73835d74-d386-4b4e-b392-ad7f81e3b55a",
+            generation: "6b780b3a-de22-4307-ace9-6c2f44e22fc1",
+            title: "HR-2026 Quy định nghỉ phép",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [
+              {
+                startOrdinal: 2,
+                endOrdinal: 2,
+                matchingOrdinal: 2,
+                score: 0.8,
+                content: "Nhân viên có 12 ngày nghỉ phép.",
+                provenance: [],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await renderNewSession();
+
+    await user.type(screen.getByRole("textbox", { name: "Search documents" }), "nghỉ phép");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(await screen.findByRole("heading", { name: "1 result" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "File types on this page" }),
+    ).toBeInTheDocument();
+    const pdfFacet = screen.getByRole("button", { name: "PDF: 1 result on this page" });
+    expect(pdfFacet).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(pdfFacet);
+
+    await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(2));
+    expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      body: { query: "nghỉ phép", mediaTypes: ["application/pdf"], page: 0 },
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "PDF: 1 result on this page" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
   });
 
   it("removes owner administration affordances for a member", async () => {

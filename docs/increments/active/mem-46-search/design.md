@@ -6,6 +6,8 @@ Quyết định này thay yêu cầu cũ hoàn tất Search và Chat trong một
 
 ## Phạm vi hoàn thiện UI/UX và Dashboards
 
+Search có workspace riêng, không dùng bố cục hội thoại của Chat. Trạng thái chưa tìm kiếm theo reference Onyx: brand mark, câu dẫn `How can I help?` và một ô tìm kiếm chính được căn giữa trong vùng nội dung; filter/result chrome chưa xuất hiện để giữ một hành động chính. Sau submit, cùng trang chuyển sang bố cục làm việc có ô query ở đầu, filter theo loại tệp/ngày, danh sách kết quả và file-type facets trên desktop. Mobile ưu tiên query và kết quả, ẩn facet phụ; mọi filter vẫn truy cập được từ toolbar. Việc đổi trạng thái không thay Search API hoặc đưa answer generation vào MEM-46.
+
 Search result cards phải ưu tiên khả năng quét: hiển thị đoạn trích ngắn quanh từ khớp và nhấn mạnh literal match bằng React text nodes, không dựng HTML từ nội dung tài liệu và không biến kết quả thành câu trả lời sinh bởi LLM. Semantic-only hits vẫn được hiển thị nhưng không tạo highlight giả. Metadata chỉ dùng trường API hiện có; MIME được đổi thành nhãn loại tệp thân thiện, còn prefix `Title: <filename>` do chunker tạo chỉ được bỏ khi khớp chính xác, có thể xác định được.
 
 Document reader dùng Radix Dialog hiện có. Trên desktop đây là modal lớn có vùng nội dung cuộn; trên màn hình nhỏ nó gần toàn màn hình. Dialog phải hiện ngay khi chọn kết quả, giữ nguyên scroll của danh sách, trap focus, đóng bằng Escape/overlay/nút đóng và trả focus về trigger hoặc ô tìm kiếm dự phòng. Preview tiếp tục hiển thị faithful plain text passages từ API. API hiện không cung cấp block kind, heading hierarchy hay table cells, nên renderer không được suy đoán cấu trúc bảng/list từ khoảng trắng; rich structured rendering cần thay đổi contract riêng nếu được duyệt.

@@ -131,6 +131,12 @@ CodeRabbit reviewed 14 code/config files at `337a921` and requested three access
 
 Live staging provisioning, authenticated Discover inspection and exact-SHA deployment remain open. The deployment workflow accepts verified `main` releases only; the pull request remains open and unmerged by explicit user direction. Local Saved Objects fixtures do not prove that the four deployed sample chunks are visible or that the live inspector session is unable to mutate saved objects/documents.
 
+## 2026-09-09 — Dedicated Search workspace redesign
+
+- Reworked the Search route from a generic form/card page into a dedicated Onyx-referenced workspace while retaining MemoryOS semantic tokens and application shell. Before the first request it centers the brand mark, `How can I help?` prompt and single primary query field. After submit it reveals the filter toolbar, divider-based result feed, pagination and desktop file-type facets; the mobile layout keeps secondary facets out of the core result flow.
+- Existing real `searchDocuments` query/cancellation behavior, bounded safe snippets, literal React-node highlights and responsive document dialog remain the data and interaction contracts. File-type facet selection sends the exact MIME filter and resets pagination without introducing Chat or generative behavior.
+- Focused Vitest/jsdom verification passed 15/15 tests across `search-page.test.tsx` and `search-presentation.test.ts`, including the initial workspace, real SDK call shape, facet pressed state and existing Search presentation boundaries. Full `pnpm --dir web check` then passed API/client stability, static Playwright-image policy, lint, format, TypeScript, 59/59 unit/component tests, route generation and the production build. Per user direction, Playwright was not rerun locally for this redesign; browser CI remains a separate post-push signal.
+
 ## 2026-09-09 — Artifact and structured-chunk golden cases
 
 - Added direct `DocumentChunkServiceTest` coverage for rejecting an artifact above the 32 MiB contract before object access and for rejecting a same-length checksum mismatch. Both paths prove the artifact reader lease is released; the checksum path also proves the opened object closes and no chunk publication occurs.
