@@ -108,6 +108,7 @@ describe("SearchPage", () => {
       "/admin/sources/new/file",
     );
     expect(screen.getByRole("button", { name: "Search by voice" })).toBeDisabled();
+    expect(screen.getAllByRole("status")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
   });
 

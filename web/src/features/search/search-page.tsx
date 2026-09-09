@@ -411,7 +411,6 @@ export function SearchPage() {
             ) : null}
             <p
               id="voice-search-status"
-              role="status"
               aria-live="polite"
               className={cn(
                 "px-2 font-secondary-body",
