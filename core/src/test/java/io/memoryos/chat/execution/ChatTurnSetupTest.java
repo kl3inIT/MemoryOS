@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
+import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
@@ -21,11 +23,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ChatTurnSetupTest {
+    private static ChatModelBinding binding() {
+        return new ChatModelBinding(new SpringAiLlmService(
+                "gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p);
+    }
     @Test
     void contextLimitKeepsNewestQuestionAndDropsOrphanAssistant() {
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(
                 message(ChatMessage.Role.USER, "Newest"), message(ChatMessage.Role.ASSISTANT, "Previous"),
-                message(ChatMessage.Role.USER, "Old question ".repeat(1000)))), 120, mock(ChatModelBinding.class));
+                message(ChatMessage.Role.USER, "Old question ".repeat(1000)))), 120, binding());
         assertEquals(2, setup.messages().size());
         assertInstanceOf(SystemMessage.class, setup.messages().getFirst());
         assertInstanceOf(UserMessage.class, setup.messages().getLast());
@@ -35,7 +41,7 @@ class ChatTurnSetupTest {
     @Test
     void rejectsQuestionThatCannotFitWithInstructions() {
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(),
-                context(List.of(message(ChatMessage.Role.USER, "Large question ".repeat(1000)))), 100, mock(ChatModelBinding.class)));
+                context(List.of(message(ChatMessage.Role.USER, "Large question ".repeat(1000)))), 100, binding()));
     }
 
     private TurnContext context(List<ChatMessage> messages) {
@@ -50,7 +56,7 @@ class ChatTurnSetupTest {
                 new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.ASSISTANT,
                         null, ChatMessage.Status.FAILED, Instant.now(), Instant.now()),
                 message(ChatMessage.Role.ASSISTANT, ""), message(ChatMessage.Role.USER, "Earlier"))),
-                32000, mock(ChatModelBinding.class));
+                32000, binding());
         assertEquals(List.of("Answer", "Earlier", "Newest"), setup.messages().stream().map(Message::getContent).toList());
     }
 

@@ -160,3 +160,7 @@ See the [logging policy](docs/guidelines/observability.md),
 [verification matrix](docs/tests/observability.md), and
 [deployment runbook](infrastructure/observability/README.md). Repository configuration
 and local validation are distinct from staging rollout acceptance.
+
+## Chat model catalog
+
+Chat provider/model configuration uses capability-owned JDBC repositories, IAM `MODELS_MANAGE`, Group/Persona access and stable model configuration IDs. Each turn resolves a native Embabel/Spring AI binding once and acquires a bounded client lease. API composition registers `ChatProviderAdapter` implementations; the executor does not select providers or decode provider options. Organization BYOK is encrypted using a deployment-managed AES key. See the [catalog contract](docs/specs/chat-models.md) and [active backend increment](docs/increments/active/mem-77-provider-backend/design.md). No model configuration UI or web/image tool implementation accompanies this backend foundation.

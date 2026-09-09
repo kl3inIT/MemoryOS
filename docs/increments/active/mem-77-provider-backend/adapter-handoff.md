@@ -1,0 +1,14 @@
+# Local provider adapter handoff
+
+Đức Anh can implement a Spring bean of `io.memoryos.chat.catalog.ChatProviderAdapter` in `api.chat` or a concrete provider package under the API composition root. There is no need to change session persistence, `ChatTurnService`, the executor, SSE or the browser transport.
+
+1. Give the adapter a stable `type()` and declare `REQUIRED`, `OPTIONAL` or `NONE` credentials. Do not put an OpenAI-specific field in the common contract or substitute a dummy key for a provider with no authentication.
+2. Implement local validation for endpoint, model ID, capabilities and the exact accepted option keys/types/ranges. Local model names need not start with `gpt-5`. Keep model context/output limits explicit for the deployed model/server configuration.
+3. Construct the supported native Spring AI `ChatModel` and Embabel `SpringAiLlmService`. Use the provider's native `OptionsConverter`; add a converter implementing that public interface only for missing mappings. Preserve native pricing, thinking/tool response/structured output capabilities when supported.
+4. Return `ChatProviderAdapter.Client` with a `ChatModelBinding` and cleanup for clients exclusively owned by it. Honor the supplied timeout, disable automatic retries, propagate cancellation and use a suitable `TokenCountEstimator`. Do not close shared application observation registries. The catalog owns acquire/reuse/retire/release.
+5. Configure a provider and model through the backend API in [the catalog contract](../../../specs/chat-models.md). User selection is the model configuration UUID, not its model API name. No frontend work is required to exercise send; use the generated API client or HTTP.
+6. Verify the real local endpoint: ordinary streaming, non-ASCII text, complete/Stop/EOF/error and usage if available. Verify function-tool continuation, malformed arguments and final-cycle tools-off before declaring `toolCalling`. Unknown pricing is valid; do not report zero unless it actually means free. Compare same-name configurations at different endpoints and update a config while a turn is running.
+
+Use `OpenAiChatProviderAdapter` as the concrete example, `OpenAiChatProviderAdapterTest` for options contracts, `ChatModelClientsTest` for lifecycle contracts and the catalog cases in `ChatSessionApiIntegrationTest` for API integration. Its `LocalAdapterFixture` demonstrates a second adapter flowing through the same native executor; this is a fixture, not a shipped local provider or evidence about local model behavior.
+
+The OpenAI adapter currently exposes a conservative completion-token family and a standard sampling family. More OpenAI-compatible servers may still need their own option/cancellation/usage mapping. Web search and image generation belong to later tool integrations, not methods added to this chat adapter. Provider/model configuration UI remains separate work.

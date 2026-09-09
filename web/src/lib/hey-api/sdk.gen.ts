@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CancelChatMessageData, CancelChatMessageErrors, CancelChatMessageResponses, CreateChatSessionData, CreateChatSessionErrors, CreateChatSessionResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetChatHistoryData, GetChatHistoryErrors, GetChatHistoryResponses, GetChatSessionData, GetChatSessionErrors, GetChatSessionResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGroupData, GetGroupResponses, GetSearchDocumentData, GetSearchDocumentResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListChatSessionsData, ListChatSessionsErrors, ListChatSessionsResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, SearchDocumentsData, SearchDocumentsResponses, SendChatMessageData, SendChatMessageErrors, SendChatMessageResponses, StreamChatMessageData, StreamChatMessageErrors, StreamChatMessageResponse, StreamChatMessageResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses } from './types.gen';
+import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CancelChatMessageData, CancelChatMessageErrors, CancelChatMessageResponses, CreateChatModelData, CreateChatModelErrors, CreateChatModelResponses, CreateChatProviderData, CreateChatProviderErrors, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionErrors, CreateChatSessionResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteChatModelData, DeleteChatModelErrors, DeleteChatModelResponses, DeleteChatProviderData, DeleteChatProviderErrors, DeleteChatProviderResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetChatHistoryData, GetChatHistoryErrors, GetChatHistoryResponses, GetChatModelDefaultData, GetChatModelDefaultErrors, GetChatModelDefaultResponses, GetChatSessionData, GetChatSessionErrors, GetChatSessionResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGroupData, GetGroupResponses, GetPersonaModelData, GetPersonaModelErrors, GetPersonaModelResponses, GetSearchDocumentData, GetSearchDocumentResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListAvailableChatModelsData, ListAvailableChatModelsErrors, ListAvailableChatModelsResponses, ListChatProviderAdaptersData, ListChatProviderAdaptersErrors, ListChatProviderAdaptersResponses, ListChatProvidersData, ListChatProvidersErrors, ListChatProvidersResponses, ListChatSessionsData, ListChatSessionsErrors, ListChatSessionsResponses, ListConfiguredChatModelsData, ListConfiguredChatModelsErrors, ListConfiguredChatModelsResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, SearchDocumentsData, SearchDocumentsResponses, SendChatMessageData, SendChatMessageErrors, SendChatMessageResponses, SetChatModelDefaultData, SetChatModelDefaultErrors, SetChatModelDefaultResponses, SetPersonaModelData, SetPersonaModelErrors, SetPersonaModelResponses, StreamChatMessageData, StreamChatMessageErrors, StreamChatMessageResponse, StreamChatMessageResponses, UpdateChatModelData, UpdateChatModelErrors, UpdateChatModelResponses, UpdateChatProviderData, UpdateChatProviderErrors, UpdateChatProviderResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelData, ValidateChatModelErrors, ValidateChatModelResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,118 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Delete a provider that is not the Chat default; transcript is preserved
+ */
+export const deleteChatProvider = <ThrowOnError extends boolean = false>(options: Options<DeleteChatProviderData, ThrowOnError>): RequestResult<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}',
+    ...options
+});
+
+/**
+ * Replace provider settings at the expected revision; credential action is explicit
+ */
+export const updateChatProvider = <ThrowOnError extends boolean = false>(options: Options<UpdateChatProviderData, ThrowOnError>): RequestResult<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read the Persona model selection and revision; requires model management
+ */
+export const getPersonaModel = <ThrowOnError extends boolean = false>(options: Options<GetPersonaModelData, ThrowOnError>): RequestResult<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError> => (options.client ?? client).get<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}/model',
+    ...options
+});
+
+/**
+ * Set a Persona model or omit the model ID to inherit the Chat default
+ */
+export const setPersonaModel = <ThrowOnError extends boolean = false>(options: Options<SetPersonaModelData, ThrowOnError>): RequestResult<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError> => (options.client ?? client).put<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}/model',
+    ...options
+});
+
+/**
+ * Delete a non-default model and clear its Persona defaults; transcript is preserved
+ */
+export const deleteChatModel = <ThrowOnError extends boolean = false>(options: Options<DeleteChatModelData, ThrowOnError>): RequestResult<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models/{modelId}',
+    ...options
+});
+
+/**
+ * Replace a model configuration at the expected revision
+ */
+export const updateChatModel = <ThrowOnError extends boolean = false>(options: Options<UpdateChatModelData, ThrowOnError>): RequestResult<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models/{modelId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read the Tenant Chat default and its revision; requires model management
+ */
+export const getChatModelDefault = <ThrowOnError extends boolean = false>(options?: Options<GetChatModelDefaultData, ThrowOnError>): RequestResult<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError> => (options?.client ?? client).get<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/model-default',
+    ...options
+});
+
+/**
+ * Set a visible, publicly available Tenant Chat default
+ */
+export const setChatModelDefault = <ThrowOnError extends boolean = false>(options: Options<SetChatModelDefaultData, ThrowOnError>): RequestResult<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError> => (options.client ?? client).put<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/model-default',
+    ...options
+});
 
 /**
  * Replace a user's ordinary Group memberships
@@ -470,6 +582,79 @@ export const cancelChatMessage = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
+ * List Tenant provider configuration with credentials redacted
+ */
+export const listChatProviders = <ThrowOnError extends boolean = false>(options?: Options<ListChatProvidersData, ThrowOnError>): RequestResult<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers',
+    ...options
+});
+
+/**
+ * Create a Tenant provider; requires MODELS_MANAGE
+ */
+export const createChatProvider = <ThrowOnError extends boolean = false>(options: Options<CreateChatProviderData, ThrowOnError>): RequestResult<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List all configured models on a provider; requires model management
+ */
+export const listConfiguredChatModels = <ThrowOnError extends boolean = false>(options: Options<ListConfiguredChatModelsData, ThrowOnError>): RequestResult<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError> => (options.client ?? client).get<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}/models',
+    ...options
+});
+
+/**
+ * Add a concrete model configuration to a Tenant provider
+ */
+export const createChatModel = <ThrowOnError extends boolean = false>(options: Options<CreateChatModelData, ThrowOnError>): RequestResult<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError> => (options.client ?? client).post<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}/models',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Explicit bounded provider connectivity check; does not certify model capabilities
+ */
+export const validateChatModel = <ThrowOnError extends boolean = false>(options: Options<ValidateChatModelData, ThrowOnError>): RequestResult<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError> => (options.client ?? client).post<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models/{modelId}/validate',
+    ...options
+});
+
+/**
  * List users manageable by the current IAM administrator
  */
 export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
@@ -670,5 +855,31 @@ export const streamChatMessage = <ThrowOnError extends boolean = false>(options:
             type: 'apiKey'
         }],
     url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events',
+    ...options
+});
+
+/**
+ * List installed adapter types and credential requirements; requires model management
+ */
+export const listChatProviderAdapters = <ThrowOnError extends boolean = false>(options?: Options<ListChatProviderAdaptersData, ThrowOnError>): RequestResult<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/provider-adapters',
+    ...options
+});
+
+/**
+ * List visible models authorized for this session or the builtin Persona
+ */
+export const listAvailableChatModels = <ThrowOnError extends boolean = false>(options?: Options<ListAvailableChatModelsData, ThrowOnError>): RequestResult<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError> => (options?.client ?? client).get<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models',
     ...options
 });

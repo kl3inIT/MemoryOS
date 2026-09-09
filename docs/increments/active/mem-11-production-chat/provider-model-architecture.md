@@ -1,8 +1,8 @@
 # Provider/model architecture — MEM-11 baseline và MEM-77
 
-Chốt thiết kế ngày 2026-09-09 theo yêu cầu thiết kế toàn bộ luồng trước khi triển khai từng phần. Đây là target architecture, không phải trạng thái đã triển khai. [Design](design.md) sở hữu baseline Chat; tài liệu này sở hữu contract provider/catalog; [plan](plan.md) sở hữu trình tự delivery. MEM-11 giao native integration với một provider; [MEM-77](https://linear.app/memory-os/issue/MEM-77) triển khai catalog/admin/user selection theo contract này, assign `phamnhatanh811`, blocked by MEM-11.
+Chốt thiết kế ngày 2026-09-09. Tài liệu này giữ reference architecture xuyên backend và UI. Backend catalog, quyền, organization BYOK, selection và adapter contract được triển khai trong [increment backend](../mem-77-provider-backend/design.md); [Chat model spec](../../../specs/chat-models.md) sở hữu contract đã có. UI selector/admin chưa triển khai; Đức Anh mở rộng adapter local và kiểm endpoint thật trên nền backend này.
 
-Baseline 2.3 đã có trong working tree: `api.chat.OpenAiChatProviderConfiguration`, `chat.execution.ChatModelBinding`, `ChatTurnSetup` và `ChatModelExecutor`. `ChatModelBindingTest` cùng `ChatSessionApiIntegrationTest.alternateNativeBindingUsesSameExecutorWithIsolatedPerTurnAccounting` là contract mẫu cho provider/converter khác; actual OpenAI và proxy SSE có evidence riêng trong [verification](verification.md). Catalog/schema/admin/user/BYOK dưới đây vẫn là target MEM-77; code chưa merge nên dependency chưa được gỡ.
+Phases 2.1–2.4 đã merge vào main qua PR #86. Backend provider/model foundation đang trên `feat/mem-77-provider-backend`; không coi đó là code đã merge hoặc local provider đã nghiệm thu. [Handoff](../mem-77-provider-backend/adapter-handoff.md) chỉ rõ extension point và phần kiểm chứng còn thuộc adapter mới.
 
 ## Ownership và điểm nối
 
@@ -42,7 +42,7 @@ Học OrgMemory ở separation: client factory theo protocol, observability và 
 | Persona default | Optional model configuration ID cùng Tenant; không dùng provider display name/model string làm FK |
 | Message metadata | Model/provider label và request options thực dùng ở mức cần giải thích answer; optional configuration reference không cascade-delete transcript. Không lưu key hoặc full RunConfigSnapshot |
 
-MEM-11 chưa tạo các bảng catalog/endpoint rỗng. Provider hiện có từ deployment config là đầu vào hợp lệ của cùng native integration. Khi MEM-77 thay nguồn cấu hình bằng DB, không sửa executor/SSE/message lifecycle. Migration chuyển Persona model-string hiện có sang configuration ID với mapping tường minh và kiểm ambiguous/missing values; không đoán theo tên khi có nhiều provider. Applied migrations không sửa checksum để thực hiện chuyển đổi.
+V21 và các endpoint backend đã được triển khai theo [catalog spec](../../../specs/chat-models.md). Deployment provider khởi tạo catalog một lần với ID riêng; Persona chưa chọn ID thì dùng Tenant Chat default. Không dò tên model để đoán provider hoặc rewrite applied migration. API dùng PUT full configuration với revision thay cho PATCH trong các route dự kiến bên dưới; OpenAPI là contract thực thi.
 
 ## User select và resolution
 

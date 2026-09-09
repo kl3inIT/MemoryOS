@@ -4,6 +4,86 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type Change = {
+    action?: 'KEEP' | 'REPLACE' | 'REMOVE';
+    value?: string;
+};
+
+export type ProviderInput = {
+    name?: string;
+    adapterType?: string;
+    baseUrl?: string;
+    enabled?: boolean;
+    isPublic?: boolean;
+    groupIds?: Array<string>;
+    personaIds?: Array<string>;
+    credential?: Change;
+};
+
+export type ProviderView = {
+    id?: string;
+    name?: string;
+    adapterType?: string;
+    baseUrl?: string;
+    enabled?: boolean;
+    isPublic?: boolean;
+    groupIds?: Array<string>;
+    personaIds?: Array<string>;
+    credentialConfigured?: boolean;
+    revision?: number;
+};
+
+export type PersonaModel = {
+    personaId?: string;
+    modelConfigurationId?: string;
+    revision?: number;
+};
+
+export type Capabilities = {
+    streaming?: boolean;
+    toolCalling?: boolean;
+    vision?: boolean;
+    reasoning?: boolean;
+};
+
+export type ModelInput = {
+    modelName?: string;
+    displayName?: string;
+    visible?: boolean;
+    settings?: ModelSettings;
+};
+
+export type ModelSettings = {
+    contextWindow?: number;
+    maxOutputTokens?: number;
+    capabilities?: Capabilities;
+    options?: {
+        [key: string]: unknown;
+    };
+    pricing?: Pricing;
+};
+
+export type Pricing = {
+    inputPerMillion?: number;
+    outputPerMillion?: number;
+};
+
+export type Model = {
+    id?: string;
+    tenantId?: string;
+    providerId?: string;
+    modelName?: string;
+    displayName?: string;
+    visible?: boolean;
+    settings?: ModelSettings;
+    revision?: number;
+};
+
+export type Default = {
+    modelConfigurationId?: string;
+    revision?: number;
+};
+
 export type ReplaceUserGroupsRequest = {
     groupIds: Array<string>;
 };
@@ -154,7 +234,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     actions: Array<string>;
 };
 
@@ -169,7 +249,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
 };
 
 export type CreateChatSession = {
@@ -189,11 +269,14 @@ export type Send = {
     parentMessageId: string;
     clientRequestId: string;
     text: string;
+    modelConfigurationId?: string;
 };
 
 export type Accepted = {
     userMessageId: string;
     assistantMessageId: string;
+    modelConfigurationId?: string;
+    fallbackReason?: string;
 };
 
 export type Cancellation = {
@@ -309,11 +392,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    scopedCapabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -366,11 +449,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE';
+    id: 'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    implies: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
 };
 
 export type ChatMessage = {
@@ -403,6 +486,24 @@ export type ResetEvent = {
     reason: 'BUFFER_MISSING' | 'BUFFER_GAP' | 'BUFFER_EXPIRED';
 };
 
+export type Descriptor = {
+    type?: string;
+    credentialRequirement?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
+};
+
+export type AvailableModel = {
+    id?: string;
+    providerId?: string;
+    providerName?: string;
+    modelName?: string;
+    displayName?: string;
+    capabilities?: Capabilities;
+    contextWindow?: number;
+    maxOutputTokens?: number;
+    pricing?: Pricing;
+    isDefault?: boolean;
+};
+
 export type ApiProblem = {
     /**
      * Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
@@ -429,6 +530,392 @@ export type ApiProblem = {
      */
     code?: string;
 };
+
+export type DeleteChatProviderData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/providers/{providerId}';
+};
+
+export type DeleteChatProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatProviderError = DeleteChatProviderErrors[keyof DeleteChatProviderErrors];
+
+export type DeleteChatProviderResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatProviderResponse = DeleteChatProviderResponses[keyof DeleteChatProviderResponses];
+
+export type UpdateChatProviderData = {
+    body: ProviderInput;
+    path: {
+        providerId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/providers/{providerId}';
+};
+
+export type UpdateChatProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChatProviderError = UpdateChatProviderErrors[keyof UpdateChatProviderErrors];
+
+export type UpdateChatProviderResponses = {
+    /**
+     * Successful result
+     */
+    200: ProviderView;
+};
+
+export type UpdateChatProviderResponse = UpdateChatProviderResponses[keyof UpdateChatProviderResponses];
+
+export type GetPersonaModelData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/model';
+};
+
+export type GetPersonaModelErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetPersonaModelError = GetPersonaModelErrors[keyof GetPersonaModelErrors];
+
+export type GetPersonaModelResponses = {
+    /**
+     * Successful result
+     */
+    200: PersonaModel;
+};
+
+export type GetPersonaModelResponse = GetPersonaModelResponses[keyof GetPersonaModelResponses];
+
+export type SetPersonaModelData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query: {
+        modelConfigurationId?: string;
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}/model';
+};
+
+export type SetPersonaModelErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetPersonaModelError = SetPersonaModelErrors[keyof SetPersonaModelErrors];
+
+export type SetPersonaModelResponses = {
+    /**
+     * Successful result
+     */
+    200: PersonaModel;
+};
+
+export type SetPersonaModelResponse = SetPersonaModelResponses[keyof SetPersonaModelResponses];
+
+export type DeleteChatModelData = {
+    body?: never;
+    path: {
+        modelId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/models/{modelId}';
+};
+
+export type DeleteChatModelErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatModelError = DeleteChatModelErrors[keyof DeleteChatModelErrors];
+
+export type DeleteChatModelResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatModelResponse = DeleteChatModelResponses[keyof DeleteChatModelResponses];
+
+export type UpdateChatModelData = {
+    body: ModelInput;
+    path: {
+        modelId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/models/{modelId}';
+};
+
+export type UpdateChatModelErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChatModelError = UpdateChatModelErrors[keyof UpdateChatModelErrors];
+
+export type UpdateChatModelResponses = {
+    /**
+     * Successful result
+     */
+    200: Model;
+};
+
+export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatModelResponses];
+
+export type GetChatModelDefaultData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/model-default';
+};
+
+export type GetChatModelDefaultErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatModelDefaultError = GetChatModelDefaultErrors[keyof GetChatModelDefaultErrors];
+
+export type GetChatModelDefaultResponses = {
+    /**
+     * Successful result
+     */
+    200: Default;
+};
+
+export type GetChatModelDefaultResponse = GetChatModelDefaultResponses[keyof GetChatModelDefaultResponses];
+
+export type SetChatModelDefaultData = {
+    body?: never;
+    path?: never;
+    query: {
+        modelConfigurationId: string;
+        revision: number;
+    };
+    url: '/api/chat/model-default';
+};
+
+export type SetChatModelDefaultErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetChatModelDefaultError = SetChatModelDefaultErrors[keyof SetChatModelDefaultErrors];
+
+export type SetChatModelDefaultResponses = {
+    /**
+     * Successful result
+     */
+    200: Default;
+};
+
+export type SetChatModelDefaultResponse = SetChatModelDefaultResponses[keyof SetChatModelDefaultResponses];
 
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
@@ -1416,6 +1903,255 @@ export type CancelChatMessageResponses = {
 
 export type CancelChatMessageResponse = CancelChatMessageResponses[keyof CancelChatMessageResponses];
 
+export type ListChatProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/providers';
+};
+
+export type ListChatProvidersErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatProvidersError = ListChatProvidersErrors[keyof ListChatProvidersErrors];
+
+export type ListChatProvidersResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<ProviderView>;
+};
+
+export type ListChatProvidersResponse = ListChatProvidersResponses[keyof ListChatProvidersResponses];
+
+export type CreateChatProviderData = {
+    body: ProviderInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/providers';
+};
+
+export type CreateChatProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateChatProviderError = CreateChatProviderErrors[keyof CreateChatProviderErrors];
+
+export type CreateChatProviderResponses = {
+    /**
+     * Created
+     */
+    201: ProviderView;
+};
+
+export type CreateChatProviderResponse = CreateChatProviderResponses[keyof CreateChatProviderResponses];
+
+export type ListConfiguredChatModelsData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/chat/providers/{providerId}/models';
+};
+
+export type ListConfiguredChatModelsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListConfiguredChatModelsError = ListConfiguredChatModelsErrors[keyof ListConfiguredChatModelsErrors];
+
+export type ListConfiguredChatModelsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<Model>;
+};
+
+export type ListConfiguredChatModelsResponse = ListConfiguredChatModelsResponses[keyof ListConfiguredChatModelsResponses];
+
+export type CreateChatModelData = {
+    body: ModelInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/chat/providers/{providerId}/models';
+};
+
+export type CreateChatModelErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateChatModelError = CreateChatModelErrors[keyof CreateChatModelErrors];
+
+export type CreateChatModelResponses = {
+    /**
+     * Created
+     */
+    201: Model;
+};
+
+export type CreateChatModelResponse = CreateChatModelResponses[keyof CreateChatModelResponses];
+
+export type ValidateChatModelData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        modelId: string;
+    };
+    query?: never;
+    url: '/api/chat/models/{modelId}/validate';
+};
+
+export type ValidateChatModelErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ValidateChatModelError = ValidateChatModelErrors[keyof ValidateChatModelErrors];
+
+export type ValidateChatModelResponses = {
+    /**
+     * Successful result
+     */
+    200: Result;
+};
+
+export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
+
 export type ListUsersData = {
     body?: never;
     path?: never;
@@ -1797,3 +2533,95 @@ export type StreamChatMessageResponses = {
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
+
+export type ListChatProviderAdaptersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/provider-adapters';
+};
+
+export type ListChatProviderAdaptersErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatProviderAdaptersError = ListChatProviderAdaptersErrors[keyof ListChatProviderAdaptersErrors];
+
+export type ListChatProviderAdaptersResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<Descriptor>;
+};
+
+export type ListChatProviderAdaptersResponse = ListChatProviderAdaptersResponses[keyof ListChatProviderAdaptersResponses];
+
+export type ListAvailableChatModelsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        sessionId?: string;
+    };
+    url: '/api/chat/models';
+};
+
+export type ListAvailableChatModelsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListAvailableChatModelsError = ListAvailableChatModelsErrors[keyof ListAvailableChatModelsErrors];
+
+export type ListAvailableChatModelsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<AvailableModel>;
+};
+
+export type ListAvailableChatModelsResponse = ListAvailableChatModelsResponses[keyof ListAvailableChatModelsResponses];

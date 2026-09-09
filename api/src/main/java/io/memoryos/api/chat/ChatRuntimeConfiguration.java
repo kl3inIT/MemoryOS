@@ -6,10 +6,9 @@ import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
-import io.memoryos.chat.execution.ChatModelBinding;
+import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -37,15 +36,15 @@ class ChatRuntimeConfiguration {
 
     @Bean
     ChatModelExecutor chatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
-                                        ChatExecutionProperties limits, ChatModelBinding binding,
-                                        @Value("${memoryos.chat.provider.api-key:}") String key) {
-        return new ChatModelExecutor(contexts, repository, binding, limits, !key.isBlank());
+                                        ChatExecutionProperties limits) {
+        return new ChatModelExecutor(contexts, repository, limits);
     }
 
     @Bean(destroyMethod = "close")
     ChatTurnService chatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-                                    @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams) {
-        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams);
+                                    @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
+                                    ChatModelResolver models) {
+        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models);
     }
 
     @Bean

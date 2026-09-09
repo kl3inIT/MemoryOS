@@ -28,6 +28,17 @@
       "type": "java.time.Duration",
       "defaultValue": "1s",
       "description": "Interval for pending terminal persistence and stale deadline reconciliation."
+    },
+    {
+      "name": "memoryos.chat.catalog.encryption-key",
+      "type": "java.lang.String",
+      "description": "Base64-encoded 32-byte AES key supplied by deployment secret management for provider BYOK. Never log or commit a value."
+    },
+    {
+      "name": "memoryos.chat.catalog.max-clients",
+      "type": "java.lang.Integer",
+      "defaultValue": 32,
+      "description": "Maximum live native model clients, including retired clients retained by active turns."
     }
   ]
 }

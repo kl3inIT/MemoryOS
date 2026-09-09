@@ -4,6 +4,7 @@ import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.TenantId;
@@ -37,6 +38,14 @@ public class ChatTurnPersistence {
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
                                String text, Duration timeout, int contextTokenLimit) {
+        return reserve(actor, sessionId, parentId, requestId, text, timeout, contextTokenLimit, null);
+    }
+
+    public record ModelSelection(@Nullable UUID requestedId, UUID selectedId, @Nullable String fallbackReason, ChatModelBinding binding) {}
+
+    @Transactional
+    public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
+                               String text, Duration timeout, int contextTokenLimit, @Nullable ModelSelection selection) {
         if (parentId == null || requestId == null || text == null || text.isBlank() || text.length() > 32000
                 || timeout == null || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(30)) > 0) {
             throw ChatException.invalid("Invalid chat message or deadline.");
@@ -46,9 +55,10 @@ public class ChatTurnPersistence {
         var previous = chats.previousRequest(sessionId, requestId);
         if (previous.isPresent()) {
             var user = previous.orElseThrow();
-            if (!Objects.equals(user.parentMessageId(), parentId) || !user.content().equals(text))
+            if (!Objects.equals(user.parentMessageId(), parentId) || !user.content().equals(text)
+                    || !Objects.equals(user.requestedModelId(), selection == null ? null : selection.requestedId()))
                 throw ChatException.conflict();
-            return new Reservation(user.userMessageId(), user.assistantMessageId(), false);
+            return new Reservation(user.userMessageId(), user.assistantMessageId(), false, user.selectedModelId(), user.fallbackReason());
         }
         if (chats.hasActiveReply(sessionId)) throw ChatException.conflict();
         var parent = chats.message(sessionId, parentId).orElseThrow(ChatException::unavailable);
@@ -57,11 +67,13 @@ public class ChatTurnPersistence {
         if (chats.messageCount(sessionId) > 9998) throw ChatException.invalid("Chat session message limit reached.");
         // Builtin Persona is configuration-backed until the editor consumer is implemented.
         chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
-        ChatTurnSetup.validateQuestion(chats.persona(sessionId).instructions(), text, contextTokenLimit);
+        if (selection == null) ChatTurnSetup.validateQuestion(chats.persona(sessionId).instructions(), text, contextTokenLimit);
+        else ChatTurnSetup.validateQuestion(chats.persona(sessionId).instructions(), text, contextTokenLimit, selection.binding().tokens());
         UUID user = UUID.randomUUID();
         UUID assistant = UUID.randomUUID();
         chats.insertPair(sessionId, parentId, requestId, user, assistant, text, timeout);
-        return new Reservation(user, assistant, true);
+        if (selection != null) chats.saveModelSelection(sessionId, user, assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());
+        return new Reservation(user, assistant, true, selection == null ? null : selection.selectedId(), selection == null ? null : selection.fallbackReason());
     }
 
     @Transactional
@@ -72,17 +84,27 @@ public class ChatTurnPersistence {
         return finish(sessionId, assistantId, status, partialContent, null, null, null, null, null);
     }
 
-    public record Reservation(UUID userMessageId, UUID assistantMessageId, boolean created) {
+    public record Reservation(UUID userMessageId, UUID assistantMessageId, boolean created,
+                              @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {
+        public Reservation(UUID userMessageId, UUID assistantMessageId, boolean created) {
+            this(userMessageId, assistantMessageId, created, null, null);
+        }
     }
 
     @Transactional(readOnly = true)
     public Optional<Reservation> existing(ActorId actor, UUID session, UUID parent, UUID request, String text) {
+        return existing(actor, session, parent, request, text, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Reservation> existing(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID requestedModelId) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
         return chats.previousRequest(session, request).map(previous -> {
-            if (!Objects.equals(previous.parentMessageId(), parent) || !previous.content().equals(text))
+            if (!Objects.equals(previous.parentMessageId(), parent) || !previous.content().equals(text)
+                    || !Objects.equals(previous.requestedModelId(), requestedModelId))
                 throw ChatException.conflict();
-            return new Reservation(previous.userMessageId(), previous.assistantMessageId(), false);
+            return new Reservation(previous.userMessageId(), previous.assistantMessageId(), false, previous.selectedModelId(), previous.fallbackReason());
         });
     }
 

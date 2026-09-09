@@ -40,6 +40,7 @@ Keep each active increment's design, plan, verification evidence, and Linear sco
 ## Canonical references
 
 - [Chat session contract](docs/specs/chat.md)
+- [Chat provider/model catalog](docs/specs/chat-models.md) and [backend adapter handoff](docs/increments/active/mem-77-provider-backend/adapter-handoff.md)
 - [Chat verification matrix](docs/tests/chat.md)
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)

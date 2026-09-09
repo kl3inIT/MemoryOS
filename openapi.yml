@@ -7,6 +7,497 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/chat/providers/{providerId}:
+    put:
+      tags:
+      - Chat models
+      summary: Replace provider settings at the expected revision; credential action
+        is explicit
+      operationId: updateChatProvider
+      parameters:
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat models
+      summary: Delete a provider that is not the Chat default; transcript is preserved
+      operationId: deleteChatProvider
+      parameters:
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/model:
+    get:
+      tags:
+      - Chat models
+      summary: Read the Persona model selection and revision; requires model management
+      operationId: getPersonaModel
+      parameters:
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaModel"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat models
+      summary: Set a Persona model or omit the model ID to inherit the Chat default
+      operationId: setPersonaModel
+      parameters:
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: modelConfigurationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaModel"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/models/{modelId}:
+    put:
+      tags:
+      - Chat models
+      summary: Replace a model configuration at the expected revision
+      operationId: updateChatModel
+      parameters:
+      - name: modelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat models
+      summary: Delete a non-default model and clear its Persona defaults; transcript
+        is preserved
+      operationId: deleteChatModel
+      parameters:
+      - name: modelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/model-default:
+    get:
+      tags:
+      - Chat models
+      summary: Read the Tenant Chat default and its revision; requires model management
+      operationId: getChatModelDefault
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Default"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat models
+      summary: "Set a visible, publicly available Tenant Chat default"
+      operationId: setChatModelDefault
+      parameters:
+      - name: modelConfigurationId
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Default"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users/{actorId}/groups:
     post:
       tags:
@@ -1312,6 +1803,312 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/providers:
+    get:
+      tags:
+      - Chat models
+      summary: List Tenant provider configuration with credentials redacted
+      operationId: listChatProviders
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat models
+      summary: Create a Tenant provider; requires MODELS_MANAGE
+      operationId: createChatProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/providers/{providerId}/models:
+    get:
+      tags:
+      - Chat models
+      summary: List all configured models on a provider; requires model management
+      operationId: listConfiguredChatModels
+      parameters:
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Model"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat models
+      summary: Add a concrete model configuration to a Tenant provider
+      operationId: createChatModel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/models/{modelId}/validate:
+    post:
+      tags:
+      - Chat models
+      summary: Explicit bounded provider connectivity check; does not certify model
+        capabilities
+      operationId: validateChatModel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: modelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Result"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users:
     get:
       tags:
@@ -1869,8 +2666,280 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/provider-adapters:
+    get:
+      tags:
+      - Chat models
+      summary: List installed adapter types and credential requirements; requires
+        model management
+      operationId: listChatProviderAdapters
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Descriptor"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/models:
+    get:
+      tags:
+      - Chat models
+      summary: List visible models authorized for this session or the builtin Persona
+      operationId: listAvailableChatModels
+      parameters:
+      - name: sessionId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AvailableModel"
+      security:
+      - bearerAuth: []
+      - browserSession: []
 components:
   schemas:
+    Change:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        value:
+          type: string
+    ProviderInput:
+      type: object
+      properties:
+        name:
+          type: string
+        adapterType:
+          type: string
+        baseUrl:
+          type: string
+        enabled:
+          type: boolean
+        isPublic:
+          type: boolean
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        personaIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        credential:
+          $ref: "#/components/schemas/Change"
+    ProviderView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        adapterType:
+          type: string
+        baseUrl:
+          type: string
+        enabled:
+          type: boolean
+        isPublic:
+          type: boolean
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        personaIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        credentialConfigured:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+    PersonaModel:
+      type: object
+      properties:
+        personaId:
+          type: string
+          format: uuid
+        modelConfigurationId:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
+    Capabilities:
+      type: object
+      properties:
+        streaming:
+          type: boolean
+        toolCalling:
+          type: boolean
+        vision:
+          type: boolean
+        reasoning:
+          type: boolean
+    ModelInput:
+      type: object
+      properties:
+        modelName:
+          type: string
+        displayName:
+          type: string
+        visible:
+          type: boolean
+        settings:
+          $ref: "#/components/schemas/ModelSettings"
+    ModelSettings:
+      type: object
+      properties:
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type: integer
+          format: int32
+        capabilities:
+          $ref: "#/components/schemas/Capabilities"
+        options:
+          type: object
+          additionalProperties: {}
+        pricing:
+          $ref: "#/components/schemas/Pricing"
+    Pricing:
+      type: object
+      properties:
+        inputPerMillion:
+          type: number
+          format: double
+        outputPerMillion:
+          type: number
+          format: double
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        modelName:
+          type: string
+        displayName:
+          type: string
+        visible:
+          type: boolean
+        settings:
+          $ref: "#/components/schemas/ModelSettings"
+        revision:
+          type: integer
+          format: int64
+    Default:
+      type: object
+      properties:
+        modelConfigurationId:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
     ReplaceUserGroupsRequest:
       type: object
       additionalProperties: false
@@ -2340,6 +3409,7 @@ components:
             - SOURCES_READ
             - SOURCES_MANAGE
             - SOURCES_DELETE
+            - MODELS_MANAGE
         actions:
           type: array
           items:
@@ -2398,6 +3468,7 @@ components:
             - SOURCES_READ
             - SOURCES_MANAGE
             - SOURCES_DELETE
+            - MODELS_MANAGE
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -2452,6 +3523,9 @@ components:
           type: string
           maxLength: 32000
           minLength: 0
+        modelConfigurationId:
+          type: string
+          format: uuid
       required:
       - clientRequestId
       - parentMessageId
@@ -2465,6 +3539,11 @@ components:
         assistantMessageId:
           type: string
           format: uuid
+        modelConfigurationId:
+          type: string
+          format: uuid
+        fallbackReason:
+          type: string
       required:
       - assistantMessageId
       - userMessageId
@@ -2812,6 +3891,7 @@ components:
             - SOURCES_READ
             - SOURCES_MANAGE
             - SOURCES_DELETE
+            - MODELS_MANAGE
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -2826,6 +3906,7 @@ components:
             - SOURCES_READ
             - SOURCES_MANAGE
             - SOURCES_DELETE
+            - MODELS_MANAGE
         authorizationVersion:
           type: integer
           format: int64
@@ -2986,6 +4067,7 @@ components:
           - SOURCES_READ
           - SOURCES_MANAGE
           - SOURCES_DELETE
+          - MODELS_MANAGE
         label:
           type: string
         description:
@@ -3004,6 +4086,7 @@ components:
             - SOURCES_READ
             - SOURCES_MANAGE
             - SOURCES_DELETE
+            - MODELS_MANAGE
       required:
       - description
       - editable
@@ -3115,6 +4198,44 @@ components:
       required:
       - assistantMessageId
       - reason
+    Descriptor:
+      type: object
+      properties:
+        type:
+          type: string
+        credentialRequirement:
+          type: string
+          enum:
+          - REQUIRED
+          - OPTIONAL
+          - NONE
+    AvailableModel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        providerName:
+          type: string
+        modelName:
+          type: string
+        displayName:
+          type: string
+        capabilities:
+          $ref: "#/components/schemas/Capabilities"
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type: integer
+          format: int32
+        pricing:
+          $ref: "#/components/schemas/Pricing"
+        isDefault:
+          type: boolean
     ApiProblem:
       type: object
       additionalProperties: false

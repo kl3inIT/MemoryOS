@@ -3,8 +3,179 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activateUser, addGroupMembers, assignGroupManager, cancelChatMessage, createChatSession, createFileSource, createGroup, createInvitation, deactivateUser, deleteGroup, deleteSource, finalizeSourceUpload, getChatHistory, getChatSession, getCurrentIdentity, getCurrentInvitation, getGroup, getSearchDocument, getSource, getSourceOperation, initiateSourceUpload, listChatSessions, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGroupCapabilities, replaceUserGroups, revokeInvitation, rotateInvitation, searchDocuments, sendChatMessage, updateSourceGroups } from '../sdk.gen';
-import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGroupData, GetGroupResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, cancelChatMessage, createChatModel, createChatProvider, createChatSession, createFileSource, createGroup, createInvitation, deactivateUser, deleteChatModel, deleteChatProvider, deleteGroup, deleteSource, finalizeSourceUpload, getChatHistory, getChatModelDefault, getChatSession, getCurrentIdentity, getCurrentInvitation, getGroup, getPersonaModel, getSearchDocument, getSource, getSourceOperation, initiateSourceUpload, listAvailableChatModels, listChatProviderAdapters, listChatProviders, listChatSessions, listConfiguredChatModels, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGroupCapabilities, replaceUserGroups, revokeInvitation, rotateInvitation, searchDocuments, sendChatMessage, setChatModelDefault, setPersonaModel, updateChatModel, updateChatProvider, updateSourceGroups, validateChatModel } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, CreateChatModelData, CreateChatModelError, CreateChatModelResponse, CreateChatProviderData, CreateChatProviderError, CreateChatProviderResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteChatModelData, DeleteChatModelError, DeleteChatModelResponse, DeleteChatProviderData, DeleteChatProviderError, DeleteChatProviderResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatModelDefaultData, GetChatModelDefaultError, GetChatModelDefaultResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGroupData, GetGroupResponse, GetPersonaModelData, GetPersonaModelError, GetPersonaModelResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListAvailableChatModelsData, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ListChatProviderAdaptersData, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ListChatProvidersData, ListChatProvidersError, ListChatProvidersResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListConfiguredChatModelsData, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, SetChatModelDefaultData, SetChatModelDefaultError, SetChatModelDefaultResponse, SetPersonaModelData, SetPersonaModelError, SetPersonaModelResponse, UpdateChatModelData, UpdateChatModelError, UpdateChatModelResponse, UpdateChatProviderData, UpdateChatProviderError, UpdateChatProviderResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse, ValidateChatModelData, ValidateChatModelError, ValidateChatModelResponse } from '../types.gen';
+
+/**
+ * Delete a provider that is not the Chat default; transcript is preserved
+ */
+export const deleteChatProviderMutation = (options?: Partial<Options<DeleteChatProviderData>>): UseMutationOptions<DeleteChatProviderResponse, DeleteChatProviderError, Options<DeleteChatProviderData>> => {
+    const mutationOptions: UseMutationOptions<DeleteChatProviderResponse, DeleteChatProviderError, Options<DeleteChatProviderData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteChatProvider({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace provider settings at the expected revision; credential action is explicit
+ */
+export const updateChatProviderMutation = (options?: Partial<Options<UpdateChatProviderData>>): UseMutationOptions<UpdateChatProviderResponse, UpdateChatProviderError, Options<UpdateChatProviderData>> => {
+    const mutationOptions: UseMutationOptions<UpdateChatProviderResponse, UpdateChatProviderError, Options<UpdateChatProviderData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateChatProvider({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export type QueryKey<TOptions extends Options> = [
+    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
+        _id: string;
+        _infinite?: boolean;
+        tags?: ReadonlyArray<string>;
+    }
+];
+
+const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
+    QueryKey<TOptions>[0]
+] => {
+    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
+    if (infinite) {
+        params._infinite = infinite;
+    }
+    if (tags) {
+        params.tags = tags;
+    }
+    if (options?.body) {
+        params.body = options.body;
+    }
+    if (options?.headers) {
+        params.headers = options.headers;
+    }
+    if (options?.path) {
+        params.path = options.path;
+    }
+    if (options?.query) {
+        params.query = options.query;
+    }
+    return [params];
+};
+
+export const getPersonaModelQueryKey = (options: Options<GetPersonaModelData>) => createQueryKey('getPersonaModel', options);
+
+/**
+ * Read the Persona model selection and revision; requires model management
+ */
+export const getPersonaModelOptions = (options: Options<GetPersonaModelData>) => queryOptions<GetPersonaModelResponse, GetPersonaModelError, GetPersonaModelResponse, ReturnType<typeof getPersonaModelQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPersonaModel({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPersonaModelQueryKey(options)
+});
+
+/**
+ * Set a Persona model or omit the model ID to inherit the Chat default
+ */
+export const setPersonaModelMutation = (options?: Partial<Options<SetPersonaModelData>>): UseMutationOptions<SetPersonaModelResponse, SetPersonaModelError, Options<SetPersonaModelData>> => {
+    const mutationOptions: UseMutationOptions<SetPersonaModelResponse, SetPersonaModelError, Options<SetPersonaModelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setPersonaModel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a non-default model and clear its Persona defaults; transcript is preserved
+ */
+export const deleteChatModelMutation = (options?: Partial<Options<DeleteChatModelData>>): UseMutationOptions<DeleteChatModelResponse, DeleteChatModelError, Options<DeleteChatModelData>> => {
+    const mutationOptions: UseMutationOptions<DeleteChatModelResponse, DeleteChatModelError, Options<DeleteChatModelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteChatModel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace a model configuration at the expected revision
+ */
+export const updateChatModelMutation = (options?: Partial<Options<UpdateChatModelData>>): UseMutationOptions<UpdateChatModelResponse, UpdateChatModelError, Options<UpdateChatModelData>> => {
+    const mutationOptions: UseMutationOptions<UpdateChatModelResponse, UpdateChatModelError, Options<UpdateChatModelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateChatModel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getChatModelDefaultQueryKey = (options?: Options<GetChatModelDefaultData>) => createQueryKey('getChatModelDefault', options);
+
+/**
+ * Read the Tenant Chat default and its revision; requires model management
+ */
+export const getChatModelDefaultOptions = (options?: Options<GetChatModelDefaultData>) => queryOptions<GetChatModelDefaultResponse, GetChatModelDefaultError, GetChatModelDefaultResponse, ReturnType<typeof getChatModelDefaultQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatModelDefault({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatModelDefaultQueryKey(options)
+});
+
+/**
+ * Set a visible, publicly available Tenant Chat default
+ */
+export const setChatModelDefaultMutation = (options?: Partial<Options<SetChatModelDefaultData>>): UseMutationOptions<SetChatModelDefaultResponse, SetChatModelDefaultError, Options<SetChatModelDefaultData>> => {
+    const mutationOptions: UseMutationOptions<SetChatModelDefaultResponse, SetChatModelDefaultError, Options<SetChatModelDefaultData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setChatModelDefault({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 /**
  * Replace a user's ordinary Group memberships
@@ -123,39 +294,6 @@ export const reindexSourceItemMutation = (options?: Partial<Options<ReindexSourc
         }
     };
     return mutationOptions;
-};
-
-export type QueryKey<TOptions extends Options> = [
-    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
-        _id: string;
-        _infinite?: boolean;
-        tags?: ReadonlyArray<string>;
-    }
-];
-
-const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
-    QueryKey<TOptions>[0]
-] => {
-    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
-    if (infinite) {
-        params._infinite = infinite;
-    }
-    if (tags) {
-        params.tags = tags;
-    }
-    if (options?.body) {
-        params.body = options.body;
-    }
-    if (options?.headers) {
-        params.headers = options.headers;
-    }
-    if (options?.path) {
-        params.path = options.path;
-    }
-    if (options?.query) {
-        params.query = options.query;
-    }
-    return [params];
 };
 
 export const listSourceGroupsQueryKey = (options: Options<ListSourceGroupsData>) => createQueryKey('listSourceGroups', options);
@@ -751,6 +889,93 @@ export const cancelChatMessageMutation = (options?: Partial<Options<CancelChatMe
     return mutationOptions;
 };
 
+export const listChatProvidersQueryKey = (options?: Options<ListChatProvidersData>) => createQueryKey('listChatProviders', options);
+
+/**
+ * List Tenant provider configuration with credentials redacted
+ */
+export const listChatProvidersOptions = (options?: Options<ListChatProvidersData>) => queryOptions<ListChatProvidersResponse, ListChatProvidersError, ListChatProvidersResponse, ReturnType<typeof listChatProvidersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatProviders({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatProvidersQueryKey(options)
+});
+
+/**
+ * Create a Tenant provider; requires MODELS_MANAGE
+ */
+export const createChatProviderMutation = (options?: Partial<Options<CreateChatProviderData>>): UseMutationOptions<CreateChatProviderResponse, CreateChatProviderError, Options<CreateChatProviderData>> => {
+    const mutationOptions: UseMutationOptions<CreateChatProviderResponse, CreateChatProviderError, Options<CreateChatProviderData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createChatProvider({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listConfiguredChatModelsQueryKey = (options: Options<ListConfiguredChatModelsData>) => createQueryKey('listConfiguredChatModels', options);
+
+/**
+ * List all configured models on a provider; requires model management
+ */
+export const listConfiguredChatModelsOptions = (options: Options<ListConfiguredChatModelsData>) => queryOptions<ListConfiguredChatModelsResponse, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ReturnType<typeof listConfiguredChatModelsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listConfiguredChatModels({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listConfiguredChatModelsQueryKey(options)
+});
+
+/**
+ * Add a concrete model configuration to a Tenant provider
+ */
+export const createChatModelMutation = (options?: Partial<Options<CreateChatModelData>>): UseMutationOptions<CreateChatModelResponse, CreateChatModelError, Options<CreateChatModelData>> => {
+    const mutationOptions: UseMutationOptions<CreateChatModelResponse, CreateChatModelError, Options<CreateChatModelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createChatModel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Explicit bounded provider connectivity check; does not certify model capabilities
+ */
+export const validateChatModelMutation = (options?: Partial<Options<ValidateChatModelData>>): UseMutationOptions<ValidateChatModelResponse, ValidateChatModelError, Options<ValidateChatModelData>> => {
+    const mutationOptions: UseMutationOptions<ValidateChatModelResponse, ValidateChatModelError, Options<ValidateChatModelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await validateChatModel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listUsersQueryKey = (options?: Options<ListUsersData>) => createQueryKey('listUsers', options);
 
 /**
@@ -1111,4 +1336,40 @@ export const getChatSessionOptions = (options: Options<GetChatSessionData>) => q
         return data;
     },
     queryKey: getChatSessionQueryKey(options)
+});
+
+export const listChatProviderAdaptersQueryKey = (options?: Options<ListChatProviderAdaptersData>) => createQueryKey('listChatProviderAdapters', options);
+
+/**
+ * List installed adapter types and credential requirements; requires model management
+ */
+export const listChatProviderAdaptersOptions = (options?: Options<ListChatProviderAdaptersData>) => queryOptions<ListChatProviderAdaptersResponse, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ReturnType<typeof listChatProviderAdaptersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatProviderAdapters({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatProviderAdaptersQueryKey(options)
+});
+
+export const listAvailableChatModelsQueryKey = (options?: Options<ListAvailableChatModelsData>) => createQueryKey('listAvailableChatModels', options);
+
+/**
+ * List visible models authorized for this session or the builtin Persona
+ */
+export const listAvailableChatModelsOptions = (options?: Options<ListAvailableChatModelsData>) => queryOptions<ListAvailableChatModelsResponse, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ReturnType<typeof listAvailableChatModelsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAvailableChatModels({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAvailableChatModelsQueryKey(options)
 });

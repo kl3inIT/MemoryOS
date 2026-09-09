@@ -4,6 +4,8 @@ import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.chat.catalog.ChatModelResolver;
+import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.time.Instant;
@@ -33,6 +35,7 @@ public final class ChatTurnService implements AutoCloseable {
             "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS", "CHAT_DEADLINE", "CHAT_EMPTY_RESPONSE");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
+    private final ChatModelResolver models;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -42,9 +45,10 @@ public final class ChatTurnService implements AutoCloseable {
     private final AtomicBoolean accepting = new AtomicBoolean(true);
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams) {
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models) {
         this.persistence = persistence;
         this.model = model;
+        this.models = models;
         this.limits = limits;
         this.executor = executor;
         this.streams = streams;
@@ -52,30 +56,33 @@ public final class ChatTurnService implements AutoCloseable {
         this.permits = new Semaphore(limits.concurrency());
     }
 
-    public record Accepted(UUID userMessageId, UUID assistantMessageId) {}
+    public record Accepted(UUID userMessageId, UUID assistantMessageId, @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {}
     public record Cancellation(UUID assistantMessageId, ChatMessage.Status status) {}
 
-    public Accepted send(ActorId actor, UUID session, UUID parent, UUID request, String text) {
+    public Accepted send(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
         var lock = commandLock(session);
         lock.lock();
-        try { return sendLocked(actor, session, parent, request, text); }
+        try { return sendLocked(actor, session, parent, request, text, modelConfigurationId); }
         finally { lock.unlock(); }
     }
 
-    private Accepted sendLocked(ActorId actor, UUID session, UUID parent, UUID request, String text) {
-        var previous = persistence.existing(actor, session, parent, request, text);
+    private Accepted sendLocked(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
+        var previous = persistence.existing(actor, session, parent, request, text, modelConfigurationId);
         if (previous.isPresent()) return accepted(previous.orElseThrow());
-        model.requireAvailable();
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
+        ChatModelResolver.Resolved resolved = null;
         boolean transferred = false;
         try {
-            reserved = persistence.reserve(actor, session, parent, request, text, limits.deadline(), limits.contextTokenLimit());
+            resolved = models.resolve(actor, session, modelConfigurationId);
+            var binding = resolved.binding();
+            int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
+            reserved = persistence.reserve(actor, session, parent, request, text, limits.deadline(), contextLimit,
+                    new ChatTurnPersistence.ModelSelection(modelConfigurationId, resolved.modelConfigurationId(), resolved.fallbackReason(), binding));
             if (!reserved.created()) return accepted(reserved);
             var context = persistence.loadContext(actor, session, reserved);
-            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, limits.contextTokenLimit(),
-                    model.resolve(context.model()));
-            var run = new Active(setup);
+            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding);
+            var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
@@ -87,6 +94,7 @@ public final class ChatTurnService implements AutoCloseable {
                 run.finish(ChatMessage.Status.FAILED, "CHAT_SUBMIT_FAILED");
                 finalizeRun(run);
                 run.finished.complete(null);
+                run.resolved.close();
                 throw failure;
             }
             return accepted(reserved);
@@ -98,7 +106,10 @@ public final class ChatTurnService implements AutoCloseable {
             }
             throw failure;
         } finally {
-            if (!transferred) permits.release();
+            if (!transferred) {
+                if (resolved != null) resolved.close();
+                permits.release();
+            }
         }
     }
 
@@ -127,7 +138,7 @@ public final class ChatTurnService implements AutoCloseable {
     private ReentrantLock commandLock(UUID session) { return commands[Math.floorMod(session.hashCode(), commands.length)]; }
 
     private static Accepted accepted(ChatTurnPersistence.Reservation reservation) {
-        return new Accepted(reservation.userMessageId(), reservation.assistantMessageId());
+        return new Accepted(reservation.userMessageId(), reservation.assistantMessageId(), reservation.modelConfigurationId(), reservation.fallbackReason());
     }
 
     private void execute(Active run) {
@@ -154,6 +165,7 @@ public final class ChatTurnService implements AutoCloseable {
             run.finish(ChatMessage.Status.FAILED, "CHAT_EXECUTION_FAILED");
             finalizeRun(run);
             run.finished.complete(null);
+            run.resolved.close();
         }
     }
 
@@ -211,6 +223,7 @@ public final class ChatTurnService implements AutoCloseable {
 
     private static final class Active {
         final ChatTurnSetup setup;
+        final ChatModelResolver.Resolved resolved;
         final StringBuilder content = new StringBuilder();
         final AtomicReference<StopReason> stopReason = new AtomicReference<>();
         final Sinks.One<Boolean> cancellation = Sinks.one();
@@ -219,7 +232,7 @@ public final class ChatTurnService implements AutoCloseable {
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
         volatile ChatModelExecutor.Accounting accounting = new ChatModelExecutor.Accounting(null, null, null);
-        Active(ChatTurnSetup setup) { this.setup = setup; }
+        Active(ChatTurnSetup setup, ChatModelResolver.Resolved resolved) { this.setup = setup; this.resolved = resolved; }
         synchronized void cancel(StopReason reason) {
             if (outcome != null) return;
             stopReason.compareAndSet(null, reason);

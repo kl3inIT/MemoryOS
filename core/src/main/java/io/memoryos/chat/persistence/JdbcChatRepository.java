@@ -110,15 +110,27 @@ public class JdbcChatRepository {
 
     public Optional<ReservedRequest> previousRequest(UUID session, UUID requestId) {
         return jdbc.sql("""
-                        SELECT id, parent_message_id, content, original_assistant_message_id
+                        SELECT id, parent_message_id, content, original_assistant_message_id,
+                            requested_model_configuration_id, selected_model_configuration_id, model_selection_fallback
                         FROM chat_message WHERE session_id = :session AND client_request_id = :request
                         """).param("session", session).param("request", requestId)
                 .query((row, ignored) -> new ReservedRequest(row.getObject("id", UUID.class),
                         row.getObject("parent_message_id", UUID.class), row.getString("content"),
-                        row.getObject("original_assistant_message_id", UUID.class))).optional();
+                        row.getObject("original_assistant_message_id", UUID.class), row.getObject("requested_model_configuration_id", UUID.class),
+                        row.getObject("selected_model_configuration_id", UUID.class), row.getString("model_selection_fallback"))).optional();
     }
 
-    public record ReservedRequest(UUID userMessageId, UUID parentMessageId, String content, UUID assistantMessageId) {
+    public record ReservedRequest(UUID userMessageId, UUID parentMessageId, String content, UUID assistantMessageId,
+                                  @Nullable UUID requestedModelId, @Nullable UUID selectedModelId, @Nullable String fallbackReason) {
+    }
+
+    public void saveModelSelection(UUID session, UUID user, UUID assistant, @Nullable UUID requested, UUID selected, @Nullable String fallback) {
+        jdbc.sql("""
+                UPDATE chat_message SET requested_model_configuration_id=:requested,
+                    selected_model_configuration_id=:selected, model_selection_fallback=:fallback
+                WHERE session_id=:session AND id IN (:user, :assistant)
+                """).param("session", session).param("user", user).param("assistant", assistant)
+                .param("requested", requested, Types.OTHER).param("selected", selected).param("fallback", fallback, Types.VARCHAR).update();
     }
 
     public boolean hasActiveReply(UUID session) {

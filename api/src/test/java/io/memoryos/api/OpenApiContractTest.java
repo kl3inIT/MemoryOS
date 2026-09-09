@@ -2,6 +2,7 @@ package io.memoryos.api;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,6 +50,15 @@ class OpenApiContractTest {
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
+            "/api/chat/model-default",
+            "/api/chat/models",
+            "/api/chat/models/{modelId}",
+            "/api/chat/models/{modelId}/validate",
+            "/api/chat/personas/{personaId}/model",
+            "/api/chat/provider-adapters",
+            "/api/chat/providers",
+            "/api/chat/providers/{providerId}",
+            "/api/chat/providers/{providerId}/models",
             "/api/chat/sessions",
             "/api/chat/sessions/{sessionId}",
             "/api/chat/sessions/{sessionId}/messages",
@@ -124,6 +134,10 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        for (var path : Set.of("/api/chat/models", "/api/chat/providers", "/api/chat/provider-adapters", "/api/chat/model-default")) {
+            assertTrue(actual.path("paths").path(path).path("get").path("responses").path("200")
+                    .path("content").path("application/json").path("schema").isObject(), path + " must generate a typed success response");
+        }
         for (var path : BROWSER_API_PATHS.stream().filter(value -> value.startsWith("/api/chat/")).toList()) {
             for (var operation : actual.path("paths").path(path)) {
                 for (var code : Set.of("400", "403", "404")) {
