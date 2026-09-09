@@ -1,0 +1,17 @@
+cluster.name: memoryos-search-staging
+node.name: memoryos-opensearch
+network.host: 0.0.0.0
+discovery.type: single-node
+plugins.security.ssl.transport.pemcert_filepath: tls/node.crt
+plugins.security.ssl.transport.pemkey_filepath: tls/node.key
+plugins.security.ssl.transport.pemtrustedcas_filepath: tls/ca.crt
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: tls/node.crt
+plugins.security.ssl.http.pemkey_filepath: tls/node.key
+plugins.security.ssl.http.pemtrustedcas_filepath: tls/ca.crt
+plugins.security.authcz.admin_dn:
+  - CN=memoryos-search-admin
+plugins.security.nodes_dn:
+  - CN=memoryos-opensearch
+plugins.security.allow_default_init_securityindex: false
+plugins.security.allow_unsafe_democertificates: false

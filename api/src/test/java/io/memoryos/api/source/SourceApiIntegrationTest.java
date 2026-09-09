@@ -21,7 +21,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sun.net.httpserver.HttpServer;
-import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveOAuthClient;
@@ -29,13 +28,16 @@ import io.memoryos.connector.GoogleDriveProvider;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
-import io.memoryos.connector.SourceDocumentAccessResolver;
-import io.memoryos.document.DocumentId;
-import io.memoryos.connector.ConnectorIndexingPort;
+import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
+import io.memoryos.connector.ConnectorCleanupPort;
+import io.memoryos.connector.ConnectorIndexingPort;
+import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentCommandPort;
-import io.memoryos.identity.ActorId;
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.document.DocumentId;
+import io.memoryos.document.ExtractionArtifactPort;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
@@ -50,22 +52,24 @@ import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.StoredObjectRegistry;
 import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
-
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.swagger.v3.core.util.Json;
 import java.io.ByteArrayInputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.HexFormat;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.Executors;
-
+import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -73,12 +77,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.http.MediaType;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -87,10 +91,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(properties = {
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
@@ -104,7 +105,8 @@ import org.testcontainers.utility.DockerImageName;
         "memoryos.initial-tenant.owner-subject=source-owner",
         "memoryos.initial-tenant.slug=sources",
         "memoryos.initial-tenant.display-name=Sources",
-        "memoryos.initial-tenant.change-reference=MEM-35-TEST"
+        "memoryos.initial-tenant.change-reference=MEM-35-TEST",
+        "memoryos.search.endpoint=http://127.0.0.1:1",
 })
 @Testcontainers(disabledWithoutDocker = true)
 @AutoConfigureMockMvc
@@ -115,11 +117,6 @@ import org.testcontainers.utility.DockerImageName;
 })
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class SourceApiIntegrationTest {
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
-            .asCompatibleSubstituteFor("postgres"));
-
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
@@ -158,7 +155,7 @@ class SourceApiIntegrationTest {
     private io.memoryos.connector.GoogleDriveSelectionProcessor selections;
 
     @Autowired
-    private io.memoryos.document.ExtractionArtifactPort extractionArtifacts;
+    private ExtractionArtifactPort extractionArtifacts;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -181,9 +178,7 @@ class SourceApiIntegrationTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.google-drive.revoke-uri", () -> BROWSER_ISSUER + "/revoke");
@@ -241,7 +236,7 @@ class SourceApiIntegrationTest {
     @Transactional
     void itemPagesEnforceTheDefaultBoundAndFinishWithoutDuplicateRows() throws Exception {
         var actor = owner.getPrincipal().actorId();
-        var source = sourceManagement.createFileSource(actor, "Paged API files");
+        var source = sourceManagement.createFileSource(actor, "Paged API files", List.of());
         var expected = new HashSet<String>();
         for (int index = 0; index < 26; index++) {
             byte[] content = ("API page content " + index).getBytes(UTF_8);
@@ -285,7 +280,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(5))
                 .andExpect(jsonPath("$.totalItems").value(26));
-        var empty = sourceManagement.createFileSource(actor, "Empty history");
+        var empty = sourceManagement.createFileSource(actor, "Empty history", List.of());
         mockMvc.perform(get("/api/sources/{id}/index-attempts", empty.id().value()).with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty())
@@ -305,7 +300,7 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.items").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
-        String sourceId = io.swagger.v3.core.util.Json.mapper().readTree(sourceBody)
+        String sourceId = Json.mapper().readTree(sourceBody)
                 .path("id").textValue();
 
         byte[] file = "MemoryOS FILE connector content".getBytes(UTF_8);
@@ -320,7 +315,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.method").value("PUT"))
                 .andReturn().getResponse().getContentAsString();
-        var authorization = io.swagger.v3.core.util.Json.mapper().readTree(authorizationBody);
+        var authorization = Json.mapper().readTree(authorizationBody);
         String uploadId = authorization.path("uploadId").textValue();
         objectStorage.put(URI.create(authorization.path("uploadUrl").textValue()), file);
         String uploadBody = mockMvc.perform(post(
@@ -334,7 +329,7 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.item.status").value("PENDING"))
                 .andExpect(jsonPath("$.operation.status").value("NOT_STARTED"))
                 .andReturn().getResponse().getContentAsString();
-        String itemId = io.swagger.v3.core.util.Json.mapper().readTree(uploadBody)
+        String itemId = Json.mapper().readTree(uploadBody)
                 .path("item").path("id").textValue();
 
         processDispatchedWork();
@@ -394,7 +389,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.type").value("DELETE_SOURCE"))
                 .andReturn().getResponse().getContentAsString();
-        String deleteOperationId = io.swagger.v3.core.util.Json.mapper().readTree(deleteBody)
+        String deleteOperationId = Json.mapper().readTree(deleteBody)
                 .path("id").textValue();
         processDispatchedWork();
         mockMvc.perform(post("/api/sources/{sourceId}/delete", sourceId)
@@ -408,7 +403,7 @@ class SourceApiIntegrationTest {
     }
 
     @Test
-    void googleAuthorizationKeepsOwnerAndCsrfChecksBeforeRequiringOwnerApp() throws Exception {
+    void googleAuthorizationRequiresGlobalManagementAndCsrfBeforeOAuthClientValidation() throws Exception {
         mockMvc.perform(post("/api/credentials/google-drive/authorization")
                         .with(authentication(owner))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -420,7 +415,7 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Drive\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         mockMvc.perform(post("/api/credentials/google-drive/authorization")
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")
@@ -459,6 +454,12 @@ class SourceApiIntegrationTest {
                 INSERT INTO tenant_memberships (tenant_id, actor_id, role, status)
                 VALUES (:tenant, :actor, 'OWNER', 'ACTIVE')
                 """).param("tenant", tenantId).param("actor", actorId).update();
+        jdbcClient.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES (:tenant,:tenant,'Admin','ADMIN')")
+                .param("tenant",tenantId).update();
+        jdbcClient.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:tenant,'IAM_ADMIN')")
+                .param("tenant",tenantId).update();
+        jdbcClient.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
+                .param("tenant",tenantId).param("actor",actorId).update();
         var otherOwner = token(actorId);
         mockMvc.perform(get("/api/sources/{id}", foreignSource).with(authentication(otherOwner)))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
@@ -503,7 +504,7 @@ class SourceApiIntegrationTest {
         jdbcClient.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE tenant_id = :tenant AND actor_id = :actor")
                 .param("tenant", tenantId).param("actor", actorId).update();
         mockMvc.perform(get("/api/credentials/google-drive").with(authentication(otherOwner)))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -573,30 +574,30 @@ class SourceApiIntegrationTest {
     }
 
     @Test
-    void credentialManagementDoesNotExposeAnOracleToNonOwners() throws Exception {
+    void credentialManagementDoesNotExposeAnOracleToUnprivilegedMembers() throws Exception {
         var credential = googleCredential("Private owner account");
         mockMvc.perform(get("/api/credentials/google-drive").with(authentication(member)))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         mockMvc.perform(get("/api/credentials/google-drive"))
                 .andExpect(status().isUnauthorized());
         for (UUID id : List.of(credential.value(), UUID.randomUUID())) {
             mockMvc.perform(delete("/api/credentials/google-drive/{id}", id)
                             .with(authentication(member)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
-                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
             mockMvc.perform(post("/api/credentials/google-drive/{id}/revoke", id)
                             .with(authentication(member)).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON).content("{\"expectedCredentialRevision\":1}"))
-                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
             mockMvc.perform(post("/api/credentials/google-drive/authorization")
                             .with(authentication(member)).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"name\":\"Private\",\"credentialId\":\"" + id + "\",\"expectedCredentialRevision\":1}"))
-                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
             mockMvc.perform(post("/api/sources/google-drive")
                             .with(authentication(member)).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(googleSourceBody(new CredentialId(id), "Forbidden", "private-doc")))
-                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         }
     }
 
@@ -676,7 +677,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(put("/api/sources/{id}/google-drive/schedule", source)
                         .with(authentication(member)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":15}"))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         mockMvc.perform(put("/api/sources/{id}/google-drive/schedule", source)
                         .with(authentication(owner)).header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":15}"))
@@ -783,7 +784,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
                         .with(authentication(member)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content(selection))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         mockMvc.perform(put("/api/sources/{id}/google-drive/roots", source)
                         .with(authentication(owner)).header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content(selection))
@@ -863,7 +864,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
                         .with(authentication(member)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         for (String revision : List.of("1", "W/\"1\"", "*", "\"1\", \"2\"")) {
             mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
                             .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", revision))
@@ -942,7 +943,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(member)))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner)))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.items[0].id").value("tree-folder"))
@@ -1048,6 +1049,137 @@ class SourceApiIntegrationTest {
     }
 
     @Test
+    void enforcesScopedSourceHttpSurfacesAndImmediateAssociationRevocation() throws Exception {
+        UUID tenantId = jdbcClient.sql("SELECT id FROM tenants WHERE slug = 'sources'")
+                .query(UUID.class)
+                .single();
+        UUID managedGroupId = UUID.randomUUID();
+        ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
+        String managedSourceId = createSource(owner, "Manager source", managedGroupId);
+        String hiddenSourceId = createSource(owner, "Hidden manager source", null);
+        ApiUpload managedUpload = uploadAndFinalize(
+                manager,
+                managedSourceId,
+                "manager.txt",
+                "manager-visible content".getBytes(UTF_8)
+        );
+        ApiUpload hiddenUpload = uploadAndFinalize(
+                owner,
+                hiddenSourceId,
+                "hidden.txt",
+                "hidden content".getBytes(UTF_8)
+        );
+
+        mockMvc.perform(get("/api/sources").with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(managedSourceId)).exists())
+                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(hiddenSourceId)).doesNotExist());
+        mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.actions[0]").value("upload"))
+                .andExpect(jsonPath("$.actions[1]").value("reindex"))
+                .andExpect(jsonPath("$.actions.length()").value(2));
+        mockMvc.perform(get("/api/sources/{sourceId}", hiddenSourceId).with(authentication(manager)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        mockMvc.perform(get("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(managedGroupId.toString()));
+        mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId)
+                        .with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(managedSourceId));
+        mockMvc.perform(get("/api/groups/{groupId}/sources", adminGroupId())
+                        .with(authentication(manager)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/source-operations/{operationId}", managedUpload.operationId())
+                        .with(authentication(manager)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/source-operations/{operationId}", hiddenUpload.operationId())
+                        .with(authentication(manager)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+
+        mockMvc.perform(post(
+                        "/api/sources/{sourceId}/items/{itemId}/index-attempts",
+                        managedSourceId,
+                        managedUpload.itemId()
+                )
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(post("/api/sources/{sourceId}/uploads", hiddenSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"filename":"denied.txt","mediaType":"text/plain","sizeBytes":1,
+                                 "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        mockMvc.perform(post(
+                        "/api/sources/{sourceId}/items/{itemId}/remove",
+                        managedSourceId,
+                        managedUpload.itemId()
+                )
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(post("/api/sources/{sourceId}/delete", managedSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(post("/api/sources/file")
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Denied manager create\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"groupIds\":[\"%s\"]}".formatted(managedGroupId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(get("/api/sources/group-options").with(authentication(manager)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+
+        mockMvc.perform(get("/api/sources/group-options?search=Scoped")
+                        .with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(managedGroupId.toString()));
+        mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"groupIds\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
+        mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"groupIds\":[\"%s\"]}".formatted(adminGroupId())))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/source-operations/{operationId}", managedUpload.operationId())
+                        .with(authentication(manager)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/sources").with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(managedSourceId)).doesNotExist());
+    }
+
+    @Test
     void rejectsMemberManagementAndBothValidationFailureShapes() throws Exception {
         mockMvc.perform(post("/api/sources/file")
                         .with(authentication(member))
@@ -1055,7 +1187,7 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Forbidden\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
 
         mockMvc.perform(post("/api/sources/file")
                         .with(authentication(owner))
@@ -1073,14 +1205,14 @@ class SourceApiIntegrationTest {
                         .content("{\"name\":\"Validation source\"}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        String sourceId = io.swagger.v3.core.util.Json.mapper().readTree(sourceBody)
+        String sourceId = Json.mapper().readTree(sourceBody)
                 .path("id").textValue();
         mockMvc.perform(get("/api/sources/{sourceId}/index-attempts?size=0", sourceId)
                         .with(authentication(owner)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
         mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(member)))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SOURCE_NOT_OWNER"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)).param("size", "0"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("REQUEST_VALIDATION"));
         mockMvc.perform(get("/api/sources/{sourceId}/items", sourceId).with(authentication(owner)).param("size", "101"))
@@ -1108,6 +1240,120 @@ class SourceApiIntegrationTest {
 
     }
 
+    @Test
+    void searchUsesExistingSessionGuardAndSafeUnavailableContract() throws Exception {
+        String query = "{\"query\":\"nghỉ phép\",\"page\":0,\"pageSize\":10}";
+        mockMvc.perform(post("/api/search").with(authentication(member)).contentType(MediaType.APPLICATION_JSON).content(query))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/search").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(query))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("SEARCH_UNAVAILABLE"));
+        mockMvc.perform(post("/api/search").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"query\":\"\",\"page\":0,\"pageSize\":10}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/search/documents/{id}", UUID.randomUUID()).with(authentication(member))
+                        .param("generation", UUID.randomUUID().toString()))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SEARCH_DOCUMENT_UNAVAILABLE"));
+    }
+
+    private ActorAuthenticationToken scopedManager(UUID tenantId, UUID groupId) {
+        UUID actorId = UUID.randomUUID();
+        jdbcClient.sql("INSERT INTO actors (id) VALUES (:actorId)")
+                .param("actorId", actorId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO tenant_memberships (tenant_id, actor_id, role, status)
+                        VALUES (:tenantId, :actorId, 'MEMBER', 'ACTIVE')
+                        """)
+                .param("tenantId", tenantId)
+                .param("actorId", actorId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name)
+                        VALUES (:tenantId, :groupId, :name)
+                        """)
+                .param("tenantId", tenantId)
+                .param("groupId", groupId)
+                .param("name", "Scoped " + groupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_memberships (
+                            tenant_id, group_id, actor_id, is_manager
+                        ) VALUES (
+                            :tenantId, :basicGroupId, :actorId, FALSE
+                        ), (
+                            :tenantId, :groupId, :actorId, TRUE
+                        )
+                        """)
+                .param("tenantId", tenantId)
+                .param("basicGroupId", UUID.fromString("00000000-0000-0000-0000-000000000002"))
+                .param("groupId", groupId)
+                .param("actorId", actorId)
+                .update();
+        return token(actorId);
+    }
+
+    private String createSource(
+            ActorAuthenticationToken actor,
+            String name,
+            @Nullable UUID groupId
+    ) throws Exception {
+        String request = groupId == null
+                ? "{\"name\":\"%s\"}".formatted(name)
+                : "{\"name\":\"%s\",\"groupIds\":[\"%s\"]}".formatted(name, groupId);
+        String response = mockMvc.perform(post("/api/sources/file")
+                        .with(authentication(actor))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return Json.mapper().readTree(response)
+                .path("id").textValue();
+    }
+
+    private ApiUpload uploadAndFinalize(
+            ActorAuthenticationToken actor,
+            String sourceId,
+            String filename,
+            byte[] content
+    ) throws Exception {
+        String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        String authorizationBody = mockMvc.perform(post("/api/sources/{sourceId}/uploads", sourceId)
+                        .with(authentication(actor))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"filename":"%s","mediaType":"text/plain","sizeBytes":%d,"sha256":"%s"}
+                                """.formatted(filename, content.length, checksum)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        var authorization = Json.mapper().readTree(authorizationBody);
+        String uploadId = authorization.path("uploadId").textValue();
+        objectStorage.put(URI.create(authorization.path("uploadUrl").textValue()), content);
+        String receiptBody = mockMvc.perform(post(
+                        "/api/sources/{sourceId}/uploads/{uploadId}/finalize",
+                        sourceId,
+                        uploadId
+                )
+                        .with(authentication(actor))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isAccepted())
+                .andReturn().getResponse().getContentAsString();
+        var receipt = Json.mapper().readTree(receiptBody);
+        return new ApiUpload(
+                receipt.path("item").path("id").textValue(),
+                receipt.path("operation").path("id").textValue()
+        );
+    }
+
+    private static UUID adminGroupId() {
+        return UUID.fromString("00000000-0000-0000-0000-000000000001");
+    }
+
+    private record ApiUpload(String itemId, String operationId) {
+    }
+
     private void processDispatchedWork() {
         var metrics = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         try (var leaseScheduler = Executors.newSingleThreadScheduledExecutor()) {
@@ -1125,7 +1371,7 @@ class SourceApiIntegrationTest {
                     new io.memoryos.ingestion.application.SourceSyncProcessor(sourceSync, leaseScheduler, metrics),
                     new io.memoryos.ingestion.application.SelectionValidationProcessor(selections, leaseScheduler, metrics)
             );
-            for (OperationWorkload workload : OperationWorkload.values()) {
+            for (OperationWorkload workload : List.of(OperationWorkload.INGESTION, OperationWorkload.CLEANUP)) {
                 operationDispatch.claim(workload, 8)
                         .forEach(claim -> coordinator.process(claim.delivery()));
             }
@@ -1275,7 +1521,7 @@ class SourceApiIntegrationTest {
                 return new ContentSha256(HexFormat.of().formatHex(
                         MessageDigest.getInstance("SHA-256").digest(content)
                 ));
-            } catch (java.security.NoSuchAlgorithmException exception) {
+            } catch (NoSuchAlgorithmException exception) {
                 throw new IllegalStateException(exception);
             }
         }

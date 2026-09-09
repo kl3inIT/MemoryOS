@@ -5,20 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.modulith.core.ApplicationModules;
 
 class ModulithArchitectureTest {
 
     private static final Set<String> CAPABILITIES = Set.of(
-            "identity",
-            "tenant",
-            "invitation",
+            "iam",
             "objectstorage",
             "connector",
             "document",
-            "ingestion"
+            "ingestion",
+            "retrieval"
     );
 
     private final ApplicationModules modules = ApplicationModules.of(MemoryOsModules.class);

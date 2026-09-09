@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api";
+import { ApiError, problemCode } from "@/lib/api";
 
 type SourceMutation =
   | "create"
@@ -8,7 +8,8 @@ type SourceMutation =
   | "delete-source"
   | "google-drive"
   | "google-drive-discovery"
-  | "google-drive-schedule";
+  | "google-drive-schedule"
+  | "associations";
 
 const statusMessages: Record<string, string> = {
   OBJECT_UPLOAD_INTEGRITY_MISMATCH:
@@ -66,7 +67,9 @@ const statusMessages: Record<string, string> = {
   SOURCE_GOOGLE_CREDENTIAL_CHANGED:
     "The Google credential changed during verification. The proposal was not activated. Reload the saved selection before submitting again.",
   SOURCE_NOT_OWNER:
-    "Selection verification stopped because the initiating owner or Tenant is no longer active. Ask an active Tenant owner to submit a new proposal.",
+    "Selection verification stopped because the initiating user no longer has permission or the Tenant is inactive. Ask an authorized administrator to submit a new proposal.",
+  IAM_ACCESS_DENIED:
+    "The operation stopped because your permissions changed. Ask an authorized administrator to review access before trying again.",
   SOURCE_ACQUISITION_INTERNAL:
     "Acquisition failed unexpectedly. Review this run and synchronize again.",
   SOURCE_STORAGE_READ_TLS:
@@ -138,11 +141,13 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
       if (error.status === 400 || error.status === 422)
         return "Check the credential or Source name, OAuth client JSON, unique non-overlapping HTTPS Google file or folder links within the displayed limits, and your linked-document selection.";
     }
-    if (error.status === 403) return "Only an active Tenant owner can manage sources.";
+    if (error.status === 403) return "You do not have permission to manage this Source.";
     if (mutation === "google-drive" && error.status === 404)
       return "This Source or credential is no longer available. Refresh and select another credential.";
     if (error.status === 404) return unavailableMessage(mutation);
     if (error.status === 409) return conflictMessage(mutation);
+    if (error.status === 400 && mutation === "associations")
+      return "Every Source must remain associated with at least one group.";
     if (error.status === 400 || error.status === 413)
       return "Check the source name or uploaded file and try again.";
     if (code && isSafeCode(code))
@@ -157,24 +162,20 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
 }
 
 function unavailableMessage(mutation: SourceMutation) {
+  if (mutation === "associations") return "This Source is no longer available.";
   if (mutation === "remove-item") return "This file is no longer available in the source.";
   if (mutation === "delete-source") return "This source is no longer available.";
   return "The source or file is no longer available.";
 }
 
 function conflictMessage(mutation: SourceMutation) {
+  if (mutation === "associations")
+    return "Source associations changed while you were editing. Refresh and try again.";
   if (mutation === "remove-item")
     return "This file is already changing. Refresh the source and try again.";
   if (mutation === "delete-source")
     return "This source is already changing. Refresh the source and try again.";
   return "The source cannot accept that operation right now.";
-}
-
-function problemCode(error: ApiError) {
-  const cause = error.cause;
-  if (!cause || typeof cause !== "object" || !("code" in cause)) return undefined;
-  const code = cause.code;
-  return typeof code === "string" ? code : undefined;
 }
 
 function isGoogleDriveRevisionConflict(error: unknown) {

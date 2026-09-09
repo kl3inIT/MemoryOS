@@ -74,6 +74,10 @@ export type GoogleDriveSelectionReceiptResponse = {
     operation: SourceOperation;
 };
 
+export type ReplaceUserGroupsRequest = {
+    groupIds: Array<string>;
+};
+
 export type InitiateSourceUploadRequest = {
     filename: string;
     mediaType: string;
@@ -117,11 +121,16 @@ export type SourceItem = {
     lastIndexedAt: string | null;
     latestAttempt: SourceIndexAttempt;
     errorCode: string | null;
+    searchStatus: 'WAITING' | 'INDEXING' | 'READY' | 'FAILED';
 };
 
 export type SourceUploadReceipt = {
     item: SourceItem;
     operation: SourceOperation;
+};
+
+export type UpdateSourceGroupsRequest = {
+    groupIds: Array<string>;
 };
 
 export type CreateGoogleDriveSourceRequest = {
@@ -140,6 +149,7 @@ export type CreateGoogleDriveSourceRequest = {
 
 export type CreateFileSourceRequest = {
     name: string;
+    groupIds?: Array<string> | null;
 };
 
 export type SourceSummary = {
@@ -152,6 +162,46 @@ export type SourceSummary = {
     documentCount: number;
     lastSucceededAt: string | null;
     errorCode: string | null;
+    actions: Array<string>;
+};
+
+export type SearchRequest = {
+    query?: string;
+    mediaTypes?: Array<string>;
+    updatedSince?: string;
+    page?: number;
+    pageSize?: number;
+};
+
+export type ChunkProvenance = {
+    ordinal: number;
+    provenanceJson: string;
+};
+
+export type Result = {
+    documentId: string;
+    generation: string;
+    title: string;
+    mediaType: string;
+    updatedAt: string;
+    score: number;
+    sections: Array<Section>;
+};
+
+export type SearchPage = {
+    results: Array<Result>;
+    page: number;
+    hasMore: boolean;
+    candidateLimit: number;
+};
+
+export type Section = {
+    startOrdinal: number;
+    endOrdinal: number;
+    matchingOrdinal: number;
+    score: number;
+    content: string;
+    provenance: Array<ChunkProvenance>;
 };
 
 export type CreateInvitationRequest = {
@@ -181,6 +231,34 @@ export type IssuedInvitation = {
     delivery: 'ACTIVATION_EMAIL_SENT' | 'EXISTING_ACCOUNT' | 'RECOVERY_LINK_ONLY';
 };
 
+export type CreateGroupRequest = {
+    name: string;
+};
+
+export type GroupSummary = {
+    id: string;
+    name: string;
+    systemKey: GroupSystemKey | null;
+    memberCount: number;
+    managerCount: number;
+    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    actions: Array<string>;
+};
+
+export type GroupSystemKey = 'ADMIN' | 'BASIC';
+
+export type RenameGroupRequest = {
+    name: string;
+};
+
+export type AddGroupMembersRequest = {
+    actorIds: Array<string>;
+};
+
+export type ReplaceGroupCapabilitiesRequest = {
+    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+};
+
 export type RevokeGoogleDriveCredentialRequest = {
     expectedCredentialRevision: number;
 };
@@ -194,6 +272,54 @@ export type StartGoogleDriveAuthorizationRequest = {
 
 export type GoogleDriveAuthorizationResponse = {
     authorizationUrl: string;
+};
+
+export type AccountType = 'STANDARD';
+
+export type TenantMembershipRole = 'OWNER' | 'MEMBER';
+
+export type UserCounts = {
+    active: number;
+    inactive: number;
+    invited: number;
+};
+
+export type UserGroup = {
+    id: string;
+    name: string;
+    systemKey: GroupSystemKey | null;
+};
+
+export type UserListItem = {
+    /**
+     * Stable Actor identifier for a membership row; null for an invitation row.
+     */
+    actorId: string | null;
+    /**
+     * Invitation identifier for an invited row; null for a membership row.
+     */
+    invitationId: string | null;
+    displayName: string | null;
+    email: string | null;
+    emailVerified: boolean | null;
+    profileIssuer: string | null;
+    role: TenantMembershipRole | null;
+    accountType: AccountType | null;
+    status: 'ACTIVE' | 'INACTIVE' | 'INVITED';
+    groups: Array<UserGroup>;
+    /**
+     * Invitation expiry for an invited row; null for a membership row.
+     */
+    invitationExpiresAt: string | null;
+};
+
+export type UserPage = {
+    items: Array<UserListItem>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+    counts: UserCounts;
 };
 
 export type SourceRun = {
@@ -267,6 +393,16 @@ export type SourceOperationPage = {
     totalItems: number;
 };
 
+export type SourceGroup = {
+    id: string;
+    name: string;
+    systemKey: GroupSystemKey | null;
+};
+
+export type SourceGroupList = {
+    items: Array<SourceGroup>;
+};
+
 export type GoogleDriveLinkOriginResponse = {
     rootId: string;
     parentId: string;
@@ -323,10 +459,34 @@ export type GoogleDriveSelectionDraftResponse = {
     linkedDocumentIds: Array<string>;
 };
 
+export type SourceGroupPage = {
+    items: Array<SourceGroup>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
 export type GoogleDriveSelectionPolicyResponse = {
     maxExplicitRootsPerSource: number;
     maxRequestBytes: number;
     maxLinkedDocuments: number;
+};
+
+export type Passage = {
+    ordinal: number;
+    content: string;
+    provenanceJson: string;
+};
+
+export type SearchDocument = {
+    documentId: string;
+    generation: string;
+    title: string;
+    passages: Array<Passage>;
+    firstOrdinal: number;
+    totalChunks: number;
+    hasMore: boolean;
 };
 
 export type InvitationPage = {
@@ -353,9 +513,17 @@ export type CurrentIdentity = {
      */
     tenant: CurrentTenant | null;
     /**
-     * Canonical capabilities backed by current server enforcement.
+     * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'INVITATIONS_MANAGE' | 'SOURCES_MANAGE'>;
+    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    /**
+     * Eligible capabilities available only within resources managed by this actor.
+     */
+    scopedCapabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+    /**
+     * Monotonic Tenant IAM revision used only to invalidate private client data.
+     */
+    authorizationVersion: number;
 };
 
 export type CurrentTenant = {
@@ -367,6 +535,48 @@ export type CurrentTenant = {
      * Stable Tenant membership role used for presentation.
      */
     role: 'OWNER' | 'MEMBER';
+};
+
+export type GroupPage = {
+    items: Array<GroupSummary>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
+export type GroupSources = {
+    items: Array<SourceSummary>;
+};
+
+export type GroupMember = {
+    actorId: string;
+    displayName: string | null;
+    email: string | null;
+    accountType: 'STANDARD';
+    status: 'ACTIVE' | 'INACTIVE';
+    isManager: boolean;
+    protectedOwner: boolean;
+};
+
+export type GroupMemberPage = {
+    items: Array<GroupMember>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
+export type GroupCapabilities = {
+    items: Array<GroupCapability>;
+};
+
+export type GroupCapability = {
+    id: 'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE';
+    label: string;
+    description: string;
+    editable: boolean;
+    implies: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
 };
 
 export type GoogleDriveCredentialResponse = {
@@ -449,6 +659,129 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type ReplaceUserGroupsData = {
+    body: ReplaceUserGroupsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        actorId: string;
+    };
+    query?: never;
+    url: '/api/users/{actorId}/groups';
+};
+
+export type ReplaceUserGroupsErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor lacks IAM_ADMIN authority or the same-origin header is missing
+     */
+    403: ApiProblem;
+    /**
+     * The user or a requested Group does not exist in the current Tenant
+     */
+    404: ApiProblem;
+};
+
+export type ReplaceUserGroupsError = ReplaceUserGroupsErrors[keyof ReplaceUserGroupsErrors];
+
+export type ReplaceUserGroupsResponses = {
+    /**
+     * The user's ordinary Group memberships were replaced
+     */
+    204: void;
+};
+
+export type ReplaceUserGroupsResponse = ReplaceUserGroupsResponses[keyof ReplaceUserGroupsResponses];
+
+export type DeactivateUserData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        actorId: string;
+    };
+    query?: never;
+    url: '/api/users/{actorId}/deactivate';
+};
+
+export type DeactivateUserErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor lacks USERS_MANAGE authority, the target is protected, or the same-origin header is missing
+     */
+    403: ApiProblem;
+    /**
+     * The member does not exist in the current Tenant
+     */
+    404: ApiProblem;
+};
+
+export type DeactivateUserError = DeactivateUserErrors[keyof DeactivateUserErrors];
+
+export type DeactivateUserResponses = {
+    /**
+     * The member is inactive
+     */
+    204: void;
+};
+
+export type DeactivateUserResponse = DeactivateUserResponses[keyof DeactivateUserResponses];
+
+export type ActivateUserData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        actorId: string;
+    };
+    query?: never;
+    url: '/api/users/{actorId}/activate';
+};
+
+export type ActivateUserErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor lacks USERS_MANAGE authority, the target is protected, or the same-origin header is missing
+     */
+    403: ApiProblem;
+    /**
+     * The member does not exist in the current Tenant
+     */
+    404: ApiProblem;
+};
+
+export type ActivateUserError = ActivateUserErrors[keyof ActivateUserErrors];
+
+export type ActivateUserResponses = {
+    /**
+     * The member is active
+     */
+    204: void;
+};
+
+export type ActivateUserResponse = ActivateUserResponses[keyof ActivateUserResponses];
 
 export type InitiateSourceUploadData = {
     body: InitiateSourceUploadRequest;
@@ -548,6 +881,48 @@ export type ReindexSourceItemResponses = {
 };
 
 export type ReindexSourceItemResponse = ReindexSourceItemResponses[keyof ReindexSourceItemResponses];
+
+export type ListSourceGroupsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/groups';
+};
+
+export type ListSourceGroupsResponses = {
+    /**
+     * OK
+     */
+    200: SourceGroupList;
+};
+
+export type ListSourceGroupsResponse = ListSourceGroupsResponses[keyof ListSourceGroupsResponses];
+
+export type UpdateSourceGroupsData = {
+    body: UpdateSourceGroupsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/groups';
+};
+
+export type UpdateSourceGroupsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UpdateSourceGroupsResponse = UpdateSourceGroupsResponses[keyof UpdateSourceGroupsResponses];
 
 export type SynchronizeGoogleDriveSourceData = {
     body?: never;
@@ -666,6 +1041,28 @@ export type CreateFileSourceResponses = {
 
 export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFileSourceResponses];
 
+export type SearchDocumentsData = {
+    body: SearchRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/search';
+};
+
+export type SearchDocumentsResponses = {
+    /**
+     * OK
+     */
+    200: SearchPage;
+};
+
+export type SearchDocumentsResponse = SearchDocumentsResponses[keyof SearchDocumentsResponses];
+
 export type ListInvitationsData = {
     body?: never;
     path?: never;
@@ -689,7 +1086,7 @@ export type ListInvitationsErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Tenant owner
+     * The actor lacks USERS_MANAGE authority
      */
     403: ApiProblem;
 };
@@ -728,7 +1125,7 @@ export type CreateInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Tenant owner or the same-origin header is missing
+     * The actor lacks USERS_MANAGE authority or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -776,7 +1173,7 @@ export type RotateInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Tenant owner or the same-origin header is missing
+     * The actor lacks USERS_MANAGE authority or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -820,7 +1217,7 @@ export type RevokeInvitationErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active Tenant owner or the same-origin header is missing
+     * The actor lacks USERS_MANAGE authority or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -839,6 +1236,254 @@ export type RevokeInvitationResponses = {
 };
 
 export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
+
+export type ListGroupsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/groups';
+};
+
+export type ListGroupsErrors = {
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor has no global or managed-Group read authority
+     */
+    403: ApiProblem;
+};
+
+export type ListGroupsError = ListGroupsErrors[keyof ListGroupsErrors];
+
+export type ListGroupsResponses = {
+    /**
+     * A bounded, server-authorized Group page
+     */
+    200: GroupPage;
+};
+
+export type ListGroupsResponse = ListGroupsResponses[keyof ListGroupsResponses];
+
+export type CreateGroupData = {
+    body: CreateGroupRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/groups';
+};
+
+export type CreateGroupResponses = {
+    /**
+     * Group created
+     */
+    201: GroupSummary;
+};
+
+export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type RenameGroupData = {
+    body: RenameGroupRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/rename';
+};
+
+export type RenameGroupResponses = {
+    /**
+     * Group renamed
+     */
+    200: GroupSummary;
+};
+
+export type RenameGroupResponse = RenameGroupResponses[keyof RenameGroupResponses];
+
+export type ListGroupMembersData = {
+    body?: never;
+    path: {
+        groupId: string;
+    };
+    query?: {
+        search?: string;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/groups/{groupId}/members';
+};
+
+export type ListGroupMembersResponses = {
+    /**
+     * A bounded Group member page
+     */
+    200: GroupMemberPage;
+};
+
+export type ListGroupMembersResponse = ListGroupMembersResponses[keyof ListGroupMembersResponses];
+
+export type AddGroupMembersData = {
+    body: AddGroupMembersRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/members';
+};
+
+export type AddGroupMembersResponses = {
+    /**
+     * Members added idempotently
+     */
+    204: void;
+};
+
+export type AddGroupMembersResponse = AddGroupMembersResponses[keyof AddGroupMembersResponses];
+
+export type RemoveGroupMemberData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+        actorId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/members/{actorId}/remove';
+};
+
+export type RemoveGroupMemberResponses = {
+    /**
+     * Member removed
+     */
+    204: void;
+};
+
+export type RemoveGroupMemberResponse = RemoveGroupMemberResponses[keyof RemoveGroupMemberResponses];
+
+export type RemoveGroupManagerData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+        actorId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/members/{actorId}/remove-manager';
+};
+
+export type RemoveGroupManagerResponses = {
+    /**
+     * Manager flag removed
+     */
+    204: void;
+};
+
+export type RemoveGroupManagerResponse = RemoveGroupManagerResponses[keyof RemoveGroupManagerResponses];
+
+export type AssignGroupManagerData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+        actorId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/members/{actorId}/assign-manager';
+};
+
+export type AssignGroupManagerResponses = {
+    /**
+     * Manager assigned
+     */
+    204: void;
+};
+
+export type AssignGroupManagerResponse = AssignGroupManagerResponses[keyof AssignGroupManagerResponses];
+
+export type DeleteGroupData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/delete';
+};
+
+export type DeleteGroupResponses = {
+    /**
+     * Group links and grants deleted
+     */
+    204: void;
+};
+
+export type DeleteGroupResponse = DeleteGroupResponses[keyof DeleteGroupResponses];
+
+export type ReplaceGroupCapabilitiesData = {
+    body: ReplaceGroupCapabilitiesRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/capabilities';
+};
+
+export type ReplaceGroupCapabilitiesResponses = {
+    /**
+     * Explicit grants replaced
+     */
+    204: void;
+};
+
+export type ReplaceGroupCapabilitiesResponse = ReplaceGroupCapabilitiesResponses[keyof ReplaceGroupCapabilitiesResponses];
 
 export type RevokeGoogleDriveCredentialData = {
     body: RevokeGoogleDriveCredentialRequest;
@@ -885,6 +1530,47 @@ export type StartGoogleDriveAuthorizationResponses = {
 };
 
 export type StartGoogleDriveAuthorizationResponse = StartGoogleDriveAuthorizationResponses[keyof StartGoogleDriveAuthorizationResponses];
+
+export type ListUsersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        status?: 'ACTIVE' | 'INACTIVE' | 'INVITED';
+        role?: 'OWNER' | 'MEMBER';
+        groupId?: string;
+        sort?: 'NAME_ASC' | 'NAME_DESC' | 'EMAIL_ASC' | 'EMAIL_DESC' | 'STATUS_ASC' | 'STATUS_DESC' | 'ROLE_ASC' | 'ROLE_DESC';
+        page?: number;
+        size?: number;
+    };
+    url: '/api/users';
+};
+
+export type ListUsersErrors = {
+    /**
+     * Invalid user directory query
+     */
+    400: ApiProblem;
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor lacks USERS_MANAGE authority
+     */
+    403: ApiProblem;
+};
+
+export type ListUsersError = ListUsersErrors[keyof ListUsersErrors];
+
+export type ListUsersResponses = {
+    /**
+     * A bounded page of current memberships and eligible pending invitations
+     */
+    200: UserPage;
+};
+
+export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
 
 export type ListSourcesData = {
     body?: never;
@@ -1109,6 +1795,26 @@ export type GetGoogleDriveSelectionDraftResponses = {
 
 export type GetGoogleDriveSelectionDraftResponse = GetGoogleDriveSelectionDraftResponses[keyof GetGoogleDriveSelectionDraftResponses];
 
+export type ListSourceGroupOptionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/sources/group-options';
+};
+
+export type ListSourceGroupOptionsResponses = {
+    /**
+     * OK
+     */
+    200: SourceGroupPage;
+};
+
+export type ListSourceGroupOptionsResponse = ListSourceGroupOptionsResponses[keyof ListSourceGroupOptionsResponses];
+
 export type GetGoogleDriveSelectionRequestData = {
     body?: never;
     path: {
@@ -1161,6 +1867,27 @@ export type GetSourceOperationResponses = {
 
 export type GetSourceOperationResponse = GetSourceOperationResponses[keyof GetSourceOperationResponses];
 
+export type GetSearchDocumentData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+        from?: number;
+    };
+    url: '/api/search/documents/{documentId}';
+};
+
+export type GetSearchDocumentResponses = {
+    /**
+     * OK
+     */
+    200: SearchDocument;
+};
+
+export type GetSearchDocumentResponse = GetSearchDocumentResponses[keyof GetSearchDocumentResponses];
+
 export type GetCurrentInvitationData = {
     body?: never;
     path?: never;
@@ -1208,6 +1935,80 @@ export type GetCurrentIdentityResponses = {
 };
 
 export type GetCurrentIdentityResponse = GetCurrentIdentityResponses[keyof GetCurrentIdentityResponses];
+
+export type GetGroupData = {
+    body?: never;
+    path: {
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}';
+};
+
+export type GetGroupResponses = {
+    /**
+     * The server-authorized Group detail
+     */
+    200: GroupSummary;
+};
+
+export type GetGroupResponse = GetGroupResponses[keyof GetGroupResponses];
+
+export type ListGroupSourcesData = {
+    body?: never;
+    path: {
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/sources';
+};
+
+export type ListGroupSourcesResponses = {
+    /**
+     * OK
+     */
+    200: GroupSources;
+};
+
+export type ListGroupSourcesResponse = ListGroupSourcesResponses[keyof ListGroupSourcesResponses];
+
+export type ListGroupCandidatesData = {
+    body?: never;
+    path: {
+        groupId: string;
+    };
+    query?: {
+        search?: string;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/groups/{groupId}/candidates';
+};
+
+export type ListGroupCandidatesResponses = {
+    /**
+     * A bounded candidate page
+     */
+    200: GroupMemberPage;
+};
+
+export type ListGroupCandidatesResponse = ListGroupCandidatesResponses[keyof ListGroupCandidatesResponses];
+
+export type ListGroupCapabilitiesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/groups/capabilities';
+};
+
+export type ListGroupCapabilitiesResponses = {
+    /**
+     * Capability metadata for implemented consumers
+     */
+    200: GroupCapabilities;
+};
+
+export type ListGroupCapabilitiesResponse = ListGroupCapabilitiesResponses[keyof ListGroupCapabilitiesResponses];
 
 export type ListGoogleDriveCredentialsData = {
     body?: never;

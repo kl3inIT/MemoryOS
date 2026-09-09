@@ -10,7 +10,7 @@ import io.memoryos.connector.SourceRunHistoryService;
 import io.memoryos.connector.SourceRunIndexingStatus;
 import io.memoryos.connector.SourceRunStatus;
 import io.memoryos.connector.SourceRunTrigger;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;

@@ -2,7 +2,7 @@ package io.memoryos.api.invitation.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import io.memoryos.invitation.InvitationStatus;
+import io.memoryos.iam.InvitationStatus;
 
 import java.time.Instant;
 import java.util.UUID;

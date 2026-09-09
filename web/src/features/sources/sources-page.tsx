@@ -15,12 +15,14 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { findSourceProvider } from "./source-provider-catalog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 
 export function SourcesPage() {
+  const canCreate = useGlobalCapability("SOURCES_MANAGE");
   const sourcesQuery = useQuery({
     ...listSourcesOptions(),
     retry: false,
@@ -36,9 +38,11 @@ export function SourcesPage() {
         title="Existing sources"
         description="Manage connected content and monitor indexing."
         actions={
-          <Button asChild>
-            <Link to="/admin/sources/new">Add source</Link>
-          </Button>
+          canCreate ? (
+            <Button asChild>
+              <Link to="/admin/sources/new">Add source</Link>
+            </Button>
+          ) : null
         }
       />
 
@@ -70,9 +74,11 @@ export function SourcesPage() {
             <Files className="size-5" aria-hidden="true" />
           </span>
           <h2 className="mt-4 font-heading-h3 text-content-primary">No sources yet</h2>
-          <Button asChild size="sm" className="mt-4">
-            <Link to="/admin/sources/new">Add source</Link>
-          </Button>
+          {canCreate ? (
+            <Button asChild size="sm" className="mt-4">
+              <Link to="/admin/sources/new">Add source</Link>
+            </Button>
+          ) : null}
         </div>
       ) : (
         <SourceList sources={sources} />

@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createFileSource, createGoogleDriveSource, createInvitation, deleteGoogleDriveCredential, deleteSource, discoverGoogleDriveLinkedDocuments, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getSource, getSourceOperation, getSourceRun, initiateSourceUpload, listGoogleDriveCredentials, listInvitations, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, type Options, reindexSourceItem, removeSourceItem, replaceGoogleDriveRoots, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, updateGoogleDriveSchedule } from '../sdk.gen';
-import type { CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveSourceItemData, RemoveSourceItemResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, createFileSource, createGoogleDriveSource, createGroup, createInvitation, deactivateUser, deleteGoogleDriveCredential, deleteGroup, deleteSource, discoverGoogleDriveLinkedDocuments, finalizeSourceUpload, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getSearchDocument, getSource, getSourceOperation, getSourceRun, initiateSourceUpload, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listInvitations, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, type Options, reindexSourceItem, removeGroupManager, removeGroupMember, removeSourceItem, renameGroup, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceUserGroups, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, searchDocuments, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, updateGoogleDriveSchedule, updateSourceGroups } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameGroupData, RenameGroupResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SearchDocumentsData, SearchDocumentsResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse } from '../types.gen';
 
 /**
  * Update the automatic Google Drive sync interval
@@ -30,6 +30,57 @@ export const replaceGoogleDriveRootsMutation = (options?: Partial<Options<Replac
     const mutationOptions: UseMutationOptions<ReplaceGoogleDriveRootsResponse, DefaultError, Options<ReplaceGoogleDriveRootsData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await replaceGoogleDriveRoots({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace a user's ordinary Group memberships
+ */
+export const replaceUserGroupsMutation = (options?: Partial<Options<ReplaceUserGroupsData>>): UseMutationOptions<ReplaceUserGroupsResponse, ReplaceUserGroupsError, Options<ReplaceUserGroupsData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceUserGroupsResponse, ReplaceUserGroupsError, Options<ReplaceUserGroupsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceUserGroups({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Deactivate an existing Tenant member
+ */
+export const deactivateUserMutation = (options?: Partial<Options<DeactivateUserData>>): UseMutationOptions<DeactivateUserResponse, DeactivateUserError, Options<DeactivateUserData>> => {
+    const mutationOptions: UseMutationOptions<DeactivateUserResponse, DeactivateUserError, Options<DeactivateUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deactivateUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Activate an existing Tenant member
+ */
+export const activateUserMutation = (options?: Partial<Options<ActivateUserData>>): UseMutationOptions<ActivateUserResponse, ActivateUserError, Options<ActivateUserData>> => {
+    const mutationOptions: UseMutationOptions<ActivateUserResponse, ActivateUserError, Options<ActivateUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await activateUser({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -98,6 +149,74 @@ export const reindexSourceItemMutation = (options?: Partial<Options<ReindexSourc
     const mutationOptions: UseMutationOptions<ReindexSourceItemResponse, DefaultError, Options<ReindexSourceItemData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await reindexSourceItem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export type QueryKey<TOptions extends Options> = [
+    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
+        _id: string;
+        _infinite?: boolean;
+        tags?: ReadonlyArray<string>;
+    }
+];
+
+const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
+    QueryKey<TOptions>[0]
+] => {
+    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
+    if (infinite) {
+        params._infinite = infinite;
+    }
+    if (tags) {
+        params.tags = tags;
+    }
+    if (options?.body) {
+        params.body = options.body;
+    }
+    if (options?.headers) {
+        params.headers = options.headers;
+    }
+    if (options?.path) {
+        params.path = options.path;
+    }
+    if (options?.query) {
+        params.query = options.query;
+    }
+    return [params];
+};
+
+export const listSourceGroupsQueryKey = (options: Options<ListSourceGroupsData>) => createQueryKey('listSourceGroups', options);
+
+/**
+ * List groups associated with one source
+ */
+export const listSourceGroupsOptions = (options: Options<ListSourceGroupsData>) => queryOptions<ListSourceGroupsResponse, DefaultError, ListSourceGroupsResponse, ReturnType<typeof listSourceGroupsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourceGroups({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourceGroupsQueryKey(options)
+});
+
+/**
+ * Replace groups associated with one source
+ */
+export const updateSourceGroupsMutation = (options?: Partial<Options<UpdateSourceGroupsData>>): UseMutationOptions<UpdateSourceGroupsResponse, DefaultError, Options<UpdateSourceGroupsData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSourceGroupsResponse, DefaultError, Options<UpdateSourceGroupsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSourceGroups({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -193,43 +312,27 @@ export const createFileSourceMutation = (options?: Partial<Options<CreateFileSou
     return mutationOptions;
 };
 
-export type QueryKey<TOptions extends Options> = [
-    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
-        _id: string;
-        _infinite?: boolean;
-        tags?: ReadonlyArray<string>;
-    }
-];
-
-const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
-    QueryKey<TOptions>[0]
-] => {
-    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
-    if (infinite) {
-        params._infinite = infinite;
-    }
-    if (tags) {
-        params.tags = tags;
-    }
-    if (options?.body) {
-        params.body = options.body;
-    }
-    if (options?.headers) {
-        params.headers = options.headers;
-    }
-    if (options?.path) {
-        params.path = options.path;
-    }
-    if (options?.query) {
-        params.query = options.query;
-    }
-    return [params];
+/**
+ * Search current documents with keyword and semantic retrieval
+ */
+export const searchDocumentsMutation = (options?: Partial<Options<SearchDocumentsData>>): UseMutationOptions<SearchDocumentsResponse, DefaultError, Options<SearchDocumentsData>> => {
+    const mutationOptions: UseMutationOptions<SearchDocumentsResponse, DefaultError, Options<SearchDocumentsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await searchDocuments({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };
 
 export const listInvitationsQueryKey = (options?: Options<ListInvitationsData>) => createQueryKey('listInvitations', options);
 
 /**
- * List the current owner's Tenant invitations
+ * List Tenant invitations manageable by the current IAM administrator
  */
 export const listInvitationsOptions = (options?: Options<ListInvitationsData>) => queryOptions<ListInvitationsResponse, ListInvitationsError, ListInvitationsResponse, ReturnType<typeof listInvitationsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -276,7 +379,7 @@ const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'hea
 export const listInvitationsInfiniteQueryKey = (options?: Options<ListInvitationsData>): QueryKey<Options<ListInvitationsData>> => createQueryKey('listInvitations', options, true);
 
 /**
- * List the current owner's Tenant invitations
+ * List Tenant invitations manageable by the current IAM administrator
  */
 export const listInvitationsInfiniteOptions = (options?: Options<ListInvitationsData>) => {
     const opts = infiniteQueryOptions<ListInvitationsResponse, ListInvitationsError, InfiniteData<ListInvitationsResponse>, QueryKey<Options<ListInvitationsData>>, number | Pick<QueryKey<Options<ListInvitationsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -354,6 +457,238 @@ export const revokeInvitationMutation = (options?: Partial<Options<RevokeInvitat
     return mutationOptions;
 };
 
+export const listGroupsQueryKey = (options?: Options<ListGroupsData>) => createQueryKey('listGroups', options);
+
+/**
+ * List Groups visible to the current actor
+ */
+export const listGroupsOptions = (options?: Options<ListGroupsData>) => queryOptions<ListGroupsResponse, ListGroupsError, ListGroupsResponse, ReturnType<typeof listGroupsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGroups({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGroupsQueryKey(options)
+});
+
+export const listGroupsInfiniteQueryKey = (options?: Options<ListGroupsData>): QueryKey<Options<ListGroupsData>> => createQueryKey('listGroups', options, true);
+
+/**
+ * List Groups visible to the current actor
+ */
+export const listGroupsInfiniteOptions = (options?: Options<ListGroupsData>) => {
+    const opts = infiniteQueryOptions<ListGroupsResponse, ListGroupsError, InfiniteData<ListGroupsResponse>, QueryKey<Options<ListGroupsData>>, number | Pick<QueryKey<Options<ListGroupsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListGroupsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listGroups({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listGroupsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Create an ordinary Group
+ */
+export const createGroupMutation = (options?: Partial<Options<CreateGroupData>>): UseMutationOptions<CreateGroupResponse, DefaultError, Options<CreateGroupData>> => {
+    const mutationOptions: UseMutationOptions<CreateGroupResponse, DefaultError, Options<CreateGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Rename an ordinary Group
+ */
+export const renameGroupMutation = (options?: Partial<Options<RenameGroupData>>): UseMutationOptions<RenameGroupResponse, DefaultError, Options<RenameGroupData>> => {
+    const mutationOptions: UseMutationOptions<RenameGroupResponse, DefaultError, Options<RenameGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await renameGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listGroupMembersQueryKey = (options: Options<ListGroupMembersData>) => createQueryKey('listGroupMembers', options);
+
+/**
+ * List members of one visible Group
+ */
+export const listGroupMembersOptions = (options: Options<ListGroupMembersData>) => queryOptions<ListGroupMembersResponse, DefaultError, ListGroupMembersResponse, ReturnType<typeof listGroupMembersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGroupMembers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGroupMembersQueryKey(options)
+});
+
+export const listGroupMembersInfiniteQueryKey = (options: Options<ListGroupMembersData>): QueryKey<Options<ListGroupMembersData>> => createQueryKey('listGroupMembers', options, true);
+
+/**
+ * List members of one visible Group
+ */
+export const listGroupMembersInfiniteOptions = (options: Options<ListGroupMembersData>) => {
+    const opts = infiniteQueryOptions<ListGroupMembersResponse, DefaultError, InfiniteData<ListGroupMembersResponse>, QueryKey<Options<ListGroupMembersData>>, number | Pick<QueryKey<Options<ListGroupMembersData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListGroupMembersData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listGroupMembers({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listGroupMembersInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Add Tenant members to a Group
+ */
+export const addGroupMembersMutation = (options?: Partial<Options<AddGroupMembersData>>): UseMutationOptions<AddGroupMembersResponse, DefaultError, Options<AddGroupMembersData>> => {
+    const mutationOptions: UseMutationOptions<AddGroupMembersResponse, DefaultError, Options<AddGroupMembersData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addGroupMembers({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove one member from a Group
+ */
+export const removeGroupMemberMutation = (options?: Partial<Options<RemoveGroupMemberData>>): UseMutationOptions<RemoveGroupMemberResponse, DefaultError, Options<RemoveGroupMemberData>> => {
+    const mutationOptions: UseMutationOptions<RemoveGroupMemberResponse, DefaultError, Options<RemoveGroupMemberData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeGroupMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove a manager from an ordinary Group
+ */
+export const removeGroupManagerMutation = (options?: Partial<Options<RemoveGroupManagerData>>): UseMutationOptions<RemoveGroupManagerResponse, DefaultError, Options<RemoveGroupManagerData>> => {
+    const mutationOptions: UseMutationOptions<RemoveGroupManagerResponse, DefaultError, Options<RemoveGroupManagerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeGroupManager({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Assign a manager to an ordinary Group
+ */
+export const assignGroupManagerMutation = (options?: Partial<Options<AssignGroupManagerData>>): UseMutationOptions<AssignGroupManagerResponse, DefaultError, Options<AssignGroupManagerData>> => {
+    const mutationOptions: UseMutationOptions<AssignGroupManagerResponse, DefaultError, Options<AssignGroupManagerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await assignGroupManager({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete an ordinary Group
+ */
+export const deleteGroupMutation = (options?: Partial<Options<DeleteGroupData>>): UseMutationOptions<DeleteGroupResponse, DefaultError, Options<DeleteGroupData>> => {
+    const mutationOptions: UseMutationOptions<DeleteGroupResponse, DefaultError, Options<DeleteGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace an ordinary Group's explicit capability grants
+ */
+export const replaceGroupCapabilitiesMutation = (options?: Partial<Options<ReplaceGroupCapabilitiesData>>): UseMutationOptions<ReplaceGroupCapabilitiesResponse, DefaultError, Options<ReplaceGroupCapabilitiesData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceGroupCapabilitiesResponse, DefaultError, Options<ReplaceGroupCapabilitiesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceGroupCapabilities({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 /**
  * Revoke a shared Google Drive credential and disconnect all attached Sources
  */
@@ -386,6 +721,54 @@ export const startGoogleDriveAuthorizationMutation = (options?: Partial<Options<
         }
     };
     return mutationOptions;
+};
+
+export const listUsersQueryKey = (options?: Options<ListUsersData>) => createQueryKey('listUsers', options);
+
+/**
+ * List users manageable by the current IAM administrator
+ */
+export const listUsersOptions = (options?: Options<ListUsersData>) => queryOptions<ListUsersResponse, ListUsersError, ListUsersResponse, ReturnType<typeof listUsersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listUsers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listUsersQueryKey(options)
+});
+
+export const listUsersInfiniteQueryKey = (options?: Options<ListUsersData>): QueryKey<Options<ListUsersData>> => createQueryKey('listUsers', options, true);
+
+/**
+ * List users manageable by the current IAM administrator
+ */
+export const listUsersInfiniteOptions = (options?: Options<ListUsersData>) => {
+    const opts = infiniteQueryOptions<ListUsersResponse, ListUsersError, InfiniteData<ListUsersResponse>, QueryKey<Options<ListUsersData>>, number | Pick<QueryKey<Options<ListUsersData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListUsersData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listUsers({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listUsersInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
 };
 
 export const listSourcesQueryKey = (options?: Options<ListSourcesData>) => createQueryKey('listSources', options);
@@ -766,6 +1149,54 @@ export const getGoogleDriveSelectionDraftOptions = (options: Options<GetGoogleDr
     queryKey: getGoogleDriveSelectionDraftQueryKey(options)
 });
 
+export const listSourceGroupOptionsQueryKey = (options?: Options<ListSourceGroupOptionsData>) => createQueryKey('listSourceGroupOptions', options);
+
+/**
+ * List groups available for source association
+ */
+export const listSourceGroupOptionsOptions = (options?: Options<ListSourceGroupOptionsData>) => queryOptions<ListSourceGroupOptionsResponse, DefaultError, ListSourceGroupOptionsResponse, ReturnType<typeof listSourceGroupOptionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourceGroupOptions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourceGroupOptionsQueryKey(options)
+});
+
+export const listSourceGroupOptionsInfiniteQueryKey = (options?: Options<ListSourceGroupOptionsData>): QueryKey<Options<ListSourceGroupOptionsData>> => createQueryKey('listSourceGroupOptions', options, true);
+
+/**
+ * List groups available for source association
+ */
+export const listSourceGroupOptionsInfiniteOptions = (options?: Options<ListSourceGroupOptionsData>) => {
+    const opts = infiniteQueryOptions<ListSourceGroupOptionsResponse, DefaultError, InfiniteData<ListSourceGroupOptionsResponse>, QueryKey<Options<ListSourceGroupOptionsData>>, number | Pick<QueryKey<Options<ListSourceGroupOptionsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListSourceGroupOptionsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listSourceGroupOptions({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listSourceGroupOptionsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
 export const getGoogleDriveSelectionRequestQueryKey = (options: Options<GetGoogleDriveSelectionRequestData>) => createQueryKey('getGoogleDriveSelectionRequest', options);
 
 /**
@@ -820,6 +1251,24 @@ export const getSourceOperationOptions = (options: Options<GetSourceOperationDat
     queryKey: getSourceOperationQueryKey(options)
 });
 
+export const getSearchDocumentQueryKey = (options: Options<GetSearchDocumentData>) => createQueryKey('getSearchDocument', options);
+
+/**
+ * Read current document passages around a search result
+ */
+export const getSearchDocumentOptions = (options: Options<GetSearchDocumentData>) => queryOptions<GetSearchDocumentResponse, DefaultError, GetSearchDocumentResponse, ReturnType<typeof getSearchDocumentQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSearchDocument({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSearchDocumentQueryKey(options)
+});
+
 export const getCurrentInvitationQueryKey = (options?: Options<GetCurrentInvitationData>) => createQueryKey('getCurrentInvitation', options);
 
 /**
@@ -856,6 +1305,108 @@ export const getCurrentIdentityOptions = (options?: Options<GetCurrentIdentityDa
         return data;
     },
     queryKey: getCurrentIdentityQueryKey(options)
+});
+
+export const getGroupQueryKey = (options: Options<GetGroupData>) => createQueryKey('getGroup', options);
+
+/**
+ * Get one visible Group
+ */
+export const getGroupOptions = (options: Options<GetGroupData>) => queryOptions<GetGroupResponse, DefaultError, GetGroupResponse, ReturnType<typeof getGroupQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGroup({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGroupQueryKey(options)
+});
+
+export const listGroupSourcesQueryKey = (options: Options<ListGroupSourcesData>) => createQueryKey('listGroupSources', options);
+
+/**
+ * List sources associated with one group
+ */
+export const listGroupSourcesOptions = (options: Options<ListGroupSourcesData>) => queryOptions<ListGroupSourcesResponse, DefaultError, ListGroupSourcesResponse, ReturnType<typeof listGroupSourcesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGroupSources({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGroupSourcesQueryKey(options)
+});
+
+export const listGroupCandidatesQueryKey = (options: Options<ListGroupCandidatesData>) => createQueryKey('listGroupCandidates', options);
+
+/**
+ * List Tenant members eligible to join a Group
+ */
+export const listGroupCandidatesOptions = (options: Options<ListGroupCandidatesData>) => queryOptions<ListGroupCandidatesResponse, DefaultError, ListGroupCandidatesResponse, ReturnType<typeof listGroupCandidatesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGroupCandidates({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGroupCandidatesQueryKey(options)
+});
+
+export const listGroupCandidatesInfiniteQueryKey = (options: Options<ListGroupCandidatesData>): QueryKey<Options<ListGroupCandidatesData>> => createQueryKey('listGroupCandidates', options, true);
+
+/**
+ * List Tenant members eligible to join a Group
+ */
+export const listGroupCandidatesInfiniteOptions = (options: Options<ListGroupCandidatesData>) => {
+    const opts = infiniteQueryOptions<ListGroupCandidatesResponse, DefaultError, InfiniteData<ListGroupCandidatesResponse>, QueryKey<Options<ListGroupCandidatesData>>, number | Pick<QueryKey<Options<ListGroupCandidatesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListGroupCandidatesData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listGroupCandidates({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listGroupCandidatesInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const listGroupCapabilitiesQueryKey = (options?: Options<ListGroupCapabilitiesData>) => createQueryKey('listGroupCapabilities', options);
+
+/**
+ * List the server-owned Group capability registry
+ */
+export const listGroupCapabilitiesOptions = (options?: Options<ListGroupCapabilitiesData>) => queryOptions<ListGroupCapabilitiesResponse, DefaultError, ListGroupCapabilitiesResponse, ReturnType<typeof listGroupCapabilitiesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGroupCapabilities({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGroupCapabilitiesQueryKey(options)
 });
 
 export const listGoogleDriveCredentialsQueryKey = (options?: Options<ListGoogleDriveCredentialsData>) => createQueryKey('listGoogleDriveCredentials', options);

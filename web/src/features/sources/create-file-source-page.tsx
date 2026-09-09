@@ -17,6 +17,7 @@ import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload"
 import { sourceMutationError } from "./source-errors";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { SourceSetupSteps } from "./source-setup-steps";
+import { SourceGroupPicker } from "./source-group-picker";
 
 export function CreateFileSourcePage() {
   const queryClient = useQueryClient();
@@ -27,6 +28,8 @@ export function CreateFileSourcePage() {
   const finalizeUpload = useMutation(finalizeSourceUploadMutation());
   const { pendingFinalize, setPendingFinalize } = useSourceUploadRecovery();
   const [sourceName, setSourceName] = useState("");
+  const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [uploadAccepted, setUploadAccepted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -87,7 +90,10 @@ export function CreateFileSourcePage() {
         if (!targetId) {
           setPhase("Creating source…");
           const created = await createSource.mutateAsync({
-            body: { name: sourceName.trim() },
+            body: {
+              name: sourceName.trim(),
+              groupIds: groupIds.size > 0 ? [...groupIds] : undefined,
+            },
             headers: sameOriginMutationHeaders,
             signal: controller.signal,
           });
@@ -196,6 +202,40 @@ export function CreateFileSourcePage() {
               className="mt-2"
             />
           </div>
+          <details
+            open={groupPickerOpen}
+            onToggle={(event) => setGroupPickerOpen(event.currentTarget.open)}
+            className="rounded-xl border border-border-subtle bg-surface-raised"
+          >
+            <summary className="cursor-pointer list-none rounded-xl px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30 sm:px-5">
+              <span className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="block font-secondary-action text-content-primary">
+                    Access groups
+                  </span>
+                  <span className="mt-0.5 block font-secondary-body text-content-muted">
+                    Optional · defaults to the protected Admin group
+                  </span>
+                </span>
+                <span className="font-secondary-body tabular-nums text-content-muted">
+                  {groupIds.size > 0 ? `${groupIds.size} selected` : "Default"}
+                </span>
+              </span>
+            </summary>
+            {groupPickerOpen ? (
+              <div className="border-t border-border-subtle p-4 sm:p-5">
+                <SourceGroupPicker
+                  selected={groupIds}
+                  disabled={busy || Boolean(sourceId)}
+                  onChange={setGroupIds}
+                />
+                <p className="mt-3 font-secondary-body text-content-muted">
+                  Leave the selection empty to associate the new Source with the protected Admin
+                  group.
+                </p>
+              </div>
+            ) : null}
+          </details>
           <div>
             <span className="font-secondary-action text-content-primary">File</span>
             <div
@@ -267,7 +307,7 @@ export function CreateFileSourcePage() {
             ) : null}
           </div>
           <p className="font-secondary-body text-content-muted">
-            Available to members of your tenant.
+            Source management visibility follows the selected group associations.
           </p>
           {error ? (
             <p

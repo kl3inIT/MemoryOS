@@ -7,7 +7,7 @@ import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.util.Arrays;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;

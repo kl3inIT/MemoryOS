@@ -1,0 +1,38 @@
+_meta:
+  type: config
+  config_version: 2
+config:
+  dynamic:
+    kibana:
+      multitenancy_enabled: true
+      private_tenant_enabled: false
+      default_tenant: global tenant
+      server_username: memoryos-dashboards
+      index: .kibana
+    http:
+      anonymous_auth_enabled: false
+    authc:
+      basic_internal_auth_domain:
+        http_enabled: true
+        transport_enabled: true
+        order: 0
+        http_authenticator:
+          type: basic
+          challenge: false
+        authentication_backend:
+          type: intern
+      openid_auth_domain:
+        http_enabled: true
+        transport_enabled: false
+        order: 1
+        http_authenticator:
+          type: openid
+          challenge: false
+          config:
+            subject_key: sub
+            roles_key: memoryos_roles
+            required_audience: memoryos-opensearch-dashboards
+            required_issuer: __OIDC_ISSUER__
+            openid_connect_url: __OIDC_ISSUER__/.well-known/openid-configuration
+        authentication_backend:
+          type: noop

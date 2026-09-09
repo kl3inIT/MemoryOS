@@ -21,8 +21,10 @@ import { GoogleDrivePanel } from "./google-drive-panel";
 vi.mock("./google-drive-authorization", () => ({ launchGoogleDriveAuthorization: vi.fn() }));
 const owner: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  authorizationVersion: 1,
   tenant: { displayName: "Team", role: "OWNER" },
-  capabilities: ["SOURCES_MANAGE"],
+  capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+  scopedCapabilities: [],
 };
 const source: SourceSummary = {
   id: "46337ebd-a134-41de-b322-196cd9be22c4",
@@ -34,6 +36,7 @@ const source: SourceSummary = {
   documentCount: 0,
   lastSucceededAt: null,
   errorCode: null,
+  actions: ["reindex", "remove_items", "delete", "manage_groups"],
 };
 const firstLink = "https://drive.google.com/file/d/file-a/view";
 const secondLink = "https://drive.google.com/file/d/file-b/view";
@@ -348,6 +351,24 @@ async function edit(user: UserEvent) {
 }
 
 describe("Google Drive enterprise selection", () => {
+  it("withdraws cached Drive administration when a user retains only scoped source authority", async () => {
+    const server = setup();
+    await screen.findByRole("button", { name: "Synchronize now" });
+
+    server.changeSession({
+      ...owner,
+      authorizationVersion: 2,
+      capabilities: [],
+      scopedCapabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+    });
+
+    expect(
+      screen.queryByRole("region", { name: "Google Drive configuration" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Synchronize now" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Source summary")).toBeVisible();
+  });
+
   it("loads the full draft separately and preserves hidden approvals through cursor pages and search", async () => {
     const user = userEvent.setup();
     const server = setup();

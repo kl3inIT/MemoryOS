@@ -22,12 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
-@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
@@ -49,10 +44,6 @@ import org.testcontainers.utility.DockerImageName;
         "MEMORYOS_RELEASE=telemetry-contract-test"
 })
 class StagingTelemetryIntegrationTest {
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
-            .asCompatibleSubstituteFor("postgres"));
 
     private record Export(String path, byte[] body) {}
     private static final List<Export> EXPORTS = new CopyOnWriteArrayList<>();
@@ -71,9 +62,6 @@ class StagingTelemetryIntegrationTest {
 
     @DynamicPropertySource
     static void telemetry(DynamicPropertyRegistry properties) {
-        properties.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        properties.add("spring.datasource.username", POSTGRES::getUsername);
-        properties.add("spring.datasource.password", POSTGRES::getPassword);
         properties.add("MEMORYOS_OTLP_BASE_URL", () -> "http://127.0.0.1:" + COLLECTOR.getAddress().getPort());
         properties.add("MEMORYOS_RELEASE", () -> "telemetry-contract-test");
     }
@@ -81,7 +69,7 @@ class StagingTelemetryIntegrationTest {
     @Test
     void exportsCorrelatedStructuredLogAndTraceAndMetrics(org.springframework.boot.test.system.CapturedOutput output) {
         var span = tracer.nextSpan().name("memoryos.telemetry.contract").start();
-        try (var scope = tracer.withSpan(span)) {
+        try (var _ = tracer.withSpan(span)) {
             LoggerFactory.getLogger(getClass()).atInfo().addKeyValue("event", "telemetry.contract")
                     .addKeyValue("operation_id", "contract-operation").log("Telemetry contract event");
             org.springframework.web.client.RestClient.builder().observationRegistry(observations).build().get().uri("http://127.0.0.1:" + COLLECTOR.getAddress().getPort() + "/echo").retrieve().toBodilessEntity();
@@ -92,7 +80,7 @@ class StagingTelemetryIntegrationTest {
         assertThat(org.springframework.web.client.RestClient.create("http://127.0.0.1:" + port)
                 .get().uri("/actuator/health").retrieve().toBodilessEntity().getStatusCode().value()).isEqualTo(200);
         int identityStatus = org.springframework.web.client.RestClient.create("http://127.0.0.1:" + port)
-                .get().uri("/api/identity/me").exchange((request, response) -> response.getStatusCode().value());
+                .get().uri("/api/identity/me").exchange((_, response) -> response.getStatusCode().value());
         assertThat(identityStatus).isEqualTo(401);
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
             assertThat(text("/v1/logs")).contains("Telemetry contract event", "telemetry.contract", "contract-operation");
@@ -188,6 +176,7 @@ class StagingTelemetryIntegrationTest {
     }
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");

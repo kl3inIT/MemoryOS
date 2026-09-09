@@ -10,7 +10,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 public final class GoogleDriveCredentialCipher {
 

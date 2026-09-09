@@ -4,21 +4,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.UUID;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -26,20 +21,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class GoogleDriveOAuthClientMigrationTest {
     @Test
     void legacyGrantsLoseAuthorityWhileSourceRootsDocumentsAndFileWorkSurvive() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres();
+        try (var dataSource = TestDatabase.freshPostgres("20");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                String schema = "legacy_" + UUID.randomUUID().toString().replace("-", "");
-                try (var statement = connection.createStatement()) {
-                    statement.execute("CREATE SCHEMA " + schema);
-                    statement.execute("SET LOCAL search_path TO " + schema);
-                }
-                Resource[] migrations = Arrays.stream(new PathMatchingResourcePatternResolver()
-                                .getResources("classpath:db/migration/V*.sql"))
-                        .filter(resource -> version(resource) <= 15)
-                        .sorted(Comparator.comparingInt(GoogleDriveOAuthClientMigrationTest::version)).toArray(Resource[]::new);
-                new ResourceDatabasePopulator(migrations).populate(connection);
                 var jdbc = JdbcClient.create(new SingleConnectionDataSource(connection, true));
                 UUID tenant = UUID.randomUUID();
                 UUID drive = UUID.randomUUID();
@@ -60,7 +45,9 @@ class GoogleDriveOAuthClientMigrationTest {
                         "INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision, generation, full_scan, status, claim_token, delivery_id) VALUES (:id, :t, :id, 1, 1, 1, TRUE, 'IN_PROGRESS', :id, :id)"}) {
                     jdbc.sql(sql).param("t", tenant).param("id", drive).update();
                 }
-                new ResourceDatabasePopulator(new ClassPathResource("db/migration/V16__require_owner_google_oauth_client.sql")).populate(connection);
+                connection.commit();
+                Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                        .target("21").load().migrate();
 
                 var credential = jdbc.sql("SELECT * FROM google_drive_credentials").query().singleRow();
                 assertEquals("NEEDS_REAUTHORIZATION", credential.get("connection_status"));
@@ -95,19 +82,10 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void reusableCredentialMigrationPreservesEncryptedAuthorityAndAllSourceData() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres();
+        try (var dataSource = TestDatabase.freshPostgres("22");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                String schema = "reusable_" + UUID.randomUUID().toString().replace("-", "");
-                try (var statement = connection.createStatement()) {
-                    statement.execute("CREATE SCHEMA " + schema);
-                    statement.execute("SET LOCAL search_path TO " + schema);
-                }
-                Resource[] migrations = Arrays.stream(new PathMatchingResourcePatternResolver().getResources("classpath:db/migration/V*.sql"))
-                        .filter(resource -> version(resource) <= 17)
-                        .sorted(Comparator.comparingInt(GoogleDriveOAuthClientMigrationTest::version)).toArray(Resource[]::new);
-                new ResourceDatabasePopulator(migrations).populate(connection);
                 var jdbc = JdbcClient.create(new SingleConnectionDataSource(connection, true));
                 UUID tenant = UUID.randomUUID();
                 UUID drive = UUID.randomUUID();
@@ -146,7 +124,9 @@ class GoogleDriveOAuthClientMigrationTest {
                     snapshots.put(table, jdbc.sql("SELECT row_to_json(r)::text FROM " + table + " r ORDER BY row_to_json(r)::text")
                             .query(String.class).list());
                 }
-                new ResourceDatabasePopulator(new ClassPathResource("db/migration/V18__reuse_google_drive_credentials.sql")).populate(connection);
+                connection.commit();
+                Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                        .target("23").load().migrate();
                 for (var snapshot : snapshots.entrySet()) {
                     assertEquals(snapshot.getValue(), jdbc.sql("SELECT row_to_json(r)::text FROM " + snapshot.getKey() + " r ORDER BY row_to_json(r)::text")
                             .query(String.class).list(), snapshot.getKey());
@@ -182,19 +162,10 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void scheduleMigrationPreservesDueTimestampsAndEnforcesPositiveStoredValues() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres();
+        try (var dataSource = TestDatabase.freshPostgres("23");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                String schema = "schedule_" + UUID.randomUUID().toString().replace("-", "");
-                try (var statement = connection.createStatement()) {
-                    statement.execute("CREATE SCHEMA " + schema);
-                    statement.execute("SET LOCAL search_path TO " + schema);
-                }
-                Resource[] migrations = Arrays.stream(new PathMatchingResourcePatternResolver().getResources("classpath:db/migration/V*.sql"))
-                        .filter(resource -> version(resource) <= 18)
-                        .sorted(Comparator.comparingInt(GoogleDriveOAuthClientMigrationTest::version)).toArray(Resource[]::new);
-                new ResourceDatabasePopulator(migrations).populate(connection);
                 var jdbc = JdbcClient.create(new SingleConnectionDataSource(connection, true));
                 UUID tenant = UUID.randomUUID();
                 UUID source = UUID.randomUUID();
@@ -212,7 +183,9 @@ class GoogleDriveOAuthClientMigrationTest {
                         """).param("id", source).param("t", tenant).update();
                 String before = jdbc.sql("SELECT to_jsonb(s)::text FROM google_drive_sources s").query(String.class).single();
 
-                new ResourceDatabasePopulator(new ClassPathResource("db/migration/V19__add_google_drive_sync_interval.sql")).populate(connection);
+                connection.commit();
+                Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                        .target("24").load().migrate();
 
                 assertEquals(before, jdbc.sql("SELECT (to_jsonb(s) - 'sync_interval_minutes' - 'schedule_revision')::text FROM google_drive_sources s")
                         .query(String.class).single());
@@ -243,19 +216,10 @@ class GoogleDriveOAuthClientMigrationTest {
 
     @Test
     void scopeMigrationDefaultsExistingSelectionsToSpecificWithoutChangingDataOrSchedules() throws Exception {
-        try (var dataSource = TestDatabase.freshPostgres();
+        try (var dataSource = TestDatabase.freshPostgres("22");
              var connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                String schema = "scope_" + UUID.randomUUID().toString().replace("-", "");
-                try (var statement = connection.createStatement()) {
-                    statement.execute("CREATE SCHEMA " + schema);
-                    statement.execute("SET LOCAL search_path TO " + schema);
-                }
-                Resource[] migrations = Arrays.stream(new PathMatchingResourcePatternResolver().getResources("classpath:db/migration/V*.sql"))
-                        .filter(resource -> version(resource) <= 17)
-                        .sorted(Comparator.comparingInt(GoogleDriveOAuthClientMigrationTest::version)).toArray(Resource[]::new);
-                new ResourceDatabasePopulator(migrations).populate(connection);
                 var jdbc = JdbcClient.create(new SingleConnectionDataSource(connection, true));
                 UUID tenant = UUID.randomUUID();
                 UUID source = UUID.randomUUID();
@@ -268,9 +232,9 @@ class GoogleDriveOAuthClientMigrationTest {
                             granted_scopes, connection_status, credential_revision, payload_revision)
                         VALUES (:t, :id, 'preserved-account', 'owner@example.test', 'openid', 'REVOKED', 7, 11)
                         """).param("t", tenant).param("id", source).update();
-                new ResourceDatabasePopulator(
-                        new ClassPathResource("db/migration/V18__reuse_google_drive_credentials.sql"),
-                        new ClassPathResource("db/migration/V19__add_google_drive_sync_interval.sql")).populate(connection);
+                connection.commit();
+                Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                        .target("24").load().migrate();
                 jdbc.sql("""
                         INSERT INTO google_drive_sources (tenant_id, source_id, revision, generation, sync_interval_minutes,
                             schedule_revision, next_sync_at, last_synced_at)
@@ -295,7 +259,9 @@ class GoogleDriveOAuthClientMigrationTest {
                 }
                 String sourceBefore = jdbc.sql("SELECT to_jsonb(s)::text FROM google_drive_sources s").query(String.class).single();
 
-                new ResourceDatabasePopulator(new ClassPathResource("db/migration/V20__add_google_drive_scope_mode.sql")).populate(connection);
+                connection.commit();
+                Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+                        .target("25").load().migrate();
 
                 assertEquals(sourceBefore, jdbc.sql("SELECT (to_jsonb(s) - 'scope_mode')::text FROM google_drive_sources s").query(String.class).single());
                 for (var snapshot : snapshots.entrySet()) {
@@ -313,11 +279,6 @@ class GoogleDriveOAuthClientMigrationTest {
                 assertEquals("GENERAL", jdbc.sql("SELECT scope_mode FROM google_drive_sources").query(String.class).single());
             } finally { connection.rollback(); }
         }
-    }
-
-    private static int version(Resource resource) {
-        String filename = resource.getFilename();
-        return Integer.parseInt(filename.substring(1, filename.indexOf("__")));
     }
 
     private static void seedSource(JdbcClient jdbc, UUID tenant, UUID id, boolean drive) {

@@ -1,6 +1,6 @@
 package io.memoryos.document.persistence;
 
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -30,13 +30,15 @@ public class JdbcExtractionArtifactRepository {
                       AND (a.cleanup_until IS NULL OR a.cleanup_until<CURRENT_TIMESTAMP)
                       AND NOT EXISTS (SELECT 1 FROM documents v
                           WHERE v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id)
+                      AND NOT EXISTS (SELECT 1 FROM document_artifact_readers r
+                          WHERE r.tenant_id=a.tenant_id AND r.artifact_id=a.id AND r.expires_at>CURRENT_TIMESTAMP)
                     ORDER BY a.expires_at LIMIT 20 FOR UPDATE SKIP LOCKED
                 )
                 UPDATE document_extraction_artifacts a SET state='DELETING',cleanup_token=:token,
                     cleanup_until=CURRENT_TIMESTAMP + INTERVAL '2' MINUTE
                 FROM candidates c WHERE a.tenant_id=c.tenant_id AND a.id=c.id
                 RETURNING a.tenant_id,a.id,a.object_key,a.cleanup_token
-                """).param("token", token).query((rs, row) -> new CleanupArtifact(
+                """).param("token", token).query((rs, _) -> new CleanupArtifact(
                         new TenantId(rs.getObject("tenant_id", UUID.class)), rs.getObject("id", UUID.class),
                         rs.getString("object_key"), rs.getObject("cleanup_token", UUID.class))).list();
     }

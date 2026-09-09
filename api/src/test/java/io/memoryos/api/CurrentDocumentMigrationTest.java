@@ -11,11 +11,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-@Testcontainers(disabledWithoutDocker = true)
+// SQL is exercised against the isolated, migrated Testcontainers database.
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+@Testcontainers
 class CurrentDocumentMigrationTest {
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
+            "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382")
             .asCompatibleSubstituteFor("postgres"));
 
     @Test

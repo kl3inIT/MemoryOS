@@ -1,8 +1,10 @@
 package io.memoryos.api.source.contract;
 
+import io.memoryos.connector.SourceAction;
 import io.memoryos.connector.SourceSummary;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -27,8 +29,14 @@ public record SourceSummaryResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable Instant lastSucceededAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
-        @Nullable String errorCode
+        @Nullable String errorCode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+        List<String> actions
 ) {
+    public SourceSummaryResponse {
+        actions = List.copyOf(actions);
+    }
+
     public static SourceSummaryResponse from(SourceSummary source) {
         return new SourceSummaryResponse(
                 source.id().value(),
@@ -39,7 +47,10 @@ public record SourceSummaryResponse(
                 source.pendingWork(),
                 source.documentCount(),
                 source.lastSucceededAt(),
-                source.errorCode()
+                source.errorCode(),
+                source.actions().stream()
+                        .map(SourceAction::token)
+                        .toList()
         );
     }
 }

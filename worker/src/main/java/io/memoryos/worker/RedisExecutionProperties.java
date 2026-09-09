@@ -1,10 +1,8 @@
 package io.memoryos.worker;
 
 import io.memoryos.ingestion.OperationWorkload;
-
 import java.time.Duration;
 import java.util.Objects;
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("memoryos.redis")
@@ -19,6 +17,7 @@ public record RedisExecutionProperties(
         long maxStreamDepth,
         Workload ingestion,
         Workload cleanup,
+        Workload search,
         Workload sourceSync,
         Workload selectionValidation
 ) {
@@ -38,6 +37,7 @@ public record RedisExecutionProperties(
         Objects.requireNonNull(cleanup, "cleanup must not be null");
         Objects.requireNonNull(sourceSync, "sourceSync must not be null");
         Objects.requireNonNull(selectionValidation, "selectionValidation must not be null");
+        Objects.requireNonNull(search, "search must not be null");
     }
 
     Workload workload(OperationWorkload workload) {
@@ -46,6 +46,7 @@ public record RedisExecutionProperties(
             case CLEANUP -> cleanup;
             case SOURCE_SYNC -> sourceSync;
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> selectionValidation;
+            case SEARCH -> search;
         };
     }
 

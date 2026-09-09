@@ -2,12 +2,13 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Menu,
-  House,
+  Search,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
   Settings2,
-  UserPlus,
+  ShieldCheck,
+  UsersRound,
   X,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -21,7 +22,7 @@ import { useAdminAccess } from "@/features/identity/application-session-context"
 import { cn } from "@/lib/utils";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "invitations";
+export type AdminPage = "sources" | "users" | "groups";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -95,7 +96,7 @@ function SidebarContents({
   mobile = false,
 }: SidebarContentsProps) {
   const appArea = area === "app";
-  const { canManageInvitations, canManageSources, canAccessAdmin, adminEntryPath } =
+  const { canManageUsers, canReadGroups, canReadSources, canAccessAdmin, adminEntryPath } =
     useAdminAccess();
 
   return (
@@ -171,29 +172,42 @@ function SidebarContents({
         ) : appArea ? (
           <SidebarTab
             to="/"
-            icon={<House className="size-4" />}
+            icon={<Search className="size-4" />}
             selected
             collapsed={collapsed}
             onClick={onNavigate}
           >
-            Home
+            Search
           </SidebarTab>
         ) : (
-          <div className="space-y-4">
-            {canManageInvitations ? (
+          <div className="space-y-5">
+            {canManageUsers || canReadGroups ? (
               <SidebarSection title="Tenant" collapsed={collapsed}>
-                <SidebarTab
-                  to="/admin/invitations"
-                  icon={<UserPlus className="size-4" />}
-                  selected={adminPage === "invitations"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  Invitations
-                </SidebarTab>
+                {canManageUsers ? (
+                  <SidebarTab
+                    to="/admin/users"
+                    icon={<UsersRound className="size-4" />}
+                    selected={adminPage === "users"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    Users
+                  </SidebarTab>
+                ) : null}
+                {canReadGroups ? (
+                  <SidebarTab
+                    to="/admin/groups"
+                    icon={<ShieldCheck className="size-4" />}
+                    selected={adminPage === "groups"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    Groups
+                  </SidebarTab>
+                ) : null}
               </SidebarSection>
             ) : null}
-            {canManageSources ? (
+            {canReadSources ? (
               <SidebarSection title="Knowledge" collapsed={collapsed}>
                 <SidebarTab
                   to="/admin"

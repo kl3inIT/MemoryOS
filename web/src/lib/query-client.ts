@@ -1,10 +1,11 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
-import { isUnauthenticated } from "@/lib/api";
+import { ApiError, isUnauthenticated } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
 
 const currentIdentityQueryKey = getCurrentIdentityQueryKey();
 const acceptedSessionFingerprints = new WeakMap<QueryClient, string>();
+const currentIdentityRefreshes = new WeakMap<QueryClient, Promise<void>>();
 
 export function createMemoryOsQueryClient() {
   let client: QueryClient;
@@ -14,17 +15,22 @@ export function createMemoryOsQueryClient() {
         const identityQuery = client
           .getQueryCache()
           .find({ queryKey: currentIdentityQueryKey, exact: true });
-        handleUnauthenticated(client, error, identityQuery === query);
+        handleAuthorizationFailure(client, error, identityQuery === query);
       },
     }),
     mutationCache: new MutationCache({
       onError: (error) => {
-        handleUnauthenticated(client, error, false);
+        handleAuthorizationFailure(client, error, false);
       },
     }),
     defaultOptions: {
       queries: {
-        retry: 1,
+        retry: (failureCount, error) => {
+          if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+            return false;
+          }
+          return failureCount < 1;
+        },
         staleTime: 30_000,
       },
     },
@@ -36,7 +42,9 @@ export function acceptCurrentIdentity(queryClient: QueryClient, identity: Curren
   const nextFingerprint = JSON.stringify([
     identity.actorId,
     identity.tenant?.role ?? null,
+    identity.authorizationVersion,
     [...identity.capabilities].sort(),
+    [...identity.scopedCapabilities].sort(),
   ]);
   const acceptedFingerprint = acceptedSessionFingerprints.get(queryClient);
   if (acceptedFingerprint !== undefined && acceptedFingerprint !== nextFingerprint) {
@@ -45,24 +53,52 @@ export function acceptCurrentIdentity(queryClient: QueryClient, identity: Curren
   acceptedSessionFingerprints.set(queryClient, nextFingerprint);
 }
 
-function handleUnauthenticated(
+function handleAuthorizationFailure(
   queryClient: QueryClient,
   error: unknown,
   currentIdentityFailed: boolean,
 ) {
-  if (!isUnauthenticated(error)) return;
-  acceptedSessionFingerprints.delete(queryClient);
-  purgePrivateClientState(queryClient);
-  if (!currentIdentityFailed) {
-    void queryClient.resetQueries({ queryKey: currentIdentityQueryKey, exact: true });
+  if (isUnauthenticated(error)) {
+    acceptedSessionFingerprints.delete(queryClient);
+    purgePrivateClientState(queryClient);
+    if (!currentIdentityFailed) {
+      void queryClient.resetQueries({ queryKey: currentIdentityQueryKey, exact: true });
+    }
+    return;
   }
+
+  if (
+    currentIdentityFailed ||
+    !(error instanceof ApiError) ||
+    error.status !== 403 ||
+    currentIdentityRefreshes.has(queryClient)
+  ) {
+    return;
+  }
+
+  const refresh = queryClient
+    .invalidateQueries({
+      queryKey: currentIdentityQueryKey,
+      exact: true,
+      refetchType: "active",
+    })
+    .catch(() => undefined);
+  currentIdentityRefreshes.set(queryClient, refresh);
+  void refresh.finally(() => {
+    if (currentIdentityRefreshes.get(queryClient) === refresh) {
+      currentIdentityRefreshes.delete(queryClient);
+    }
+  });
 }
 
 function purgePrivateClientState(queryClient: QueryClient) {
   const queryCache = queryClient.getQueryCache();
   const identityQuery = queryCache.find({ queryKey: currentIdentityQueryKey, exact: true });
   for (const query of queryCache.getAll()) {
-    if (query !== identityQuery) queryCache.remove(query);
+    if (query !== identityQuery) {
+      query.reset();
+      queryCache.remove(query);
+    }
   }
   queryClient.getMutationCache().clear();
 }

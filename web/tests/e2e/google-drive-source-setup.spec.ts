@@ -14,8 +14,10 @@ test.beforeEach(async ({ page }) => {
 
 const owner = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  authorizationVersion: 1,
   tenant: { displayName: "Team", role: "OWNER" },
-  capabilities: ["SOURCES_MANAGE"],
+  capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+  scopedCapabilities: [],
 };
 const credential = {
   id: "81c51573-31a9-4e67-91c5-f276960c94af",

@@ -10,10 +10,10 @@ import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceStatus;
-import io.memoryos.identity.ActorId;
+import io.memoryos.iam.ActorId;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.List;
@@ -54,7 +54,7 @@ public class JdbcGoogleDriveCredentialRepository {
     public void requireConfigured() { encryption.cipher(); }
 
     public CredentialId create(TenantId tenantId, String name, Grant grant, GoogleDriveOAuthClient oauthClient) {
-        if (!sources.lockActiveTenant(tenantId)) throw SourceException.notOwner();
+        if (!sources.lockActiveTenant(tenantId)) throw SourceException.notFound();
         UUID credentialId = UUID.randomUUID();
         byte[] token = grant.refreshToken();
         GoogleDriveCredentialCipher.EncryptedCredential encrypted;

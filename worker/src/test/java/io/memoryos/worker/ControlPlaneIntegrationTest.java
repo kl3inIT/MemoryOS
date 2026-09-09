@@ -9,7 +9,6 @@ import com.github.kagkarlsson.scheduler.event.ExecutionInterceptor;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
@@ -19,15 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
-
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
@@ -41,6 +32,12 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -53,33 +50,12 @@ import org.springframework.test.context.DynamicPropertySource;
                 "memoryos.redis.ingestion.group=memoryos-test-control-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:control:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-control-cleanup-workers",
+                "memoryos.redis.search.stream=memoryos:test:control:search",
+                "memoryos.redis.search.group=memoryos-test-control-search-workers",
                 "memoryos.redis.source-sync.stream=memoryos:test:control:source-sync",
                 "memoryos.redis.source-sync.group=memoryos-test-control-source-sync",
-                "spring.sql.init.mode=always",
-                "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
-                        + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
-                        + "classpath:db/migration/V3__create_organization_invitations.sql,"
-                        + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
-                        + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
-                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
-                        + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
-                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
-                        + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
-                        + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
-                        + "classpath:db/migration/V12__use_current_documents.sql,"
-                        + "classpath:db/migration/V13__add_tracked_object_writes.sql,"
-                        + "classpath:db/migration/V14__add_google_drive_credentials.sql,"
-                        + "classpath:db/migration/V15__add_durable_google_drive_sync.sql,"
-                        + "classpath:db/migration/V16__require_owner_google_oauth_client.sql,"
-                        + "classpath:db/migration/V17__scope_google_sync_to_explicit_roots.sql,"
-                        + "classpath:db/migration/V18__reuse_google_drive_credentials.sql,"
-                        + "classpath:db/migration/V19__add_google_drive_sync_interval.sql,"
-                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql,"
-                        + "classpath:db/migration/V21__add_google_drive_linked_documents.sql,"
-                        + "classpath:db/migration/V22__add_google_drive_selection_operations.sql,"
-                        + "classpath:db/migration/V23__add_source_run_history.sql",
-                "spring.sql.init.separator=" + org.springframework.jdbc.datasource.init.ScriptUtils.EOF_STATEMENT_SEPARATOR,
+                "memoryos.redis.selection-validation.stream=memoryos:test:control:selection-validation",
+                "memoryos.redis.selection-validation.group=memoryos-test-control-selection-validation",
                 "spring.data.redis.repositories.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "db-scheduler.enabled=true",
@@ -93,13 +69,13 @@ import org.springframework.test.context.DynamicPropertySource;
 )
 @AutoConfigureTestRestTemplate
 @Import(ControlPlaneIntegrationTest.VirtualThreadProbeConfiguration.class)
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ControlPlaneIntegrationTest {
 
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+            "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382"
     ).asCompatibleSubstituteFor("postgres");
 
     @Container
@@ -118,6 +94,7 @@ class ControlPlaneIntegrationTest {
             .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
             .withStartupTimeout(Duration.ofSeconds(30));
 
+
     @Autowired
     private JdbcClient jdbcClient;
     @Autowired
@@ -132,10 +109,8 @@ class ControlPlaneIntegrationTest {
     private AtomicBoolean topologyTaskRanOnVirtualThread;
 
     @DynamicPropertySource
-    static void serviceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+    static void databaseProperties(DynamicPropertyRegistry registry) {
+        WorkerPostgresDatabase.configure(registry, POSTGRES);
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }
@@ -150,6 +125,9 @@ class ControlPlaneIntegrationTest {
         Instant firstSuccess = successfulExecutionTime(ControlPlaneConfiguration.REDIS_TOPOLOGY_TASK);
         assertTrue(groupExists(redisProperties.ingestion()));
         assertTrue(groupExists(redisProperties.cleanup()));
+        assertTrue(groupExists(redisProperties.search()));
+        assertTrue(groupExists(redisProperties.sourceSync()));
+        assertTrue(groupExists(redisProperties.selectionValidation()));
         assertEquals(
                 HttpStatus.OK,
                 http.getForEntity("/actuator/health/readiness", String.class).getStatusCode()

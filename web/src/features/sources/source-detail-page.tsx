@@ -44,6 +44,7 @@ import { waitForSourceOperation } from "./source-operations";
 import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime } from "./source-history-presentation";
+import { SourceGroupsSection } from "./source-groups-section";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
@@ -77,6 +78,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const filesHeading = useRef<HTMLHeadingElement | null>(null);
   const uploadController = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const backLinkRef = useRef<HTMLAnchorElement>(null);
   const cleanupController = useRef<AbortController | null>(null);
 
   useLayoutEffect(() => {
@@ -114,7 +116,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     refetchInterval: (query) =>
       sourceQuery.data?.pendingWork ||
       query.state.data?.items.some(
-        (item) => item.status === "PENDING" || item.status === "DELETING",
+        (item) =>
+          item.status === "PENDING" ||
+          item.status === "DELETING" ||
+          item.searchStatus === "INDEXING",
       )
         ? 1_500
         : sourceQuery.data?.type === "GOOGLE_DRIVE"
@@ -167,7 +172,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   }
 
   async function submitFile() {
-    if (!selectedId || !file || pendingFinalize || uploadController.current) return;
+    if (!canUpload || !selectedId || !file || pendingFinalize || uploadController.current) return;
     setError(null);
     const controller = new AbortController();
     uploadController.current = controller;
@@ -249,7 +254,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   }
 
   async function retryFinalize() {
-    if (!activePendingFinalize || uploadController.current) return;
+    if (!canUpload || !activePendingFinalize || uploadController.current) return;
     const pending = activePendingFinalize;
     setError(null);
     const controller = new AbortController();
@@ -291,6 +296,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
 
   async function reindex(item: SourceItem) {
     if (
+      !canReindex ||
       !selectedId ||
       !item.id ||
       reindexControllers.has(item.id) ||
@@ -349,7 +355,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   }
 
   async function removeSelectedItem(item: SourceItem) {
-    if (!selectedId || !item.id) throw new Error("Source item is unavailable");
+    if (!canRemoveItems || !selectedId || !item.id) throw new Error("Source item is unavailable");
     if (removalControllers.has(item.id) || reindexControllers.has(item.id)) return;
     const controller = new AbortController();
     removalControllers.set(item.id, controller);
@@ -421,7 +427,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   }
 
   async function deleteSelectedSource() {
-    if (!selectedId) throw new Error("Source is unavailable");
+    if (!canDelete || !selectedId) throw new Error("Source is unavailable");
     if (cleanupController.current) return;
     setError(null);
     const controller = new AbortController();
@@ -502,6 +508,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   }
 
   const detail = sourceQuery.data;
+  const sourceActions = detail?.actions ?? [];
+  const canUpload = sourceActions.includes("upload");
+  const canReindex = sourceActions.includes("reindex");
+  const canRemoveItems = sourceActions.includes("remove_items");
+  const canDelete = sourceActions.includes("delete");
+  const canManageGroups = sourceActions.includes("manage_groups");
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const managementBusy =
     uploadBusy ||
@@ -519,10 +531,15 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     itemsQuery.isError ||
     driveBusy;
   const ProviderIcon = findSourceProvider(detail?.type)?.icon ?? FileText;
+  async function refreshAuthorityViews() {
+    backLinkRef.current?.focus();
+    await queryClient.invalidateQueries();
+  }
 
   return (
     <SettingsLayout wide>
       <Link
+        ref={backLinkRef}
         to="/admin"
         className="inline-flex items-center gap-2 font-secondary-action text-content-secondary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
       >
@@ -554,7 +571,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         </div>
       ) : null}
 
-      {pendingFinalize && !activePendingFinalize ? (
+      {canUpload && pendingFinalize && !activePendingFinalize ? (
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-content-secondary">
             {pendingFinalize.filename} is stored and still needs finalization.
@@ -591,24 +608,26 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               title={detail.name}
               description={findSourceProvider(detail.type)?.name ?? detail.type}
               actions={
-                <ConfirmDialog
-                  trigger={
-                    <Button
-                      tone="danger"
-                      prominence="tertiary"
-                      disabled={busy || cleanupPending || detail.status === "DELETING"}
-                    >
-                      <Trash2 />
-                      Delete source
-                    </Button>
-                  }
-                  title={`Delete ${detail.name}?`}
-                  description={`Deleting “${detail.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
-                  confirmLabel="Delete source"
-                  pendingLabel="Deleting source"
-                  onConfirm={deleteSelectedSource}
-                  errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
-                />
+                canDelete ? (
+                  <ConfirmDialog
+                    trigger={
+                      <Button
+                        tone="danger"
+                        prominence="tertiary"
+                        disabled={busy || cleanupPending || detail.status === "DELETING"}
+                      >
+                        <Trash2 />
+                        Delete source
+                      </Button>
+                    }
+                    title={`Delete ${detail.name}?`}
+                    description={`Deleting “${detail.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
+                    confirmLabel="Delete source"
+                    pendingLabel="Deleting source"
+                    onConfirm={deleteSelectedSource}
+                    errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
+                  />
+                ) : null
               }
             />
             {detail.errorCode &&
@@ -619,7 +638,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             ) : null}
             {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
 
-            {detail.type === "FILE" ? (
+            {canUpload && detail.type === "FILE" ? (
               <form
                 className="space-y-4 border-b border-border-subtle py-6"
                 onSubmit={(event) => {
@@ -785,7 +804,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       ? "Files may have been removed. Return to the previous page or refresh this page."
                       : detail.type === "GOOGLE_DRIVE"
                         ? "Files appear here after synchronization acquires them from Google Drive."
-                        : "Upload one supported file to start indexing."
+                        : canUpload
+                          ? "Upload one supported file to start indexing."
+                          : "No files are indexed in this Source."
                   }
                 />
               ) : itemsQuery.data ? (
@@ -839,50 +860,68 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                           </td>
                           <td className="px-4 py-4 text-content-secondary">
                             {item.status ?? "PENDING"}
+                            {item.searchStatus && (
+                              <p className="mt-1 font-secondary-body text-content-muted">
+                                Search:{" "}
+                                {item.searchStatus === "READY"
+                                  ? "Ready"
+                                  : item.searchStatus === "FAILED"
+                                    ? "Retry scheduled"
+                                    : item.searchStatus === "INDEXING"
+                                      ? "Indexing"
+                                      : "Waiting for extraction"}
+                              </p>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-content-secondary">
                             <HistoryTime value={item.lastIndexedAt} />
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex justify-end gap-1">
-                              <Button
-                                prominence="tertiary"
-                                size="sm"
-                                pending={reindexingItems.includes(item.id)}
-                                disabled={
-                                  itemBusy ||
-                                  removingItems.includes(item.id) ||
-                                  item.status === "DELETING" ||
-                                  detail.status === "DELETING"
-                                }
-                                onClick={() => void reindex(item)}
-                              >
-                                <RefreshCw /> Reindex
-                              </Button>
-                              <ConfirmDialog
-                                trigger={
-                                  <Button
-                                    tone="danger"
-                                    prominence="tertiary"
-                                    size="sm"
-                                    pending={removingItems.includes(item.id)}
-                                    disabled={
-                                      itemBusy ||
-                                      reindexingItems.includes(item.id) ||
-                                      item.status === "DELETING" ||
-                                      detail.status === "DELETING"
-                                    }
-                                  >
-                                    <Trash2 /> Remove
-                                  </Button>
-                                }
-                                title={`Remove ${item.filename ?? "uploaded file"}?`}
-                                description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
-                                confirmLabel="Remove file"
-                                pendingLabel="Removing file"
-                                onConfirm={() => removeSelectedItem(item)}
-                                errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
-                              />
+                              {canReindex ? (
+                                <Button
+                                  prominence="tertiary"
+                                  size="sm"
+                                  pending={reindexingItems.includes(item.id)}
+                                  disabled={
+                                    itemBusy ||
+                                    removingItems.includes(item.id) ||
+                                    item.status === "DELETING" ||
+                                    detail.status === "DELETING"
+                                  }
+                                  onClick={() => void reindex(item)}
+                                >
+                                  <RefreshCw /> Reindex
+                                </Button>
+                              ) : null}
+                              {canRemoveItems ? (
+                                <ConfirmDialog
+                                  trigger={
+                                    <Button
+                                      tone="danger"
+                                      prominence="tertiary"
+                                      size="sm"
+                                      pending={removingItems.includes(item.id)}
+                                      disabled={
+                                        itemBusy ||
+                                        reindexingItems.includes(item.id) ||
+                                        item.status === "DELETING" ||
+                                        detail.status === "DELETING"
+                                      }
+                                    >
+                                      <Trash2 /> Remove
+                                    </Button>
+                                  }
+                                  title={`Remove ${item.filename ?? "uploaded file"}?`}
+                                  description={`Removing “${item.filename ?? "this file"}” makes its indexed document unavailable. Cleanup continues asynchronously.`}
+                                  confirmLabel="Remove file"
+                                  pendingLabel="Removing file"
+                                  onConfirm={() => removeSelectedItem(item)}
+                                  errorMessage={(cause) =>
+                                    sourceMutationError(cause, "remove-item")
+                                  }
+                                />
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -954,6 +993,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             ) : (
               <SourceItemHistory key={selectedId} sourceId={selectedId} />
             )}
+            <SourceGroupsSection
+              sourceId={selectedId}
+              editable={canManageGroups}
+              onAuthorityChanged={refreshAuthorityViews}
+            />
           </div>
         )}
       </div>

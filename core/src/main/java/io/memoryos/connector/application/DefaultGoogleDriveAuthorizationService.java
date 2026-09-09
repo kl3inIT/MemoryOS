@@ -6,9 +6,10 @@ import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
-import io.memoryos.identity.ActorId;
-import io.memoryos.tenant.TenantAccessResolver;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -20,19 +21,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthorizationService {
     private final JdbcGoogleDriveCredentialRepository credentials;
-    private final TenantAccessResolver tenants;
+    private final IamAuthorization authorization;
 
     public DefaultGoogleDriveAuthorizationService(JdbcGoogleDriveCredentialRepository credentials,
-            TenantAccessResolver tenants) {
+            IamAuthorization authorization) {
         this.credentials = credentials;
-        this.tenants = tenants;
+        this.authorization = authorization;
     }
 
     @Override
     @Transactional
     public Preparation prepare(ActorId actorId, String name, @Nullable CredentialId credentialId, @Nullable Long expectedRevision,
             @Nullable GoogleDriveOAuthClient oauthClient) {
-        TenantId tenantId = requireOwner(actorId);
+        TenantId tenantId = requireManagement(actorId);
         String normalized = requireName(name);
         if ((credentialId == null) != (expectedRevision == null) || (expectedRevision != null && expectedRevision < 1)) {
             throw SourceException.invalid("Credential and revision must be supplied together.", "invalid OAuth reauthorization target");
@@ -56,8 +57,8 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     @Override
     @Transactional
     public GoogleDriveOAuthClient oauthClient(ActorId actorId, Preparation preparation) {
-        TenantId tenantId = requireOwner(actorId);
-        if (!tenantId.equals(preparation.tenantId())) throw SourceException.notOwner();
+        TenantId tenantId = requireManagement(actorId);
+        if (!tenantId.equals(preparation.tenantId())) throw SourceException.notFound();
         if (preparation.credentialId() != null) {
             var stored = credentials.lock(tenantId, preparation.credentialId()).orElseThrow(SourceException::notFound);
             if (!Objects.equals(stored.revision(), preparation.expectedRevision())) throw SourceException.conflict("Google credential revision is stale");
@@ -68,8 +69,8 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     @Override
     @Transactional
     public CredentialId complete(ActorId actorId, Preparation preparation, Grant grant) {
-        TenantId tenantId = requireOwner(actorId);
-        if (!tenantId.equals(preparation.tenantId())) throw SourceException.notOwner();
+        TenantId tenantId = requireManagement(actorId);
+        if (!tenantId.equals(preparation.tenantId())) throw SourceException.notFound();
         requireGrant(grant);
         try (var client = credentials.snapshot(actorId, preparation)) {
             String name = requireName(preparation.name());
@@ -83,23 +84,23 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     @Override
     @Transactional
     public byte[] disconnect(ActorId actorId, CredentialId credentialId, long expectedRevision) {
-        return credentials.disconnect(requireOwner(actorId), credentialId, expectedRevision);
+        return credentials.disconnect(requireManagement(actorId), credentialId, expectedRevision);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CredentialView> list(ActorId actorId) {
-        return credentials.list(requireOwner(actorId));
+        return credentials.list(authorization.require(actorId, IamCapability.SOURCES_MANAGE, false).tenantId());
     }
 
     @Override
     @Transactional
     public void delete(ActorId actorId, CredentialId credentialId, long expectedRevision) {
-        credentials.delete(requireOwner(actorId), credentialId, expectedRevision);
+        credentials.delete(requireManagement(actorId), credentialId, expectedRevision);
     }
 
-    private TenantId requireOwner(ActorId actorId) {
-        return tenants.findActiveOwnerTenant(Objects.requireNonNull(actorId)).orElseThrow(SourceException::notOwner);
+    private TenantId requireManagement(ActorId actorId) {
+        return authorization.lockAndRequire(Objects.requireNonNull(actorId), IamCapability.SOURCES_MANAGE, false).tenantId();
     }
 
     private static String requireName(String name) {

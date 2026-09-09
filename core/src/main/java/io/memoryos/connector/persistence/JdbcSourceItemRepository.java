@@ -3,7 +3,7 @@ package io.memoryos.connector.persistence;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.objectstorage.StoredObjectReference;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -213,7 +213,7 @@ public class JdbcSourceItemRepository {
     }
 
     public java.util.List<io.memoryos.connector.CleanupObject> objects(
-            io.memoryos.tenant.TenantId tenant, io.memoryos.connector.SourceId source,
+            io.memoryos.iam.TenantId tenant, io.memoryos.connector.SourceId source,
             @org.jspecify.annotations.Nullable SourceItemId item) {
         return jdbcClient.sql("""
                 SELECT o.* FROM connector_item_versions v

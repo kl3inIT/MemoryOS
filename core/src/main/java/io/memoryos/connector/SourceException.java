@@ -9,15 +9,6 @@ public final class SourceException extends BusinessException {
         super(code, category, safeMessage, diagnosticMessage);
     }
 
-    public static SourceException notOwner() {
-        return new SourceException(
-                "SOURCE_NOT_OWNER",
-                FailureCategory.NOT_PERMITTED,
-                "Only an active Tenant owner can manage sources.",
-                "source command denied because actor is not an active Tenant owner"
-        );
-    }
-
     public static SourceException notFound() {
         return new SourceException(
                 "SOURCE_NOT_FOUND",

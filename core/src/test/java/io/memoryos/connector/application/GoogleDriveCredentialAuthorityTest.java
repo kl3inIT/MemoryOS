@@ -34,9 +34,14 @@ import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.GoogleDriveSelectionProcessor;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.GoogleDriveSourceService.SelectionReceipt;
-import io.memoryos.identity.ActorId;
-import io.memoryos.tenant.TenantId;
-import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.IamException;
+import io.memoryos.iam.application.DefaultIamAuthorization;
+import io.memoryos.iam.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.persistence.IamLockRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashSet;
@@ -74,6 +79,7 @@ class GoogleDriveCredentialAuthorityTest {
         }
     }
 
+    private IamAuthorization authorization;
     private JdbcClient jdbc;
     private JdbcGoogleDriveCredentialRepository credentials;
     private GoogleDriveAuthorizationService authorizations;
@@ -100,8 +106,15 @@ class GoogleDriveCredentialAuthorityTest {
         jdbc.sql("INSERT INTO actors (id) VALUES (:id)").param("id", owner.value()).update();
         jdbc.sql("INSERT INTO tenants (id, slug, display_name, status, bootstrap_reference) VALUES (:id, 'drive-auth', 'Drive', 'ACTIVE', 'TEST')")
                 .param("id", tenant.value()).update();
-        jdbc.sql("INSERT INTO tenant_memberships (tenant_id, actor_id, role, status) VALUES (:tenant, :actor, 'OWNER', 'ACTIVE')")
+        jdbc.sql("INSERT INTO tenant_memberships (tenant_id, actor_id, role, status) VALUES (:tenant, :actor, 'MEMBER', 'ACTIVE')")
                 .param("tenant", tenant.value()).param("actor", owner.value()).update();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES (:tenant,:tenant,'Admin','ADMIN')")
+                .param("tenant", tenant.value()).update();
+        jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:tenant,'IAM_ADMIN')")
+                .param("tenant", tenant.value()).update();
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
+                .param("tenant", tenant.value()).param("actor", owner.value()).update();
+        authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc));
         sources = new JdbcSourceRepository(jdbc);
         roots = new JdbcGoogleDriveSourceRepository(jdbc);
         sync = new JdbcSourceSyncRepository(jdbc);
@@ -113,16 +126,16 @@ class GoogleDriveCredentialAuthorityTest {
                 GoogleDriveConnectionService.class, manager);
         var attempts = new JdbcIndexAttemptRepository(jdbc, sources, documents, connections);
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials,
-                new JdbcTenantAccessResolver(jdbc)), GoogleDriveAuthorizationService.class, manager);
+                authorization), GoogleDriveAuthorizationService.class, manager);
         selections = new JdbcGoogleDriveSelectionRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(new JdbcTenantAccessResolver(jdbc), connections, roots, sources,
-                sync, attempts, documents, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728));
+        var service = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources,
+                sync, attempts, documents, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc));
         drive = service;
         processor = new DefaultGoogleDriveSelectionProcessor(selections, service, connections, manager);
     }
 
     @Test
-    void completedAuthorizationCreatesIndependentOwnerTenantBoundCredentialsWithoutSources() {
+    void completedAuthorizationCreatesIndependentTenantBoundCredentialsWithoutSources() {
         var prepared = prepare();
         try (var grant = grant("first")) {
             var credential = authorizations.complete(owner, prepared, grant);
@@ -132,7 +145,7 @@ class GoogleDriveCredentialAuthorityTest {
             var catalog = authorizations.list(owner);
             assertEquals(java.util.Set.of(credential, second), catalog.stream().map(GoogleDriveAuthorizationService.CredentialView::id).collect(java.util.stream.Collectors.toSet()));
             assertTrue(catalog.stream().allMatch(row -> row.sourceCount() == 0));
-            assertThrows(SourceException.class, () -> authorizations.prepare(new ActorId(UUID.randomUUID()), "Drive", credential, 1L, null));
+            assertThrows(IamException.class, () -> authorizations.prepare(new ActorId(UUID.randomUUID()), "Drive", credential, 1L, null));
             assertThrows(SourceException.class, () -> connections.openCredential(new TenantId(UUID.randomUUID()), credential));
             assertThrows(SourceException.class, () -> authorizations.complete(owner,
                     new GoogleDriveAuthorizationService.Preparation(new TenantId(UUID.randomUUID()), "Drive", null, null,
@@ -638,19 +651,21 @@ class GoogleDriveCredentialAuthorityTest {
                     assertThrows(SourceException.class, () -> drive.updateSchedule(owner, source, 1, interval)).code());
         }
         var before = nextSyncAt(source);
-        jdbc.sql("UPDATE tenant_memberships SET role = 'MEMBER' WHERE actor_id = :actor")
+        jdbc.sql("DELETE FROM iam_group_memberships WHERE actor_id = :actor")
                 .param("actor", owner.value()).update();
-        assertEquals("SOURCE_NOT_OWNER",
-                assertThrows(SourceException.class, () -> drive.updateSchedule(owner, source, 1, 15)).code());
-        jdbc.sql("UPDATE tenant_memberships SET role = 'OWNER', status = 'INACTIVE' WHERE actor_id = :actor")
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> drive.updateSchedule(owner, source, 1, 15)).code());
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
+                .param("tenant",tenant.value()).param("actor",owner.value()).update();
+        jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                 .param("actor", owner.value()).update();
-        assertEquals("SOURCE_NOT_OWNER",
-                assertThrows(SourceException.class, () -> drive.updateSchedule(owner, source, 1, 15)).code());
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> drive.updateSchedule(owner, source, 1, 15)).code());
         jdbc.sql("UPDATE tenant_memberships SET status = 'ACTIVE' WHERE actor_id = :actor")
                 .param("actor", owner.value()).update();
         jdbc.sql("UPDATE tenants SET status = 'INACTIVE' WHERE id = :tenant").param("tenant", tenant.value()).update();
-        assertEquals("SOURCE_NOT_OWNER",
-                assertThrows(SourceException.class, () -> drive.updateSchedule(owner, source, 1, 15)).code());
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> drive.updateSchedule(owner, source, 1, 15)).code());
         jdbc.sql("UPDATE tenants SET status = 'ACTIVE' WHERE id = :tenant").param("tenant", tenant.value()).update();
         transactions.executeWithoutResult(_ -> sources.markDeleting(tenant, sources.lock(tenant, source)));
         assertEquals("SOURCE_NOT_FOUND",
@@ -661,17 +676,17 @@ class GoogleDriveCredentialAuthorityTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"schedule", "discovery", "selection"})
-    void sourceCommandsRecheckOwnerAfterWaitingForTheSourceLock(String command) throws Exception {
+    void sourceCommandsRecheckCapabilityAfterWaitingForTheSourceLock(String command) throws Exception {
         var source = connect();
         var checked = new CountDownLatch(1);
-        var tenants = spy(new JdbcTenantAccessResolver(jdbc));
+        var access = spy(authorization);
         doAnswer(_ -> {
-            var result = new JdbcTenantAccessResolver(jdbc).findActiveOwnerTenant(owner);
+            var result = authorization.require(owner, IamCapability.SOURCES_MANAGE, false);
             checked.countDown();
             return result;
-        }).when(tenants).findActiveOwnerTenant(owner);
+        }).when(access).require(owner, IamCapability.SOURCES_MANAGE, false);
         var documents = new JdbcSourceDocumentRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(tenants, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, connections), documents, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), java.util.Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728));
+        var service = new DefaultGoogleDriveSourceService(access, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, connections), documents, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), java.util.Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc));
         try (var executor = Executors.newSingleThreadExecutor()) {
             var update = transactions.execute(_ -> {
                 sources.lock(tenant, source);
@@ -688,27 +703,27 @@ class GoogleDriveCredentialAuthorityTest {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException(exception);
                 }
-                jdbc.sql("UPDATE tenant_memberships SET role = 'MEMBER' WHERE actor_id = :actor")
+                jdbc.sql("DELETE FROM iam_group_memberships WHERE actor_id = :actor")
                         .param("actor", owner.value()).update();
                 return future;
             });
             assertNotNull(update);
             var failure = assertThrows(java.util.concurrent.ExecutionException.class, () -> update.get(5, TimeUnit.SECONDS));
-            assertEquals("SOURCE_NOT_OWNER", ((SourceException) failure.getCause()).code());
+            assertEquals("IAM_ACCESS_DENIED", ((IamException) failure.getCause()).code());
         }
         assertEquals(1, roots.configuration(tenant, source).scheduleRevision());
         assertEquals(5, roots.configuration(tenant, source).syncIntervalMinutes());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"owner", "credential", "roots", "deleting"})
+    @ValueSource(strings = {"capability", "credential", "roots", "deleting"})
     void discoveryRejectsAuthorityLostDuringAcquisitionWithoutPublishingCandidates(String change) {
         var source = connect();
         var session = mockDiscovery();
         doAnswer(invocation -> {
             assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
             switch (change) {
-                case "owner" -> jdbc.sql("UPDATE tenant_memberships SET role='MEMBER' WHERE actor_id=:actor").param("actor", owner.value()).update();
+                case "capability" -> jdbc.sql("DELETE FROM iam_group_memberships WHERE actor_id=:actor").param("actor", owner.value()).update();
                 case "credential" -> reauthorize(source, 1, "replaced");
                 case "roots" -> replace(owner, source, 1, ScopeMode.SPECIFIC, List.of(link("replacement")), List.of());
                 case "deleting" -> transactions.executeWithoutResult(_ -> sources.markDeleting(tenant, sources.lock(tenant, source)));
@@ -716,7 +731,12 @@ class GoogleDriveCredentialAuthorityTest {
             }
             return acquired(invocation.getArgument(0));
         }).when(session).acquire(any());
-        assertThrows(SourceException.class, () -> drive.discoverLinkedDocuments(owner, source, 1));
+        if (change.equals("capability")) {
+            assertEquals("IAM_ACCESS_DENIED", assertThrows(IamException.class,
+                    () -> drive.discoverLinkedDocuments(owner, source, 1)).code());
+        } else {
+            assertThrows(SourceException.class, () -> drive.discoverLinkedDocuments(owner, source, 1));
+        }
         assertTrue(roots.linkedDocuments(tenant, source).isEmpty());
         assertNull(roots.configuration(tenant, source).discoveredAt());
     }

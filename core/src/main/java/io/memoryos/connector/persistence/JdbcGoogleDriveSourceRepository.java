@@ -15,7 +15,7 @@ import io.memoryos.connector.GoogleDriveSourceService.SelectionPage;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import io.memoryos.connector.SourceId;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;

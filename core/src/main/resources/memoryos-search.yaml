@@ -1,0 +1,17 @@
+memoryos:
+  search:
+    endpoint: ${MEMORYOS_OPENSEARCH_ENDPOINT:http://127.0.0.1:9200}
+    username: ${MEMORYOS_OPENSEARCH_USERNAME:}
+    password: ${MEMORYOS_OPENSEARCH_PASSWORD:}
+    ca-certificate: ${MEMORYOS_OPENSEARCH_CA_CERTIFICATE:}
+    api-key: ${SPRING_AI_OPENAI_API_KEY:}
+    embedding-endpoint: ${MEMORYOS_EMBEDDING_ENDPOINT:https://api.openai.com/v1}
+    model: ${MEMORYOS_EMBEDDING_MODEL:text-embedding-3-large}
+    dimensions: ${MEMORYOS_EMBEDDING_DIMENSIONS:3072}
+    embedding-batch-size: ${MEMORYOS_EMBEDDING_BATCH_SIZE:32}
+    embedding-concurrency: ${MEMORYOS_EMBEDDING_CONCURRENCY:2}
+    candidate-limit: ${MEMORYOS_SEARCH_CANDIDATE_LIMIT:500}
+    keyword-weight: ${MEMORYOS_SEARCH_KEYWORD_WEIGHT:0.5}
+    timeout: ${MEMORYOS_SEARCH_TIMEOUT:30s}
+    index-prefix: ${MEMORYOS_SEARCH_INDEX_PREFIX:memoryos-chunks}
+    replicas: ${MEMORYOS_SEARCH_REPLICAS:1}

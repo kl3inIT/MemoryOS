@@ -12,7 +12,7 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveSourceService;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

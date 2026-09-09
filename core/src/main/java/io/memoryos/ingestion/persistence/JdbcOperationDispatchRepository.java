@@ -2,12 +2,11 @@ package io.memoryos.ingestion.persistence;
 
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
+import io.memoryos.iam.TenantId;
 import io.memoryos.ingestion.DispatchClaim;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
-import io.memoryos.tenant.TenantId;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -17,7 +16,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
-
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -104,6 +102,16 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             """;
 
     private final JdbcClient jdbcClient;
+
+    private static final String SEARCH_CANDIDATES = """
+            SELECT work.id,work.tenant_id,work.origin_trace_id,work.origin_span_id
+            FROM search_index_operations work JOIN tenants tenant ON tenant.id=work.tenant_id
+            WHERE (tenant.status='ACTIVE' OR work.action='DELETE')
+              AND work.next_dispatch_at <= :now
+              AND (work.dispatch_token IS NULL OR work.dispatch_lease_expires_at < :now)
+              AND (work.status='NOT_STARTED' OR (work.status='IN_PROGRESS' AND work.lease_expires_at < :now))
+            ORDER BY work.created_at,work.id LIMIT :limit FOR UPDATE OF work SKIP LOCKED
+            """;
 
     public JdbcOperationDispatchRepository(JdbcClient jdbcClient) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
@@ -304,6 +312,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case CLEANUP -> "connector_cleanup_attempts";
             case SOURCE_SYNC -> "source_sync_attempts";
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> "google_drive_selection_operations";
+            case SEARCH -> "search_index_operations";
         };
     }
 
@@ -313,6 +322,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case CLEANUP -> CLEANUP_CANDIDATES;
             case SOURCE_SYNC -> SYNC_CANDIDATES;
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> SELECTION_CANDIDATES;
+            case SEARCH -> SEARCH_CANDIDATES;
         };
     }
 

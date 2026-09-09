@@ -172,14 +172,19 @@ export function GoogleDrivePanel({
       window.removeEventListener("pageshow", restore);
       window.removeEventListener("pagehide", clear);
     };
-  }, [session.actorId, session.tenant.role, capabilities, configuration?.credentialRevision]);
+  }, [
+    session.actorId,
+    session.authorizationVersion,
+    capabilities,
+    configuration?.credentialRevision,
+  ]);
 
   useLayoutEffect(
     () => () => {
       refreshController.current?.abort();
       credentialRefreshController.current?.abort();
     },
-    [source.id, session.actorId, session.tenant.role, capabilities],
+    [source.id, session.actorId, session.authorizationVersion, capabilities],
   );
 
   async function refresh(throwOnError = false) {
@@ -477,6 +482,8 @@ export function GoogleDrivePanel({
       queryClient.invalidateQueries({ queryKey: listGoogleDriveCredentialsQueryKey() }),
     ]);
   }
+
+  if (!canManage) return <SourceSummaryCard source={source} />;
 
   if (!configuration) {
     return (

@@ -2,15 +2,17 @@ package io.memoryos.worker;
 
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
+import io.memoryos.iam.TenantId;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
-import io.memoryos.tenant.TenantId;
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
-
+import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceState;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +24,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -253,16 +254,16 @@ final class RedisStreamWorker implements SmartLifecycle {
         var published = SourceOperationTraceContext.from(
                 optional(record.getValue(), "publish_trace_id"), optional(record.getValue(), "publish_span_id"));
         if (published != null) {
-            span.addLink(io.opentelemetry.api.trace.SpanContext.createFromRemoteParent(
-                    published.traceId(), published.spanId(), io.opentelemetry.api.trace.TraceFlags.getDefault(),
-                    io.opentelemetry.api.trace.TraceState.getDefault()));
+            span.addLink(SpanContext.createFromRemoteParent(
+                    published.traceId(), published.spanId(), TraceFlags.getDefault(),
+                    TraceState.getDefault()));
         }
-        try (var scope = span.makeCurrent();
-             var traceMdc = MDC.putCloseable("traceId", span.getSpanContext().getTraceId());
-             var spanMdc = MDC.putCloseable("spanId", span.getSpanContext().getSpanId());
-             var operationMdc = MDC.putCloseable("operation_id", delivery.operationId().value().toString());
-             var deliveryMdc = MDC.putCloseable("delivery_id", delivery.deliveryId().toString());
-             var workloadMdc = MDC.putCloseable("workload", workload.name())) {
+        try (var _ = span.makeCurrent();
+             var _ = MDC.putCloseable("traceId", span.getSpanContext().getTraceId());
+             var _ = MDC.putCloseable("spanId", span.getSpanContext().getSpanId());
+             var _ = MDC.putCloseable("operation_id", delivery.operationId().value().toString());
+             var _ = MDC.putCloseable("delivery_id", delivery.deliveryId().toString());
+             var _ = MDC.putCloseable("workload", workload.name())) {
             try {
                 var outcome = coordinator.process(delivery);
                 span.setAttribute("processing.outcome", outcome.name());

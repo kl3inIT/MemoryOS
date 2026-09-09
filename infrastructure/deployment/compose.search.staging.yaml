@@ -1,0 +1,133 @@
+name: memoryos
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
+    container_name: memoryos-opensearch
+    environment:
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
+    volumes:
+      - ../opensearch/opensearch.yml:/usr/share/opensearch/config/opensearch.yml:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/node.crt:/usr/share/opensearch/config/tls/node.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/node.key:/usr/share/opensearch/config/tls/node.key:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/usr/share/opensearch/config/tls/ca.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/health.curl:/run/secrets/opensearch-health:ro
+      - memoryos_search:/usr/share/opensearch/data
+    networks:
+      memoryos-internal:
+        aliases:
+          - opensearch
+          - memoryos-opensearch
+      shared-infra:
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --config, /run/secrets/opensearch-health, --cacert, /usr/share/opensearch/config/tls/ca.crt, "https://opensearch:9200/_cluster/health?wait_for_status=green&timeout=3s"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 2g
+
+  search-security-bootstrap:
+    image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
+    profiles: [ops]
+    entrypoint: [/bin/sh, /bootstrap/bootstrap-security.sh]
+    volumes:
+      - ../opensearch/bootstrap-security.sh:/bootstrap/bootstrap-security.sh:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/security:/bootstrap/security:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/bootstrap/tls/ca.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/admin.crt:/bootstrap/tls/admin.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/admin.key:/bootstrap/tls/admin.key:ro
+    networks:
+      - memoryos-internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+
+  api:
+    environment:
+      MEMORYOS_OPENSEARCH_CA_CERTIFICATE: /run/secrets/opensearch-ca.crt
+    volumes:
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/run/secrets/opensearch-ca.crt:ro
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  worker:
+    environment:
+      MEMORYOS_OPENSEARCH_CA_CERTIFICATE: /run/secrets/opensearch-ca.crt
+    volumes:
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/run/secrets/opensearch-ca.crt:ro
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3.8.0@sha256:ca28e40a095f7f03c5c02b4aa159fbf09638bc4b3af16f9d556bf6721a0783b1
+    container_name: memoryos-opensearch-dashboards
+    entrypoint: [/bin/sh, /search-tools/start-dashboards.sh]
+    environment:
+      MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL: ${MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL:?Set MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL}
+      MEMORYOS_OPENSEARCH_OIDC_ISSUER: ${MEMORYOS_OPENSEARCH_OIDC_ISSUER:-https://auth.kl3in.tech/realms/memoryos}
+      NODE_OPTIONS: --max-old-space-size=512
+    volumes:
+      - ../opensearch/start-dashboards.sh:/search-tools/start-dashboards.sh:ro
+      - ../opensearch/opensearch_dashboards.yml:/usr/share/opensearch-dashboards/config/opensearch_dashboards.yml:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/dashboards.crt:/run/secrets/dashboards.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/dashboards.key:/run/secrets/dashboards.key:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/run/secrets/opensearch-ca.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/dashboards-password.txt:/run/secrets/dashboards-password:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/oidc-client-secret.txt:/run/secrets/oidc-client-secret:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/cookie-password.txt:/run/secrets/cookie-password:ro
+    networks:
+      - memoryos-internal
+      - proxy
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --silent, --output, /dev/null, --fail, --cacert, /run/secrets/opensearch-ca.crt, "https://localhost:5601/auth/openid/login"]
+      interval: 15s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 768m
+
+volumes:
+  memoryos_search:
+    name: ${MEMORYOS_OPENSEARCH_VOLUME:-memoryos-opensearch-data}

@@ -1,5 +1,9 @@
 # MemoryOS
 
+Integration status: this worktree combines Google Drive checkpoint `290357a` with main `fb835f9`. Combined verification is pending; prior branch/main evidence does not establish an integrated pass. The [isolated integration record](docs/increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) preserves the original checkout/runtime/data boundary.
+
+Direct document Search is implemented under [MEM-46](docs/increments/active/mem-46-search/design.md). See the [Search runtime runbook](docs/runbooks/search-runtime.md) for local OpenSearch and managed embedding configuration, and [verification](docs/increments/active/mem-46-search/verification.md) for remaining live-model/deployment acceptance. Chat is tracked separately in MEM-11.
+
 MemoryOS is a durable personal knowledge system built as a controlled Spring Modulith monolith. External provider identities resolve to stable internal actors; each self-hosted deployment bootstraps one fixed Tenant and admits its configured owner through Keycloak browser login.
 
 ## Start here
@@ -13,6 +17,12 @@ MemoryOS is a durable personal knowledge system built as a controlled Spring Mod
 
 Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); project rules are not duplicated.
 
+Project skills live in `.skills/`. The entries under `.agents/skills/` (Codex),
+`.claude/skills/` (Claude), and `.omp/skills/` (OMP) are committed relative
+symbolic links to each shared skill. Edit the canonical files in `.skills/`.
+On Windows, enable Developer Mode or use an elevated terminal, and clone with
+`git -c core.symlinks=true clone <repository-url>` so Git creates actual links.
+
 ## Requirements
 
 - JDK 25.
@@ -24,12 +34,12 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Seven closed capability implementations, transactions, persistence, the provider-neutral object-storage contract, and its S3 adapter |
+| `core` | Six closed capability implementations; JPA IAM lifecycle, JDBC resource persistence, transactions, and the provider-neutral object-storage contract/S3 adapter |
 | `connector` | Shared provider bundle: Google acquisition, offline Sheets/Docs snapshots, Java XLSX/CSV readers, Docling PDF/DOCX/PPTX, and bounded Tika TXT/Markdown |
 | `api` | Spring Boot HTTP, validation, migration, and security composition root |
-| `worker` | PostgreSQL-authoritative source synchronization, indexing, and cleanup over Redis Streams |
+| `worker` | PostgreSQL-authoritative selection verification, source synchronization, extraction, Search projection, and cleanup over Redis Streams |
 
-Current core capabilities are `identity`, `tenant`, `invitation`, `objectstorage`, `connector`, `document`, and `ingestion`. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 storage adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
+Current core capabilities are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, and `retrieval`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Provider implementations remain outside capability packages under `connector/src/main/java/io/memoryos/provider/<provider>` except the capability-owned S3 adapter under `objectstorage.s3`. See [ARCHITECTURE.md](ARCHITECTURE.md) for enforced dependencies.
 
 ## Build and verify
 
@@ -79,9 +89,13 @@ The staging application is available at `https://memoryos.72-62-193-33.nip.io`; 
 
 ## Current runtime behavior
 
-API startup runs Flyway through V24 and bootstraps or verifies the configured Tenant/owner. FILE retains checksum-bound browser-direct PUT and API finalization. Google credentials are independently authorized and reusable across Sources. Durable selection validation activates accepted General/Specific proposals before SOURCE_SYNC acquires tracked immutable snapshots and ordinary INGESTION reads them from MinIO. PostgreSQL remains authority for leases, revisions, exact run attribution and current Document/artifact publication. Google stays RESTRICTED and excluded from FILE PUBLIC; document ACLs, reader linking and a viewer remain unimplemented.
+API startup runs Flyway through V29, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
 
-For Google acquisition, the owner uploads or pastes a downloaded Google **Web application OAuth client JSON** of at most 16 KiB UTF-8. Enable the Drive, Sheets, and Docs APIs in that app's project and configure its consent screen. There is no server-wide default Google client ID/secret. Supply `MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY` (base64-encoded 32-byte AES key) and `MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION` consistently to API and worker. API additionally requires `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`, registered exactly in the uploaded app at the browser origin's `/login/oauth2/code/google-drive`; this does not replace Keycloak login. V16 requires legacy connections to reauthorize with an owner app while retaining their Source, roots and content. Keep credentials outside the repository. See the [Connector contract](docs/specs/connector.md) for authorization and revision semantics.
+V14 invalidates existing Spring Sessions for the `io.memoryos.iam.ActorId` package cutover. Deploy API and worker as one coordinated version transition; existing browser users sign in again.
+
+FILE retains checksum-bound browser-direct PUT and API finalization. Google credentials are independently authorized and reusable across Sources. Durable selection validation activates accepted General/Specific proposals before SOURCE_SYNC acquires tracked immutable snapshots and ordinary INGESTION reads them from MinIO. PostgreSQL remains authority for leases, revisions, exact run attribution and current Document/artifact publication. Google stays RESTRICTED and excluded from FILE PUBLIC; Google document ACLs, reader linking and a Google viewer remain unimplemented; FILE Search and generation-bound passage reads use the existing access resolver.
+
+For Google acquisition, an actor with global `SOURCES_MANAGE` uploads or pastes a downloaded Google **Web application OAuth client JSON** of at most 16 KiB UTF-8. Enable the Drive, Sheets, and Docs APIs in that app's project and configure its consent screen. There is no server-wide default Google client ID/secret. Supply `MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY` (base64-encoded 32-byte AES key) and `MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION` consistently to API and worker. API additionally requires `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`, registered exactly in the uploaded app at the browser origin's `/login/oauth2/code/google-drive`; this does not replace Keycloak login. V21 requires legacy connections to reauthorize with an owner app while retaining their Source, roots and content. Keep credentials outside the repository. See the [Connector contract](docs/specs/connector.md) for authorization and revision semantics.
 
 Google setup follows Credential → Connector: select/authorize a credential, then name the Source and choose immutable scope. **Specific** defaults to at most 1,000 nonoverlapping explicit file/folder roots under backend policy, with a separate 3 MiB request budget and 500 linked approvals; these are configured bounds, not live Google capacity proof. **General** synchronizes the connected account's actual My Drive tree, not Shared with me, Shared Drives or other accounts. Both create and selection save return accepted validation; the active selection changes only after fenced worker verification. Reuse needs no additional JSON/consent. App/redirect instructions stay collapsed. Reconnect/revoke fences all attached Sources and pending selections; Source deletion retains the credential.
 
@@ -91,25 +105,29 @@ Approved linked documents expose **Deselect for sync** instead of losing their a
 
 **Files** is the current corpus, loaded independently in bounded pages: 25 items by default, at most 100, with stable Previous/Next navigation. Rows show file, size, status, Last indexed and actions without repeated subtitles. Last indexed is a plain timestamp for successful processing completion of the current version, not upload time; there is no details disclosure. Upload returns to the newest page; reindex/removal continue observing their exact operations across page changes. See the [Source read contract](docs/specs/connector.md#source-summaries-and-files-pages).
 
-Owners configure each Google Source under **Source summary → Automatic interval → Edit**. The default is 5 minutes, with a minimum of 1 whole minute. Saving changes future scheduling without interrupting current work or changing the saved scope; Synchronize now remains available. See the [Connector contract](docs/specs/connector.md) for pagination, concurrency and authorization semantics.
+Globally authorized Source administrators configure each Google Source under **Source summary → Automatic interval → Edit**. The default is 5 minutes, with a minimum of 1 whole minute. Saving changes future scheduling without interrupting current work or changing the saved scope; Synchronize now remains available. See the [Connector contract](docs/specs/connector.md) for pagination, concurrency and authorization semantics.
 
 For Google Drive, **Indexing attempts** is a compact per-Source execution table: real Started, Outcome, Checked, Indexed, Unchanged, Completed/duration and Errors. It uses retained run records, not current document totals or fabricated Onyx-style New/Total Docs counters. FILE Sources retain separately named **File processing history** with filenames and processing timestamps. Both use 5 rows by default and 5/10/25/50-row cursor pages; only FILE history has the retained-attempt total for current/total page display. Acquisition and owned indexing remain distinct; unknown legacy counts remain Unknown. Detail/summary retention is 14/90 days with protected live/current references. Verification and capacity boundaries are recorded in the [active increment](docs/increments/active/google-drive-structured-ingestion/plan.md#mem-76-verification--2026-09-08); controlled fixtures are not live Google proof or production SLOs.
 
-Binary inputs remain capped at 10 MiB; native snapshots have a separate 32 MiB bound and explicit structural/request/time limits. `INDEXED` means a current extraction artifact, not chunking, embedding, or search readiness. For real Docling coverage in the Gradle worker integration suite, set `DOCLING_TEST_ENDPOINT` to a reachable pinned Docling service before running the normal gate.
+Binary inputs remain capped at 10 MiB; native snapshots have a separate 32 MiB bound and explicit structural/request/time limits. `INDEXED` means a current extraction artifact, not Search readiness. Item `searchStatus` separately reports the downstream chunk/embedding/projection state. For real Docling coverage in the Gradle worker integration suite, set `DOCLING_TEST_ENDPOINT` to a reachable pinned Docling service before running the normal gate.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |
 | `GET /actuator/health` | Public | API health |
-| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable actor plus nullable Tenant context and capabilities |
+| `GET /api/identity/me` | Bound bearer JWT or authenticated browser session | Stable actor, nullable Tenant, global/scoped capabilities, and authorization revision |
 | `GET /api/identity/me` | Missing/invalid authentication or unknown binding | `401` |
 | `GET /` | Browser origin | MemoryOS application; resolves session through `/api/identity/me` |
 | `GET /access-not-provisioned` | Browser origin | Accessible denial state without account creation |
 | `GET /invite/activate` | Public Keycloak action return | Starts browser OAuth2 login without carrying invitation correlation |
-| `/api/credentials/google-drive/**` | Active Tenant owner | List, authorize, reconnect, revoke and delete unused reusable credentials |
-| `/api/sources/**` | Active Tenant owner | FILE uploads; Google Source creation with an existing credential, General/Specific scope and sync; shared list/detail, reindex, remove and delete commands |
-| `/api/source-operations/**` | Active Tenant owner | Poll durable selection-validation, ingestion, source-sync and cleanup operations; run history uses dedicated `/api/sources/{sourceId}/runs` endpoints |
+| `/api/users` and membership/invitation commands | Global `USERS_MANAGE` | Bounded Users directory, profile/account classification, invitation and membership lifecycle |
+| `POST /api/users/{actorId}/groups` | `IAM_ADMIN` | Replace ordinary memberships while preserving system edges and retained manager flags |
+| `/api/groups/**` | Applicable global IAM capability or own managed-Group scope | Group/member projections and explicitly authorized lifecycle, grant, and manager commands |
+| `/api/sources/**` | Global Source capability or associated managed-Group scope | Server-filtered reads; scoped upload/finalize/reindex; creation/association changes and destructive commands require their global capabilities |
+| `/api/source-operations/**` | Global `SOURCES_READ` or associated managed-Group scope | Poll authorized durable indexing, selection-validation, source-sync and cleanup operations; dedicated Source run endpoints retain bounded history |
+| `/api/credentials/google-drive/**` | Global `SOURCES_MANAGE` | List, authorize, reconnect, revoke and delete unused reusable credentials |
+| `/api/sources/google-drive/**` and Source Google configuration commands | Global `SOURCES_MANAGE` | Create with reusable credentials, verify General/Specific selection, discover linked content and schedule synchronization |
 
-The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitation](docs/specs/invitation.md), [object storage](docs/specs/object-storage.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts define the implemented capability boundaries.
+The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitation](docs/specs/invitation.md), [object storage](docs/specs/object-storage.md), [connector](docs/specs/connector.md), [document](docs/specs/document.md), and [ingestion](docs/specs/ingestion.md) contracts document IAM lifecycles and resource boundaries. [Search](docs/specs/search.md) defines the `retrieval` capability; identity, Tenant and invitation are IAM concerns, not separate modules.
 
 ## Engineering policies
 
@@ -117,6 +135,7 @@ The [identity](docs/specs/identity.md), [tenant](docs/specs/tenant.md), [invitat
 - [Repository operating model](docs/guidelines/operating-model.md)
 - [Production-first persistence](docs/guidelines/persistence.md)
 - [Testing and verification](docs/guidelines/testing.md)
+- [CI and staging delivery](docs/runbooks/ci-cd.md)
 - [ADR 0003: evidence-driven audit boundary](docs/decisions/0003-defer-audit-until-evidence-consumer.md)
 
 The legacy OrgMemory repository is reference-only. Do not copy its structure or infrastructure breadth without a current MemoryOS capability requirement.

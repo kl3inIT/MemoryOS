@@ -21,7 +21,7 @@ import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository.Node;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.objectstorage.ObjectStorageException;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.HashSet;

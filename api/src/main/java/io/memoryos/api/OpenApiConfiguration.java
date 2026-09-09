@@ -74,6 +74,16 @@ class OpenApiConfiguration {
                     }
                     configureNullableProperty(components, "SourceRun", "trigger",
                             new StringSchema()._enum(Arrays.stream(SourceRunTrigger.values()).map(Enum::name).toList()));
+                    configureNullableProperty(components, "UserListItem", "role",
+                            new Schema<>().$ref("#/components/schemas/TenantMembershipRole"));
+                    configureNullableProperty(components, "UserListItem", "accountType",
+                            new Schema<>().$ref("#/components/schemas/AccountType"));
+                    configureNullableProperty(components, "UserGroup", "systemKey",
+                            new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
+                    configureNullableProperty(components, "GroupSummary", "systemKey",
+                            new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
+                    configureNullableProperty(components, "SourceGroup", "systemKey",
+                            new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
                 })
                 .build();
     }

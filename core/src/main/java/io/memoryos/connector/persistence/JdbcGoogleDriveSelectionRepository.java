@@ -3,8 +3,8 @@ package io.memoryos.connector.persistence;
 import io.memoryos.connector.*;
 import io.memoryos.connector.GoogleDriveSelectionProcessor.Work;
 import io.memoryos.connector.GoogleDriveSourceService.*;
-import io.memoryos.identity.ActorId;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -38,12 +38,6 @@ public class JdbcGoogleDriveSelectionRepository {
                 .param("file",entry.id()).param("kind",entry.kind()).update();
     }
 
-    public boolean lockOwner(TenantId tenant, ActorId actor) {
-        return jdbc.sql("""
-                SELECT actor_id FROM tenant_memberships WHERE tenant_id=:tenant AND actor_id=:actor
-                    AND role='OWNER' AND status='ACTIVE' FOR UPDATE
-                """).param("tenant",tenant.value()).param("actor",actor.value()).query(UUID.class).optional().isPresent();
-    }
 
     public void enqueueAncestors(Work work, Entry entry, List<String> parents) {
         if (parents.isEmpty()) return;

@@ -2,7 +2,7 @@ package io.memoryos.objectstorage.persistence;
 
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.StoredObjectId;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 
 import java.sql.Timestamp;
 import java.time.Instant;

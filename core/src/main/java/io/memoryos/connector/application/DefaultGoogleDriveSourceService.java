@@ -22,9 +22,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import org.jspecify.annotations.Nullable;
-import io.memoryos.identity.ActorId;
-import io.memoryos.tenant.TenantAccessResolver;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.connector.persistence.JdbcSourceGroupRepository;
+import io.memoryos.iam.TenantId;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -44,7 +46,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             "/(?:drive/(?:u/[0-9]+/)?folders|file/(?:u/[0-9]+/)?d)/([A-Za-z0-9_-]{1,256})(?:/(?:view|edit|preview))?/?");
     private static final Pattern DOCUMENT_PATH = Pattern.compile(
             "/(?:document|spreadsheets|presentation)/(?:u/[0-9]+/)?d/([A-Za-z0-9_-]{1,256})(?:/(?:edit|view|preview|copy|export|htmlview|present))?/?");
-    private final TenantAccessResolver tenants;
+    private final IamAuthorization authorization;
+    private final JdbcSourceGroupRepository sourceGroups;
     private final GoogleDriveConnectionService connections;
     private final JdbcGoogleDriveSourceRepository drive;
     private final GoogleDriveLinkReader linkReader;
@@ -57,13 +60,13 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     private final JdbcGoogleDriveCredentialRepository credentials;
     private final GoogleDriveSelectionPolicy policy;
 
-    public DefaultGoogleDriveSourceService(TenantAccessResolver tenants, GoogleDriveConnectionService connections,
+    public DefaultGoogleDriveSourceService(IamAuthorization authorization, GoogleDriveConnectionService connections,
             JdbcGoogleDriveSourceRepository drive, JdbcSourceRepository sources, JdbcSourceSyncRepository sync,
             JdbcIndexAttemptRepository indexing, JdbcSourceDocumentRepository documents,
             GoogleDriveLinkReader linkReader, PlatformTransactionManager transactionManager,
             JdbcGoogleDriveSelectionRepository selections, JdbcGoogleDriveCredentialRepository credentials,
-            GoogleDriveSelectionPolicy policy) {
-        this.tenants = tenants;
+            GoogleDriveSelectionPolicy policy, JdbcSourceGroupRepository sourceGroups) {
+        this.authorization = authorization;
         this.connections = connections;
         this.drive = drive;
         this.linkReader = linkReader;
@@ -75,6 +78,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         this.selections = selections;
         this.credentials = credentials;
         this.policy = policy;
+        this.sourceGroups = sourceGroups;
     }
 
     @Override
@@ -83,28 +87,29 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             throw SourceException.invalid("Source name must contain 1 to 120 characters.", "invalid source name");
         Objects.requireNonNull(credentialId, "credentialId must not be null");
         Objects.requireNonNull(requestId, "requestId must not be null");
-        var tenant = owner(actor);
+        var tenant = management(actor);
         var ids = rootIds(scopeMode, links);
         policy.requireSize(name, links, List.of());
         String hash = requestHash("CREATE", name, credentialId.toString(), scopeMode.name(), links, List.of());
         return Objects.requireNonNull(transactions.execute(_ -> {
-            if (!sources.lockActiveTenant(tenant) || !tenant.equals(owner(actor))) throw SourceException.notOwner();
+            requireManagementLock(actor, tenant);
+            if (!sources.lockActiveTenant(tenant) || !tenant.equals(management(actor))) throw SourceException.notFound();
             var receipt = selections.receipt(tenant, actor, requestId, hash);
             if (receipt.isPresent()) return receipt.get();
             var credential = credentials.lock(tenant, credentialId).orElseThrow(SourceException::notFound);
             if (!credential.usable()) throw SourceException.conflict("Google connection is unavailable");
-            if (!selections.lockOwner(tenant, actor)) throw SourceException.notOwner();
-            return selections.submit(tenant, actor, requestId, hash, new SourceId(UUID.randomUUID()), credentialId,
+                return selections.submit(tenant, actor, requestId, hash, new SourceId(UUID.randomUUID()), credentialId,
                     credential.revision(), 0, 0, scopeMode, name.strip(), ids, List.of(), policy.value());
         }));
     }
 
     @Override
     public Configuration configuration(ActorId actor, SourceId source) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         return Objects.requireNonNull(transactions.execute(_ -> {
+            requireManagementLock(actor, tenant);
             sources.lock(tenant, source);
-            if (!tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
             return configuration(tenant, source);
         }));
     }
@@ -126,7 +131,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     public SelectionReceipt replaceRoots(ActorId actor, UUID requestId, SourceId source, long expectedRevision,
             long expectedDiscoveryRevision, long expectedCredentialRevision, ScopeMode scopeMode,
             List<String> links, List<String> linkedDocumentIds) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         Objects.requireNonNull(requestId, "requestId must not be null");
         var roots = rootIds(scopeMode, links);
         var approved = linkedIds(scopeMode, linkedDocumentIds);
@@ -135,14 +140,14 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                 expectedRevision + ":" + expectedDiscoveryRevision + ":" + expectedCredentialRevision,
                 scopeMode.name(), links, linkedDocumentIds);
         return Objects.requireNonNull(transactions.execute(_ -> {
-            if (!sources.lockActiveTenant(tenant) || !tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+            requireManagementLock(actor, tenant);
+            if (!sources.lockActiveTenant(tenant) || !tenant.equals(management(actor, source))) throw SourceException.notFound();
             var receipt = selections.receipt(tenant, actor, requestId, hash);
             if (receipt.isPresent()) return receipt.get();
             var saved = snapshot(actor, tenant, source, expectedRevision);
             if (saved.configuration().discoveryRevision() != expectedDiscoveryRevision
                     || saved.credentialRevision() != expectedCredentialRevision) throw SourceException.staleConfiguration();
-            if (!selections.lockOwner(tenant, actor)) throw SourceException.notOwner();
-            if (saved.configuration().scopeMode() != scopeMode)
+                if (saved.configuration().scopeMode() != scopeMode)
                 throw SourceException.invalid("Google Drive scope mode is chosen when the Source is created and cannot be changed.",
                         "attempt to change creation-only Drive scope mode");
             var candidates = new java.util.HashMap<String, LinkedDocument>();
@@ -164,7 +169,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     @Override
     public Configuration discoverLinkedDocuments(ActorId actor, SourceId source, long expectedRevision) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         var saved = snapshot(actor, tenant, source, expectedRevision);
         if (saved.configuration().scopeMode() != ScopeMode.SPECIFIC)
             throw SourceException.invalid("Linked document discovery requires Specific scope.", "discovery requested for General scope");
@@ -188,11 +193,12 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     private Snapshot snapshot(ActorId actor, TenantId tenant, SourceId source, long expectedRevision) {
         return Objects.requireNonNull(transactions.execute(_ -> {
+            requireManagementLock(actor, tenant);
             credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
             sources.lock(tenant, source);
             var state = connections.state(tenant, source);
             if (!connections.current(tenant, source, state.credentialRevision())) throw SourceException.conflict("Google connection is unavailable");
-            if (!tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
             var config = drive.configuration(tenant, source);
             if (config.revision() != expectedRevision) throw SourceException.staleConfiguration();
             return new Snapshot(config, state.credentialId(), state.credentialRevision(),
@@ -205,12 +211,13 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     }
 
     private void checkSnapshot(ActorId actor, TenantId tenant, SourceId source, Snapshot saved, long credentialRevision) {
+        requireManagementLock(actor, tenant);
         credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
         sources.lock(tenant, source);
         if (credentialRevision != saved.credentialRevision() || !connections.current(tenant, source, credentialRevision)
                 || !connections.state(tenant, source).credentialId().equals(saved.credentialId()))
             throw SourceException.staleConfiguration();
-        if (!tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+        if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
         var config = drive.configuration(tenant, source);
         if (config.revision() != saved.configuration().revision()
                 || config.discoveryRevision() != saved.configuration().discoveryRevision()) throw SourceException.staleConfiguration();
@@ -241,13 +248,14 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     @Override
     public Configuration updateSchedule(ActorId actor, SourceId source, long expectedRevision, int syncIntervalMinutes) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         if (syncIntervalMinutes < 1) {
             throw SourceException.invalid("Automatic interval must be at least 1 minute.", "invalid Drive sync interval");
         }
         return Objects.requireNonNull(transactions.execute(_ -> {
+            requireManagementLock(actor, tenant);
             sources.lock(tenant, source);
-            if (!tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
             drive.updateSchedule(tenant, source, expectedRevision, syncIntervalMinutes);
             return configuration(tenant, source);
         }));
@@ -255,9 +263,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     @Override
     public SourceOperationView synchronize(ActorId actor, SourceId source) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         return java.util.Objects.requireNonNull(transactions.execute(_ -> {
-            if (!tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+            requireManagementLock(actor, tenant);
+            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
             sources.lock(tenant, source);
             var state = connections.state(tenant, source);
             if (!connections.current(tenant, source, state.credentialRevision())) throw SourceException.conflict("Google connection is unavailable");
@@ -266,14 +275,19 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         }));
     }
 
-    private TenantId owner(ActorId actor, SourceId source) {
-        var tenant = owner(actor);
+    private TenantId management(ActorId actor, SourceId source) {
+        var tenant = management(actor);
         drive.requireGoogle(tenant, source);
         return tenant;
     }
 
-    private TenantId owner(ActorId actor) {
-        return tenants.findActiveOwnerTenant(actor).orElseThrow(SourceException::notOwner);
+    private TenantId management(ActorId actor) {
+        return authorization.require(actor, IamCapability.SOURCES_MANAGE, false).tenantId();
+    }
+
+    private void requireManagementLock(ActorId actor, TenantId tenant) {
+        var access = authorization.lockAndRequire(actor, IamCapability.SOURCES_MANAGE, false);
+        if (!access.tenantId().equals(tenant)) throw SourceException.notFound();
     }
 
     private List<String> rootIds(ScopeMode scopeMode, List<String> links) {
@@ -335,20 +349,21 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
 
     @Override
-    public SelectionPolicy selectionPolicy(ActorId actor) { owner(actor); return policy.value(); }
+    public SelectionPolicy selectionPolicy(ActorId actor) { management(actor); return policy.value(); }
 
     @Override
     public int selectionRequestByteLimit() { return policy.value().maxRequestBytes(); }
 
     @Override
     public SelectionReceipt selectionRequest(ActorId actor, UUID requestId) {
-        return selections.receipt(owner(actor), actor, requestId, null).orElseThrow(SourceException::notFound);
+        return selections.receipt(management(actor), actor, requestId, null).orElseThrow(SourceException::notFound);
     }
 
     @Override
     public SelectionDraft selectionDraft(ActorId actor, SourceId source) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         return Objects.requireNonNull(transactions.execute(_ -> {
+            requireManagementLock(actor, tenant);
             sources.lock(tenant, source);
             var config = drive.configuration(tenant, source);
             var state = connections.state(tenant, source);
@@ -362,8 +377,9 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     @Override
     public SelectionPage selection(ActorId actor, SourceId source, @Nullable String search,
             @Nullable SelectionKind kind, @Nullable String cursor, int size) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         return Objects.requireNonNull(transactions.execute(_ -> {
+            requireManagementLock(actor, tenant);
             sources.lock(tenant, source);
             var state = connections.state(tenant, source);
             return drive.selection(tenant, source, state.credentialRevision(), search, kind, cursor, size);
@@ -373,12 +389,13 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     @Override
     public SelectionTreePage selectionTree(ActorId actor, SourceId source, @Nullable String parentId,
             @Nullable String cursor, int size) {
-        var tenant = owner(actor, source);
+        var tenant = management(actor, source);
         GoogleDriveSelectionTree.validate(parentId, cursor, size);
         var saved = Objects.requireNonNull(transactions.execute(_ -> {
+            requireManagementLock(actor, tenant);
             var credential = credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
             sources.lock(tenant, source);
-            if (!tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
             return new TreeSnapshot(drive.configuration(tenant, source), connections.state(tenant, source),
                     drive.roots(tenant, source), credential.usable());
         }));
@@ -405,9 +422,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     }
 
     private void checkTreeSnapshot(ActorId actor, TenantId tenant, SourceId source, TreeSnapshot saved, long credentialRevision) {
+        requireManagementLock(actor, tenant);
         var credential = credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
         sources.lock(tenant, source);
-        if (!tenant.equals(owner(actor, source))) throw SourceException.notOwner();
+        if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
         var state = connections.state(tenant, source);
         var config = drive.configuration(tenant, source);
         if (credentialRevision != saved.state().credentialRevision() || !state.equals(saved.state())
@@ -424,7 +442,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     void requireIntent(Work work, JdbcGoogleDriveSelectionRepository.Intent intent) {
         var tenant = work.tenantId();
-        if (intent.credentialId() == null || !sources.lockActiveTenant(tenant) || !tenant.equals(owner(intent.actorId())))
+        requireManagementLock(intent.actorId(), tenant);
+        if (intent.credentialId() == null || !sources.lockActiveTenant(tenant) || !tenant.equals(management(intent.actorId())))
             throw SourceException.staleConfiguration();
         var credential = credentials.lock(tenant, new CredentialId(intent.credentialId())).orElseThrow(SourceException::staleConfiguration);
         if (!credential.usable() || credential.revision() != intent.credentialRevision()) throw SourceException.staleConfiguration();
@@ -437,7 +456,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                     || !connections.state(tenant, work.sourceId()).credentialId().value().equals(intent.credentialId()))
                 throw SourceException.staleConfiguration();
         }
-        if (!selections.lockOwner(tenant, intent.actorId())) throw SourceException.notOwner();
+        requireManagementLock(intent.actorId(), tenant);
         if (!selections.current(work)) throw SourceException.staleConfiguration();
     }
 
@@ -447,6 +466,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var source = work.sourceId();
         if (intent.name() != null) {
             drive.create(tenant, source, intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())), intent.scopeMode(), roots);
+            sourceGroups.replace(tenant, source, List.of(sourceGroups.adminGroupId(tenant)));
             sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {
             boolean changed = !Set.copyOf(drive.roots(tenant, source).stream().map(Root::id).toList())

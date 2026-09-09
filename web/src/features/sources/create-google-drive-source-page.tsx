@@ -41,7 +41,11 @@ import { sourceStatusMessage } from "./source-errors";
 
 export function CreateGoogleDriveSourcePage() {
   const session = useApplicationSession();
-  return <GoogleDriveSourceSetup key={`${session.actorId}:${session.capabilities.join(",")}`} />;
+  return (
+    <GoogleDriveSourceSetup
+      key={`${session.actorId}:${session.authorizationVersion}:${session.capabilities.join(",")}`}
+    />
+  );
 }
 
 function GoogleDriveSourceSetup() {
@@ -383,7 +387,7 @@ function GoogleDriveSourceSetup() {
         </p>
       ) : null}
       {!canManage ? (
-        <p role="alert">Only an active Tenant owner can manage credentials and Sources.</p>
+        <p role="alert">You do not have permission to manage credentials and Sources.</p>
       ) : null}
       {error && !modalOpen ? (
         <p role="alert" className="text-sm text-status-danger-content">

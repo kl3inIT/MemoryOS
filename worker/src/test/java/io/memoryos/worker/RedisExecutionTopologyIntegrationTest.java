@@ -7,14 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
-
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
@@ -25,9 +18,13 @@ import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.connection.stream.StreamReadOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -40,17 +37,17 @@ import org.springframework.test.context.DynamicPropertySource;
                 "memoryos.redis.ingestion.group=memoryos-test-ingestion-workers",
                 "memoryos.redis.cleanup.stream=memoryos:test:work:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-cleanup-workers",
+                "memoryos.redis.search.stream=memoryos:test:work:search",
+                "memoryos.redis.search.group=memoryos-test-search-workers",
                 "memoryos.redis.source-sync.stream=memoryos:test:work:source-sync",
                 "memoryos.redis.source-sync.group=memoryos-test-source-sync-workers",
-                "spring.datasource.url=jdbc:h2:mem:redis-topology;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
-                "spring.datasource.username=sa",
-                "spring.datasource.password=",
+                "memoryos.redis.selection-validation.stream=memoryos:test:work:selection-validation",
+                "memoryos.redis.selection-validation.group=memoryos-test-selection-validation-workers",
                 "spring.data.redis.repositories.enabled=false"
         }
 )
 @AutoConfigureTestRestTemplate
-@Testcontainers(disabledWithoutDocker = true)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@Testcontainers
 class RedisExecutionTopologyIntegrationTest {
 
     @Container
@@ -64,7 +61,8 @@ class RedisExecutionTopologyIntegrationTest {
             .withStartupTimeout(Duration.ofSeconds(30));
 
     @DynamicPropertySource
-    static void redisProperties(DynamicPropertyRegistry registry) {
+    static void databaseProperties(DynamicPropertyRegistry registry) {
+        WorkerPostgresDatabase.configure(registry);
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }
@@ -100,9 +98,7 @@ class RedisExecutionTopologyIntegrationTest {
         topology.ensureTopology();
         topology.ensureTopology();
 
-        assertGroupExists(properties.ingestion());
-        assertGroupExists(properties.cleanup());
-        assertGroupExists(properties.sourceSync());
+        assertGroupExists(workload);
         assertEquals(
                 HttpStatus.OK,
                 http.getForEntity("/actuator/health/readiness", String.class).getStatusCode()

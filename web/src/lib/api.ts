@@ -21,3 +21,10 @@ client.interceptors.error.use((error, response) => new ApiError(response?.status
 export function isUnauthenticated(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 401;
 }
+
+export function problemCode(error: ApiError) {
+  const cause = error.cause;
+  if (!cause || typeof cause !== "object" || !("code" in cause)) return undefined;
+  const code = cause.code;
+  return typeof code === "string" ? code : undefined;
+}

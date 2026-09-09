@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
-import io.memoryos.identity.ActorId;
+import io.memoryos.iam.ActorId;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
@@ -56,37 +57,12 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
+                "arconia.dev.services.redis.enabled=false",
                 "management.otlp.metrics.export.enabled=true",
                 "management.otlp.metrics.export.step=1s",
                 "management.otlp.metrics.export.aggregation-temporality=cumulative",
-                "management.otlp.metrics.export.resource-attributes.service.name=memoryos-worker",
-                "spring.sql.init.mode=always",
-                "spring.sql.init.schema-locations=classpath:db/migration/V1__create_identity_tables.sql,"
-                        + "classpath:db/migration/V2__create_initial_organization_and_sessions.sql,"
-                        + "classpath:db/migration/V3__create_organization_invitations.sql,"
-                        + "classpath:db/migration/V4__collapse_workspace_into_organization.sql,"
-                        + "classpath:db/migration/V5__create_file_source_and_document_schema.sql,"
-                        + "classpath:db/migration/V6__cut_over_organization_to_tenant.sql,"
-                        + "classpath:db/migration/V7__create_scheduler_control_plane.sql,"
-                        + "classpath:db/migration/V8__cut_over_operations_to_redis_streams.sql,"
-                        + "classpath:db/migration/V9__cut_over_file_content_to_object_storage.sql,"
-                        + "classpath:db/migration/V10__persist_operation_trace_origins.sql,"
-                        + "classpath:db/migration/V11__add_document_extraction_artifacts.sql,"
-                        + "classpath:db/migration/V12__use_current_documents.sql,"
-                        + "classpath:db/migration/V13__add_tracked_object_writes.sql,"
-                        + "classpath:db/migration/V14__add_google_drive_credentials.sql,"
-                        + "classpath:db/migration/V15__add_durable_google_drive_sync.sql,"
-                        + "classpath:db/migration/V16__require_owner_google_oauth_client.sql,"
-                        + "classpath:db/migration/V17__scope_google_sync_to_explicit_roots.sql,"
-                        + "classpath:db/migration/V18__reuse_google_drive_credentials.sql,"
-                        + "classpath:db/migration/V19__add_google_drive_sync_interval.sql,"
-                        + "classpath:db/migration/V20__add_google_drive_scope_mode.sql,"
-                        + "classpath:db/migration/V21__add_google_drive_linked_documents.sql,"
-                        + "classpath:db/migration/V22__add_google_drive_selection_operations.sql,"
-                        + "classpath:db/migration/V23__add_source_run_history.sql",
-                "spring.sql.init.separator=" + org.springframework.jdbc.datasource.init.ScriptUtils.EOF_STATEMENT_SEPARATOR,
+                "management.opentelemetry.resource-attributes.service.name=memoryos-worker",
                 "db-scheduler.enabled=true",
-                "arconia.dev.services.redis.enabled=false",
                 "db-scheduler.scheduler-name=redis-cutover-integration",
                 "db-scheduler.polling-interval=50ms",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
@@ -103,12 +79,16 @@ import org.springframework.jdbc.core.simple.JdbcClient;
                 "memoryos.redis.cleanup.stream=memoryos:test:cutover:cleanup",
                 "memoryos.redis.cleanup.group=memoryos-test-cutover-cleanup",
                 "memoryos.redis.cleanup.batch-size=4",
+                "memoryos.redis.search.stream=memoryos:test:cutover:search",
+                "memoryos.redis.search.group=memoryos-test-cutover-search",
                 "memoryos.redis.source-sync.stream=memoryos:test:cutover:source-sync",
-                "memoryos.redis.source-sync.group=memoryos-test-cutover-source-sync"
+                "memoryos.redis.source-sync.group=memoryos-test-cutover-source-sync",
+                "memoryos.redis.selection-validation.stream=memoryos:test:cutover:selection-validation",
+                "memoryos.redis.selection-validation.group=memoryos-test-cutover-selection-validation"
         }
 )
 @org.springframework.context.annotation.Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
 class WorkerFileProcessingIntegrationTest {
     @org.springframework.beans.factory.annotation.Autowired
@@ -121,7 +101,8 @@ class WorkerFileProcessingIntegrationTest {
         @org.springframework.context.annotation.Bean
         io.opentelemetry.api.OpenTelemetry operationTestTelemetry() {
             var processor = new io.opentelemetry.sdk.trace.SpanProcessor() {
-                public void onStart(io.opentelemetry.context.Context parent, io.opentelemetry.sdk.trace.ReadWriteSpan span) {}
+                public void onStart(io.opentelemetry.context.@org.jspecify.annotations.NonNull Context parent,
+                                    io.opentelemetry.sdk.trace.@org.jspecify.annotations.NonNull ReadWriteSpan span) {}
                 public boolean isStartRequired() { return false; }
                 public void onEnd(io.opentelemetry.sdk.trace.ReadableSpan span) { SPANS.add(span.toSpanData()); }
                 public boolean isEndRequired() { return true; }
@@ -173,7 +154,7 @@ class WorkerFileProcessingIntegrationTest {
     private static final String CLEANUP_STREAM = "memoryos:test:cutover:cleanup";
     private static final String CLEANUP_GROUP = "memoryos-test-cutover-cleanup";
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+            "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382"
     ).asCompatibleSubstituteFor("postgres");
 
     @Container
@@ -191,6 +172,7 @@ class WorkerFileProcessingIntegrationTest {
             .withExposedPorts(6379)
             .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
             .withStartupTimeout(Duration.ofSeconds(30));
+
 
     @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
@@ -238,9 +220,7 @@ class WorkerFileProcessingIntegrationTest {
             registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
         }
         registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        WorkerPostgresDatabase.configure(registry, POSTGRES);
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         registry.add("memoryos.object-storage.s3.service-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
@@ -282,13 +262,41 @@ class WorkerFileProcessingIntegrationTest {
                 .param("tenantId", tenantId)
                 .param("actorId", OWNER.value())
                 .update();
+        UUID adminGroupId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID basicGroupId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        jdbcClient.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name, system_key)
+                        VALUES (:tenantId, :adminGroupId, 'Admin', 'ADMIN'),
+                               (:tenantId, :basicGroupId, 'Basic', 'BASIC')
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .param("basicGroupId", basicGroupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :adminGroupId, 'IAM_ADMIN')
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id)
+                        VALUES (:tenantId, :adminGroupId, :actorId),
+                               (:tenantId, :basicGroupId, :actorId)
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .param("basicGroupId", basicGroupId)
+                .param("actorId", OWNER.value())
+                .update();
     }
 
     @Test
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
         worker.stop();
-        var sourceId = sources.createFileSource(OWNER, "Worker knowledge").id();
+        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of()).id();
         boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
         byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
@@ -314,8 +322,8 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(200, uploadResponse.statusCode());
         io.memoryos.connector.SourceUploadReceipt upload;
         String originTrace = "1234567890abcdef1234567890abcdef";
-        try (var trace = org.slf4j.MDC.putCloseable("traceId", originTrace);
-             var span = org.slf4j.MDC.putCloseable("spanId", "1234567890abcdef")) {
+        try (var _ = org.slf4j.MDC.putCloseable("traceId", originTrace);
+             var _ = org.slf4j.MDC.putCloseable("spanId", "1234567890abcdef")) {
             upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
         }
         assertEquals(originTrace, jdbcClient.sql("SELECT origin_trace_id FROM index_attempts WHERE id = :id")

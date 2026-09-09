@@ -47,6 +47,30 @@ Keep parts together when they share one language, invariant owner, transaction/l
 - Prefer Spring `JdbcClient` for explicit SQL and Spring-managed transaction/error semantics. Application services never contain SQL or row mapping; concrete capability-owned `@Repository` classes own those mechanics and need no interface when only one internal implementation exists. Group repositories by consistency/use-case boundary, not table. Use JPA only when entity lifecycle or relationships provide concrete value; never create parallel domain/entity/repository/mapper layers by default. See [persistence policy](guidelines/persistence.md).
 - Centralize dependency versions in `gradle/libs.versions.toml`.
 
+## Testing
+
+Every test must identify the observable contract and the regression it would catch. Use the smallest boundary that can actually detect that regression:
+
+| Contract | Default test boundary |
+| --- | --- |
+| Business rule, validation, ordering, state transition | Plain unit test with real value objects; substitute only external collaborators |
+| HTTP mapping, binding, validation, JSON or filter behavior | MVC slice with the relevant security configuration; calling a controller method directly is insufficient |
+| SQL, migration, locking, transaction or constraint | Repository/application integration against the real database engine and Flyway migrations |
+| Application composition, sessions, actor binding or background lifecycle | Full application context; real HTTP or worker execution when the transport/lifecycle is part of the contract |
+| Browser interaction and recovery | Component test for local behavior; browser test for routing, cookies, network and browser-owned behavior |
+| Deployed feature acceptance | Authenticated runtime smoke against the deployed release and real configured dependencies |
+
+- Do not add tests for generated accessors, framework defaults, private methods, fixed implementation call sequences or source spelling. Architecture/dependency and generated-contract drift checks are exceptions because those boundaries are repository contracts.
+- Before adding a test, check the owning verification matrix and existing cases. Extend the existing case when it covers the same behavior, boundary and failure mode. Similar scenarios at different boundaries are justified only when they catch different regressions.
+- Remove a test only with an explicit explanation of its missing value or a named replacement that preserves its assertions. Never remove concurrency, migration, security or negative-path coverage merely because a happy-path integration test passes.
+- Reuse compatible Spring contexts before increasing parallelism. Different profiles, properties, dynamic property methods and mock customizers can create different cache keys. Do not add blanket `@DirtiesContext`; document the concrete lifecycle/state that requires eviction.
+- Keep database/tenant fixtures isolated, avoid order dependencies and shared mutable state, bound worker counts and all asynchronous waits, and clean up resources through their actual lifecycle owner. A Testcontainers-managed static container does not need a second manual lifecycle.
+- Required infrastructure failure must fail the required integration gate. Optional provider checks require a named owner, prerequisite and recorded acceptance gap. A mock or skipped test never establishes live integration.
+- Retries must not turn a flaky required test into accepted evidence. Classify application errors, resource exhaustion and provider outages from diagnostics; do not weaken assertions or use quarantine as a fix.
+- Coverage is a diagnostic, not an arbitrary percentage gate. Use targeted fault injection or mutation testing when it answers whether important assertions catch a plausible regression; add a tool only when its value justifies the cost.
+
+The boundary, context-reuse, parallelism and mutation principles are based on Philip Riecks' [Spring I/O 2026 talk](https://www.youtube.com/watch?v=DPi2Borv96I): [19:15](https://www.youtube.com/watch?v=DPi2Borv96I&t=1155s), [21:20](https://www.youtube.com/watch?v=DPi2Borv96I&t=1280s), [37:30](https://www.youtube.com/watch?v=DPi2Borv96I&t=2250s), [45:21](https://www.youtube.com/watch?v=DPi2Borv96I&t=2721s), and [47:10](https://www.youtube.com/watch?v=DPi2Borv96I&t=2830s). The concrete MemoryOS gate and ownership rules above are project policy. See [testing mechanics](guidelines/testing.md) for commands and evidence boundaries.
+
 ## API discovery and product boundaries
 
 Published APIs are derived after domain boundaries, not from tables, repositories, entity fields, controller convenience, or provider SDKs. Every new API product or material contract change follows:

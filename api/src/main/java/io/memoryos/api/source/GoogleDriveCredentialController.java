@@ -6,7 +6,7 @@ import io.memoryos.api.source.contract.RevokeGoogleDriveCredentialRequest;
 import io.memoryos.api.source.contract.StartGoogleDriveAuthorizationRequest;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

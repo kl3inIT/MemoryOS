@@ -10,7 +10,7 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSourceRepository.TreeEntry;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

@@ -1,6 +1,8 @@
 package io.memoryos.api.security;
 
-import io.memoryos.identity.ExternalIdentityResolver;
+import io.memoryos.iam.ExternalIdentityResolver;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.TenantAccessResolver;
 
 import java.net.URI;
 import java.util.Objects;
@@ -11,6 +13,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -57,7 +60,8 @@ class SecurityConfiguration {
     SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http,
             JwtDecoder jwtDecoder,
-            ExternalIdentityResolver identityResolver) {
+            ExternalIdentityResolver identityResolver,
+            TenantAccessResolver tenantAccessResolver) {
         http.securityMatcher("/api/**");
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -65,7 +69,15 @@ class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/invitations/current").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/identity/me").authenticated()
+                        .anyRequest().access((authentication, _) -> {
+                            var current = authentication.get();
+                            return new AuthorizationDecision(
+                                    current != null && current.isAuthenticated()
+                                            && current.getPrincipal() instanceof IdentityContext(var actorId)
+                                            && tenantAccessResolver.hasActiveTenant(actorId)
+                            );
+                        }))
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .decoder(jwtDecoder)
                         .jwtAuthenticationConverter(new JwtToActorAuthenticationConverter(identityResolver))));

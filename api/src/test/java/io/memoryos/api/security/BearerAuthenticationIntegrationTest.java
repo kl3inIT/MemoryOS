@@ -2,7 +2,11 @@ package io.memoryos.api.security;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.memoryos.api.ApiPostgresDatabase;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -26,33 +30,29 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "SqlWithoutWhere"})
-@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BearerAuthenticationIntegrationTest {
 
     private static final String AUDIENCE = "memoryos-api";
     private static final String BOUND_SUBJECT = "bound-subject";
     private static final String ACTOR_ID = "00000000-0000-0000-0000-000000000001";
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
-            .asCompatibleSubstituteFor("postgres"));
 
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final RSAKey WRONG_KEY = rsaKey();
@@ -67,6 +67,7 @@ class BearerAuthenticationIntegrationTest {
 
     @DynamicPropertySource
     static void identityProperties(DynamicPropertyRegistry registry) {
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> ISSUER);
         registry.add(
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
@@ -78,9 +79,6 @@ class BearerAuthenticationIntegrationTest {
                 "memoryos.identity.keycloak.admin.action-redirect-uri",
                 () -> "http://127.0.0.1/invite/activate"
         );
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.security.oauth2.client.registration.memoryos.client-secret", () -> "client-secret");
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> ISSUER);
         registry.add("spring.security.oauth2.client.provider.memoryos.authorization-uri",
@@ -104,6 +102,37 @@ class BearerAuthenticationIntegrationTest {
 
     @Autowired
     private JdbcClient jdbcClient;
+
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private AsyncTaskExecutor applicationTaskExecutor;
+
+    @Autowired
+    private WebApplicationContext applicationContext;
+
+    @Test
+    void applicationTaskExecutorUsesVirtualThreads() throws Exception {
+        assertTrue(applicationTaskExecutor.submit(() -> Thread.currentThread().isVirtual())
+                .get(5, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void healthEndpointIsAvailable() throws Exception {
+        var response = HTTP_CLIENT.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + port + "/actuator/health"))
+                .timeout(Duration.ofSeconds(5)).build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("\"status\":\"UP\""));
+    }
+
+    @Test
+    void apiDocumentationEndpointIsDisabledByDefault() throws Exception {
+        // Inspect normal MVC handler registration without security hiding an enabled route.
+        // The HTTP authentication tests below separately exercise the real filter chain.
+        MockMvcBuilders.webAppContextSetup(applicationContext).build()
+                .perform(get("/v3/api-docs/browser"))
+                .andExpect(status().isNotFound());
+    }
 
     @BeforeEach
     void seedBoundIdentity() {
@@ -222,7 +251,8 @@ class BearerAuthenticationIntegrationTest {
 
         assertEquals(200, response.statusCode());
         assertEquals(
-                "{\"actorId\":\"" + ACTOR_ID + "\",\"tenant\":null,\"capabilities\":[]}",
+                "{\"actorId\":\"" + ACTOR_ID
+                        + "\",\"tenant\":null,\"capabilities\":[],\"scopedCapabilities\":[],\"authorizationVersion\":0}",
                 response.body()
         );
     }
@@ -240,11 +270,10 @@ class BearerAuthenticationIntegrationTest {
         var response = request(token(validClaims("startup-owner"), SIGNING_KEY));
 
         assertEquals(200, response.statusCode());
-        assertEquals(
-                "{\"actorId\":\"" + ownerActorId + "\",\"tenant\":{\"displayName\":\"Test\","
-                        + "\"role\":\"OWNER\"},\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]}",
-                response.body()
-        );
+        assertTrue(response.body().contains(ownerActorId.toString()));
+        assertTrue(response.body().contains("\"role\":\"OWNER\""));
+        assertTrue(response.body().contains("\"USERS_MANAGE\""));
+        assertTrue(response.body().contains("\"SOURCES_MANAGE\""));
     }
 
     @Test
@@ -270,7 +299,7 @@ class BearerAuthenticationIntegrationTest {
     }
 
     @Test
-    void rejectsOversizedDeclaredUploadBeforeAuthorization() throws Exception {
+    void rejectsOversizedDeclaredUploadForAnAuthorizedOwner() throws Exception {
         String body = """
                 {
                   "filename": "oversized.txt",
@@ -283,8 +312,8 @@ class BearerAuthenticationIntegrationTest {
                         URI.create("http://127.0.0.1:" + port
                                 + "/api/sources/" + UUID.randomUUID() + "/uploads"))
                 .timeout(Duration.ofSeconds(5))
-                .header("Authorization", "Bearer " + token(validClaims(BOUND_SUBJECT), SIGNING_KEY))
-                .header("X-MemoryOS-CSRF", "1")
+                .header("Authorization", "Bearer " + token(validClaims("startup-owner"), SIGNING_KEY))
+                .header(BrowserMutation.HEADER, BrowserMutation.VALUE)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();

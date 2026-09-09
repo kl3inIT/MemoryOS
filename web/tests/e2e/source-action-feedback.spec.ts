@@ -16,6 +16,13 @@ async function sourcePage(
     documentCount: 2,
     lastSucceededAt: "2026-09-01T10:00:00Z",
     errorCode: null,
+    actions: [
+      ...(provider === "FILE" ? ["upload"] : []),
+      "reindex",
+      "remove_items",
+      "delete",
+      "manage_groups",
+    ],
   };
   const otherSource = {
     ...source,
@@ -27,6 +34,7 @@ async function sourcePage(
     filename,
     sizeBytes: 42,
     status: "INDEXED",
+    searchStatus: "READY",
     uploadedAt: "2026-09-01T10:00:00Z",
     lastIndexedAt: null,
     latestAttempt: null,
@@ -58,8 +66,10 @@ async function sourcePage(
     route.fulfill({
       json: {
         actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+        authorizationVersion: 1,
         tenant: { displayName: "Team", role: "OWNER" },
-        capabilities: ["SOURCES_MANAGE"],
+        capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+        scopedCapabilities: [],
       },
     }),
   );
@@ -68,6 +78,30 @@ async function sourcePage(
     const request = route.request();
     const url = new URL(request.url());
     const pathname = url.pathname;
+    if (request.method() === "GET" && pathname === "/api/sources/group-options") {
+      await route.fulfill({
+        json: {
+          items: [
+            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+          ],
+          page: 0,
+          size: 25,
+          totalItems: 1,
+          totalPages: 1,
+        },
+      });
+      return;
+    }
+    if (request.method() === "GET" && pathname.endsWith("/groups")) {
+      await route.fulfill({
+        json: {
+          items: [
+            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+          ],
+        },
+      });
+      return;
+    }
     if (
       request.method() === "POST" &&
       ["/index-attempts", "/sync", "/remove", "/delete"].some((ending) => pathname.endsWith(ending))
@@ -263,6 +297,7 @@ test("Files paging preserves concurrent item operations and uploads return to th
     id: "ac15afe3-88b3-4627-a737-51d8c4c1b290",
     filename: "Newest.txt",
     status: "PENDING",
+    searchStatus: "WAITING",
   };
   await page.route("**/api/sources/*/uploads", (route) =>
     route.fulfill({
@@ -321,6 +356,12 @@ test("Files paging preserves concurrent item operations and uploads return to th
   await expect(files.getByRole("status")).toHaveText("Page 1");
   await expect(row(uploaded.filename)).toBeVisible();
   await expect(row("File-26.txt")).toBeVisible();
+  await expect(files.getByRole("button", { name: "Next files" })).toBeEnabled();
+  await files.getByRole("button", { name: "Next files" }).click();
+  await expect(files.getByRole("status")).toHaveText("Page 2");
+  await expect(row("File-50.txt")).toBeVisible();
+  await expect(row("File-51.txt")).toBeVisible();
+  await expect(row(uploaded.filename)).toHaveCount(0);
   await expect(files.getByRole("button", { name: "Next files" })).toBeDisabled();
 });
 
@@ -726,6 +767,7 @@ test("upload failures retain retry state and finalization acceptance never claim
         id: uploadId,
         filename: "New.txt",
         status: "PENDING",
+        searchStatus: "WAITING",
       });
     }
     return route.fulfill(
@@ -740,6 +782,7 @@ test("upload failures retain retry state and finalization acceptance never claim
                 sha256: "a".repeat(64),
                 sizeBytes: 7,
                 status: "PENDING",
+                searchStatus: "WAITING",
                 uploadedAt: "2026-09-01T00:00:00Z",
                 lastIndexedAt: null,
                 latestAttempt: {
@@ -846,7 +889,7 @@ test("cancelling an in-flight finalization retry keeps recovery and ignores the 
   await retry.click();
   await expect.poll(() => finalizes).toBe(2);
   await expect(retry).toBeDisabled();
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.locator("form").getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(
     page.getByRole("listitem", { name: "Finalization cancelled", exact: true }),
   ).toBeVisible();
@@ -854,7 +897,7 @@ test("cancelling an in-flight finalization retry keeps recovery and ignores the 
   release();
   await expect(input).toBeDisabled();
   await expect(page.getByRole("listitem", { name: "Upload accepted", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.locator("form").getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(retry).toHaveCount(0);
   await expect(input).toBeEnabled();
 });

@@ -7,9 +7,11 @@ import io.memoryos.TestDatabase;
 import io.memoryos.connector.*;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.persistence.*;
-import io.memoryos.identity.ActorId;
-import io.memoryos.tenant.TenantId;
-import io.memoryos.tenant.persistence.JdbcTenantAccessResolver;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.TenantId;
+import io.memoryos.iam.application.DefaultIamAuthorization;
+import io.memoryos.iam.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.persistence.IamLockRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -220,7 +222,7 @@ public class GoogleDriveSelectionOperationTest {
     }
 
     @Test
-    void staleClaimsAndOwnerLossCannotPublishAPartiallyVerifiedCreate() throws Exception {
+    void staleClaimsAndCapabilityRevocationCannotPublishAPartiallyVerifiedCreate() throws Exception {
         var fixture=fixture();
         var receipt=fixture.create(UUID.randomUUID(),fixture.mixedRoots(50,1));
         UUID delivery=UUID.randomUUID();
@@ -231,8 +233,24 @@ public class GoogleDriveSelectionOperationTest {
         var recovered=fixture.processor.claim(fixture.tenant,receipt.operation().id(),delivery).orElseThrow();
         assertEquals(GoogleDriveSelectionProcessor.Result.SUPERSEDED,fixture.processor.execute(old));
         assertEquals(GoogleDriveSelectionProcessor.Result.CONTINUED,fixture.processor.execute(recovered));
-        fixture.jdbc.sql("UPDATE tenant_memberships SET role='MEMBER' WHERE actor_id=:actor").param("actor",fixture.owner.value()).update();
+        fixture.jdbc.sql("DELETE FROM iam_group_capability_grants WHERE tenant_id=:tenant")
+                .param("tenant",fixture.tenant.value()).update();
+        fixture.batch(receipt);
         assertEquals(SourceOperationStatus.SUPERSEDED, fixture.operation(receipt).status());
+        assertEquals("IAM_ACCESS_DENIED", fixture.operation(receipt).errorCode());
+        assertEquals(0,fixture.jdbc.sql("SELECT count(*) FROM connector_credential_pairs").query(Integer.class).single());
+    }
+
+    @Test
+    void capabilityRevokedDuringProviderVerificationCannotActivateTheSource() throws Exception {
+        var fixture=fixture();
+        var receipt=fixture.create(UUID.randomUUID(),fixture.mixedRoots(1,1));
+        fixture.afterProviderRead=() -> fixture.jdbc.sql(
+                "DELETE FROM iam_group_capability_grants WHERE tenant_id=:tenant")
+                .param("tenant",fixture.tenant.value()).update();
+        var result=fixture.finish(receipt);
+        assertEquals(SourceOperationStatus.SUPERSEDED,result.status());
+        assertEquals("IAM_ACCESS_DENIED",result.errorCode());
         assertEquals(0,fixture.jdbc.sql("SELECT count(*) FROM connector_credential_pairs").query(Integer.class).single());
     }
 
@@ -262,8 +280,14 @@ public class GoogleDriveSelectionOperationTest {
             jdbc.sql("INSERT INTO actors(id) VALUES(:id)").param("id",owner.value()).update();
             jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'selection','Selection','ACTIVE','TEST')")
                     .param("id",tenant.value()).update();
-            jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'OWNER','ACTIVE')")
+            jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
                     .param("tenant",tenant.value()).param("actor",owner.value()).update();
+            jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES (:tenant,:tenant,'Admin','ADMIN')")
+                    .param("tenant", tenant.value()).update();
+            jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:tenant,'IAM_ADMIN')")
+                    .param("tenant", tenant.value()).update();
+            jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
+                    .param("tenant", tenant.value()).param("actor", owner.value()).update();
             var sources=new JdbcSourceRepository(jdbc);
             roots=new JdbcGoogleDriveSourceRepository(jdbc);
             var sync=new JdbcSourceSyncRepository(jdbc);
@@ -294,8 +318,8 @@ public class GoogleDriveSelectionOperationTest {
             connections=TestDatabase.transactionalProxy(new DefaultGoogleDriveConnectionService(credentials,provider,manager),GoogleDriveConnectionService.class,manager);
             selections=new JdbcGoogleDriveSelectionRepository(jdbc);
             var indexing=new JdbcIndexAttemptRepository(jdbc,sources,documents,connections);
-            service=new DefaultGoogleDriveSourceService(new JdbcTenantAccessResolver(jdbc),connections,roots,sources,sync,indexing,
-                    documents,content -> List.of(),manager,selections,credentials,new GoogleDriveSelectionPolicy(1000,3145728));
+            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)),connections,roots,sources,sync,indexing,
+                    documents,content -> List.of(),manager,selections,credentials,new GoogleDriveSelectionPolicy(1000,3145728),new JdbcSourceGroupRepository(jdbc));
             try (var grant=new GoogleDriveAuthorizationService.Grant("subject","fixture@example.com",GoogleDriveAuthorizationService.REQUIRED_SCOPES,
                     "refresh".getBytes(StandardCharsets.UTF_8));
                  var client=new GoogleDriveOAuthClient("fixture.apps.googleusercontent.com","secret".getBytes(StandardCharsets.UTF_8))) {

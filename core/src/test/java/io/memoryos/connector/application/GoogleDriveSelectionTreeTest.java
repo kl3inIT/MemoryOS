@@ -11,7 +11,8 @@ import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
-import io.memoryos.identity.ActorId;
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.IamException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -120,7 +121,10 @@ class GoogleDriveSelectionTreeTest {
         assertThrows(SourceException.class, () -> tree(f, source, "outside", null, 25));
         assertThrows(SourceException.class, () -> tree(f, source, "outside-file", null, 25));
         assertTrue(f.listedParents.isEmpty());
-        assertThrows(SourceException.class, () -> f.service.selectionTree(new ActorId(UUID.randomUUID()), source, "root0", null, 25));
+        int beforeUnauthorizedRead = f.calls;
+        assertEquals("IAM_ACCESS_DENIED", assertThrows(IamException.class,
+                () -> f.service.selectionTree(new ActorId(UUID.randomUUID()), source, "root0", null, 25)).code());
+        assertEquals(beforeUnauthorizedRead, f.calls);
         assertTrue(f.listedParents.isEmpty());
     }
 
@@ -200,7 +204,12 @@ class GoogleDriveSelectionTreeTest {
                         .param("tenant", f.tenant.value()).param("source", source.value()).update();
             }
         };
-        assertThrows(SourceException.class, () -> tree(f, source, "root0", null, 25));
+        if (authority.equals("owner")) {
+            assertEquals("IAM_ACCESS_DENIED",
+                    assertThrows(IamException.class, () -> tree(f, source, "root0", null, 25)).code());
+        } else {
+            assertThrows(SourceException.class, () -> tree(f, source, "root0", null, 25));
+        }
     }
 
     @Test

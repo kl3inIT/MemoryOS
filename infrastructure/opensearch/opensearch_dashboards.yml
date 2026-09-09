@@ -1,0 +1,23 @@
+server.name: memoryos-opensearch-dashboards
+server.host: 0.0.0.0
+server.ssl.enabled: true
+server.ssl.certificate: /run/secrets/dashboards.crt
+server.ssl.key: /run/secrets/dashboards.key
+opensearch.hosts: [https://opensearch:9200]
+opensearch.ssl.verificationMode: full
+opensearch.ssl.certificateAuthorities: [/run/secrets/opensearch-ca.crt]
+opensearch.username: memoryos-dashboards
+opensearch.password: ${MEMORYOS_DASHBOARDS_PASSWORD}
+opensearch.requestHeadersAllowlist: [authorization, securitytenant]
+opensearch_security.auth.type: openid
+opensearch_security.openid.connect_url: ${MEMORYOS_OPENSEARCH_OIDC_ISSUER}/.well-known/openid-configuration
+opensearch_security.openid.client_id: memoryos-opensearch-dashboards
+opensearch_security.openid.client_secret: ${MEMORYOS_DASHBOARDS_OIDC_SECRET}
+opensearch_security.openid.scope: openid profile email
+opensearch_security.openid.base_redirect_url: ${MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL}
+opensearch_security.cookie.secure: true
+opensearch_security.cookie.password: ${MEMORYOS_DASHBOARDS_COOKIE_PASSWORD}
+opensearch_security.multitenancy.enabled: true
+opensearch_security.multitenancy.tenants.enable_private: false
+opensearch_security.multitenancy.tenants.preferred: [Global]
+opensearch_security.readonly_mode.roles: [kibana_read_only]

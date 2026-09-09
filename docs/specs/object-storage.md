@@ -1,5 +1,7 @@
 # Object storage capability contract
 
+Integration boundary: this contract combines the implemented Google branch with main IAM/Search. The [isolated integration plan](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) tracks pending combined verification; linked prior tests/runtime observations remain pre-integration evidence.
+
 ## Ownership and provider boundary
 
 `objectstorage` owns tenant-scoped immutable raw-object metadata, generic browser-upload authorization, tracked server-write reservations, verification claims, adoption, discard, and pre-adoption cleanup. Its public `ObjectStorage` port provides provider-neutral presigned uploads, server writes, metadata inspection, streaming reads, deletion and bounded readiness checks; AWS SDK and MinIO types remain inside `objectstorage.s3`. `ObjectUploadService` owns browser intents, while `ObjectWriteService` owns server-acquired raw bytes. Connector owns accepted source provenance and post-adoption deletion. Extracted-artifact ownership is defined by [document](document.md), not a second raw-upload lifecycle.
@@ -12,7 +14,7 @@ Every initiated browser upload creates one `STAGED` `StoredObject` and one gener
 
 Upload states are `PENDING`, `VERIFYING`, `VERIFIED`, `ADOPTED`, `DISCARDED`, `CLEANING`, and `EXPIRED`. Verification uses a token and lease, performs provider inspection outside a database transaction, and compares the actual key-bound size, media type, and SHA-256 with durable declared metadata. Adoption or discard requires the current verification token and an unexpired adoption deadline. A completed adoption is capability-owned and never selected by generic abandoned-upload cleanup.
 
-Expected missing or mismatched uploaded content returns `OBJECT_UPLOAD_INTEGRITY_MISMATCH`. Provider availability or authorization failures return `OBJECT_UPLOAD_STORAGE_UNAVAILABLE` at the upload application boundary. Wrong-tenant identifiers are indistinguishable from absent uploads. A finalized owner endpoint persists its capability receipt, so replay after a lost response returns the same result without adopting twice.
+Expected missing or mismatched uploaded content returns `OBJECT_UPLOAD_INTEGRITY_MISMATCH`. Provider availability or authorization failures return `OBJECT_UPLOAD_STORAGE_UNAVAILABLE` at the upload application boundary. Wrong-tenant identifiers are indistinguishable from absent uploads. A finalized owning-capability endpoint persists its capability receipt, so replay after a lost response returns the same result without adopting twice.
 
 ## Tracked server-write lifecycle
 

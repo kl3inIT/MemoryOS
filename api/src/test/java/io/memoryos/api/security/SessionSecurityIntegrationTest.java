@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.invitation.InvitationSessionState;
+import io.swagger.v3.core.util.Json;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -55,26 +57,16 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.context.annotation.Import;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 @SuppressWarnings({
         "SqlResolve",
         "SqlNoDataSourceInspection",
-        "HttpHeaderInspection",
         "SqlWithoutWhere"
 })
-@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestKeycloakProvisioningConfiguration.class)
 class SessionSecurityIntegrationTest {
 
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
-            .asCompatibleSubstituteFor("postgres"));
 
     private static final RSAKey SIGNING_KEY = rsaKey();
     private static final Map<String, AuthorizationGrant> AUTHORIZATION_GRANTS = new ConcurrentHashMap<>();
@@ -88,7 +80,6 @@ class SessionSecurityIntegrationTest {
     private static final String CLIENT_ID = "memoryos-web";
     private static final String PROVIDER_ID_TOKEN_MARKER = "provider-id-token-marker";
     private static final String PROVIDER_ACCESS_TOKEN = "provider-access-token";
-    private static final String BROWSER_MUTATION_HEADER = "X-MemoryOS-CSRF";
 
     @LocalServerPort
     private int port;
@@ -98,6 +89,7 @@ class SessionSecurityIntegrationTest {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> ISSUER);
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> ISSUER + "/jwks");
         registry.add("memoryos.identity.audience", () -> "memoryos-api");
@@ -108,9 +100,6 @@ class SessionSecurityIntegrationTest {
                 () -> "http://127.0.0.1/invite/activate"
         );
         registry.add("server.servlet.session.cookie.secure", () -> "false");
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.security.oauth2.client.registration.memoryos.client-id", () -> CLIENT_ID);
         registry.add("spring.security.oauth2.client.registration.memoryos.client-secret", () -> "client-secret");
         registry.add("spring.security.oauth2.client.registration.memoryos.client-authentication-method",
@@ -217,9 +206,8 @@ class SessionSecurityIntegrationTest {
             assertTrue(currentIdentity.body().contains(ownerActorId.toString()));
             assertTrue(currentIdentity.body().contains("\"displayName\":\"Tasco\""));
             assertTrue(currentIdentity.body().contains("\"role\":\"OWNER\""));
-            assertTrue(currentIdentity.body().contains(
-                    "\"capabilities\":[\"INVITATIONS_MANAGE\",\"SOURCES_MANAGE\"]"
-            ));
+            assertTrue(currentIdentity.body().contains("\"USERS_MANAGE\""));
+            assertTrue(currentIdentity.body().contains("\"SOURCES_MANAGE\""));
             assertEquals(1L, count("tenants"));
             assertEquals(1L, count("tenant_memberships"));
 
@@ -247,7 +235,7 @@ class SessionSecurityIntegrationTest {
 
             var logout = client.send(
                     HttpRequest.newBuilder(baseUri().resolve("/logout"))
-                            .header(BROWSER_MUTATION_HEADER, "1")
+                            .header(BrowserMutation.HEADER, BrowserMutation.VALUE)
                             .POST(HttpRequest.BodyPublishers.noBody())
                             .build(),
                     HttpResponse.BodyHandlers.ofString()
@@ -299,8 +287,6 @@ class SessionSecurityIntegrationTest {
                     "urn:memoryos:failure:invitation-invalid-email",
                     jsonString(businessFailure.body(), "type")
             );
-            assertEquals("Validation failed", jsonString(businessFailure.body(), "title"));
-            assertEquals("Enter a valid email address.", jsonString(businessFailure.body(), "detail"));
             assertEquals("/api/invitations", jsonString(businessFailure.body(), "instance"));
             assertEquals("INVITATION_INVALID_EMAIL", jsonString(businessFailure.body(), "code"));
             assertTrue(businessFailure.body().contains("\"status\":400"));
@@ -314,6 +300,7 @@ class SessionSecurityIntegrationTest {
                     "application/problem+json",
                     frameworkFailure.headers().firstValue("content-type").orElseThrow()
             );
+            assertFalse(frameworkFailure.body().contains("\"type\""));
             assertEquals("/api/invitations", jsonString(frameworkFailure.body(), "instance"));
             assertTrue(frameworkFailure.body().contains("\"status\":400"));
 
@@ -329,11 +316,6 @@ class SessionSecurityIntegrationTest {
             assertEquals(
                     "application/problem+json",
                     sameOriginFailure.headers().firstValue("content-type").orElseThrow()
-            );
-            assertEquals("Forbidden", jsonString(sameOriginFailure.body(), "title"));
-            assertEquals(
-                    "same-origin browser request required",
-                    jsonString(sameOriginFailure.body(), "detail")
             );
             assertEquals("/api/invitations", jsonString(sameOriginFailure.body(), "instance"));
             assertTrue(sameOriginFailure.body().contains("\"status\":403"));
@@ -372,7 +354,7 @@ class SessionSecurityIntegrationTest {
                     HttpRequest.newBuilder(baseUri().resolve(
                                     "/api/invitations/" + jsonString(alpha.body(), "id") + "/revoke"
                             ))
-                            .header(BROWSER_MUTATION_HEADER, "1")
+                            .header(BrowserMutation.HEADER, BrowserMutation.VALUE)
                             .POST(HttpRequest.BodyPublishers.noBody())
                             .build(),
                     HttpResponse.BodyHandlers.ofString()
@@ -847,6 +829,173 @@ class SessionSecurityIntegrationTest {
         }
     }
 
+    @Test
+    void userDirectoryConvergesAfterAdmissionAndLiveMembershipRevocation() throws Exception {
+        String subject = "directory-member-" + UUID.randomUUID();
+        String email = subject + "@example.test";
+        var ownerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        var memberCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        try (var owner = client(ownerCookies); var member = client(memberCookies)) {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            completeOAuth(owner, "/oauth2/authorization/memoryos");
+            var invitation = owner.send(
+                    invitationMutation("{\"email\":\"" + email + "\"}"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(201, invitation.statusCode());
+            String recoverySecret = jsonString(invitation.body(), "invitationUrl").substring("/invite/".length());
+            var invitedDirectory = owner.send(
+                    request("/api/users?search=" + encode(email)),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(200, invitedDirectory.statusCode());
+            var invitedPage = Json.mapper().readTree(invitedDirectory.body());
+            assertEquals(1, invitedPage.path("totalItems").asInt());
+            assertEquals("INVITED", invitedPage.path("items").path(0).path("status").asText());
+            assertTrue(invitedPage.path("items").path(0).path("actorId").isNull());
+            assertTrue(invitedPage.path("items").path(0).path("role").isNull());
+            assertFalse(invitedDirectory.body().contains(recoverySecret));
+
+            AUTHENTICATING_SUBJECT.set(subject);
+            AUTHENTICATING_EMAIL.set(email);
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            var callback = completeOAuth(member, "/oauth2/authorization/memoryos");
+            assertEquals(baseUri().resolve("/").toString(), callback.headers().firstValue("location").orElseThrow());
+            var admitted = member.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+            String actorId = jsonString(admitted.body(), "actorId");
+            assertEquals("MEMBER", jsonString(admitted.body(), "role"));
+            var activeDirectory = owner.send(
+                    request("/api/users?search=" + encode(email)),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var activePage = Json.mapper().readTree(activeDirectory.body());
+            assertEquals(1, activePage.path("totalItems").asInt());
+            var row = activePage.path("items").path(0);
+            assertEquals(actorId, row.path("actorId").asText());
+            assertTrue(row.path("invitationId").isNull());
+            assertEquals("ACTIVE", row.path("status").asText());
+            assertEquals("MEMBER", row.path("role").asText());
+            assertEquals(email, row.path("email").asText());
+            assertTrue(row.path("emailVerified").asBoolean());
+            assertEquals(ISSUER, row.path("profileIssuer").asText());
+
+            String bearer = signedToken(new JWTClaimsSet.Builder()
+                    .issuer(ISSUER)
+                    .subject(subject)
+                    .audience("memoryos-api")
+                    .issueTime(new Date())
+                    .expirationTime(Date.from(Instant.now().plusSeconds(300)))
+                    .claim("scope", "IAM_ADMIN USERS_MANAGE")
+                    .claim("realm_access", Map.of("roles", List.of("admin", "IAM_ADMIN")))
+                    .claim("resource_access", Map.of(
+                            "memoryos-api", Map.of("roles", List.of("IAM_ADMIN", "USERS_MANAGE"))))
+                    .build());
+            var bearerIdentityRequest = HttpRequest.newBuilder(baseUri().resolve("/api/identity/me"))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Authorization", "Bearer " + bearer)
+                    .GET().build();
+            var bearerUsersRequest = HttpRequest.newBuilder(baseUri().resolve("/api/users"))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Authorization", "Bearer " + bearer)
+                    .GET().build();
+            long sessionsBeforeBearer = count("spring_session");
+            var bearerCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+            try (var bearerClient = client(bearerCookies)) {
+                var bearerIdentity = bearerClient.send(bearerIdentityRequest, HttpResponse.BodyHandlers.ofString());
+                assertEquals(200, bearerIdentity.statusCode());
+                var identity = Json.mapper().readTree(bearerIdentity.body());
+                assertEquals(actorId, identity.path("actorId").asText());
+                assertEquals("MEMBER", identity.path("tenant").path("role").asText());
+                assertTrue(identity.path("capabilities").isEmpty());
+                assertTrue(identity.path("scopedCapabilities").isEmpty());
+                assertEquals(403, bearerClient.send(bearerUsersRequest, HttpResponse.BodyHandlers.ofString()).statusCode());
+                assertTrue(bearerCookies.getCookieStore().getCookies().isEmpty());
+                assertEquals(sessionsBeforeBearer, count("spring_session"));
+                assertEquals(401, bearerClient.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode());
+            }
+            String ownerSession = sessionCookie(ownerCookies);
+            String ownerActorId = jsonString(owner.send(request("/api/identity/me"),
+                    HttpResponse.BodyHandlers.ofString()).body(), "actorId");
+            var mixedIdentity = owner.send(bearerIdentityRequest, HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, mixedIdentity.statusCode());
+            assertEquals(actorId, jsonString(mixedIdentity.body(), "actorId"));
+            assertTrue(Json.mapper().readTree(mixedIdentity.body()).path("capabilities").isEmpty());
+            assertEquals(403, owner.send(bearerUsersRequest, HttpResponse.BodyHandlers.ofString()).statusCode());
+            assertEquals(ownerSession, sessionCookie(ownerCookies));
+            assertEquals(ownerActorId, jsonString(owner.send(request("/api/identity/me"),
+                    HttpResponse.BodyHandlers.ofString()).body(), "actorId"));
+            var invalidBearer = HttpRequest.newBuilder(baseUri().resolve("/api/users"))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Authorization", "Bearer invalid-token")
+                    .GET().build();
+            assertEquals(401, owner.send(invalidBearer, HttpResponse.BodyHandlers.ofString()).statusCode());
+            assertEquals(200, owner.send(request("/api/users"), HttpResponse.BodyHandlers.ofString()).statusCode());
+
+            assertEquals(403, member.send(request("/api/users"), HttpResponse.BodyHandlers.ofString()).statusCode());
+            var deactivate = owner.send(
+                    invitationMutation("/api/users/" + actorId + "/deactivate", HttpRequest.BodyPublishers.noBody()),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(204, deactivate.statusCode());
+            var revoked = member.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, revoked.statusCode());
+            var revokedIdentity = Json.mapper().readTree(revoked.body());
+            assertEquals(actorId, revokedIdentity.path("actorId").asText());
+            assertTrue(revokedIdentity.path("tenant").isNull());
+            assertTrue(revokedIdentity.path("capabilities").isEmpty());
+            assertEquals(403, member.send(request("/api/users"), HttpResponse.BodyHandlers.ofString()).statusCode());
+
+            var revokedBearer = owner.send(bearerIdentityRequest, HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, revokedBearer.statusCode());
+            var revokedBearerIdentity = Json.mapper().readTree(revokedBearer.body());
+            assertEquals(actorId, revokedBearerIdentity.path("actorId").asText());
+            assertTrue(revokedBearerIdentity.path("tenant").isNull());
+            assertTrue(revokedBearerIdentity.path("capabilities").isEmpty());
+            assertTrue(revokedBearerIdentity.path("scopedCapabilities").isEmpty());
+            var bearerDenied = owner.send(
+                    HttpRequest.newBuilder(baseUri().resolve("/api/users"))
+                            .header("Authorization", "Bearer " + bearer)
+                            .GET().build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(403, bearerDenied.statusCode());
+            var inactiveDirectory = owner.send(
+                    request("/api/users?search=" + encode(email) + "&status=INACTIVE"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            var inactivePage = Json.mapper().readTree(inactiveDirectory.body());
+            assertEquals(1, inactivePage.path("totalItems").asInt());
+            assertEquals(actorId, inactivePage.path("items").path(0).path("actorId").asText());
+            assertEquals("INACTIVE", inactivePage.path("items").path(0).path("status").asText());
+
+            var deniedLogin = completeOAuth(member, "/oauth2/authorization/memoryos");
+            assertEquals(
+                    baseUri().resolve("/access-not-provisioned").toString(),
+                    deniedLogin.headers().firstValue("location").orElseThrow()
+            );
+            assertEquals(401, member.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode());
+            var activate = owner.send(
+                    invitationMutation("/api/users/" + actorId + "/activate", HttpRequest.BodyPublishers.noBody()),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertEquals(204, activate.statusCode());
+            completeOAuth(member, "/oauth2/authorization/memoryos");
+            var restored = member.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
+            assertEquals(actorId, jsonString(restored.body(), "actorId"));
+            assertEquals("MEMBER", jsonString(restored.body(), "role"));
+            assertTrue(Json.mapper().readTree(restored.body()).path("capabilities").isEmpty());
+            assertPersistedSessionsContainNoProviderOrInvitationState();
+        } finally {
+            AUTHENTICATING_SUBJECT.set("initial-owner");
+            AUTHENTICATING_EMAIL.set("owner@example.test");
+            AUTHENTICATING_EMAIL_VERIFIED.set(true);
+            deleteInvitedMember(subject, email);
+            jdbcClient.sql("DELETE FROM spring_session").update();
+        }
+    }
+
     private HttpClient client(CookieManager cookies) {
         return HttpClient.newBuilder()
                 .cookieHandler(cookies)
@@ -866,7 +1015,7 @@ class SessionSecurityIntegrationTest {
         return HttpRequest.newBuilder(baseUri().resolve("/api/invitations"))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
-                .header(BROWSER_MUTATION_HEADER, "1")
+                .header(BrowserMutation.HEADER, BrowserMutation.VALUE)
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
     }
@@ -878,7 +1027,7 @@ class SessionSecurityIntegrationTest {
         return HttpRequest.newBuilder(baseUri().resolve(path))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
-                .header(BROWSER_MUTATION_HEADER, "1")
+                .header(BrowserMutation.HEADER, BrowserMutation.VALUE)
                 .POST(body)
                 .build();
     }

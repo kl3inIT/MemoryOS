@@ -7,7 +7,7 @@ import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository.Entry;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository.Intent;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.TenantId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

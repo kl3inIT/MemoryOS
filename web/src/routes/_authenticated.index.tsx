@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { NewSessionPage } from "@/features/identity/new-session-page";
+import { SearchPage } from "@/features/search/search-page";
 
 export const Route = createFileRoute("/_authenticated/")({
-  component: NewSessionPage,
+  component: SearchPage,
 });

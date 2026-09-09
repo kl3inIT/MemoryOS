@@ -13,6 +13,11 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     environment: "jsdom",
     restoreMocks: true,
+    maxWorkers: 2,
+    reporters: process.env.CI
+      ? ["default", ["junit", { includeConsoleOutput: false }]]
+      : ["default"],
+    outputFile: process.env.CI ? { junit: "reports/unit.xml" } : undefined,
     setupFiles: ["./src/test/setup.ts"],
   },
 });

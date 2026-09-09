@@ -1,5 +1,7 @@
 # Document verification matrix
 
+Evidence boundary — 2026-09-09: the records below were collected before the isolated integration of Google Drive checkpoint `290357a` with main `fb835f9`. Branch Google/runtime evidence and main IAM/Search evidence are retained with their original commands, migration numbers and scenario names; none is a new integrated test result. Branch V13–V24 maps to integrated V18–V29 (+5), while main V1–V17 stays unchanged. Owner-only Google authorization in historical evidence predates the global `SOURCES_MANAGE` cutover. See the [pending integration gates](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09).
+
 These are behavior-evidence pointers, not a live Google E2E or IDE-clean claim. Current Document/artifact lifecycle tests and the current-schema API fixture use PostgreSQL. Google publication coverage uses a controlled provider with real PostgreSQL; provider-native structure is covered separately in the [Ingestion matrix](ingestion.md).
 
 | Contract | Evidence |
@@ -13,3 +15,4 @@ These are behavior-evidence pointers, not a live Google E2E or IDE-clean claim. 
 | Cleanup protects the current artifact and reclaims replaced/unreferenced artifacts; item/source removal deletes final unreferenced Documents and provider bytes, including cleanup after Tenant deactivation | `ExtractionArtifactLifecycleTest`, `SourceApiIntegrationTest.indexesAndCleansUpOneFileThroughTheAuthorizedApi`, and `WorkerFileProcessingIntegrationTest.redisStreamsIndexRemoveAndDeleteOneRealFile` |
 | All structural readers use the current extraction artifact contract with route-appropriate table/provenance data rather than a Google Document history fork | `DoclingSourceContentExtractorTest.preservesOrderedHeadingTableAndProvenance`, `GoogleNativeExtractionTest`, and `SpreadsheetSourceContentExtractorTest` |
 | Migration retains latest metadata and artifact references, allows legacy null artifacts, and removes version/profile history and stored-text/current-version columns against real PostgreSQL | `CurrentDocumentMigrationTest.keepsCurrentMetadataAndArtifactWithoutBlockingLegacyDevDocuments` (seed V11 data, migrate to current schema, assert retained data rather than migration count) |
+| V17 current chunks/readiness, protected artifact read, transactionally enqueued indexing and stale-generation fencing | `SearchIndexWorkIntegrationTest`; [Search verification](search.md) |

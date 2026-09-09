@@ -3,11 +3,12 @@ package io.memoryos.connector.application;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
-import io.memoryos.identity.ActorId;
-import io.memoryos.tenant.TenantAccessResolver;
-
+import io.memoryos.iam.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import java.util.List;
 import java.util.Objects;
-
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,5 +34,12 @@ public class DefaultSourceDocumentAccessResolver implements SourceDocumentAccess
         return tenantAccess.findActiveTenant(actorId)
                 .map(tenantId -> sourceDocuments.hasEligibleMapping(tenantId, documentId))
                 .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<UUID> readableDocuments(ActorId actorId, List<UUID> documents) {
+        return tenantAccess.findActiveTenant(actorId).map(tenant -> sourceDocuments.readableDocuments(tenant, documents))
+                .orElse(Set.of());
     }
 }

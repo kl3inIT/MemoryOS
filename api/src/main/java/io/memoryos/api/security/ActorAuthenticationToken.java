@@ -1,6 +1,6 @@
 package io.memoryos.api.security;
 
-import io.memoryos.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 
 import java.io.Serial;
 import java.util.List;

@@ -17,7 +17,7 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.document.application.DefaultExtractionArtifactService;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
-import io.memoryos.identity.ActorId;
+import io.memoryos.iam.ActorId;
 import io.memoryos.ingestion.*;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 import io.memoryos.ingestion.application.SelectionValidationProcessor;
@@ -28,8 +28,11 @@ import io.memoryos.objectstorage.application.DefaultObjectWriteService;
 import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
-import io.memoryos.tenant.TenantAccessResolver;
-import io.memoryos.tenant.TenantId;
+import io.memoryos.iam.IamException;
+import io.memoryos.iam.application.DefaultIamAuthorization;
+import io.memoryos.iam.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.persistence.IamLockRepository;
+import io.memoryos.iam.TenantId;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -90,6 +93,14 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES (:id,'history','History','ACTIVE','HISTORY-TEST')")
                 .param("id", tenant.value()).update();
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", owner.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant",tenant.value()).param("actor",owner.value()).update();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES (:tenant,:tenant,'Admin','ADMIN')")
+                .param("tenant", tenant.value()).update();
+        jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:tenant,'IAM_ADMIN')")
+                .param("tenant", tenant.value()).update();
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
+                .param("tenant", tenant.value()).param("actor", owner.value()).update();
         sources = new JdbcSourceRepository(jdbc);
         var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, "History")));
         source = pair.sourceId();
@@ -144,9 +155,7 @@ class PostgresSourceRunHistoryTest {
                 mappings, connections, writes, manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
-        var tenants = mock(TenantAccessResolver.class);
-        when(tenants.findActiveOwnerTenant(owner)).thenReturn(Optional.of(tenant));
-        history = new DefaultSourceRunHistoryService(queries, tenants);
+        history = new DefaultSourceRunHistoryService(queries, new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), new JdbcSourceQueryRepository(jdbc));
     }
 
     @Test
@@ -265,7 +274,7 @@ class PostgresSourceRunHistoryTest {
         var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, "Other"))).sourceId();
         assertThatThrownBy(() -> history.list(owner, foreign, query(page.nextCursor(), 2))).isInstanceOf(SourceException.class);
         assertThatThrownBy(() -> history.get(owner, foreign, oldest.id())).isInstanceOf(SourceException.class);
-        assertThatThrownBy(() -> history.get(new ActorId(UUID.randomUUID()), source, oldest.id())).isInstanceOf(SourceException.class);
+        assertThatThrownBy(() -> history.get(new ActorId(UUID.randomUUID()), source, oldest.id())).isInstanceOf(IamException.class);
         assertThatThrownBy(() -> history.list(owner, source, query(null, 101))).isInstanceOf(SourceException.class);
         UUID legacy = UUID.randomUUID();
         jdbc.sql("""
@@ -416,7 +425,7 @@ class PostgresSourceRunHistoryTest {
         var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
             var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
-                    new JdbcDocumentRepository(jdbc, mapper), extractor, storage, mock(StoredObjectRegistry.class), tx,
+                    new JdbcDocumentRepository(jdbc, mapper, _ -> { }), extractor, storage, mock(StoredObjectRegistry.class), tx,
                     scheduler, new DefaultExtractionArtifactService(new JdbcExtractionArtifactRepository(jdbc), storage, mapper),
                     registry, new SourceSyncProcessor(service, scheduler, registry), mock(SelectionValidationProcessor.class));
             return coordinator.process(delivery);

@@ -1,12 +1,10 @@
 package io.memoryos.api.source.contract;
 
 import io.memoryos.connector.SourceItemView;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
-
 import org.jspecify.annotations.Nullable;
-import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(name = "SourceItem", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record SourceItemResponse(
@@ -28,7 +26,9 @@ public record SourceItemResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable SourceIndexAttemptResponse latestAttempt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
-        @Nullable String errorCode
+        @Nullable String errorCode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"WAITING", "INDEXING", "READY", "FAILED"})
+        String searchStatus
 ) {
     public static SourceItemResponse from(SourceItemView item) {
         return new SourceItemResponse(
@@ -40,7 +40,8 @@ public record SourceItemResponse(
                 item.uploadedAt(),
                 item.lastIndexedAt(),
                 item.latestAttempt() == null ? null : SourceIndexAttemptResponse.from(item.latestAttempt()),
-                item.errorCode()
+                item.errorCode(),
+                item.searchStatus()
         );
     }
 }

@@ -11,8 +11,10 @@ import type {
 
 const owner = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  authorizationVersion: 1,
   tenant: { displayName: "Team", role: "OWNER" },
-  capabilities: ["SOURCES_MANAGE"],
+  capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+  scopedCapabilities: [],
 };
 const credential = {
   id: "81c51573-31a9-4e67-91c5-f276960c94af",
@@ -35,6 +37,7 @@ const source: SourceSummary = {
   documentCount: 0,
   lastSucceededAt: null,
   errorCode: null,
+  actions: ["reindex", "remove_items", "delete", "manage_groups"],
 };
 const secondSourceId = "7c6d85d0-ddd4-445c-9fd0-280f2b3e5b19";
 const fileLink = "https://docs.google.com/document/d/document-a/edit";
@@ -273,9 +276,33 @@ async function enterprisePage(page: Page, existing = false) {
       await route.fulfill({ json: [...saved.values()].map((entry) => entry.source) });
       return;
     }
+    if (path === "/api/sources/group-options") {
+      await route.fulfill({
+        json: {
+          items: [
+            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+          ],
+          page: 0,
+          size: 25,
+          totalItems: 1,
+          totalPages: 1,
+        },
+      });
+      return;
+    }
     const entry = saved.get(path.split("/")[3]!);
     if (!entry) {
       await route.fulfill({ status: 404 });
+      return;
+    }
+    if (path.endsWith("/groups")) {
+      await route.fulfill({
+        json: {
+          items: [
+            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+          ],
+        },
+      });
       return;
     }
     if (path.endsWith("/google-drive")) await route.fulfill({ json: entry.configuration });

@@ -5,19 +5,21 @@ import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.IndexWork;
 import io.memoryos.document.DocumentCommandPort;
+import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
+import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.StoredObjectRegistry;
-
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -37,7 +39,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     private final StoredObjectRegistry storedObjects;
     private final TransactionTemplate transactions;
     private final ScheduledExecutorService leaseScheduler;
-    private final io.memoryos.document.ExtractionArtifactPort artifacts;
+    private final ExtractionArtifactPort artifacts;
     private final IngestionMetrics metrics;
     private final SourceSyncProcessor sourceSync;
     private final SelectionValidationProcessor selectionValidation;
@@ -51,8 +53,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             StoredObjectRegistry storedObjects,
             TransactionTemplate transactions,
             ScheduledExecutorService leaseScheduler,
-            io.memoryos.document.ExtractionArtifactPort artifacts,
-            io.micrometer.core.instrument.MeterRegistry registry,
+            ExtractionArtifactPort artifacts,
+            MeterRegistry registry,
             SourceSyncProcessor sourceSync,
             SelectionValidationProcessor selectionValidation
     ) {
@@ -86,6 +88,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
 
     private Outcome processDelivery(OperationDelivery delivery) {
         return switch (delivery.workload()) {
+            case SEARCH -> throw new IllegalArgumentException("Search work must use the search coordinator");
             case INGESTION -> indexingPort.claim(
                             delivery.tenantId(),
                             delivery.operationId(),
@@ -104,7 +107,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     private Outcome processIndex(IndexWork work) {
-        metrics.firstClaim(io.memoryos.ingestion.OperationWorkload.INGESTION, work.initialQueueWait());
+        metrics.firstClaim(OperationWorkload.INGESTION, work.initialQueueWait());
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
                 () -> renewIndexLease(work),
                 LEASE_RENEWAL_SECONDS,
@@ -116,7 +119,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         String failureStage = "SOURCE_STORAGE_READ";
         try {
             var expected = work.object().metadata();
-            final io.memoryos.document.DocumentContent content;
+            final DocumentContent content;
             try (var objectContent = storage.open(work.object().key())) {
                 if (!expected.equals(objectContent.metadata())) {
                     throw new IllegalStateException("stored object metadata changed after adoption");
@@ -197,7 +200,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     private Outcome processCleanup(CleanupWork work) {
-        metrics.firstClaim(io.memoryos.ingestion.OperationWorkload.CLEANUP, work.initialQueueWait());
+        metrics.firstClaim(OperationWorkload.CLEANUP, work.initialQueueWait());
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
                 () -> renewCleanupLease(work),
                 LEASE_RENEWAL_SECONDS,

@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-08.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-09 for the isolated Google Drive/main integration.
 
 ## Delivered
 
@@ -33,20 +33,54 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | MEM-43/MEM-44/MEM-51 | PostgreSQL-authoritative Redis Stream relay and consumer execution with bounded dispatch, fencing, rediscovery, and no direct business poller | [Design](increments/completed/mem-43-44-51-redis-execution-cutover/design.md) · [Verification](increments/completed/mem-43-44-51-redis-execution-cutover/verification.md) · [PR #63](https://github.com/kl3inIT/MemoryOS/pull/63) |
 | MEM-52 | Provider-neutral object storage with MinIO-verified direct FILE uploads, deterministic object lifecycle, and screenshot-faithful Source management | [Design](increments/completed/mem-52-minio-object-storage/design.md) · [Verification](increments/completed/mem-52-minio-object-storage/verification.md) · [PR #64](https://github.com/kl3inIT/MemoryOS/pull/64) · [final UI PR #71](https://github.com/kl3inIT/MemoryOS/pull/71) |
 | MEM-57 | Persistent LGTM, structured logging, durable-operation tracing and owner-gated Grafana SSO | [Design](increments/completed/mem-57-staging-observability/design.md) · [PR #73](https://github.com/kl3inIT/MemoryOS/pull/73) · Post-merge runtime evidence in [Linear](https://linear.app/memory-os/issue/MEM-57) |
+| [MEM-55](https://linear.app/memory-os/issue/MEM-55/complete-onyx-aligned-users-management-and-application-membership) | Onyx-aligned Users directory, verified profiles, application membership lifecycle, real Group editing and STANDARD account presentation; integrated with MEM-36 on one branch | [Design](increments/completed/mem-55-users-management/design.md) · [Plan](increments/completed/mem-55-users-management/plan.md) · [Verification](increments/completed/mem-55-users-management/verification.md) |
+| [MEM-36](https://linear.app/memory-os/issue/MEM-36) | Unified JPA IAM, protected Groups, grant union/implications, scoped managers, and FILE Source associations; delivered with MEM-55 through PR #78 | [Design](increments/completed/mem-36-iam-jpa/design.md) · [Plan](increments/completed/mem-36-iam-jpa/plan.md) · [Combined verification](increments/completed/mem-55-users-management/verification.md) |
+| [MEM-56](https://linear.app/memory-os/issue/MEM-56/add-owner-only-minio-console-with-keycloak-sso) | Expose an owner-only, bucket-read-only staging MinIO Console through native Keycloak SSO without widening API, worker, or public object-storage authority | [Design](increments/completed/mem-56-minio-console-sso/design.md) · [Plan](increments/completed/mem-56-minio-console-sso/plan.md) |
+| [MEM-64](https://linear.app/memory-os/issue/MEM-64) | Ingestion outcome metrics, initial queue wait and observability conventions | [Design](increments/completed/mem-64-ingestion-observability/design.md) · [Plan](increments/completed/mem-64-ingestion-observability/plan.md) |
+| MEM-61 | Current Document and canonical Docling extraction/artifact lifecycle; FILE delivery complete | [Design](increments/completed/docling-structured-extraction/design.md) · [PR #75](https://github.com/kl3inIT/MemoryOS/pull/75) · [Linear](https://linear.app/memory-os/issue/MEM-61) |
+| MEM-70 | Testing/CI gates and verified image publication; closed with owner-approved health-only staging acceptance; automatic deployment remains disabled | [Design](increments/completed/mem-70-testing-cicd/design.md) · [PR #81](https://github.com/kl3inIT/MemoryOS/pull/81) · [Final scope and evidence](https://linear.app/memory-os/issue/MEM-70) |
+| MEM-75 selected batch | Eight selected dependency updates; Java 25/Node 24 retained; the broader dependency issue remains open | [Design](increments/completed/mem-75-dependency-upgrades/design.md) · [PR #82](https://github.com/kl3inIT/MemoryOS/pull/82) · [Remaining backlog](https://linear.app/memory-os/issue/MEM-75) |
+| FILE indexing fix | Redis blocking-read timeout and FILE input alignment | [Design](increments/completed/file-indexing-quick-fix/design.md) · Main commit `16340f0` |
+| FILE single-step setup | One form for create/upload/finalize with retained retry state | [Design](increments/completed/file-source-single-step/design.md) · Main commit `422ff1a` |
+| Staging Redis inspection | Complete read-only key inspection with verified diagnostic-command boundaries | [Design](increments/completed/staging-redis-inspection/design.md) · Main commit `0279988` |
 
 ## Active
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
-| [MEM-56](https://linear.app/memory-os/issue/MEM-56/add-owner-only-minio-console-with-keycloak-sso) | Expose an owner-only, bucket-read-only staging MinIO Console through native Keycloak SSO without widening API, worker, or public object-storage authority | [Design](increments/active/mem-56-minio-console-sso/design.md) · [Plan](increments/active/mem-56-minio-console-sso/plan.md) |
-| [MEM-64](https://linear.app/memory-os/issue/MEM-64) | Ingestion outcome metrics, initial queue wait and observability conventions | [Design](increments/active/mem-64-ingestion-observability/design.md) · [Plan](increments/active/mem-64-ingestion-observability/plan.md) |
-| Google Drive structured ingestion — MEM-76; scoped MEM-9/MEM-10/MEM-60/MEM-63 | Implemented reusable OAuth credentials, immutable scopes, independent schedules and explicitly approved linked content. MEM-76 adds V22 durable asynchronous selection, V23 exact acquisition → owned-index history and V24 bounded Files pages. Final uncached backend, frontend and all 39 E2E scenarios passed. Real desktop/mobile/light/dark UI verified pending receipt reload/activation and upload/reindex/removal over a 100k-item metadata fixture. Separate root/history and controlled 100k-file no-change measurements are complete; these are not live Google, initial corpus acquisition/indexing or production-SLO proof. Private verification runtime/scaffolds were removed; user Sources and shared runtime preserved. No push/PR/merge/deploy; increment and wider Google/Tasco/ACL issues remain active. | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Plan and current evidence](increments/active/google-drive-structured-ingestion/plan.md#mem-76-verification--2026-09-08) · [MEM-76](https://linear.app/memory-os/issue/MEM-76) |
+| Google Drive structured ingestion — MEM-76; scoped MEM-9/MEM-10/MEM-60/MEM-63 | Branch-implemented reusable OAuth credentials, immutable scopes, independent schedules, explicit linked approvals, asynchronous selection, paginated tree/Files reads and acquisition → owned-index history. Isolated integration of checkpoint `290357a` with main `fb835f9` is in progress; all recorded branch checks are pre-integration evidence, not merged verification. Google/Tasco/ACL issues and this increment remain active until their release gates and PR merge. | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Integration plan](increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) · [Prior evidence](increments/active/google-drive-structured-ingestion/plan.md#mem-76-verification--2026-09-08) |
+| [MEM-46](https://linear.app/memory-os/issue/MEM-46) | Search first: current JSON/chunks, Spring AI embeddings, OpenSearch-only vectors, hybrid retrieval, API/UI and index recovery; absorbs MEM-62/47/48/49/50 | [Design](increments/active/mem-46-search/design.md) · [Plan](increments/active/mem-46-search/plan.md) · [Onyx Search implementation](increments/active/mem-46-search/onyx-search.md); In Review, assigned to `phamnhatanh811`; [verification and runtime boundaries](increments/active/mem-46-search/verification.md) |
+| [MEM-11](https://linear.app/memory-os/issue/MEM-11) | Production Chat after MEM-46: shared retrieval, multi-query/weighted RRF, context selection/expansion, streaming answer/citations and durable conversations; absorbs MEM-71/72 | [Design](increments/active/mem-11-production-chat/design.md) · [Plan](increments/active/mem-11-production-chat/plan.md); Todo, blocked by MEM-46 and MEM-25, implementation pending |
 
-## Candidate increments
+## IAM follow-ups tracked separately from MEM-55/MEM-36
 
-These are sequencing signals, not commitments or independently deployable slices.
+MEM-36 and MEM-55 are Done. MEM-25/MEM-59/MEM-68/MEM-69 remain In Progress with Nhat (`nhudinhnhat2004`), and MEM-65 remains In Progress with Duc Anh (`anhnd05122004`). These follow-ups are separate from the delivered Users/Groups scope:
 
-1. Remaining [MEM-10](https://linear.app/memory-os/issue/MEM-10/ingest-organization-scoped-google-docs-with-source-acls)/MEM-60 scope — separately designed Google document authority and authorized reading; not implied by the active ingestion-only slice.
-2. [MEM-11](https://linear.app/memory-os/issue/MEM-11/answer-from-authorized-evidence-with-verifiable-citations) — answer from authorized evidence with verifiable citations.
+| Issue | Follow-up boundary |
+| --- | --- |
+| [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Enterprise broker, safe account linking and future JIT/pending approval; separate simulator and actual provider acceptance |
+| [MEM-68](https://linear.app/memory-os/issue/MEM-68) | Provider/broker revocation across bearer tokens and browser sessions, with explicit propagation and outage semantics |
+| [MEM-69](https://linear.app/memory-os/issue/MEM-69) | Absolute browser-session lifetime and reauthentication policy beyond idle timeout |
+| [MEM-25](https://linear.app/memory-os/issue/MEM-25) | Audit evidence and viewer after a named consumer/retention/access contract |
+| [MEM-65](https://linear.app/memory-os/issue/MEM-65) | Keycloak authentication theme; enabling new broker/session behavior remains separate |
+
+## Google Drive delivery in progress
+
+[MEM-60](https://linear.app/memory-os/issue/MEM-60) coordinates the [Google Drive plan](increments/active/google-drive-structured-ingestion/design.md). MEM-9/MEM-10/MEM-63 and MEM-76 are In Progress with `nhuxuanviet27102004`; upstream main `fb835f9` had FILE only, while checkpoint `290357a` contains the implemented Google provider. Their isolated integration is not yet verified or a completed deployment.
+
+- MEM-9 owns OAuth and source selection; MEM-10 owns source sync and current Document publication. Its wider Google source ACL/authorized-reading acceptance remains outside the user-approved ingestion-only slice and is not delivered by this integration.
+- MEM-63 owns [native Sheets/Docs and bounded table readers](increments/active/google-drive-structured-ingestion/native-readers.md). MEM-61 extraction is already delivered and is reused.
+- MEM-76 owns the approved selection scaling and durable sync-history extension; do not freeze earlier per-source limits as final requirements.
+- Search consumes canonical artifacts under MEM-46; former MEM-62/MEM-47/MEM-48/MEM-49/MEM-50 are Duplicate into Search. MEM-71/MEM-72 are Duplicate into MEM-11 Chat.
+- Provider testing currently uses synthetic documents. Actual Tasco source data has not been supplied; working provider tests do not establish acceptance of Tasco data.
+
+## Other tracked work
+
+- [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
+- [MEM-75](https://linear.app/memory-os/issue/MEM-75) remains In Progress for the dependency proposals outside the delivered selected batch; it does not keep that completed increment active.
+
+## Superseded planning
+
+[Combined RAG research](increments/superseded/mem-46-authorized-rag/design.md) and the [separate structured-chunking draft](increments/superseded/structured-document-chunking/design.md) are retained as historical inputs. Their combined Search/Chat gate and DocumentVersion/profile proposals are not current implementation instructions.
 
 Create or link an issue and add an active increment record before implementation begins.

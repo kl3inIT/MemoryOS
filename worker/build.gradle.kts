@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.db.scheduler.spring.boot4)
     runtimeOnly(project(":connector"))
@@ -34,10 +35,7 @@ dependencies {
     testImplementation(libs.spring.boot.restclient)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
-    testRuntimeOnly(libs.h2)
+    testImplementation(libs.flyway.core)
+    testRuntimeOnly(libs.flyway.database.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
-}
-
-sourceSets.main {
-    resources.srcDir(rootProject.file("config/observability"))
 }

@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.sun.net.httpserver.HttpServer;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -18,19 +17,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.TreeSet;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(properties = {
         "springdoc.api-docs.enabled=true",
@@ -43,22 +37,35 @@ import org.testcontainers.utility.DockerImageName;
         "memoryos.initial-tenant.owner-subject=openapi-owner",
         "memoryos.initial-tenant.slug=openapi",
         "memoryos.initial-tenant.display-name=OpenAPI",
-        "memoryos.initial-tenant.change-reference=TEST-OPENAPI-CONTRACT"
+        "memoryos.initial-tenant.change-reference=TEST-OPENAPI-CONTRACT",
 })
-@Testcontainers(disabledWithoutDocker = true)
 @AutoConfigureMockMvc(addFilters = false)
 class OpenApiContractTest {
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse(
-            "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
-            .asCompatibleSubstituteFor("postgres"));
 
     private static final String WRITE_FLAG = "MEMORYOS_OPENAPI_WRITE";
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
+            "/api/search",
+            "/api/search/documents/{documentId}",
             "/api/identity/me",
+            "/api/users",
+            "/api/users/{actorId}/activate",
+            "/api/users/{actorId}/deactivate",
+            "/api/users/{actorId}/groups",
+            "/api/groups",
+            "/api/groups/capabilities",
+            "/api/groups/{groupId}",
+            "/api/groups/{groupId}/rename",
+            "/api/groups/{groupId}/delete",
+            "/api/groups/{groupId}/members",
+            "/api/groups/{groupId}/candidates",
+            "/api/groups/{groupId}/members/{actorId}/remove",
+            "/api/groups/{groupId}/members/{actorId}/assign-manager",
+            "/api/groups/{groupId}/members/{actorId}/remove-manager",
+            "/api/groups/{groupId}/capabilities",
+            "/api/groups/{groupId}/sources",
             "/api/invitations",
             "/api/invitations/current",
             "/api/invitations/{invitationId}/revoke",
@@ -81,6 +88,8 @@ class OpenApiContractTest {
             "/api/sources/{sourceId}/google-drive/linked-documents/discover",
             "/api/sources/{sourceId}/google-drive/schedule",
             "/api/sources/{sourceId}/google-drive/sync",
+            "/api/sources/group-options",
+            "/api/sources/{sourceId}/groups",
             "/api/sources/{sourceId}",
             "/api/sources/{sourceId}/delete",
             "/api/sources/{sourceId}/index-attempts",
@@ -99,9 +108,7 @@ class OpenApiContractTest {
 
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        ApiPostgresDatabase.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
@@ -164,6 +171,16 @@ class OpenApiContractTest {
                 tenantSchema.path("oneOf").path(0).path("$ref").textValue()
         );
         assertEquals("null", tenantSchema.path("oneOf").path(1).path("type").textValue());
+
+        for (String name : Set.of("SearchPage", "Result", "Section", "ChunkProvenance", "Passage", "SearchDocument")) {
+            JsonNode schema = actual.path("components").path("schemas").path(name);
+            Set<String> fields = new TreeSet<>();
+            schema.path("properties").fieldNames().forEachRemaining(fields::add);
+            Set<String> required = new TreeSet<>();
+            schema.path("required").forEach(value -> required.add(value.asText()));
+            assertFalse(fields.isEmpty(), name);
+            assertEquals(fields, required, name + " response fields must be required");
+        }
 
         Path contract = repositoryRoot().resolve("openapi.yml");
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
