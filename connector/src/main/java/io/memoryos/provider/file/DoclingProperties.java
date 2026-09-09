@@ -15,7 +15,7 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
         if (!java.util.Set.of("http", "https").contains(endpoint.getScheme())
                 || endpoint.getHost() == null || endpoint.getUserInfo() != null
                 || endpoint.getQuery() != null || endpoint.getFragment() != null
-                || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofSeconds(300)) > 0
+                || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(15)) > 0
                 || maxPages < 1 || maxPages > 200 || engineRevision.isBlank() || engineRevision.length() > 200) {
             throw new IllegalArgumentException("invalid Docling extraction configuration");
         }

@@ -54,6 +54,20 @@ All BINARY input, including browser FILE uploads and acquired Slides exports, is
 
 PDF admission checks encryption and page count without extracting content. Docling receives bounded bytes, never source credentials or fetch URLs, and produces JSON plus text with EasyOCR `vi,en`, accurate table extraction, and embedded images. Partial/empty results are rejected. Its defaults additionally bound PDF input to 200 pages, processing to five minutes, transport response to 64 MiB, canonical artifact to 32 MiB and text to 2,000,000 characters. HTTP cancellation is not a guarantee of remote process cancellation; late work cannot publish without current PostgreSQL authority.
 
+### Docling deployment environment
+
+The Worker accepts a positive `memoryos.extraction.docling.timeout` up to fifteen minutes through Spring environment binding. Compose forwards `MEMORYOS_EXTRACTION_DOCLING_TIMEOUT` and reads every Docling service environment setting from the deployment environment or `--env-file`; [the environment example](../../infrastructure/deployment/staging.env.example) lists their unchanged defaults.
+
+| Environment variable | Default | Fifteen-minute configuration |
+| --- | --- | --- |
+| `MEMORYOS_EXTRACTION_DOCLING_TIMEOUT` | `5m` | `15m` |
+| `DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT` | `300` seconds | `900` |
+| `DOCLING_SERVE_MAX_SYNC_WAIT` | `310` seconds | `910` |
+
+Configure both processes together: the Worker request budget must not exceed the Docling maximum, and the service synchronous wait must allow that processing budget plus response overhead. The SDK HTTP read timeout remains the Worker budget plus fifteen seconds (`915` seconds for `15m`); there is no separate HTTP-timeout env. A Worker-only increase against the old service maximum is rejected. Applying a deployment env file does not update already-running processes; recreate/restart the affected Worker and Docling runtimes in the deployment's coordinated rollout. The existing deployment script uses `--no-deps` for application rollout, so it does not recreate Docling automatically.
+
+The exposed service settings also cover worker/thread counts, page/file limits, accepted source/target types, UI enablement and offline/model-cache options. Defaults remain private file-to-inbody conversion, disabled UI and offline models. Changing those options is an operator decision; changing timeouts alone does not alter EasyOCR `vi,en`, table extraction, Java admission limits or publication fencing. See the [change and verification record](../increments/active/docling-timeout-configuration/plan.md).
+
 Diagnostic parser metadata includes parser identity/configuration and, for Docling, SDK, pinned service/model-image revision and options; it does not pin retry output. Document-owned artifact tracking, adoption and cleanup are defined in the [Document contract](document.md). db-scheduler runs artifact cleanup every minute independently of ingestion; artifacts referenced by current Documents remain protected.
 
 ## Cleanup
