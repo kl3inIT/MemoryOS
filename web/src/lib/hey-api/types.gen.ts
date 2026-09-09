@@ -172,6 +172,35 @@ export type ReplaceGroupCapabilitiesRequest = {
     capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
 };
 
+export type CreateChatSession = {
+    title: string;
+};
+
+export type ChatSession = {
+    id: string;
+    personaId: string;
+    rootMessageId: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type Send = {
+    parentMessageId: string;
+    clientRequestId: string;
+    text: string;
+};
+
+export type Accepted = {
+    userMessageId: string;
+    assistantMessageId: string;
+};
+
+export type Cancellation = {
+    assistantMessageId: string;
+    status: 'RUNNING' | 'COMPLETED' | 'CANCELED' | 'FAILED';
+};
+
 export type AccountType = 'STANDARD';
 
 export type TenantMembershipRole = 'OWNER' | 'MEMBER';
@@ -342,6 +371,36 @@ export type GroupCapability = {
     description: string;
     editable: boolean;
     implies: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE'>;
+};
+
+export type ChatMessage = {
+    id: string;
+    sessionId: string;
+    parentMessageId: string | null;
+    latestChildMessageId: string | null;
+    role: 'USER' | 'ASSISTANT';
+    content: string;
+    status: 'COMPLETED' | 'RUNNING' | 'CANCELED' | 'FAILED';
+    createdAt: string;
+    finishedAt: string | null;
+};
+
+export type TextDeltaEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    text: string;
+};
+
+export type OutcomeEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    status: 'COMPLETED' | 'CANCELED' | 'FAILED';
+    failureCode: string | null;
+};
+
+export type ResetEvent = {
+    assistantMessageId: string;
+    reason: 'BUFFER_MISSING' | 'BUFFER_GAP' | 'BUFFER_EXPIRED';
 };
 
 export type ApiProblem = {
@@ -1125,6 +1184,117 @@ export type ReplaceGroupCapabilitiesResponses = {
 
 export type ReplaceGroupCapabilitiesResponse = ReplaceGroupCapabilitiesResponses[keyof ReplaceGroupCapabilitiesResponses];
 
+export type ListChatSessionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/sessions';
+};
+
+export type ListChatSessionsResponses = {
+    /**
+     * OK
+     */
+    200: Array<ChatSession>;
+};
+
+export type ListChatSessionsResponse = ListChatSessionsResponses[keyof ListChatSessionsResponses];
+
+export type CreateChatSessionData = {
+    body: CreateChatSession;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/sessions';
+};
+
+export type CreateChatSessionResponses = {
+    /**
+     * Created
+     */
+    201: ChatSession;
+};
+
+export type CreateChatSessionResponse = CreateChatSessionResponses[keyof CreateChatSessionResponses];
+
+export type GetChatHistoryData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: {
+        after?: string;
+        limit?: number;
+    };
+    url: '/api/chat/sessions/{sessionId}/messages';
+};
+
+export type GetChatHistoryResponses = {
+    /**
+     * OK
+     */
+    200: Array<ChatMessage>;
+};
+
+export type GetChatHistoryResponse = GetChatHistoryResponses[keyof GetChatHistoryResponses];
+
+export type SendChatMessageData = {
+    body: Send;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages';
+};
+
+export type SendChatMessageResponses = {
+    /**
+     * Accepted
+     */
+    202: Accepted;
+};
+
+export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMessageResponses];
+
+export type CancelChatMessageData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+        assistantMessageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel';
+};
+
+export type CancelChatMessageResponses = {
+    /**
+     * Accepted
+     */
+    202: Cancellation;
+};
+
+export type CancelChatMessageResponse = CancelChatMessageResponses[keyof CancelChatMessageResponses];
+
 export type ListUsersData = {
     body?: never;
     path?: never;
@@ -1418,3 +1588,45 @@ export type ListGroupCapabilitiesResponses = {
 };
 
 export type ListGroupCapabilitiesResponse = ListGroupCapabilitiesResponses[keyof ListGroupCapabilitiesResponses];
+
+export type GetChatSessionData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}';
+};
+
+export type GetChatSessionResponses = {
+    /**
+     * OK
+     */
+    200: ChatSession;
+};
+
+export type GetChatSessionResponse = GetChatSessionResponses[keyof GetChatSessionResponses];
+
+export type StreamChatMessageData = {
+    body?: never;
+    headers?: {
+        'Last-Event-ID'?: string;
+    };
+    path: {
+        sessionId: string;
+        assistantMessageId: string;
+    };
+    query?: {
+        after?: string;
+    };
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events';
+};
+
+export type StreamChatMessageResponses = {
+    /**
+     * SSE frames; the schema describes each data payload
+     */
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent;
+};
+
+export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

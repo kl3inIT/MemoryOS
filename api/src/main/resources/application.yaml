@@ -18,6 +18,8 @@ spring:
     virtual:
       enabled: true
   mvc:
+    async:
+      request-timeout: ${memoryos.chat.stream.connection-timeout:10m}
     problemdetails:
       enabled: true
   datasource:
@@ -61,6 +63,10 @@ springdoc:
   api-docs:
     enabled: false
 
+embabel:
+  models:
+    default-llm: ${memoryos.chat.persona.model:gpt-5-mini}
+
 server:
   forward-headers-strategy: framework
   servlet:
@@ -78,6 +84,19 @@ management:
         include: health
 
 memoryos:
+  chat:
+    provider:
+      api-key: ${MEMORYOS_CHAT_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
+      base-url: ${MEMORYOS_CHAT_BASE_URL:https://api.openai.com/v1}
+    execution:
+      concurrency: ${MEMORYOS_CHAT_CONCURRENCY:8}
+      deadline: ${MEMORYOS_CHAT_DEADLINE:2m}
+      max-cycles: ${MEMORYOS_CHAT_MAX_CYCLES:6}
+      max-output-tokens: ${MEMORYOS_CHAT_MAX_OUTPUT_TOKENS:4096}
+      context-token-limit: ${MEMORYOS_CHAT_CONTEXT_TOKEN_LIMIT:32000}
+      max-answer-characters: ${MEMORYOS_CHAT_MAX_ANSWER_CHARACTERS:1000000}
+      token-budget: ${MEMORYOS_CHAT_TOKEN_BUDGET:2147483647}
+      cost-budget-usd: ${MEMORYOS_CHAT_COST_BUDGET_USD:1.7976931348623157E308}
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
     keycloak:

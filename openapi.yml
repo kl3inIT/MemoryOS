@@ -1014,6 +1014,180 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/sessions:
+    get:
+      tags:
+      - Chat
+      summary: List the actor's private chat sessions
+      operationId: listChatSessions
+      parameters:
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 30
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Create a private chat session
+      operationId: createChatSession
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChatSession"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}/messages:
+    get:
+      tags:
+      - Chat
+      summary: Read the selected chat branch after a message cursor
+      operationId: getChatHistory
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: after
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Reserve and execute a chat reply in the background
+      operationId: sendChatMessage
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Send"
+        required: true
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Accepted"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel:
+    post:
+      tags:
+      - Chat
+      summary: Request Stop; read history for the committed terminal outcome
+      operationId: cancelChatMessage
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: assistantMessageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "202":
+          description: Accepted
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Cancellation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users:
     get:
       tags:
@@ -1454,6 +1628,74 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GroupCapabilities"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}:
+    get:
+      tags:
+      - Chat
+      summary: Read an owned chat session
+      operationId: getChatSession
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events:
+    get:
+      tags:
+      - Chat
+      summary: Read or resume reply events; reset requires persisted history
+      description: "Events: text-delta, outcome, reset. Content event id is assistantMessageId:sequence.\
+        \ Only outcome confirms a committed terminal state. Heartbeats are comments.\
+        \ A reset has no event id."
+      operationId: streamChatMessage
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: assistantMessageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: after
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: SSE frames; the schema describes each data payload
+          content:
+            text/event-stream:
+              schema:
+                oneOf:
+                - $ref: "#/components/schemas/TextDeltaEvent"
+                - $ref: "#/components/schemas/OutcomeEvent"
+                - $ref: "#/components/schemas/ResetEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -1991,6 +2233,87 @@ components:
           minItems: 0
       required:
       - capabilities
+    CreateChatSession:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          minLength: 0
+      required:
+      - title
+    ChatSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        personaId:
+          type: string
+          format: uuid
+        rootMessageId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - createdAt
+      - id
+      - personaId
+      - rootMessageId
+      - title
+      - updatedAt
+    Send:
+      type: object
+      properties:
+        parentMessageId:
+          type: string
+          format: uuid
+        clientRequestId:
+          type: string
+          format: uuid
+        text:
+          type: string
+          maxLength: 32000
+          minLength: 0
+      required:
+      - clientRequestId
+      - parentMessageId
+      - text
+    Accepted:
+      type: object
+      properties:
+        userMessageId:
+          type: string
+          format: uuid
+        assistantMessageId:
+          type: string
+          format: uuid
+      required:
+      - assistantMessageId
+      - userMessageId
+    Cancellation:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - RUNNING
+          - COMPLETED
+          - CANCELED
+          - FAILED
+      required:
+      - assistantMessageId
+      - status
     AccountType:
       type: string
       enum:
@@ -2517,6 +2840,111 @@ components:
       - id
       - implies
       - label
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        parentMessageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        latestChildMessageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        role:
+          type: string
+          enum:
+          - USER
+          - ASSISTANT
+        content:
+          type: string
+        status:
+          type: string
+          enum:
+          - COMPLETED
+          - RUNNING
+          - CANCELED
+          - FAILED
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - content
+      - createdAt
+      - finishedAt
+      - id
+      - latestChildMessageId
+      - parentMessageId
+      - role
+      - sessionId
+      - status
+    TextDeltaEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        text:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - text
+    OutcomeEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - COMPLETED
+          - CANCELED
+          - FAILED
+        failureCode:
+          type:
+          - string
+          - "null"
+      required:
+      - assistantMessageId
+      - failureCode
+      - sequence
+      - status
+    ResetEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          enum:
+          - BUFFER_MISSING
+          - BUFFER_GAP
+          - BUFFER_EXPIRED
+      required:
+      - assistantMessageId
+      - reason
     ApiProblem:
       type: object
       additionalProperties: false
