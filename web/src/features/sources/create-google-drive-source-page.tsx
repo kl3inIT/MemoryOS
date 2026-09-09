@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Ellipsis, KeyRound, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Button } from "@/components/ui/button";
@@ -11,35 +11,40 @@ import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
+import { ApiError, isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
 import {
   createGoogleDriveSourceMutation,
   deleteGoogleDriveCredentialMutation,
   getCurrentIdentityQueryKey,
+  getGoogleDriveSelectionPolicyOptions,
   listGoogleDriveCredentialsOptions,
   listSourcesQueryKey,
   revokeGoogleDriveCredentialMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
 import type {
+  CreateGoogleDriveSourceData,
   GetGoogleDriveConfigurationResponse,
   GoogleDriveCredentialResponse,
 } from "@/lib/hey-api/types.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
 import { GoogleDriveLinks } from "./google-drive-links";
-import {
-  MAX_GOOGLE_DRIVE_LINK_LENGTH,
-  MAX_GOOGLE_DRIVE_ROOTS,
-  parseGoogleDriveLinks,
-} from "./google-drive-selection";
+import { googleDriveSelectionError, parseGoogleDriveLinks } from "./google-drive-selection";
 import {
   GoogleDriveOAuthClientInput,
   type GoogleDriveOAuthClientInputHandle,
 } from "./google-drive-oauth-client-input";
 import { sourceMutationError } from "./source-errors";
 import { GoogleDriveIcon } from "./google-drive-icon";
+import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
+import { sourceStatusMessage } from "./source-errors";
 
 export function CreateGoogleDriveSourcePage() {
+  const session = useApplicationSession();
+  return <GoogleDriveSourceSetup key={`${session.actorId}:${session.capabilities.join(",")}`} />;
+}
+
+function GoogleDriveSourceSetup() {
   const { googleDrive, credentialId, step } = useSearch({
     from: "/_authenticated/admin/sources/new/google-drive",
   });
@@ -54,6 +59,13 @@ export function CreateGoogleDriveSourcePage() {
     retry: false,
   });
   const createSource = useMutation(createGoogleDriveSourceMutation());
+  const policy = useQuery({
+    ...getGoogleDriveSelectionPolicyOptions(),
+    enabled: canManage,
+    retry: false,
+  });
+  const tracking = useGoogleDriveSelectionOperation("create");
+  const [completedOperation, setCompletedOperation] = useState<string | null>(null);
   const revoke = useMutation(revokeGoogleDriveCredentialMutation());
   const remove = useMutation(deleteGoogleDriveCredentialMutation());
   const selected = credentials.data?.find((credential) => credential.id === credentialId);
@@ -75,16 +87,24 @@ export function CreateGoogleDriveSourcePage() {
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const submitting = useRef(false);
+  const submittedProposal = useRef<CreateGoogleDriveSourceData["body"] | null>(null);
   const authorizationController = useRef<AbortController | null>(null);
   const busy =
     authorizing || leaving || createSource.isPending || revoke.isPending || remove.isPending;
   const needsClient = !reconnecting?.oauthClientConfigured || replaceClient;
   const links = scopeMode === "GENERAL" ? [] : parseGoogleDriveLinks(linksText);
-  const validSelection =
-    scopeMode === "GENERAL" ||
-    (links.length >= 1 &&
-      links.length <= MAX_GOOGLE_DRIVE_ROOTS &&
-      links.every((link) => link.length <= MAX_GOOGLE_DRIVE_LINK_LENGTH));
+  const proposal = {
+    name: sourceName.trim(),
+    credentialId: selected?.id ?? "",
+    scopeMode,
+    links,
+    requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
+  };
+  const selectionError = googleDriveSelectionError(proposal, policy.data);
+  const validSelection = !selectionError;
+  const pendingValidation = Boolean(tracking.operation && !tracking.terminal);
+  const frozenProposal =
+    pendingValidation || tracking.uncertain || tracking.recovering || tracking.recoveryError;
   const modalTrigger = useRef<HTMLButtonElement | null>(null);
   const reportedCallback = useRef<string | null>(null);
   const active = useRef(true);
@@ -149,6 +169,43 @@ export function CreateGoogleDriveSourcePage() {
       window.removeEventListener("pagehide", clear);
     };
   }, []);
+
+  const terminalOperation = tracking.terminal ? tracking.operation : null;
+  if (terminalOperation && completedOperation !== terminalOperation.id) {
+    setCompletedOperation(terminalOperation.id);
+    if (terminalOperation.status === "SUCCEEDED") {
+      setCreatedSourceId(tracking.receipt?.sourceId ?? null);
+    } else {
+      setError(
+        terminalOperation.status === "SUPERSEDED"
+          ? "This creation proposal was superseded or cancelled. No Source was activated by this proposal."
+          : sourceStatusMessage(terminalOperation.errorCode ?? "SOURCE_GOOGLE_SELECTION_FAILED"),
+      );
+    }
+  }
+  const handleTerminalOperation = useEffectEvent(() => {
+    if (terminalOperation?.status !== "SUCCEEDED") return;
+    const targetId = tracking.receipt?.sourceId;
+    if (!targetId) return;
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
+      credentials.refetch(),
+    ])
+      .then(async () => {
+        if (!active.current) return;
+        await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: targetId } });
+        tracking.forget();
+      })
+      .catch(() => {
+        if (active.current)
+          setError(
+            "The Source was activated but its page could not be opened. Open the created Source; it will not be created twice.",
+          );
+      });
+  });
+  useEffect(() => {
+    handleTerminalOperation();
+  }, [tracking.operation, tracking.terminal]);
 
   function changeModal(open: boolean) {
     if (busy) return;
@@ -270,48 +327,41 @@ export function CreateGoogleDriveSourcePage() {
     if (
       submitting.current ||
       busy ||
-      (!createdSourceId &&
-        (unavailable || !connected || !selected || !sourceName.trim() || !validSelection))
+      pendingValidation ||
+      tracking.recovering ||
+      tracking.recoveryError
+    )
+      return;
+    if (createdSourceId) {
+      await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: createdSourceId } });
+      tracking.forget();
+      return;
+    }
+    if (
+      !tracking.uncertain &&
+      (unavailable || !connected || !selected || !sourceName.trim() || !validSelection)
     )
       return;
     submitting.current = true;
     setError(null);
-    let targetId = createdSourceId;
     try {
-      if (!targetId) {
-        if (!selected) return;
-        const detail = await createSource.mutateAsync({
-          headers: sameOriginMutationHeaders,
-          body: { name: sourceName.trim(), credentialId: selected.id, scopeMode, links },
-        });
-        if (!active.current) return;
-        targetId = detail.source.id;
-        setCreatedSourceId(targetId);
-        notify({
-          title: "Source created",
-          description: `${detail.source.name} was created. Drive content has not finished indexing; check synchronization status for progress.`,
-          tone: "success",
-          surviveNavigation: true,
-        });
-      }
-      await Promise.all([
-        credentials.refetch(),
-        queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
-      ]);
+      const requestId = tracking.begin(tracking.terminal);
+      const body =
+        tracking.uncertain && submittedProposal.current
+          ? submittedProposal.current
+          : { ...proposal, requestId };
+      submittedProposal.current = body;
+      const receipt = await createSource.mutateAsync({
+        headers: sameOriginMutationHeaders,
+        body,
+      });
       if (!active.current) return;
-      await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: targetId } });
+      tracking.accept(receipt);
     } catch (cause) {
       if (!active.current) return;
-      const message = targetId
-        ? `${sourceName.trim()} was created, but its page could not be opened. Try opening the Source again; it will not be created twice.`
-        : sourceMutationError(cause, "google-drive");
-      setError(message);
-      notify({
-        title: targetId ? "Source created; unable to open" : "Source creation failed",
-        description: message,
-        tone: "error",
-      });
-      void credentials.refetch();
+      if (cause instanceof ApiError && cause.status && cause.status >= 400 && cause.status < 500)
+        tracking.forget();
+      setError(sourceMutationError(cause, "google-drive"));
     } finally {
       submitting.current = false;
     }
@@ -339,6 +389,70 @@ export function CreateGoogleDriveSourcePage() {
         <p role="alert" className="text-sm text-status-danger-content">
           {error}
         </p>
+      ) : null}
+      {tracking.operation && !createdSourceId ? (
+        <div
+          role="status"
+          className="space-y-2 rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm"
+        >
+          <StatusBadge tone={pendingValidation ? "info" : "warning"}>
+            {pendingValidation ? "Pending validation" : "Proposal not activated"}
+          </StatusBadge>
+          <p>
+            {pendingValidation
+              ? "Google access and roots are being verified. Your Source is not active yet. Leaving this page does not cancel validation; return here to recover its status."
+              : "Review the error and edit the proposal before submitting again."}
+          </p>
+          <p className="break-all text-xs text-content-muted">
+            Operation {tracking.operation.id} ·{" "}
+            {tracking.operation.status.toLowerCase().replaceAll("_", " ")}
+          </p>
+        </div>
+      ) : null}
+      {tracking.recovering ? <p role="status">Recovering your submitted Source…</p> : null}
+      {!error && (tracking.recoveryError || tracking.statusUnavailable) ? (
+        <p role="alert" className="text-sm text-status-danger-content">
+          Validation status is unavailable. This does not mean creation failed.
+        </p>
+      ) : null}
+      {tracking.recoveryError ? (
+        <Button prominence="secondary" onClick={() => void tracking.retryRecovery()}>
+          Recover submitted Source
+        </Button>
+      ) : null}
+      {tracking.recoveryMissing ? (
+        <Button
+          prominence="secondary"
+          onClick={() => {
+            tracking.forget();
+            setError(null);
+          }}
+        >
+          Discard unaccepted request and start again
+        </Button>
+      ) : null}
+      {tracking.statusUnavailable ? (
+        <Button prominence="secondary" onClick={() => void tracking.retryStatus()}>
+          Retry validation status
+        </Button>
+      ) : null}
+      {tracking.uncertain && !busy ? (
+        <p className="text-sm text-content-muted">
+          No receipt was received. Retry this unchanged proposal with the same request ID to avoid
+          duplicate Sources.
+        </p>
+      ) : null}
+      {policy.isError ? (
+        <div className="space-y-2">
+          {!error && !tracking.recoveryError && !tracking.statusUnavailable ? (
+            <p role="alert" className="text-sm text-status-danger-content">
+              Selection limits could not be loaded. Creation is disabled.
+            </p>
+          ) : null}
+          <Button prominence="secondary" onClick={() => void policy.refetch()}>
+            Retry selection policy
+          </Button>
+        </div>
       ) : null}
       {step === "connector" ? (
         <form
@@ -369,25 +483,44 @@ export function CreateGoogleDriveSourcePage() {
               value={sourceName}
               maxLength={120}
               required
-              disabled={busy || unavailable || Boolean(createdSourceId)}
-              onChange={(event) => setSourceName(event.target.value)}
+              disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
+              onChange={(event) => {
+                if (tracking.terminal) tracking.forget();
+                setSourceName(event.target.value);
+                setError(null);
+              }}
               placeholder="e.g. Team documentation"
               autoComplete="off"
               className="mt-2"
             />
           </div>
           <GoogleDriveLinks
-            roots={[]}
             scopeMode={scopeMode}
-            onScopeModeChange={setScopeMode}
+            policy={policy.data}
+            onScopeModeChange={(mode) => {
+              if (tracking.terminal) tracking.forget();
+              setScopeMode(mode);
+              setError(null);
+            }}
+            errorMessage={
+              error || tracking.recoveryError || tracking.statusUnavailable || policy.isError
+                ? ""
+                : selectionError
+            }
             value={linksText}
-            disabled={busy || unavailable || !connected || Boolean(createdSourceId)}
-            onChange={setLinksText}
+            disabled={
+              busy || unavailable || !connected || frozenProposal || Boolean(createdSourceId)
+            }
+            onChange={(value) => {
+              if (tracking.terminal) tracking.forget();
+              setLinksText(value);
+              setError(null);
+            }}
           />
           <footer className="flex flex-wrap justify-between gap-3">
             <Button
               prominence="secondary"
-              disabled={busy}
+              disabled={busy || frozenProposal}
               onClick={() => void navigate({ search: { credentialId } })}
             >
               <ArrowLeft /> Credentials
@@ -397,11 +530,20 @@ export function CreateGoogleDriveSourcePage() {
               pending={createSource.isPending}
               disabled={
                 busy ||
+                pendingValidation ||
+                tracking.recovering ||
+                tracking.recoveryError ||
                 (!createdSourceId &&
+                  !tracking.uncertain &&
                   (unavailable || !connected || !sourceName.trim() || !validSelection))
               }
             >
-              {createdSourceId ? "Open created Source" : "Create Source"} <ArrowRight />
+              {createdSourceId
+                ? "Open created Source"
+                : tracking.uncertain
+                  ? "Retry Create Source"
+                  : "Create Source"}{" "}
+              <ArrowRight />
             </Button>
           </footer>
         </form>
@@ -456,7 +598,7 @@ export function CreateGoogleDriveSourcePage() {
                               name="google-credential"
                               aria-label={`Select ${credential.name}`}
                               checked={credential.id === credentialId && ready}
-                              disabled={!ready || unavailable || busy}
+                              disabled={!ready || unavailable || busy || frozenProposal}
                               onChange={() => {
                                 setError(null);
                                 void navigate({ search: { credentialId: credential.id } });
@@ -536,7 +678,7 @@ export function CreateGoogleDriveSourcePage() {
                             <div className="flex flex-wrap gap-2">
                               <Button
                                 prominence="tertiary"
-                                disabled={unavailable || busy}
+                                disabled={unavailable || busy || frozenProposal}
                                 onClick={(event) => {
                                   modalTrigger.current = event.currentTarget;
                                   editCredential(credential);
@@ -550,7 +692,7 @@ export function CreateGoogleDriveSourcePage() {
                                     <Button
                                       tone="danger"
                                       prominence="tertiary"
-                                      disabled={unavailable || busy}
+                                      disabled={unavailable || busy || frozenProposal}
                                     >
                                       Revoke
                                     </Button>
@@ -570,7 +712,12 @@ export function CreateGoogleDriveSourcePage() {
                                   <Button
                                     tone="danger"
                                     prominence="tertiary"
-                                    disabled={unavailable || busy || credential.sourceCount !== 0}
+                                    disabled={
+                                      unavailable ||
+                                      busy ||
+                                      frozenProposal ||
+                                      credential.sourceCount !== 0
+                                    }
                                     title={
                                       credential.sourceCount
                                         ? "Delete all attached Sources before deleting this credential"
@@ -626,7 +773,7 @@ export function CreateGoogleDriveSourcePage() {
             </div>
             <Button
               className="mt-6"
-              disabled={unavailable || busy}
+              disabled={unavailable || busy || frozenProposal}
               onClick={(event) => {
                 modalTrigger.current = event.currentTarget;
                 changeModal(true);

@@ -91,7 +91,7 @@ export function CreateFileSourcePage() {
             headers: sameOriginMutationHeaders,
             signal: controller.signal,
           });
-          targetId = created.source.id;
+          targetId = created.id;
           setSourceId(targetId);
           void queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
         }

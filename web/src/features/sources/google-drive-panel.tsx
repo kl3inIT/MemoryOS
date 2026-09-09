@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw, Unplug } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,10 @@ import {
   getGoogleDriveConfigurationOptions,
   getGoogleDriveConfigurationQueryKey,
   getSourceQueryKey,
+  listSourceItemsQueryKey,
   listSourcesQueryKey,
   listGoogleDriveCredentialsOptions,
   listGoogleDriveCredentialsQueryKey,
-  replaceGoogleDriveRootsMutation,
   revokeGoogleDriveCredentialMutation,
   synchronizeGoogleDriveSourceMutation,
   updateGoogleDriveScheduleMutation,
@@ -30,13 +30,8 @@ import type {
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
 import { waitForSourceOperation } from "./source-operations";
-import { GoogleDriveLinks } from "./google-drive-links";
-import {
-  googleDriveRootLink,
-  parseGoogleDriveLinks,
-  MAX_GOOGLE_DRIVE_ROOTS,
-  MAX_GOOGLE_DRIVE_LINK_LENGTH,
-} from "./google-drive-selection";
+import { reconcileGoogleDriveConfiguration } from "./google-drive-selection";
+import { GoogleDriveSelectionPanel } from "./google-drive-selection-panel";
 import {
   GoogleDriveOAuthClientInput,
   type GoogleDriveOAuthClientInputHandle,
@@ -47,25 +42,12 @@ import {
   sourceStatusMessage,
 } from "./source-errors";
 import { GoogleDriveIcon } from "./google-drive-icon";
+import { SourceSummaryCard } from "./source-summary-card";
 
-type RootDraft = Pick<
-  GetGoogleDriveConfigurationResponse,
-  "revision" | "credentialRevision" | "credentialId" | "scopeMode"
-> & {
-  actorId: string;
-  links: string;
-};
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {
   minutes: string;
 };
-type DriveAction =
-  | "save"
-  | "sync"
-  | "authorize"
-  | "disconnect"
-  | "reload"
-  | "save-interval"
-  | "reload-interval";
+type DriveAction = "sync" | "authorize" | "disconnect" | "save-interval" | "reload-interval";
 const MAX_SYNC_INTERVAL_MINUTES = 2_147_483_647;
 
 export function GoogleDrivePanel({
@@ -90,6 +72,14 @@ export function GoogleDrivePanel({
     ...getGoogleDriveConfigurationOptions({ path: { sourceId: source.id } }),
     enabled: canManage,
     retry: false,
+    structuralSharing: (current, incoming) =>
+      replaceEqualDeep(
+        current,
+        reconcileGoogleDriveConfiguration(
+          current as GetGoogleDriveConfigurationResponse | undefined,
+          incoming as GetGoogleDriveConfigurationResponse,
+        ),
+      ),
     refetchInterval: (query) =>
       query.state.data?.pendingWork || source.pendingWork ? 1_500 : 5_000,
   });
@@ -101,7 +91,6 @@ export function GoogleDrivePanel({
   const credential = credentials.data?.find(
     (entry) => entry.id === configurationQuery.data?.credentialId,
   );
-  const replaceRoots = useMutation(replaceGoogleDriveRootsMutation());
   const synchronize = useMutation(synchronizeGoogleDriveSourceMutation());
   const revoke = useMutation(revokeGoogleDriveCredentialMutation());
   const updateSchedule = useMutation({ ...updateGoogleDriveScheduleMutation(), retry: false });
@@ -111,8 +100,8 @@ export function GoogleDrivePanel({
   const intervalInput = useRef<HTMLInputElement>(null);
   const intervalEditButton = useRef<HTMLButtonElement>(null);
   const wasEditingInterval = useRef(false);
-  const [draft, setDraft] = useState<RootDraft | null>(null);
-  const [revisionConflict, setRevisionConflict] = useState(false);
+  const [editingSelection, setEditingSelection] = useState(false);
+  const [selectionBusy, setSelectionBusy] = useState(false);
   const [activeAction, setActiveAction] = useState<DriveAction | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,37 +119,7 @@ export function GoogleDrivePanel({
   const connected =
     configuration?.credentialStatus === "ACTIVE" && configuration.oauthClientConfigured;
   const needsClient = !configuration?.oauthClientConfigured || replaceClient;
-  const conflicted =
-    revisionConflict ||
-    Boolean(
-      draft &&
-      configuration &&
-      (draft.revision !== configuration.revision ||
-        draft.credentialRevision !== configuration.credentialRevision ||
-        draft.credentialId !== configuration.credentialId ||
-        draft.actorId !== session.actorId),
-    );
-  const savedLinks = (configuration?.roots ?? []).map(googleDriveRootLink);
-  const linksText = draft?.links ?? savedLinks.join("\n");
-  const scopeMode = draft?.scopeMode ?? configuration?.scopeMode;
-  const links = scopeMode === "GENERAL" ? [] : parseGoogleDriveLinks(linksText);
-  const validSelection =
-    scopeMode === "GENERAL" ||
-    (scopeMode === "SPECIFIC" &&
-      links.length >= 1 &&
-      links.length <= MAX_GOOGLE_DRIVE_ROOTS &&
-      links.every((link) => link.length <= MAX_GOOGLE_DRIVE_LINK_LENGTH));
-  const hasSelectionChanges = Boolean(
-    draft &&
-    (conflicted ||
-      scopeMode !== configuration?.scopeMode ||
-      (scopeMode === "SPECIFIC" &&
-        (links.length !== savedLinks.length ||
-          links.some((link, index) => link !== savedLinks[index])))),
-  );
-  const hasSavedSelection =
-    configuration?.scopeMode === "GENERAL" ||
-    (configuration?.scopeMode === "SPECIFIC" && configuration.roots.length > 0);
+  const hasSelectionChanges = editingSelection;
 
   const editingInterval = intervalDraft !== null;
   const intervalMinutes = Number(intervalDraft?.minutes);
@@ -183,9 +142,9 @@ export function GoogleDrivePanel({
     wasEditingInterval.current = editingInterval;
   }, [editingInterval, busy]);
   useEffect(() => {
-    onBusyChange(busy);
+    onBusyChange(busy || selectionBusy);
     return () => onBusyChange(false);
-  }, [busy, onBusyChange]);
+  }, [busy, selectionBusy, onBusyChange]);
 
   useLayoutEffect(() => {
     clientInput.current?.clear();
@@ -229,6 +188,13 @@ export function GoogleDrivePanel({
       configurationQuery.refetch({ throwOnError }),
       queryClient.invalidateQueries(
         { queryKey: getSourceQueryKey({ path: { sourceId: source.id } }) },
+        { throwOnError },
+      ),
+      queryClient.invalidateQueries(
+        {
+          queryKey: listSourceItemsQueryKey({ path: { sourceId: source.id } }),
+          refetchType: "active",
+        },
         { throwOnError },
       ),
       queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }, { throwOnError }),
@@ -298,27 +264,6 @@ export function GoogleDrivePanel({
       await task(controller.signal);
     } catch (cause) {
       if (controller.signal.aborted) return;
-      if (action !== "sync") {
-        const titles: Record<Exclude<DriveAction, "sync">, string> = {
-          save: "Selection save failed",
-          authorize: "Reconnect could not start",
-          disconnect: "Credential disconnect failed",
-          reload: "Selection reload failed",
-          "save-interval": "Automatic interval save failed",
-          "reload-interval": "Interval reload failed",
-        };
-        notify({
-          tone: "error",
-          title: titles[action],
-          description: sourceMutationError(
-            cause,
-            action === "save-interval" || action === "reload-interval"
-              ? "google-drive-schedule"
-              : "google-drive",
-          ),
-        });
-      }
-      if (isGoogleDriveRevisionConflict(cause) && action === "save") setRevisionConflict(true);
       if (isGoogleDriveRevisionConflict(cause) && action === "save-interval")
         setIntervalRevisionConflict(true);
       void configurationQuery.refetch();
@@ -331,6 +276,7 @@ export function GoogleDrivePanel({
   }
 
   function run(action: DriveAction, task: (signal: AbortSignal) => Promise<void>) {
+    setError(null);
     void perform(action, task).catch((cause: unknown) =>
       setError(sourceMutationError(cause, "google-drive")),
     );
@@ -340,42 +286,9 @@ export function GoogleDrivePanel({
     await queryClient.cancelQueries({ queryKey: configurationKey });
     queryClient.setQueryData(
       configurationKey,
-      (current: GetGoogleDriveConfigurationResponse | undefined) => {
-        if (!current) return saved;
-        const scope =
-          current.revision > saved.revision || current.credentialRevision > saved.credentialRevision
-            ? current
-            : saved;
-        const schedule = current.scheduleRevision > saved.scheduleRevision ? current : saved;
-        return {
-          ...scope,
-          syncIntervalMinutes: schedule.syncIntervalMinutes,
-          scheduleRevision: schedule.scheduleRevision,
-        };
-      },
+      (current: GetGoogleDriveConfigurationResponse | undefined) =>
+        reconcileGoogleDriveConfiguration(current, saved),
     );
-  }
-
-  async function save(signal: AbortSignal) {
-    if (!draft || !hasSelectionChanges || !connected || conflicted || stale || !validSelection)
-      return;
-    const saved = await replaceRoots.mutateAsync({
-      path: { sourceId: source.id },
-      headers: { ...sameOriginMutationHeaders, "If-Match": `"${draft.revision}"` },
-      body: { scopeMode: draft.scopeMode, links },
-      signal,
-    });
-    signal.throwIfAborted();
-    await incorporateConfiguration(saved);
-    signal.throwIfAborted();
-    setDraft(null);
-    setRevisionConflict(false);
-    notify({
-      tone: "success",
-      title: "Selection saved",
-      description: "Automatic synchronization will use the saved scope.",
-    });
-    await refresh();
   }
 
   function runInterval(
@@ -434,14 +347,7 @@ export function GoogleDrivePanel({
   }
 
   async function sync() {
-    if (
-      !connected ||
-      hasSelectionChanges ||
-      stale ||
-      !hasSavedSelection ||
-      synchronizationController.current
-    )
-      return;
+    if (!connected || hasSelectionChanges || stale || synchronizationController.current) return;
     const controller = new AbortController();
     synchronizationController.current = controller;
     setObservingSynchronization(true);
@@ -458,11 +364,6 @@ export function GoogleDrivePanel({
         synchronizationController.current = null;
       if (!synchronizationController.current) setObservingSynchronization(false);
       if (controller.signal.aborted) return;
-      notify({
-        tone: "error",
-        title: "Synchronization could not start",
-        description: sourceMutationError(cause, "google-drive"),
-      });
       throw cause;
     }
     notify({ tone: "info", title: "Synchronization requested", description: source.name });
@@ -577,140 +478,47 @@ export function GoogleDrivePanel({
     ]);
   }
 
-  function changeSelection(change: Partial<Pick<RootDraft, "links" | "scopeMode">>) {
-    if (!configuration) return;
-    setDraft((current) => ({
-      revision: configuration.revision,
-      credentialRevision: configuration.credentialRevision,
-      credentialId: configuration.credentialId,
-      actorId: session.actorId,
-      scopeMode: configuration.scopeMode,
-      links: savedLinks.join("\n"),
-      ...current,
-      ...change,
-    }));
-    setError(null);
-  }
-
-  async function reloadSelection(signal: AbortSignal) {
-    await configurationQuery.refetch({ throwOnError: true });
-    signal.throwIfAborted();
-    setDraft(null);
-    setRevisionConflict(false);
-    notify({
-      tone: "info",
-      title: "Saved selection loaded",
-      description: "Local selection changes were discarded.",
-    });
-  }
-
   if (!configuration) {
     return (
-      <div className="border-b border-border-subtle p-5 sm:p-6">
-        {configurationQuery.isPending ? (
-          <p role="status" className="text-sm text-content-muted">
-            Loading Google Drive connection…
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <p role="alert" className="text-sm text-status-danger-content">
-              {sourceMutationError(configurationQuery.error, "google-drive")}
-            </p>
-            <Button
-              prominence="secondary"
-              pending={configurationQuery.isFetching}
-              onClick={() => void refreshStatus()}
-            >
-              Retry connection status
-            </Button>
+      <>
+        <SourceSummaryCard source={source}>
+          <div>
+            <dt className="text-content-muted">Automatic interval</dt>
+            <dd className="mt-2 text-content-muted">
+              {configurationQuery.isPending ? "Loading…" : "Unavailable"}
+            </dd>
           </div>
-        )}
-      </div>
+        </SourceSummaryCard>
+        <div className="border-b border-border-subtle p-5 sm:p-6">
+          {configurationQuery.isPending ? (
+            <p role="status" className="text-sm text-content-muted">
+              Loading Google Drive connection…
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <p role="alert" className="text-sm text-status-danger-content">
+                {sourceMutationError(configurationQuery.error, "google-drive")}
+              </p>
+              <Button
+                prominence="secondary"
+                pending={configurationQuery.isFetching}
+                onClick={() => void refreshStatus()}
+              >
+                Retry connection status
+              </Button>
+            </div>
+          )}
+        </div>
+      </>
     );
   }
 
   return (
     <section aria-label="Google Drive configuration" className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="font-heading-h3 text-content-primary">Synchronization</h2>
-          <HelpPopover label="Synchronization">
-            <p>
-              Automatic sync uses this Source’s saved interval. Saving an interval schedules the
-              next run from the save time and does not interrupt current work. Start time depends on
-              availability and pending work. Synchronize now requests a run.
-            </p>
-          </HelpPopover>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            prominence="tertiary"
-            disabled={disabled || busy}
-            pending={configurationQuery.isFetching}
-            onClick={() => void refreshStatus()}
-          >
-            <RefreshCw /> Refresh status
-          </Button>
-          {connected ? (
-            <Button
-              disabled={
-                controlsDisabled ||
-                hasSelectionChanges ||
-                !hasSavedSelection ||
-                configuration.pendingWork ||
-                source.pendingWork
-              }
-              pending={activeAction === "sync" || observingSynchronization}
-              onClick={() => run("sync", sync)}
-            >
-              <RefreshCw /> Synchronize now
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      {stale ? (
-        <p role="alert" className="text-sm text-status-danger-content">
-          Status could not be refreshed. Displayed values may be out of date; refresh before making
-          changes.
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {error}
-        </p>
-      ) : null}
-      {configuration.errorCode ? (
-        <p className="text-sm text-status-danger-content">
-          {sourceStatusMessage(configuration.errorCode)}
-        </p>
-      ) : null}
-      <dl
-        className="grid gap-5 rounded-lg border border-border-subtle p-4 text-sm sm:grid-cols-3"
-        aria-live="polite"
-      >
-        <div>
-          <dt className="text-content-muted">Current work</dt>
-          <dd className="mt-2 text-content-primary">
-            {configuration.pendingWork || source.pendingWork
-              ? "Acquisition or indexing in progress"
-              : "No work pending"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-content-muted">Last synchronized</dt>
-          <dd className="mt-2 text-content-primary">
-            {configuration.lastSyncedAt ? (
-              <time dateTime={configuration.lastSyncedAt}>
-                {new Date(configuration.lastSyncedAt).toLocaleString()}
-              </time>
-            ) : (
-              "Not yet"
-            )}
-          </dd>
-        </div>
-        <div>
+      <SourceSummaryCard source={source}>
+        <div className="min-w-0" aria-live="polite">
           <dt className="text-content-muted">Automatic interval</dt>
-          <dd className="mt-2 space-y-3 text-content-primary">
+          <dd className="mt-2 min-w-0 space-y-3 text-content-primary">
             <div className="flex flex-wrap items-center gap-2">
               <span>
                 {configuration.syncIntervalMinutes}{" "}
@@ -719,6 +527,8 @@ export function GoogleDrivePanel({
               {!editingInterval ? (
                 <Button
                   ref={intervalEditButton}
+                  size="sm"
+                  aria-label="Edit interval"
                   prominence="tertiary"
                   disabled={controlsDisabled}
                   onClick={() => {
@@ -729,7 +539,7 @@ export function GoogleDrivePanel({
                     setIntervalError(null);
                   }}
                 >
-                  Edit interval
+                  Edit
                 </Button>
               ) : null}
             </div>
@@ -817,7 +627,59 @@ export function GoogleDrivePanel({
             ) : null}
           </dd>
         </div>
-      </dl>
+      </SourceSummaryCard>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="font-heading-h3 text-content-primary">Synchronization</h2>
+          <HelpPopover label="Synchronization">
+            <p>
+              Automatic sync uses this Source’s saved interval. Saving an interval schedules the
+              next run from the save time and does not interrupt current work. Start time depends on
+              availability and pending work. Synchronize now requests a run.
+            </p>
+          </HelpPopover>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            prominence="tertiary"
+            disabled={disabled || busy}
+            pending={configurationQuery.isFetching}
+            onClick={() => void refreshStatus()}
+          >
+            <RefreshCw /> Refresh status
+          </Button>
+          {connected ? (
+            <Button
+              disabled={
+                controlsDisabled ||
+                hasSelectionChanges ||
+                configuration.pendingWork ||
+                source.pendingWork
+              }
+              pending={activeAction === "sync" || observingSynchronization}
+              onClick={() => run("sync", sync)}
+            >
+              <RefreshCw /> Synchronize now
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {stale ? (
+        <p role="alert" className="text-sm text-status-danger-content">
+          Status could not be refreshed. Displayed values may be out of date; refresh before making
+          changes.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-sm text-status-danger-content">
+          {error}
+        </p>
+      ) : null}
+      {configuration.errorCode ? (
+        <p className="text-sm text-status-danger-content">
+          {sourceStatusMessage(configuration.errorCode)}
+        </p>
+      ) : null}
       {!connected ? (
         <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
           Reconnect the same Google account to save links and synchronize. Saved roots are retained.
@@ -946,57 +808,15 @@ export function GoogleDrivePanel({
           </p>
         </div>
       </details>
-      <div className="flex min-w-0 flex-col gap-6 md:flex-row">
-        <div className="min-w-0 flex-1 space-y-8">
-          <section aria-label="Selected content" className="space-y-4">
-            <GoogleDriveLinks
-              roots={configuration.roots}
-              scopeMode={draft?.scopeMode ?? configuration.scopeMode}
-              savedScopeMode={configuration.scopeMode}
-              onScopeModeChange={(mode) => changeSelection({ scopeMode: mode })}
-              value={linksText}
-              disabled={controlsDisabled || !connected}
-              onChange={(value) => changeSelection({ links: value })}
-            />
-            {conflicted ? (
-              <p
-                role="alert"
-                className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content"
-              >
-                The saved selection or Google connection changed while you were editing. Your draft
-                has not been saved. Reload the saved selection before continuing.
-              </p>
-            ) : hasSelectionChanges ? (
-              <p role="status" className="text-sm text-content-muted">
-                You have unsaved selection changes.
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {hasSelectionChanges || revisionConflict ? (
-                <Button
-                  prominence="secondary"
-                  disabled={disabled || busy}
-                  pending={activeAction === "reload"}
-                  onClick={() => run("reload", reloadSelection)}
-                >
-                  Reload saved selection
-                </Button>
-              ) : null}
-              {connected ? (
-                <Button
-                  disabled={
-                    controlsDisabled || !hasSelectionChanges || conflicted || !validSelection
-                  }
-                  pending={activeAction === "save"}
-                  onClick={() => run("save", save)}
-                >
-                  Save selection
-                </Button>
-              ) : null}
-            </div>
-          </section>
-        </div>
-      </div>
+      <GoogleDriveSelectionPanel
+        key={`${session.actorId}:${capabilities}:${source.id}`}
+        sourceId={source.id}
+        configuration={configuration}
+        disabled={controlsDisabled || !connected}
+        onEditingChange={setEditingSelection}
+        onBusyChange={setSelectionBusy}
+        onActivated={refresh}
+      />
     </section>
   );
 }

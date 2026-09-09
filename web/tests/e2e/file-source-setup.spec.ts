@@ -30,12 +30,16 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
           json:
             path === "/api/sources"
               ? [source]
-              : {
-                  source,
-                  items: [
-                    { id: "item-1", filename: "knowledge.txt", status: "PENDING", sizeBytes: 5 },
-                  ],
-                },
+              : path.endsWith("/items")
+                ? {
+                    items: [
+                      { id: "item-1", filename: "knowledge.txt", status: "PENDING", sizeBytes: 5 },
+                    ],
+                    nextCursor: null,
+                  }
+                : path.endsWith("/index-attempts")
+                  ? { items: [], nextCursor: null, totalItems: 0 }
+                  : source,
         });
       } else if (path === "/api/sources/file") {
         creates++;
@@ -43,7 +47,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
           await route.fulfill({ status: 503, json: { title: "Unavailable", status: 503 } });
         } else {
           expect(route.request().postDataJSON()).toEqual({ name: "knowledge" });
-          await route.fulfill({ status: 201, json: { source, items: [] } });
+          await route.fulfill({ status: 201, json: source });
         }
       } else if (path.endsWith("/uploads")) {
         await route.fulfill({

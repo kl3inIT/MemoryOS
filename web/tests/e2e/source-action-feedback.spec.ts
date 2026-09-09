@@ -1,7 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { SourceOperation } from "../../src/lib/hey-api/types.gen";
 
-async function sourcePage(page: Page, provider: "FILE" | "GOOGLE_DRIVE" = "FILE") {
+async function sourcePage(
+  page: Page,
+  provider: "FILE" | "GOOGLE_DRIVE" = "FILE",
+  filenames = ["First.txt", "Second.txt"],
+) {
   const source = {
     id: "46337ebd-a134-41de-b322-196cd9be22c4",
     name: "Action feedback",
@@ -18,23 +22,28 @@ async function sourcePage(page: Page, provider: "FILE" | "GOOGLE_DRIVE" = "FILE"
     id: "96337ebd-a134-41de-b322-196cd9be22c4",
     name: "Other source",
   };
-  const items = ["First.txt", "Second.txt"].map((filename, index) => ({
-    id: `15f8cb72-2628-4d75-bcf1-8f6cda95a12${index}`,
+  const items = filenames.map((filename, index) => ({
+    id: `15f8cb72-2628-4d75-bcf1-${index.toString().padStart(12, "0")}`,
     filename,
     sizeBytes: 42,
     status: "INDEXED",
     uploadedAt: "2026-09-01T10:00:00Z",
-    latestOperationId: null,
+    lastIndexedAt: null,
+    latestAttempt: null,
     errorCode: null,
   }));
   const operations: SourceOperation[] = [];
   const removals = new Map<string, string>();
   const operationReads: string[] = [];
+  const itemPageReads: Array<string | null> = [];
   let operationGate: Promise<void> | undefined;
   const server = {
     rejectRequest: false,
     unavailableStatus: false,
     indexing: false,
+    items,
+    itemPageReads,
+    failItemPage: false,
     operations,
     operationReads,
     holdNextOperation() {
@@ -57,7 +66,8 @@ async function sourcePage(page: Page, provider: "FILE" | "GOOGLE_DRIVE" = "FILE"
   await page.route("**/api/credentials/google-drive", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/sources**", async (route) => {
     const request = route.request();
-    const pathname = new URL(request.url()).pathname;
+    const url = new URL(request.url());
+    const pathname = url.pathname;
     if (
       request.method() === "POST" &&
       ["/index-attempts", "/sync", "/remove", "/delete"].some((ending) => pathname.endsWith(ending))
@@ -91,6 +101,52 @@ async function sourcePage(page: Page, provider: "FILE" | "GOOGLE_DRIVE" = "FILE"
         (operation) => operation.type === "DELETE_SOURCE" && operation.status === "SUCCEEDED",
       );
       await route.fulfill({ json: deleted ? [otherSource] : [source, otherSource] });
+    } else if (pathname.endsWith("/selection-policy")) {
+      await route.fulfill({
+        json: {
+          maxExplicitRootsPerSource: 1000,
+          maxRequestBytes: 2_097_152,
+          maxLinkedDocuments: 500,
+        },
+      });
+    } else if (
+      pathname.endsWith("/google-drive/selection") ||
+      pathname.endsWith("/google-drive/selection-tree")
+    ) {
+      await route.fulfill({
+        json: {
+          revision: 1,
+          discoveryRevision: 0,
+          credentialRevision: 1,
+          items: url.searchParams.has("parentId")
+            ? []
+            : [
+                {
+                  id: items[0]!.id,
+                  name: items[0]!.filename,
+                  mimeType: "text/plain",
+                  kind: "FILE",
+                  selected: true,
+                  coveredByRoots: false,
+                  status: "AVAILABLE",
+                  origins: [],
+                  ...(pathname.endsWith("/selection-tree") ? { expandable: true } : {}),
+                },
+              ],
+          nextCursor: null,
+          counts: { folders: 0, files: 1, linkedDocuments: 0, approvedLinkedDocuments: 0 },
+        },
+      });
+    } else if (pathname.endsWith("/runs")) {
+      await route.fulfill({
+        json: {
+          items: [],
+          nextCursor: null,
+          current: null,
+          lastCompleted: null,
+          lastSuccessful: null,
+        },
+      });
     } else if (pathname.endsWith("/google-drive")) {
       await route.fulfill({
         json: {
@@ -104,24 +160,46 @@ async function sourcePage(page: Page, provider: "FILE" | "GOOGLE_DRIVE" = "FILE"
           scheduleRevision: 1,
           syncIntervalMinutes: 5,
           scopeMode: "SPECIFIC",
-          roots: [{ id: items[0]!.id, name: items[0]!.filename, mimeType: "text/plain" }],
+          counts: { folders: 0, files: 1, linkedDocuments: 0, approvedLinkedDocuments: 0 },
+          pendingSelectionOperation: null,
+          discoveryRevision: 0,
+          discoveredAt: null,
+          discoveryErrors: [],
           lastSyncedAt: null,
           pendingWork: server.indexing,
           errorCode: null,
         },
       });
-    } else {
-      const selectedSource = pathname.endsWith(otherSource.id) ? otherSource : source;
-      const visibleItems = items.filter(
+    } else if (pathname.endsWith("/index-attempts")) {
+      await route.fulfill({ json: { items: [], nextCursor: null, totalItems: 0 } });
+    } else if (pathname.endsWith("/items")) {
+      const cursor = url.searchParams.get("cursor");
+      itemPageReads.push(cursor);
+      const size = Number(url.searchParams.get("size") ?? 25);
+      if (server.failItemPage) {
+        await route.fulfill({ status: 503 });
+        return;
+      }
+      const candidates = cursor
+        ? items.slice(items.findIndex((item) => item.id === cursor) + 1)
+        : items;
+      const visibleItems = candidates.filter(
         (item) =>
           !operations.some(
             (operation) =>
               removals.get(operation.id) === item.id && operation.status === "SUCCEEDED",
           ),
       );
+      const pageItems = pathname.includes(otherSource.id) ? [] : visibleItems.slice(0, size);
       await route.fulfill({
-        json: { source: { ...selectedSource, pendingWork: server.indexing }, items: visibleItems },
+        json: {
+          items: pageItems,
+          nextCursor: pageItems.length && visibleItems.length > size ? pageItems.at(-1)!.id : null,
+        },
       });
+    } else {
+      const selectedSource = pathname.endsWith(otherSource.id) ? otherSource : source;
+      await route.fulfill({ json: { ...selectedSource, pendingWork: server.indexing } });
     }
   });
   await page.route("**/api/source-operations/**", (route) => {
@@ -136,6 +214,148 @@ async function sourcePage(page: Page, provider: "FILE" | "GOOGLE_DRIVE" = "FILE"
   await expect(page.getByRole("heading", { name: source.name })).toBeVisible();
   return server;
 }
+
+test("Files paging preserves concurrent item operations and uploads return to the newest page", async ({
+  page,
+}) => {
+  const server = await sourcePage(
+    page,
+    "FILE",
+    Array.from({ length: 51 }, (_, index) => `File-${index + 1}.txt`),
+  );
+  const files = page.getByRole("region", { name: "Files", exact: true });
+  const row = (filename: string) =>
+    files.getByRole("row").filter({ has: page.getByText(filename, { exact: true }) });
+  await expect(files.getByRole("row")).toHaveCount(26);
+  await expect(files.getByRole("status")).toContainText("Page 1");
+  await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
+  const release = server.holdNextOperation();
+  await row("File-1.txt").getByRole("button", { name: "Reindex" }).click();
+  await expect.poll(() => server.operations.length).toBe(1);
+  await files.getByRole("button", { name: "Next files" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(files.getByRole("heading", { name: "Files", exact: true })).toBeFocused();
+  await expect(row("File-26.txt")).toBeVisible();
+  await expect(row("File-1.txt")).toHaveCount(0);
+  await expect(files.getByRole("row")).toHaveCount(26);
+  const laterCursor = server.itemPageReads.at(-1);
+  await row("File-26.txt").getByRole("button", { name: "Reindex" }).click();
+  await expect.poll(() => server.operations.length).toBe(2);
+  release();
+  await expect(page.getByRole("listitem", { name: "Reindex requested", exact: true })).toHaveCount(
+    2,
+  );
+  await files.getByRole("button", { name: "Previous files" }).click();
+  await expect(row("File-1.txt").getByRole("button", { name: "Reindex" })).toBeDisabled();
+  await files.getByRole("button", { name: "Next files" }).click();
+  await expect(row("File-26.txt").getByRole("button", { name: "Reindex" })).toBeDisabled();
+  server.itemPageReads.length = 0;
+  server.operations[0]!.status = "SUCCEEDED";
+  await expect(page.getByRole("listitem", { name: "Reindex complete", exact: true })).toContainText(
+    "File-1.txt",
+  );
+  await expect.poll(() => server.itemPageReads.length).toBeGreaterThan(0);
+  expect(server.itemPageReads.every((cursor) => cursor === laterCursor)).toBe(true);
+  await expect(files.getByRole("status")).toContainText("Page 2");
+
+  const uploaded = {
+    ...server.items[0]!,
+    id: "ac15afe3-88b3-4627-a737-51d8c4c1b290",
+    filename: "Newest.txt",
+    status: "PENDING",
+  };
+  await page.route("**/api/sources/*/uploads", (route) =>
+    route.fulfill({
+      status: 201,
+      json: {
+        uploadId: uploaded.id,
+        method: "PUT",
+        uploadUrl: new URL("/paging-upload", page.url()).href,
+        requiredHeaders: {},
+        expiresAt: "2026-10-01T00:00:00Z",
+      },
+    }),
+  );
+  await page.route("**/paging-upload", (route) => route.fulfill({ status: 204 }));
+  await page.route("**/api/sources/*/uploads/*/finalize", (route) => {
+    server.items.unshift(uploaded);
+    server.indexing = true;
+    return route.fulfill({
+      status: 202,
+      json: {
+        item: uploaded,
+        operation: { ...server.operations[0], id: "upload-operation", status: "PENDING" },
+      },
+    });
+  });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: uploaded.filename,
+    mimeType: "text/plain",
+    buffer: Buffer.from("new content"),
+  });
+  await page.getByRole("button", { name: "Upload file", exact: true }).click();
+  await expect(row(uploaded.filename)).toBeVisible();
+  await expect(files.getByRole("status")).toContainText("Page 1");
+  await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
+  await expect(files.getByRole("row")).toHaveCount(26);
+  await expect(page.getByRole("listitem", { name: "Upload accepted", exact: true })).toContainText(
+    uploaded.filename,
+  );
+  server.operations[1]!.status = "FAILED";
+  server.operations[1]!.errorCode = "SOURCE_INDEX_FAILED";
+  await expect(page.getByRole("listitem", { name: "Reindex failed", exact: true })).toContainText(
+    "File-26.txt",
+  );
+  await files.getByRole("button", { name: "Next files" }).click();
+  await expect(row("File-26.txt").getByRole("button", { name: "Reindex" })).toBeEnabled();
+  await expect(row(uploaded.filename)).toHaveCount(0);
+  await files.getByRole("combobox", { name: "Files per page" }).selectOption("10");
+  await expect(files.getByRole("status")).toHaveText("Page 1");
+  await expect(row(uploaded.filename)).toBeVisible();
+  await expect(row("File-10.txt")).toHaveCount(0);
+  await files.getByRole("button", { name: "Next files" }).click();
+  await expect(files.getByRole("status")).toHaveText("Page 2");
+  await expect(row("File-10.txt")).toBeVisible();
+  await expect(row(uploaded.filename)).toHaveCount(0);
+  await files.getByRole("combobox", { name: "Files per page" }).selectOption("50");
+  await expect(files.getByRole("status")).toHaveText("Page 1");
+  await expect(row(uploaded.filename)).toBeVisible();
+  await expect(row("File-26.txt")).toBeVisible();
+  await expect(files.getByRole("button", { name: "Next files" })).toBeDisabled();
+});
+
+test("a failed or emptied later Files page can recover without losing its previous page", async ({
+  page,
+}) => {
+  const server = await sourcePage(
+    page,
+    "FILE",
+    Array.from({ length: 26 }, (_, index) => `File-${index + 1}.txt`),
+  );
+  const files = page.getByRole("region", { name: "Files", exact: true });
+  await expect(files.getByRole("row")).toHaveCount(26);
+  server.failItemPage = true;
+  await files.getByRole("button", { name: "Next files" }).click();
+  await expect(files.getByRole("alert")).toBeVisible();
+  await expect(files.getByRole("heading", { name: "No files yet" })).toHaveCount(0);
+  await expect(files.getByRole("button", { name: "Previous files" })).toBeEnabled();
+  server.failItemPage = false;
+  await files.getByRole("button", { name: "Refresh files" }).click();
+  const lastRow = files.getByRole("row").filter({ hasText: "File-26.txt" });
+  await expect(lastRow).toBeVisible();
+  await expect(files.getByRole("button", { name: "Next files" })).toBeDisabled();
+  await lastRow.getByRole("button", { name: "Remove", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Remove file", exact: true })
+    .click();
+  server.operations[0]!.status = "SUCCEEDED";
+  await expect(files.getByRole("heading", { name: "No files on this page" })).toBeVisible();
+  await expect(files.getByRole("status")).toContainText("Page 2");
+  await files.getByRole("button", { name: "Previous files" }).click();
+  await expect(files.getByRole("row").filter({ hasText: "File-1.txt" })).toBeVisible();
+  await expect(files.getByRole("button", { name: "Next files" })).toBeDisabled();
+});
 
 test("reindex reports each requested operation rather than aggregate source state", async ({
   page,
@@ -469,7 +689,14 @@ test("leaving a Source cancels all item observers and clears notices before anot
 test("upload failures retain retry state and finalization acceptance never claims indexing completion", async ({
   page,
 }) => {
-  const server = await sourcePage(page);
+  const server = await sourcePage(
+    page,
+    "FILE",
+    Array.from({ length: 26 }, (_, index) => `Stored-${index + 1}.txt`),
+  );
+  const files = page.getByRole("region", { name: "Files", exact: true });
+  await files.getByRole("button", { name: "Next files" }).click();
+  await expect(files.getByRole("status")).toContainText("Page 2");
   let objectFailure = true;
   let finalizeFailure = true;
   let puts = 0;
@@ -493,6 +720,14 @@ test("upload failures retain retry state and finalization acceptance never claim
   });
   await page.route("**/api/sources/*/uploads/*/finalize", (route) => {
     finalizes += 1;
+    if (!finalizeFailure) {
+      server.items.unshift({
+        ...server.items[0]!,
+        id: uploadId,
+        filename: "New.txt",
+        status: "PENDING",
+      });
+    }
     return route.fulfill(
       finalizeFailure
         ? { status: 503, json: { code: "OBJECT_UPLOAD_STORAGE_UNAVAILABLE" } }
@@ -506,7 +741,16 @@ test("upload failures retain retry state and finalization acceptance never claim
                 sizeBytes: 7,
                 status: "PENDING",
                 uploadedAt: "2026-09-01T00:00:00Z",
-                latestOperationId: "upload-operation",
+                lastIndexedAt: null,
+                latestAttempt: {
+                  id: "upload-operation",
+                  filename: "New.txt",
+                  status: "PENDING",
+                  createdAt: "2026-09-01T00:00:00Z",
+                  startedAt: null,
+                  completedAt: null,
+                  errorCode: null,
+                },
                 errorCode: null,
               },
               operation: {
@@ -547,6 +791,9 @@ test("upload failures retain retry state and finalization acceptance never claim
   await expect(page.getByRole("region", { name: "Files", exact: true })).toContainText(
     "Processing",
   );
+  await expect(files.getByRole("status")).toContainText("Page 1");
+  await expect(files.getByRole("row").filter({ hasText: "New.txt" })).toBeVisible();
+  await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Retry finalization", exact: true })).toHaveCount(
     0,
   );

@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   DatabaseZap,
   FileText,
   LoaderCircle,
@@ -15,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { HelpPopover } from "@/components/ui/help-popover";
+import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
@@ -23,6 +27,8 @@ import {
   getSourceOptions,
   getSourceQueryKey,
   initiateSourceUploadMutation,
+  listSourceItemsOptions,
+  listSourceItemsQueryKey,
   listSourcesQueryKey,
   reindexSourceItemMutation,
   removeSourceItemMutation,
@@ -30,11 +36,14 @@ import {
 import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
-import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
+import { SourceSummaryCard } from "./source-summary-card";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { GoogleDrivePanel } from "./google-drive-panel";
 import { waitForSourceOperation } from "./source-operations";
+import { SourceItemHistory } from "./source-item-history";
+import { SourceRunHistory } from "./source-run-history";
+import { HistoryTime } from "./source-history-presentation";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
@@ -62,6 +71,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [cleanupPending, setCleanupPending] = useState(false);
   const [driveBusy, setDriveBusy] = useState(false);
+  const [filesSize, setFilesSize] = useState(25);
+  const [cursor, setCursor] = useState<string>();
+  const [previous, setPrevious] = useState<Array<string | undefined>>([]);
+  const filesHeading = useRef<HTMLHeadingElement | null>(null);
   const uploadController = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const cleanupController = useRef<AbortController | null>(null);
@@ -85,9 +98,26 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     ...getSourceOptions({ path: { sourceId: selectedId } }),
     retry: false,
     refetchInterval: (query) =>
-      query.state.data?.source?.pendingWork
+      query.state.data?.pendingWork
         ? 1_500
-        : query.state.data?.source?.type === "GOOGLE_DRIVE"
+        : query.state.data?.type === "GOOGLE_DRIVE"
+          ? 5_000
+          : false,
+  });
+  const itemsQuery = useQuery({
+    ...listSourceItemsOptions({
+      path: { sourceId: selectedId },
+      query: { size: filesSize, cursor },
+    }),
+    enabled: Boolean(sourceQuery.data),
+    retry: false,
+    refetchInterval: (query) =>
+      sourceQuery.data?.pendingWork ||
+      query.state.data?.items.some(
+        (item) => item.status === "PENDING" || item.status === "DELETING",
+      )
+        ? 1_500
+        : sourceQuery.data?.type === "GOOGLE_DRIVE"
           ? 5_000
           : false,
   });
@@ -98,10 +128,26 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const removeItem = useMutation(removeSourceItemMutation());
   const deleteSource = useMutation(deleteSourceMutation());
 
-  async function refresh(sourceId?: string) {
-    await queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
-    if (sourceId) {
-      await queryClient.invalidateQueries({ queryKey: getSourceQueryKey({ path: { sourceId } }) });
+  async function refresh(sourceId?: string, resetFiles = false) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
+      ...(sourceId
+        ? [
+            queryClient.invalidateQueries({ queryKey: getSourceQueryKey({ path: { sourceId } }) }),
+            queryClient.invalidateQueries({
+              queryKey: listSourceItemsQueryKey({ path: { sourceId } }),
+              refetchType: resetFiles ? "none" : "active",
+            }),
+          ]
+        : []),
+    ]);
+    if (resetFiles && sourceId && active.current) {
+      setCursor(undefined);
+      setPrevious([]);
+      await queryClient.refetchQueries({
+        queryKey: listSourceItemsQueryKey({ path: { sourceId } }),
+        type: "active",
+      });
     }
   }
 
@@ -109,7 +155,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     try {
       await sourceQuery.refetch({ throwOnError: true });
       if (active.current)
-        notify({ tone: "success", title: "Source refreshed", description: detail?.source.name });
+        notify({ tone: "success", title: "Source refreshed", description: detail?.name });
     } catch (cause) {
       if (active.current)
         notify({
@@ -180,7 +226,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         title: "Upload accepted",
         description: `${file.name} is registered for processing. Indexing is not yet confirmed.`,
       });
-      await refresh(selectedId);
+      await refresh(selectedId, true);
     } catch (cause) {
       if (!active.current) return;
       setUploadPhase("idle");
@@ -225,7 +271,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         title: "Upload accepted",
         description: `${pending.filename} is registered for processing. Indexing is not yet confirmed.`,
       });
-      await refresh(pending.sourceId);
+      await refresh(pending.sourceId, true);
     } catch (cause) {
       if (!active.current) return;
       setUploadPhase("finalize-retry");
@@ -381,7 +427,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     const controller = new AbortController();
     cleanupController.current = controller;
     setCleanupPending(true);
-    const sourceName = detail?.source.name ?? "Source";
+    const sourceName = detail?.name ?? "Source";
     try {
       const operation = await deleteSource.mutateAsync({
         path: { sourceId: selectedId },
@@ -465,7 +511,14 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     cleanupPending ||
     sourceQuery.isError;
   const busy = managementBusy || driveBusy;
-  const ProviderIcon = findSourceProvider(detail?.source.type)?.icon ?? FileText;
+  const itemBusy =
+    uploadBusy ||
+    deleteSource.isPending ||
+    cleanupPending ||
+    sourceQuery.isError ||
+    itemsQuery.isError ||
+    driveBusy;
+  const ProviderIcon = findSourceProvider(detail?.type)?.icon ?? FileText;
 
   return (
     <SettingsLayout wide>
@@ -519,7 +572,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           <div className="px-6 py-16">
             <LoadingLabel label="Loading source" />
           </div>
-        ) : !detail?.source ? (
+        ) : !detail ? (
           <div className="px-6 py-16">
             <EmptyState title="Source unavailable" detail="It may have completed deletion." />
             <Button
@@ -535,22 +588,22 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           <div>
             <PageHeader
               icon={<ProviderIcon />}
-              title={detail.source.name}
-              description={findSourceProvider(detail.source.type)?.name ?? detail.source.type}
+              title={detail.name}
+              description={findSourceProvider(detail.type)?.name ?? detail.type}
               actions={
                 <ConfirmDialog
                   trigger={
                     <Button
                       tone="danger"
                       prominence="tertiary"
-                      disabled={busy || cleanupPending || detail.source.status === "DELETING"}
+                      disabled={busy || cleanupPending || detail.status === "DELETING"}
                     >
                       <Trash2 />
                       Delete source
                     </Button>
                   }
-                  title={`Delete ${detail.source.name}?`}
-                  description={`Deleting “${detail.source.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
+                  title={`Delete ${detail.name}?`}
+                  description={`Deleting “${detail.name}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.`}
                   confirmLabel="Delete source"
                   pendingLabel="Deleting source"
                   onConfirm={deleteSelectedSource}
@@ -558,50 +611,15 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 />
               }
             />
-            {detail.source.errorCode ? (
+            {detail.errorCode &&
+            !(detail.type === "GOOGLE_DRIVE" && detail.errorCode.startsWith("SOURCE_GOOGLE_")) ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
-                {sourceStatusMessage(detail.source.errorCode)}
+                {sourceStatusMessage(detail.errorCode)}
               </p>
             ) : null}
-            <dl className="my-6 grid gap-5 rounded-lg border border-border-subtle px-4 py-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <dt className="text-content-muted">Source status</dt>
-                <dd className="mt-2">
-                  <SourceStatusBadge status={detail.source.status} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-content-muted">Access</dt>
-                <dd className="mt-2">
-                  <SourceAccessBadge access={detail.source.access} />
-                </dd>
-                {detail.source.type === "GOOGLE_DRIVE" ? (
-                  <dd className="mt-2 text-xs text-content-muted">
-                    Google Drive document access is not configured here.
-                  </dd>
-                ) : null}
-              </div>
-              <div>
-                <dt className="text-content-muted">Documents indexed</dt>
-                <dd className="mt-2 text-lg font-semibold tabular-nums text-content-primary">
-                  {detail.source.documentCount}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-content-muted">Last indexed successfully</dt>
-                <dd className="mt-2 text-content-primary">
-                  {detail.source.lastSucceededAt ? (
-                    <time dateTime={detail.source.lastSucceededAt}>
-                      {new Date(detail.source.lastSucceededAt).toLocaleString()}
-                    </time>
-                  ) : (
-                    "Not yet"
-                  )}
-                </dd>
-              </div>
-            </dl>
+            {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
 
-            {detail.source.type === "FILE" ? (
+            {detail.type === "FILE" ? (
               <form
                 className="space-y-4 border-b border-border-subtle py-6"
                 onSubmit={(event) => {
@@ -636,7 +654,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       (!file && !activePendingFinalize) ||
                       Boolean(pendingFinalize && !activePendingFinalize) ||
                       busy ||
-                      detail.source.status === "DELETING"
+                      detail.status === "DELETING"
                     }
                   >
                     <Upload />
@@ -704,11 +722,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   </div>
                 ) : null}
               </form>
-            ) : detail.source.type === "GOOGLE_DRIVE" ? (
+            ) : detail.type === "GOOGLE_DRIVE" ? (
               <GoogleDrivePanel
-                key={selectedId}
-                source={detail.source}
-                disabled={managementBusy || detail.source.status === "DELETING"}
+                source={detail}
+                disabled={managementBusy || detail.status === "DELETING"}
                 onBusyChange={setDriveBusy}
               />
             ) : null}
@@ -718,21 +735,60 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               className="mt-8 border-t border-border-subtle pt-6"
             >
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 id="source-files-heading" className="font-heading-h3 text-content-primary">
-                  Files
-                </h2>
-                {detail.source.pendingWork ? <LoadingLabel label="Processing" /> : null}
+                <div className="flex items-center gap-2">
+                  <h2
+                    ref={filesHeading}
+                    id="source-files-heading"
+                    tabIndex={-1}
+                    className="font-heading-h3 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
+                  >
+                    Files
+                  </h2>
+                  <HelpPopover label="Files and indexing times">
+                    <p>
+                      Current files acquired by this Source, not a log of sync runs. Last indexed is
+                      the latest retained successful attempt for the current file version; Unknown
+                      means no retained success is known.
+                    </p>
+                    <p>
+                      A previous indexing success does not make a pending or failed current attempt
+                      successful.
+                    </p>
+                  </HelpPopover>
+                </div>
+                <div className="flex items-center gap-2">
+                  {detail.pendingWork ? <LoadingLabel label="Processing" /> : null}
+                  <Button
+                    prominence="tertiary"
+                    pending={itemsQuery.isFetching}
+                    onClick={() => void itemsQuery.refetch()}
+                  >
+                    Refresh files
+                  </Button>
+                </div>
               </div>
-              {(detail.items ?? []).length === 0 ? (
+              {itemsQuery.isError ? (
+                <p role="alert" className="mb-3 text-sm text-status-danger-content">
+                  Files could not be loaded. Displayed files may be out of date. Retry this page or
+                  return to a previous page.
+                </p>
+              ) : null}
+              {itemsQuery.isPending ? (
+                <div className="py-8">
+                  <LoadingLabel label="Loading files" />
+                </div>
+              ) : itemsQuery.data?.items.length === 0 ? (
                 <EmptyState
-                  title="No files yet"
+                  title={previous.length ? "No files on this page" : "No files yet"}
                   detail={
-                    detail.source.type === "GOOGLE_DRIVE"
-                      ? "Files appear here after synchronization acquires them from Google Drive."
-                      : "Upload one supported file to start indexing."
+                    previous.length
+                      ? "Files may have been removed. Return to the previous page or refresh this page."
+                      : detail.type === "GOOGLE_DRIVE"
+                        ? "Files appear here after synchronization acquires them from Google Drive."
+                        : "Upload one supported file to start indexing."
                   }
                 />
-              ) : (
+              ) : itemsQuery.data ? (
                 <div
                   className="overflow-x-auto rounded-lg border border-border-subtle"
                   tabIndex={0}
@@ -751,15 +807,18 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                         <th scope="col" className="px-4 py-3 font-medium">
                           Status
                         </th>
+                        <th scope="col" className="px-4 py-3 font-medium">
+                          Last indexed
+                        </th>
                         <th scope="col" className="px-4 py-3 text-right font-medium">
                           Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-subtle">
-                      {(detail.items ?? []).map((item) => (
+                      {itemsQuery.data.items.map((item) => (
                         <tr key={item.id}>
-                          <td className="max-w-xs px-4 py-4">
+                          <td className="min-w-64 max-w-xs px-4 py-4">
                             <span className="flex items-center gap-2 font-medium text-content-primary">
                               <FileText
                                 className="size-4 shrink-0 text-content-muted"
@@ -776,10 +835,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                             ) : null}
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-content-muted">
-                            {formatBytes(item.sizeBytes ?? 0)}
+                            {item.sizeBytes == null ? "Unknown" : formatBytes(item.sizeBytes)}
                           </td>
                           <td className="px-4 py-4 text-content-secondary">
                             {item.status ?? "PENDING"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-content-secondary">
+                            <HistoryTime value={item.lastIndexedAt} />
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex justify-end gap-1">
@@ -788,10 +850,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                                 size="sm"
                                 pending={reindexingItems.includes(item.id)}
                                 disabled={
-                                  busy ||
+                                  itemBusy ||
                                   removingItems.includes(item.id) ||
                                   item.status === "DELETING" ||
-                                  detail.source.status === "DELETING"
+                                  detail.status === "DELETING"
                                 }
                                 onClick={() => void reindex(item)}
                               >
@@ -805,10 +867,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                                     size="sm"
                                     pending={removingItems.includes(item.id)}
                                     disabled={
-                                      busy ||
+                                      itemBusy ||
                                       reindexingItems.includes(item.id) ||
                                       item.status === "DELETING" ||
-                                      detail.source.status === "DELETING"
+                                      detail.status === "DELETING"
                                     }
                                   >
                                     <Trash2 /> Remove
@@ -828,8 +890,70 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     </tbody>
                   </table>
                 </div>
-              )}
+              ) : null}
+              <nav
+                aria-label="Files pagination"
+                className="mt-3 flex flex-wrap items-center justify-between gap-3 px-3 py-3 text-xs text-content-muted"
+              >
+                <label className="flex items-center gap-2">
+                  Rows
+                  <Select
+                    aria-label="Files per page"
+                    size="sm"
+                    className="w-auto px-2"
+                    value={filesSize}
+                    disabled={itemsQuery.isFetching}
+                    onChange={(event) => {
+                      setFilesSize(Number(event.target.value));
+                      setCursor(undefined);
+                      setPrevious([]);
+                    }}
+                  >
+                    {[5, 10, 25, 50, 100].map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span role="status">Page {previous.length + 1}</span>
+                  <Button
+                    size="sm"
+                    prominence="secondary"
+                    aria-label="Previous files"
+                    disabled={!previous.length || itemsQuery.isFetching}
+                    onClick={() => {
+                      filesHeading.current?.focus();
+                      setCursor(previous.at(-1));
+                      setPrevious((pages) => pages.slice(0, -1));
+                    }}
+                  >
+                    <ChevronLeft aria-hidden="true" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    prominence="secondary"
+                    aria-label="Next files"
+                    disabled={
+                      !itemsQuery.data?.nextCursor || itemsQuery.isFetching || itemsQuery.isError
+                    }
+                    onClick={() => {
+                      filesHeading.current?.focus();
+                      setPrevious((pages) => [...pages, cursor]);
+                      setCursor(itemsQuery.data?.nextCursor ?? undefined);
+                    }}
+                  >
+                    <ChevronRight aria-hidden="true" />
+                  </Button>
+                </div>
+              </nav>
             </section>
+            {detail.type === "GOOGLE_DRIVE" ? (
+              <SourceRunHistory key={selectedId} sourceId={selectedId} />
+            ) : (
+              <SourceItemHistory key={selectedId} sourceId={selectedId} />
+            )}
           </div>
         )}
       </div>

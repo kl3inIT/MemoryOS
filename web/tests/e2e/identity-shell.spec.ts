@@ -662,7 +662,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: 201,
         contentType: "application/json",
-        body: JSON.stringify({ source, items }),
+        body: JSON.stringify(source),
       });
       return;
     }
@@ -670,7 +670,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: sourceDeleted ? 404 : 200,
         contentType: "application/json",
-        body: sourceDeleted ? "{}" : JSON.stringify({ source, items }),
+        body: sourceDeleted ? "{}" : JSON.stringify(source),
       });
       return;
     }
@@ -678,8 +678,18 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ source: otherSource, items: [] }),
+        body: JSON.stringify(otherSource),
       });
+      return;
+    }
+    if (request.method() === "GET" && path.endsWith("/items")) {
+      await route.fulfill({
+        json: { items: path === `/api/sources/${source.id}/items` ? items : [], nextCursor: null },
+      });
+      return;
+    }
+    if (request.method() === "GET" && path.endsWith("/index-attempts")) {
+      await route.fulfill({ json: { items: [], nextCursor: null, totalItems: 0 } });
       return;
     }
     if (request.method() === "POST" && path === `/api/sources/${source.id}/uploads`) {
@@ -732,7 +742,16 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         sizeBytes: uploadedFile.length,
         status: "INDEXED",
         uploadedAt: "2026-08-27T10:00:00Z",
-        latestOperationId: "3aca91f5-53e8-4c9b-8e3a-1afedbd4a18f",
+        lastIndexedAt: "2026-08-27T10:00:02Z",
+        latestAttempt: {
+          id: "3aca91f5-53e8-4c9b-8e3a-1afedbd4a18f",
+          filename: "knowledge.txt",
+          status: "SUCCEEDED",
+          createdAt: "2026-08-27T10:00:00Z",
+          startedAt: "2026-08-27T10:00:01Z",
+          completedAt: "2026-08-27T10:00:02Z",
+          errorCode: null,
+        },
         errorCode: null,
       });
       await route.fulfill({
@@ -898,7 +917,11 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByRole("link", { name: "Return to pending upload" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await page.getByRole("button", { name: "Retry finalization" }).click();
-  await expect(page.getByRole("cell", { name: "knowledge.txt", exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Files", exact: true })
+      .getByText("knowledge.txt", { exact: true }),
+  ).toBeVisible();
   expect(objectStoragePuts).toBe(1);
   expect(storedBytes).toEqual(uploadedFile);
   expect(apiUploadBodies.some((body) => body?.equals(uploadedFile))).toBe(false);
