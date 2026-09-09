@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CancelChatMessageData, CancelChatMessageResponses, CreateChatSessionData, CreateChatSessionResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetChatHistoryData, GetChatHistoryResponses, GetChatSessionData, GetChatSessionResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGroupData, GetGroupResponses, GetSearchDocumentData, GetSearchDocumentResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListChatSessionsData, ListChatSessionsResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, SearchDocumentsData, SearchDocumentsResponses, SendChatMessageData, SendChatMessageResponses, StreamChatMessageData, StreamChatMessageResponse, StreamChatMessageResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses } from './types.gen';
+import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CancelChatMessageData, CancelChatMessageErrors, CancelChatMessageResponses, CreateChatSessionData, CreateChatSessionErrors, CreateChatSessionResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetChatHistoryData, GetChatHistoryErrors, GetChatHistoryResponses, GetChatSessionData, GetChatSessionErrors, GetChatSessionResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGroupData, GetGroupResponses, GetSearchDocumentData, GetSearchDocumentResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListChatSessionsData, ListChatSessionsErrors, ListChatSessionsResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, SearchDocumentsData, SearchDocumentsResponses, SendChatMessageData, SendChatMessageErrors, SendChatMessageResponses, StreamChatMessageData, StreamChatMessageErrors, StreamChatMessageResponse, StreamChatMessageResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -399,7 +399,7 @@ export const replaceGroupCapabilities = <ThrowOnError extends boolean = false>(o
 /**
  * List the actor's private chat sessions
  */
-export const listChatSessions = <ThrowOnError extends boolean = false>(options?: Options<ListChatSessionsData, ThrowOnError>): RequestResult<ListChatSessionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListChatSessionsResponses, unknown, ThrowOnError>({
+export const listChatSessions = <ThrowOnError extends boolean = false>(options?: Options<ListChatSessionsData, ThrowOnError>): RequestResult<ListChatSessionsResponses, ListChatSessionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatSessionsResponses, ListChatSessionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -412,7 +412,7 @@ export const listChatSessions = <ThrowOnError extends boolean = false>(options?:
 /**
  * Create a private chat session
  */
-export const createChatSession = <ThrowOnError extends boolean = false>(options: Options<CreateChatSessionData, ThrowOnError>): RequestResult<CreateChatSessionResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateChatSessionResponses, unknown, ThrowOnError>({
+export const createChatSession = <ThrowOnError extends boolean = false>(options: Options<CreateChatSessionData, ThrowOnError>): RequestResult<CreateChatSessionResponses, CreateChatSessionErrors, ThrowOnError> => (options.client ?? client).post<CreateChatSessionResponses, CreateChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -429,7 +429,7 @@ export const createChatSession = <ThrowOnError extends boolean = false>(options:
 /**
  * Read the selected chat branch after a message cursor
  */
-export const getChatHistory = <ThrowOnError extends boolean = false>(options: Options<GetChatHistoryData, ThrowOnError>): RequestResult<GetChatHistoryResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetChatHistoryResponses, unknown, ThrowOnError>({
+export const getChatHistory = <ThrowOnError extends boolean = false>(options: Options<GetChatHistoryData, ThrowOnError>): RequestResult<GetChatHistoryResponses, GetChatHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetChatHistoryResponses, GetChatHistoryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -442,7 +442,7 @@ export const getChatHistory = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Reserve and execute a chat reply in the background
  */
-export const sendChatMessage = <ThrowOnError extends boolean = false>(options: Options<SendChatMessageData, ThrowOnError>): RequestResult<SendChatMessageResponses, unknown, ThrowOnError> => (options.client ?? client).post<SendChatMessageResponses, unknown, ThrowOnError>({
+export const sendChatMessage = <ThrowOnError extends boolean = false>(options: Options<SendChatMessageData, ThrowOnError>): RequestResult<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError> => (options.client ?? client).post<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -459,7 +459,7 @@ export const sendChatMessage = <ThrowOnError extends boolean = false>(options: O
 /**
  * Request Stop; read history for the committed terminal outcome
  */
-export const cancelChatMessage = <ThrowOnError extends boolean = false>(options: Options<CancelChatMessageData, ThrowOnError>): RequestResult<CancelChatMessageResponses, unknown, ThrowOnError> => (options.client ?? client).post<CancelChatMessageResponses, unknown, ThrowOnError>({
+export const cancelChatMessage = <ThrowOnError extends boolean = false>(options: Options<CancelChatMessageData, ThrowOnError>): RequestResult<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError> => (options.client ?? client).post<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -648,7 +648,7 @@ export const listGroupCapabilities = <ThrowOnError extends boolean = false>(opti
 /**
  * Read an owned chat session
  */
-export const getChatSession = <ThrowOnError extends boolean = false>(options: Options<GetChatSessionData, ThrowOnError>): RequestResult<GetChatSessionResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetChatSessionResponses, unknown, ThrowOnError>({
+export const getChatSession = <ThrowOnError extends boolean = false>(options: Options<GetChatSessionData, ThrowOnError>): RequestResult<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError> => (options.client ?? client).get<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -663,7 +663,7 @@ export const getChatSession = <ThrowOnError extends boolean = false>(options: Op
  *
  * Events: text-delta, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.
  */
-export const streamChatMessage = <ThrowOnError extends boolean = false>(options: Options<StreamChatMessageData, ThrowOnError, StreamChatMessageResponse>): Promise<ServerSentEventsResult<StreamChatMessageResponses>> => (options.client ?? client).sse.get<StreamChatMessageResponses, unknown, ThrowOnError>({
+export const streamChatMessage = <ThrowOnError extends boolean = false>(options: Options<StreamChatMessageData, ThrowOnError, StreamChatMessageResponse>): Promise<ServerSentEventsResult<StreamChatMessageResponses>> => (options.client ?? client).sse.get<StreamChatMessageResponses, StreamChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',

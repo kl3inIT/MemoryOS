@@ -59,7 +59,8 @@ class ChatModelGuardTest {
         assertEquals("Partial but terminal", generation.getOutput().getText());
         assertTrue(guard.usageKnown());
         verify(process).recordLlmInvocation(any());
-        assertThrows(IllegalStateException.class, () -> guard.stream(prompt).blockLast());
+        assertEquals("CHAT_CYCLE_LIMIT", assertThrows(IllegalStateException.class, () -> guard.stream(prompt).blockLast()).getMessage());
+        assertTrue(guard.usageKnown());
         verify(provider).stream(any(Prompt.class));
     }
 

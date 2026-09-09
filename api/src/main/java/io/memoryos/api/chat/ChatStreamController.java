@@ -30,6 +30,15 @@ import reactor.core.scheduler.Scheduler;
 @RestController
 @RequestMapping("/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events")
 @Tag(name = "Chat")
+@ApiResponse(responseCode = "400", description = "Invalid request or cursor",
+        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met",
+        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "404", description = "Conversation or message not accessible",
+        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "503", description = "Chat capacity exhausted or provider unavailable",
+        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 class ChatStreamController {
@@ -57,11 +66,11 @@ class ChatStreamController {
             @RequestHeader(value = "Last-Event-ID", required = false) @Nullable String lastEvent,
             @RequestParam(required = false) @Nullable String after) {
         long sequence = cursor(assistantMessageId, lastEvent, after);
-        var reader = turns.subscribe(identity.actorId(), sessionId, assistantMessageId, sequence);
+        var readerFactory = turns.subscribe(identity.actorId(), sessionId, assistantMessageId, sequence);
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-store, no-transform")
                 .header("X-Accel-Buffering", "no")
-                .body(ChatEventStream.encode(reader, assistantMessageId, scheduler, limits.connectionTimeout()));
+                .body(ChatEventStream.encode(readerFactory, assistantMessageId, scheduler, limits.connectionTimeout()));
     }
 
     static long cursor(UUID assistant, @Nullable String header, @Nullable String query) {

@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 
 import java.util.List;
+import java.net.URI;
 
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -35,6 +36,7 @@ class OpenAiChatProviderConfiguration {
                                        @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
                                        ChatExecutionProperties limits) {
         requireCredential(key);
+        requireEndpoint(baseUrl);
         return OpenAIOkHttpClientAsync.builder().apiKey(key).baseUrl(baseUrl).maxRetries(0).timeout(limits.deadline()).build();
     }
 
@@ -44,6 +46,7 @@ class OpenAiChatProviderConfiguration {
                                       @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
                                       ChatExecutionProperties limits) {
         requireCredential(key);
+        requireEndpoint(baseUrl);
         return OpenAIOkHttpClient.builder().apiKey(key).baseUrl(baseUrl).maxRetries(0).timeout(limits.deadline()).build();
     }
 
@@ -88,5 +91,15 @@ class OpenAiChatProviderConfiguration {
 
     private static void requireCredential(String key) {
         if (key.isBlank()) throw new IllegalStateException("Chat provider credential is not configured");
+    }
+
+    private static void requireEndpoint(String baseUrl) {
+        URI endpoint;
+        try { endpoint = URI.create(baseUrl); }
+        catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("Invalid Chat provider endpoint"); }
+        // Server-owned configuration may address an HTTP provider on an internal deployment network.
+        if (!("https".equalsIgnoreCase(endpoint.getScheme()) || "http".equalsIgnoreCase(endpoint.getScheme())) || endpoint.getHost() == null
+                || endpoint.getRawUserInfo() != null || endpoint.getRawQuery() != null || endpoint.getRawFragment() != null)
+            throw new IllegalArgumentException("Chat provider endpoint must use HTTP(S) without credentials, query or fragment");
     }
 }

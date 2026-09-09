@@ -43,10 +43,11 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         var selected = new ArrayList<Message>();
         int tokens = TOKENS.estimate(context.instructions()) + 32;
         for (var message : context.newestFirst()) {
+            if (message.content() == null || message.content().isEmpty()) continue;
             int size = TOKENS.estimate(message.content()) + 32;
             if (tokens + size > contextTokenLimit) break;
             tokens += size;
-            if (!message.content().isEmpty()) selected.add(message.role() == ChatMessage.Role.USER
+            selected.add(message.role() == ChatMessage.Role.USER
                     ? new UserMessage(message.content()) : new AssistantMessage(message.content()));
         }
         if (selected.isEmpty())

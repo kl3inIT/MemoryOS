@@ -124,6 +124,14 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        for (var path : BROWSER_API_PATHS.stream().filter(value -> value.startsWith("/api/chat/")).toList()) {
+            for (var operation : actual.path("paths").path(path)) {
+                for (var code : Set.of("400", "403", "404")) {
+                    assertEquals("#/components/schemas/ApiProblem", operation.path("responses").path(code)
+                            .path("content").path("application/problem+json").path("schema").path("$ref").textValue(), path + " " + code);
+                }
+            }
+        }
         JsonNode revokeOperation = actual.path("paths")
                 .path("/api/invitations/{invitationId}/revoke")
                 .path("post");

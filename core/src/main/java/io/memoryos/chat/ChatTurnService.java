@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
@@ -112,12 +113,14 @@ public final class ChatTurnService implements AutoCloseable {
         } finally { lock.unlock(); }
     }
 
-    public StreamBufferWriter.Reader subscribe(ActorId actor, UUID session, UUID assistant, long after) {
+    public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
         var lock = commandLock(session);
         lock.lock();
         try {
             persistence.authorizeReply(actor, session, assistant);
-            return streams.subscribe(assistant, after);
+            streams.validateSubscription(assistant, after);
+            // Authorization/cursor errors remain synchronous; no reader slot is held until subscription.
+            return () -> streams.subscribe(assistant, after);
         } finally { lock.unlock(); }
     }
 
@@ -161,11 +164,12 @@ public final class ChatTurnService implements AutoCloseable {
             if (!Instant.now().isBefore(run.setup.deadline())) run.cancel(StopReason.INTERRUPTED);
         }
         try { persistence.expireRuns(); }
-        catch (RuntimeException failure) { LOG.warn("Chat deadline reconciliation unavailable"); }
+        catch (RuntimeException failure) { LOG.warn("Chat deadline reconciliation unavailable ({})", failure.getClass().getSimpleName()); }
     }
 
     private void finalizeRun(Active run) {
-        synchronized (run) {
+        if (!run.finalizing.tryLock()) return;
+        try {
             if (active.get(run.setup.assistantMessageId()) != run) return;
             try {
                 var outcome = run.outcome;
@@ -174,10 +178,9 @@ public final class ChatTurnService implements AutoCloseable {
                         outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
                         run.accounting.output(), run.accounting.cost());
                 streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
-                active.remove(run.setup.assistantMessageId(), run);
-                permits.release();
+                if (active.remove(run.setup.assistantMessageId(), run)) permits.release();
             } catch (RuntimeException failure) { LOG.warn("Chat terminal persistence pending for run {}", run.setup.assistantMessageId()); }
-        }
+        } finally { run.finalizing.unlock(); }
     }
 
     @Override
@@ -212,6 +215,8 @@ public final class ChatTurnService implements AutoCloseable {
         final AtomicReference<StopReason> stopReason = new AtomicReference<>();
         final Sinks.One<Boolean> cancellation = Sinks.one();
         final CompletableFuture<Void> finished = new CompletableFuture<>();
+        // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
+        final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
         volatile ChatModelExecutor.Accounting accounting = new ChatModelExecutor.Accounting(null, null, null);
         Active(ChatTurnSetup setup) { this.setup = setup; }

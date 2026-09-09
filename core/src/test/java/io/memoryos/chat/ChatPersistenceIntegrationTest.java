@@ -15,6 +15,7 @@ import io.memoryos.iam.persistence.JpaTenantRepository;
 
 import java.time.Duration;
 import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -79,6 +80,20 @@ class ChatPersistenceIntegrationTest {
     @AfterEach
     void close() {
         if (jpa != null) jpa.close();
+    }
+
+    @Test
+    void expiredNullReplyDoesNotTruncateAncestorContext() {
+        var session = sessions.create(owner, "Context after expiry");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Earlier question");
+        jdbc.sql("UPDATE chat_message SET deadline_at = CURRENT_TIMESTAMP - INTERVAL '10 seconds' WHERE id = :id")
+                .param("id", first.assistantMessageId()).update();
+        turns.expireRuns();
+        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), first.assistantMessageId()));
+        var next = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Newest question");
+        var context = turns.loadContext(owner, session.id(), next);
+        assertEquals(List.of(next.userMessageId(), first.assistantMessageId(), first.userMessageId()),
+                context.newestFirst().stream().map(ChatMessage::id).toList());
     }
 
     @Test
@@ -247,6 +262,7 @@ class ChatPersistenceIntegrationTest {
         assertThrows(ChatException.class, () -> sessions.history(owner, session.id(), first.assistantMessageId(), 10));
         assertEquals("Old answer", new JdbcChatRepository(jdbc).message(session.id(), first.assistantMessageId()).orElseThrow().content());
         var continuation = reserve(session, replacement, UUID.randomUUID(), "Continue selected branch");
+        assertTrue(continuation.created());
         long count = new JdbcChatRepository(jdbc).messageCount(session.id());
         var retry = reserve(session, session.rootMessageId(), request, "Question");
         assertFalse(retry.created());

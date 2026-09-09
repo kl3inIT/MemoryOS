@@ -19,7 +19,7 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "date-time") @Nullable Instant finishedAt) {
     public static ChatMessageResponse from(ChatMessage message) {
         return new ChatMessageResponse(message.id(), message.sessionId(), message.parentMessageId(),
-                message.latestChildMessageId(), message.role().name(), message.content(), message.status().name(),
+                message.latestChildMessageId(), message.role().name(), message.content() == null ? "" : message.content(), message.status().name(),
                 message.createdAt(), message.finishedAt());
     }
 }

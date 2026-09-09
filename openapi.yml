@@ -1036,10 +1036,30 @@ paths:
           format: int32
           default: 30
       responses:
-        "200":
-          description: OK
+        "400":
+          description: Invalid request or cursor
           content:
-            '*/*':
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Owned sessions
+          content:
+            application/json:
               schema:
                 type: array
                 items:
@@ -1068,10 +1088,30 @@ paths:
               $ref: "#/components/schemas/CreateChatSession"
         required: true
       responses:
-        "201":
-          description: Created
+        "400":
+          description: Invalid request or cursor
           content:
-            '*/*':
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created private session
+          content:
+            application/json:
               schema:
                 $ref: "#/components/schemas/ChatSession"
       security:
@@ -1104,10 +1144,30 @@ paths:
           format: int32
           default: 50
       responses:
-        "200":
-          description: OK
+        "400":
+          description: Invalid request or cursor
           content:
-            '*/*':
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Selected branch history
+          content:
+            application/json:
               schema:
                 type: array
                 items:
@@ -1142,10 +1202,42 @@ paths:
               $ref: "#/components/schemas/Send"
         required: true
       responses:
-        "202":
-          description: Accepted
+        "400":
+          description: Invalid request or cursor
           content:
-            '*/*':
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting request or active reply
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Chat capacity exhausted or provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "202":
+          description: Reserved reply
+          content:
+            application/json:
               schema:
                 $ref: "#/components/schemas/Accepted"
       security:
@@ -1179,10 +1271,42 @@ paths:
           type: string
           format: uuid
       responses:
-        "202":
-          description: Accepted
+        "400":
+          description: Invalid request or cursor
           content:
-            '*/*':
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting request or active reply
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Chat capacity exhausted or provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "202":
+          description: Stop requested; history contains the committed outcome
+          content:
+            application/json:
               schema:
                 $ref: "#/components/schemas/Cancellation"
       security:
@@ -1645,10 +1769,30 @@ paths:
           type: string
           format: uuid
       responses:
-        "200":
-          description: OK
+        "400":
+          description: Invalid request or cursor
           content:
-            '*/*':
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Owned session
+          content:
+            application/json:
               schema:
                 $ref: "#/components/schemas/ChatSession"
       security:
@@ -1687,6 +1831,32 @@ paths:
         schema:
           type: string
       responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Chat capacity exhausted or provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
         "200":
           description: SSE frames; the schema describes each data payload
           content:

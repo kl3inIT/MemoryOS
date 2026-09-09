@@ -46,6 +46,7 @@ class ChatModelBindingTest {
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);
         var guard = new ChatModelGuard(provider, process, configured, budget, 1, () -> {}, binding.finalRequest());
         var decorated = binding.withModel(guard);
+        assertSame(guard, decorated.getChatModel());
         decorated.getChatModel().stream(new Prompt("question", decorated.convertOptions(LlmOptions.withModel("ignored")))).blockLast();
         var actualOptions = captured.get().getOptions();
         assertNotNull(actualOptions);

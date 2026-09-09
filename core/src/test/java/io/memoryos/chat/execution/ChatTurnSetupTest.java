@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.mockito.Mockito.mock;
 
+import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
 import io.memoryos.chat.ChatException;
@@ -40,6 +41,17 @@ class ChatTurnSetupTest {
     private TurnContext context(List<ChatMessage> messages) {
         return new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "gpt-5-mini",
                 "Answer", messages, Instant.now().plusSeconds(60));
+    }
+
+    @Test
+    void emptyOrNullAssistantDoesNotDropEarlierContext() {
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(
+                message(ChatMessage.Role.USER, "Newest"),
+                new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.ASSISTANT,
+                        null, ChatMessage.Status.FAILED, Instant.now(), Instant.now()),
+                message(ChatMessage.Role.ASSISTANT, ""), message(ChatMessage.Role.USER, "Earlier"))),
+                32000, mock(ChatModelBinding.class));
+        assertEquals(List.of("Answer", "Earlier", "Newest"), setup.messages().stream().map(Message::getContent).toList());
     }
 
     private ChatMessage message(ChatMessage.Role role, String content) {

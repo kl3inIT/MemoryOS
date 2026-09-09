@@ -61,8 +61,9 @@ public final class ChatModelGuard implements ChatModel {
     public Flux<ChatResponse> stream(Prompt original) {
         return Flux.defer(() -> {
             checkActive();
-            int cycle = calls.incrementAndGet();
-            if (cycle > cycles) return Flux.error(new IllegalStateException("CHAT_CYCLE_LIMIT"));
+            int previous = calls.getAndUpdate(count -> count < cycles ? count + 1 : count);
+            if (previous >= cycles) return Flux.error(new IllegalStateException("CHAT_CYCLE_LIMIT"));
+            int cycle = previous + 1;
             var request = cycle == cycles ? finalRequest.apply(original) : original;
             var finished = new AtomicBoolean();
             var usageResponse = new AtomicReference<@Nullable ChatResponse>();

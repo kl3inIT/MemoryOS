@@ -176,9 +176,9 @@ public class JdbcChatRepository {
     public List<ChatMessage> context(UUID session, UUID user, int limit) {
         return jdbc.sql("""
                         WITH RECURSIVE history AS (
-                            SELECT m.*, 0 AS depth, octet_length(content)::bigint AS bytes FROM chat_message m WHERE session_id = :session AND id = :user
+                            SELECT m.*, 0 AS depth, coalesce(octet_length(content), 0)::bigint AS bytes FROM chat_message m WHERE session_id = :session AND id = :user
                             UNION ALL
-                            SELECT m.*, h.depth + 1, h.bytes + octet_length(m.content) FROM history h JOIN chat_message m ON m.id = h.parent_message_id
+                            SELECT m.*, h.depth + 1, h.bytes + coalesce(octet_length(m.content), 0) FROM history h JOIN chat_message m ON m.id = h.parent_message_id
                             WHERE m.session_id = :session AND h.depth < :limit AND h.bytes < 1048576
                         ) SELECT * FROM history WHERE role <> 'ROOT' AND bytes <= 1048576 ORDER BY depth
                         """).param("session", session).param("user", user).param("limit", limit)

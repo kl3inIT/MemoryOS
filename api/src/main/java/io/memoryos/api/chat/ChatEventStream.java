@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
@@ -29,9 +30,9 @@ final class ChatEventStream {
     record ResetEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED, allowableValues = {"BUFFER_MISSING", "BUFFER_GAP", "BUFFER_EXPIRED"}) String reason) {}
 
-    static Flux<ServerSentEvent<Object>> encode(StreamBufferWriter.Reader reader, UUID assistant,
+    static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {
-        return Flux.using(() -> reader, resource -> Flux.<StreamBufferWriter.Batch>generate(sink -> {
+        return Flux.using(reader::get, resource -> Flux.<StreamBufferWriter.Batch>generate(sink -> {
                     try {
                         var batch = resource.read();
                         sink.next(batch);
@@ -43,7 +44,7 @@ final class ChatEventStream {
                 }).subscribeOn(scheduler)
                 .concatMapIterable(batch -> frames(batch, assistant), 1), StreamBufferWriter.Reader::close)
                 .take(timeout)
-                .onErrorMap(_ -> new IllegalStateException("Chat stream closed"));
+                .onErrorMap(failure -> new IllegalStateException("Chat stream closed", failure));
     }
 
     private static List<ServerSentEvent<Object>> frames(StreamBufferWriter.Batch batch, UUID assistant) {

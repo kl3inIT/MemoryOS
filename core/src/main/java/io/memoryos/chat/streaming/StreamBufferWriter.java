@@ -91,16 +91,23 @@ public final class StreamBufferWriter {
         }
     }
 
-    public synchronized Reader subscribe(UUID id, long after) {
+    public synchronized void validateSubscription(UUID id, long after) {
         if (after < 0) throw ChatException.invalid("Invalid stream cursor.");
         var stream = streams.get(id);
-        if (stream == null) return new Reader(null, after, "BUFFER_MISSING");
+        if (stream == null) return;
         flush(stream);
         expire(stream);
         if (after > stream.sequence) throw ChatException.invalid("Stream cursor is ahead of this reply.");
-        if (after < stream.firstSequence() - 1) return new Reader(null, after, stream.gap);
+        if (after < stream.firstSequence() - 1) return;
         if (readers >= limits.maxReaders() || stream.readers.size() >= limits.readersPerRun())
             throw ChatException.busy();
+    }
+
+    public synchronized Reader subscribe(UUID id, long after) {
+        validateSubscription(id, after);
+        var stream = streams.get(id);
+        if (stream == null) return new Reader(null, after, "BUFFER_MISSING");
+        if (after < stream.firstSequence() - 1) return new Reader(null, after, stream.gap);
         var reader = new Reader(stream, after, null);
         stream.readers.add(reader);
         readers++;

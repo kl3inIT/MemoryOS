@@ -201,7 +201,8 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(post("/api/chat/sessions/" + UUID.randomUUID() + "/messages")
                         .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
-        assertEquals(0L, jdbc.sql("SELECT count(*) FROM chat_message WHERE status = 'RUNNING'").query(Long.class).single());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM chat_message m JOIN chat_session s ON s.id = m.session_id WHERE m.status = 'RUNNING' AND s.owner_actor_id = :actor")
+                .param("actor", actor.getPrincipal().actorId().value()).query(Long.class).single());
     }
 
     @Test

@@ -1194,9 +1194,30 @@ export type ListChatSessionsData = {
     url: '/api/chat/sessions';
 };
 
+export type ListChatSessionsErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type ListChatSessionsError = ListChatSessionsErrors[keyof ListChatSessionsErrors];
+
 export type ListChatSessionsResponses = {
     /**
-     * OK
+     * Owned sessions
      */
     200: Array<ChatSession>;
 };
@@ -1216,9 +1237,30 @@ export type CreateChatSessionData = {
     url: '/api/chat/sessions';
 };
 
+export type CreateChatSessionErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type CreateChatSessionError = CreateChatSessionErrors[keyof CreateChatSessionErrors];
+
 export type CreateChatSessionResponses = {
     /**
-     * Created
+     * Created private session
      */
     201: ChatSession;
 };
@@ -1237,9 +1279,30 @@ export type GetChatHistoryData = {
     url: '/api/chat/sessions/{sessionId}/messages';
 };
 
+export type GetChatHistoryErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type GetChatHistoryError = GetChatHistoryErrors[keyof GetChatHistoryErrors];
+
 export type GetChatHistoryResponses = {
     /**
-     * OK
+     * Selected branch history
      */
     200: Array<ChatMessage>;
 };
@@ -1261,9 +1324,38 @@ export type SendChatMessageData = {
     url: '/api/chat/sessions/{sessionId}/messages';
 };
 
+export type SendChatMessageErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting request or active reply
+     */
+    409: ApiProblem;
+    /**
+     * Chat capacity exhausted or provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SendChatMessageError = SendChatMessageErrors[keyof SendChatMessageErrors];
+
 export type SendChatMessageResponses = {
     /**
-     * Accepted
+     * Reserved reply
      */
     202: Accepted;
 };
@@ -1286,9 +1378,38 @@ export type CancelChatMessageData = {
     url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel';
 };
 
+export type CancelChatMessageErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting request or active reply
+     */
+    409: ApiProblem;
+    /**
+     * Chat capacity exhausted or provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CancelChatMessageError = CancelChatMessageErrors[keyof CancelChatMessageErrors];
+
 export type CancelChatMessageResponses = {
     /**
-     * Accepted
+     * Stop requested; history contains the committed outcome
      */
     202: Cancellation;
 };
@@ -1598,9 +1719,30 @@ export type GetChatSessionData = {
     url: '/api/chat/sessions/{sessionId}';
 };
 
+export type GetChatSessionErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type GetChatSessionError = GetChatSessionErrors[keyof GetChatSessionErrors];
+
 export type GetChatSessionResponses = {
     /**
-     * OK
+     * Owned session
      */
     200: ChatSession;
 };
@@ -1621,6 +1763,31 @@ export type StreamChatMessageData = {
     };
     url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events';
 };
+
+export type StreamChatMessageErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Chat capacity exhausted or provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type StreamChatMessageError = StreamChatMessageErrors[keyof StreamChatMessageErrors];
 
 export type StreamChatMessageResponses = {
     /**

@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
@@ -172,6 +173,35 @@ class ChatTurnServiceTest {
             }
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq("Partial"),
                     eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull());
+        }
+    }
+
+    @Test
+    void slowTerminalWriteDoesNotHoldStopMonitorOrDuplicateFinalization() throws Exception {
+        prepare();
+        var writing = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var queued = new AtomicReference<Runnable>();
+        when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any()))
+                .thenAnswer(_ -> {
+                    writing.countDown();
+                    assertTrue(release.await(5, TimeUnit.SECONDS));
+                    return new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.COMPLETED, null);
+                });
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor();
+                var service = new ChatTurnService(persistence, model, limits, queued::set, streams)) {
+            service.send(actor, session, parent, request, "Question");
+            var execution = tasks.submit(queued.get());
+            try {
+                assertTrue(writing.await(5, TimeUnit.SECONDS));
+                tasks.submit(() -> service.cancel(actor, session, pair.assistantMessageId())).get(1, TimeUnit.SECONDS);
+                tasks.submit(service::maintain).get(1, TimeUnit.SECONDS);
+                assertEquals("CHAT_CAPACITY_EXCEEDED", assertThrows(ChatException.class,
+                        () -> service.send(actor, session, parent, UUID.randomUUID(), "Question")).code());
+            } finally { release.countDown(); }
+            execution.get(5, TimeUnit.SECONDS);
+            verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any());
         }
     }
 }
