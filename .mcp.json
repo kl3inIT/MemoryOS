@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "assistant-ui": {
+      "type": "http",
+      "url": "https://www.assistant-ui.com/mcp"
+    }
+  }
+}
