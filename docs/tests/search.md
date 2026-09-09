@@ -2,7 +2,7 @@
 
 | Contract | Evidence |
 | --- | --- |
-| Vietnamese headings/page provenance; table header/value association; bounded Unicode | `StructuredDocumentChunkerTest` |
+| Bounded checksum-verified artifact reads release object/reader resources on rejection; Vietnamese headings/page provenance; merged/repeated table headers, numeric values, row provenance, wide/oversized table bounds and bounded Unicode | `DocumentChunkServiceTest`, `StructuredDocumentChunkerTest` |
 | Response count/order/model/dimension/finite values, defensive copies and safe provider failures | `ValidatedEmbeddingServiceTest` |
 | Null/invalid media filters produce validation errors; immutable request filters | `SearchRequestTest` |
 | Embedding credentials require HTTPS; transport/malformed provider JSON is sanitized without masking programming failures | `SearchPropertiesTest`, `OpenSearchGatewayTest` |

@@ -14,7 +14,7 @@ Review PR #79 bổ sung trong cùng scope: validation null filters/HTTPS credent
 
 ## 2. JSON -> chunks -> index thật
 
-- [ ] Bounded artifact read/checksum/reader protection; heading-aware prose, row/header-aware tables, typed values/true provenance; oversized/merged/repeated/wide-table golden cases.
+- [x] Bounded artifact read/checksum/reader protection; heading-aware prose, row/header-aware tables, source cell values/true provenance; oversized span, merged header, repeated row-header and wide-table golden cases.
 - [x] Current chunk persistence và transactional publication + durable intent; deterministic generation/input identity, reader/cleanup protection, không version-history ledger.
 - [x] Embedding response-bearing batches: count/order/index association/dimension/finite-value/model checks; record synthetic exact inputs, không inject metadata ngoài intended text.
 - [x] Native bulk precomputed vectors chỉ lưu OpenSearch, không embed lần hai. Commit intent trước IO, fence late writes tại index/generation, kiểm per-item success và searchable completeness trước PostgreSQL completion.
