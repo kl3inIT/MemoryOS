@@ -201,3 +201,8 @@ Live staging provisioning, authenticated Discover inspection and exact-SHA deplo
 - Removed the visible `Cancel` action from the pending Search composer at product request. The fixed-size disabled submit spinner and full `Searching documents…` state remain, so the query area does not reflow while a request is pending.
 - The Search component test holds a repeated request pending and asserts both the loading spinner and absence of a `Cancel` button. The browser fixture was aligned to assert the same contract; it was not executed locally per user direction.
 - `pnpm --dir web check` passed: generated API/route stability, static browser-image policy, lint, formatting, typecheck, 74 unit/component tests and production build. `git diff --check` passed.
+
+## 2026-09-09 — Browser CI follow-up
+
+- Corrected browser fixtures for the integrated Chat/Search routing: Search mobile coverage now opens `/search`, not the Chat home route. Filter reset waits for its new request before asserting its payload.
+- Search empty and unavailable states now expose their titles as level-two headings, aligning the browser assertion with an accessible state hierarchy.

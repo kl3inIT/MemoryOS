@@ -148,8 +148,8 @@ test("searches merged sections, filters, pages and opens each best match with es
   await page.getByRole("button", { name: "Close document preview" }).click();
   await expect(relatedMatchButton).toBeFocused();
   await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect.poll(() => requests.at(-1)).toMatchObject({ mediaTypes: [], page: 0 });
   await expect(titleButton).toBeVisible();
-  expect(requests.at(-1)).toMatchObject({ mediaTypes: [], page: 0 });
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.getByRole("button", { name: "Quy định bổ sung", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
@@ -230,7 +230,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
     }),
   );
 
-  await page.goto("/");
+  await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép", exact: true }).click();

@@ -452,7 +452,9 @@ export function SearchPage() {
                 <EmptyMedia variant="icon">
                   <SearchX aria-hidden="true" />
                 </EmptyMedia>
-                <EmptyTitle>Search is temporarily unavailable</EmptyTitle>
+                <EmptyTitle role="heading" aria-level={2}>
+                  Search is temporarily unavailable
+                </EmptyTitle>
                 <EmptyDescription>Please try again in a moment.</EmptyDescription>
               </EmptyHeader>
               <Button onClick={() => void result.refetch()}>Try again</Button>
@@ -463,7 +465,9 @@ export function SearchPage() {
                 <EmptyMedia variant="icon">
                   <SearchX aria-hidden="true" />
                 </EmptyMedia>
-                <EmptyTitle>No matching documents</EmptyTitle>
+                <EmptyTitle role="heading" aria-level={2}>
+                  No matching documents
+                </EmptyTitle>
                 <EmptyDescription>
                   Try a broader phrase, remove a filter, or check the document code.
                 </EmptyDescription>
