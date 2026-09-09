@@ -216,19 +216,35 @@ describe("SearchPage", () => {
         "true",
       ),
     );
+    expect(
+      screen.getByRole("button", { name: "Word document: 0 results on this page" }),
+    ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Updated: All time" }));
-    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
-
+    await user.click(screen.getByRole("button", { name: "Word document: 0 results on this page" }));
     await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(3));
     expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
       body: {
         query: "nghỉ phép",
-        mediaTypes: ["application/pdf"],
+        mediaTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
         page: 0,
-        updatedSince: expect.stringMatching(/T00:00:00\.000Z$/),
       },
     });
+
+    await user.click(screen.getByRole("button", { name: "Updated: All time" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+
+    await waitFor(() =>
+      expect(searchDocumentsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            query: "nghỉ phép",
+            mediaTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+            page: 0,
+            updatedSince: expect.stringMatching(/T00:00:00\.000Z$/),
+          }),
+        }),
+      ),
+    );
     expect(screen.getByRole("button", { name: "Updated: Past 30 days" })).toBeInTheDocument();
   });
 

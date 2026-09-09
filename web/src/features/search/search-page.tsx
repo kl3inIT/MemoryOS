@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Clock3,
   FileSearch2,
@@ -120,7 +120,28 @@ export function SearchPage() {
     },
     enabled: request !== null,
     retry: false,
-    staleTime: 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+  });
+  const facetRequest = request?.mediaTypes?.length
+    ? { ...request, mediaTypes: [], page: 0 }
+    : request;
+  const facetResult = useQuery({
+    queryKey: ["document-search", facetRequest],
+    queryFn: async ({ signal }) => {
+      const response = await searchDocuments({
+        body: facetRequest!,
+        headers: sameOriginMutationHeaders,
+        signal,
+        throwOnError: true,
+      });
+      return response.data;
+    },
+    enabled: facetRequest !== null,
+    retry: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   useLayoutEffect(() => {
@@ -269,19 +290,15 @@ export function SearchPage() {
 
   const statusMessage = searchStatus(request, result);
   const hasFilters = Boolean(mediaType || timeRange !== "all");
-  const typeFacets = result.data?.results.reduce<
-    Array<{ mediaType: string; label: string; count: number }>
-  >((facets, item) => {
-    const existing = facets.find((facet) => facet.mediaType === item.mediaType);
-    if (existing) existing.count += 1;
-    else
-      facets.push({
-        mediaType: item.mediaType,
-        label: friendlyMediaType(item.mediaType),
-        count: 1,
-      });
-    return facets;
-  }, []);
+  const resultFacetCounts = countResultFileTypes(
+    facetResult.data?.results ?? result.data?.results ?? [],
+  );
+  const typeFacets = FILE_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => ({
+    mediaType: option.value,
+    label: friendlyMediaType(option.value),
+    count: resultFacetCounts[option.value] ?? 0,
+  }));
+  const isInitialLoading = result.isFetching && !result.data;
 
   return (
     <AppShell pageTitle="Search">
@@ -442,7 +459,7 @@ export function SearchPage() {
         </p>
 
         <div className="mt-6" aria-busy={result.isFetching}>
-          {!request ? null : result.isFetching ? (
+          {!request ? null : isInitialLoading ? (
             <div className="flex animate-in items-center justify-center gap-2 py-12 text-content-secondary duration-200 fade-in motion-reduce:animate-none">
               <LoaderCircle
                 className="size-5 animate-spin motion-reduce:animate-none"
@@ -500,6 +517,15 @@ export function SearchPage() {
                       Page {(request.page ?? 0) + 1} for “{request.query}”
                     </p>
                   </div>
+                  {result.isFetching ? (
+                    <span className="inline-flex items-center gap-1.5 font-secondary-action text-content-muted">
+                      <LoaderCircle
+                        className="size-3.5 animate-spin motion-reduce:animate-none"
+                        aria-hidden="true"
+                      />
+                      Updating
+                    </span>
+                  ) : null}
                 </header>
                 <ol className="divide-y divide-border-subtle">
                   {result.data.results.map((item) => (
@@ -630,6 +656,14 @@ function updatedSinceForTimeRange(timeRange: SearchTimeRange): string | undefine
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - days);
   return since.toISOString();
+}
+
+function countResultFileTypes(results: readonly SearchResult[]): Record<string, number> {
+  return results.reduce<Record<string, number>>((counts, item) => {
+    if (!item.mediaType) return counts;
+    counts[item.mediaType] = (counts[item.mediaType] ?? 0) + 1;
+    return counts;
+  }, {});
 }
 
 function searchStatus(
