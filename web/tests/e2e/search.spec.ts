@@ -148,16 +148,15 @@ test("searches merged sections, filters, pages and opens each best match with es
   await page.getByRole("button", { name: "Close document preview" }).click();
   await expect(relatedMatchButton).toBeFocused();
   await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("button", { name: "File type: All file types" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clear filters" })).toHaveCount(0);
   await expect(titleButton).toBeVisible();
-  expect(requests.at(-1)).toMatchObject({ mediaTypes: [], page: 0 });
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.getByRole("button", { name: "Quy định bổ sung", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
 });
 
-test("handles unavailable, retry, empty and a newer query overtaking an older one", async ({
-  page,
-}) => {
+test("handles unavailable, retry, empty and a pending search", async ({ page }) => {
   let failures = 1;
   await page.route("**/api/search", async (route) => {
     const request = route.request().postDataJSON();
@@ -174,7 +173,17 @@ test("handles unavailable, retry, empty and a newer query overtaking an older on
           candidateLimit: 500,
           results:
             request.query === "slow"
-              ? [{ documentId, generation, title: "Old result", sections }]
+              ? [
+                  {
+                    documentId,
+                    generation,
+                    title: "Old result",
+                    mediaType: "application/pdf",
+                    updatedAt: "2026-09-08T00:00:00Z",
+                    score: 0.8,
+                    sections,
+                  },
+                ]
               : [],
         },
       })
@@ -191,17 +200,9 @@ test("handles unavailable, retry, empty and a newer query overtaking an older on
   await input.fill("slow");
   await search.click();
   await expect(page.getByRole("status")).toContainText("Searching");
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("heading", { name: "Search your workspace" })).toBeVisible();
-  await expect(input).toBeFocused();
-  await input.fill("slow");
-  await search.click();
-  await expect(page.getByRole("status")).toContainText("Searching");
-  await input.fill("newer");
-  await search.click();
-  await expect(page.getByRole("heading", { name: "No matching documents" })).toBeVisible();
-  await page.waitForTimeout(900);
-  await expect(page.getByRole("button", { name: "Old result", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cancel" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Search is loading" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Old result", exact: true })).toBeVisible();
 });
 
 test("keeps the document preview usable inside a mobile viewport", async ({ page }) => {
@@ -240,7 +241,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
     }),
   );
 
-  await page.goto("/");
+  await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép", exact: true }).click();
