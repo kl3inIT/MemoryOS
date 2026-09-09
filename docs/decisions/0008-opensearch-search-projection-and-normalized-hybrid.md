@@ -25,3 +25,7 @@ The physical index identity includes embedding endpoint, model, dimensions and c
 ## Verification boundary
 
 Repository tests exercise real PostgreSQL and OpenSearch, provider-response validation, worker fencing and browser contracts. Synthetic provider vectors verify wiring and ranking mechanics, not OpenAI semantic quality. Live OpenAI quality, deployment snapshot restore, corpus capacity and end-to-end deployment acceptance remain tracked in the active increment.
+
+## 2026-09-09 addendum — semantic admission before normalization
+
+The accepted hybrid path now uses radial k-NN with a configurable raw semantic score floor instead of admitting a fixed top-K semantic list. The default OpenSearch score floor is `0.70` for the current Faiss cosine mapping, equivalent to cosine similarity `0.40`; the existing candidate limit becomes the `ef_search` and hybrid response/pagination budget. BM25 remains an independent clause. This prevents weak nearest neighbors from becoming apparently relevant through query-relative min-max normalization without eliminating lexical-only or sufficiently strong semantic results. The value is an operational default calibrated against the local MEM-46 acceptance corpus for the selected model and must be reevaluated against representative judgments when the model or corpus changes.

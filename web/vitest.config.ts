@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   test: {
+    execArgv: Number(process.versions.node.split(".")[0]) >= 25 ? ["--no-webstorage"] : [],
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     environment: "jsdom",
     restoreMocks: true,
