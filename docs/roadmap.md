@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-08.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled: 2026-09-09.
 
 ## Delivered
 
@@ -51,6 +51,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | [MEM-46](https://linear.app/memory-os/issue/MEM-46) | Search first: current JSON/chunks, Spring AI embeddings, OpenSearch-only vectors, hybrid retrieval, API/UI and index recovery; absorbs MEM-62/47/48/49/50 | [Design](increments/active/mem-46-search/design.md) · [Plan](increments/active/mem-46-search/plan.md) · [Onyx Search implementation](increments/active/mem-46-search/onyx-search.md); In Review, assigned to `phamnhatanh811`; [verification and runtime boundaries](increments/active/mem-46-search/verification.md) |
 | [MEM-11](https://linear.app/memory-os/issue/MEM-11) | Production Chat after MEM-46: shared retrieval, multi-query/weighted RRF, context selection/expansion, streaming answer/citations and durable conversations; absorbs MEM-71/72 | [Design](increments/active/mem-11-production-chat/design.md) · [Plan](increments/active/mem-11-production-chat/plan.md); Linear dependency metadata unchanged; Phase 2.1–2.3 persistence, provider binding, execution/local Stop and RAM replay/SSE implemented in the working tree; Phase 2.4 Chat UI and native AI SDK adapter implemented on the phase branch; [verification](increments/active/mem-11-production-chat/verification.md) |
 | [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Tasco browser-only JIT: explicit empty-default provider allowlist, Keycloak ID-token session-note claim, exact Actor binding, active MEMBER/non-manager Basic, no invitation mutation or bearer JIT | [Design](increments/active/mem-59-tasco-jit/design.md) · [Plan](increments/active/mem-59-tasco-jit/plan.md) · [Verification](increments/active/mem-59-tasco-jit/verification.md); implementation and repository gate passed; live broker simulator and actual Tasco acceptance remain separate |
+| [MEM-66](https://linear.app/memory-os/issue/MEM-66) | Verify the client → authenticated gateway → internal CPU vLLM → small model path, its local cost, and the evidence needed before a production model or GPU commitment | [Design](increments/active/mem-66-vllm-cpu-gateway-research/design.md) · [Plan](increments/active/mem-66-vllm-cpu-gateway-research/plan.md) · [Verification](increments/active/mem-66-vllm-cpu-gateway-research/verification.md) |
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 
