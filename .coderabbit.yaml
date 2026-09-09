@@ -4,6 +4,13 @@ tone_instructions: >-
   Ưu tiên correctness, security boundaries và bằng chứng có thể kiểm tra; bỏ qua lời khen và góp ý chỉ về style.
 
 reviews:
+  path_instructions:
+    - path: "**/chat/**"
+      instructions: >-
+        Provider endpoint HTTP và private/loopback host được chấp nhận có chủ đích cho model nội bộ.
+        MODELS_MANAGE là quyền quản trị endpoint tin cậy; không đề xuất bắt buộc HTTPS hoặc cấm private host cho luồng này.
+        Vẫn báo lỗi nếu actor thiếu quyền cấu hình được endpoint, hoặc credential bị lộ qua response/log hay gửi sai endpoint đã cấu hình.
+        Chính sách và tradeoff được ghi tại docs/specs/chat-models.md phần Credentials and provider extension.
   profile: assertive
   request_changes_workflow: true
   high_level_summary: true

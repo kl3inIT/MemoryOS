@@ -7,6 +7,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -39,8 +42,23 @@ public class JdbcModelCatalogRepository {
     }
 
     public List<Provider> providers(UUID tenant) {
+        var groups = associationIndex(tenant, "llm_provider_group", "group_id");
+        var personas = associationIndex(tenant, "llm_provider_persona", "persona_id");
         return jdbc.sql("SELECT * FROM llm_provider WHERE tenant_id = :tenant ORDER BY name, id LIMIT 64")
-                .param("tenant", tenant).query((r, ignored) -> provider(r)).list();
+                .param("tenant", tenant).query((r, ignored) -> provider(r,
+                        groups.getOrDefault(r.getObject("id", UUID.class), Set.of()),
+                        personas.getOrDefault(r.getObject("id", UUID.class), Set.of()))).list();
+    }
+
+    private Map<UUID, Set<UUID>> associationIndex(UUID tenant, String table, String column) {
+        var index = new HashMap<UUID, Set<UUID>>();
+        // Identifiers are internal constants; Tenant values remain bound parameters.
+        jdbc.sql("SELECT provider_id, " + column + " FROM " + table + " WHERE tenant_id=:tenant")
+                .param("tenant", tenant).query((r, ignored) -> {
+                    index.computeIfAbsent(r.getObject(1, UUID.class), _ -> new HashSet<>()).add(r.getObject(2, UUID.class));
+                    return r.getObject(1, UUID.class);
+                }).list();
+        return index;
     }
     public Optional<Provider> provider(UUID tenant, UUID id) {
         return jdbc.sql("SELECT * FROM llm_provider WHERE tenant_id = :tenant AND id = :id")
@@ -152,7 +170,10 @@ public class JdbcModelCatalogRepository {
                 .param("tenant", tenant).param("id", id).query(UUID.class).list();
         var personas = jdbc.sql("SELECT persona_id FROM llm_provider_persona WHERE tenant_id=:tenant AND provider_id=:id")
                 .param("tenant", tenant).param("id", id).query(UUID.class).list();
-        return new Provider(id, tenant, r.getString("name"), r.getString("adapter_type"), r.getString("base_url"),
+        return provider(r, Set.copyOf(groups), Set.copyOf(personas));
+    }
+    private static Provider provider(ResultSet r, Set<UUID> groups, Set<UUID> personas) throws SQLException {
+        return new Provider(r.getObject("id", UUID.class), r.getObject("tenant_id", UUID.class), r.getString("name"), r.getString("adapter_type"), r.getString("base_url"),
                 r.getBoolean("enabled"), r.getBoolean("is_public"), r.getString("credential"), r.getLong("revision"),
                 Set.copyOf(groups), Set.copyOf(personas));
     }

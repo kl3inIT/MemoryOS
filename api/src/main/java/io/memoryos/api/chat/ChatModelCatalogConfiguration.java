@@ -17,6 +17,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,14 +36,22 @@ class ChatModelCatalogConfiguration {
     ModelCatalogService.Deployment chatDeploymentModel(PersonaProperties persona, ChatExecutionProperties limits,
             @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
             @Value("${memoryos.chat.provider.input-price-per-million:-1}") double input,
-            @Value("${memoryos.chat.provider.output-price-per-million:-1}") double output) {
+            @Value("${memoryos.chat.provider.output-price-per-million:-1}") double output,
+            @Value("${memoryos.chat.provider.max-completion-tokens:#{null}}") @Nullable Boolean maxCompletionTokens,
+            @Value("${memoryos.chat.provider.tool-calling:#{null}}") @Nullable Boolean toolCalling,
+            @Value("${memoryos.chat.provider.vision:#{null}}") @Nullable Boolean vision,
+            @Value("${memoryos.chat.provider.reasoning:#{null}}") @Nullable Boolean reasoning) {
         if (!Double.isFinite(input) || !Double.isFinite(output) || input < -1 || output < -1 || ((input < 0) != (output < 0)))
             throw new IllegalArgumentException("Invalid Chat pricing configuration");
         var pricing = input < 0 ? null : new ModelSettings.Pricing(input, output);
+        if (pricing == null && limits.costBudgetUsd() < Double.MAX_VALUE)
+            throw new IllegalArgumentException("A Chat cost budget requires configured deployment model pricing");
         // Compatibility import for the existing deployment. Catalog adapters never infer all model options from a name.
         boolean gpt5 = persona.getModel().startsWith("gpt-5");
         var settings = new ModelSettings(limits.contextTokenLimit() + limits.maxOutputTokens(), limits.maxOutputTokens(),
-                new ModelSettings.Capabilities(true, gpt5, gpt5, gpt5), Map.of("maxCompletionTokens", gpt5), pricing);
+                new ModelSettings.Capabilities(true, toolCalling == null ? gpt5 : toolCalling,
+                        vision == null ? gpt5 : vision, reasoning == null ? gpt5 : reasoning),
+                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens), pricing);
         return new ModelCatalogService.Deployment(baseUrl, persona.getModel(), settings);
     }
     @Bean

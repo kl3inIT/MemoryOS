@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 class ChatTurnSetupTest {
     private static ChatModelBinding binding() {
         return new ChatModelBinding(new SpringAiLlmService(
-                "gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p);
+                "binding-model", "fixture", mock(ChatModel.class)), p -> p);
     }
     @Test
     void contextLimitKeepsNewestQuestionAndDropsOrphanAssistant() {
@@ -33,6 +33,7 @@ class ChatTurnSetupTest {
                 message(ChatMessage.Role.USER, "Newest"), message(ChatMessage.Role.ASSISTANT, "Previous"),
                 message(ChatMessage.Role.USER, "Old question ".repeat(1000)))), 120, binding());
         assertEquals(2, setup.messages().size());
+        assertEquals("binding-model", setup.model());
         assertInstanceOf(SystemMessage.class, setup.messages().getFirst());
         assertInstanceOf(UserMessage.class, setup.messages().getLast());
         assertEquals("Newest", setup.messages().getLast().getContent());

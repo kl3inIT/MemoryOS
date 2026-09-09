@@ -750,6 +750,18 @@ class ChatSessionApiIntegrationTest {
         verify(model, never()).stream(any(Prompt.class));
     }
 
+    @Test
+    void nullModelOptionsReturnBadRequest() throws Exception {
+        grantModelManagement();
+        var provider = createProvider("http://validation.internal/v1", true);
+        var body = modelBody("null-options", 0.2);
+        ((ObjectNode) body.path("settings").path("options")).putNull("temperature");
+        mockMvc.perform(post("/api/chat/providers/" + provider.path("id").asText() + "/models")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest());
+    }
+
     private void grantModelManagement() {
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")

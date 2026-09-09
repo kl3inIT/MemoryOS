@@ -4,6 +4,7 @@ import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.iam.ActorId;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +20,7 @@ final class ChatModelValidation {
     private final ChatModelResolver models;
     private final Semaphore permits = new Semaphore(2);
     ChatModelValidation(ChatModelResolver models) { this.models = models; }
+    @Schema(name = "ChatModelValidationResult")
     record Result(boolean reachable, @Nullable String failureCode) {}
 
     Result validate(ActorId actor, UUID id) {

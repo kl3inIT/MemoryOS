@@ -41,6 +41,7 @@ Keep each active increment's design, plan, verification evidence, and Linear sco
 
 - [Chat session contract](docs/specs/chat.md)
 - [Chat provider/model catalog](docs/specs/chat-models.md) and [backend adapter handoff](docs/increments/active/mem-77-provider-backend/adapter-handoff.md)
+- Provider endpoint review must preserve the [accepted internal HTTP and trusted model-manager policy](docs/specs/chat-models.md#credentials-and-provider-extension).
 - [Chat verification matrix](docs/tests/chat.md)
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)

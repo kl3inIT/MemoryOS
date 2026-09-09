@@ -19,3 +19,7 @@ The [provider/model architecture](../mem-11-production-chat/provider-model-archi
 The deployment provider initializes the Tenant catalog once, preserving existing send callers without a model ID. Subsequent admin edits are authoritative. Existing in-memory setup, local Stop, RAM replay and HTTP/SSE contracts remain in place. No DB run snapshot, Redis, distributed cancellation or worker dispatch is introduced.
 
 Only the existing OpenAI protocol adapter is shipped. Explicit adapter validation, native framework options and contract tests establish its supported configuration; registering another adapter does not certify every local model. Unknown pricing remains unknown, and a finite cost budget requires known pricing. Production behavior includes authorization, DB constraints, bounded resources, credential redaction, stale-write rejection and preserving partial failures.
+
+## Review decisions
+
+PR #88 preserves internal HTTP and private endpoints as an explicit trusted model-manager deployment policy; see the canonical [credential and endpoint contract](../../../specs/chat-models.md#credentials-and-provider-extension). Client initialization uses a per-entry future with reserved capacity, while provider construction and cleanup execute outside the shared cache monitor. Generated APIs distinguish validation results from Search results and describe all browser mutation headers.

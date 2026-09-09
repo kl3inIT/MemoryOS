@@ -64,7 +64,7 @@ class ChatModelCatalogController {
     @GetMapping("/provider-adapters")
     @Operation(operationId = "listChatProviderAdapters", summary = "List installed adapter types and credential requirements; requires model management")
     List<ChatProviderAdapters.Descriptor> adapters(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        catalog.providers(identity.actorId());
+        catalog.requireModelsManage(identity.actorId());
         return adapters.available();
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)

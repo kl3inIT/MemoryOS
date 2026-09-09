@@ -6,9 +6,12 @@ import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.iam.ActorId;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Resolve product configuration first, then acquire native clients outside the DB transaction. */
 public final class ChatModelResolver {
+    private static final Logger LOG = LoggerFactory.getLogger(ChatModelResolver.class);
     private final ModelCatalogService catalog;
     private final ChatProviderAdapters adapters;
     private final ProviderCredentials credentials;
@@ -40,7 +43,10 @@ public final class ChatModelResolver {
             try {
                 return adapter.create(new ChatProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), limits.deadline());
             } catch (ChatException expected) { throw expected; }
-            catch (RuntimeException failure) { throw ChatException.providerUnavailable(); }
+            catch (RuntimeException failure) {
+                LOG.warn("Chat model {} client initialization failed ({})", model.id(), failure.getClass().getSimpleName());
+                throw ChatException.providerUnavailable();
+            }
         });
         if (!lease.binding().service().getName().equals(model.modelName())
                 || (limits.costBudgetUsd() < Double.MAX_VALUE && lease.binding().service().getPricingModel() == null)) {

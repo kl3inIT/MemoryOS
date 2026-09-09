@@ -59,6 +59,9 @@ public class ModelCatalogService {
     public record Selection(Model model, Provider provider, @Nullable String fallbackReason) {}
 
     @Transactional
+    public void requireModelsManage(ActorId actor) { admin(actor, false); }
+
+    @Transactional
     public List<ProviderView> providers(ActorId actor) {
         UUID tenant = admin(actor, false);
         initialize(tenant);
@@ -203,6 +206,7 @@ public class ModelCatalogService {
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         return catalog.models(tenant).stream().filter(Model::visible)
+                .filter(m -> providers.containsKey(m.providerId()))
                 .filter(m -> available(providers.get(m.providerId()), personaId, manager, groups))
                 .map(m -> new AvailableModel(m.id(), m.providerId(), providers.get(m.providerId()).name(), m.modelName(), m.displayName(),
                         m.settings().capabilities(), m.settings().contextWindow(), m.settings().maxOutputTokens(), m.settings().pricing(), m.id().equals(defaultId)))

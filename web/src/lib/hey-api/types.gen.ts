@@ -284,6 +284,11 @@ export type Cancellation = {
     status: 'RUNNING' | 'COMPLETED' | 'CANCELED' | 'FAILED';
 };
 
+export type ChatModelValidationResult = {
+    reachable?: boolean;
+    failureCode?: string;
+};
+
 export type AccountType = 'STANDARD';
 
 export type TenantMembershipRole = 'OWNER' | 'MEMBER';
@@ -533,6 +538,12 @@ export type ApiProblem = {
 
 export type DeleteChatProviderData = {
     body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
     path: {
         providerId: string;
     };
@@ -582,6 +593,12 @@ export type DeleteChatProviderResponse = DeleteChatProviderResponses[keyof Delet
 
 export type UpdateChatProviderData = {
     body: ProviderInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
     path: {
         providerId: string;
     };
@@ -678,6 +695,12 @@ export type GetPersonaModelResponse = GetPersonaModelResponses[keyof GetPersonaM
 
 export type SetPersonaModelData = {
     body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
     path: {
         personaId: string;
     };
@@ -728,6 +751,12 @@ export type SetPersonaModelResponse = SetPersonaModelResponses[keyof SetPersonaM
 
 export type DeleteChatModelData = {
     body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
     path: {
         modelId: string;
     };
@@ -777,6 +806,12 @@ export type DeleteChatModelResponse = DeleteChatModelResponses[keyof DeleteChatM
 
 export type UpdateChatModelData = {
     body: ModelInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
     path: {
         modelId: string;
     };
@@ -871,6 +906,12 @@ export type GetChatModelDefaultResponse = GetChatModelDefaultResponses[keyof Get
 
 export type SetChatModelDefaultData = {
     body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
     path?: never;
     query: {
         modelConfigurationId: string;
@@ -2147,7 +2188,7 @@ export type ValidateChatModelResponses = {
     /**
      * Successful result
      */
-    200: Result;
+    200: ChatModelValidationResult;
 };
 
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];

@@ -134,6 +134,27 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        for (var path : BROWSER_API_PATHS) {
+            for (var method : Set.of("post", "put", "patch", "delete")) {
+                var operation = actual.path("paths").path(path).path(method);
+                if (operation.isMissingNode()) continue;
+                boolean csrf = false;
+                for (var parameter : operation.path("parameters")) {
+                    if (parameter.path("name").asText().equals("X-MemoryOS-CSRF")) {
+                        csrf = parameter.path("required").asBoolean()
+                                && parameter.path("in").asText().equals("header");
+                    }
+                }
+                assertTrue(csrf, method + " " + path + " must document the mutation header");
+            }
+        }
+        assertEquals("#/components/schemas/ChatModelValidationResult", actual.path("paths")
+                .path("/api/chat/models/{modelId}/validate").path("post").path("responses").path("200")
+                .path("content").path("application/json").path("schema").path("$ref").asText());
+        var validationFields = actual.path("components").path("schemas").path("ChatModelValidationResult").path("properties");
+        assertTrue(validationFields.has("reachable"));
+        assertTrue(validationFields.has("failureCode"));
+        assertEquals(2, validationFields.size());
         for (var path : Set.of("/api/chat/models", "/api/chat/providers", "/api/chat/provider-adapters", "/api/chat/model-default")) {
             assertTrue(actual.path("paths").path(path).path("get").path("responses").path("200")
                     .path("content").path("application/json").path("schema").isObject(), path + " must generate a typed success response");

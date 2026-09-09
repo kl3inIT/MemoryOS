@@ -15,6 +15,14 @@ paths:
         is explicit
       operationId: updateChatProvider
       parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
       - name: providerId
         in: path
         required: true
@@ -83,6 +91,14 @@ paths:
       summary: Delete a provider that is not the Chat default; transcript is preserved
       operationId: deleteChatProvider
       parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
       - name: providerId
         in: path
         required: true
@@ -197,6 +213,14 @@ paths:
       summary: Set a Persona model or omit the model ID to inherit the Chat default
       operationId: setPersonaModel
       parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
       - name: personaId
         in: path
         required: true
@@ -266,6 +290,14 @@ paths:
       summary: Replace a model configuration at the expected revision
       operationId: updateChatModel
       parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
       - name: modelId
         in: path
         required: true
@@ -335,6 +367,14 @@ paths:
         is preserved
       operationId: deleteChatModel
       parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
       - name: modelId
         in: path
         required: true
@@ -442,6 +482,14 @@ paths:
       summary: "Set a visible, publicly available Tenant Chat default"
       operationId: setChatModelDefault
       parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
       - name: modelConfigurationId
         in: query
         required: true
@@ -2105,7 +2153,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Result"
+                $ref: "#/components/schemas/ChatModelValidationResult"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -3563,6 +3611,13 @@ components:
       required:
       - assistantMessageId
       - status
+    ChatModelValidationResult:
+      type: object
+      properties:
+        reachable:
+          type: boolean
+        failureCode:
+          type: string
     AccountType:
       type: string
       enum:
