@@ -101,7 +101,9 @@ describe("SearchPage", () => {
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "How can I help?" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Find information in your workspace" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Add to search" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search by voice" })).toBeDisabled();

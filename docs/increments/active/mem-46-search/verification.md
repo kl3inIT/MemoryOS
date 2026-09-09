@@ -1,5 +1,11 @@
 # MEM-46 — Implementation evidence
 
+## 2026-09-09 — Search UI visual hierarchy polish
+
+- Reframed the initial page as direct document Search: `Knowledge search` and `Find information in your workspace` replace Chat-like copy. The empty state retains one query action and keeps attachment/add-context controls absent.
+- Grouped time and file-type controls under an explicit `Filters` toolbar, refined the desktop file-type facet into a contained summary, and reordered result-card emphasis to title, friendly type/date metadata, then bounded context. Empty and unavailable states now share an accessible, contained treatment; controls retain visible keyboard focus and existing reduced-motion paths.
+- Verified without Playwright: `pnpm --dir web typecheck`, targeted `oxlint --deny-warnings` and `vitest run src/features/search/search-page.test.tsx` passed (`11/11`).
+
 ## 2026-09-09 — Semantic relevance floor
 
 - Reproduced the reported false positives on an isolated three-document local corpus. `Aurora Lighthouse` ranked the intended document at `1.000000` but top-K semantic retrieval also returned unrelated documents at `0.011580` and `0.000500`; a nonsense query still produced hybrid scores near `0.50` because min-max normalization is relative to the returned candidate set.

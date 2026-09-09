@@ -1,9 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock3, FileStack, LoaderCircle, Mic, Search, X } from "lucide-react";
+import {
+  Clock3,
+  FileSearch2,
+  FileStack,
+  LoaderCircle,
+  Mic,
+  Search,
+  SearchX,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
@@ -278,9 +294,19 @@ export function SearchPage() {
         <h1 className="sr-only">Search documents</h1>
         <div className={cn(!request && "my-auto w-full max-w-3xl self-center pb-[10dvh]")}>
           {!request ? (
-            <header className="mb-6">
-              <Brand compact />
-              <h2 className="mt-3 font-heading-h2 text-content-primary">How can I help?</h2>
+            <header className="mb-7 max-w-xl">
+              <span className="grid size-10 place-items-center rounded-xl border border-border-default bg-surface-raised text-content-primary shadow-xs">
+                <FileSearch2 className="size-5" aria-hidden="true" />
+              </span>
+              <p className="mt-5 font-secondary-action tracking-[0.12em] text-content-muted uppercase">
+                Knowledge search
+              </p>
+              <h2 className="mt-1 font-heading-h2 text-content-primary">
+                Find information in your workspace
+              </h2>
+              <p className="mt-2 font-main-content-body text-content-secondary">
+                Search across the documents available to your team.
+              </p>
             </header>
           ) : null}
           <form
@@ -290,14 +316,14 @@ export function SearchPage() {
               submit();
             }}
             className={cn(
-              "rounded-2xl border border-border-default p-2",
+              "rounded-2xl border border-border-default p-2 shadow-xs",
               request
-                ? "bg-surface-raised shadow-sm"
-                : "bg-surface-overlay shadow-md transition-shadow duration-200 focus-within:shadow-md motion-reduce:transition-none",
+                ? "bg-surface-raised"
+                : "bg-surface-overlay transition-[border-color,box-shadow] duration-200 focus-within:border-border-strong focus-within:shadow-md motion-reduce:transition-none",
             )}
           >
             <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="flex min-w-0 flex-1 items-center rounded-lg border border-transparent bg-surface-sunken pr-1 transition-[border-color,box-shadow] duration-150 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/30 hover:border-border-subtle motion-reduce:transition-none">
+              <div className="flex min-w-0 flex-1 items-center rounded-xl border border-transparent bg-surface-sunken pr-1 transition-[border-color,box-shadow] duration-150 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/30 hover:border-border-subtle motion-reduce:transition-none">
                 <Input
                   ref={searchInputRef}
                   size="lg"
@@ -365,7 +391,11 @@ export function SearchPage() {
             </div>
 
             {request ? (
-              <div className="mt-2 flex animate-in flex-wrap items-center gap-1 border-t border-border-subtle px-1 pt-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
+              <div className="mt-2 flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-1 pt-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
+                <span className="inline-flex h-8 items-center gap-2 px-2 font-secondary-action text-content-muted">
+                  <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                  Filters
+                </span>
                 <SearchFilterMenu
                   label="Updated"
                   value={timeRange}
@@ -411,7 +441,7 @@ export function SearchPage() {
           {statusMessage}
         </p>
 
-        <div className="mt-5" aria-busy={result.isFetching}>
+        <div className="mt-6" aria-busy={result.isFetching}>
           {!request ? null : result.isFetching ? (
             <div className="flex animate-in items-center justify-center gap-2 py-12 text-content-secondary duration-200 fade-in motion-reduce:animate-none">
               <LoaderCircle
@@ -421,42 +451,53 @@ export function SearchPage() {
               Searching documents…
             </div>
           ) : result.isError ? (
-            <div
+            <Empty
               role="alert"
-              className="mx-auto max-w-lg animate-in rounded-xl border border-border-default p-6 duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
+              className="mx-auto min-h-64 max-w-2xl animate-in border-border-default bg-surface-raised duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
             >
-              <h2 className="font-heading-h3">Search is temporarily unavailable</h2>
-              <p className="mt-2 text-content-secondary">Please try again in a moment.</p>
-              <Button className="mt-4" onClick={() => void result.refetch()}>
-                Try again
-              </Button>
-            </div>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <SearchX aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle>Search is temporarily unavailable</EmptyTitle>
+                <EmptyDescription>Please try again in a moment.</EmptyDescription>
+              </EmptyHeader>
+              <Button onClick={() => void result.refetch()}>Try again</Button>
+            </Empty>
           ) : !result.data?.results.length ? (
-            <div className="animate-in py-12 text-center duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
-              <h2 className="font-heading-h3">No matching documents</h2>
-              <p className="mt-2 text-content-secondary">
-                Try a broader phrase, remove a filter, or check the document code.
-              </p>
+            <Empty className="mx-auto min-h-64 max-w-2xl animate-in border-border-default bg-surface-raised duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <SearchX aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle>No matching documents</EmptyTitle>
+                <EmptyDescription>
+                  Try a broader phrase, remove a filter, or check the document code.
+                </EmptyDescription>
+              </EmptyHeader>
               {hasFilters ? (
-                <Button className="mt-4" prominence="secondary" onClick={clearFilters}>
+                <Button prominence="secondary" onClick={clearFilters}>
                   Clear filters
                 </Button>
               ) : null}
-            </div>
+            </Empty>
           ) : (
-            <div className="grid min-w-0 animate-in gap-8 duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none lg:grid-cols-[minmax(0,1fr)_14rem]">
+            <div className="grid min-w-0 animate-in gap-8 duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none lg:grid-cols-[minmax(0,1fr)_15rem]">
               <section aria-labelledby="search-results-heading" className="min-w-0">
-                <header className="flex flex-wrap items-end justify-between gap-2 border-b border-border-default pb-3">
+                <header className="flex flex-wrap items-end justify-between gap-3 border-b border-border-default pb-4">
                   <div>
+                    <p className="font-secondary-action tracking-[0.1em] text-content-muted uppercase">
+                      Search results
+                    </p>
                     <h2
                       id="search-results-heading"
-                      className="font-main-ui-action text-content-primary"
+                      className="mt-1 font-heading-h3 text-content-primary"
                     >
                       {result.data.results.length}{" "}
                       {result.data.results.length === 1 ? "result" : "results"}
                     </h2>
-                    <p className="mt-0.5 font-secondary-body text-content-muted">
-                      Page {(request.page ?? 0) + 1} · “{request.query}”
+                    <p className="mt-1 font-secondary-body text-content-muted">
+                      Page {(request.page ?? 0) + 1} for “{request.query}”
                     </p>
                   </div>
                 </header>
@@ -504,11 +545,17 @@ export function SearchPage() {
               </section>
 
               <aside aria-labelledby="file-types-heading" className="hidden lg:block">
-                <div className="sticky top-6 border-t border-border-default pt-3">
-                  <h2 id="file-types-heading" className="font-secondary-action text-content-muted">
+                <div className="sticky top-6 rounded-xl border border-border-default bg-surface-raised p-4 shadow-xs">
+                  <p className="font-secondary-action tracking-[0.1em] text-content-muted uppercase">
+                    Refine results
+                  </p>
+                  <h2
+                    id="file-types-heading"
+                    className="mt-1 font-main-ui-action text-content-primary"
+                  >
                     File types on this page
                   </h2>
-                  <ul className="mt-2 space-y-1">
+                  <ul className="mt-3 space-y-1">
                     {typeFacets?.map((facet) => {
                       const selectedFacet = mediaType === facet.mediaType;
                       return (
@@ -517,7 +564,7 @@ export function SearchPage() {
                             type="button"
                             aria-label={`${facet.label}: ${facet.count} ${facet.count === 1 ? "result" : "results"} on this page`}
                             aria-pressed={selectedFacet}
-                            className="flex min-h-9 w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-2.5 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:bg-surface-subtle aria-pressed:text-content-primary motion-reduce:transition-none"
+                            className="flex min-h-9 w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-2.5 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:bg-surface-sunken aria-pressed:text-content-primary motion-reduce:transition-none"
                             onClick={() => {
                               setMediaType(facet.mediaType);
                               setSelected(null);

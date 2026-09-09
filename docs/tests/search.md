@@ -5,6 +5,7 @@
 | Bounded checksum-verified artifact reads release object/reader resources on rejection; Vietnamese headings/page provenance; merged/repeated table headers, numeric values, row provenance, wide/oversized table bounds and bounded Unicode | `DocumentChunkServiceTest`, `StructuredDocumentChunkerTest` |
 | Response count/order/model/dimension/finite values, defensive copies and safe provider failures | `ValidatedEmbeddingServiceTest` |
 | Null/invalid media filters produce validation errors; immutable request filters | `SearchRequestTest` |
+| Direct Search identity (not Chat), labelled filter toolbar, content-first result hierarchy, voice state and keyboard-accessible controls | `web/src/features/search/search-page.test.tsx`; targeted Vitest |
 | Embedding credentials require HTTPS; semantic score floor stays in the cosine-score range; transport/malformed provider JSON is sanitized without masking programming failures | `SearchPropertiesTest`, `OpenSearchGatewayTest` |
 | Actual Spring AI OpenAI HTTP request, explicit model/dimensions/FLOAT input, response decoding and 401 handling | `SpringAiEmbeddingHttpTest`; local HTTP provider fixture |
 | Native 3072-dimensional Faiss mapping, normalized hybrid query, radial semantic score floor with bounded `ef_search`, orthogonal-vector rejection, Tenant/MIME filtering, vector reuse, old-generation cleanup, delete and full index loss/rebuild | `OpenSearchRetrievalIntegrationTest`; real pinned OpenSearch 3.8.0 |
