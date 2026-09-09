@@ -101,9 +101,7 @@ describe("SearchPage", () => {
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Find information in your workspace" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Search your workspace" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Add to search" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search by voice" })).toBeDisabled();
@@ -246,6 +244,59 @@ describe("SearchPage", () => {
       ),
     );
     expect(screen.getByRole("button", { name: "Updated: Past 30 days" })).toBeInTheDocument();
+  });
+
+  it("keeps prior results visible and acknowledges a repeated search immediately", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValueOnce({
+      data: {
+        page: 0,
+        hasMore: false,
+        candidateLimit: 500,
+        results: [
+          {
+            documentId: "73835d74-d386-4b4e-b392-ad7f81e3b55a",
+            generation: "6b780b3a-de22-4307-ace9-6c2f44e22fc1",
+            title: "Existing policy document",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [],
+          },
+        ],
+      },
+    });
+    let resolveSecondSearch: (value: unknown) => void = () => undefined;
+    searchDocumentsMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSecondSearch = resolve;
+        }),
+    );
+    await renderNewSession();
+
+    const input = screen.getByRole("textbox", { name: "Search documents" });
+    await user.type(input, "policy");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    expect(await screen.findByText("Existing policy document")).toBeVisible();
+
+    await user.clear(input);
+    await user.type(input, "onboarding");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(screen.getByText("Existing policy document")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Search is loading" })).toBeDisabled();
+    expect(screen.getByText("Updating")).toBeVisible();
+
+    resolveSecondSearch({
+      data: {
+        page: 0,
+        hasMore: false,
+        candidateLimit: 500,
+        results: [],
+      },
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Search" })).toBeEnabled());
   });
 
   it("removes owner administration affordances for a member", async () => {

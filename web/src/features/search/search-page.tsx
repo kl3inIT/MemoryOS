@@ -1,7 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Clock3,
-  FileSearch2,
   FileStack,
   LoaderCircle,
   Mic,
@@ -95,6 +94,7 @@ export function SearchPage() {
   const [mediaType, setMediaType] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
   const [request, setRequest] = useState<SearchRequest | null>(null);
+  const [submitFeedback, setSubmitFeedback] = useState(false);
   const [selected, setSelected] = useState<DocumentSelection | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchFormRef = useRef<HTMLFormElement | null>(null);
@@ -174,6 +174,12 @@ export function SearchPage() {
     [],
   );
 
+  useEffect(() => {
+    if (!submitFeedback || result.isFetching) return;
+    const timeout = window.setTimeout(() => setSubmitFeedback(false), 180);
+    return () => window.clearTimeout(timeout);
+  }, [result.isFetching, submitFeedback]);
+
   function toggleVoiceSearch() {
     if (isListening) {
       speechRecognitionRef.current?.stop();
@@ -223,6 +229,7 @@ export function SearchPage() {
       previousSearchTopRef.current = searchFormRef.current?.getBoundingClientRect().top ?? null;
     }
     setSelected(null);
+    setSubmitFeedback(true);
     const nextRequest: SearchRequest = {
       query: query.trim(),
       mediaTypes: mediaType ? [mediaType] : [],
@@ -288,7 +295,8 @@ export function SearchPage() {
     });
   }
 
-  const statusMessage = searchStatus(request, result);
+  const isSearchUpdating = result.isFetching || submitFeedback;
+  const statusMessage = searchStatus(request, result, isSearchUpdating);
   const hasFilters = Boolean(mediaType || timeRange !== "all");
   const resultFacetCounts = countResultFileTypes(
     facetResult.data?.results ?? result.data?.results ?? [],
@@ -311,19 +319,8 @@ export function SearchPage() {
         <h1 className="sr-only">Search documents</h1>
         <div className={cn(!request && "my-auto w-full max-w-3xl self-center pb-[10dvh]")}>
           {!request ? (
-            <header className="mb-7 max-w-xl">
-              <span className="grid size-10 place-items-center rounded-xl border border-border-default bg-surface-raised text-content-primary shadow-xs">
-                <FileSearch2 className="size-5" aria-hidden="true" />
-              </span>
-              <p className="mt-5 font-secondary-action tracking-[0.12em] text-content-muted uppercase">
-                Knowledge search
-              </p>
-              <h2 className="mt-1 font-heading-h2 text-content-primary">
-                Find information in your workspace
-              </h2>
-              <p className="mt-2 font-main-content-body text-content-secondary">
-                Search across the documents available to your team.
-              </p>
+            <header className="mb-6">
+              <h2 className="font-heading-h2 text-content-primary">Search your workspace</h2>
             </header>
           ) : null}
           <form
@@ -387,11 +384,26 @@ export function SearchPage() {
                     aria-hidden="true"
                   />
                 </IconButton>
-                <IconButton type="submit" size="lg" aria-label="Search" disabled={!query.trim()}>
-                  <Search aria-hidden="true" />
-                </IconButton>
+                {isSearchUpdating ? (
+                  <IconButton
+                    type="button"
+                    size="lg"
+                    aria-label="Search is loading"
+                    title="Searching documents"
+                    disabled
+                  >
+                    <LoaderCircle
+                      className="animate-spin motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                  </IconButton>
+                ) : (
+                  <IconButton type="submit" size="lg" aria-label="Search" disabled={!query.trim()}>
+                    <Search aria-hidden="true" />
+                  </IconButton>
+                )}
               </div>
-              {result.isFetching ? (
+              {isSearchUpdating ? (
                 <Button
                   type="button"
                   prominence="secondary"
@@ -399,6 +411,7 @@ export function SearchPage() {
                   onClick={() => {
                     searchInputRef.current?.focus();
                     setSelected(null);
+                    setSubmitFeedback(false);
                     setRequest(null);
                   }}
                 >
@@ -458,7 +471,7 @@ export function SearchPage() {
           {statusMessage}
         </p>
 
-        <div className="mt-6" aria-busy={result.isFetching}>
+        <div className="mt-6" aria-busy={isSearchUpdating}>
           {!request ? null : isInitialLoading ? (
             <div className="flex animate-in items-center justify-center gap-2 py-12 text-content-secondary duration-200 fade-in motion-reduce:animate-none">
               <LoaderCircle
@@ -517,7 +530,7 @@ export function SearchPage() {
                       Page {(request.page ?? 0) + 1} for “{request.query}”
                     </p>
                   </div>
-                  {result.isFetching ? (
+                  {isSearchUpdating ? (
                     <span className="inline-flex items-center gap-1.5 font-secondary-action text-content-muted">
                       <LoaderCircle
                         className="size-3.5 animate-spin motion-reduce:animate-none"
@@ -669,13 +682,13 @@ function countResultFileTypes(results: readonly SearchResult[]): Record<string, 
 function searchStatus(
   request: SearchRequest | null,
   result: {
-    isFetching: boolean;
     isError: boolean;
     data?: { results: unknown[] };
   },
+  isSearching: boolean,
 ): string {
   if (!request) return "";
-  if (result.isFetching) return "Searching documents.";
+  if (isSearching) return "Searching documents.";
   if (result.isError) return "Search is temporarily unavailable.";
   const count = result.data?.results.length ?? 0;
   if (count === 0) return "No matching documents.";

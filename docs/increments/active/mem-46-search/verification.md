@@ -176,6 +176,12 @@ Live staging provisioning, authenticated Discover inspection and exact-SHA deplo
 - Replaced the browser-native file/date controls after visual review with token-driven Radix radio menus: `All time` plus bounded 7/30/365-day presets and `All file types` plus supported MIME choices. Selecting either menu immediately updates the existing Search request and resets paging; the error state is width-bounded. The query form now animates from its measured centered position to the result header with a 320 ms FLIP transform, while filter/result entrances honor `prefers-reduced-motion`.
 - A manual authenticated Chrome smoke through desktop accessibility actions (not Playwright) observed the centered landing, submitted `alo`, received HTTP 200 after starting the checked-in local OpenSearch service, and exposed the new `Updated: All time` and `File type: All file types` controls in the result state. The query had no local matches, so this proves local runtime recovery and UI state switching, not relevance quality. Full `pnpm --dir web check` passed again with 59/59 tests and production build after the filter/motion update.
 
+## 2026-09-09 — Search landing and repeated-query feedback
+
+- Simplified the initial Search workspace to one visible `Search your workspace` heading above the centered composer; the prior document icon, eyebrow and helper sentence were removed to keep the product-specific Search route quiet and distinct from Chat.
+- A submitted query now changes the fixed-size submit control to a spinner immediately, including during the render hand-off to TanStack Query. Existing results remain in place and retain their `Updating` marker while the new response is pending; the existing Cancel action remains available. This prevents a second query from appearing to do nothing or causing the composer layout to jump.
+- `pnpm --dir web check` passed: generated API/route stability, lint, formatting, TypeScript, production build and 62/62 unit/component tests. The dedicated Search test holds a second response pending and proves that the prior result, spinner and `Updating` signal coexist until it resolves. Per user direction, no Playwright run was made.
+
 ## 2026-09-09 — Artifact and structured-chunk golden cases
 
 - Added direct `DocumentChunkServiceTest` coverage for rejecting an artifact above the 32 MiB contract before object access and for rejecting a same-length checksum mismatch. Both paths prove the artifact reader lease is released; the checksum path also proves the opened object closes and no chunk publication occurs.
