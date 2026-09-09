@@ -124,26 +124,6 @@ export function SearchPage() {
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
-  const facetRequest = request?.mediaTypes?.length
-    ? { ...request, mediaTypes: [], page: 0 }
-    : request;
-  const facetResult = useQuery({
-    queryKey: ["document-search", facetRequest],
-    queryFn: async ({ signal }) => {
-      const response = await searchDocuments({
-        body: facetRequest!,
-        headers: sameOriginMutationHeaders,
-        signal,
-        throwOnError: true,
-      });
-      return response.data;
-    },
-    enabled: facetRequest !== null,
-    retry: false,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-
   useLayoutEffect(() => {
     const previousTop = previousSearchTopRef.current;
     const form = searchFormRef.current;
@@ -298,9 +278,7 @@ export function SearchPage() {
   const isSearchUpdating = result.isFetching || submitFeedback;
   const statusMessage = searchStatus(request, result, isSearchUpdating);
   const hasFilters = Boolean(mediaType || timeRange !== "all");
-  const resultFacetCounts = countResultFileTypes(
-    facetResult.data?.results ?? result.data?.results ?? [],
-  );
+  const resultFacetCounts = countResultFileTypes(result.data?.results ?? []);
   const typeFacets = FILE_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => ({
     mediaType: option.value,
     label: friendlyMediaType(option.value),

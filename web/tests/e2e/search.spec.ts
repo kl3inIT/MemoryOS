@@ -192,7 +192,7 @@ test("handles unavailable, retry, empty and a newer query overtaking an older on
   await search.click();
   await expect(page.getByRole("status")).toContainText("Searching");
   await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Search your workspace" })).toBeVisible();
   await expect(input).toBeFocused();
   await input.fill("slow");
   await search.click();

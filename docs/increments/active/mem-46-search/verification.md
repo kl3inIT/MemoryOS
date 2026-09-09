@@ -182,6 +182,12 @@ Live staging provisioning, authenticated Discover inspection and exact-SHA deplo
 - Every submitted query now changes the fixed-size submit control to a spinner immediately, including during the render hand-off to TanStack Query, and uses the same `Searching documents…` loading screen even when a prior result exists. The existing Cancel action remains available; this gives each Search operation an explicit, consistent loading state.
 - `pnpm --dir web check` is rerun after this change. The dedicated Search test holds a second response pending and proves that the loading screen replaces the prior result until it resolves. Per user direction, no Playwright run is made.
 
+## 2026-09-09 — Review follow-up: facet and presentation semantics
+
+- File-type facets now calculate their `on this page` counts solely from the currently displayed result page. All supported file-type controls remain visible and selectable after a filter is applied, but their count no longer silently comes from an unfiltered first page.
+- Friendly MIME labels ignore optional media-type parameters, so `application/pdf; charset=utf-8` remains `PDF`. The Search browser assertion after Cancel now targets the separate `/search` landing heading, not the Chat landing route.
+- `pnpm --dir web check` passed after the review changes: API/route stability, lint, formatting, typecheck, production build and 74/74 unit/component tests. Per user direction, no Playwright run was made.
+
 ## 2026-09-09 — Artifact and structured-chunk golden cases
 
 - Added direct `DocumentChunkServiceTest` coverage for rejecting an artifact above the 32 MiB contract before object access and for rejecting a same-length checksum mismatch. Both paths prove the artifact reader lease is released; the checksum path also proves the opened object closes and no chunk publication occurs.

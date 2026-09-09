@@ -26,7 +26,7 @@ const FRIENDLY_MEDIA_TYPES: Record<string, string> = {
 };
 
 export function friendlyMediaType(mediaType: string): string {
-  const normalized = mediaType.trim().toLowerCase();
+  const normalized = mediaType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
   const known = FRIENDLY_MEDIA_TYPES[normalized];
   if (known) return known;
   if (normalized.startsWith("image/")) return "Image";
