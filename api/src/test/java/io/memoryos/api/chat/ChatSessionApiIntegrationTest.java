@@ -1034,6 +1034,7 @@ class ChatSessionApiIntegrationTest {
         var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
         var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
         var receipts = new ArrayList<Map<String, Object>>();
+        var answerChecks = new ArrayList<org.junit.jupiter.api.function.Executable>();
         try (var corpus = new io.memoryos.retrieval.opensearch.LiveSearchCorpus(
                 Path.of(System.getenv("MEMORYOS_CHAT_CORPUS_FILE")), key, new TenantId(TENANT), chunks, sourceSearch, meters);
              var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
@@ -1046,7 +1047,7 @@ class ChatSessionApiIntegrationTest {
             when(model.call(any(Prompt.class))).thenAnswer(call -> provider.call(call.getArgument(0, Prompt.class)));
             when(model.stream(any(Prompt.class))).thenAnswer(call -> provider.stream(call.getArgument(0, Prompt.class)));
             var questions = List.of(
-                    "Doanh thu tháng 9 của SP-ORION-042 là bao nhiêu? Trả lời theo tài liệu và trích nguồn.",
+                    "Tìm trong tài liệu hiện có: doanh thu tháng 9 năm 2026 của SP-ORION-042 là bao nhiêu? Trả lời theo tài liệu và trích nguồn.",
                     "Trước hết tìm hạn nộp hồ sơ công tác, rồi thực hiện một lần tìm tiếp riêng để xác minh tỷ lệ tạm ứng. Trả lời cả hai và trích nguồn.",
                     "Theo OrgMemory_POC_Guide.docx, POC mang lại lợi ích gì cho nhân viên, quản trị viên và nhà phát triển? Chỉ nêu lợi ích, trích nguồn.");
             for (String question : questions) {
@@ -1086,22 +1087,25 @@ class ChatSessionApiIntegrationTest {
                 receipts.add(Map.of("question", question, "ttftMs", firstText == null ? -1 : firstText,
                         "totalMs", (System.nanoTime() - started) / 1_000_000, "events", events,
                         "status", answer.path("status").asText(), "sourceCount", answer.path("sources").size(), "answer", content, "usage", usage));
-                assertEquals("COMPLETED", answer.path("status").asText());
-                assertFalse(answer.path("sources").isEmpty());
-                if (question.contains("SP-ORION-042")) assertTrue(content.contains("180"), "Revenue must match the sample document");
-                else if (question.contains("công tác")) {
-                    assertTrue(content.toLowerCase(java.util.Locale.ROOT).matches("(?s).*\\b(?:5|năm)\\b\\s+ngày\\s+làm\\s+việc.*")
-                            && content.contains("70"), "Travel deadline and advance must match the sample document");
-                    // The native model may stop after one search when that result already contains both facts.
-                    // Deterministic SearchTool contracts verify the later-call query set; this receipt records actual calls.
-                } else {
-                    assertTrue(java.util.stream.StreamSupport.stream(answer.path("sources").spliterator(), false)
-                            .anyMatch(source -> source.path("title").asText().contains("OrgMemory_POC_Guide")));
-                    String lower = content.toLowerCase(java.util.Locale.ROOT);
-                    assertTrue(lower.contains("nhân viên") && (lower.contains("quản trị") || lower.contains("admin"))
-                            && (lower.contains("phát triển") || lower.contains("developer")), "The POC answer must cover all three roles");
-                }
+                answerChecks.add(() -> {
+                    assertEquals("COMPLETED", answer.path("status").asText());
+                    assertFalse(answer.path("sources").isEmpty());
+                    if (question.contains("SP-ORION-042")) assertTrue(content.contains("180"), "Revenue must match the sample document");
+                    else if (question.contains("công tác")) {
+                        assertTrue(content.toLowerCase(java.util.Locale.ROOT).matches("(?s).*\\b(?:5|năm)\\b\\s+ngày\\s+làm\\s+việc.*")
+                                && content.contains("70"), "Travel deadline and advance must match the sample document");
+                        // The native model may stop after one search when that result already contains both facts.
+                        // Deterministic SearchTool contracts verify the later-call query set; this receipt records actual calls.
+                    } else {
+                        assertTrue(java.util.stream.StreamSupport.stream(answer.path("sources").spliterator(), false)
+                                .anyMatch(source -> source.path("title").asText().contains("OrgMemory_POC_Guide")));
+                        String lower = content.toLowerCase(java.util.Locale.ROOT);
+                        assertTrue(lower.contains("nhân viên") && (lower.contains("quản trị") || lower.contains("admin"))
+                                && (lower.contains("phát triển") || lower.contains("developer")), "The POC answer must cover all three roles");
+                    }
+                });
             }
+            org.junit.jupiter.api.Assertions.assertAll("Real corpus answer quality", answerChecks);
         } finally {
             var report = Path.of("build", "reports", "chat-corpus");
             Files.createDirectories(report);

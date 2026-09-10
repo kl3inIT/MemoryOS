@@ -31,12 +31,35 @@ The two turns completed with sources. TTFT was **24.343 / 27.264 s** and total t
 
 These are two local candidate turns against the copied staging corpus, not a paired same-host experiment or a p95 estimate. A fresh staging browser comparison stopped at HTTP 401 because its existing login had expired. The earlier baseline remains separately dated; no percentage improvement or production rollout is claimed. Model decisions between tools and final answer generation still dominate part of the total time.
 
+Repeating those same two questions twice more produced six sourced turns in total. Tests ran one Chat turn at a time, with the product's bounded helper/index concurrency; these were not isolated load measurements. Across those six turns:
+
+| Measurement | Samples | Minimum | Median | Maximum |
+| --- | ---: | ---: | ---: | ---: |
+| First Search in a turn | 6 | 4.898 s | 8.210 s | 10.695 s |
+| Later Search in the same turn | 2 | 2.586 s | 2.834 s | 3.081 s |
+| First answer text | 6 | 18.460 s | 22.039 s | 33.861 s |
+| Whole turn | 6 | 20.431 s | 23.027 s | 36.292 s |
+
+Both later Search calls used only two query texts. The four repeated answers were inspected for the actual facts: September revenue 180 million; travel reporting within five working days and advance up to 70%. Two overly strict harness assertions were corrected: native Search counts can differ once evidence is sufficient, and Vietnamese `năm ngày làm việc` is the same fact as `5 ngày làm việc`. The last repeated pair recorded native input/output usage of 8,073/923 tokens for revenue and 15,671/1,988 for travel; earlier receipts did not capture usage and remain unknown.
+
+One additional ambiguous revenue prompt produced a clarification about the year/source without calling Search (8.123 s, no sources). It is excluded from the sourced-answer table and is not a successful retrieval result. The final explicit-year corpus check records that different prompt separately and also exercises the 138-chunk Word document. This sample size and host difference cannot establish a regression-free production latency distribution.
+
+The final three-question run passed (2m53s including fixture setup). It checks the explicit September 2026 revenue fact, both travel facts, and a citation to `OrgMemory_POC_Guide.docx` with employee/admin/developer role coverage. Results below are separate from the repeated-prompt table:
+
+| Question | Search durations / query counts | First text | Whole turn | Native input/output tokens |
+| --- | --- | ---: | ---: | ---: |
+| Orion, explicit year | 7.519 s / 6 | 19.223 s | 20.198 s | 8,254 / 840 |
+| Travel, two Search calls | 4.845 s / 4; 2.690 s / 2 | 26.729 s | 29.942 s | 15,698 / 2,201 |
+| Word, three roles | 5.717 s / 7 | 17.733 s | 19.230 s | 11,379 / 1,497 |
+
+Every turn completed with one cited document. The Word check establishes this question's retrieval/citation/role coverage, not exhaustive factual correctness across all 138 chunks. Corpus facts and helper outputs remain local. The final test runs all three questions before reporting answer assertion failures, so a clarification in one question cannot silently prevent the later Word case from being exercised.
+
 ## Verification status
 
 - Focused core contracts, real OpenSearch mapping/filter/vector-reuse integration, V34→V35 migration/idempotency/source revocation, native API Search/Stop/accounting and actual SDK option serialization passed.
 - Native helper timeout/drain and worker file-processing startup passed after adding the worker's explicit `SearchTimings` import. Chat declares its public connector metadata/type dependency; capability boundaries remain closed.
-- Browser: 23 Chromium Chat scenarios passed, including query/filter/reading progress before citations and Stop. Web check passed 105 existing tests; the additional progress/replay test passed in the focused 25-test transport suite.
+- Browser: 23 Chromium Chat scenarios passed, including query/filter/reading progress before citations and Stop. The final `pnpm check` passed all 106 tests, generated drift, lint/types and the production build.
 - `gradlew.bat clean check --no-daemon` passed in 11m11s. The full core test JVM uses a bounded 1 GiB heap after the default 512 MiB exhausted heap during the combined architecture/persistence corpus. Later test-only additions are checked separately; latest-head CI/review belongs to the PR receipt.
-- IDE inspections included warnings for edited supported files. Large generated OpenAPI and the last large API test inspection timed out; no IDE-clean claim is made for those files. Actual compilation, generated contract checks and test execution provide their validation.
+- IDE inspections included warnings for edited supported files. The final API test inspection completed with only existing local-HTTP/custom-header weak warnings. Large generated OpenAPI inspection timed out; actual generated contract checks and compilation validate that schema, with no IDE-clean claim for it.
 
 Raw corpus, helper outputs, browser capture and timing receipts stay in ignored scratch/build reports. The opt-in corpus test requires `MEMORYOS_CHAT_CORPUS_TEST=true`, `MEMORYOS_CHAT_CORPUS_FILE` pointing to the authorized snapshot, and the existing managed `SPRING_AI_OPENAI_API_KEY`; no credential or corpus is checked in.
