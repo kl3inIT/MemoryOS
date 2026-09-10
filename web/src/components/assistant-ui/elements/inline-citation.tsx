@@ -27,15 +27,6 @@ export function InlineCitation({
           type="button"
           data-slot="inline-citation"
           aria-describedby={open ? previewId : undefined}
-          onFocus={() => onOpenChange(true)}
-          onBlur={() => onOpenChange(false)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && open) {
-              event.preventDefault();
-              event.stopPropagation();
-              onOpenChange(false);
-            }
-          }}
           onClick={(event) => {
             onOpenChange(false);
             onClick?.(event);
