@@ -82,6 +82,55 @@ async function collect(stream: ReadableStream<UIMessageChunk>) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
+  it("replays search plans once and retains them while selected documents are being read", async () => {
+    const search = {
+      queries: ["HR-2026"],
+      filters: { sources: ["FILE"], created: null, updated: null },
+    };
+    const documents = [
+      {
+        documentId: fixtureSource.documentId,
+        generation: fixtureSource.generation,
+        title: fixtureSource.title,
+        startOrdinal: fixtureSource.startOrdinal,
+        endOrdinal: fixtureSource.endOrdinal,
+      },
+    ];
+    const plan = packet(1, "search", {
+      toolCallId: "s1",
+      stage: "SEARCHING",
+      source: null,
+      search,
+      documents: [],
+    });
+    fixture(() =>
+      sse(
+        plan +
+          plan +
+          packet(2, "search", {
+            toolCallId: "s1",
+            stage: "EXPANDING",
+            source: null,
+            search: null,
+            documents,
+          }) +
+          packet(3, "outcome", { status: "CANCELED" }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    const metadata = chunks.filter((chunk) => chunk.type === "message-metadata");
+    expect(metadata).toHaveLength(3);
+    expect(metadata[1]).toMatchObject({
+      messageMetadata: {
+        sources: [],
+        searchProgress: { s1: { stage: "EXPANDING", search, documents } },
+      },
+    });
+    expect(metadata[2]).toMatchObject({
+      messageMetadata: { searchProgress: {}, serverStatus: "CANCELED" },
+    });
+  });
+
   it("captures the configuration ID before sending and forwards the accepted selection", async () => {
     const fetch = fixture(() => sse(delta + terminal()));
     const transport = new MemoryOsChatTransport(session);
@@ -107,7 +156,10 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(chunks.filter((chunk) => chunk.type === "message-metadata")).toEqual([
       {
         type: "message-metadata",
-        messageMetadata: { sources: [fixtureSource], searchProgress: { s1: "SOURCE" } },
+        messageMetadata: {
+          sources: [fixtureSource],
+          searchProgress: { s1: { stage: "SOURCE", search: null, documents: [] } },
+        },
       },
       {
         type: "message-metadata",

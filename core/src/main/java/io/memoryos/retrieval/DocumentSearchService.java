@@ -1,6 +1,9 @@
 package io.memoryos.retrieval;
 
 import io.memoryos.connector.SourceDocumentAccessResolver;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.iam.ActorId;
@@ -30,10 +33,14 @@ public class DocumentSearchService {
     private final DocumentChunkPort documents;
     private final OpenSearchIndexService search;
     private final MeterRegistry metrics;
+    private final SourceSearchService sourceSearch;
+    private final SearchTimings timings;
 
     public DocumentSearchService(TenantAccessResolver tenants, SourceDocumentAccessResolver access,
-            DocumentChunkPort documents, OpenSearchIndexService search, MeterRegistry metrics) {
+            DocumentChunkPort documents, OpenSearchIndexService search, MeterRegistry metrics, SourceSearchService sourceSearch, SearchTimings timings) {
         this.tenants = tenants; this.access = access; this.documents = documents; this.search = search; this.metrics = metrics;
+        this.sourceSearch = sourceSearch;
+        this.timings = timings;
     }
 
     public SearchPage search(ActorId actor, SearchRequest request) {
@@ -108,15 +115,35 @@ public class DocumentSearchService {
     }
 
     /** Rank authorization-filtered chunks from bounded queries; no LLM is used by Retrieval. */
-    public SearchResults ranked(ActorId actor, List<SearchQuery> queries, Runnable checkActive) {
+    public SourceSearchScope scope(ActorId actor) { return timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.scope(actor)); }
+
+    public SearchResults ranked(SourceSearchScope scope, List<SearchQuery> queries, SearchFilters filters, Runnable checkActive) {
         if (queries.isEmpty() || queries.size() > 8) throw new SearchRequestException();
-        var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        var tenant = scope.tenant();
+        if (scope.sources().isEmpty()) return new SearchResults(tenant, List.of());
+        var batches = search.batch(scope, queries, filters, checkActive);
+        checkActive.run();
+        var ids = batches.stream().flatMap(List::stream).map(SearchHit::documentId).distinct().toList();
+        var current = new HashMap<UUID, UUID>();
+        var metadata = new HashMap<UUID, List<DocumentSourceMetadata>>();
+        for (int offset = 0; offset < ids.size(); offset += 1000) {
+            checkActive.run();
+            var batch = ids.subList(offset, Math.min(offset + 1000, ids.size()));
+            current.putAll(timings.measure(SearchTimings.Stage.AUTHORIZATION, () -> documents.currentGenerations(tenant, batch, search.identity())));
+            timings.measure(SearchTimings.Stage.AUTHORIZATION, () -> sourceSearch.readableMetadata(scope, batch)).forEach((id, origins) ->
+                    metadata.put(id, origins.stream().filter(filters::matches).toList()));
+        }
         var representatives = new LinkedHashMap<String, SearchHit>();
+        long fusionStarted = System.nanoTime();
         var scores = new HashMap<String, Double>();
-        for (var query : queries) {
+        var firstRank = new HashMap<String, Integer>();
+        var firstQuery = new HashMap<String, Integer>();
+        for (int queryIndex = 0; queryIndex < queries.size(); queryIndex++) {
+            var query = queries.get(queryIndex);
             checkActive.run();
-            var hits = authorized(actor, tenant, search.search(tenant, query.text(), List.of(), null));
-            checkActive.run();
+            var hits = batches.get(queryIndex).stream().filter(h -> h.generation().equals(current.get(h.documentId()))
+                    && !metadata.getOrDefault(h.documentId(), List.of()).isEmpty())
+                    .map(h -> h.withOrigins(metadata.get(h.documentId()))).toList();
             var seen = new HashSet<String>();
             int rank = 0;
             for (var hit : hits) {
@@ -124,22 +151,36 @@ public class DocumentSearchService {
                 if (!seen.add(key)) continue;
                 representatives.putIfAbsent(key, hit);
                 scores.merge(key, query.weight() / (50 + ++rank), Double::sum);
+                firstRank.putIfAbsent(key, rank);
+                firstQuery.putIfAbsent(key, queryIndex);
             }
         }
-        var ranked = representatives.entrySet().stream().map(entry -> {
+        var ranked = representatives.entrySet().stream().sorted(Comparator
+                .<java.util.Map.Entry<String, SearchHit>>comparingDouble(e -> scores.get(e.getKey())).reversed()
+                .thenComparingInt(e -> firstRank.get(e.getKey())).thenComparingInt(e -> firstQuery.get(e.getKey())))
+                .map(entry -> {
             var hit = entry.getValue();
-            return new SearchHit(hit.documentId(), hit.generation(), hit.ordinal(), hit.title(), hit.mediaType(),
-                    hit.content(), hit.provenanceJson(), hit.updatedAt(), scores.get(entry.getKey()));
-        }).sorted(HIT_ORDER).limit(30).toList();
+            return hit.withScore(scores.get(entry.getKey()));
+        }).toList();
+        metrics.timer("memoryos.search.stage.duration", "stage", "fusion", "outcome", "success")
+                .record(System.nanoTime() - fusionStarted, TimeUnit.NANOSECONDS);
         return new SearchResults(tenant, ranked);
     }
 
     /** The result is backend-owned authority from this search, never an ID supplied by a tool argument. */
-    public SearchDocument expand(SearchResults results, SearchHit hit, int neighbors) {
-        if (!results.hits().contains(hit) || neighbors < 0 || neighbors > 5) throw new SearchRequestException();
+    public List<SearchPage.Passage> expand(SearchResults results, SearchSection section, int neighbors) {
+        if (!results.contains(section) || neighbors < 0 || neighbors > 5) throw new SearchRequestException();
+        var hit = section.anchor();
         if (!documents.isCurrent(results.tenant(), new DocumentId(hit.documentId()), hit.generation(), search.identity()))
             throw new SearchDocumentUnavailableException();
-        int start = Math.max(0, hit.ordinal() - neighbors);
-        return search.document(results.tenant(), hit.documentId(), hit.generation(), start, hit.ordinal() + neighbors - start + 1);
+        var passages = new TreeMap<Integer, SearchPage.Passage>();
+        section.passages().forEach(p -> passages.put(p.ordinal(), p));
+        if (neighbors == 0) return List.copyOf(passages.values());
+        int start = Math.max(0, section.start() - neighbors);
+        if (start < section.start()) search.document(results.tenant(), hit.documentId(), hit.generation(), start,
+                section.start() - start).passages().forEach(p -> passages.put(p.ordinal(), p));
+        if (section.end() < 9999) search.document(results.tenant(), hit.documentId(), hit.generation(), section.end() + 1, neighbors)
+                .passages().forEach(p -> passages.put(p.ordinal(), p));
+        return List.copyOf(passages.values());
     }
 }

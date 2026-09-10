@@ -5,13 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.connector.SourceDocumentAccessResolver;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.SourceType;
+import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.iam.ActorId;
@@ -32,7 +38,9 @@ class DocumentSearchServiceTest {
     private final SourceDocumentAccessResolver access = mock(SourceDocumentAccessResolver.class);
     private final DocumentChunkPort documents = mock(DocumentChunkPort.class);
     private final OpenSearchIndexService index = mock(OpenSearchIndexService.class);
-    private final DocumentSearchService service = new DocumentSearchService(tenants, access, documents, index, new SimpleMeterRegistry());
+    private final SourceSearchService sourceSearch = mock(SourceSearchService.class);
+    private final DocumentSearchService service = new DocumentSearchService(tenants, access, documents, index, new SimpleMeterRegistry(), sourceSearch,
+            new SearchTimings(new SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final UUID generation = UUID.randomUUID();
 
@@ -144,23 +152,28 @@ class DocumentSearchServiceTest {
         var hidden = UUID.randomUUID();
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         when(index.identity()).thenReturn("space");
-        when(index.search(tenant, "leave", List.of(), null)).thenReturn(List.of(
-                hit(hidden, generation, 0, 1), hit(first, generation, 3, .9), hit(first, generation, 3, .8), hit(second, generation, 1, .5)));
-        when(index.search(tenant, "HR", List.of(), null)).thenReturn(List.of(hit(second, generation, 1, 9)));
+        var source = UUID.randomUUID();
+        var scope = new SourceSearchScope(tenant, Map.of(source, SourceType.FILE));
+        var origin = new DocumentSourceMetadata(source, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
+        when(index.batch(any(), any(), any(), any())).thenReturn(List.of(List.of(
+                hit(hidden, generation, 0, 1), hit(first, generation, 3, .9), hit(first, generation, 3, .8), hit(second, generation, 1, .5)),
+                List.of(hit(second, generation, 1, 9))));
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation, hidden, generation));
-        when(access.readableDocuments(any(), any())).thenReturn(Set.of(first, second));
-        var result = service.ranked(actor, List.of(new SearchQuery("leave", false, .7), new SearchQuery("HR", true, 1)), () -> {});
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(first, List.of(origin), second, List.of(origin)));
+        var result = service.ranked(scope, List.of(new SearchQuery("leave", false, .7), new SearchQuery("HR", true, 1)), SearchFilters.NONE, () -> {});
         assertEquals(List.of(second, first), result.hits().stream().map(SearchHit::documentId).toList());
         assertEquals(.7 / 52 + 1.0 / 51, result.hits().getFirst().score(), .000001);
         org.mockito.Mockito.clearInvocations(access);
-        var hit = result.hits().getFirst();
         when(documents.isCurrent(tenant, new DocumentId(second), generation, "space")).thenReturn(true);
-        when(index.document(tenant, second, generation, 0, 4)).thenReturn(new SearchDocument(second, generation, "Title",
-                List.of(new SearchPage.Passage(1, "Passage 1", "[]")), 0, 4, false));
-        assertEquals(second, service.expand(result, hit, 2).documentId());
+        when(index.document(tenant, second, generation, 0, 1)).thenReturn(new SearchDocument(second, generation, "Title",
+                List.of(new SearchPage.Passage(0, "Passage 0", "[]")), 0, 4, true));
+        when(index.document(tenant, second, generation, 2, 2)).thenReturn(new SearchDocument(second, generation, "Title",
+                List.of(new SearchPage.Passage(2, "Passage 2", "[]")), 2, 3, false));
+        assertEquals(List.of(0, 1, 2), service.expand(result, result.sections().getFirst(), 2).stream().map(SearchPage.Passage::ordinal).toList());
         verifyNoInteractions(access);
-        assertThrows(SearchRequestException.class, () -> service.expand(result, hit(hidden, generation, 0, 1), 2));
-        assertThrows(SearchRequestException.class, () -> service.expand(result, hit, 6));
+        var foreign = hit(hidden, generation, 0, 1);
+        assertThrows(SearchRequestException.class, () -> service.expand(result, new SearchSection(foreign, List.of(foreign)), 2));
+        assertThrows(SearchRequestException.class, () -> service.expand(result, result.sections().getFirst(), 6));
         verify(documents, never()).read(any(), any(), any());
     }
 
@@ -179,6 +192,55 @@ class DocumentSearchServiceTest {
         assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, id, generation, 20));
         verify(index).document(tenant, id, generation, 20, 20);
         verify(documents, never()).read(any(), any(), any());
+    }
+
+    @Test
+    void authorizesTheUnionInBoundedBatchesAndMergesPastThirtyChunksBeforeSelection() {
+        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), Map.of(UUID.randomUUID(), SourceType.FILE));
+        var origin = new DocumentSourceMetadata(scope.sources().keySet().iterator().next(), UUID.randomUUID(),
+                SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
+        var document = UUID.randomUUID();
+        var hits = new java.util.ArrayList<>(java.util.stream.IntStream.range(0, 40)
+                .mapToObj(i -> hit(document, generation, i, 1)).toList());
+        java.util.stream.IntStream.range(0, 1001).forEach(_ -> hits.add(hit(UUID.randomUUID(), generation, 0, .5)));
+        when(index.identity()).thenReturn("space");
+        when(index.batch(any(), any(), any(), any())).thenReturn(List.of(hits, hits));
+        var batches = new java.util.ArrayList<List<UUID>>();
+        when(documents.currentGenerations(any(), any(), any())).thenAnswer(call -> {
+            List<UUID> ids = call.getArgument(1); batches.add(List.copyOf(ids));
+            assertTrue(ids.size() <= 1000);
+            return ids.stream().collect(java.util.stream.Collectors.toMap(id -> id, _ -> generation));
+        });
+        when(sourceSearch.readableMetadata(any(), any())).thenAnswer(call -> call.<List<UUID>>getArgument(1)
+                .stream().collect(java.util.stream.Collectors.toMap(id -> id, _ -> List.of(origin))));
+        var result = service.ranked(scope, List.of(new SearchQuery("leave", false, 1), new SearchQuery("HR", true, 1)), SearchFilters.NONE, () -> {});
+        assertEquals(List.of(1000, 2), batches.stream().map(List::size).toList());
+        verify(sourceSearch, times(2)).readableMetadata(any(), any());
+        assertEquals(1041, result.hits().size());
+        assertEquals(40, result.sections().getFirst().chunks().size());
+        assertEquals(39, result.sections().getFirst().end());
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(result, result.sections().getFirst(), 2));
+        verify(index, never()).document(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void equalFusionScoresUseFirstSourceRankThenFirstQueryInsteadOfDocumentId() {
+        UUID first = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"), second = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        var source = UUID.randomUUID();
+        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), Map.of(source, SourceType.FILE));
+        var origin = new DocumentSourceMetadata(source, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
+        when(index.identity()).thenReturn("space");
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation));
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(first, List.of(origin), second, List.of(origin)));
+        var a = hit(first, generation, 0, 1); var b = hit(second, generation, 0, 1);
+        when(index.batch(any(), any(), any(), any())).thenReturn(List.of(List.of(a, b), List.of(b, a)))
+                .thenReturn(List.of(List.of(a), List.of(b)));
+        var queries = List.of(new SearchQuery("A", false, 1), new SearchQuery("B", true, 1));
+        for (int i = 0; i < 2; i++) {
+            var hits = service.ranked(scope, queries, SearchFilters.NONE, () -> {}).hits();
+            assertEquals(hits.get(0).score(), hits.get(1).score());
+            assertEquals(List.of(first, second), hits.stream().map(SearchHit::documentId).toList());
+        }
     }
 
     @Test

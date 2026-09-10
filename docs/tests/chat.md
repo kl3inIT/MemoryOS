@@ -67,13 +67,33 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
 
 
+## Onyx Search parity and latency (Phase 3.3)
+
+| Contract | Verification |
+| --- | --- |
+| Duplicate contributions sum, k=50, deterministic rank/query tie breaks, grouping before candidate bounds | `DocumentSearchServiceTest`, `SearchToolTest` |
+| First-call rewrite, later same-source query omission, expansion reuse on a new source type, per-turn state | `SearchToolTest` |
+| Three-chunk representatives, full section boundaries, neighbor classification, overlap merge and bounded context | `SearchToolTest` |
+| Minimum supported helper reasoning after native conversion; answer options unchanged | `OpenAiChatProviderAdapterTest`, including actual SDK HTTP request serialization |
+| Helper deadline covers native attempts; cooperative cancellation drains native work before terminal usage persistence | `SearchTasksTest`; `ChatSessionApiIntegrationTest.stopInterruptsNativeTypedHelperWorkAndDrainsItBeforePersistingTheOutcome` |
+| Provider ignores interrupts: bounded Stop, no late evidence/retry/accounting write, client and capacity retained until actual completion | `SearchTasksTest`; `SearchToolTest.closeBoundsUncooperativeRetrievalAndRejectsItsLateEvidence`; `ChatTurnServiceTest.terminalOutcomeRetainsClientAndCapacityUntilActualWorkDrains`; native API `stopPersistsWithinCleanupBoundWhenNativeProviderIgnoresInterrupts` |
+| Long reading titles preserve full citations; malformed optional metadata leaves authorized documents in mixed batches | `SearchToolTest.longTitleIsBoundedOnlyInReadingProgressAndPreservesFullCitationTitle`; `SourceSearchMetadataMigrationTest` |
+| Concurrent native admission includes in-flight token/cost reservations; ledger retains sole usage ownership | `ChatModelGuardTest` |
+| Upload dates differ from operational dates, V34→V35/idempotency, multi-mapping metadata pairing and fresh authorization/revocation | `SourceSearchMetadataMigrationTest` |
+| Nested source/date filters on both hybrid branches, legacy metadata readiness repair and unchanged-vector reuse | `OpenSearchRetrievalIntegrationTest` |
+| One alias/config prefetch and unique embedding batch; bounded parallel hybrid IO; fresh generation/authorization batches up to 1,000 IDs | `OpenSearchRetrievalIntegrationTest`, `DocumentSearchServiceTest` |
+| Query/filter and reading-document progress precede evidence; duplicate replay retains state; Stop clears progress | `chat-transport.test.ts`; 23 Chromium Chat scenarios including the new progress case |
+| Actual worker starts and processes files with retrieval observations wired | `WorkerFileProcessingIntegrationTest` |
+
+The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse` uses an authorized local snapshot, real OpenSearch, live embeddings/provider, PostgreSQL transcript and HTTP SSE. It records each Search cycle, first text, total duration and nullable native usage, and checks revenue/travel facts plus the long Word document's cited role coverage. Model-selected tool counts are observations, not fixed assertions. The snapshot is the authority fixture; real SQL permissions and multi-source/date behavior are covered separately above. See [measured results and limits](../increments/active/mem-11-production-chat/latency-verification.md). No corpus or answer receipts are checked in.
+
 ## Grounded backend (Phase 3.1)
 
 | Contract | Verification |
 | --- | --- |
 | Native named tool binding, argument bounds, invalid selection fallback, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
 | Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; context classification sees real neighbors and can reject a misleading subject | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `classificationReadsNeighborsBeforeRejectingTheWrongSubject` |
-| FULL_DOCUMENT reads at most five neighbors per side; Stop during rewriting prevents the next helper and retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewritePreventsKeywordInferenceAndRetrieval` |
+| FULL_DOCUMENT reads at most five neighbors per side; Stop during concurrent rewriting cancels sibling work and prevents retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewritePreventsKeywordInferenceAndRetrieval` |
 | Same native process records typed selection and streaming usage once; denied content never reaches either model prompt | `ChatSessionApiIntegrationTest.nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce` |
 | Stop interrupts a blocking retrieval on a virtual thread and prevents later queries/tools/inference while retaining partial text | `ChatSessionApiIntegrationTest.stopInterruptsBlockingRetrievalOnVirtualThreadAndPreventsFurtherToolsAndInference` |
 | Tool content is included in context limits; native typed usage is not double counted; unknown usage stays unknown and native budget stops inference | `ChatModelGuardTest` |

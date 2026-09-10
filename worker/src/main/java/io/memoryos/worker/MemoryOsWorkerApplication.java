@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.retrieval.opensearch",
         "io.memoryos.iam.persistence"
 })
+@org.springframework.context.annotation.Import(io.memoryos.retrieval.SearchTimings.class)
 public class MemoryOsWorkerApplication {
 
     public static void main(String[] args) {

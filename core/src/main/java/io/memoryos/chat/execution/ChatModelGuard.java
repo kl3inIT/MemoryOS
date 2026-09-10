@@ -45,6 +45,9 @@ public final class ChatModelGuard implements ChatModel {
     private @Nullable Scheduler scheduler;
     private BooleanSupplier hasEvidence = () -> false;
     private int synchronousLimit;
+    private int outputLimit;
+    private long admittedTokens;
+    private double admittedCost;
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
             int cycles, Runnable checkActive, UnaryOperator<Prompt> finalRequest) {
@@ -84,14 +87,17 @@ public final class ChatModelGuard implements ChatModel {
         this.synchronousLimit = value;
     }
 
+    public void outputLimit(int value) { this.outputLimit = value; }
+
     @Override
     public ChatResponse call(Prompt prompt) {
         // Native typed output records its own usage. Track completeness without recording it twice.
+        io.memoryos.retrieval.SearchTasks.checkNativeActive();
         checkActive();
-        validateContext(prompt);
-        int previous = synchronousCalls.getAndUpdate(count -> count < synchronousLimit ? count + 1 : count);
-        if (previous >= synchronousLimit) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
+        int input = validateContext(prompt);
+        var reservation = admitHelper(input);
         var response = delegate.call(prompt);
+        settle(reservation, response);
         if (response.getMetadata().getUsage().getTotalTokens() > 0) synchronousAccounted.incrementAndGet();
         // Return to the native caller first so usage is recorded even if cancellation arrived during IO.
         return response;
@@ -101,18 +107,18 @@ public final class ChatModelGuard implements ChatModel {
     public Flux<ChatResponse> stream(Prompt original) {
         return Flux.defer(() -> {
             checkActive();
-            int previous = calls.getAndUpdate(count -> count < cycles ? count + 1 : count);
-            if (previous >= cycles) return Flux.error(new IllegalStateException("CHAT_CYCLE_LIMIT"));
-            int cycle = previous + 1;
-            var guided = ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), cycle == cycles);
-            var request = cycle == cycles ? finalRequest.apply(guided) : guided;
-            lastStreamInput = validateContext(request);
+            var admission = admitStream(original);
+            int cycle = admission.cycle();
+            var request = admission.request();
+            var reservation = admission.reservation();
             var finished = new AtomicBoolean();
             var usageResponse = new AtomicReference<@Nullable ChatResponse>();
             var recorded = new AtomicBoolean();
+            var settled = new AtomicBoolean();
             Instant started = Instant.now();
             Runnable record = () -> {
                 var response = usageResponse.get();
+                if (response != null && settled.compareAndSet(false, true)) settle(reservation, response);
                 if (response != null && recorded.compareAndSet(false, true)) {
                     var usage = response.getMetadata().getUsage();
                     process.recordLlmInvocation(new LlmInvocation(model,
@@ -165,5 +171,50 @@ public final class ChatModelGuard implements ChatModel {
         }
         if (count > inputLimit) throw new IllegalStateException("CHAT_CONTEXT_LIMIT");
         return count;
+    }
+
+    /** Reserve before IO so concurrent helpers cannot all spend the same remaining budget.
+     * These are admission bounds only. Embabel remains the sole invocation/usage/cost ledger. */
+    private synchronized Reservation reserve(int input) {
+        long tokens = (long) input + outputLimit;
+        var pricing = model.getPricingModel();
+        double cost = pricing == null ? 0 : pricing.costOf(input, outputLimit);
+        if (admittedTokens + tokens > budget.getTokens() || admittedCost + cost > budget.getCost())
+            throw new IllegalStateException("CHAT_BUDGET_EXCEEDED");
+        admittedTokens += tokens;
+        admittedCost += cost;
+        return new Reservation(tokens, cost);
+    }
+
+    private synchronized void settle(Reservation reservation, ChatResponse response) {
+        var usage = response.getMetadata().getUsage();
+        // Unknown/failed requests retain their allowance: never turn unreported usage into free budget.
+        if (usage.getTotalTokens() <= 0) return;
+        admittedTokens += usage.getTotalTokens() - reservation.tokens();
+        var pricing = model.getPricingModel();
+        if (pricing != null) admittedCost += pricing.costOf(usage.getPromptTokens(), usage.getCompletionTokens()) - reservation.cost();
+    }
+
+    private record Reservation(long tokens, double cost) {}
+
+    private record StreamAdmission(int cycle, Prompt request, Reservation reservation) {}
+
+    private synchronized StreamAdmission admitStream(Prompt original) {
+        int cycle = calls.get() + 1;
+        if (cycle > cycles) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
+        var guided = ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), cycle == cycles);
+        var request = cycle == cycles ? finalRequest.apply(guided) : guided;
+        int input = validateContext(request);
+        var reservation = reserve(input);
+        lastStreamInput = input;
+        calls.incrementAndGet();
+        return new StreamAdmission(cycle, request, reservation);
+    }
+
+    private synchronized Reservation admitHelper(int input) {
+        if (synchronousCalls.get() >= synchronousLimit) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
+        var reservation = reserve(input);
+        synchronousCalls.incrementAndGet();
+        return reservation;
     }
 }

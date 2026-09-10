@@ -9,4 +9,9 @@ public final class SearchUnavailableException extends BusinessException {
         super("SEARCH_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
                 "Search is temporarily unavailable.", "Search dependency unavailable");
     }
+
+    public SearchUnavailableException(Throwable cause) {
+        super("SEARCH_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "Search is temporarily unavailable.", "Search dependency unavailable", cause);
+    }
 }

@@ -756,12 +756,38 @@ export type ResetEvent = {
     reason: 'BUFFER_MISSING' | 'BUFFER_GAP' | 'BUFFER_EXPIRED';
 };
 
+export type Interval = {
+    from?: string;
+    to?: string;
+};
+
+export type QueryPlan = {
+    queries?: Array<string>;
+    filters?: SearchFilters;
+};
+
+export type ReadingDocument = {
+    documentId?: string;
+    generation?: string;
+    title?: string;
+    startOrdinal?: number;
+    endOrdinal?: number;
+};
+
 export type SearchEvent = {
     assistantMessageId: string;
     sequence: number;
     toolCallId: string;
-    stage: 'STARTED' | 'SELECTING' | 'EXPANDING' | 'SOURCE' | 'COMPLETED' | 'FAILED';
+    stage: 'STARTED' | 'SEARCHING' | 'SELECTING' | 'EXPANDING' | 'SOURCE' | 'COMPLETED' | 'FAILED';
     source: ChatSource | null;
+    search: QueryPlan | null;
+    documents: Array<ReadingDocument>;
+};
+
+export type SearchFilters = {
+    sources?: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    created?: Interval;
+    updated?: Interval;
 };
 
 export type Descriptor = {

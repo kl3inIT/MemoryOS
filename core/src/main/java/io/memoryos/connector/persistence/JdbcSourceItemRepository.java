@@ -60,9 +60,9 @@ public class JdbcSourceItemRepository {
         UUID versionId = UUID.randomUUID();
         jdbcClient.sql("""
                         INSERT INTO connector_items (
-                            id, tenant_id, connector_id, content_sha256, status
+                            id, tenant_id, connector_id, content_sha256, status, source_created_at, source_updated_at
                         ) VALUES (
-                            :id, :tenantId, :connectorId, :sha256, 'PENDING'
+                            :id, :tenantId, :connectorId, :sha256, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                         )
                         """)
                 .param("id", itemId.value())

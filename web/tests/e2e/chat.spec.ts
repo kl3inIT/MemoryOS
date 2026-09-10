@@ -12,6 +12,35 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: identity }));
 });
 
+test("shows effective search queries, open time bounds and selected documents before citations", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", {
+      data: { mode: "grounded-progress", title: "Search progress" },
+    })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  await page
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Find the latest annual leave policy");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Reading document context…" }),
+  ).toBeVisible();
+  await page.getByText("Search details", { exact: true }).click();
+  await expect(page.getByText("annual leave policy", { exact: true })).toBeVisible();
+  await expect(page.getByText("HR-2026", { exact: true })).toBeVisible();
+  await expect(page.getByText("Sources: Uploaded files", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Updated:.*UTC.*Unbounded/)).toBeVisible();
+  await expect(page.getByText("Reading documents", { exact: true })).toBeVisible();
+  await expect(page.getByText(fixtureSource.title, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /1 source/i })).toHaveCount(0);
+  await page.screenshot({ path: "../.tmp/onyx-parity-search-progress.png", fullPage: true });
+  await page.getByRole("button", { name: "Stop reply" }).click();
+  await expect(page.getByText("Reading documents", { exact: true })).toHaveCount(0);
+});
+
 test("keeps the new conversation mounted through server ID promotion and resets only when switching", async ({
   page,
 }) => {

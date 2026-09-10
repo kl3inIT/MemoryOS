@@ -186,6 +186,37 @@ export async function handleChatFixture(
     );
     const grounded = state.mode.startsWith("grounded");
     if (grounded) emit(run, "search", { toolCallId: "search-1", stage: "STARTED", source: null });
+    if (state.mode === "grounded-progress") {
+      emit(run, "search", {
+        toolCallId: "search-1",
+        stage: "SEARCHING",
+        source: null,
+        documents: [],
+        search: {
+          queries: ["annual leave policy", "HR-2026"],
+          filters: {
+            sources: ["FILE"],
+            created: null,
+            updated: { from: "2026-09-01T00:00:00Z", to: null },
+          },
+        },
+      });
+      emit(run, "search", {
+        toolCallId: "search-1",
+        stage: "EXPANDING",
+        source: null,
+        search: null,
+        documents: [
+          {
+            documentId: fixtureSource.documentId,
+            generation: fixtureSource.generation,
+            title: fixtureSource.title,
+            startOrdinal: fixtureSource.startOrdinal,
+            endOrdinal: fixtureSource.endOrdinal,
+          },
+        ],
+      });
+    }
     run.timer = setTimeout(
       () => {
         const content =
@@ -231,7 +262,13 @@ export async function handleChatFixture(
           state.mode === "slow" || state.mode === "grounded-slow" ? 20_000 : 1000,
         );
       },
-      state.mode === "waiting" || state.mode === "grounded-waiting" ? 20_000 : grounded ? 750 : 250,
+      state.mode === "waiting" ||
+        state.mode === "grounded-waiting" ||
+        state.mode === "grounded-progress"
+        ? 20_000
+        : grounded
+          ? 750
+          : 250,
     );
     return true;
   }

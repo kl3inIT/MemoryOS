@@ -31,6 +31,7 @@ docling-client = { module = "ai.docling:docling-serve-client", version.ref = "do
 otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.31.1-alpha" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 micrometer-core = { module = "io.micrometer:micrometer-core" }
+micrometer-context = { module = "io.micrometer:context-propagation" }
 micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
 otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.31.1-alpha" }
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
