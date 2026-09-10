@@ -7,8 +7,14 @@ import {
   sendChatMessage,
   streamChatMessage,
 } from "@/lib/hey-api/sdk.gen";
-import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
+import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "./chat-api";
+import {
+  searchEventSchema,
+  sourcesSchema,
+  type ChatSource,
+  type SearchProgress,
+} from "./chat-evidence";
 
 const eventSchema = z.object({
   assistantMessageId: z.string().uuid(),
@@ -26,6 +32,18 @@ type Callbacks = {
 
 /** Adapts the Java wire contract. AI SDK owns message content and tool state. */
 export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
+  private modelConfigurationId?: string;
+  private onModelAccepted?: (selection: Accepted) => void;
+
+  selectModel(id?: string) {
+    this.modelConfigurationId = id;
+  }
+  listenModelSelection(listener: (selection: Accepted) => void) {
+    this.onModelAccepted = listener;
+    return () => {
+      this.onModelAccepted = undefined;
+    };
+  }
   private reader?: AbortController;
   private runId?: string;
   private runParentId?: string;
@@ -65,6 +83,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   }
 
   async sendMessages(options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0]) {
+    // Capture selection before any await; later UI changes affect the next turn.
+    const modelConfigurationId = this.modelConfigurationId;
     if (options.trigger !== "submit-message") throw new Error("Editing is not available yet");
     const message = options.messages.at(-1);
     const text =
@@ -86,12 +106,14 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           parentMessageId: options.messages.at(-2)?.id ?? this.session.rootMessageId,
           clientRequestId: message.id,
           text,
+          modelConfigurationId,
         },
         headers: sameOriginMutationHeaders,
         signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
         throwOnError: true,
       });
       this.runId = data.assistantMessageId;
+      this.onModelAccepted?.(data);
       this.runParentId = data.userMessageId;
       if (this.stopWhenAccepted) {
         // Stop can be pressed before the reservation response supplies its run ID.
@@ -169,6 +191,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     const runId = this.runId!;
     let sequence = 0;
     let text = "";
+    let sources: ChatSource[] = [];
+    let searchProgress: SearchProgress = {};
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
     yield { type: "start", messageId: runId, messageMetadata: { serverStatus: "RUNNING" } };
@@ -223,7 +247,22 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             } else if (envelope.event === "outcome") {
               outcome = outcomeSchema.parse(data).status;
               break;
-            } else throw new Error("Unexpected reply event type");
+            } else if (envelope.event === "search") {
+              const search = searchEventSchema.parse(data);
+              searchProgress = Object.fromEntries(
+                Object.entries({ ...searchProgress, [search.toolCallId]: search.stage }).slice(-16),
+              );
+              if (search.stage === "SOURCE") {
+                if (!search.source) throw new Error("Missing reply source");
+                sources = sourcesSchema.parse([
+                  ...sources.filter((source) => source.citationId !== search.source!.citationId),
+                  search.source,
+                ]);
+              }
+              yield { type: "message-metadata", messageMetadata: { sources, searchProgress } };
+            } else {
+              throw new Error("Unexpected reply event type");
+            }
           }
           if (failure instanceof ApiError && [401, 403, 404].includes(failure.status ?? 0))
             throw failure;
@@ -255,12 +294,16 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             const delta = message.content.slice(text.length);
             if (delta) yield { type: "text-delta", id: runId, delta };
             outcome = message.status;
+            sources = sourcesSchema.parse(message.sources);
           } else await pause(2000, signal);
         }
         if (!outcome)
           throw new Error("Reply status could not be confirmed; check the conversation again");
       }
-      yield { type: "message-metadata", messageMetadata: { serverStatus: outcome } };
+      yield {
+        type: "message-metadata",
+        messageMetadata: { serverStatus: outcome, sources, searchProgress: {} },
+      };
       yield { type: "text-end", id: runId };
       this.runId = undefined;
       this.callbacks.state("ready");

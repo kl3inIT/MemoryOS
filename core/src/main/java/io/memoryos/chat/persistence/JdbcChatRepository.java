@@ -5,6 +5,8 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatMessage.Role;
 import io.memoryos.chat.ChatMessage.Status;
 import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.ChatSource;
+import tools.jackson.databind.ObjectMapper;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantId;
 
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcChatRepository {
     private final JdbcClient jdbc;
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     public JdbcChatRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
@@ -209,6 +212,12 @@ public class JdbcChatRepository {
 
     public boolean finish(UUID session, UUID assistant, Status status, String content,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output, @Nullable Double cost) {
+        return finish(session, assistant, status, content, failure, model, input, output, cost, List.of());
+    }
+
+    public boolean finish(UUID session, UUID assistant, Status status, String content,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources) {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
                 .query(UUID.class).optional().isEmpty()) return false;
@@ -217,12 +226,13 @@ public class JdbcChatRepository {
                             status = CASE WHEN deadline_at <= clock_timestamp() THEN 'FAILED' ELSE :status END,
                             failure_code = CASE WHEN deadline_at <= clock_timestamp() THEN 'CHAT_DEADLINE' ELSE :failure END,
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
-                            cost_usd = :cost, finished_at = clock_timestamp()
+                            cost_usd = :cost, sources = CAST(:sources AS jsonb), finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
                         """).param("session", session).param("id", assistant).param("status", status.name())
                 .param("content", content).param("failure", failure, Types.VARCHAR)
                 .param("model", model, Types.VARCHAR).param("input", input, Types.BIGINT)
-                .param("output", output, Types.BIGINT).param("cost", cost, Types.DOUBLE).update();
+                .param("output", output, Types.BIGINT).param("cost", cost, Types.DOUBLE)
+                .param("sources", JSON.writeValueAsString(sources)).update();
         if (changed == 1) touch(session);
         return changed == 1;
     }
@@ -250,6 +260,7 @@ public class JdbcChatRepository {
         return new ChatMessage(row.getObject("id", UUID.class), row.getObject("session_id", UUID.class),
                 row.getObject("parent_message_id", UUID.class), row.getObject("latest_child_message_id", UUID.class),
                 Role.valueOf(row.getString("role")), row.getString("content"), Status.valueOf(row.getString("status")),
-                row.getTimestamp("created_at").toInstant(), finished == null ? null : finished.toInstant());
+                row.getTimestamp("created_at").toInstant(), finished == null ? null : finished.toInstant(),
+                List.of(JSON.readValue(row.getString("sources"), ChatSource[].class)));
     }
 }

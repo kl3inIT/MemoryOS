@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 
 class ChatTurnSetupTest {
     private static ChatModelBinding binding() {
-        return new ChatModelBinding(new SpringAiLlmService(
-                "binding-model", "fixture", mock(ChatModel.class)), p -> p);
+        var binding = new ChatModelBinding(new SpringAiLlmService("binding-model", "fixture", mock(ChatModel.class)), p -> p);
+        return new ChatModelBinding(binding.service(), binding.finalRequest(), binding.tokens(), binding.contextWindow(), binding.maxOutputTokens(), false);
     }
     @Test
     void contextLimitKeepsNewestQuestionAndDropsOrphanAssistant() {

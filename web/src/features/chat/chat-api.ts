@@ -1,9 +1,15 @@
 import type { UIMessage } from "ai";
+import { sourcesSchema, type ChatSource, type SearchProgress } from "./chat-evidence";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 
-export type ChatUiMessage = UIMessage<{ serverStatus?: ChatMessage["status"]; createdAt?: string }>;
+export type ChatUiMessage = UIMessage<{
+  serverStatus?: ChatMessage["status"];
+  createdAt?: string;
+  sources?: ChatSource[];
+  searchProgress?: SearchProgress;
+}>;
 export type ChatHistory = { session: ChatSession; messages: ChatMessage[] };
 export const chatSessionsKey = ["chat-sessions"] as const;
 
@@ -51,6 +57,10 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
     id: message.id,
     role: message.role === "USER" ? "user" : "assistant",
     parts: [{ type: "text", text: message.content }],
-    metadata: { serverStatus: message.status, createdAt: message.createdAt },
+    metadata: {
+      serverStatus: message.status,
+      createdAt: message.createdAt,
+      sources: sourcesSchema.parse(message.sources),
+    },
   }));
 }

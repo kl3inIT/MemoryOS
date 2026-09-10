@@ -7,6 +7,9 @@
 | Stream 401/403/404 fail closed; reject foreign-run events and nonadvancing history cursor | `chat-transport.test.ts` |
 | Native composer Enter/Shift+Enter/IME, markdown/code/copy, multiple turns and reload | `web/tests/e2e/chat.spec.ts`; real browser and incremental HTTP fixture, native runtime and generated clients |
 | Reload RUNNING, Stop/partial, reconnect, missing buffer, provider failure, mobile drawer, reader cleanup and denied stream | `chat.spec.ts`; fixture owns execution/identity, so these tests do not certify real provider or Keycloak |
+| Base welcome/composer layout, searchable authorized model picker, keyboard/mobile focus, chosen ID across reload, empty/error/fallback catalog | `chat.spec.ts`; generated catalog/send clients with HTTP fixtures |
+| Validated sources/progress through native SDK metadata, stream split/gap/Stop/failure/history, fixed per-send model ID | `chat-transport.test.ts`; no second inference or parallel message store |
+| Citation hover/focus/Escape, prose-only links, multi-source right panel, reader/back/close, mobile drawer bounds/focus and unavailable source retaining answer | `chat.spec.ts`; actual browser with synthetic document API; Search preview regression in `search.spec.ts` |
 | Real OIDC MEMBER login, live model send/save/reload, RUNNING reload/Stop with partial, cross-Actor denial | [Phase 2.4 verification](../increments/active/mem-11-production-chat/verification.md#phase-24--2026-09-09); isolated PostgreSQL, normal API configuration and managed dev services; temporary realm users removed |
 | Private session/root, default Persona identity, owner/Tenant filtering and inactive membership | `ChatPersistenceIntegrationTest.createsPrivateSessionWithOneRootAndSharedDefaultPersona` against production Flyway migrations/PostgreSQL |
 | Same-command identity, conflict for changed command, pagination, retained partial outcome | `reservesPairOnceAndPreservesHistoryCursorAndPartialOutcome` |
@@ -58,3 +61,21 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 | Explicit validation hides provider exceptions and handles trailing usage frames | `defaultsCannotBeHiddenDeletedOrRevokedAndValidationDoesNotExposeProviderErrors` |
 
 Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
+
+
+## Grounded backend (Phase 3.1)
+
+| Contract | Verification |
+| --- | --- |
+| Native named tool binding, argument bounds, invalid selection fallback, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
+| Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; context classification sees real neighbors and can reject a misleading subject | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `classificationReadsNeighborsBeforeRejectingTheWrongSubject` |
+| FULL_DOCUMENT reads at most five neighbors per side; Stop during rewriting prevents the next helper and retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewritePreventsKeywordInferenceAndRetrieval` |
+| Same native process records typed selection and streaming usage once; denied content never reaches either model prompt | `ChatSessionApiIntegrationTest.nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce` |
+| Stop interrupts a blocking retrieval on a virtual thread and prevents later queries/tools/inference while retaining partial text | `ChatSessionApiIntegrationTest.stopInterruptsBlockingRetrievalOnVirtualThreadAndPreventsFurtherToolsAndInference` |
+| Tool content is included in context limits; native typed usage is not double counted; unknown usage stays unknown and native budget stops inference | `ChatModelGuardTest` |
+| Citation reminders follow actual evidence; final-cycle request explains tools are unavailable; transcript remains unchanged | `ChatModelGuardTest.citationReminderTracksAvailableEvidenceWithoutMutatingConversationMessages`; `lengthIsTerminalAndKnownUsageIsRecordedOnceWithToolsOff` |
+| Sources commit with the terminal winner and survive historical source absence; other conversation owners are denied | `ChatPersistenceIntegrationTest.sourcesCommitWithTheTerminalWinnerAndRemainHistoricalEvidence` |
+| Sources share replay order with text/outcome, preserve tool/message identity, and release readers | `ChatEventStreamTest.searchEvidenceReplaysBeforeTextAndTerminalWithStableWireIdentity` |
+| Native observation start/error/stop handlers cannot see payload/result/error text but retain tool identity | `ChatObservationSanitizerTest` |
+
+Opt-in `MEMORYOS_CHAT_GROUNDING_LIVE_TEST=true` runs `ChatSessionApiIntegrationTest.realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection` with an actual provider and a controlled synthetic retrieval corpus through the native runtime and real transcript database. It checks a fact found in neighbors rather than the matching chunk, the wrong subject, follow-up reference resolution, missing evidence, citation IDs and document prompt injection. Synthetic answer receipts are written only by this opt-in test under ignored `api/build/reports/chat-grounding/` for manual inspection; global stdout/stderr capture stays disabled. Its pass/fail receipt belongs in the increment verification; it is not a retrieval relevance benchmark or browser acceptance. Real OpenSearch is verified separately in Retrieval. Browser citations/reload now have fixture coverage in Phase 3.2. Broader real-corpus quality and integrated provider/index/browser acceptance remain outstanding.

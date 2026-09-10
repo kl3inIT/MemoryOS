@@ -17,6 +17,8 @@ import java.util.concurrent.Semaphore;
 import java.util.UUID;
 import java.util.Set;
 import java.util.Arrays;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -32,7 +34,7 @@ import reactor.core.publisher.Sinks;
 public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
     private static final Set<String> FAILURE_CODES = Set.of("CHAT_OUTPUT_LIMIT", "CHAT_CYCLE_LIMIT", "CHAT_BUDGET_EXCEEDED",
-            "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS", "CHAT_DEADLINE", "CHAT_EMPTY_RESPONSE");
+            "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS", "CHAT_DEADLINE", "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelResolver models;
@@ -148,7 +150,10 @@ public final class ChatTurnService implements AutoCloseable {
                     text -> {
                         run.append(text, limits.maxAnswerCharacters());
                         streams.append(run.setup.assistantMessageId(), text);
-                    }, accounting -> run.accounting = accounting);
+                    }, accounting -> run.accounting = accounting, event -> {
+                        run.searchEvent(event);
+                        streams.search(run.setup.assistantMessageId(), event);
+                    });
             run.check();
             if (run.content.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
             run.finish(ChatMessage.Status.COMPLETED, null);
@@ -188,7 +193,7 @@ public final class ChatTurnService implements AutoCloseable {
                 if (outcome == null) return;
                 var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                         outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                        run.accounting.output(), run.accounting.cost());
+                        run.accounting.output(), run.accounting.cost(), outcome.sources());
                 streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
                 if (active.remove(run.setup.assistantMessageId(), run)) permits.release();
             } catch (RuntimeException failure) { LOG.warn("Chat terminal persistence pending for run {}", run.setup.assistantMessageId()); }
@@ -219,12 +224,13 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     private enum StopReason { USER, INTERRUPTED }
-    private record Outcome(ChatMessage.Status status, String content, String failure) {}
+    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources) {}
 
     private static final class Active {
         final ChatTurnSetup setup;
         final ChatModelResolver.Resolved resolved;
         final StringBuilder content = new StringBuilder();
+        final List<ChatSource> sources = new ArrayList<>();
         final AtomicReference<StopReason> stopReason = new AtomicReference<>();
         final Sinks.One<Boolean> cancellation = Sinks.one();
         final CompletableFuture<Void> finished = new CompletableFuture<>();
@@ -243,12 +249,20 @@ public final class ChatTurnService implements AutoCloseable {
             if (content.length() + text.length() > limit) throw new IllegalStateException("CHAT_OUTPUT_LIMIT");
             content.append(text);
         }
+        synchronized void searchEvent(ChatSearchEvent event) {
+            check();
+            if (event.source() != null) {
+                if (sources.size() >= 24 || event.source().citationId() != sources.size() + 1)
+                    throw new IllegalStateException("Invalid Chat evidence sequence");
+                sources.add(event.source());
+            }
+        }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
-                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null);
+                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources));
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), Instant.now().isBefore(setup.deadline()) ? "CHAT_INTERRUPTED" : "CHAT_DEADLINE");
-                else outcome = new Outcome(status, content.toString(), failure);
+                        content.toString(), Instant.now().isBefore(setup.deadline()) ? "CHAT_INTERRUPTED" : "CHAT_DEADLINE", List.copyOf(sources));
+                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources));
             }
         }
         void check() {

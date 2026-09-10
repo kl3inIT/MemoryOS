@@ -34,7 +34,8 @@
       [data-slot="sidebar-tab"],
       [data-slot="menu-item"],
       [data-slot="input"],
-      [data-slot="select"]
+      [data-slot="select"],
+      [data-slot="sources"]
     ) {
       min-height: 2.75rem;
     }

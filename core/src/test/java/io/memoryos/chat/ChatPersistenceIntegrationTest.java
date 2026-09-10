@@ -83,6 +83,24 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void sourcesCommitWithTheTerminalWinnerAndRemainHistoricalEvidence() {
+        var session = sessions.create(owner, "Evidence");
+        var pair = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Leave policy?", Duration.ofMinutes(2), 32000);
+        var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
+                List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
+        turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
+                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source));
+        turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
+                "Late answer", null, "model", 20L, 5L, null, List.of());
+        var saved = sessions.history(owner, session.id(), null, 100).getLast();
+        assertEquals(ChatMessage.Status.CANCELED, saved.status());
+        assertEquals("Twelve days [1]", saved.content());
+        assertEquals(List.of(source), saved.sources());
+        // Source IDs intentionally need no live document FK: reindex/delete does not rewrite old answers.
+        assertThrows(ChatException.class, () -> sessions.history(other, session.id(), null, 100));
+    }
+
+    @Test
     void expiredNullReplyDoesNotTruncateAncestorContext() {
         var session = sessions.create(owner, "Context after expiry");
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Earlier question");

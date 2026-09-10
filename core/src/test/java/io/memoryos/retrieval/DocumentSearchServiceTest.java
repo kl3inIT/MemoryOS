@@ -13,10 +13,10 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
+import io.memoryos.document.DocumentId;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.TenantId;
-import io.memoryos.retrieval.application.DocumentSearchService;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -134,6 +134,51 @@ class DocumentSearchServiceTest {
     private SearchHit hit(UUID document, UUID version, int ordinal, double score) {
         return new SearchHit(document, version, ordinal, "Title", "text/plain", "Passage " + ordinal,
                 "[{\"page\":" + ordinal + "}]", Instant.EPOCH, score);
+    }
+
+    @Test
+    void rankedQueriesFuseRanksAfterAuthorizationAndExpansionReusesThatAuthority() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var hidden = UUID.randomUUID();
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        when(index.identity()).thenReturn("space");
+        when(index.search(tenant, "leave", List.of(), null)).thenReturn(List.of(
+                hit(hidden, generation, 0, 1), hit(first, generation, 3, .9), hit(first, generation, 3, .8), hit(second, generation, 1, .5)));
+        when(index.search(tenant, "HR", List.of(), null)).thenReturn(List.of(hit(second, generation, 1, 9)));
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation, hidden, generation));
+        when(access.readableDocuments(any(), any())).thenReturn(Set.of(first, second));
+        var result = service.ranked(actor, List.of(new SearchQuery("leave", false, .7), new SearchQuery("HR", true, 1)), () -> {});
+        assertEquals(List.of(second, first), result.hits().stream().map(SearchHit::documentId).toList());
+        assertEquals(.7 / 52 + 1.0 / 51, result.hits().getFirst().score(), .000001);
+        org.mockito.Mockito.clearInvocations(access);
+        var hit = result.hits().getFirst();
+        when(documents.isCurrent(tenant, new DocumentId(second), generation, "space")).thenReturn(true);
+        when(index.document(tenant, second, generation, 0, 4)).thenReturn(new SearchDocument(second, generation, "Title",
+                List.of(new SearchPage.Passage(1, "Passage 1", "[]")), 0, 4, false));
+        assertEquals(second, service.expand(result, hit, 2).documentId());
+        verifyNoInteractions(access);
+        assertThrows(SearchRequestException.class, () -> service.expand(result, hit(hidden, generation, 0, 1), 2));
+        assertThrows(SearchRequestException.class, () -> service.expand(result, hit, 6));
+        verify(documents, never()).read(any(), any(), any());
+    }
+
+    @Test
+    void independentPreviewChecksPermissionAndGenerationThenReadsOnlyTheIndexWindow() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var id = UUID.randomUUID();
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        when(index.identity()).thenReturn("space");
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
+        when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
+        var window = new SearchDocument(id, generation, "Title", List.of(), 20, 20, false);
+        when(index.document(tenant, id, generation, 20, 20)).thenReturn(window);
+        assertEquals(window, service.document(actor, id, generation, 20));
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, id, generation, 20));
+        verify(index).document(tenant, id, generation, 20, 20);
+        verify(documents, never()).read(any(), any(), any());
     }
 
     @Test

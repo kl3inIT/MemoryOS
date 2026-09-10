@@ -8,6 +8,7 @@ import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
+import io.memoryos.chat.prompts.ChatPrompts;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantId;
 
@@ -42,14 +43,29 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
             throw ChatException.invalid("The current question exceeds the configured context limit.");
     }
 
+    public static void validateQuestion(String instructions, String text, int contextTokenLimit, ChatModelBinding binding) {
+        validateQuestion(instructions(instructions, binding), text, historyLimit(contextTokenLimit, binding), binding.tokens());
+    }
+
+    private static String instructions(String instructions, ChatModelBinding binding) {
+        return ChatPrompts.resolve(instructions, binding.toolCalling(), Instant.now());
+    }
+
+    private static int historyLimit(int limit, ChatModelBinding binding) {
+        return binding.toolCalling() ? limit - Math.min(4096, limit / 3) : limit;
+    }
+
     public static ChatTurnSetup resolve(UUID session, UUID assistant, TurnContext context, int contextTokenLimit,
                                         ChatModelBinding binding) {
         var selected = new ArrayList<Message>();
-        int tokens = binding.tokens().estimate(context.instructions()) + 32;
+        String instructions = instructions(context.instructions(), binding);
+        // Reserve room for tool schemas/results; transcript is still stored in full.
+        int historyLimit = historyLimit(contextTokenLimit, binding);
+        int tokens = binding.tokens().estimate(instructions) + 32;
         for (var message : context.newestFirst()) {
             if (message.content() == null || message.content().isEmpty()) continue;
             int size = binding.tokens().estimate(message.content()) + 32;
-            if (tokens + size > contextTokenLimit) break;
+            if (tokens + size > historyLimit) break;
             tokens += size;
             selected.add(message.role() == ChatMessage.Role.USER
                     ? new UserMessage(message.content()) : new AssistantMessage(message.content()));
@@ -58,7 +74,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
             throw ChatException.invalid("The current question exceeds the configured context limit.");
         Collections.reverse(selected);
         if (selected.getFirst() instanceof AssistantMessage) selected.removeFirst();
-        selected.addFirst(new SystemMessage(context.instructions()));
+        selected.addFirst(new SystemMessage(instructions));
         return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, context.deadline(), binding);
     }
 }

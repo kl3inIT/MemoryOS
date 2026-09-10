@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { fixtureModels, fixtureSource } from "../fixtures/chat-data";
 
 const identity = {
   actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
@@ -11,6 +12,186 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: identity }));
 });
 
+test("centers the empty composer and selects a catalog model with the keyboard for each turn", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const input = page.getByRole("textbox", { name: "Message", exact: true });
+  const heading = await page
+    .getByRole("heading", { name: "How can I help you today?" })
+    .boundingBox();
+  const composer = await input.boundingBox();
+  expect(composer!.y - heading!.y - heading!.height).toBeLessThan(90);
+  const picker = page.getByRole("combobox", { name: "Choose model" });
+  await picker.focus();
+  await picker.press("ArrowDown");
+  const search = page.getByRole("combobox", { name: "Search models" });
+  await search.fill("Qwen");
+  await search.press("ArrowDown");
+  await search.press("Enter");
+  await expect(picker).toContainText("Qwen3.5 9B");
+  await input.fill("Explain this model");
+  await input.press("Enter");
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
+  await page.reload();
+  await expect(picker).toContainText("Qwen3.5 9B");
+  await input.fill("And a follow-up");
+  await input.press("Enter");
+  await expect(page.getByText("Hello 👋", { exact: true })).toHaveCount(2);
+  const sessionId = page.url().split("/").at(-1);
+  const stats = await (await page.request.get(`/api/chat/sessions/${sessionId}/stats`)).json();
+  expect(stats.selectedModels).toEqual([fixtureModels[1]!.id, fixtureModels[1]!.id]);
+});
+
+test("grounds prose citations in message sources, opens the cited range, and preserves history after source denial", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", {
+      data: { mode: "grounded", title: "Annual leave" },
+    })
+  ).json();
+  let documentReads = 0;
+  await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) => {
+    documentReads += 1;
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get("generation")).toBe(fixtureSource.generation);
+    expect(["0", "1"]).toContain(url.searchParams.get("from"));
+    return route.fulfill({
+      json: {
+        ...fixtureSource,
+        firstOrdinal: 1,
+        totalChunks: 5,
+        hasMore: false,
+        passages: [1, 2, 3, 4].map((ordinal) => ({
+          ordinal,
+          content:
+            ordinal === 3
+              ? "Annual leave is 17 days."
+              : ordinal === 4
+                ? "Applies to full-time employees."
+                : "Handbook context",
+          provenanceJson: "{}",
+        })),
+      },
+    });
+  });
+  await page.goto(`/chat/${session.id}`);
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("How much annual leave?");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText("Searching your documents…")).toBeVisible();
+  const citation = page.getByRole("button", { name: "Open source 1: Employee handbook" });
+  await expect(citation).toHaveCount(1);
+  await expect(page.locator("code").filter({ hasText: "[1]" })).toHaveCount(2);
+  await citation.focus();
+  await expect(
+    page.getByText("Annual leave is 17 days. Applies to full-time employees.", { exact: true }),
+  ).toBeVisible();
+  await citation.press("Escape");
+  await expect(
+    page.getByText("Annual leave is 17 days. Applies to full-time employees.", { exact: true }),
+  ).toBeHidden();
+  await page.getByRole("textbox", { name: "Message", exact: true }).focus();
+  await citation.focus();
+  await expect(
+    page.getByText("Annual leave is 17 days. Applies to full-time employees.", { exact: true }),
+  ).toBeVisible();
+  expect(documentReads).toBe(1);
+  await citation.press("Enter");
+  const panel = page.getByRole("complementary", { name: "Sources" });
+  await expect(panel).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
+  await expect(page.getByRole("article", { name: "Selected match" })).toHaveCount(2);
+  await panel.getByRole("button", { name: "Earlier context" }).click();
+  await panel.getByRole("button", { name: "Back to cited passage" }).click();
+  await expect(panel.getByRole("button", { name: "Back to cited passage" })).toBeHidden();
+  await expect(page.getByRole("article", { name: "Selected match" })).toHaveCount(2);
+  await page.getByRole("textbox", { name: "Message", exact: true }).focus();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(citation).toBeFocused();
+  await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
+  await page.reload();
+  await expect(citation).toHaveCount(1);
+  await page.getByRole("button", { name: "Sources 1" }).click();
+  await page.getByRole("button", { name: "Read source 1: Employee handbook" }).click();
+  await expect(panel).toContainText("Annual leave is 17 days.");
+  await page.getByRole("button", { name: "Back to sources" }).click();
+  await expect(
+    page.getByRole("button", { name: "Read source 1: Employee handbook" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Sources 1" }).click();
+  await expect(panel).toBeHidden();
+  await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) =>
+    route.fulfill({ status: 404, json: {} }),
+  );
+  await citation.click();
+  await expect(page.getByRole("alert")).toContainText("unavailable or has changed");
+  await page.getByRole("button", { name: "Close sources" }).click();
+  await expect(page.getByText("17 days", { exact: true })).toBeVisible();
+});
+
+for (const mode of [
+  "grounded-gap",
+  "grounded-disconnect",
+  "grounded-slow",
+  "grounded-failed",
+  "grounded-split",
+]) {
+  test(`keeps sources through ${mode} and reload`, async ({ page }) => {
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", { data: { mode } })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    await page.getByRole("textbox", { name: "Message", exact: true }).fill("Annual leave?");
+    await page.getByRole("button", { name: "Send message" }).click();
+    const citation = page.getByRole("button", { name: "Open source 1: Employee handbook" });
+    await expect(citation).toBeVisible();
+    if (mode === "grounded-slow") {
+      await expect(page.getByRole("combobox", { name: "Choose model" })).toBeDisabled();
+      await page.getByRole("button", { name: "Stop reply" }).click();
+      await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
+    await page.reload();
+    await expect(citation).toBeVisible();
+    expect(
+      (await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json()).sends,
+    ).toBe(1);
+  });
+}
+
+test("shows catalog errors, emptiness and the actual authorized fallback selection", async ({
+  page,
+}) => {
+  await page.route("**/api/chat/models*", (route) => route.fulfill({ status: 503, json: {} }));
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Reload models" })).toBeVisible();
+  await page.route("**/api/chat/models*", (route) => route.fulfill({ json: [] }));
+  await page.getByRole("button", { name: "Reload models" }).click();
+  await expect(page.getByRole("combobox", { name: "Choose model" })).toBeDisabled();
+  await expect(page.getByText("No models available")).toBeVisible();
+  await page.unroute("**/api/chat/models*");
+  await page.evaluate(
+    (actor) =>
+      sessionStorage.setItem(
+        `memoryos.chat.model:${actor}`,
+        JSON.stringify({ id: "90000000-0000-4000-8000-000000000009" }),
+      ),
+    identity.actorId,
+  );
+  await page.reload();
+  await expect(page.getByText("Selected model unavailable")).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Use the available default");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText(/The selected model is unavailable/)).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Choose model" })).toContainText("GPT-5 mini");
+});
+
 test("new chat, native keyboard/IME, server IDs, multiple turns, markdown and reload", async ({
   page,
   context,
@@ -19,7 +200,7 @@ test("new chat, native keyboard/IME, server IDs, multiple turns, markdown and re
   page.on("pageerror", (error) => errors.push(error.message));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "What can I help you with?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
   const input = page.getByRole("textbox", { name: "Message", exact: true });
   await input.fill("First line");
   await input.press("Shift+Enter");
@@ -157,3 +338,136 @@ test("streaming preserves the reader's scroll position and offers return to the 
     .toBeLessThan(10);
   await expect(page.getByRole("button", { name: "Scroll to latest message" })).toBeHidden();
 });
+
+test("mobile model picker stays within the screen and restores focus", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const picker = page.getByRole("combobox", { name: "Choose model" });
+  await expect(picker).toBeEnabled();
+  await picker.click();
+  await expect(page.getByRole("combobox", { name: "Search models" })).toBeFocused();
+  const bounds = await page.locator('[data-slot="model-selector-content"]').boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+  await page.screenshot({ path: testInfo.outputPath("mobile-model-picker.png") });
+  await page.getByRole("option", { name: /Qwen3.5 9B/ }).click();
+  await expect(picker).toBeFocused();
+  await expect(picker).toContainText("Qwen3.5 9B");
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await picker.click();
+  await page.screenshot({ path: testInfo.outputPath("mobile-model-picker-dark.png") });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+for (const mobile of [false, true]) {
+  test(`source panel switches documents and restores focus on ${mobile ? "mobile" : "desktop"}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 });
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", { data: { mode: "grounded" } })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    await page
+      .getByRole("textbox", { name: "Message", exact: true })
+      .fill("Compare these policies");
+    await page.getByRole("button", { name: "Send message" }).click();
+    await expect(
+      page.getByRole("button", { name: "Open source 1: Employee handbook" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
+    const second = {
+      ...fixtureSource,
+      citationId: 2,
+      documentId: "30000000-0000-4000-8000-000000000002",
+      title: "Employee handbook",
+    };
+    await page.route(`**/api/chat/sessions/${session.id}/messages?*`, async (route) => {
+      const response = await route.fetch();
+      const messages = (await response.json()) as Array<{ role: string }>;
+      await route.fulfill({
+        json: messages.map((message) =>
+          message.role === "ASSISTANT"
+            ? {
+                ...message,
+                content:
+                  "Leave is covered by the handbook [1]. Requests have their own procedure [2].",
+                sources: [fixtureSource, second],
+              }
+            : message,
+        ),
+      });
+    });
+    await page.route("**/api/search/documents/*?*", (route) => {
+      const source = route.request().url().includes(second.documentId!) ? second : fixtureSource;
+      return route.fulfill({
+        json: {
+          ...source,
+          firstOrdinal: 1,
+          totalChunks: 5,
+          hasMore: false,
+          passages: [
+            {
+              ordinal: 3,
+              content:
+                source.citationId === 1
+                  ? "Employees receive 17 days."
+                  : "Submit requests to your manager.",
+            },
+          ],
+        },
+      });
+    });
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Open source 1: Employee handbook" })).toHaveText(
+      "1. Employee handbook",
+    );
+    await expect(page.getByRole("button", { name: "Open source 2: Employee handbook" })).toHaveText(
+      "2. Employee handbook",
+    );
+    const trigger = page.getByRole("button", { name: "Sources 2" });
+    await trigger.click();
+    const panel = mobile
+      ? page.getByRole("dialog")
+      : page.getByRole("complementary", { name: "Sources" });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByRole("button", { name: /^Read source/ })).toHaveCount(2);
+    await expect(panel).toContainText("Submit requests to your manager.");
+    await panel.getByRole("button", { name: "Read source 2: Employee handbook" }).click();
+    await expect(
+      panel.getByRole("heading", { name: "Employee handbook", exact: true }),
+    ).toBeVisible();
+    await expect(panel.getByRole("article", { name: "Selected match" })).toContainText(
+      "Submit requests to your manager.",
+    );
+    await panel.getByRole("button", { name: "Back to sources" }).click();
+    await panel.getByRole("button", { name: "Read source 1: Employee handbook" }).click();
+    await expect(panel.getByRole("article", { name: "Selected match" })).toContainText(
+      "Employees receive 17 days.",
+    );
+    const bounds = await panel.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(mobile ? 390 : 1440);
+    if (mobile) {
+      await page.keyboard.press("Tab");
+      expect(await panel.evaluate((element) => element.contains(document.activeElement))).toBe(
+        true,
+      );
+    }
+    if (!mobile) {
+      await page.getByRole("combobox", { name: "Choose model" }).click();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("combobox", { name: "Search models" })).toBeHidden();
+      await expect(panel).toBeVisible();
+      await page.getByRole("textbox", { name: "Message", exact: true }).focus();
+      await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeFocused();
+    }
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeVisible();
+  });
+}

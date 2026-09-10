@@ -1,14 +1,14 @@
 # MEM-11 — Sáu phase triển khai
 
-[Design](design.md#baseline-da-chot) sở hữu quyết định kiến trúc; [parity](onyx-parity.md) sở hữu phạm vi. [Product verification](verification.md) ghi phần đã triển khai và kiểm: 2.1 persistence, 2.2 execution và 2.3 provider binding/local Stop/HTTP replay. Browser Chat thuộc 2.4. Web search/deep research nằm ngoài lần giao đầu.
+[Design](design.md#baseline-da-chot) sở hữu quyết định kiến trúc; [parity](onyx-parity.md) sở hữu phạm vi. [Product verification](verification.md) ghi bằng chứng Phases 2.1–2.4, backend grounded Chat 3.1 và UI 3.2 đã kiểm local. Nghiệm thu corpus/model rộng vẫn cần thực hiện. Web search/deep research nằm ngoài lần giao đầu.
 
 ## Bổ sung nền provider/model
 
-Phases 2.1–2.4 đã merge qua PR #86. Trước Phase 3, hoàn thiện backend catalog/selection/BYOK và public adapter theo [plan backend](../mem-77-provider-backend/plan.md). UI vẫn chưa thuộc phần bổ sung này; Đức Anh nhận phần adapter local.
+Phases 2.1–2.4 đã merge qua PR #86; backend catalog/selection/BYOK và public adapter đã merge qua PR #88 theo [plan backend](../mem-77-provider-backend/plan.md). Đức Anh nhận catalog admin UI và tích hợp provider local trong MEM-77; dropdown model ở Chat vẫn thuộc MEM-11.
 
 ## Phân chia PR
 
-`feat/mem-11-production-chat` là nhánh tích hợp tạm, bắt đầu cùng revision với `main`. PR `feat/mem-11-phase-2-backend` gộp 2.1–2.3 vì persistence, execution và streaming tạo thành một backend contract đã kiểm chung. Phase 2.4 UI sẽ là PR riêng target nhánh tích hợp sau khi backend được review và merge vào nhánh đó. Các phần sau được nhóm theo contract có thể review độc lập, giữ mỗi PR dưới 100 file; số file không thay thế việc kiểm CI và nội dung review. Cuối increment mới đưa nhánh tích hợp vào `main`; chưa đóng MEM-11 chỉ vì backend đã xong.
+Phase 2 đã dùng nhánh tích hợp và được đưa vào `main`. Phase 3.1 backend và 3.2 UI đang cùng nằm trên `feat/mem-11-phase-3-1-grounded-chat` theo yêu cầu tiếp tục triển khai; tổng thay đổi vẫn dưới 100 file để review cùng nhau. Mỗi PR giữ dưới 100 file; số file không thay thế việc kiểm CI và review. Chưa đóng MEM-11 chỉ vì backend 3.1 đã xong.
 
 ## Phase 1 — Kiểm chứng framework và contract
 
@@ -97,14 +97,29 @@ Exit Phase 2: send/stream/save/reload/Stop/reconnect hoạt động xuyên sản
 
 ## Phase 3 — Search tools và context có nguồn
 
-- [ ] Thêm dependency Chat → public Retrieval khi có tool consumer; cập nhật Modulith/ArchUnit. Mỗi blocking tool có timeout/cancellation boundary; nghiệm thu Stop khi tool chậm, không chạy tool tiếp theo sau cancel/deadline/budget hết.
-- [ ] Public Retrieval ranked-chunk/context-read contracts trên index hiện có; current source ACL và identity.
-- [ ] `searchKnowledge`/`readDocumentSection` qua native framework tool APIs với server-side identity.
-- [ ] Query rewrite/typed selection/answer dùng cùng accounting scope của lượt; sync/typed native accounting không bị record trùng bởi stream adapter. Kiểm native budget tại inference/tool boundary và current ACL trước read; không gộp context capacity với spend budget.
-- [ ] Rewrite/multi-query, weighted RRF, section selection/neighbor/merge và token limits theo Onyx.
-- [ ] Validate allowlisted candidate IDs/ranges/dedup; xử lý no evidence, partial/error và citations/source reader.
+### 3.1 — Backend grounded Chat (implemented and verified locally, 2026-09-10)
 
-Exit: chạy corpus thật và negative authorization cases; không tạo index thứ hai. Truy vấn mới dùng nguồn hiện tại, không ẩn answer cũ khi reindex.
+- Refactor shared ranked retrieval and bounded range reads on the existing OpenSearch index. Direct Search keeps its hybrid query behavior.
+- Unify single/batch source eligibility. PUBLIC FILE remains the production authorization implementation; restricted/provider ACL integration belongs to IAM/connector work. No allow-all stub.
+- Native Embabel SearchTool: bounded multiple queries, weighted RRF, typed section selection and neighbor expansion of server-owned authorized results. Expansion does not reauthorize source ACL; independent document preview does.
+- Share native model/process accounting for selection and answers; enforce cancellation, deadline, context and spend bounds.
+- One migration for bounded sources/citation metadata in the assistant outcome; expose SSE progress/sources and history. Keep the change below 100 files including tests, generated code and docs.
+- Verify real OpenSearch reads, ranking/eligibility, native tools, partial/Stop/budget behavior, persistence and HTTP contracts.
+
+### 3.2 — Chat UI, model selection and source acceptance (UI implemented and verified locally)
+
+- Use the assistant-ui Base example's organization: centered welcome/composer before the first message, footer composer during conversation, model picker inside the composer, and one existing app sidebar. Retain MemoryOS typography, tokens and controls; reuse styled assistant-ui elements with minimal custom CSS. OrgMemory is a reference for catalog grouping and source interactions.
+- Connect the authorized, session-aware model catalog to the picker and send the configuration ID for each turn. Show the backend's actual selection/fallback. Provider administration remains MEM-77; no new Thinking override or unsupported attachment/voice controls.
+- Render bounded search progress and source metadata through native message state; resolve citations against each answer's server-owned sources. Follow Onyx with citation hover cards and a Sources toolbar action opening the right panel; mobile uses a drawer. Reuse the shared document reader inside the panel, keeping Chat visible on desktop. History/replay restore final sources; source failures leave the historical answer readable.
+- Verify desktop/mobile layout, keyboard model selection, send/Stop/reload/reconnect, citations and document preview. Keep combined 3.1/3.2 below 100 changed paths, with no additional migration. Record fixture browser checks separately from real-corpus/model acceptance.
+
+Reference: `.tmp/onyx` refreshed to `bd89d269bbae9c3931faaa2076f5ccb6917cbd2a` on 2026-09-10; the relevant prompts/retrieval files are unchanged from the initial `f9e3de3` read. Trace the current OpenSearch adapter and normalization pipeline, not just the Search tool's alpha constant. Both query groups use the shared hybrid pipeline (50/50 default); query-group RRF weights remain separate.
+
+The delivered Onyx prompt flow includes configurable base instructions, history-aware semantic and keyword rewriting, relevance selection followed by classification after reading neighbors, and citation/final-cycle reminders. Native Embabel owns typed operations/accounting; no new inference engine or additional migration is needed. Onyx's FULL_DOCUMENT execution is bounded to five neighboring chunks per side. The repository gate passes 534 tests with five optional skips; the opt-in real-model corpus check separately passes neighbor facts, follow-up references, insufficient evidence, citations and document injection. These controlled retrieval results do not replace the broader corpus/browser acceptance in 3.2.
+
+The transport renders search/source events through native message metadata and restores sources from history after replay gaps. The UI/model picker passes 97 unit and 22 browser checks, including existing Search preview contracts. Actual corpus/model quality across the full browser/runtime remains a separate acceptance boundary. Current evidence is in [verification](verification.md) and [Chat tests](../../../tests/chat.md).
+
+Phase 3 exit remains corpus/model quality plus browser sources/citations/reload acceptance. The current PUBLIC FILE policy is tested; advanced source ACL and permission-aware top-k are not claimed complete. Updating a source does not hide old answers.
 
 ## Phase 4 — Nghiệm thu agent với tools và context đầy đủ
 
@@ -118,10 +133,10 @@ Exit: multi-turn tools, stop/timeout/process death có behavior đã kiểm; kh�
 ## Phase 5 — Trải nghiệm và cấu hình
 
 - [ ] Migration và reservation cho regenerate assistant-only, command identity riêng, edit từ parent không phải tip và selected-child command. V18/2.2 hiện chỉ nhận send tại tip; không tái dùng mù điều kiện đó cho regenerate.
-- [ ] Persona settings dùng native binding của một provider hiện có; resolve options rồi bọc guard theo lượt. Builtin Persona hiện configuration-backed; editor cần chuyển quyền sở hữu settings rõ ràng trước khi ghi DB. Catalog/model selector nhiều provider, admin config và BYOK tổ chức thuộc [MEM-77](https://linear.app/memory-os/issue/MEM-77), assign `phamnhatanh811`, bị chặn bởi MEM-11; không nằm trong exit gate MEM-11.
+- [ ] Persona settings dùng native binding của một provider hiện có; resolve options rồi bọc guard theo lượt. Builtin Persona hiện configuration-backed; editor cần chuyển quyền sở hữu settings rõ ràng trước khi ghi DB. Backend catalog/BYOK is merged through PR #88. MEM-77 owns catalog admin UI and local-provider integration; the Chat model selector remains in MEM-11.
 - [ ] Trước triển khai sharing, chốt grant model cho authenticated readers trong Tenant và tách read authorization khỏi owner mutations. Onyx PUBLIC/PRIVATE cho phép anonymous link; phạm vi đã chọn loại anonymous. Lợi ích: giữ identity/Tenant boundary; tradeoff: không tương đương public-link UX. Không mặc định thêm Group grants khi chưa có yêu cầu.
 - [ ] assistant-ui list/composer, edit/regenerate/branch, source/progress, feedback, stop/retry/reload và Search handoff.
-- [ ] Persona settings/editor (assistant trên UI), starter prompts, source/tool selection và settings của binding hiện có, validation và quyền quản lý. Multi-provider model selection thuộc MEM-77.
+- [ ] Persona settings/editor (assistant trên UI), starter prompts, source/tool selection và settings của binding hiện có, validation và quyền quản lý. Catalog administration/local-provider integration belong to MEM-77; Chat model-selection UI belongs to MEM-11.
 - [ ] Private attachments/readiness/retention, Projects và chia sẻ có xác thực theo parity.
 - [ ] Kiểm E2E branch A→B, edit/regenerate, đổi Persona/Project và sharing: history/assets/identity của context cũ không lọt vào lượt mới. Nếu action/tool của feature tiêu thụ native Conversation/AssetView, thêm adapter/factory với consumer đó theo design; không dựng store thứ hai hay kích hoạt long-lived Chatbot chỉ để lưu history.
 - [ ] Browser scenarios: route changes, concurrent tabs, mạng chập chờn; conversation revoke khác source revoke, update và delete.

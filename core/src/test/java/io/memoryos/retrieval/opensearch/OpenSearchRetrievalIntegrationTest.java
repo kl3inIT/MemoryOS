@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -117,6 +118,36 @@ class OpenSearchRetrievalIntegrationTest {
             assertFalse(index.contains(unrelatedState));
             index.index(unrelated);
             assertTrue(index.contains(unrelatedState));
+            var chunks = java.util.stream.IntStream.range(0, 25).mapToObj(i -> {
+                String text = "vacation policy section " + i;
+                return new DocumentChunk(i, text, List.of(), i, 0, "[{\"page\":" + i + "}]",
+                        StructuredDocumentChunker.sha256(text), 10);
+            }).toList();
+            var paged = new DocumentChunkSet(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(),
+                    "Paged HR", "text/plain", Instant.now(), chunks);
+            index.index(paged);
+            clearInvocations(model);
+            var page = index.document(tenant, paged.documentId().value(), paged.generation(), 18, 5);
+            assertEquals(25, page.totalChunks());
+            assertEquals(List.of(18, 19, 20, 21, 22), page.passages().stream().map(io.memoryos.retrieval.SearchPage.Passage::ordinal).toList());
+            assertTrue(page.hasMore());
+            assertEquals("[{\"page\":18}]", page.passages().getFirst().provenanceJson());
+            assertEquals(2, index.document(tenant, paged.documentId().value(), paged.generation(), 23, 20).passages().size());
+            var end = index.document(tenant, paged.documentId().value(), paged.generation(), 99, 20);
+            assertEquals(25, end.firstOrdinal());
+            assertEquals("Paged HR", end.title());
+            assertTrue(end.passages().isEmpty());
+            assertFalse(end.hasMore());
+            assertThrows(io.memoryos.retrieval.SearchDocumentUnavailableException.class,
+                    () -> index.document(foreign.tenantId(), paged.documentId().value(), paged.generation(), 0, 5));
+            assertThrows(io.memoryos.retrieval.SearchDocumentUnavailableException.class,
+                    () -> index.document(tenant, paged.documentId().value(), UUID.randomUUID(), 0, 5));
+            verifyNoInteractions(model);
+            // Short keyword queries use the same hybrid path: neither lexical-only nor semantic-only hits disappear.
+            var keywordHits = index.search(tenant, "Paged HR", List.of(), null);
+            assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(paged.documentId().value())));
+            assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(unrelated.documentId().value())));
+            verify(model).call(any());
         }
     }
 

@@ -7,6 +7,10 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.iam.TenantId;
 import io.memoryos.retrieval.SearchHit;
+import io.memoryos.retrieval.SearchDocument;
+import io.memoryos.retrieval.SearchDocumentUnavailableException;
+import io.memoryos.retrieval.SearchPage;
+import io.memoryos.retrieval.SearchRequestException;
 import io.memoryos.retrieval.SearchIndex;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
@@ -165,7 +169,6 @@ public class OpenSearchIndexService implements SearchIndex {
 
     public List<SearchHit> search(TenantId tenant, String query, List<String> mediaTypes, Instant since) {
         if (!gateway.exists("/" + readAlias())) return List.of();
-        float[] vector = embeddings.query(query);
         List<Object> filters = new ArrayList<>();
         filters.add(term("tenant_id", tenant.value().toString()));
         filters.add(term("index_identity", identity));
@@ -175,13 +178,12 @@ public class OpenSearchIndexService implements SearchIndex {
         Object keyword = Map.of("bool", Map.of("filter", filters, "must", List.of(Map.of("multi_match", Map.of(
                 "query", query, "fields", List.of("title^2", "title.folded^2", "content", "content.folded"))))));
         Object semantic = Map.of("knn", Map.of("vector", Map.of(
-                "vector", vector,
-                "min_score", properties.minimumSemanticScore(),
-                "method_parameters", Map.of("ef_search", properties.candidateLimit()),
-                "filter", filter)));
+                "vector", embeddings.query(query), "min_score", properties.minimumSemanticScore(),
+                "method_parameters", Map.of("ef_search", properties.candidateLimit()), "filter", filter)));
+        Object retrieval = Map.of("hybrid", Map.of("pagination_depth", properties.candidateLimit(), "queries", List.of(keyword, semantic)));
         var response = gateway.json("POST", "/" + readAlias() + "/_search", Map.of("search_pipeline", pipeline()), Map.of(
                 "size", properties.candidateLimit(), "_source", Map.of("excludes", List.of("vector")),
-                "query", Map.of("hybrid", Map.of("pagination_depth", properties.candidateLimit(), "queries", List.of(keyword, semantic)))));
+                "query", retrieval));
         var hits = new ArrayList<SearchHit>();
         for (var hit : response.path("hits").path("hits")) {
             var source = hit.path("_source");
@@ -191,6 +193,38 @@ public class OpenSearchIndexService implements SearchIndex {
                     source.path("provenance").asString(), Instant.parse(source.path("updated_at").asString()), hit.path("_score").asDouble()));
         }
         return List.copyOf(hits);
+    }
+
+    /** Bounded metadata and ordinal-window query; no embedding or PostgreSQL content load. */
+    public SearchDocument document(TenantId tenant, UUID id, UUID generation, int from, int limit) {
+        if (from < 0 || from > 9999 || limit < 1 || limit > 20) throw new SearchRequestException();
+        if (!gateway.exists("/" + readAlias())) throw new SearchDocumentUnavailableException();
+        var response = gateway.json("POST", "/" + readAlias() + "/_search", Map.of(), Map.of(
+                "size", 0, "track_total_hits", true,
+                "query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", tenant.value().toString()),
+                        term("document_id", id.toString()), term("generation", generation.toString()), term("index_identity", identity)))),
+                "aggs", Map.of(
+                        "header", Map.of("top_hits", Map.of("size", 1, "_source", List.of("title"))),
+                        "last", Map.of("max", Map.of("field", "ordinal")),
+                        "window", Map.of("filter", Map.of("range", Map.of("ordinal", Map.of("gte", from, "lt", from + limit))),
+                                "aggs", Map.of("chunks", Map.of("top_hits", Map.of("size", limit,
+                                        "sort", List.of(Map.of("ordinal", "asc")), "_source", List.of("ordinal", "content", "provenance"))))))));
+        int total = response.path("hits").path("total").path("value").asInt();
+        if (total == 0) throw new SearchDocumentUnavailableException();
+        var aggregations = response.path("aggregations");
+        if (total > 10000 || aggregations.path("last").path("value").asInt(-1) != total - 1) throw new SearchUnavailableException();
+        var passages = new ArrayList<SearchPage.Passage>();
+        int expected = from;
+        for (var hit : aggregations.path("window").path("chunks").path("hits").path("hits")) {
+            var source = hit.path("_source");
+            int ordinal = source.path("ordinal").asInt(-1);
+            if (ordinal != expected++) throw new SearchUnavailableException();
+            passages.add(new SearchPage.Passage(ordinal, source.path("content").asString(), source.path("provenance").asString()));
+        }
+        int start = Math.min(from, total);
+        if (passages.size() != Math.min(limit, total - start)) throw new SearchUnavailableException();
+        String title = aggregations.path("header").path("hits").path("hits").path(0).path("_source").path("title").asString();
+        return new SearchDocument(id, generation, title, List.copyOf(passages), start, total, start + passages.size() < total);
     }
 
     @Override
