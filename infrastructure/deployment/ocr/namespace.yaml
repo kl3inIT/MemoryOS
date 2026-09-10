@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jmix-ocr
+  labels:
+    app.kubernetes.io/part-of: memoryos
+  annotations:
+    field.cattle.io/projectId: local:p-vs2td
+    field.cattle.io/resourceQuota: '{"limit":{"limitsCpu":"8000m","limitsMemory":"16384Mi","requestsCpu":"8000m","requestsMemory":"16384Mi","persistentVolumeClaims":"0","requestsStorage":"0Gi"}}'
