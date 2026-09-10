@@ -400,6 +400,47 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void stopPersistsWithinCleanupBoundWhenNativeProviderIgnoresInterrupts() throws Exception {
+        var entered = new CountDownLatch(3);
+        var release = new CountDownLatch(1);
+        var returned = new CountDownLatch(3);
+        when(model.call(any(Prompt.class))).thenAnswer(_ -> {
+            entered.countDown();
+            boolean done = false;
+            while (!done) {
+                try { release.await(); done = true; }
+                catch (InterruptedException ignored) { /* Provider deliberately ignores cancellation. */ }
+            }
+            returned.countDown();
+            return response("{}", "stop", 12);
+        });
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
+                AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
+                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")
+                )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
+        var session = create();
+        var reply = send(session, UUID.randomUUID().toString());
+        String id = reply.path("assistantMessageId").asText();
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages/" + id + "/cancel")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isAccepted());
+            await().atMost(Duration.ofSeconds(4)).until(() -> "CANCELED".equals(jdbc.sql("SELECT status FROM chat_message WHERE id=:id")
+                    .param("id", UUID.fromString(id)).query(String.class).single()));
+            assertEquals(3, returned.getCount(), "Terminal publication must not wait indefinitely for provider IO");
+            assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id=:id AND input_tokens IS NULL AND output_tokens IS NULL")
+                    .param("id", UUID.fromString(id)).query(Long.class).single());
+        } finally { release.countDown(); }
+        assertTrue(returned.await(3, TimeUnit.SECONDS));
+        org.mockito.Mockito.verify(model, org.mockito.Mockito.after(500).times(3)).call(any(Prompt.class));
+        verify(model).stream(any(Prompt.class));
+        verify(searchIndex, never()).batch(any(), any(), any(), any());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id=:id AND status='CANCELED' AND input_tokens IS NULL AND output_tokens IS NULL")
+                .param("id", UUID.fromString(id)).query(Long.class).single());
+    }
+
+    @Test
     void eofPersistsPartialAsFailedAndAllowsNextTurn() throws Exception {
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Partial", "", 0)));
         var session = create();
@@ -487,7 +528,7 @@ class ChatSessionApiIntegrationTest {
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), Instant.now().plusSeconds(10), binding);
             var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
             var answer = new StringBuilder();
-            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {});
+            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {});
             assertEquals("Answer", answer.toString());
             assertEquals(12L, accounting.get().input());
             assertEquals(12L, accounting.get().output());
@@ -1030,13 +1071,15 @@ class ChatSessionApiIntegrationTest {
     void realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank());
+        String corpusFile = System.getenv("MEMORYOS_CHAT_CORPUS_FILE");
+        assertTrue(corpusFile != null && !corpusFile.isBlank(), "MEMORYOS_CHAT_CORPUS_FILE is required for this opt-in check");
         var configuration = new OpenAiChatProviderConfiguration();
         var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
         var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
         var receipts = new ArrayList<Map<String, Object>>();
         var answerChecks = new ArrayList<org.junit.jupiter.api.function.Executable>();
         try (var corpus = new io.memoryos.retrieval.opensearch.LiveSearchCorpus(
-                Path.of(System.getenv("MEMORYOS_CHAT_CORPUS_FILE")), key, new TenantId(TENANT), chunks, sourceSearch, meters);
+                Path.of(corpusFile), key, new TenantId(TENANT), chunks, sourceSearch, meters);
              var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
             when(searchIndex.identity()).thenReturn(corpus.index.identity());
             when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> corpus.index.batch(
@@ -1107,14 +1150,15 @@ class ChatSessionApiIntegrationTest {
             }
             org.junit.jupiter.api.Assertions.assertAll("Real corpus answer quality", answerChecks);
         } finally {
-            var report = Path.of("build", "reports", "chat-corpus");
-            Files.createDirectories(report);
-            Files.writeString(report.resolve("timings.json"), Json.mapper().writeValueAsString(receipts));
-            var stages = meters.find("memoryos.search.stage.duration").timers().stream().map(timer -> Map.of(
-                    "stage", java.util.Objects.requireNonNull(timer.getId().getTag("stage")), "outcome", java.util.Objects.requireNonNull(timer.getId().getTag("outcome")),
-                    "calls", timer.count(), "totalMs", timer.totalTime(TimeUnit.MILLISECONDS))).toList();
-            Files.writeString(report.resolve("stages.json"), Json.mapper().writeValueAsString(stages));
-            client.close(); sync.close();
+            try (AutoCloseable _ = client::close; AutoCloseable _ = sync::close) {
+                var report = Path.of("build", "reports", "chat-corpus");
+                Files.createDirectories(report);
+                Files.writeString(report.resolve("timings.json"), Json.mapper().writeValueAsString(receipts));
+                var stages = meters.find("memoryos.search.stage.duration").timers().stream().map(timer -> Map.of(
+                        "stage", java.util.Objects.requireNonNull(timer.getId().getTag("stage")), "outcome", java.util.Objects.requireNonNull(timer.getId().getTag("outcome")),
+                        "calls", timer.count(), "totalMs", timer.totalTime(TimeUnit.MILLISECONDS))).toList();
+                Files.writeString(report.resolve("stages.json"), Json.mapper().writeValueAsString(stages));
+            }
         }
     }
 
@@ -1223,12 +1267,11 @@ class ChatSessionApiIntegrationTest {
             assertGroundedCitation(defended, injection);
             verify(sourceAccess, never()).canRead(any(), any());
         } finally {
-            var receipts = Path.of("build", "reports", "chat-grounding");
-            Files.createDirectories(receipts);
-            Files.writeString(receipts.resolve("helpers.json"), Json.mapper().writeValueAsString(helperReceipts));
-            client.close();
-            sync.close();
-            meters.close();
+            try (AutoCloseable _ = client::close; AutoCloseable _ = sync::close; AutoCloseable _ = meters::close) {
+                var receipts = Path.of("build", "reports", "chat-grounding");
+                Files.createDirectories(receipts);
+                Files.writeString(receipts.resolve("helpers.json"), Json.mapper().writeValueAsString(helperReceipts));
+            }
         }
     }
 

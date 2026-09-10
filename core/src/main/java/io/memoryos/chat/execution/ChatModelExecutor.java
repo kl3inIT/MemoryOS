@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -45,7 +46,8 @@ public final class ChatModelExecutor {
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
-            Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatSearchEvent> events) {
+            Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatSearchEvent> events,
+            Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
         if (!metadata.getName().equals(setup.model())) throw new IllegalArgumentException("CHAT_MODEL_UNAVAILABLE");
@@ -83,12 +85,17 @@ public final class ChatModelExecutor {
                     .takeUntilOther(cancellation).doOnNext(text -> { guard.checkActive(); output.accept(text); }).blockLast(remaining);
         } finally {
             if (searchTool != null) searchTool.close();
-            var usage = process.usage();
+            var drained = searchTool == null ? CompletableFuture.<Void>completedFuture(null) : searchTool.whenDrained();
             try {
-                accounting.accept(new Accounting(guard.usageKnown() && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
-                        guard.usageKnown() && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
-                        guard.usageKnown() && metadata.getPricingModel() != null ? process.cost() : null));
-            } finally { processes.delete(process); }
+                // A timed-out provider can still record usage. Never persist an incomplete total as known.
+                if (!drained.isDone()) accounting.accept(new Accounting(null, null, null));
+                else {
+                    var usage = process.usage();
+                    accounting.accept(new Accounting(guard.usageKnown() && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
+                            guard.usageKnown() && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
+                            guard.usageKnown() && metadata.getPricingModel() != null ? process.cost() : null));
+                }
+            } finally { onDrained.accept(drained.thenRun(() -> processes.delete(process))); }
         }
     }
 }

@@ -95,8 +95,7 @@ public final class ChatTurnService implements AutoCloseable {
             catch (RuntimeException failure) {
                 run.finish(ChatMessage.Status.FAILED, "CHAT_SUBMIT_FAILED");
                 finalizeRun(run);
-                run.finished.complete(null);
-                run.resolved.close();
+                retireWhenDrained(run);
                 throw failure;
             }
             return accepted(reserved);
@@ -153,7 +152,7 @@ public final class ChatTurnService implements AutoCloseable {
                     }, accounting -> run.accounting = accounting, event -> {
                         run.searchEvent(event);
                         streams.search(run.setup.assistantMessageId(), event);
-                    });
+                    }, draining -> run.draining = draining);
             run.check();
             if (run.content.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
             run.finish(ChatMessage.Status.COMPLETED, null);
@@ -169,9 +168,26 @@ public final class ChatTurnService implements AutoCloseable {
             // Also close the product lifecycle if framework linkage or another Error escapes the task.
             run.finish(ChatMessage.Status.FAILED, "CHAT_EXECUTION_FAILED");
             finalizeRun(run);
-            run.finished.complete(null);
-            run.resolved.close();
+            retireWhenDrained(run);
         }
+    }
+
+    private void retireWhenDrained(Active run) {
+        run.draining.whenComplete((_, failure) -> {
+            if (failure != null) LOG.warn("Chat native cleanup failed for run {} ({})",
+                    run.setup.assistantMessageId(), failure.getClass().getSimpleName());
+            try { run.resolved.close(); }
+            finally {
+                run.drained = true;
+                // Terminal persistence and resource retirement may finish in either order.
+                releaseIfFinished(run);
+                run.finished.complete(null);
+            }
+        });
+    }
+
+    private void releaseIfFinished(Active run) {
+        if (run.persisted && run.drained && active.remove(run.setup.assistantMessageId(), run)) permits.release();
     }
 
     /** Only pending outcomes and stale deadlines touch the database; Stop is local. */
@@ -191,11 +207,14 @@ public final class ChatTurnService implements AutoCloseable {
             try {
                 var outcome = run.outcome;
                 if (outcome == null) return;
-                var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
-                        outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                        run.accounting.output(), run.accounting.cost(), outcome.sources());
-                streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
-                if (active.remove(run.setup.assistantMessageId(), run)) permits.release();
+                if (!run.persisted) {
+                    var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
+                            outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
+                            run.accounting.output(), run.accounting.cost(), outcome.sources());
+                    streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
+                    run.persisted = true;
+                }
+                releaseIfFinished(run);
             } catch (RuntimeException failure) { LOG.warn("Chat terminal persistence pending for run {}", run.setup.assistantMessageId()); }
         } finally { run.finalizing.unlock(); }
     }
@@ -234,6 +253,9 @@ public final class ChatTurnService implements AutoCloseable {
         final AtomicReference<StopReason> stopReason = new AtomicReference<>();
         final Sinks.One<Boolean> cancellation = Sinks.one();
         final CompletableFuture<Void> finished = new CompletableFuture<>();
+        CompletableFuture<Void> draining = CompletableFuture.completedFuture(null);
+        volatile boolean drained;
+        volatile boolean persisted;
         // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;

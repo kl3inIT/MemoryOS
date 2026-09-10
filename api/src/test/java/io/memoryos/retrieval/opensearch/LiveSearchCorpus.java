@@ -41,13 +41,15 @@ public final class LiveSearchCorpus implements AutoCloseable {
                 .withEnv("discovery.type", "single-node").withEnv("DISABLE_SECURITY_PLUGIN", "true")
                 .withEnv("DISABLE_INSTALL_DEMO_CONFIG", "true").withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m")
                 .withExposedPorts(9200).waitingFor(Wait.forHttp("/").forPort(9200).withStartupTimeout(Duration.ofMinutes(3)));
-        container.start();
-        var config = new SearchInfrastructureConfiguration();
-        var properties = new SearchProperties(URI.create("http://" + container.getHost() + ":" + container.getMappedPort(9200)),
-                "", "", "", "https://api.openai.com/v1", key, "text-embedding-3-large", 3072, 32, 2, 500, .5,
-                .70, Duration.ofSeconds(30), "memoryos-acceptance", 0);
-        transport = config.searchTransport(properties);
+        OpenSearchTransport opened = null;
         try {
+            container.start();
+            var config = new SearchInfrastructureConfiguration();
+            var properties = new SearchProperties(URI.create("http://" + container.getHost() + ":" + container.getMappedPort(9200)),
+                    "", "", "", "https://api.openai.com/v1", key, "text-embedding-3-large", 3072, 32, 2, 500, .5,
+                    .70, Duration.ofSeconds(30), "memoryos-acceptance", 0);
+            opened = config.searchTransport(properties);
+            transport = opened;
             var mapper = new ObjectMapper();
             var data = mapper.readTree(snapshot.toFile());
             var origins = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
@@ -76,7 +78,10 @@ public final class LiveSearchCorpus implements AutoCloseable {
                 var value = (tools.jackson.databind.node.ObjectNode) hit.path("_source");
                 value.put("tenant_id", tenant.value().toString()).put("index_identity", index.identity());
                 UUID doc = UUID.fromString(value.path("document_id").asString());
-                if (!generations.get(doc).toString().equals(value.path("generation").asString()))
+                var expected = generations.get(doc);
+                if (expected == null || !origins.containsKey(doc))
+                    throw new IllegalArgumentException("Snapshot hit references an unknown document");
+                if (!expected.toString().equals(value.path("generation").asString()))
                     throw new IllegalArgumentException("Snapshot contains an obsolete generation");
                 value.set("source_metadata", mapper.valueToTree(origins.get(doc).stream().map(origin -> Map.of(
                         "source_id", origin.sourceId().toString(), "item_id", origin.itemId().toString(), "type", "FILE",
@@ -88,7 +93,10 @@ public final class LiveSearchCorpus implements AutoCloseable {
             if (gateway.bulk("/_bulk", bulk.toString()).path("errors").asBoolean())
                 throw new IllegalStateException("Unable to seed acceptance corpus");
         } catch (Exception | Error failure) {
-            close();
+            try { if (opened != null) opened.close(); }
+            catch (Exception cleanup) { failure.addSuppressed(cleanup); }
+            try { container.close(); }
+            catch (Exception cleanup) { failure.addSuppressed(cleanup); }
             throw failure;
         }
     }

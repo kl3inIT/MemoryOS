@@ -68,6 +68,38 @@ class SourceSearchMetadataMigrationTest {
         }
     }
 
+    @Test
+    void malformedOptionalMetadataDoesNotDropAuthorizedDocumentsOrBreakABatch() throws Exception {
+        try (var database = TestDatabase.freshPostgres()) {
+            var jdbc = JdbcClient.create(database);
+            var tenant = new TenantId(UUID.randomUUID());
+            var generation = UUID.randomUUID();
+            jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'metadata','Metadata','ACTIVE','TEST')")
+                    .param("id", tenant.value()).update();
+            var documents = new java.util.ArrayList<UUID>();
+            var credential = UUID.randomUUID();
+            for (String metadata : List.of("{broken", "null", "", "{\"dc:creator\":\"Alice\"}")) {
+                var document = UUID.randomUUID();
+                var source = documents.isEmpty() ? credential : UUID.randomUUID();
+                documents.add(document);
+                jdbc.sql("INSERT INTO documents(id,tenant_id,status,title,content_generation,metadata_json) VALUES(:id,:tenant,'ELIGIBLE','Title',:generation,:metadata)")
+                        .param("id", document).param("tenant", tenant.value()).param("generation", generation).param("metadata", metadata).update();
+                seed(jdbc, tenant, source, credential, document, false, true);
+            }
+            var tenants = mock(TenantAccessResolver.class);
+            when(tenants.findActiveTenant(any())).thenReturn(Optional.of(tenant));
+            var service = new SourceSearchService(tenants, new JdbcSourceDocumentRepository(jdbc));
+            var visible = service.readableMetadata(service.scope(new ActorId(UUID.randomUUID())), documents);
+            assertEquals(4, visible.size());
+            for (int i = 0; i < documents.size(); i++) {
+                var origin = visible.get(documents.get(i)).getFirst();
+                assertEquals(i == 3 ? List.of("Alice") : List.of(), origin.authors());
+                assertEquals(SourceType.FILE, origin.type());
+                assertEquals(List.of(origin), service.indexMetadata(tenant, new DocumentId(documents.get(i)), generation));
+            }
+        }
+    }
+
     private static void seed(JdbcClient jdbc, TenantId tenant, UUID source, UUID credential, UUID document, boolean drive, boolean active) {
         if (source.equals(credential)) jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Test',:kind,'ACTIVE')")
                 .param("id", credential).param("tenant", tenant.value()).param("kind", drive ? "GOOGLE_OAUTH" : "NO_AUTH").update();

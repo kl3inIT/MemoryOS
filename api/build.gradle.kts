@@ -59,6 +59,12 @@ tasks.named<Test>("test") {
     inputs.property("memoryosChatLive", providers.environmentVariable("MEMORYOS_CHAT_LIVE_TEST").orElse("false"))
     inputs.property("memoryosChatGroundingLive", providers.environmentVariable("MEMORYOS_CHAT_GROUNDING_LIVE_TEST").orElse("false"))
     inputs.property("memoryosChatCorpusLive", providers.environmentVariable("MEMORYOS_CHAT_CORPUS_TEST").orElse("false"))
+    val corpus = providers.environmentVariable("MEMORYOS_CHAT_CORPUS_FILE")
+    inputs.property("memoryosChatCorpusFile", corpus.orElse(""))
+    inputs.files(corpus).withPropertyName("memoryosChatCorpusContents").withPathSensitivity(PathSensitivity.NONE).optional()
+    val liveCorpus = providers.environmentVariable("MEMORYOS_CHAT_CORPUS_TEST").map { it == "true" }.orElse(false)
+    outputs.upToDateWhen { !liveCorpus.get() }
+    outputs.doNotCacheIf("Live corpus measurements require real provider calls") { liveCorpus.get() }
 }
 
 springBoot {

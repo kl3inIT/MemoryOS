@@ -63,7 +63,7 @@ class SearchToolTest {
 
     private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters) {
         var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
-                new ChatSearchProperties(30, 10, 6000, 8000, 3, timeout, detectFilters), () -> {
+                new ChatSearchProperties(30, 10, 6000, 8000, 3, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
                 }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
         tool.beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "searchKnowledge", "{}")));
@@ -243,7 +243,7 @@ class SearchToolTest {
         });
         when(runner.createObject(anyList(), eq(SearchTool.KeywordQueries.class))).thenReturn(new SearchTool.KeywordQueries(List.of("AX-7")));
         try (var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
-                new ChatSearchProperties(30, 10, 6000, 8000, 3, Duration.ofSeconds(5), false), () -> {}, () -> 8000, events::add, Mono.never(),
+                new ChatSearchProperties(30, 10, 6000, 8000, 3, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
                 List.of(new UserMessage("Tell me about AX-7"), new AssistantMessage("AX-7 is our internal system."),
                         new UserMessage("How do I set it up?")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
             tool.beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "searchKnowledge", "{}")));
@@ -295,7 +295,7 @@ class SearchToolTest {
     }
 
     @Test
-    void selectionTimeoutCancelsTheHelperBeforeFallbackEvidenceIsPublished() {
+    void selectionTimeoutCancelsTheHelperAndPublishesFallbackEvidence() {
         candidates();
         var interrupted = new AtomicBoolean();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenAnswer(_ -> {
@@ -307,8 +307,8 @@ class SearchToolTest {
         });
         try (var tool = tool(8000, Duration.ofMillis(200), false)) {
             assertTrue(tool.searchKnowledge(List.of("policy"), null).contains("[1] Policy"));
-            assertTrue(interrupted.get());
         }
+        assertTrue(interrupted.get());
     }
 
     @Test
@@ -335,6 +335,52 @@ class SearchToolTest {
             assertNotNull(failure.get());
             assertThrows(CancellationException.class, () -> tool.searchKnowledge(List.of("policy"), null));
             assertTrue(events.stream().noneMatch(e -> e.source() != null));
+        }
+    }
+
+    @Test
+    void longTitleIsBoundedOnlyInReadingProgressAndPreservesFullCitationTitle() {
+        var result = candidates();
+        String title = "T".repeat(254) + "😀 full document title";
+        var hit = new SearchHit(document, generation, 2, title, "text/plain", "Evidence", "[]", Instant.EPOCH, .9);
+        when(result.hits()).thenReturn(List.of(hit));
+        when(result.sections()).thenReturn(List.of(new SearchSection(hit, List.of(hit))));
+        try (var tool = tool(8000)) {
+            assertTrue(tool.searchKnowledge(List.of("policy"), null).contains(title));
+            var reading = events.stream().flatMap(e -> e.documents().stream()).findFirst().orElseThrow();
+            assertEquals("T".repeat(254), reading.title());
+            var source = events.stream().map(ChatSearchEvent::source).filter(java.util.Objects::nonNull).findFirst().orElseThrow();
+            assertEquals(title, source.title());
+        }
+    }
+
+    @Test
+    void closeBoundsUncooperativeRetrievalAndRejectsItsLateEvidence() throws Exception {
+        var result = candidates();
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(_ -> {
+            entered.countDown();
+            boolean done = false;
+            while (!done) {
+                try { release.await(); done = true; }
+                catch (InterruptedException ignored) { /* Simulates uncooperative IO. */ }
+            }
+            return result;
+        });
+        try (var tasks = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor(); var tool = tool(8000)) {
+            var invocation = tasks.submit(() -> tool.searchKnowledge(List.of("policy"), null));
+            try {
+                assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+                tasks.submit(tool::close).get(2, java.util.concurrent.TimeUnit.SECONDS);
+                assertFalse(tool.whenDrained().isDone());
+                assertThrows(CancellationException.class, () -> tool.searchKnowledge(List.of("policy"), null));
+            } finally { release.countDown(); }
+            var failure = assertThrows(java.util.concurrent.ExecutionException.class,
+                    () -> invocation.get(3, java.util.concurrent.TimeUnit.SECONDS));
+            assertInstanceOf(CancellationException.class, failure.getCause());
+            tool.whenDrained().get(3, java.util.concurrent.TimeUnit.SECONDS);
+            assertTrue(events.stream().noneMatch(e -> e.source() != null || !e.documents().isEmpty()));
         }
     }
 

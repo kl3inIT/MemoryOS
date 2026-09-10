@@ -115,10 +115,15 @@ public class JdbcSourceDocumentRepository {
 
     private static List<String> authors(@Nullable String json) {
         if (json == null) return List.of();
-        var metadata = METADATA_MAPPER.readTree(json);
-        for (String key : List.of("dc:creator", "Author", "author", "creator")) {
-            String value = metadata.path(key).asString("").strip();
-            if (!value.isEmpty()) return List.of(value.substring(0, Math.min(value.length(), 512)));
+        try {
+            var metadata = METADATA_MAPPER.readTree(json);
+            for (String key : List.of("dc:creator", "Author", "author", "creator")) {
+                String value = metadata.path(key).asString("").strip();
+                if (!value.isEmpty()) return List.of(value.substring(0, Math.min(value.length(), 512)));
+            }
+        } catch (tools.jackson.core.JacksonException malformed) {
+            // Optional author metadata must not make an otherwise eligible document unavailable.
+            return List.of();
         }
         return List.of();
     }

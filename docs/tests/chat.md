@@ -75,7 +75,9 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 | First-call rewrite, later same-source query omission, expansion reuse on a new source type, per-turn state | `SearchToolTest` |
 | Three-chunk representatives, full section boundaries, neighbor classification, overlap merge and bounded context | `SearchToolTest` |
 | Minimum supported helper reasoning after native conversion; answer options unchanged | `OpenAiChatProviderAdapterTest`, including actual SDK HTTP request serialization |
-| Helper deadline covers native attempts; cancellation drains native work before terminal usage persistence | `SearchTasksTest`; `ChatSessionApiIntegrationTest.stopInterruptsNativeTypedHelperWorkAndDrainsItBeforePersistingTheOutcome` |
+| Helper deadline covers native attempts; cooperative cancellation drains native work before terminal usage persistence | `SearchTasksTest`; `ChatSessionApiIntegrationTest.stopInterruptsNativeTypedHelperWorkAndDrainsItBeforePersistingTheOutcome` |
+| Provider ignores interrupts: bounded Stop, no late evidence/retry/accounting write, client and capacity retained until actual completion | `SearchTasksTest`; `SearchToolTest.closeBoundsUncooperativeRetrievalAndRejectsItsLateEvidence`; `ChatTurnServiceTest.terminalOutcomeRetainsClientAndCapacityUntilActualWorkDrains`; native API `stopPersistsWithinCleanupBoundWhenNativeProviderIgnoresInterrupts` |
+| Long reading titles preserve full citations; malformed optional metadata leaves authorized documents in mixed batches | `SearchToolTest.longTitleIsBoundedOnlyInReadingProgressAndPreservesFullCitationTitle`; `SourceSearchMetadataMigrationTest` |
 | Concurrent native admission includes in-flight token/cost reservations; ledger retains sole usage ownership | `ChatModelGuardTest` |
 | Upload dates differ from operational dates, V34→V35/idempotency, multi-mapping metadata pairing and fresh authorization/revocation | `SourceSearchMetadataMigrationTest` |
 | Nested source/date filters on both hybrid branches, legacy metadata readiness repair and unchanged-vector reuse | `OpenSearchRetrievalIntegrationTest` |

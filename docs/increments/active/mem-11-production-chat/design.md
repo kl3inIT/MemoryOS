@@ -56,6 +56,8 @@ Thêm mapped fields vào index hiện tại và backfill qua indexing/reconcilia
 
 Model helper tiếp tục là model đã resolve cho lượt. Source Onyx hiện tại truyền cùng `llm` vào SearchTool; không có bằng chứng đường này tự chọn model nhỏ hơn. Việc tách một model helper khác không phải điều kiện của đợt sửa này. Onyx gọi `OFF` ở call site không bảo đảm mọi provider gửi giá trị tắt reasoning; nghiệm thu phải nhìn request thực và usage trả về khi provider cung cấp.
 
+Review PR #91 bổ sung cleanup hữu hạn: `cleanup-timeout` mặc định 1 s, tối đa 5 s. Stop khóa các lần gọi mới và interrupt việc đang chạy; nếu provider không dừng trong grace thì vẫn commit terminal với usage unknown. Giữ native process, client lease và suất chạy cho tới khi thân tác vụ và native accounting thực sự kết thúc. Không phát kết quả muộn, ghi lại terminal hay mở retry provider sau khi hủy; tác vụ không chịu dừng tiếp tục chiếm capacity, không được tạo số lượng orphan vô hạn. Native Embabel vẫn sở hữu binding/loop/accounting.
+
 Các điểm sửa nằm ở `SearchTool`, `ChatModelExecutor`, provider options conversion, Retrieval, metadata/indexing, Chat event/transport và UI progress hiện có. Tận dụng native Embabel/Spring AI và lifecycle hiện tại; không thêm inference engine, endpoint vận hành hay thay đổi chính sách quyền. Người dùng yêu cầu giao toàn bộ [Plan 3.3](plan.md#33--khắc-phục-latency-theo-baseline-onyx-đã-triển-khai-đang-kiểm-chứng) trong **một PR**, gồm code, migrations/backfill, UI, tests và tài liệu. Các nhóm A/B/C là thứ tự triển khai và kiểm chứng trong cùng PR, không phải các lần giao riêng. Kiểm thử và tài liệu canonical chỉ ghi hành vi đã thực sự triển khai sau khi sửa.
 
 Source đối chiếu tại revision nêu trên:

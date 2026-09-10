@@ -92,6 +92,7 @@ public final class ChatModelGuard implements ChatModel {
     @Override
     public ChatResponse call(Prompt prompt) {
         // Native typed output records its own usage. Track completeness without recording it twice.
+        io.memoryos.retrieval.SearchTasks.checkNativeActive();
         checkActive();
         int input = validateContext(prompt);
         var reservation = admitHelper(input);

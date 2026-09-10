@@ -35,12 +35,14 @@ class OpenAiChatProviderAdapterTest {
         try {
             var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
             var connection = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
-            for (String lowest : java.util.List.of("none", "minimal", "low")) {
-                try (var client = adapter.create(connection, "configured-model", settings(Map.of("maxCompletionTokens", true,
-                        "reasoningEffort", "high", "helperReasoningEffort", lowest), true), java.time.Duration.ofSeconds(5))) {
+            for (String lowest : java.util.List.of("default", "none", "minimal", "low")) {
+                Map<String, Object> options = lowest.equals("default")
+                        ? Map.of("maxCompletionTokens", true, "reasoningEffort", "high")
+                        : Map.of("maxCompletionTokens", true, "reasoningEffort", "high", "helperReasoningEffort", lowest);
+                try (var client = adapter.create(connection, "configured-model", settings(options, true), java.time.Duration.ofSeconds(5))) {
                     var service = client.binding().service();
                     service.getChatModel().call(new Prompt("Helper", service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking())));
-                    assertEquals(lowest, request.get().path("reasoning_effort").asString());
+                    assertEquals(lowest.equals("default") ? "minimal" : lowest, request.get().path("reasoning_effort").asString());
                     assertEquals(100, request.get().path("max_completion_tokens").asInt());
                     assertFalse(request.get().has("max_tokens"));
                     service.getChatModel().call(new Prompt("Answer", service.convertOptions(new LlmOptions().withMaxTokens(200))));

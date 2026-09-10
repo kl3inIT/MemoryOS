@@ -69,8 +69,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     private int calls;
     private int sourceBytes;
     private boolean failed;
-    private @Nullable Thread executing;
-    private volatile boolean closed;
+    private final SearchTasks.Scope work;
     private final Disposable cancellation;
     private final List<Message> history;
     private final String question;
@@ -90,17 +89,20 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                       Instant deadline, SearchTimings timings) {
         this.search = search; this.actor = actor; this.selectionRunner = selectionRunner; this.tokens = tokens;
         this.limits = limits;
+        this.work = new SearchTasks.Scope(limits.cleanupTimeout());
         this.checkActive = () -> {
-            if (closed || Thread.currentThread().isInterrupted()) throw new CancellationException("Search stopped");
+            work.checkActive();
+            if (Thread.currentThread().isInterrupted()) throw new CancellationException("Search stopped");
             checkActive.run();
         };
-        this.availableTokens = availableTokens; this.events = events;
+        this.availableTokens = availableTokens;
+        this.events = event -> { this.checkActive.run(); events.accept(event); };
         this.deadline = deadline;
         this.timings = timings;
         this.history = messages.stream().filter(m -> !(m instanceof SystemMessage)).toList();
         this.question = history.stream().filter(UserMessage.class::isInstance).map(Message::getContent)
                 .reduce((ignored, current) -> current).orElseThrow(() -> new IllegalArgumentException("Missing user question"));
-        this.cancellation = cancellation.subscribe(ignored -> interrupt());
+        this.cancellation = cancellation.subscribe(ignored -> work.cancel());
     }
 
     public boolean hasEvidence() { return !sources.isEmpty(); }
@@ -136,9 +138,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             @LlmTool.Param(description = "One to three focused search queries covering the user's question; preserve exact names and resolve references from history") List<String> queries,
             @LlmTool.Param(description = "Optional explicit source types and document creation/update intervals from the user. Null when unspecified. Dates are UTC instants with inclusive bounds; these never grant access.", required = false)
             @Nullable SearchFilters requestedFilters) {
-        register();
-        try { return executeSearch(queries, requestedFilters); }
-        finally { unregister(); }
+        try (var _ = work.enter()) { return executeSearch(queries, requestedFilters); }
     }
 
     private String executeSearch(List<String> queries, @Nullable SearchFilters requestedFilters) {
@@ -194,7 +194,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             }
             events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.EXPANDING, null, null, choices.stream()
                     .map(choice -> candidates.get(choice - 1)).map(s -> new ChatSearchEvent.ReadingDocument(
-                            s.anchor().documentId(), s.anchor().generation(), s.anchor().title(), s.start(), s.end())).toList()));
+                            s.anchor().documentId(), s.anchor().generation(), readingTitle(s.anchor().title()), s.start(), s.end())).toList()));
             var groups = new LinkedHashMap<String, TreeMap<Integer, SearchPage.Passage>>();
             var metadata = new LinkedHashMap<String, SearchHit>();
             var selectedSections = choices.stream().map(choice -> candidates.get(choice - 1)).toList();
@@ -494,24 +494,17 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                 .collect(Collectors.joining("\n")) + "\n";
     }
 
+    private static String readingTitle(String title) {
+        int end = Math.min(title.length(), 255);
+        if (end < title.length() && Character.isHighSurrogate(title.charAt(end - 1))) end--;
+        return title.substring(0, end);
+    }
+
     private void progress(ChatSearchEvent.Stage stage) { events.accept(new ChatSearchEvent(toolCallId, stage, null)); }
-    private synchronized void register() { checkActive.run(); executing = Thread.currentThread(); }
-    private synchronized void unregister() { executing = null; notifyAll(); }
-    private synchronized void interrupt() { if (executing != null) executing.interrupt(); }
+    public java.util.concurrent.CompletableFuture<Void> whenDrained() { return work.drained(); }
     @Override public void close() {
         cancellation.dispose();
-        boolean interrupted = Thread.interrupted();
-        synchronized (this) {
-            closed = true;
-            if (executing != Thread.currentThread()) {
-                interrupt();
-                while (executing != null) {
-                    try { wait(); }
-                    catch (InterruptedException stopping) { interrupted = true; interrupt(); }
-                }
-            }
-        }
-        if (interrupted) Thread.currentThread().interrupt();
+        work.close();
     }
     private static boolean boundaryFailure(Throwable failure) {
         for (int depth = 0; failure != null && depth < 8; depth++, failure = failure.getCause()) {
