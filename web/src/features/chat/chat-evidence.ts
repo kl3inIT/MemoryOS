@@ -1,17 +1,29 @@
 import { z } from "zod";
 import type { Root, RootContent } from "mdast";
 
-export const sourceSchema = z.object({
-  citationId: z.number().int().min(1).max(24),
-  documentId: z.string().uuid(),
-  generation: z.string().uuid(),
-  title: z.string().max(1024),
-  startOrdinal: z.number().int().nonnegative(),
-  endOrdinal: z.number().int().nonnegative(),
-  provenance: z.array(
-    z.object({ ordinal: z.number().int().nonnegative(), provenanceJson: z.string() }),
-  ),
-});
+export const sourceSchema = z
+  .object({
+    citationId: z.number().int().min(1).max(24),
+    documentId: z.string().uuid(),
+    generation: z.string().uuid(),
+    title: z.string().max(1024),
+    startOrdinal: z.number().int().min(0).max(9999),
+    endOrdinal: z.number().int().min(0).max(9999),
+    provenance: z
+      .array(
+        z.object({ ordinal: z.number().int().nonnegative(), provenanceJson: z.string().max(8192) }),
+      )
+      .min(1)
+      .max(60),
+  })
+  .refine(
+    (source) =>
+      source.endOrdinal >= source.startOrdinal &&
+      source.provenance.every(
+        (item) => item.ordinal >= source.startOrdinal && item.ordinal <= source.endOrdinal,
+      ),
+    "Source provenance must stay within its ordered passage range",
+  );
 export type ChatSource = z.infer<typeof sourceSchema>;
 export const sourcesSchema = z.array(sourceSchema).max(24);
 export const searchEventSchema = z.object({

@@ -126,6 +126,33 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       fixtureSource,
     ]);
   });
+  it.each([
+    ["reversed range", { endOrdinal: 2 }],
+    ["start beyond document", { startOrdinal: 10000, endOrdinal: 10000 }],
+    ["end beyond document", { endOrdinal: 10000 }],
+    ["missing provenance", { provenance: [] }],
+    [
+      "too many passages",
+      { provenance: Array.from({ length: 61 }, () => fixtureSource.provenance[0]!) },
+    ],
+    ["provenance outside range", { provenance: [{ ordinal: 2, provenanceJson: "{}" }] }],
+    ["oversized provenance", { provenance: [{ ordinal: 3, provenanceJson: "x".repeat(8193) }] }],
+  ])("rejects %s before exposing history citations", (_name, overrides) => {
+    expect(() =>
+      toUiMessages([{ ...row, sources: [{ ...fixtureSource, ...overrides }] }]),
+    ).toThrow();
+  });
+
+  it("accepts the last supported passage and provenance size in history", () => {
+    const source = {
+      ...fixtureSource,
+      startOrdinal: 9999,
+      endOrdinal: 9999,
+      provenance: [{ ordinal: 9999, provenanceJson: "x".repeat(8192) }],
+    };
+    expect(toUiMessages([{ ...row, sources: [source] }])[0]?.metadata?.sources).toEqual([source]);
+  });
+
   it("advances over search progress events without losing the text stream or falling back to history", async () => {
     const fetch = fixture(() =>
       sse(

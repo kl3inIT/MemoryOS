@@ -41,7 +41,8 @@ test("centers the empty composer and selects a catalog model with the keyboard f
   await expect(page.getByText("Hello 👋", { exact: true })).toHaveCount(2);
   const sessionId = page.url().split("/").at(-1);
   const stats = await (await page.request.get(`/api/chat/sessions/${sessionId}/stats`)).json();
-  expect(stats.selectedModels).toEqual([fixtureModels[1]!.id, fixtureModels[1]!.id]);
+  const qwen = fixtureModels.find((model) => model.displayName === "Qwen3.5 9B")!;
+  expect(stats.selectedModels).toEqual([qwen.id, qwen.id]);
 });
 
 test("grounds prose citations in message sources, opens the cited range, and preserves history after source denial", async ({
@@ -52,26 +53,25 @@ test("grounds prose citations in message sources, opens the cited range, and pre
       data: { mode: "grounded", title: "Annual leave" },
     })
   ).json();
-  let documentReads = 0;
+  const documentReads: URL[] = [];
   await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) => {
-    documentReads += 1;
     const url = new URL(route.request().url());
-    expect(url.searchParams.get("generation")).toBe(fixtureSource.generation);
-    expect(["0", "1"]).toContain(url.searchParams.get("from"));
+    documentReads.push(url);
+    const from = Number(url.searchParams.get("from"));
     return route.fulfill({
       json: {
         ...fixtureSource,
-        firstOrdinal: 1,
+        firstOrdinal: from,
         totalChunks: 5,
         hasMore: false,
-        passages: [1, 2, 3, 4].map((ordinal) => ({
+        passages: Array.from({ length: 5 - from }, (_, index) => from + index).map((ordinal) => ({
           ordinal,
           content:
             ordinal === 3
               ? "Annual leave is 17 days."
               : ordinal === 4
                 ? "Applies to full-time employees."
-                : "Handbook context",
+                : `Handbook context ${ordinal}. `.repeat(120),
           provenanceJson: "{}",
         })),
       },
@@ -97,7 +97,7 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(
     page.getByText("Annual leave is 17 days. Applies to full-time employees.", { exact: true }),
   ).toBeVisible();
-  expect(documentReads).toBe(1);
+  expect(documentReads).toHaveLength(1);
   await citation.press("Enter");
   const panel = page.getByRole("complementary", { name: "Sources" });
   await expect(panel).toBeVisible();
@@ -105,6 +105,10 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
   await expect(page.getByRole("article", { name: "Selected match" })).toHaveCount(2);
   await panel.getByRole("button", { name: "Earlier context" }).click();
+  await expect(panel.getByRole("article").first()).toBeInViewport();
+  await expect
+    .poll(() => panel.locator("[aria-busy]").evaluate((element) => element.scrollTop))
+    .toBe(0);
   await panel.getByRole("button", { name: "Back to cited passage" }).click();
   await expect(panel.getByRole("button", { name: "Back to cited passage" })).toBeHidden();
   await expect(page.getByRole("article", { name: "Selected match" })).toHaveCount(2);
@@ -131,6 +135,10 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(page.getByRole("alert")).toContainText("unavailable or has changed");
   await page.getByRole("button", { name: "Close sources" }).click();
   await expect(page.getByText("17 days", { exact: true })).toBeVisible();
+  for (const url of documentReads) {
+    expect(url.searchParams.get("generation")).toBe(fixtureSource.generation);
+    expect(["0", "1"]).toContain(url.searchParams.get("from"));
+  }
 });
 
 for (const mode of [
@@ -190,6 +198,10 @@ test("shows catalog errors, emptiness and the actual authorized fallback selecti
   await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.getByText(/The selected model is unavailable/)).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Choose model" })).toContainText("GPT-5 mini");
+  await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Choose model" })).toContainText("GPT-5 mini");
+  await expect(page.getByText(/The selected model is unavailable/)).toHaveCount(0);
 });
 
 test("new chat, native keyboard/IME, server IDs, multiple turns, markdown and reload", async ({
@@ -215,6 +227,15 @@ test("new chat, native keyboard/IME, server IDs, multiple turns, markdown and re
   await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
   await expect(page.locator("pre")).toContainText('System.out.println("Hello");');
+  await page.getByRole("button", { name: "Copy code" }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain('System.out.println("Hello");');
+  await page.evaluate(() => navigator.clipboard.writeText("Replaced clipboard"));
+  await expect(page.getByRole("button", { name: "Copy code" })).toHaveAttribute(
+    "title",
+    "Copy code",
+  );
   await page.getByRole("button", { name: "Copy code" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))

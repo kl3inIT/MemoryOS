@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { Accepted } from "@/lib/hey-api/types.gen";
 import { chatSessionsKey, loadChatHistory, toUiMessages, type ChatHistory } from "./chat-api";
 import { MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
 import { ChatThread } from "./chat-thread";
@@ -260,9 +261,18 @@ function ChatRuntimeBridge({
 type ModelChoice = { id?: string; fallback?: boolean };
 
 function useChatModelChoice(transport: MemoryOsChatTransport) {
-  const { actorId } = useApplicationSession();
+  const { actorId, authorizationVersion } = useApplicationSession();
+  const queryClient = useQueryClient();
   const key = `memoryos.chat.model:${actorId}`;
   const [choice, setChoice] = useState<ModelChoice>(() => {
+    // Keep the accepted-turn notice through the new-chat route transition,
+    // using the in-memory query cache. A page reload retains only the model ID.
+    const accepted = queryClient.getQueryData<Accepted>([
+      "chat-model-selection",
+      actorId,
+      authorizationVersion,
+      transport.session?.id,
+    ]);
     try {
       const saved: unknown = JSON.parse(sessionStorage.getItem(key) ?? "{}");
       if (
@@ -272,7 +282,10 @@ function useChatModelChoice(transport: MemoryOsChatTransport) {
         typeof saved.id === "string" &&
         /^[0-9a-f-]{36}$/i.test(saved.id)
       )
-        return { id: saved.id, fallback: "fallback" in saved && saved.fallback === true };
+        return {
+          id: saved.id,
+          fallback: accepted?.modelConfigurationId === saved.id && !!accepted.fallbackReason,
+        };
     } catch {
       /* Preference storage is optional. */
     }
@@ -281,18 +294,25 @@ function useChatModelChoice(transport: MemoryOsChatTransport) {
   useEffect(() => {
     transport.selectModel(choice.id);
     return transport.listenModelSelection((accepted) => {
+      queryClient.setQueryData(
+        ["chat-model-selection", actorId, authorizationVersion, transport.session?.id],
+        accepted,
+      );
       if (accepted.fallbackReason) {
         const next = { id: accepted.modelConfigurationId, fallback: true };
         transport.selectModel(next.id);
         try {
-          sessionStorage.setItem(key, JSON.stringify(next));
+          if (next.id) sessionStorage.setItem(key, JSON.stringify({ id: next.id }));
+          else sessionStorage.removeItem(key);
         } catch {
           /* Optional preference. */
         }
         setChoice(next);
+      } else {
+        setChoice((current) => (current.fallback ? { id: current.id } : current));
       }
     });
-  }, [transport, key, choice.id]);
+  }, [transport, key, choice.id, actorId, authorizationVersion, queryClient]);
   function select(id?: string) {
     transport.selectModel(id);
     setChoice({ id });

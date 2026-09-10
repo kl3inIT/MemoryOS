@@ -1109,7 +1109,8 @@ class ChatSessionApiIntegrationTest {
         while (citations.find()) {
             int number = Integer.parseInt(citations.group(1));
             var source = java.util.stream.StreamSupport.stream(answer.path("sources").spliterator(), false)
-                    .filter(s -> s.path("citationId").asInt() == number).findFirst().orElseThrow();
+                    .filter(s -> s.path("citationId").asInt() == number).findFirst()
+                    .orElseThrow(() -> new AssertionError("Unknown citation " + number + " in answer: " + answer));
             expectedCited |= expectedDocument.toString().equals(source.path("documentId").asText());
         }
         assertTrue(expectedCited, "The answer must cite the source containing its fact: " + answer);

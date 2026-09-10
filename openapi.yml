@@ -5832,10 +5832,9 @@ components:
           - COMPLETED
           - FAILED
         source:
-          type:
-          - object
-          - "null"
-          $ref: "#/components/schemas/ChatSource"
+          oneOf:
+          - $ref: "#/components/schemas/ChatSource"
+          - type: "null"
       required:
       - assistantMessageId
       - sequence

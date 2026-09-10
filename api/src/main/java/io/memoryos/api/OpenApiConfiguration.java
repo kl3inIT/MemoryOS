@@ -66,6 +66,8 @@ class OpenApiConfiguration {
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
                     Components components = openApi.getComponents();
+                    configureNullableProperty(components, "SearchEvent", "source",
+                            new Schema<>().$ref("#/components/schemas/ChatSource"));
                     configureNullableProperty(components, "CurrentIdentity", "tenant",
                             new Schema<>().$ref("#/components/schemas/CurrentTenant"));
                     configureNullableProperty(components, "GoogleDriveConfigurationResponse", "pendingSelectionOperation",

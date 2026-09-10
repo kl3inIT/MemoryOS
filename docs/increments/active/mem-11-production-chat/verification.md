@@ -8,7 +8,7 @@ Implemented the assistant-ui Base welcome/composer organization, authorized mode
 
 | Verification | Evidence and boundary |
 | --- | --- |
-| Frontend gate | `pnpm check` PASS: 97 unit tests, generated API/route drift, lint/format, types, production build and emitted font checks. Existing Vite 500 kB advisory remains; Chat chunk is approximately 679 kB minified / 200 kB gzip. |
+| Frontend gate | `pnpm check` PASS: 105 unit tests, generated API/route drift, lint/format, types, production build and emitted font checks. Existing Vite 500 kB advisory remains; Chat chunk is approximately 679 kB minified / 200 kB gzip. |
 | Browser contracts | 22 browser contracts verified (19 Chat, three Search), through the combined Chat/Search run and focused follow-ups after audit. The final same-title/multiple-source desktop/mobile rerun passed both scenarios; it waits for the model popup to finish closing before testing Escape in the composer. Covers model keyboard/mobile/persistence/fallback, citation hover and focus, source switching, desktop nonmodal panel, mobile drawer/focus return, source denial retaining historical answer, native send/IME/Stop/reload/reconnect/gap and scroll behavior. |
 | Visual inspection | Actual local browser captures reviewed at 1644×1112 and 390×844, including model menus, citation hover, source list and document reader. Light/dark model styling checked. Local preview uses synthetic identity/model/source fixtures, makes no live provider calls, and is not staging acceptance. |
 
@@ -19,6 +19,8 @@ Audit triage: setting `staleTime` with zero `gcTime` would not fix repeat-hover 
 Final visual follow-up inspected dark source list/reader, a 900px tablet drawer, and a 390px touch viewport; Sources has at least a 44px touch target and the drawer announces the selected document. No JavaScript page errors were observed in those captures. These checks do not certify a screen reader, physical mobile keyboard, 24-source latency or real-data relevance.
 
 No additional migration beyond Phase 3.1 V34. Combined working tree remains below 100 changed paths. CLI installation workspaces, browser screenshots and raw audit/test receipts remain ignored under `.tmp/` or test output directories. No new commit, merge or deployment is implied by these local receipts.
+
+CI and review follow-up: the complete 65-test browser suite passed after restoring native Radix citation focus/dismissal and updating the shell heading assertions. Review corrections then verified 22 Chat/Search contracts through a combined run and a focused model-selection rerun: repeat code copy, earlier-context scrolling, transient fallback notices across new-session navigation and reload, and malformed source bounds. Only the model ID persists in sessionStorage; accepted-turn notices use the existing authority-scoped in-memory query cache. OpenAPI uses the existing nullable-property customizer for `SearchEvent.source`, retaining typed non-null sources. The regular API/contract run passed 22 tests with two optional live-model skips. Java inspections found no errors; existing loopback HTTP and custom/SSE-header weak warnings remain intentional. IDE inspection of generated OpenAPI timed out; its real generation, YAML comparison and frontend client generation passed. V34 remains one transactional migration; its table-scan lock tradeoff is tracked in the PR review.
 
 ## Phase 3.1 — Backend grounded Chat, 2026-09-10
 

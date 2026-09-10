@@ -15,6 +15,7 @@ export function DocumentPreviewContent({
   const [activeMatchIndex, setActiveMatchIndex] = useState(selection.activeMatchIndex);
   const activeMatch = selection.matches[activeMatchIndex] ?? selection.matches[0];
   const [from, setFrom] = useState(activeMatch?.from ?? 0);
+  const contentRef = useRef<HTMLDivElement>(null);
   const matchingPassageRef = useRef<HTMLElement | null>(null);
   const detail = useQuery({
     ...getSearchDocumentOptions({
@@ -28,14 +29,17 @@ export function DocumentPreviewContent({
   });
 
   useEffect(() => {
-    if (detail.data && matchingPassageRef.current) {
+    if (detail.data && from === activeMatch?.from && matchingPassageRef.current) {
       matchingPassageRef.current.scrollIntoView({ block: "center" });
+    } else if (detail.data && contentRef.current) {
+      contentRef.current.scrollTop = 0;
     }
-  }, [activeMatch?.matchingOrdinal, detail.data]);
+  }, [activeMatch?.matchingOrdinal, activeMatch?.from, from, detail.data]);
 
   return (
     <>
       <div
+        ref={contentRef}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6"
         aria-busy={detail.isPending}
       >
