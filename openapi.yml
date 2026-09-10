@@ -3252,9 +3252,9 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, outcome, reset. Content event id is assistantMessageId:sequence.\
-        \ Only outcome confirms a committed terminal state. Heartbeats are comments.\
-        \ A reset has no event id."
+      description: "Events: text-delta, search, outcome, reset. Content event id is\
+        \ assistantMessageId:sequence. Only outcome confirms a committed terminal\
+        \ state. Heartbeats are comments. A reset has no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -3315,6 +3315,7 @@ paths:
                 - $ref: "#/components/schemas/TextDeltaEvent"
                 - $ref: "#/components/schemas/OutcomeEvent"
                 - $ref: "#/components/schemas/ResetEvent"
+                - $ref: "#/components/schemas/SearchEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5698,6 +5699,10 @@ components:
           - string
           - "null"
           format: date-time
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatSource"
       required:
       - content
       - createdAt
@@ -5707,7 +5712,51 @@ components:
       - parentMessageId
       - role
       - sessionId
+      - sources
       - status
+    ChatSource:
+      type: object
+      properties:
+        citationId:
+          type: integer
+          format: int32
+        documentId:
+          type: string
+          format: uuid
+        generation:
+          type: string
+          format: uuid
+        title:
+          type: string
+        startOrdinal:
+          type: integer
+          format: int32
+        endOrdinal:
+          type: integer
+          format: int32
+        provenance:
+          type: array
+          items:
+            $ref: "#/components/schemas/Provenance"
+      required:
+      - citationId
+      - documentId
+      - endOrdinal
+      - generation
+      - provenance
+      - startOrdinal
+      - title
+    Provenance:
+      type: object
+      properties:
+        ordinal:
+          type: integer
+          format: int32
+        provenanceJson:
+          type: string
+      required:
+      - ordinal
+      - provenanceJson
     TextDeltaEvent:
       type: object
       properties:
@@ -5762,6 +5811,36 @@ components:
       required:
       - assistantMessageId
       - reason
+    SearchEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        stage:
+          type: string
+          enum:
+          - STARTED
+          - SELECTING
+          - EXPANDING
+          - SOURCE
+          - COMPLETED
+          - FAILED
+        source:
+          oneOf:
+          - $ref: "#/components/schemas/ChatSource"
+          - type: "null"
+      required:
+      - assistantMessageId
+      - sequence
+      - source
+      - stage
+      - toolCallId
     Descriptor:
       type: object
       properties:

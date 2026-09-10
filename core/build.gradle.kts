@@ -1,5 +1,17 @@
+import java.time.Duration
+
 plugins {
     `java-library`
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    // Native Embabel method tools use reflected parameter names for their JSON schema and binding.
+    options.compilerArgs.add("-parameters")
+}
+
+tasks.withType<Test>().configureEach {
+    // The full PostgreSQL/migration corpus and real OpenSearch startup exceed ten minutes on a cold host.
+    timeout = Duration.ofMinutes(15)
 }
 
 dependencies {

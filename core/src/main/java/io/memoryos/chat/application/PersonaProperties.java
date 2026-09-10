@@ -1,6 +1,7 @@
 package io.memoryos.chat.application;
 
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.prompts.ChatPrompts;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -8,7 +9,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties("memoryos.chat.persona")
 public class PersonaProperties {
     private String name = "MemoryOS";
-    private String instructions = "You are a helpful assistant.";
+    private String instructions = ChatPrompts.DEFAULT_SYSTEM;
     private String model = "gpt-5-mini";
 
     public String getName() { return name; }

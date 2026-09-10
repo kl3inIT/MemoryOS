@@ -4,7 +4,7 @@ import io.memoryos.iam.IdentityContext;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
 import io.memoryos.api.search.contract.SearchPageResponse;
 import io.memoryos.retrieval.SearchRequest;
-import io.memoryos.retrieval.application.DocumentSearchService;
+import io.memoryos.retrieval.DocumentSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

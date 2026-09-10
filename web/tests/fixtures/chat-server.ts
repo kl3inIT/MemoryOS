@@ -1,3 +1,4 @@
+import { fixtureModels, fixtureSource } from "./chat-data.ts";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ChatMessage, ChatSession } from "../../src/lib/hey-api/types.gen.ts";
@@ -14,6 +15,7 @@ type Session = {
   runs: Map<string, Run>;
   sends: number;
   mode: string;
+  selectedModels: Array<string | undefined>;
 };
 const sessions = new Map<string, Session>();
 const answer =
@@ -37,7 +39,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
     createdAt: now,
     updatedAt: now,
   };
-  const value = { session, messages: [], runs: new Map(), sends: 0, mode };
+  const value = { session, messages: [], runs: new Map(), sends: 0, mode, selectedModels: [] };
   sessions.set(session.id, value);
   return value;
 }
@@ -67,6 +69,10 @@ export async function handleChatFixture(
   response: ServerResponse,
 ): Promise<boolean> {
   const url = new URL(request.url!, "http://localhost");
+  if (url.pathname === "/api/chat/models") {
+    json(response, fixtureModels);
+    return true;
+  }
   if (url.pathname === "/api/chat/test-fixture" && request.method === "POST") {
     const input = await body(request);
     const value = create(input.title, input.mode);
@@ -100,6 +106,7 @@ export async function handleChatFixture(
   if (segments[5] === "stats") {
     json(response, {
       sends: state.sends,
+      selectedModels: state.selectedModels,
       readers: [...state.runs.values()].reduce((n, run) => n + run.listeners.size, 0),
     });
     return true;
@@ -136,6 +143,7 @@ export async function handleChatFixture(
     state.messages.push(
       {
         id: userId,
+        sources: [],
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -147,6 +155,7 @@ export async function handleChatFixture(
       },
       {
         id: assistantId,
+        sources: [],
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",
@@ -160,35 +169,70 @@ export async function handleChatFixture(
     const run: Run = { id: assistantId, packets: [], listeners: new Set() };
     state.runs.set(assistantId, run);
     state.sends++;
-    json(response, { userMessageId: userId, assistantMessageId: assistantId }, 202);
-    run.timer = setTimeout(() => {
-      const content =
-        state.mode === "long"
-          ? Array.from(
-              { length: 50 },
-              (_, index) =>
-                `Paragraph ${index + 1}: This is a longer reply for reading while the assistant continues working.`,
-            ).join("\n\n")
-          : answer;
-      state.messages.at(-1)!.content = content;
-      emit(run, "text-delta", { text: content });
-      if (state.mode === "long") {
-        run.timer = setTimeout(() => {
-          state.messages.at(-1)!.content += "\n\nThe final paragraph arrived.";
-          emit(run, "text-delta", { text: "\n\nThe final paragraph arrived." });
-          finish(state, run, "COMPLETED");
-        }, 3000);
-        return;
-      }
-      if (state.mode === "disconnect") {
-        for (const listener of run.listeners) listener.end();
-        run.listeners.clear();
-      }
-      run.timer = setTimeout(
-        () => finish(state, run, state.mode === "failed" ? "FAILED" : "COMPLETED"),
-        state.mode === "slow" ? 20_000 : 1000,
-      );
-    }, 250);
+    state.selectedModels.push(input.modelConfigurationId);
+    const selected =
+      fixtureModels.find((model) => model.id === input.modelConfigurationId) ?? fixtureModels[0]!;
+    json(
+      response,
+      {
+        userMessageId: userId,
+        assistantMessageId: assistantId,
+        modelConfigurationId: selected.id,
+        ...(input.modelConfigurationId && selected.id !== input.modelConfigurationId
+          ? { fallbackReason: "SELECTION_UNAVAILABLE" }
+          : {}),
+      },
+      202,
+    );
+    const grounded = state.mode.startsWith("grounded");
+    if (grounded) emit(run, "search", { toolCallId: "search-1", stage: "STARTED", source: null });
+    run.timer = setTimeout(
+      () => {
+        const content =
+          state.mode === "long"
+            ? Array.from(
+                { length: 50 },
+                (_, index) =>
+                  `Paragraph ${index + 1}: This is a longer reply for reading while the assistant continues working.`,
+              ).join("\n\n")
+            : grounded
+              ? "## Annual leave\n\nEmployees receive **17 days** of annual leave [1].\n\nUnverified [99] remains plain text. Inline code `[1]` is not a citation.\n\n```text\n[1] in a code block\n```"
+              : answer;
+        if (grounded) {
+          state.messages.at(-1)!.sources = [fixtureSource];
+          emit(run, "search", { toolCallId: "search-1", stage: "SOURCE", source: fixtureSource });
+          emit(run, "search", { toolCallId: "search-1", stage: "COMPLETED", source: null });
+        }
+        state.messages.at(-1)!.content = content;
+        if (state.mode === "grounded-split") {
+          const split = content.indexOf("[1]") + 2;
+          emit(run, "text-delta", { text: content.slice(0, split) });
+          emit(run, "text-delta", { text: content.slice(split) });
+        } else emit(run, "text-delta", { text: content });
+        if (state.mode === "long") {
+          run.timer = setTimeout(() => {
+            state.messages.at(-1)!.content += "\n\nThe final paragraph arrived.";
+            emit(run, "text-delta", { text: "\n\nThe final paragraph arrived." });
+            finish(state, run, "COMPLETED");
+          }, 3000);
+          return;
+        }
+        if (state.mode === "disconnect" || state.mode === "grounded-disconnect") {
+          for (const listener of run.listeners) listener.end();
+          run.listeners.clear();
+        }
+        run.timer = setTimeout(
+          () =>
+            finish(
+              state,
+              run,
+              state.mode === "failed" || state.mode === "grounded-failed" ? "FAILED" : "COMPLETED",
+            ),
+          state.mode === "slow" || state.mode === "grounded-slow" ? 20_000 : 1000,
+        );
+      },
+      grounded ? 750 : 250,
+    );
     return true;
   }
   const run = state.runs.get(segments[6]!);
@@ -211,7 +255,7 @@ export async function handleChatFixture(
   if (segments[7] === "events") {
     response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
     response.flushHeaders();
-    if (state.mode === "gap") {
+    if (state.mode === "gap" || state.mode === "grounded-gap") {
       response.end(
         `event: reset\ndata: ${JSON.stringify({ assistantMessageId: run.id, reason: "BUFFER_MISSING" })}\n\n`,
       );

@@ -173,6 +173,12 @@ class OpenApiContractTest {
         assertTrue(validationFields.has("reachable"));
         assertTrue(validationFields.has("failureCode"));
         assertEquals(2, validationFields.size());
+        var searchSource = actual.path("components").path("schemas").path("SearchEvent")
+                .path("properties").path("source");
+        assertFalse(searchSource.has("$ref"), "A sibling object reference would reject null progress sources");
+        assertEquals(2, searchSource.path("oneOf").size());
+        assertEquals("#/components/schemas/ChatSource", searchSource.path("oneOf").get(0).path("$ref").asText());
+        assertEquals("null", searchSource.path("oneOf").get(1).path("type").asText());
         for (var path : Set.of("/api/chat/models", "/api/chat/providers", "/api/chat/provider-adapters", "/api/chat/model-default")) {
             assertTrue(actual.path("paths").path(path).path("get").path("responses").path("200")
                     .path("content").path("application/json").path("schema").isObject(), path + " must generate a typed success response");

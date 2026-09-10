@@ -45,6 +45,12 @@ The physical index name hashes endpoint/model/dimensions/chunk convention under 
 
 ## Read path
 
+Search preview and Chat expansion share `OpenSearchIndexService.document`: one Tenant/document/generation/index-scoped query returns a bounded ordinal window and title/total metadata. It does not call embeddings or load the full PostgreSQL chunk set. Missing documents return 404; incomplete indexed windows return 503. An offset past the end returns an empty page with the real title/count. PostgreSQL still owns canonical chunks for ingestion/reindexing and current-generation readiness.
+
+`DocumentSearchService.ranked` is the public Chat entry point. It accepts at most eight backend-owned `SearchQuery` values, runs every query through the shared hybrid path, checks each candidate batch through the existing Source resolver, deduplicates chunks and fuses ranks as `sum(weight / (50 + rank))`, returning at most 30 hits. A keyword query is a concise query formulation, not a BM25-only index mode: it also calls embeddings. Both query groups use the configured min-max/arithmetic-mean pipeline (default 50% lexical, 50% vector), matching the current Onyx OpenSearch path. Query-group weights affect cross-query RRF, independently of this per-query fusion. Direct Search keeps its single hybrid query and document-card pagination.
+
+`SearchResults` is created only by Retrieval and binds authorized candidates to their Tenant. Expansion accepts a member of that set and 0–5 neighbors, checks the same generation and reads the index window without rechecking source ACL. Independent preview requests still check current membership, source permission and generation. Single/batch source checks use the same PUBLIC FILE predicate. The index does not yet carry principal ACL metadata; restricted/provider ACL integration and permission-aware top-k remain the source authorization work. There is no allow-all Chat stub.
+
 ```mermaid
 flowchart LR
     UI[Search page] --> API[POST /api/search]
@@ -58,7 +64,7 @@ flowchart LR
     S --> G[Best-hit ranking; up to 3 sections per document]
     G --> UI
     UI --> D[GET /api/search/documents/id]
-    D --> C[Current PostgreSQL passages]
+    D --> C[Current OpenSearch ordinal window]
 ```
 
 `DocumentSearchService` resolves the Actor's active Tenant and executes one native hybrid query. The BM25 clause can independently retain lexical matches. The semantic clause uses Faiss radial k-NN and admits only vectors at or above `memoryos.search.minimum-semantic-score` before min-max fusion; the default `0.70` equals cosine similarity `0.40` because this index's `cosinesimil` score is `(1 + cosine similarity) / 2`. `candidate-limit` remains the HNSW `ef_search`, hybrid pagination depth and response-size budget. This avoids treating every nearest neighbor as relevant and avoids an absolute threshold on query-relative combined min-max scores. Changing the embedding model or representative corpus requires evaluation and possible threshold retuning.

@@ -57,10 +57,10 @@ test("renders the authenticated application shell", async ({ page }) => {
     "page",
   );
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
-  await expect(page.getByRole("heading", { name: "What can I help you with?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "What can I help you with?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
 });
 
 test("hides owner UI and blocks member administration deep links without requests", async ({
@@ -309,7 +309,7 @@ test("recovers from an unavailable identity endpoint without treating it as sign
 
   await expect(page.getByRole("heading", { name: /couldn’t confirm your session/i })).toBeVisible();
   await page.getByRole("button", { name: /try again/i }).click();
-  await expect(page.getByRole("heading", { name: "What can I help you with?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
 });
 
 test("manages members and one-time invitation recovery from the Users view", async ({ page }) => {

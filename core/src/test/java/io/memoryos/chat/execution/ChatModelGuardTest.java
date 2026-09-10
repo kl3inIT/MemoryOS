@@ -16,11 +16,14 @@ import static org.mockito.Mockito.when;
 
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.Budget;
+import com.embabel.agent.core.EarlyTermination;
 import com.embabel.common.ai.model.LlmMetadata;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
@@ -46,6 +49,7 @@ class ChatModelGuardTest {
     @Test
     void lengthIsTerminalAndKnownUsageIsRecordedOnceWithToolsOff() {
         when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
+            assertTrue(call.<Prompt>getArgument(0).getContents().contains("no longer have any tool calls available"));
             var options = assertInstanceOf(OpenAiChatOptions.class, call.<Prompt>getArgument(0).getOptions());
             assertNotNull(options);
             assertEquals(List.of(), options.getToolCallbacks());
@@ -65,6 +69,24 @@ class ChatModelGuardTest {
     }
 
     @Test
+    void citationReminderTracksAvailableEvidenceWithoutMutatingConversationMessages() {
+        var evidence = new java.util.concurrent.atomic.AtomicBoolean();
+        var twoCycles = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, request -> request);
+        twoCycles.evidenceAvailable(evidence::get);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
+            Prompt sent = call.getArgument(0);
+            assertEquals(calls.incrementAndGet() > 1, sent.getContents().contains("cite relevant statements INLINE"));
+            return Flux.just(response("Answer", "stop", 12));
+        });
+        twoCycles.stream(prompt).blockLast();
+        evidence.set(true);
+        twoCycles.stream(prompt).blockLast();
+        assertEquals(1, prompt.getInstructions().size());
+        assertEquals("Question", prompt.getContents());
+    }
+
+    @Test
     void missingTerminalMetadataFailsAndUnknownUsageIsNotFabricated() {
         when(provider.stream(any(Prompt.class))).thenReturn(Flux.just(response("Partial", "", 0)));
         assertEquals("CHAT_INCOMPLETE_RESPONSE", assertThrows(IllegalStateException.class,
@@ -80,6 +102,42 @@ class ChatModelGuardTest {
         assertThrows(IllegalStateException.class, () -> guard.stream(prompt).blockLast());
         assertTrue(guard.usageKnown());
         verify(process).recordLlmInvocation(any());
+    }
+
+    @Test
+    void synchronousUsageCompletenessIsTrackedButOnlyNativeCallerRecordsIt() {
+        when(provider.call(any(Prompt.class))).thenReturn(response("{}", "stop", 7));
+        guard.call(prompt);
+        verify(process, never()).recordLlmInvocation(any());
+        when(provider.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 12)));
+        guard.stream(prompt).blockLast();
+        assertTrue(guard.usageKnown());
+        verify(process).recordLlmInvocation(any());
+    }
+
+    @Test
+    void unknownTypedUsageKeepsWholeTurnAccountingUnknownAndBudgetStopsAllInference() {
+        when(provider.call(any(Prompt.class))).thenReturn(response("{}", "stop", 0));
+        guard.call(prompt);
+        when(provider.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 12)));
+        guard.stream(prompt).blockLast();
+        assertFalse(guard.usageKnown());
+        when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(mock(EarlyTermination.class));
+        assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(IllegalStateException.class, guard::checkActive).getMessage());
+        assertThrows(IllegalStateException.class, () -> guard.call(prompt));
+        assertThrows(IllegalStateException.class, () -> guard.stream(prompt).blockLast());
+        verify(provider).call(any(Prompt.class));
+        verify(provider).stream(any(Prompt.class));
+    }
+
+    @Test
+    void toolResponseContentCountsAgainstContextBeforeProviderInference() {
+        guard.contextLimit(new JTokkitTokenCountEstimator(), 128);
+        var response = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse(
+                "tool-1", "searchKnowledge", "private document ".repeat(1000)))).build();
+        var request = new Prompt(List.of(response), prompt.getOptions());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guard.stream(request).blockLast()).getMessage());
+        verify(provider, never()).stream(any(Prompt.class));
     }
 
     private ChatResponse response(String text, String reason, int tokens) {

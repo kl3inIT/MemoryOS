@@ -720,6 +720,22 @@ export type ChatMessage = {
     status: 'COMPLETED' | 'RUNNING' | 'CANCELED' | 'FAILED';
     createdAt: string;
     finishedAt: string | null;
+    sources: Array<ChatSource>;
+};
+
+export type ChatSource = {
+    citationId: number;
+    documentId: string;
+    generation: string;
+    title: string;
+    startOrdinal: number;
+    endOrdinal: number;
+    provenance: Array<Provenance>;
+};
+
+export type Provenance = {
+    ordinal: number;
+    provenanceJson: string;
 };
 
 export type TextDeltaEvent = {
@@ -738,6 +754,14 @@ export type OutcomeEvent = {
 export type ResetEvent = {
     assistantMessageId: string;
     reason: 'BUFFER_MISSING' | 'BUFFER_GAP' | 'BUFFER_EXPIRED';
+};
+
+export type SearchEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    stage: 'STARTED' | 'SELECTING' | 'EXPANDING' | 'SOURCE' | 'COMPLETED' | 'FAILED';
+    source: ChatSource | null;
 };
 
 export type Descriptor = {
@@ -3187,7 +3211,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent;
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent | SearchEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

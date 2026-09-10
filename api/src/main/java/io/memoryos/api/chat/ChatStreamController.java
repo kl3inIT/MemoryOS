@@ -55,12 +55,12 @@ class ChatStreamController {
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(operationId = "streamChatMessage", summary = "Read or resume reply events; reset requires persisted history",
-            description = "Events: text-delta, outcome, reset. Content event id is assistantMessageId:sequence. "
+            description = "Events: text-delta, search, outcome, reset. Content event id is assistantMessageId:sequence. "
                     + "Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.")
     @ApiResponse(responseCode = "200", description = "SSE frames; the schema describes each data payload",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @Schema(oneOf = {ChatEventStream.TextDeltaEvent.class, ChatEventStream.OutcomeEvent.class,
-                            ChatEventStream.ResetEvent.class})))
+                            ChatEventStream.ResetEvent.class, ChatEventStream.SearchEvent.class})))
     ResponseEntity<Flux<ServerSentEvent<Object>>> events(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
             @RequestHeader(value = "Last-Event-ID", required = false) @Nullable String lastEvent,

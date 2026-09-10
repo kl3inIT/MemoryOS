@@ -25,31 +25,7 @@ public class JdbcSourceDocumentRepository {
     }
 
     public boolean hasEligibleMapping(TenantId tenantId, DocumentId documentId) {
-        return jdbcClient.sql("""
-                        SELECT COUNT(*)
-                        FROM documents_by_connector_credential_pair mapping
-                        JOIN connector_credential_pairs pair
-                          ON pair.tenant_id = mapping.tenant_id
-                         AND pair.id = mapping.connector_credential_pair_id
-                        JOIN connectors connector
-                          ON connector.tenant_id = mapping.tenant_id
-                         AND connector.id = mapping.connector_id
-                        JOIN documents document
-                          ON document.tenant_id = mapping.tenant_id
-                         AND document.id = mapping.document_id
-                        WHERE mapping.tenant_id = :tenantId
-                          AND mapping.document_id = :documentId
-                          AND mapping.retrieval_eligible = TRUE
-                          AND pair.access_type = 'PUBLIC'
-                          AND pair.status = 'ACTIVE'
-                          AND connector.status = 'ACTIVE'
-                          AND connector.connector_type = 'FILE'
-                          AND document.status = 'ELIGIBLE'
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("documentId", documentId.value())
-                .query(Integer.class)
-                .single() != 0;
+        return readableDocuments(tenantId, List.of(documentId.value())).contains(documentId.value());
     }
 
     public Optional<DocumentId> findMappedDocument(IndexWork work) {
@@ -76,7 +52,7 @@ public class JdbcSourceDocumentRepository {
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND p.access_type='PUBLIC' AND p.status='ACTIVE' AND c.status='ACTIVE' AND d.status='ELIGIBLE'
+                    AND p.access_type='PUBLIC' AND p.status='ACTIVE' AND c.status='ACTIVE' AND c.connector_type='FILE' AND d.status='ELIGIBLE'
                 """).param("tenant", tenant.value()).param("documents", documents).query(UUID.class).list());
     }
 

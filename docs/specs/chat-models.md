@@ -1,6 +1,6 @@
 # Chat provider/model catalog
 
-The backend lives in `core.chat.catalog` and `chat.persistence.JdbcModelCatalogRepository`, with native provider composition and HTTP controllers in `api.chat`. The browser model selector and administration screens are not implemented. This contract extends [Chat](chat.md); the [reference design](../increments/active/mem-11-production-chat/provider-model-architecture.md) also describes later UI work.
+The backend lives in `core.chat.catalog` and `chat.persistence.JdbcModelCatalogRepository`, with native provider composition and HTTP controllers in `api.chat`. Chat's composer has a session-aware model picker backed by this catalog; provider/model administration screens remain MEM-77 work. This contract extends [Chat](chat.md); the [reference design](../increments/active/mem-11-production-chat/provider-model-architecture.md) also describes later UI work.
 
 ## Configuration and access
 

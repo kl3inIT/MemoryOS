@@ -1,0 +1,30 @@
+"use client";
+
+import { Files } from "lucide-react";
+import type { ComponentProps } from "react";
+import { cn } from "@/lib/utils";
+import { fieldInteractive, mono } from "./surfaces";
+
+// Keep the registry Sources pill; the application opens its document panel.
+export function Sources({
+  count,
+  className,
+  ...props
+}: ComponentProps<"button"> & { count: number }) {
+  return (
+    <button
+      type="button"
+      data-slot="sources"
+      className={cn(
+        fieldInteractive,
+        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-content-secondary outline-none hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-accent",
+        className,
+      )}
+      {...props}
+    >
+      <Files className="size-3.5" aria-hidden="true" />
+      <span>Sources</span>
+      <span className={cn(mono, "text-content-muted tabular-nums")}>{count}</span>
+    </button>
+  );
+}

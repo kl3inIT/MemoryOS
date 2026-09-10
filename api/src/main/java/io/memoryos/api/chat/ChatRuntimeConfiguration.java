@@ -9,6 +9,8 @@ import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
+import io.memoryos.chat.tools.ChatSearchProperties;
+import io.memoryos.retrieval.DocumentSearchService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -22,7 +24,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class})
+@EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class, ChatSearchProperties.class})
 @EnableScheduling
 class ChatRuntimeConfiguration {
     @Bean(destroyMethod = "close", defaultCandidate = false)
@@ -36,8 +38,15 @@ class ChatRuntimeConfiguration {
 
     @Bean
     ChatModelExecutor chatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
-                                        ChatExecutionProperties limits) {
-        return new ChatModelExecutor(contexts, repository, limits);
+                                        ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits,
+                                        @Qualifier("chatInferenceScheduler") Scheduler scheduler) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler);
+    }
+
+    @Bean(destroyMethod = "dispose")
+    Scheduler chatInferenceScheduler(ChatExecutionProperties limits) {
+        return Schedulers.newBoundedElastic(limits.concurrency(), 16,
+                Thread.ofVirtual().name("chat-inference-", 0).factory(), 60);
     }
 
     @Bean(destroyMethod = "close")

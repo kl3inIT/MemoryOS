@@ -55,6 +55,8 @@ tasks.named<Test>("test") {
         "memoryosOpenApiWrite",
         providers.environmentVariable("MEMORYOS_OPENAPI_WRITE").orElse("false"),
     )
+    inputs.property("memoryosChatLive", providers.environmentVariable("MEMORYOS_CHAT_LIVE_TEST").orElse("false"))
+    inputs.property("memoryosChatGroundingLive", providers.environmentVariable("MEMORYOS_CHAT_GROUNDING_LIVE_TEST").orElse("false"))
 }
 
 springBoot {

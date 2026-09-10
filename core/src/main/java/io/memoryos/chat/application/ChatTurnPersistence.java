@@ -2,6 +2,7 @@ package io.memoryos.chat.application;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
+import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.ChatModelBinding;
@@ -68,7 +69,7 @@ public class ChatTurnPersistence {
         // Builtin Persona is configuration-backed until the editor consumer is implemented.
         chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
         if (selection == null) ChatTurnSetup.validateQuestion(chats.persona(sessionId).instructions(), text, contextTokenLimit);
-        else ChatTurnSetup.validateQuestion(chats.persona(sessionId).instructions(), text, contextTokenLimit, selection.binding().tokens());
+        else ChatTurnSetup.validateQuestion(chats.persona(sessionId).instructions(), text, contextTokenLimit, selection.binding());
         UUID user = UUID.randomUUID();
         UUID assistant = UUID.randomUUID();
         chats.insertPair(sessionId, parentId, requestId, user, assistant, text, timeout);
@@ -148,8 +149,11 @@ public class ChatTurnPersistence {
 
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
-                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output, @Nullable Double cost) {
-        finish(session, assistant, status, partial, failure, model, input, output, cost);
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources) {
+        if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000 || sources.size() > 24)
+            throw ChatException.invalid("Invalid terminal outcome.");
+        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources);
         var saved = chats.control(assistant);
         return new TerminalOutcome(saved.status(), saved.failureCode());
     }

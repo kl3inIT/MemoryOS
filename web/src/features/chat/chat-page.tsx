@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { Accepted } from "@/lib/hey-api/types.gen";
 import { chatSessionsKey, loadChatHistory, toUiMessages, type ChatHistory } from "./chat-api";
 import { MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
 import { ChatThread } from "./chat-thread";
+import { ChatModelPicker } from "./chat-model-picker";
 
 export function ExistingChatPage() {
   const { sessionId } = useParams({ from: "/_authenticated/chat/$sessionId" });
@@ -64,6 +66,7 @@ function ChatConversation({ initial }: { initial?: ChatHistory }) {
   const queryClient = useQueryClient();
   const running = initial?.messages.find((message) => message.status === "RUNNING");
   const [transport] = useState(() => new MemoryOsChatTransport(initial?.session, running));
+  const model = useChatModelChoice(transport);
   const [connection, setConnection] = useState<ConnectionState>(running ? "recovering" : "ready");
   const [error, setError] = useState<string>();
   const [unavailable, setUnavailable] = useState(false);
@@ -141,6 +144,19 @@ function ChatConversation({ initial }: { initial?: ChatHistory }) {
         }}
       />
       <ChatThread
+        modelPicker={
+          <ChatModelPicker
+            sessionId={initial?.session.id}
+            value={model.choice.id}
+            onChange={model.select}
+            disabled={connection !== "ready" || checking}
+          />
+        }
+        modelNotice={
+          model.choice.fallback
+            ? "The selected model is unavailable. The reply is using an authorized default model."
+            : undefined
+        }
         connection={connection}
         stopping={stopping}
         onStop={() => void stop()}
@@ -240,4 +256,71 @@ function ChatRuntimeBridge({
     };
   }, [transport, resume, sdkReady]);
   return null;
+}
+
+type ModelChoice = { id?: string; fallback?: boolean };
+
+function useChatModelChoice(transport: MemoryOsChatTransport) {
+  const { actorId, authorizationVersion } = useApplicationSession();
+  const queryClient = useQueryClient();
+  const key = `memoryos.chat.model:${actorId}`;
+  const [choice, setChoice] = useState<ModelChoice>(() => {
+    // Keep the accepted-turn notice through the new-chat route transition,
+    // using the in-memory query cache. A page reload retains only the model ID.
+    const accepted = queryClient.getQueryData<Accepted>([
+      "chat-model-selection",
+      actorId,
+      authorizationVersion,
+      transport.session?.id,
+    ]);
+    try {
+      const saved: unknown = JSON.parse(sessionStorage.getItem(key) ?? "{}");
+      if (
+        saved &&
+        typeof saved === "object" &&
+        "id" in saved &&
+        typeof saved.id === "string" &&
+        /^[0-9a-f-]{36}$/i.test(saved.id)
+      )
+        return {
+          id: saved.id,
+          fallback: accepted?.modelConfigurationId === saved.id && !!accepted.fallbackReason,
+        };
+    } catch {
+      /* Preference storage is optional. */
+    }
+    return {};
+  });
+  useEffect(() => {
+    transport.selectModel(choice.id);
+    return transport.listenModelSelection((accepted) => {
+      queryClient.setQueryData(
+        ["chat-model-selection", actorId, authorizationVersion, transport.session?.id],
+        accepted,
+      );
+      if (accepted.fallbackReason) {
+        const next = { id: accepted.modelConfigurationId, fallback: true };
+        transport.selectModel(next.id);
+        try {
+          if (next.id) sessionStorage.setItem(key, JSON.stringify({ id: next.id }));
+          else sessionStorage.removeItem(key);
+        } catch {
+          /* Optional preference. */
+        }
+        setChoice(next);
+      } else {
+        setChoice((current) => (current.fallback ? { id: current.id } : current));
+      }
+    });
+  }, [transport, key, choice.id, actorId, authorizationVersion, queryClient]);
+  function select(id?: string) {
+    transport.selectModel(id);
+    setChoice({ id });
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ id }));
+    } catch {
+      /* Optional preference. */
+    }
+  }
+  return { choice, select };
 }
