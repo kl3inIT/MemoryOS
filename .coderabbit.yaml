@@ -33,6 +33,7 @@ reviews:
     - "!.gradle/**"
     - "!gradle/wrapper/gradle-wrapper.jar"
     - "!**/*.md"
+    - "!openapi.yml"
     - "!gradlew"
     - "!gradlew.bat"
   auto_review:
