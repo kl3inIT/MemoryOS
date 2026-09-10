@@ -9,6 +9,7 @@ import io.memoryos.chat.ChatSearchEvent;
 import io.memoryos.chat.tools.SearchTool;
 import io.memoryos.chat.tools.ChatSearchProperties;
 import io.memoryos.retrieval.DocumentSearchService;
+import io.memoryos.retrieval.SearchTimings;
 import java.util.ArrayList;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,15 +29,17 @@ public final class ChatModelExecutor {
     private final DocumentSearchService search;
     private final ChatSearchProperties searchLimits;
     private final Scheduler scheduler;
+    private final SearchTimings timings;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
-            ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler) {
+            ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings) {
         this.contexts = contexts;
         this.processes = processes;
         this.limits = limits;
         this.search = search;
         this.searchLimits = searchLimits;
         this.scheduler = scheduler;
+        this.timings = timings;
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
@@ -55,6 +58,7 @@ public final class ChatModelExecutor {
         guard.contextLimit(selected.tokens(), Math.min(limits.contextTokenLimit(), selected.contextWindow()
                 - maxOutput));
         guard.executionScheduler(scheduler);
+        guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
         SearchTool searchTool = null;
         try {
@@ -66,9 +70,10 @@ public final class ChatModelExecutor {
             var messages = new ArrayList<>(setup.messages());
             if (selected.toolCalling()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
-                selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withMaxTokens(Math.min(2048, maxOutput)));
+                selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
+                        .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages());
+                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings);
                 guard.evidenceAvailable(searchTool::hasEvidence);
                 runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);
             }

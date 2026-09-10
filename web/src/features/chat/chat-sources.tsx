@@ -164,18 +164,75 @@ export function ChatSearchStatus() {
     state.message.parts.some((part) => part.type === "text" && part.text.trim().length > 0),
   );
   if (!running) return null;
-  const stage = Object.values(progress ?? {}).find(
-    (value) => !["COMPLETED", "FAILED"].includes(value),
+  const active = Object.values(progress ?? {}).find(
+    (value) => !["COMPLETED", "FAILED"].includes(value.stage),
   );
+  const stage = active?.stage;
   const label =
     stage === "SELECTING"
       ? "Selecting relevant passages…"
       : stage === "EXPANDING" || stage === "SOURCE"
         ? "Reading document context…"
-        : stage === "STARTED"
+        : stage === "STARTED" || stage === "SEARCHING"
           ? "Searching your documents…"
           : !hasText
             ? "Thinking…"
             : undefined;
-  return label ? <ThinkingIndicator role="status" className="mb-3" label={label} /> : null;
+  if (!label) return null;
+  const filters = active?.search?.filters;
+  return (
+    <div className="mb-3 space-y-2 text-sm">
+      <ThinkingIndicator role="status" label={label} />
+      {active?.search && (
+        <details className="text-muted-foreground">
+          <summary className="cursor-pointer">Search details</summary>
+          <ul className="mt-2 space-y-1 pl-4 list-disc">
+            {active.search.queries.map((query) => (
+              <li key={query} className="break-words">
+                {query}
+              </li>
+            ))}
+          </ul>
+          {!!filters?.sources.length && (
+            <p>
+              Sources:{" "}
+              {filters.sources
+                .map((source) => (source === "FILE" ? "Uploaded files" : "Google Drive"))
+                .join(", ")}
+            </p>
+          )}
+          {filters?.created && (
+            <p>
+              Created: {displayDate(filters.created.from)} – {displayDate(filters.created.to)}
+            </p>
+          )}
+          {filters?.updated && (
+            <p>
+              Updated: {displayDate(filters.updated.from)} – {displayDate(filters.updated.to)}
+            </p>
+          )}
+        </details>
+      )}
+      {!!active?.documents.length && (
+        <div className="text-muted-foreground">
+          <p>Reading documents</p>
+          <ul className="mt-1 space-y-1 pl-4 list-disc">
+            {active.documents.map((document) => (
+              <li key={`${document.documentId}:${document.startOrdinal}`}>{document.title}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function displayDate(value: string | null) {
+  return value
+    ? new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "UTC",
+      }).format(new Date(value)) + " UTC"
+    : "Unbounded";
 }

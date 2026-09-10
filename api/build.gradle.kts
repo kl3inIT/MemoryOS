@@ -43,6 +43,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.opensearch.java)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -57,6 +58,7 @@ tasks.named<Test>("test") {
     )
     inputs.property("memoryosChatLive", providers.environmentVariable("MEMORYOS_CHAT_LIVE_TEST").orElse("false"))
     inputs.property("memoryosChatGroundingLive", providers.environmentVariable("MEMORYOS_CHAT_GROUNDING_LIVE_TEST").orElse("false"))
+    inputs.property("memoryosChatCorpusLive", providers.environmentVariable("MEMORYOS_CHAT_CORPUS_TEST").orElse("false"))
 }
 
 springBoot {

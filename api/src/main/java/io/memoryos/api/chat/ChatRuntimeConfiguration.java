@@ -27,6 +27,16 @@ import reactor.core.scheduler.Schedulers;
 @EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class, ChatSearchProperties.class})
 @EnableScheduling
 class ChatRuntimeConfiguration {
+    @Bean
+    @org.springframework.context.annotation.Primary
+    com.embabel.agent.api.common.Asyncer chatNativeAsyncer(
+            @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor executor) {
+        // Keep native context propagation, typed binding and usage accounting. Attach actual native
+        // tasks to the helper deadline because canceling a CompletableFuture does not stop its IO.
+        return new com.embabel.agent.spi.support.ExecutorAsyncer(
+                command -> io.memoryos.retrieval.SearchTasks.executeNative(executor, command));
+    }
+
     @Bean(destroyMethod = "close", defaultCandidate = false)
     SimpleAsyncTaskExecutor chatTaskExecutor() {
         var executor = new SimpleAsyncTaskExecutor("chat-");
@@ -39,8 +49,8 @@ class ChatRuntimeConfiguration {
     @Bean
     ChatModelExecutor chatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
                                         ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits,
-                                        @Qualifier("chatInferenceScheduler") Scheduler scheduler) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler);
+                                        @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings);
     }
 
     @Bean(destroyMethod = "dispose")

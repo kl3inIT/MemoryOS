@@ -26,12 +26,46 @@ export const sourceSchema = z
   );
 export type ChatSource = z.infer<typeof sourceSchema>;
 export const sourcesSchema = z.array(sourceSchema).max(24);
-export const searchEventSchema = z.object({
-  toolCallId: z.string().max(200),
-  stage: z.enum(["STARTED", "SELECTING", "EXPANDING", "SOURCE", "COMPLETED", "FAILED"]),
-  source: sourceSchema.nullable(),
+const intervalSchema = z.object({
+  from: z.string().datetime({ offset: true }).nullable(),
+  to: z.string().datetime({ offset: true }).nullable(),
 });
-export type SearchProgress = Record<string, z.infer<typeof searchEventSchema>["stage"]>;
+const readingDocumentSchema = z.object({
+  documentId: z.string().uuid(),
+  generation: z.string().uuid(),
+  title: z.string().max(255),
+  startOrdinal: z.number().int().min(0).max(9999),
+  endOrdinal: z.number().int().min(0).max(9999),
+});
+export const searchEventSchema = z.object({
+  toolCallId: z.string().min(1).max(256),
+  stage: z.enum([
+    "STARTED",
+    "SEARCHING",
+    "SELECTING",
+    "EXPANDING",
+    "SOURCE",
+    "COMPLETED",
+    "FAILED",
+  ]),
+  source: sourceSchema.nullable(),
+  search: z
+    .object({
+      queries: z.array(z.string().min(1).max(2000)).min(1).max(8),
+      filters: z.object({
+        sources: z.array(z.enum(["FILE", "GOOGLE_DRIVE"])).max(2),
+        created: intervalSchema.nullable(),
+        updated: intervalSchema.nullable(),
+      }),
+    })
+    .nullable()
+    .default(null),
+  documents: z.array(readingDocumentSchema).max(10).default([]),
+});
+export type SearchProgress = Record<
+  string,
+  Pick<z.infer<typeof searchEventSchema>, "stage" | "search" | "documents">
+>;
 
 /** Transform prose only; code and existing links keep their original meaning. */
 export function remarkCitations() {

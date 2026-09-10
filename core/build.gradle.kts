@@ -12,6 +12,8 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.withType<Test>().configureEach {
     // The full PostgreSQL/migration corpus and real OpenSearch startup exceed ten minutes on a cold host.
     timeout = Duration.ofMinutes(15)
+    // Modulith/ArchUnit metadata and the full persistence corpus exceed Gradle's 512 MiB test default.
+    maxHeapSize = "1g"
 }
 
 dependencies {
@@ -31,6 +33,7 @@ dependencies {
     implementation(libs.jakarta.persistence.api)
     compileOnly(libs.spring.boot.starter.actuator)
     implementation(libs.micrometer.core)
+    implementation(libs.micrometer.context)
     implementation(libs.jackson.databind)
     implementation(libs.keycloak.admin.client)
     implementation(libs.aws.sdk.s3)

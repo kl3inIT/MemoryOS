@@ -249,8 +249,18 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               break;
             } else if (envelope.event === "search") {
               const search = searchEventSchema.parse(data);
+              const previous = searchProgress[search.toolCallId];
               searchProgress = Object.fromEntries(
-                Object.entries({ ...searchProgress, [search.toolCallId]: search.stage }).slice(-16),
+                Object.entries({
+                  ...searchProgress,
+                  [search.toolCallId]: {
+                    stage: search.stage,
+                    search: search.search ?? previous?.search ?? null,
+                    documents: search.documents.length
+                      ? search.documents
+                      : (previous?.documents ?? []),
+                  },
+                }).slice(-16),
               );
               if (search.stage === "SOURCE") {
                 if (!search.source) throw new Error("Missing reply source");

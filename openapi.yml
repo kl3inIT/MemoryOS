@@ -5811,6 +5811,41 @@ components:
       required:
       - assistantMessageId
       - reason
+    Interval:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+    QueryPlan:
+      type: object
+      properties:
+        queries:
+          type: array
+          items:
+            type: string
+        filters:
+          $ref: "#/components/schemas/SearchFilters"
+    ReadingDocument:
+      type: object
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        generation:
+          type: string
+          format: uuid
+        title:
+          type: string
+        startOrdinal:
+          type: integer
+          format: int32
+        endOrdinal:
+          type: integer
+          format: int32
     SearchEvent:
       type: object
       properties:
@@ -5826,6 +5861,7 @@ components:
           type: string
           enum:
           - STARTED
+          - SEARCHING
           - SELECTING
           - EXPANDING
           - SOURCE
@@ -5835,12 +5871,38 @@ components:
           oneOf:
           - $ref: "#/components/schemas/ChatSource"
           - type: "null"
+        search:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/QueryPlan"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReadingDocument"
       required:
       - assistantMessageId
+      - documents
+      - search
       - sequence
       - source
       - stage
       - toolCallId
+    SearchFilters:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            type: string
+            enum:
+            - FILE
+            - GOOGLE_DRIVE
+          uniqueItems: true
+        created:
+          $ref: "#/components/schemas/Interval"
+        updated:
+          $ref: "#/components/schemas/Interval"
     Descriptor:
       type: object
       properties:

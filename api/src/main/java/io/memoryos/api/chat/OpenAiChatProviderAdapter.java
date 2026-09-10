@@ -28,7 +28,7 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     // O200K's vocabulary is immutable and large; share it across model configurations and revisions.
     private static final JTokkitTokenCountEstimator TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
-    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort");
+    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort");
     private final ObservationRegistry observations;
     private final MeterRegistry meters;
     public OpenAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
@@ -55,8 +55,13 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         number(options, "presencePenalty", -2, 2);
         Object reasoning = options.get("reasoningEffort");
         if (reasoning != null && (!settings.capabilities().reasoning() || !(reasoning instanceof String)
-                || !Set.of("minimal", "low", "medium", "high").contains(reasoning)))
+                || !Set.of("none", "minimal", "low", "medium", "high").contains(reasoning)))
             throw ChatException.invalid("Unsupported reasoning effort for this model.");
+        Object helperReasoning = options.get("helperReasoningEffort");
+        if (helperReasoning != null && (!settings.capabilities().reasoning()
+                || !(helperReasoning instanceof String)
+                || !Set.of("none", "minimal", "low").contains(helperReasoning)))
+            throw ChatException.invalid("Unsupported helper reasoning effort for this model.");
     }
 
     @Override
@@ -89,6 +94,12 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
             if (configured.get("presencePenalty") instanceof Number value) effective = effective.withPresencePenalty(value.doubleValue());
             var converted = (OpenAiChatOptions) nativeConverter.convertOptions(effective, modelName);
             if (configured.get("reasoningEffort") instanceof String effort) converted = converted.mutate().reasoningEffort(effort).build();
+            if (settings.capabilities().reasoning() && options.getThinking() != null && !options.getThinking().getEnabled()) {
+                // This override is applied after binding options. The verified GPT-5 mini baseline supports
+                // minimal, not none; other model configurations declare their supported lowest effort.
+                String effort = (String) configured.getOrDefault("helperReasoningEffort", "minimal");
+                converted = converted.mutate().reasoningEffort(effort).build();
+            }
             return converted;
         };
         var price = settings.pricing();

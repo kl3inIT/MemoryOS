@@ -36,7 +36,9 @@ final class ChatEventStream {
                        @Schema(requiredMode = REQUIRED) long sequence,
                        @Schema(requiredMode = REQUIRED) String toolCallId,
                        @Schema(requiredMode = REQUIRED) ChatSearchEvent.Stage stage,
-                       @Schema(requiredMode = REQUIRED, types = {"object", "null"}) @Nullable ChatSourceResponse source) {}
+                       @Schema(requiredMode = REQUIRED, types = {"object", "null"}) @Nullable ChatSourceResponse source,
+                       @Schema(requiredMode = REQUIRED, types = {"object", "null"}) ChatSearchEvent.@Nullable QueryPlan search,
+                       @Schema(requiredMode = REQUIRED) List<ChatSearchEvent.ReadingDocument> documents) {}
 
     static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {
@@ -72,7 +74,7 @@ final class ChatEventStream {
             case "search" -> {
                 var search = Objects.requireNonNull(event.search());
                 yield new SearchEvent(event.assistantMessageId(), event.sequence(), search.toolCallId(), search.stage(),
-                        search.source() == null ? null : ChatSourceResponse.from(search.source()));
+                        search.source() == null ? null : ChatSourceResponse.from(search.source()), search.search(), search.documents());
             }
             default -> throw new IllegalArgumentException("Unknown Chat event type");
         };

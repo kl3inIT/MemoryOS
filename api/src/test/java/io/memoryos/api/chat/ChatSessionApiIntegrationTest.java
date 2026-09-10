@@ -34,6 +34,7 @@ import io.memoryos.retrieval.SearchDocument;
 import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Set;
 import com.sun.net.httpserver.HttpServer;
 import com.nimbusds.jose.JOSEException;
@@ -149,6 +150,7 @@ class ChatSessionApiIntegrationTest {
     private JdbcClient jdbc;
     @Autowired
     private ChatExecutionProperties limits;
+    @Autowired private io.micrometer.core.instrument.MeterRegistry meters;
     @Autowired
     private StreamBufferWriter streams;
     @Autowired
@@ -162,6 +164,8 @@ class ChatSessionApiIntegrationTest {
     @MockitoBean private OpenSearchIndexService searchIndex;
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
+    @MockitoBean private io.memoryos.connector.SourceSearchService sourceSearch;
+    private final UUID searchSource = UUID.randomUUID();
     private ActorAuthenticationToken actor;
     private ActorAuthenticationToken other;
 
@@ -187,6 +191,8 @@ class ChatSessionApiIntegrationTest {
     @BeforeEach
     @SuppressWarnings("resource") // Mockito records a factory call; the runtime cache owns the actual client.
     void actors() {
+        when(sourceSearch.scope(any())).thenReturn(new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT),
+                Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
         doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
                 call.getArgument(1), call.getArgument(2), model), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
@@ -266,20 +272,24 @@ class ChatSessionApiIntegrationTest {
         var generation = UUID.randomUUID();
         var tenant = new TenantId(TENANT);
         when(searchIndex.identity()).thenReturn("space");
-        when(searchIndex.search(tenant, "leave", List.of(), null)).thenReturn(List.of(
+        var indexedHits = List.of(
                 new SearchHit(hidden, generation, 0, "Secret", "text/plain", "PRIVATE DENIED CONTENT", "[]", Instant.EPOCH, 1),
-                new SearchHit(document, generation, 2, "HR policy", "text/plain", "Annual leave is twelve days.", "[]", Instant.EPOCH, .9)));
+                new SearchHit(document, generation, 2, "HR policy", "text/plain", "Annual leave is twelve days.", "[]", Instant.EPOCH, .9));
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<io.memoryos.retrieval.SearchQuery>>getArgument(1)
+                .stream().map(query -> query.text().equals("leave") ? indexedHits : List.<SearchHit>of()).toList());
         when(chunks.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation, hidden, generation));
-        when(sourceAccess.readableDocuments(any(), any())).thenReturn(Set.of(document));
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new io.memoryos.connector.DocumentSourceMetadata(
+                searchSource, UUID.randomUUID(), io.memoryos.connector.SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
-        when(searchIndex.document(tenant, document, generation, 0, 5)).thenReturn(new SearchDocument(document, generation, "HR policy",
-                List.of(new SearchPage.Passage(0, "Employee handbook", "[]"), new SearchPage.Passage(1, "Annual policy", "[]"),
-                        new SearchPage.Passage(2, "Annual leave is twelve days.", "[{\"page\":2}]")), 0, 3, false));
+        when(searchIndex.document(tenant, document, generation, 0, 2)).thenReturn(new SearchDocument(document, generation, "HR policy",
+                List.of(new SearchPage.Passage(0, "Employee handbook", "[]"), new SearchPage.Passage(1, "Annual policy", "[]")), 0, 3, true));
+        when(searchIndex.document(tenant, document, generation, 3, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", List.of(), 3, 3, false));
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             assertFalse(text.contains("PRIVATE DENIED CONTENT"));
             if (text.contains("Task: semantic query rewrite")) return response("{\"query\":\"leave\"}", "stop", 7);
             if (text.contains("Task: keyword query rewrite")) return response("{\"queries\":[]}", "stop", 7);
+            if (text.contains("Task: identify document creation/update")) return response("{\"createdFrom\":null,\"createdTo\":null,\"updatedFrom\":null,\"updatedTo\":null}", "stop", 7);
             assertTrue(text.contains("Annual leave is twelve days."));
             if (text.contains("Task: classify document context")) {
                 assertTrue(text.contains("Employee handbook"));
@@ -308,8 +318,8 @@ class ChatSessionApiIntegrationTest {
         assertEquals("Annual leave is twelve days [1].", saved.path("content").asText());
         assertEquals(document.toString(), saved.path("sources").get(0).path("documentId").asText());
         assertEquals(generation.toString(), saved.path("sources").get(0).path("generation").asText());
-        assertEquals(52L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
-        verify(model, times(4)).call(any(Prompt.class));
+        assertEquals(59L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
+        verify(model, times(5)).call(any(Prompt.class));
         verify(model, times(2)).stream(any(Prompt.class));
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
@@ -326,10 +336,12 @@ class ChatSessionApiIntegrationTest {
         var entered = new CountDownLatch(1);
         var interrupted = new CountDownLatch(1);
         var virtual = new java.util.concurrent.atomic.AtomicBoolean();
-        when(model.call(any(Prompt.class))).thenAnswer(call -> response(
-                call.<Prompt>getArgument(0).getContents().contains("Task: semantic query rewrite")
-                        ? "{\"query\":\"leave\"}" : "{\"queries\":[]}", "stop", 7));
-        when(searchIndex.search(any(), any(), any(), any())).thenAnswer(ignored -> {
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            String text = call.<Prompt>getArgument(0).getContents();
+            return response(text.contains("Task: semantic query rewrite") ? "{\"query\":\"leave\"}"
+                    : text.contains("Task: keyword query rewrite") ? "{\"queries\":[]}" : "{\"createdFrom\":null,\"createdTo\":null,\"updatedFrom\":null,\"updatedTo\":null}", "stop", 7);
+        });
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(ignored -> {
             virtual.set(Thread.currentThread().isVirtual());
             entered.countDown();
             try { assertTrue(new CountDownLatch(1).await(20, TimeUnit.SECONDS), "Stop must interrupt the blocked retrieval"); }
@@ -351,10 +363,40 @@ class ChatSessionApiIntegrationTest {
         awaitOutcome(id, "CANCELED");
         assertTrue(virtual.get());
         assertTrue(interrupted.await(3, TimeUnit.SECONDS));
-        verify(searchIndex).search(any(), any(), any(), any());
+        verify(searchIndex).batch(any(), any(), any(), any());
         verify(model).stream(any(Prompt.class));
-        verify(model, times(2)).call(any(Prompt.class));
+        verify(model, times(3)).call(any(Prompt.class));
         assertEquals("Checking documents.", history(session).get(1).path("content").asText());
+    }
+
+    @Test
+    void stopInterruptsNativeTypedHelperWorkAndDrainsItBeforePersistingTheOutcome() throws Exception {
+        var entered = new CountDownLatch(3);
+        var drained = new CountDownLatch(3);
+        when(model.call(any(Prompt.class))).thenAnswer(_ -> {
+            entered.countDown();
+            try { new CountDownLatch(1).await(); }
+            finally { drained.countDown(); }
+            throw new AssertionError("Provider helper must be interrupted");
+        });
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
+                AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
+                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")
+                )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
+        var session = create();
+        var reply = send(session, UUID.randomUUID().toString());
+        assertTrue(entered.await(10, TimeUnit.SECONDS));
+        String id = reply.path("assistantMessageId").asText();
+        mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages/" + id + "/cancel")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isAccepted());
+        awaitOutcome(id, "CANCELED");
+        assertEquals(0, drained.getCount(), "Terminal outcome must follow native helper drain");
+        verify(model, times(3)).call(any(Prompt.class));
+        verify(model).stream(any(Prompt.class));
+        verify(searchIndex, never()).batch(any(), any(), any(), any());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id=:id AND input_tokens IS NULL")
+                .param("id", UUID.fromString(id)).query(Long.class).single());
     }
 
     @Test
@@ -984,6 +1026,95 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    @EnabledIfEnvironmentVariable(named = "MEMORYOS_CHAT_CORPUS_TEST", matches = "true")
+    void realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse() throws Exception {
+        String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
+        assertTrue(key != null && !key.isBlank());
+        var configuration = new OpenAiChatProviderConfiguration();
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var receipts = new ArrayList<Map<String, Object>>();
+        try (var corpus = new io.memoryos.retrieval.opensearch.LiveSearchCorpus(
+                Path.of(System.getenv("MEMORYOS_CHAT_CORPUS_FILE")), key, new TenantId(TENANT), chunks, sourceSearch, meters);
+             var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
+            when(searchIndex.identity()).thenReturn(corpus.index.identity());
+            when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> corpus.index.batch(
+                    call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3)));
+            when(searchIndex.document(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                    .thenAnswer(call -> corpus.index.document(call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3), call.getArgument(4)));
+            var provider = configuration.chatProviderModel(client, sync, key, ObservationRegistry.NOOP, meters);
+            when(model.call(any(Prompt.class))).thenAnswer(call -> provider.call(call.getArgument(0, Prompt.class)));
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> provider.stream(call.getArgument(0, Prompt.class)));
+            var questions = List.of(
+                    "Doanh thu tháng 9 của SP-ORION-042 là bao nhiêu? Trả lời theo tài liệu và trích nguồn.",
+                    "Trước hết tìm hạn nộp hồ sơ công tác, rồi thực hiện một lần tìm tiếp riêng để xác minh tỷ lệ tạm ứng. Trả lời cả hai và trích nguồn.",
+                    "Theo OrgMemory_POC_Guide.docx, POC mang lại lợi ích gì cho nhân viên, quản trị viên và nhà phát triển? Chỉ nêu lợi ích, trích nguồn.");
+            for (String question : questions) {
+                var session = create();
+                long started = System.nanoTime();
+                var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                        .put("clientRequestId", UUID.randomUUID().toString()).put("text", question);
+                var reserved = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content(body.toString())).andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+                String id = reserved.path("assistantMessageId").asText();
+                var events = new ArrayList<Map<String, Object>>();
+                Long firstText = null;
+                String event = "";
+                try (var input = http.send(httpRequest("http://127.0.0.1:" + port + "/api/chat/sessions/" + session.path("id").asText()
+                        + "/messages/" + id + "/events", token(actor)).build(), HttpResponse.BodyHandlers.ofInputStream()).body();
+                     var reader = new BufferedReader(new InputStreamReader(input, UTF_8))) {
+                    for (String line; (line = reader.readLine()) != null;) {
+                        if (line.startsWith("event:")) event = line.substring(6).trim();
+                        if (!line.startsWith("data:")) continue;
+                        long ms = (System.nanoTime() - started) / 1_000_000;
+                        var data = Json.mapper().readTree(line.substring(5));
+                        if ("text-delta".equals(event) && firstText == null) firstText = ms;
+                        if ("search".equals(event)) events.add(Map.of("ms", ms, "stage", data.path("stage").asText(),
+                                "toolCallId", data.path("toolCallId").asText(), "queryCount", data.path("search").path("queries").size()));
+                    }
+                }
+                var answer = history(session).get(1);
+                String content = answer.path("content").asText();
+                var usage = jdbc.sql("SELECT input_tokens,output_tokens FROM chat_message WHERE id=:id")
+                        .param("id", UUID.fromString(id)).query((rs, _) -> {
+                            var values = new java.util.LinkedHashMap<String, Object>();
+                            values.put("input", rs.getObject("input_tokens", Long.class));
+                            values.put("output", rs.getObject("output_tokens", Long.class));
+                            return values;
+                        }).single();
+                receipts.add(Map.of("question", question, "ttftMs", firstText == null ? -1 : firstText,
+                        "totalMs", (System.nanoTime() - started) / 1_000_000, "events", events,
+                        "status", answer.path("status").asText(), "sourceCount", answer.path("sources").size(), "answer", content, "usage", usage));
+                assertEquals("COMPLETED", answer.path("status").asText());
+                assertFalse(answer.path("sources").isEmpty());
+                if (question.contains("SP-ORION-042")) assertTrue(content.contains("180"), "Revenue must match the sample document");
+                else if (question.contains("công tác")) {
+                    assertTrue(content.toLowerCase(java.util.Locale.ROOT).matches("(?s).*\\b(?:5|năm)\\b\\s+ngày\\s+làm\\s+việc.*")
+                            && content.contains("70"), "Travel deadline and advance must match the sample document");
+                    // The native model may stop after one search when that result already contains both facts.
+                    // Deterministic SearchTool contracts verify the later-call query set; this receipt records actual calls.
+                } else {
+                    assertTrue(java.util.stream.StreamSupport.stream(answer.path("sources").spliterator(), false)
+                            .anyMatch(source -> source.path("title").asText().contains("OrgMemory_POC_Guide")));
+                    String lower = content.toLowerCase(java.util.Locale.ROOT);
+                    assertTrue(lower.contains("nhân viên") && (lower.contains("quản trị") || lower.contains("admin"))
+                            && (lower.contains("phát triển") || lower.contains("developer")), "The POC answer must cover all three roles");
+                }
+            }
+        } finally {
+            var report = Path.of("build", "reports", "chat-corpus");
+            Files.createDirectories(report);
+            Files.writeString(report.resolve("timings.json"), Json.mapper().writeValueAsString(receipts));
+            var stages = meters.find("memoryos.search.stage.duration").timers().stream().map(timer -> Map.of(
+                    "stage", java.util.Objects.requireNonNull(timer.getId().getTag("stage")), "outcome", java.util.Objects.requireNonNull(timer.getId().getTag("outcome")),
+                    "calls", timer.count(), "totalMs", timer.totalTime(TimeUnit.MILLISECONDS))).toList();
+            Files.writeString(report.resolve("stages.json"), Json.mapper().writeValueAsString(stages));
+            client.close(); sync.close();
+        }
+    }
+
+    @Test
     @EnabledIfEnvironmentVariable(named = "MEMORYOS_CHAT_GROUNDING_LIVE_TEST", matches = "true")
     void realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
@@ -1009,11 +1140,18 @@ class ChatSessionApiIntegrationTest {
                 new SearchHit(contractor, generation, 2, titles.get(contractor), "text/plain", corpus.get(contractor).get(2), "[]", Instant.EPOCH, .95),
                 new SearchHit(policy, generation, 2, titles.get(policy), "text/plain", corpus.get(policy).get(2), "[]", Instant.EPOCH, .9)));
         var semanticOutputs = new CopyOnWriteArrayList<String>();
+        var contextChoices = new CopyOnWriteArrayList<String>();
+        var helperReceipts = new CopyOnWriteArrayList<Map<String, Object>>();
         when(searchIndex.identity()).thenReturn("live-grounding-corpus");
-        when(searchIndex.search(any(), any(), any(), any())).thenAnswer(ignored -> activeHits.get());
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<io.memoryos.retrieval.SearchQuery>>getArgument(1)
+                .stream().map(ignored -> activeHits.get()).toList());
         when(chunks.currentGenerations(any(), any(), any())).thenReturn(Map.of(policy, generation, contractor, generation, injection, generation, hidden, generation));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
         when(sourceAccess.readableDocuments(any(), any())).thenReturn(Set.of(policy, contractor, injection));
+        var origin = new io.memoryos.connector.DocumentSourceMetadata(searchSource, UUID.randomUUID(),
+                io.memoryos.connector.SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(policy, List.of(origin),
+                contractor, List.of(origin), injection, List.of(origin)));
         when(searchIndex.document(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt())).thenAnswer(call -> {
             UUID id = call.getArgument(1);
             int start = call.getArgument(3), count = call.getArgument(4);
@@ -1033,7 +1171,14 @@ class ChatSessionApiIntegrationTest {
             when(model.call(any(Prompt.class))).thenAnswer(call -> {
                 Prompt request = call.getArgument(0);
                 assertFalse(request.toString().contains("DENIED_ONLY_SECRET_99"));
+                long started = System.nanoTime();
                 var response = provider.call(request);
+                assertNotNull(response.getResult());
+                String output = response.getResult().getOutput().getText();
+                helperReceipts.add(Map.of("classification", request.getContents().contains("Section above:"),
+                        "hasNeighborFact", request.getContents().contains("17"), "output", output == null ? "" : output,
+                        "ms", (System.nanoTime() - started) / 1_000_000));
+                if (request.getContents().contains("Section above:")) contextChoices.add(output);
                 if (request.getContents().contains("Task: semantic query rewrite")) {
                     var result = response.getResult();
                     assertNotNull(result);
@@ -1046,7 +1191,7 @@ class ChatSessionApiIntegrationTest {
             var first = groundedReply(session, session.path("rootMessageId").asText(),
                     "Theo chính sách AV-42, nhân viên chính thức có bao nhiêu ngày nghỉ phép mỗi năm? Chỉ trả lời số ngày và trích dẫn nguồn.");
             String answer = first.path("content").asText();
-            assertTrue(answer.contains("17"), answer);
+            assertTrue(answer.contains("17"), answer + "; context choices=" + contextChoices);
             assertFalse(answer.contains("26") || answer.contains("99"), answer);
             assertGroundedCitation(first, policy);
             int rewritesBeforeFollowUp = semanticOutputs.size();
@@ -1074,6 +1219,9 @@ class ChatSessionApiIntegrationTest {
             assertGroundedCitation(defended, injection);
             verify(sourceAccess, never()).canRead(any(), any());
         } finally {
+            var receipts = Path.of("build", "reports", "chat-grounding");
+            Files.createDirectories(receipts);
+            Files.writeString(receipts.resolve("helpers.json"), Json.mapper().writeValueAsString(helperReceipts));
             client.close();
             sync.close();
             meters.close();

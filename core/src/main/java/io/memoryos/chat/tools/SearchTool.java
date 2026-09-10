@@ -12,6 +12,8 @@ import com.embabel.chat.UserMessage;
 import io.memoryos.chat.ChatSearchEvent;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.prompts.SearchPrompts;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.SourceType;
 import io.memoryos.iam.ActorId;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchDocumentUnavailableException;
@@ -20,6 +22,11 @@ import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.SearchQuery;
 import io.memoryos.retrieval.SearchRequestException;
 import io.memoryos.retrieval.SearchResults;
+import io.memoryos.retrieval.SearchSection;
+import io.memoryos.retrieval.SearchFilters;
+import io.memoryos.retrieval.SearchTasks;
+import io.memoryos.retrieval.SearchTimings;
+import io.memoryos.retrieval.SearchTimings.Stage;
 import io.memoryos.retrieval.SearchUnavailableException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,7 +35,13 @@ import java.util.TreeMap;
 import java.util.HashSet;
 import java.util.Collections;
 import java.util.Locale;
+import java.util.Set;
 import java.time.LocalDate;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
 import java.time.ZoneOffset;
 import java.util.concurrent.CancellationException;
 import java.util.stream.IntStream;
@@ -57,17 +70,33 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     private int sourceBytes;
     private boolean failed;
     private @Nullable Thread executing;
+    private volatile boolean closed;
     private final Disposable cancellation;
     private final List<Message> history;
     private final String question;
     private final String date = LocalDate.now(ZoneOffset.UTC).toString();
     private @Nullable QueryExpansion queryExpansion;
+    private final Instant deadline;
+    private final SearchTimings timings;
+    private boolean detectSource = true;
+    private boolean timeDetected;
+    private SearchFilters timeFilters = SearchFilters.NONE;
+    private final Set<SourceType> searchedSources = new HashSet<>();
+    private final List<SearchCycle> searchCycles = new ArrayList<>();
 
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
-                      IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages) {
+                      IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
+                      Instant deadline, SearchTimings timings) {
         this.search = search; this.actor = actor; this.selectionRunner = selectionRunner; this.tokens = tokens;
-        this.limits = limits; this.checkActive = checkActive; this.availableTokens = availableTokens; this.events = events;
+        this.limits = limits;
+        this.checkActive = () -> {
+            if (closed || Thread.currentThread().isInterrupted()) throw new CancellationException("Search stopped");
+            checkActive.run();
+        };
+        this.availableTokens = availableTokens; this.events = events;
+        this.deadline = deadline;
+        this.timings = timings;
         this.history = messages.stream().filter(m -> !(m instanceof SystemMessage)).toList();
         this.question = history.stream().filter(UserMessage.class::isInstance).map(Message::getContent)
                 .reduce((ignored, current) -> current).orElseThrow(() -> new IllegalArgumentException("Missing user question"));
@@ -78,16 +107,12 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
 
     @Override public void beforeToolCall(@NonNull BeforeToolCallContext context) {
         checkActive.run();
-        register();
-        try { checkActive.run(); }
-        catch (RuntimeException stopped) { unregister(); throw stopped; }
         toolCallId = context.getToolCall().getId();
         failed = false;
         progress(ChatSearchEvent.Stage.STARTED);
     }
 
     @Override public void afterToolCall(@NonNull AfterToolCallContext context) {
-        unregister();
         checkActive.run();
         progress(failed || context.getResult() instanceof Result.Error
                 ? ChatSearchEvent.Stage.FAILED : ChatSearchEvent.Stage.COMPLETED);
@@ -97,13 +122,26 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     public record KeywordQueries(List<String> queries) {}
     public record Selection(List<Integer> sections) {}
     public record ContextSelection(Expansion classification) {}
+    public record SourceChoice(List<SourceType> sources, boolean directive) {}
+    public record TimeChoice(@Nullable String createdFrom, @Nullable String createdTo,
+            @Nullable String updatedFrom, @Nullable String updatedTo) {}
     public enum Expansion { NOT_RELEVANT, MAIN_SECTION_ONLY, INCLUDE_ADJACENT_SECTIONS, FULL_DOCUMENT }
     private record QueryExpansion(String semantic, List<String> keywords) {}
+    private record SearchCycle(List<String> queries, Set<SourceType> sources) {}
+    private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion) {}
 
     @LlmTool(description = "Search authorized organization documents. Returns evidence with citation numbers; empty evidence means no grounded answer is available.")
     @SuppressWarnings("unused") // Invoked by the native Embabel method tool, verified through Chat HTTP tests.
     public String searchKnowledge(
-            @LlmTool.Param(description = "One to three focused search queries covering the user's question; preserve exact names and resolve references from history") List<String> queries) {
+            @LlmTool.Param(description = "One to three focused search queries covering the user's question; preserve exact names and resolve references from history") List<String> queries,
+            @LlmTool.Param(description = "Optional explicit source types and document creation/update intervals from the user. Null when unspecified. Dates are UTC instants with inclusive bounds; these never grant access.", required = false)
+            @Nullable SearchFilters requestedFilters) {
+        register();
+        try { return executeSearch(queries, requestedFilters); }
+        finally { unregister(); }
+    }
+
+    private String executeSearch(List<String> queries, @Nullable SearchFilters requestedFilters) {
         checkActive.run();
         if (++calls > limits.maxCalls()) return "Search call limit reached. Answer only from evidence already returned.";
         if (queries == null || queries.isEmpty() || queries.size() > 3)
@@ -112,29 +150,39 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             queries.forEach(q -> new SearchQuery(q, false, .7));
         } catch (SearchRequestException invalid) { return "Invalid search query. Each query must contain 1-2000 characters."; }
         try {
-            var expansion = expandQueries(queries.getFirst());
+            var scope = search.scope(actor);
+            var preparation = prepare(queries, scope, requestedFilters == null ? SearchFilters.NONE : requestedFilters);
+            var expansion = preparation.expansion();
+            var filters = preparation.filters();
             var requests = new LinkedHashMap<String, SearchQuery>();
-            addQuery(requests, new SearchQuery(expansion.semantic(), false, 1.3));
+            if (preparation.reuseExpansion()) addQuery(requests, new SearchQuery(expansion.semantic(), false, 1.3));
             queries.forEach(q -> addQuery(requests, new SearchQuery(q, false, .7)));
-            expansion.keywords().forEach(q -> addQuery(requests, new SearchQuery(q, true, 1)));
+            if (preparation.reuseExpansion()) expansion.keywords().forEach(q -> addQuery(requests, new SearchQuery(q, true, 1)));
             if (question.length() <= 2000) addQuery(requests, new SearchQuery(question, false, .5));
-            var result = search.ranked(actor, List.copyOf(requests.values()), checkActive);
+            events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.SEARCHING, null,
+                    new ChatSearchEvent.QueryPlan(requests.values().stream().map(SearchQuery::text).distinct().toList(), filters), List.of()));
+            var result = search.ranked(scope, List.copyOf(requests.values()), filters, checkActive);
             checkActive.run();
             if (result.hits().isEmpty()) return "No authorized evidence found. Do not invent an organization-specific answer.";
             progress(ChatSearchEvent.Stage.SELECTING);
-            var candidates = new ArrayList<SearchHit>();
-            var selectionPrompt = new StringBuilder(SearchPrompts.SELECT.formatted(limits.sections(), expansion.semantic()));
-            for (var hit : result.hits()) {
-                String item = "\nCandidate " + (candidates.size() + 1) + ": " + hit.title() + "\n" + hit.content() + "\n";
-                if (tokens.estimate(selectionPrompt + item) > limits.selectionTokens()) continue;
-                candidates.add(hit);
+            var candidates = new ArrayList<SearchSection>();
+            String selectionQuery = limited(question, limits.selectionTokens() / 4);
+            var selectionPrompt = new StringBuilder(SearchPrompts.SELECT.formatted(limits.sections(), selectionQuery));
+            for (var section : result.sections()) {
+                var hit = section.anchor();
+                String header = "\nCandidate " + (candidates.size() + 1) + ": " + hit.title() + "\n" + selectionMetadata(hit);
+                int remaining = limits.selectionTokens() - tokens.estimate(selectionPrompt + header) - 32;
+                if (remaining < 128) break;
+                String representative = section.representative().stream().map(SearchHit::content).collect(Collectors.joining("\n"));
+                String item = header + limited(representative, remaining) + "\n";
+                candidates.add(section);
                 selectionPrompt.append(item);
                 if (candidates.size() >= limits.candidates()) break;
             }
             if (candidates.isEmpty()) return "Search evidence exceeds the available context. Ask a more focused question.";
             List<Integer> choices;
             try {
-                var selection = selectionRunner.createObject(selectionPrompt.toString(), Selection.class);
+                var selection = helper(Stage.SELECTION, runner -> runner.createObject(selectionPrompt.toString(), Selection.class));
                 checkActive.run();
                 choices = validate(selection, candidates.size());
             } catch (RuntimeException invalidSelection) {
@@ -144,13 +192,18 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                 choices = IntStream.rangeClosed(1, Math.min(limits.sections(), candidates.size()))
                         .boxed().toList();
             }
-            progress(ChatSearchEvent.Stage.EXPANDING);
+            events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.EXPANDING, null, null, choices.stream()
+                    .map(choice -> candidates.get(choice - 1)).map(s -> new ChatSearchEvent.ReadingDocument(
+                            s.anchor().documentId(), s.anchor().generation(), s.anchor().title(), s.start(), s.end())).toList()));
             var groups = new LinkedHashMap<String, TreeMap<Integer, SearchPage.Passage>>();
             var metadata = new LinkedHashMap<String, SearchHit>();
-            for (var choice : choices) {
+            var selectedSections = choices.stream().map(choice -> candidates.get(choice - 1)).toList();
+            var contexts = SearchTasks.run(selectedSections.stream().<Callable<List<SearchPage.Passage>>>map(section ->
+                    () -> selectContext(result, section, selectionQuery)).toList(), checkActive);
+            for (int i = 0; i < selectedSections.size(); i++) {
                 checkActive.run();
-                var hit = candidates.get(choice - 1);
-                var passages = selectContext(result, hit, expansion.semantic());
+                var hit = selectedSections.get(i).anchor();
+                var passages = contexts.get(i);
                 checkActive.run();
                 String key = hit.documentId() + ":" + hit.generation();
                 metadata.putIfAbsent(key, hit);
@@ -193,21 +246,107 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         return selection.sections();
     }
 
-    private QueryExpansion expandQueries(String fallbackQuery) {
-        if (queryExpansion != null) return queryExpansion;
-        String semantic = question.length() <= 2000 ? question : fallbackQuery;
-        List<String> keywords = List.of();
+    private Preparation prepare(List<String> queries, SourceSearchScope scope, SearchFilters explicit) {
+        var tasks = new ArrayList<Callable<Object>>();
+        if (queryExpansion == null) {
+            tasks.add(() -> semanticQuery(queries.getFirst()));
+            tasks.add(this::keywordQueries);
+        }
+        if (limits.autoDetectFilters() && detectSource && scope.types().size() >= 2)
+            tasks.add(() -> sourceChoice(queries, scope.types()));
+        if (limits.autoDetectFilters() && !timeDetected) tasks.add(this::timeChoice);
+        String semantic = queryExpansion == null ? queries.getFirst() : queryExpansion.semantic();
+        List<String> keywords = queryExpansion == null ? List.of() : queryExpansion.keywords();
+        Set<SourceType> sources = Set.of();
+        for (var value : SearchTasks.run(tasks, checkActive)) {
+            switch (value) {
+                case SemanticQuery rewrite -> semantic = rewrite.query();
+                case KeywordQueries rewrite -> keywords = rewrite.queries();
+                case SourceChoice choice -> {
+                    detectSource = choice.directive();
+                    sources = Set.copyOf(choice.sources());
+                }
+                case TimeChoice choice -> {
+                    timeDetected = true;
+                    timeFilters = new SearchFilters(Set.of(), interval(choice.createdFrom(), choice.createdTo()),
+                            interval(choice.updatedFrom(), choice.updatedTo()));
+                }
+                default -> throw new IllegalStateException("Unexpected search preparation");
+            }
+        }
+        queryExpansion = new QueryExpansion(semantic, keywords);
+        if (!explicit.sources().isEmpty()) {
+            var intersection = sources.stream().filter(explicit.sources()::contains).collect(Collectors.toUnmodifiableSet());
+            sources = intersection.isEmpty() ? explicit.sources() : intersection;
+        }
+        var filters = new SearchFilters(sources, SearchFilters.intersect(explicit.created(), timeFilters.created()),
+                SearchFilters.intersect(explicit.updated(), timeFilters.updated()));
+        var effectiveSources = sources.isEmpty() ? scope.types() : sources.stream().filter(scope.types()::contains)
+                .collect(Collectors.toUnmodifiableSet());
+        boolean reuseExpansion = searchCycles.isEmpty() || !searchedSources.containsAll(effectiveSources);
+        searchedSources.addAll(effectiveSources);
+        searchCycles.add(new SearchCycle(List.copyOf(queries), effectiveSources));
+        return new Preparation(queryExpansion, filters, reuseExpansion);
+    }
+
+    private SourceChoice sourceChoice(List<String> queries, Set<SourceType> available) {
+        try {
+            String prompt = SearchPrompts.SOURCE.formatted(available.stream().map(Enum::name).sorted().toList(),
+                    recentUserMessages(), searchCycles, queries);
+            var selected = helper(Stage.SOURCE_FILTER, runner -> runner.createObject(limited(prompt, limits.selectionTokens()), SourceChoice.class));
+            if (selected == null || selected.sources() == null || selected.sources().size() > available.size()
+                    || !available.containsAll(selected.sources())) throw new SearchRequestException();
+            return selected;
+        } catch (RuntimeException invalid) { rethrowBoundary(invalid); }
+        return new SourceChoice(List.of(), false);
+    }
+
+    private TimeChoice timeChoice() {
+        try {
+            String prompt = SearchPrompts.TIME.formatted(date, recentUserMessages());
+            var selected = helper(Stage.TIME_FILTER, runner -> runner.createObject(limited(prompt, limits.selectionTokens()), TimeChoice.class));
+            if (selected == null) throw new SearchRequestException();
+            interval(selected.createdFrom(), selected.createdTo());
+            interval(selected.updatedFrom(), selected.updatedTo());
+            return selected;
+        } catch (RuntimeException invalid) { rethrowBoundary(invalid); }
+        return new TimeChoice(null, null, null, null);
+    }
+
+    private String recentUserMessages() {
+        var users = history.stream().filter(UserMessage.class::isInstance).map(Message::getContent).toList();
+        return users.subList(Math.max(0, users.size() - 5), users.size()).stream()
+                .map(message -> limited(message, limits.selectionTokens() / 6)).collect(Collectors.joining("\nUser: "));
+    }
+
+    private static SearchFilters.@Nullable Interval interval(@Nullable String from, @Nullable String to) {
+        if (from == null && to == null) return null;
+        return new SearchFilters.Interval(from == null ? null : Instant.parse(from), to == null ? null : Instant.parse(to));
+    }
+
+    private static String selectionMetadata(SearchHit hit) {
+        return hit.origins().stream().map(origin -> "Source: " + origin.type()
+                + (origin.createdAt() == null ? "" : "; created: " + origin.createdAt())
+                + (origin.updatedAt() == null ? "" : "; updated: " + origin.updatedAt())
+                + (origin.authors().isEmpty() ? "" : "; authors: " + String.join(", ", origin.authors())) + "\n")
+                .distinct().limit(10).collect(Collectors.joining());
+    }
+
+    private SemanticQuery semanticQuery(String fallbackQuery) {
         try {
             var rewritten = rewrite(SearchPrompts.SEMANTIC_SYSTEM, SearchPrompts.SEMANTIC_TASK, SemanticQuery.class);
-            semantic = new SearchQuery(rewritten.query(), false, 1.3).text();
+            return new SemanticQuery(new SearchQuery(rewritten.query(), false, 1.3).text());
         } catch (RuntimeException invalid) { rethrowBoundary(invalid); }
+        return new SemanticQuery(question.length() <= 2000 ? question : fallbackQuery);
+    }
+
+    private KeywordQueries keywordQueries() {
         try {
             var rewritten = rewrite(SearchPrompts.KEYWORD_SYSTEM, SearchPrompts.KEYWORD_TASK, KeywordQueries.class);
             if (rewritten.queries() == null || rewritten.queries().size() > 3) throw new SearchRequestException();
-            keywords = rewritten.queries().stream().map(q -> new SearchQuery(q, true, 1).text()).distinct().toList();
+            return new KeywordQueries(rewritten.queries().stream().map(q -> new SearchQuery(q, true, 1).text()).toList());
         } catch (RuntimeException invalid) { rethrowBoundary(invalid); }
-        queryExpansion = new QueryExpansion(semantic, keywords);
-        return queryExpansion;
+        return new KeywordQueries(List.of());
     }
 
     private <T> T rewrite(String system, String task, Class<T> type) {
@@ -225,36 +364,40 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         Collections.reverse(previous);
         previous.addFirst(new SystemMessage(system));
         previous.add(new UserMessage(request));
-        T result = selectionRunner.createObject(previous, type);
+        T result = helper(type == SemanticQuery.class ? Stage.SEMANTIC_REWRITE : Stage.KEYWORD_REWRITE,
+                runner -> runner.createObject(previous, type));
         checkActive.run();
         return result;
     }
 
     private static void addQuery(LinkedHashMap<String, SearchQuery> queries, SearchQuery candidate) {
         String key = candidate.keyword() + ":" + candidate.text().toLowerCase(Locale.ROOT);
-        queries.merge(key, candidate, (old, next) -> next.weight() > old.weight() ? next : old);
+        queries.merge(key, candidate, (old, next) -> new SearchQuery(old.text(), old.keyword(), old.weight() + next.weight()));
     }
 
-    private List<SearchPage.Passage> selectContext(SearchResults result, SearchHit hit, String query) {
+    private List<SearchPage.Passage> selectContext(SearchResults result, SearchSection section, String query) {
         checkActive.run();
-        var matching = new SearchPage.Passage(hit.ordinal(), hit.content(), hit.provenanceJson());
+        var hit = section.anchor();
+        var main = section.passages();
         List<SearchPage.Passage> adjacent;
-        try { adjacent = search.expand(result, hit, 2).passages(); }
-        catch (SearchDocumentUnavailableException | SearchUnavailableException unavailable) {
+        try { adjacent = timings.measure(Stage.EXPANSION, () -> search.expand(result, section, 2)); }
+        catch (SearchDocumentUnavailableException obsolete) {
             checkActive.run();
-            return List.of(matching);
+            return List.of();
+        } catch (SearchUnavailableException unavailable) {
+            checkActive.run();
+            return main;
         }
-        var main = adjacent.stream().filter(p -> p.ordinal() == hit.ordinal()).findFirst()
-                .orElse(matching);
+        boolean neighbors = adjacent.stream().anyMatch(p -> p.ordinal() < section.start() || p.ordinal() > section.end());
         int allowance = Math.max(32, limits.selectionTokens() - tokens.estimate(SearchPrompts.CLASSIFY + query + hit.title()) - 128);
-        String above = adjacent.stream().filter(p -> p.ordinal() < hit.ordinal()).map(SearchPage.Passage::content).collect(Collectors.joining("\n"));
-        String below = adjacent.stream().filter(p -> p.ordinal() > hit.ordinal()).map(SearchPage.Passage::content).collect(Collectors.joining("\n"));
+        String above = adjacent.stream().filter(p -> p.ordinal() < section.start()).map(SearchPage.Passage::content).collect(Collectors.joining("\n"));
+        String below = adjacent.stream().filter(p -> p.ordinal() > section.end()).map(SearchPage.Passage::content).collect(Collectors.joining("\n"));
         String prompt = SearchPrompts.CLASSIFY.formatted(query, hit.title(), limited(above, allowance / 4),
-                limited(main.content(), allowance / 2), limited(below, allowance / 4));
+                limited(main.stream().map(SearchPage.Passage::content).collect(Collectors.joining("\n")), allowance / 2), limited(below, allowance / 4));
         Expansion classification;
         try {
             checkActive.run();
-            var selected = selectionRunner.createObject(prompt, ContextSelection.class);
+            var selected = helper(Stage.CLASSIFICATION, runner -> runner.createObject(prompt, ContextSelection.class));
             checkActive.run();
             if (selected == null || selected.classification() == null) throw new IllegalArgumentException("Invalid classification");
             classification = selected.classification();
@@ -264,12 +407,16 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         }
         return switch (classification) {
             case NOT_RELEVANT -> List.of();
-            case MAIN_SECTION_ONLY -> List.of(main);
+            case MAIN_SECTION_ONLY -> main;
             case INCLUDE_ADJACENT_SECTIONS -> adjacent;
             case FULL_DOCUMENT -> {
+                if (!neighbors) yield main;
                 checkActive.run();
-                try { yield search.expand(result, hit, 5).passages(); }
-                catch (SearchDocumentUnavailableException | SearchUnavailableException unavailable) {
+                try { yield timings.measure(Stage.EXPANSION, () -> search.expand(result, section, 5)); }
+                catch (SearchDocumentUnavailableException obsolete) {
+                    checkActive.run();
+                    yield List.of();
+                } catch (SearchUnavailableException unavailable) {
                     checkActive.run();
                     yield adjacent;
                 }
@@ -280,6 +427,24 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     private void rethrowBoundary(RuntimeException failure) {
         checkActive.run();
         if (boundaryFailure(failure)) throw failure;
+    }
+
+    private <T> T helper(Stage stage, Function<PromptRunner, T> call) {
+        checkActive.run();
+        Duration remaining = Duration.between(Instant.now(), deadline);
+        if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
+        Duration timeout = remaining.compareTo(limits.helperTimeout()) < 0 ? remaining : limits.helperTimeout();
+        var runner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withoutThinking().withTimeout(timeout));
+        try {
+            T result = timings.measure(stage, () -> SearchTasks.timed(() -> call.apply(runner), timeout, checkActive));
+            checkActive.run();
+            if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE");
+            return result;
+        } catch (RuntimeException failure) {
+            checkActive.run();
+            if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE");
+            throw failure;
+        }
     }
 
     private String limited(String text, int budget) {
@@ -298,7 +463,8 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         // Reduce distant neighbors first so a large merged section cannot crowd out its matching passage.
         var included = new ArrayList<>(passages);
         int anchor = Math.clamp(hit.ordinal(), included.getFirst().ordinal(), included.getLast().ordinal());
-        while (included.size() > 1 && tokens.estimate(output + evidenceText(sources.size() + 1, hit.title(), included)) > budget) {
+        while (included.size() > 1 && (included.size() > 60
+                || tokens.estimate(output + evidenceText(sources.size() + 1, hit.title(), included)) > budget)) {
             checkActive.run();
             if (anchor - included.getFirst().ordinal() > included.getLast().ordinal() - anchor) included.removeFirst();
             else included.removeLast();
@@ -329,13 +495,23 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     }
 
     private void progress(ChatSearchEvent.Stage stage) { events.accept(new ChatSearchEvent(toolCallId, stage, null)); }
-    private synchronized void register() { executing = Thread.currentThread(); }
-    private synchronized void unregister() { executing = null; }
+    private synchronized void register() { checkActive.run(); executing = Thread.currentThread(); }
+    private synchronized void unregister() { executing = null; notifyAll(); }
     private synchronized void interrupt() { if (executing != null) executing.interrupt(); }
-    @Override public synchronized void close() {
+    @Override public void close() {
         cancellation.dispose();
-        if (executing != Thread.currentThread()) interrupt();
-        executing = null;
+        boolean interrupted = Thread.interrupted();
+        synchronized (this) {
+            closed = true;
+            if (executing != Thread.currentThread()) {
+                interrupt();
+                while (executing != null) {
+                    try { wait(); }
+                    catch (InterruptedException stopping) { interrupted = true; interrupt(); }
+                }
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
     }
     private static boolean boundaryFailure(Throwable failure) {
         for (int depth = 0; failure != null && depth < 8; depth++, failure = failure.getCause()) {

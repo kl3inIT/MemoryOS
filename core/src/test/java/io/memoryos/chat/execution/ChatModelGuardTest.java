@@ -44,7 +44,37 @@ class ChatModelGuardTest {
     private final Prompt prompt = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini").toolChoice("auto").build());
 
     @BeforeEach
-    void allowInference() { when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null); }
+    void allowInference() {
+        when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);
+        when(budget.getTokens()).thenReturn(100000);
+        when(budget.getCost()).thenReturn(100.0);
+    }
+
+    @Test
+    void concurrentHelpersReserveBudgetBeforeIoAndReleaseOnlyReportedAllowance() throws Exception {
+        when(budget.getTokens()).thenReturn(300);
+        guard.outputLimit(200);
+        guard.synchronousLimit(2);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        when(provider.call(any(Prompt.class))).thenAnswer(_ -> {
+            entered.countDown(); assertTrue(release.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            return response("{}", "stop", 7);
+        });
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> guard.call(prompt));
+            try {
+                assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+                assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(IllegalStateException.class, () -> guard.call(prompt)).getMessage());
+                verify(provider).call(any(Prompt.class));
+            } finally { release.countDown(); }
+            first.get(3, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        // The rejected call spent neither a model invocation nor its allowance.
+        guard.call(prompt);
+        verify(provider, org.mockito.Mockito.times(2)).call(any(Prompt.class));
+        verify(process, never()).recordLlmInvocation(any());
+    }
 
     @Test
     void lengthIsTerminalAndKnownUsageIsRecordedOnceWithToolsOff() {

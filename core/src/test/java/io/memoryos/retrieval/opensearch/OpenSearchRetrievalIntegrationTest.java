@@ -20,6 +20,11 @@ import io.memoryos.document.application.StructuredDocumentChunker;
 import io.memoryos.iam.TenantId;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.SearchUnavailableException;
+import io.memoryos.retrieval.SearchFilters;
+import io.memoryos.retrieval.SearchQuery;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.SourceType;
+import io.memoryos.connector.DocumentSourceMetadata;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
@@ -71,11 +76,21 @@ class OpenSearchRetrievalIntegrationTest {
             return new EmbeddingResponse(values, new EmbeddingResponseMetadata("text-embedding-3-large", new EmptyUsage()));
         });
         try (var transport = config.searchTransport(properties)) {
-            var gateway = new OpenSearchGateway(config.searchClient(transport), mapper);
-            var index = new OpenSearchIndexService(gateway, new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2), properties, mapper, documents);
+            var gateway = org.mockito.Mockito.spy(new OpenSearchGateway(config.searchClient(transport), mapper));
+            var sourceSearch = mock(io.memoryos.connector.SourceSearchService.class);
+            var index = new OpenSearchIndexService(gateway, new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2), properties, mapper, documents, sourceSearch,
+                    new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
             var tenant = new TenantId(UUID.randomUUID());
             var leave = document(tenant, "HR-2026 Nghỉ phép", "Annual vacation policy provides 12 leave days.");
             var unrelated = document(tenant, "IT-2026", "Hardware inventory and laptop replacement.");
+            UUID fileSource = UUID.randomUUID(), driveSource = UUID.randomUUID();
+            var uploaded = new DocumentSourceMetadata(fileSource, UUID.randomUUID(), SourceType.FILE,
+                    Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-09-07T00:00:00Z"), List.of("Alice"));
+            var remote = new DocumentSourceMetadata(driveSource, UUID.randomUUID(), SourceType.GOOGLE_DRIVE,
+                    Instant.parse("2026-02-01T00:00:00Z"), Instant.parse("2026-09-10T00:00:00Z"), List.of("Bob"));
+            var origins = new java.util.concurrent.atomic.AtomicReference<>(List.of(uploaded, remote));
+            when(sourceSearch.indexMetadata(any(), any(), any())).thenAnswer(call ->
+                    leave.documentId().equals(call.getArgument(1)) ? origins.get() : List.of());
             index.index(leave);
             index.index(unrelated);
             String collision = index.identity() + "-collision";
@@ -89,6 +104,40 @@ class OpenSearchRetrievalIntegrationTest {
             var leaveState = new DocumentIndexState(tenant, leave.documentId(), leave.generation(), 1, true);
             var unrelatedState = new DocumentIndexState(tenant, unrelated.documentId(), unrelated.generation(), 1, true);
             clearInvocations(model);
+            index.index(leave);
+            verifyNoInteractions(model);
+            assertTrue(index.contains(leaveState));
+            var scope = new SourceSearchScope(tenant, Map.of(fileSource, SourceType.FILE, driveSource, SourceType.GOOGLE_DRIVE));
+            var september = new SearchFilters(java.util.Set.of(SourceType.FILE),
+                    new SearchFilters.Interval(Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z")),
+                    new SearchFilters.Interval(null, Instant.parse("2026-09-08T00:00:00Z")));
+            var queries = List.of(new SearchQuery("HR-2026", false, .7), new SearchQuery("HR-2026", true, 1), new SearchQuery("nghỉ", false, 1.3));
+            clearInvocations(model, gateway);
+            var batch = index.batch(scope, queries, september, () -> {});
+            assertEquals(3, batch.size());
+            assertTrue(batch.stream().allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
+            var embedded = org.mockito.ArgumentCaptor.forClass(EmbeddingRequest.class);
+            verify(model).call(embedded.capture());
+            assertEquals(List.of("HR-2026", "nghỉ"), embedded.getValue().getInstructions());
+            verify(gateway).exists("/" + index.identity() + "-read");
+            var wrongSourceDate = new SearchFilters(java.util.Set.of(SourceType.FILE), null,
+                    new SearchFilters.Interval(Instant.parse("2026-09-09T00:00:00Z"), Instant.parse("2026-09-11T00:00:00Z")));
+            assertTrue(index.batch(scope, queries, wrongSourceDate, () -> {}).stream().allMatch(List::isEmpty),
+                    "A date on one mapping must not be combined with another mapping's source type; lexical and vector branches both filter");
+            var fileOnly = new SourceSearchScope(tenant, Map.of(fileSource, SourceType.FILE));
+            assertTrue(index.batch(fileOnly, queries, new SearchFilters(java.util.Set.of(), null, wrongSourceDate.updated()), () -> {})
+                    .stream().allMatch(List::isEmpty), "Inaccessible origins cannot satisfy a time filter");
+
+            gateway.json("POST", "/" + index.identity() + "/_update/" + leave.chunkId(0), Map.of("refresh", "true"),
+                    Map.of("script", Map.of("source", "ctx._source.remove('metadata_hash')")));
+            assertFalse(index.contains(leaveState), "Equal chunk counts do not make legacy metadata ready");
+            clearInvocations(model);
+            index.index(leave);
+            verifyNoInteractions(model);
+            assertTrue(index.contains(leaveState));
+            origins.set(List.of(new DocumentSourceMetadata(uploaded.sourceId(), uploaded.itemId(), uploaded.type(),
+                    uploaded.createdAt(), Instant.parse("2026-09-15T00:00:00Z"), uploaded.authors()), remote));
+            assertFalse(index.contains(leaveState));
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
