@@ -12,13 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-provisioned'
 import { Route as InvitationRouteImport } from './routes/invitation'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._chat'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated.search'
+import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
-import { Route as AuthenticatedChatSessionIdRouteImport } from './routes/_authenticated.chat.$sessionId'
+import { Route as AuthenticatedChatChatSessionIdRouteImport } from './routes/_authenticated._chat.chat.$sessionId'
 import { Route as AuthenticatedAdminGroupsIndexRouteImport } from './routes/_authenticated.admin.groups.index'
 import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_authenticated.admin.groups.$groupId'
 import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
@@ -42,9 +43,8 @@ const InvitationRoute = InvitationRouteImport.update({
   path: '/invitation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/_chat',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -56,6 +56,11 @@ const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
   id: '/search',
   path: '/search',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedChatRoute,
 } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
@@ -73,11 +78,11 @@ const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedChatSessionIdRoute =
-  AuthenticatedChatSessionIdRouteImport.update({
+const AuthenticatedChatChatSessionIdRoute =
+  AuthenticatedChatChatSessionIdRouteImport.update({
     id: '/chat/$sessionId',
     path: '/chat/$sessionId',
-    getParentRoute: () => AuthenticatedRoute,
+    getParentRoute: () => AuthenticatedChatRoute,
   } as any)
 const AuthenticatedAdminGroupsIndexRoute =
   AuthenticatedAdminGroupsIndexRouteImport.update({
@@ -129,15 +134,15 @@ const AuthenticatedAdminSourcesNewGoogleDriveRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/search': typeof AuthenticatedSearchRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -148,13 +153,13 @@ export interface FileRoutesByFullPath {
   '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
   '/search': typeof AuthenticatedSearchRoute
-  '/': typeof AuthenticatedIndexRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -168,13 +173,14 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/_authenticated/_chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/search': typeof AuthenticatedSearchRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/_authenticated/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
+  '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/_chat/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/_authenticated/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -194,8 +200,8 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/groups'
     | '/admin/users'
-    | '/chat/$sessionId'
     | '/admin/'
+    | '/chat/$sessionId'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
@@ -206,13 +212,13 @@ export interface FileRouteTypes {
     | '/admin/sources/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/access-not-provisioned'
     | '/invitation'
     | '/search'
-    | '/'
     | '/admin/users'
-    | '/chat/$sessionId'
     | '/admin'
+    | '/chat/$sessionId'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
@@ -225,13 +231,14 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/_authenticated/_chat'
     | '/_authenticated/admin'
     | '/_authenticated/search'
-    | '/_authenticated/'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/users'
-    | '/_authenticated/chat/$sessionId'
+    | '/_authenticated/_chat/'
     | '/_authenticated/admin/'
+    | '/_authenticated/_chat/chat/$sessionId'
     | '/_authenticated/admin/groups/$groupId'
     | '/_authenticated/admin/groups/new'
     | '/_authenticated/admin/sources/$sourceId'
@@ -271,11 +278,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/': {
-      id: '/_authenticated/'
-      path: '/'
+    '/_authenticated/_chat': {
+      id: '/_authenticated/_chat'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin': {
@@ -291,6 +298,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/search'
       preLoaderRoute: typeof AuthenticatedSearchRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/_chat/': {
+      id: '/_authenticated/_chat/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -313,12 +327,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/chat/$sessionId': {
-      id: '/_authenticated/chat/$sessionId'
+    '/_authenticated/_chat/chat/$sessionId': {
+      id: '/_authenticated/_chat/chat/$sessionId'
       path: '/chat/$sessionId'
       fullPath: '/chat/$sessionId'
-      preLoaderRoute: typeof AuthenticatedChatSessionIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      preLoaderRoute: typeof AuthenticatedChatChatSessionIdRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
     }
     '/_authenticated/admin/groups/': {
       id: '/_authenticated/admin/groups/'
@@ -378,6 +392,19 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedChatRouteChildren {
+  AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
+  AuthenticatedChatChatSessionIdRoute: typeof AuthenticatedChatChatSessionIdRoute
+}
+
+const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
+  AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
+  AuthenticatedChatChatSessionIdRoute: AuthenticatedChatChatSessionIdRoute,
+}
+
+const AuthenticatedChatRouteWithChildren =
+  AuthenticatedChatRoute._addFileChildren(AuthenticatedChatRouteChildren)
 
 interface AuthenticatedAdminGroupsRouteChildren {
   AuthenticatedAdminGroupsGroupIdRoute: typeof AuthenticatedAdminGroupsGroupIdRoute
@@ -440,17 +467,15 @@ const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedChatSessionIdRoute: typeof AuthenticatedChatSessionIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedChatSessionIdRoute: AuthenticatedChatSessionIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

@@ -12,6 +12,67 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: identity }));
 });
 
+test("keeps the new conversation mounted through server ID promotion and resets only when switching", async ({
+  page,
+}) => {
+  const historyReads: string[] = [];
+  const streams: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== "GET") return;
+    if (/\/api\/chat\/sessions\/[0-9a-f-]+(?:\/messages)?$/.test(path)) historyReads.push(path);
+    if (path.endsWith("/events")) streams.push(path);
+  });
+  await page.goto("/");
+  const input = page.getByRole("textbox", { name: "Message", exact: true });
+  await input.fill("Keep this conversation visible");
+  const composer = await input.elementHandle();
+  await input.press("Enter");
+  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]+$/);
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
+  expect(await composer!.evaluate((element) => element.isConnected)).toBe(true);
+  expect(historyReads).toEqual([]);
+  expect(streams).toHaveLength(1);
+  await expect(page.getByRole("button", { name: "Copy answer", exact: true })).toBeVisible();
+  const sessionUrl = page.url();
+
+  await page.getByRole("link", { name: "New chat", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
+  await expect(
+    page.getByRole("main").getByText("Keep this conversation visible", { exact: true }),
+  ).toHaveCount(0);
+  expect(await composer!.evaluate((element) => element.isConnected)).toBe(false);
+  await page.goBack();
+  await expect(page).toHaveURL(sessionUrl);
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  expect(historyReads.length).toBeGreaterThan(0);
+  await input.fill("A follow-up after switching back");
+  await input.press("Enter");
+  await expect(page.getByText("Hello 👋", { exact: true })).toHaveCount(2);
+});
+
+for (const mode of ["waiting", "grounded-waiting"]) {
+  test(`shows one waiting indicator and no empty copy action for ${mode}`, async ({ page }) => {
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", { data: { mode, title: mode } })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    await page.getByRole("textbox", { name: "Message", exact: true }).fill("Wait for evidence");
+    await page.getByRole("button", { name: "Send message" }).click();
+    const label = mode === "waiting" ? "Thinking…" : "Searching your documents…";
+    await expect(page.getByRole("status").filter({ hasText: label })).toHaveCount(1);
+    await expect(page.locator(".aui-md")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copy answer", exact: true })).toHaveCount(0);
+    await expect(page.getByText("●", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Stop reply" }).click();
+    await expect(page.getByRole("button", { name: "Requesting stop" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Stop reply" })).toHaveCount(0);
+    await expect(page.getByRole("status").filter({ hasText: label })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copy answer", exact: true })).toHaveCount(0);
+  });
+}
+
 test("centers the empty composer and selects a catalog model with the keyboard for each turn", async ({
   page,
 }) => {

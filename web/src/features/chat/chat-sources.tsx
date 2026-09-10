@@ -161,7 +161,7 @@ export function ChatSearchStatus() {
     (state) => state.message.metadata.custom.searchProgress as SearchProgress | undefined,
   );
   const hasText = useAuiState((state) =>
-    state.message.parts.some((part) => part.type === "text" && part.text.length > 0),
+    state.message.parts.some((part) => part.type === "text" && part.text.trim().length > 0),
   );
   if (!running) return null;
   const stage = Object.values(progress ?? {}).find(

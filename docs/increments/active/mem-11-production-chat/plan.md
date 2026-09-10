@@ -108,6 +108,8 @@ Exit Phase 2: send/stream/save/reload/Stop/reconnect hoạt động xuyên sản
 
 ### 3.2 — Chat UI, model selection and source acceptance (UI implemented and verified locally)
 
+- Acceptance fix: keep the new-chat runtime mounted when its server ID updates the URL; load history only when entering a different conversation or reloading. Show one waiting/search indicator and no Copy action for an empty answer. Verify composer/reader continuity, real conversation switches, Stop, model choice and reload through the native browser runtime.
+
 - Use the assistant-ui Base example's organization: centered welcome/composer before the first message, footer composer during conversation, model picker inside the composer, and one existing app sidebar. Retain MemoryOS typography, tokens and controls; reuse styled assistant-ui elements with minimal custom CSS. OrgMemory is a reference for catalog grouping and source interactions.
 - Connect the authorized, session-aware model catalog to the picker and send the configuration ID for each turn. Show the backend's actual selection/fallback. Provider administration remains MEM-77; no new Thinking override or unsupported attachment/voice controls.
 - Render bounded search progress and source metadata through native message state; resolve citations against each answer's server-owned sources. Follow Onyx with citation hover cards and a Sources toolbar action opening the right panel; mobile uses a drawer. Reuse the shared document reader inside the panel, keeping Chat visible on desktop. History/replay restore final sources; source failures leave the historical answer readable.

@@ -231,7 +231,7 @@ export async function handleChatFixture(
           state.mode === "slow" || state.mode === "grounded-slow" ? 20_000 : 1000,
         );
       },
-      grounded ? 750 : 250,
+      state.mode === "waiting" || state.mode === "grounded-waiting" ? 20_000 : grounded ? 750 : 250,
     );
     return true;
   }

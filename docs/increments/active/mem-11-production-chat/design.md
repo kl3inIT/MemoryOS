@@ -303,6 +303,8 @@ Bản nháp trước đã suy từ yêu cầu production sang các cơ chế c�
 
 ### Phase 3.2 UI component selection
 
+New chat and saved-session URLs share a pathless Chat layout. Promoting the current new conversation to its server ID preserves the native runtime, composer and SSE reader. Opening another conversation, New chat, reload or an authority change initializes a separate runtime from fresh history; the initial history query does not refetch behind a live reply. While the answer is empty, one ThinkingIndicator owns waiting/search progress, Markdown's empty cursor is suppressed and Copy is absent. Markdown retains its native streaming cursor once answer text exists.
+
 The existing MemoryOS design system remains authoritative for colors, typography and controls. Assistant-ui Base supplies welcome/composer organization; OrgMemory informs model catalog grouping. Current Onyx (`bd89d269bbae9c3931faaa2076f5ccb6917cbd2a`) supplies the citation hover card, Sources toolbar action and right-side source browsing pattern.
 
 | Component | Use and adaptation |

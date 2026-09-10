@@ -14,13 +14,19 @@ import { MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
 import { ChatThread } from "./chat-thread";
 import { ChatModelPicker } from "./chat-model-picker";
 
-export function ExistingChatPage() {
-  const { sessionId } = useParams({ from: "/_authenticated/chat/$sessionId" });
-  return <ChatPage sessionId={sessionId} />;
-}
-
-export function ChatPage({ sessionId }: { sessionId?: string }) {
+export function ChatPage() {
+  const { sessionId } = useParams({ strict: false });
   const identity = useApplicationSession();
+  const [view, setView] = useState({
+    sessionId,
+    promotedSessionId: undefined as string | undefined,
+    key: 0,
+  });
+  if (view.sessionId !== sessionId) {
+    // Receiving the new session's server ID does not switch conversations.
+    const promoted = sessionId !== undefined && sessionId === view.promotedSessionId;
+    setView({ sessionId, promotedSessionId: undefined, key: view.key + (promoted ? 0 : 1) });
+  }
   const authority = JSON.stringify([
     identity.actorId,
     identity.authorizationVersion,
@@ -29,27 +35,42 @@ export function ChatPage({ sessionId }: { sessionId?: string }) {
   ]);
   return (
     <AppShell pageTitle="Chat">
-      <ChatSessionView key={`${authority}:${sessionId ?? "new"}`} sessionId={sessionId} />
+      <ChatSessionView
+        key={`${authority}:${view.key}`}
+        sessionId={sessionId}
+        onSessionCreated={(id) => {
+          setView((current) => ({ ...current, promotedSessionId: id }));
+        }}
+      />
     </AppShell>
   );
 }
 
-function ChatSessionView({ sessionId }: { sessionId?: string }) {
+function ChatSessionView({
+  sessionId,
+  onSessionCreated,
+}: {
+  sessionId?: string;
+  onSessionCreated: (id: string) => void;
+}) {
+  // History initializes this runtime once. URL promotion keeps the live stream.
+  const [initialSessionId] = useState(sessionId);
   const query = useQuery({
-    queryKey: ["chat-history", sessionId],
-    queryFn: ({ signal }) => loadChatHistory(sessionId!, signal),
-    enabled: !!sessionId,
-    staleTime: 0,
+    queryKey: ["chat-history", initialSessionId],
+    queryFn: ({ signal }) => loadChatHistory(initialSessionId!, signal),
+    enabled: !!initialSessionId,
+    staleTime: Infinity,
+    gcTime: 0,
     refetchOnWindowFocus: false,
     retry: false,
   });
-  if (sessionId && (query.isPending || query.isFetching))
+  if (initialSessionId && query.isPending)
     return (
       <p role="status" className="p-6 text-content-secondary">
         Loading conversation…
       </p>
     );
-  if (sessionId && query.isError)
+  if (initialSessionId && query.isError)
     return (
       <div role="alert" className="space-y-3 p-6">
         <p>This conversation could not be loaded.</p>
@@ -58,10 +79,16 @@ function ChatSessionView({ sessionId }: { sessionId?: string }) {
         </Button>
       </div>
     );
-  return <ChatConversation initial={query.data} />;
+  return <ChatConversation initial={query.data} onSessionCreated={onSessionCreated} />;
 }
 
-function ChatConversation({ initial }: { initial?: ChatHistory }) {
+function ChatConversation({
+  initial,
+  onSessionCreated,
+}: {
+  initial?: ChatHistory;
+  onSessionCreated: (id: string) => void;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const running = initial?.messages.find((message) => message.status === "RUNNING");
@@ -139,14 +166,16 @@ function ChatConversation({ initial }: { initial?: ChatHistory }) {
         onError={handleError}
         onAccepted={(sessionId) => {
           void queryClient.invalidateQueries({ queryKey: chatSessionsKey });
-          if (!initial)
+          if (!initial) {
+            onSessionCreated(sessionId);
             void navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true });
+          }
         }}
       />
       <ChatThread
         modelPicker={
           <ChatModelPicker
-            sessionId={initial?.session.id}
+            sessionId={transport.session?.id}
             value={model.choice.id}
             onChange={model.select}
             disabled={connection !== "ready" || checking}

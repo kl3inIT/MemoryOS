@@ -6,6 +6,8 @@
 | Reset/gap history fallback, partial FAILED, committed Stop and complete/cancel race | `chat-transport.test.ts`; no model re-execution on recovery |
 | Stream 401/403/404 fail closed; reject foreign-run events and nonadvancing history cursor | `chat-transport.test.ts` |
 | Native composer Enter/Shift+Enter/IME, markdown/code/copy, multiple turns and reload | `web/tests/e2e/chat.spec.ts`; real browser and incremental HTTP fixture, native runtime and generated clients |
+| New-session URL promotion preserves the composer and one SSE reader without a history reload; New chat/back opens the correct conversation | `chat.spec.ts`: `keeps the new conversation mounted through server ID promotion and resets only when switching` |
+| Thinking/search waiting has one indicator, no empty Markdown cursor and no Copy action; Stop clears waiting | `chat.spec.ts`: waiting and grounded-waiting browser cases; Copy becomes available once real answer text exists |
 | Reload RUNNING, Stop/partial, reconnect, missing buffer, provider failure, mobile drawer, reader cleanup and denied stream | `chat.spec.ts`; fixture owns execution/identity, so these tests do not certify real provider or Keycloak |
 | Base welcome/composer layout, searchable authorized model picker, keyboard/mobile focus, chosen ID across reload, empty/error/fallback catalog | `chat.spec.ts`; generated catalog/send clients with HTTP fixtures |
 | Validated sources/progress through native SDK metadata, stream split/gap/Stop/failure/history, fixed per-send model ID | `chat-transport.test.ts`; no second inference or parallel message store |

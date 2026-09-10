@@ -5,6 +5,7 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
   useAuiState,
+  type TextMessagePartProps,
 } from "@assistant-ui/react";
 import { ArrowDown, ArrowUp, Copy, Square } from "lucide-react";
 import type { ReactNode } from "react";
@@ -166,7 +167,7 @@ function AssistantMessage() {
     <MessagePrimitive.Root className="min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
         <ChatSearchStatus />
-        <MessagePrimitive.Parts components={{ Text: AnswerMarkdown }} />
+        <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">Stopped</p>
         )}
@@ -176,16 +177,24 @@ function AssistantMessage() {
           </p>
         )}
         <ActionBarPrimitive.Root className="mt-3 flex items-center gap-1">
-          <ActionBarPrimitive.Copy asChild>
-            <IconButton
-              aria-label="Copy answer"
-              title="Copy answer"
-              prominence="internal"
-              size="sm"
-            >
-              <Copy />
-            </IconButton>
-          </ActionBarPrimitive.Copy>
+          <AuiIf
+            condition={(state) =>
+              state.message.parts.some(
+                (part) => part.type === "text" && part.text.trim().length > 0,
+              )
+            }
+          >
+            <ActionBarPrimitive.Copy asChild>
+              <IconButton
+                aria-label="Copy answer"
+                title="Copy answer"
+                prominence="internal"
+                size="sm"
+              >
+                <Copy />
+              </IconButton>
+            </ActionBarPrimitive.Copy>
+          </AuiIf>
           <ChatSources />
         </ActionBarPrimitive.Root>
       </ChatSourcesProvider>
@@ -193,6 +202,11 @@ function AssistantMessage() {
   );
 }
 
-function AnswerMarkdown() {
+function EmptyAnswer() {
+  return null;
+}
+
+function AnswerMarkdown({ text }: TextMessagePartProps) {
+  if (!text.trim()) return null;
   return <MarkdownText remarkPlugins={[remarkCitations]} components={{ a: ChatMarkdownLink }} />;
 }
