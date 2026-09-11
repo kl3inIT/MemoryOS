@@ -60,6 +60,14 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 | Spring Data provider/model JSONB and scoped collection mappings, revision advancement, cross-Tenant constraints, default protection, deletion and ORM/JDBC rollback | `ModelCatalogConstraintsTest`; existing catalog API integration scenarios |
 | Browser versions, feedback per version, reload, shared read-only UI, revocation and deletion | `web/tests/e2e/chat-workspace.spec.ts` |
 | Assistant form saves/reloads sources, starters and limits; Project CRUD/instructions and retained conversations; mobile layout | `web/tests/e2e/chat-workspace.spec.ts`; existing `chat.spec.ts` mobile/stream regression |
+| Name-only Project creation opens its workspace; opening/typing creates no session; first send has projectId, one stream and no composer remount/history read | Project draft scenario in `chat-workspace.spec.ts`; generic first-send promotion in `chat.spec.ts` |
+| Move/remove by keyboard menu and desktop drag/drop updates folder membership without inference; Project deletion unlinks and retains history | Project membership and deletion scenarios in `chat-workspace.spec.ts` |
+| Rename Escape/focus restore, retained draft on error, header synchronization; inline edit failure preserves the UUID through retry | Draft recovery scenario in `chat-workspace.spec.ts` |
+| Separate reactions retain drafts on error, survive reload and can be removed; feedback remains answer-version-specific | Feedback recovery and saved-branch scenarios in `chat-workspace.spec.ts` |
+| Share/copy in one dialog, clipboard-denied manual fallback, native radio keyboard selection, focus restore and stale revision gating | Sharing scenarios in `chat-workspace.spec.ts` |
+| Saved titles `Chat`/`Search` cannot select header mode; empty Chat and Search retain their mode menus | Saved-title mobile scenarios in `chat-workspace.spec.ts` |
+| Malformed Project creation response retains the dialog/draft and exposes the error; loading assistant choices are not labeled unavailable, while a missing loaded choice is | Creation-response and delayed-settings scenarios in `chat-workspace.spec.ts` |
+| Project-scoped session POST returns a created session, GET pagination remains distinct, and the saved session opens in Chat | Project-endpoint browser scenario in `chat-workspace.spec.ts`; synthetic fixture contract only |
 
 Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do not certify a live provider, source relevance or deployed IAM. [Editor verification](../increments/active/mem-11-production-chat/editor-verification.md) records current checks and remaining deployment/acceptance boundaries.
 

@@ -205,6 +205,18 @@ Attachments, file Persona/Project thuộc MEM-81. Catalog admin UI/local-provide
 
 ## Phase 6 — Nghiệm thu và vận hành
 
+### UI theo Onyx — kế hoạch sửa sau phản hồi ngày 2026-09-11
+
+Chi tiết phạm vi, reference, component mapping, thứ tự và điều kiện đạt: [kế hoạch UI theo Onyx](ui-onyx-alignment-plan.md). Đã triển khai trên `feat/mem-11-onyx-ui` trong một PR code; [kiểm chứng UI](ui-verification.md) ghi kết quả và giới hạn. Custom agent tạm gác và attachments thuộc MEM-81.
+
+- [x] Project draft/composer và tạo session ở lần gửi đầu, giữ runtime/SSE khi đổi URL.
+- [x] Một header; sidebar Projects/hội thoại và menu rename/move/share/delete; Project workspace có instructions/composer/history.
+- [x] Inline edit, regenerate, chọn nhánh và feedback dùng component assistant-ui cài qua CLI nối đúng command server.
+- [x] Sharing tạo/sao chép link trong cùng dialog, giữ revision guards và authenticated read-only viewer.
+- [x] Browser scenarios, desktop/mobile visual checks và regression theo ma trận của kế hoạch: 79 browser tests, 106 unit tests, frontend checks và Gradle gate qua; giao một PR vào main theo quy trình CI/review.
+
+### Nghiệm thu runtime và vận hành còn lại
+
 - [ ] Corpus/scenarios đối chiếu Onyx; groundedness/citation support, latency, token/cost và concurrency.
 - [ ] Đối chiếu [ma trận end-to-end](design.md#end-to-end-framework-integration), ghi rõ native/gap/product receipts và giới hạn provider/pricing. Web search/deep research có điểm tích hợp xác định nhưng vẫn ngoài giao đầu; không báo workflow/checkpoints đã sẵn sàng chỉ vì factory compile.
 - [ ] Model/index/DB failure, RAM buffer expiry/eviction, cancellation races, restart, overload và safe retries; kiểm đúng giới hạn replay trong một API process.

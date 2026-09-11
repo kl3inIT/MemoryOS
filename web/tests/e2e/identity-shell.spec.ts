@@ -52,15 +52,15 @@ test("renders the authenticated application shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "New chat", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Hội thoại mới", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
-  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
 });
 
 test("hides owner UI and blocks member administration deep links without requests", async ({
@@ -86,7 +86,7 @@ test("hides owner UI and blocks member administration deep links without request
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Mở điều hướng" }).click();
   await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
 
@@ -268,13 +268,13 @@ test("closes mobile administration navigation after a client route change", asyn
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin");
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Mở điều hướng" }).click();
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toBeVisible();
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Mở điều hướng" }).click();
   await page.getByRole("button", { name: "Tenant owner" }).click();
   await page.getByRole("link", { name: "Admin Panel" }).click();
   await expect(page).toHaveURL(/\/admin$/);
@@ -309,7 +309,7 @@ test("recovers from an unavailable identity endpoint without treating it as sign
 
   await expect(page.getByRole("heading", { name: /couldn’t confirm your session/i })).toBeVisible();
   await page.getByRole("button", { name: /try again/i }).click();
-  await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
 });
 
 test("manages members and one-time invitation recovery from the Users view", async ({ page }) => {

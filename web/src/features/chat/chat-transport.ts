@@ -34,6 +34,7 @@ type Callbacks = {
 export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   private modelConfigurationId?: string;
   private onModelAccepted?: (selection: Accepted) => void;
+  private readonly projectId?: string;
 
   selectModel(id?: string) {
     this.modelConfigurationId = id;
@@ -61,7 +62,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     error: () => {},
   };
 
-  constructor(session?: ChatSession, runningMessage?: ChatMessage) {
+  constructor(session?: ChatSession, runningMessage?: ChatMessage, projectId?: string) {
+    this.projectId = projectId;
     this.session = session;
     this.runId = runningMessage?.id;
     this.runParentId = runningMessage?.parentMessageId ?? undefined;
@@ -103,7 +105,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.stopWhenAccepted = false;
     this.callbacks.state("sending");
     try {
-      this.session ??= await newChatSession(text, signal);
+      this.session ??= await newChatSession(text, signal, undefined, this.projectId);
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
         body: {

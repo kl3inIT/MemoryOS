@@ -1,13 +1,20 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bot, Folder, ChevronDown, MessageSquare, Plus, Search } from "lucide-react";
+import { Bot, Folder, ChevronDown, ChevronRight, MessageSquare, Plus, Search } from "lucide-react";
 import { Popover } from "radix-ui";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
+import { ThreadList } from "@/components/assistant-ui/elements/thread-list";
 import { listChatSessions } from "@/lib/hey-api/sdk.gen";
+import { useApplicationSession } from "@/features/identity/application-session-context";
 import { chatSessionsKey } from "./chat-api";
+import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
+import { ProjectEditor, ProjectConversationList } from "./chat-projects-page";
+import { loadProjects, moveConversation, type Project } from "./chat-workspace-api";
+import { chatActionError } from "./chat-action-utils";
 import { cn } from "@/lib/utils";
 
 export function ChatNavigation({
@@ -18,6 +25,12 @@ export function ChatNavigation({
   onNavigate?: () => void;
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const { actorId, authorizationVersion } = useApplicationSession();
+  const [creating, setCreating] = useState(false);
+  const projects = useQuery({
+    queryKey: ["chat-projects", actorId, authorizationVersion],
+    queryFn: ({ signal }) => loadProjects(signal),
+  });
   const sessions = useInfiniteQuery({
     queryKey: chatSessionsKey,
     initialPageParam: 0,
@@ -41,7 +54,7 @@ export function ChatNavigation({
         selected={pathname === "/"}
         onClick={onNavigate}
       >
-        New chat
+        Hội thoại mới
       </SidebarTab>
       <SidebarTab
         to="/search"
@@ -61,42 +74,75 @@ export function ChatNavigation({
       >
         Trợ lý
       </SidebarTab>
-      <SidebarTab
-        to="/projects"
-        icon={<Folder className="size-4" />}
-        collapsed={collapsed}
-        selected={pathname.startsWith("/projects")}
-        onClick={onNavigate}
-      >
-        Dự án
-      </SidebarTab>
-      {!collapsed && (
-        <div className="mt-5 min-h-0 flex-1 overflow-y-auto">
-          <p className="px-2.5 pb-2 font-secondary-body text-content-muted">Conversations</p>
-          {sessions.data?.pages.flat().map((session) => (
+      {collapsed ? (
+        <SidebarTab
+          to="/projects"
+          icon={<Folder className="size-4" />}
+          collapsed
+          selected={pathname.startsWith("/projects")}
+          onClick={onNavigate}
+        >
+          Dự án
+        </SidebarTab>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <div className="mb-2 flex items-center justify-between px-2">
             <Link
-              key={session.id}
-              to="/chat/$sessionId"
-              params={{ sessionId: session.id }}
+              to="/projects"
               onClick={onNavigate}
-              aria-current={pathname === `/chat/${session.id}` ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-2.5 py-2 font-main-ui-body hover:bg-surface-sunken focus-visible:ring-2 focus-visible:ring-ring",
-                pathname === `/chat/${session.id}` && "bg-surface-sunken",
-              )}
+              className="rounded text-sm font-medium text-content-secondary hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <MessageSquare aria-hidden="true" className="size-4 shrink-0 text-content-muted" />
-              <span className="truncate">{session.title}</span>
+              Dự án
             </Link>
+            <IconButton
+              size="sm"
+              prominence="internal"
+              aria-label="Tạo dự án"
+              onClick={() => setCreating(true)}
+            >
+              <Plus />
+            </IconButton>
+          </div>
+          {projects.data?.map((project) => (
+            <ProjectFolder key={project.id} project={project} onNavigate={onNavigate} />
           ))}
+          {projects.isPending && (
+            <p role="status" className="px-3 text-sm text-content-muted">
+              Đang tải dự án…
+            </p>
+          )}
+          {projects.isError && (
+            <Button size="sm" prominence="internal" onClick={() => void projects.refetch()}>
+              Tải lại dự án
+            </Button>
+          )}
+          {projects.data?.length === 0 && (
+            <Button
+              size="sm"
+              prominence="internal"
+              className="w-full justify-start"
+              onClick={() => setCreating(true)}
+            >
+              <Folder className="size-4" />
+              Tạo dự án mới
+            </Button>
+          )}
+          <h2 className="px-2 pb-2 pt-6 text-sm font-medium text-content-secondary">
+            Hội thoại gần đây
+          </h2>
+          <ThreadList label="Hội thoại gần đây">
+            {sessions.data?.pages.flat().map((session) => (
+              <ChatSessionRow key={session.id} session={session} onNavigate={onNavigate} />
+            ))}
+          </ThreadList>
           {sessions.isPending && (
-            <p role="status" className="px-2.5 font-secondary-body text-content-muted">
-              Loading conversations…
+            <p role="status" className="px-3 text-sm text-content-muted">
+              Đang tải hội thoại…
             </p>
           )}
           {sessions.isError && (
             <Button size="sm" prominence="internal" onClick={() => void sessions.refetch()}>
-              Reload conversations
+              Tải lại hội thoại
             </Button>
           )}
           {sessions.hasNextPage && (
@@ -106,10 +152,109 @@ export function ChatNavigation({
               pending={sessions.isFetchingNextPage}
               onClick={() => void sessions.fetchNextPage()}
             >
-              Load more
+              Xem thêm hội thoại
             </Button>
           )}
         </div>
+      )}
+      {creating && (
+        <ProjectEditor
+          onClose={() => {
+            setCreating(false);
+            onNavigate?.();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [over, setOver] = useState(false);
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  const [error, setError] = useState<string>();
+  const cache = useQueryClient();
+  const selected = useRouterState({
+    select: (state) => state.location.pathname === `/projects/${project.id}`,
+  });
+  return (
+    <div
+      data-project-id={project.id}
+      onDragOver={(event) => {
+        if (!busy.current && event.dataTransfer.types.includes(CHAT_DRAG_TYPE)) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          setOver(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setOver(false);
+        const sessionId = event.dataTransfer.getData(CHAT_DRAG_TYPE);
+        if (!sessionId || busy.current) return;
+        busy.current = true;
+        setPending(true);
+        setError(undefined);
+        void moveConversation(sessionId, project.id)
+          .then(async () => {
+            await Promise.all([
+              cache.invalidateQueries({ queryKey: chatSessionsKey }),
+              cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
+              cache.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
+            ]);
+            setExpanded(true);
+          })
+          .catch((cause: unknown) => setError(chatActionError(cause)))
+          .finally(() => {
+            busy.current = false;
+            setPending(false);
+          });
+      }}
+    >
+      <div
+        className={cn(
+          "flex items-center rounded-lg hover:bg-surface-sunken",
+          (selected || over) && "bg-surface-sunken",
+          over && "ring-2 ring-ring",
+        )}
+      >
+        <IconButton
+          size="sm"
+          prominence="internal"
+          aria-label={`${expanded ? "Thu gọn" : "Mở rộng"} dự án ${project.name}`}
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? <ChevronDown /> : <ChevronRight />}
+        </IconButton>
+        <Link
+          to="/projects/$projectId"
+          params={{ projectId: project.id }}
+          onClick={onNavigate}
+          aria-current={selected ? "page" : undefined}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Folder className="size-4 shrink-0 text-content-muted" />
+          <span className="truncate">{project.name}</span>
+        </Link>
+      </div>
+      {pending && (
+        <p role="status" className="px-3 text-xs">
+          Đang chuyển hội thoại…
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="px-3 text-xs">
+          {error}
+        </p>
+      )}
+      {expanded && (
+        <ProjectConversationList projectId={project.id} compact onNavigate={onNavigate} />
       )}
     </div>
   );

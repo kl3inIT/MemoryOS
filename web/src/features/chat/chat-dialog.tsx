@@ -12,6 +12,8 @@ export function ChatDialog({
   submitLabel = "Lưu",
   open,
   onOpenChange,
+  closeOnSuccess = true,
+  submitDisabled = false,
 }: {
   title: string;
   description: string;
@@ -21,6 +23,8 @@ export function ChatDialog({
   submitLabel?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  closeOnSuccess?: boolean;
+  submitDisabled?: boolean;
 }) {
   const [internalOpen, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -49,14 +53,14 @@ export function ChatDialog({
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              if (!onSubmit || busy.current) return;
+              if (!onSubmit || busy.current || submitDisabled) return;
               busy.current = true;
               setPending(true);
               setError(undefined);
               void onSubmit()
                 .then(() => {
                   busy.current = false;
-                  change(false);
+                  if (closeOnSuccess) change(false);
                 })
                 .catch((cause: unknown) => setError(chatActionError(cause)))
                 .finally(() => {
@@ -87,7 +91,7 @@ export function ChatDialog({
                 Đóng
               </Button>
               {onSubmit && (
-                <Button type="submit" pending={pending}>
+                <Button type="submit" pending={pending} disabled={submitDisabled}>
                   {submitLabel}
                 </Button>
               )}

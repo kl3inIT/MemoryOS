@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
-import { ChatMessageActions } from "./chat-message-actions";
+import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
 
 export function ChatThread({
   modelPicker,
@@ -34,6 +34,8 @@ export function ChatThread({
   onCheck,
   checking,
   starters,
+  welcome,
+  afterComposer,
   readOnly = false,
 }: {
   modelPicker: ReactNode;
@@ -45,6 +47,8 @@ export function ChatThread({
   onCheck: () => Promise<void>;
   checking: boolean;
   starters?: ReactNode;
+  welcome?: ReactNode;
+  afterComposer?: ReactNode;
   readOnly?: boolean;
 }) {
   const isEmpty = useAuiState((state) => state.thread.isEmpty);
@@ -58,15 +62,17 @@ export function ChatThread({
           data-testid="chat-viewport"
           className={cn(
             "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 [scrollbar-gutter:stable] sm:px-8",
-            isEmpty && "justify-center",
+            isEmpty && !welcome && "justify-center",
           )}
         >
           <AuiIf condition={(state) => state.thread.isEmpty}>
             <div className="mx-auto mb-8 w-full max-w-(--thread-max-width) text-center">
-              <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-                How can I help you today?
-              </h1>
-              {starters}
+              {welcome ?? (
+                <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
+                  Bạn muốn tìm hiểu điều gì?
+                </h1>
+              )}
+              {!welcome && starters}
             </div>
           </AuiIf>
           <div className="mx-auto w-full max-w-(--thread-max-width) space-y-7 pb-8 font-main-content-body empty:hidden">
@@ -90,7 +96,7 @@ export function ChatThread({
               <div className="absolute -top-11 left-1/2 -translate-x-1/2">
                 <ThreadPrimitive.ScrollToBottom asChild>
                   <IconButton
-                    aria-label="Scroll to latest message"
+                    aria-label="Đến tin nhắn mới nhất"
                     prominence="secondary"
                     className="disabled:hidden"
                   >
@@ -105,7 +111,7 @@ export function ChatThread({
               )}
               {connection === "recovering" && (
                 <p role="status" className="mb-2 font-secondary-body text-content-secondary">
-                  Reconnecting to your reply…
+                  Đang kết nối lại câu trả lời…
                 </p>
               )}
               {connection === "uncertain" || error ? (
@@ -113,21 +119,21 @@ export function ChatThread({
                   role="alert"
                   className="mb-3 flex flex-wrap items-center gap-2 font-secondary-body text-content-secondary"
                 >
-                  <span>{error ?? "Reply status could not be confirmed."}</span>
+                  <span>{error ?? "Chưa xác nhận được trạng thái câu trả lời."}</span>
                   <Button
                     size="sm"
                     prominence="secondary"
                     pending={checking}
                     onClick={() => void onCheck()}
                   >
-                    Check conversation
+                    Kiểm tra hội thoại
                   </Button>
                 </div>
               ) : null}
               <ComposerPrimitive.Root className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
                 <ComposerPrimitive.Input
-                  aria-label="Message"
-                  placeholder="Send a message…"
+                  aria-label="Câu hỏi"
+                  placeholder="Nhập câu hỏi…"
                   rows={1}
                   maxLength={32000}
                   className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
@@ -136,14 +142,14 @@ export function ChatThread({
                   {modelPicker}
                   <AuiIf condition={(state) => !state.thread.isRunning}>
                     <ComposerPrimitive.Send asChild>
-                      <IconButton aria-label="Send message" prominence="primary">
+                      <IconButton aria-label="Gửi câu hỏi" prominence="primary">
                         <ArrowUp />
                       </IconButton>
                     </ComposerPrimitive.Send>
                   </AuiIf>
                   <AuiIf condition={(state) => state.thread.isRunning}>
                     <IconButton
-                      aria-label={stopping ? "Requesting stop" : "Stop reply"}
+                      aria-label={stopping ? "Đang yêu cầu dừng" : "Dừng trả lời"}
                       prominence="secondary"
                       disabled={stopping}
                       onClick={onStop}
@@ -155,6 +161,9 @@ export function ChatThread({
               </ComposerPrimitive.Root>
             </ThreadPrimitive.ViewportFooter>
           )}
+          {isEmpty && afterComposer && (
+            <div className="mx-auto w-full max-w-(--thread-max-width) pb-8">{afterComposer}</div>
+          )}
         </ThreadPrimitive.Viewport>
       </ThreadPrimitive.Root>
     </ChatSourcesWorkspace>
@@ -164,14 +173,9 @@ export function ChatThread({
 function UserMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root className="flex flex-col items-end">
-      <div className="max-w-[90%] rounded-2xl bg-surface-sunken px-4 py-3 whitespace-pre-wrap [overflow-wrap:anywhere]">
+      <ChatUserMessageContent readOnly={readOnly}>
         <MessagePrimitive.Parts />
-      </div>
-      {!readOnly && (
-        <div className="mt-1 flex items-center gap-1">
-          <ChatMessageActions role="user" />
-        </div>
-      )}
+      </ChatUserMessageContent>
     </MessagePrimitive.Root>
   );
 }
@@ -188,14 +192,14 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         <ChatSearchStatus />
         <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
         {(serverStatus === "CANCELED" || canceled) && (
-          <p className="mt-2 font-secondary-body text-content-muted">Stopped</p>
+          <p className="mt-2 font-secondary-body text-content-muted">Đã dừng</p>
         )}
         {serverStatus === "FAILED" && (
           <p role="status" className="mt-2 font-secondary-body text-content-secondary">
-            Reply interrupted. Partial answer saved.
+            Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.
           </p>
         )}
-        <ActionBarPrimitive.Root className="mt-3 flex items-center gap-1">
+        <ActionBarPrimitive.Root className="mt-3 flex flex-wrap items-center gap-1">
           <AuiIf
             condition={(state) =>
               state.message.parts.some(
@@ -205,8 +209,8 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
           >
             <ActionBarPrimitive.Copy asChild>
               <IconButton
-                aria-label="Copy answer"
-                title="Copy answer"
+                aria-label="Sao chép câu trả lời"
+                title="Sao chép câu trả lời"
                 prominence="internal"
                 size="sm"
               >

@@ -36,7 +36,7 @@ export function ChatModelPicker({
   if (catalog.isError)
     return (
       <Button size="sm" prominence="internal" onClick={() => void catalog.refetch()}>
-        Reload models
+        Tải lại mô hình
       </Button>
     );
   const models = (catalog.data ?? []).flatMap((model) =>
@@ -54,7 +54,7 @@ export function ChatModelPicker({
   const options = [
     {
       id: "auto",
-      name: "Automatic",
+      name: "Tự động",
       icon: <Bot aria-hidden="true" className="size-4" />,
     },
     ...models,
@@ -67,24 +67,24 @@ export function ChatModelPicker({
       onValueChange={(id) => onChange(id === "auto" ? undefined : id)}
     >
       <ModelSelectorTrigger
-        aria-label="Choose model"
+        aria-label="Chọn mô hình"
         variant="ghost"
         size="sm"
         disabled={disabled || catalog.isPending || models.length === 0}
         className="max-w-[min(18rem,65vw)] text-content-secondary"
       >
         {catalog.isPending
-          ? "Loading models…"
+          ? "Đang tải mô hình…"
           : models.length === 0
-            ? "No models available"
+            ? "Chưa có mô hình khả dụng"
             : value && !models.some((model) => model.id === value)
-              ? "Selected model unavailable"
+              ? "Mô hình đã chọn không khả dụng"
               : undefined}
       </ModelSelectorTrigger>
       <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="start">
-        <ModelSelectorSearch aria-label="Search models" />
+        <ModelSelectorSearch aria-label="Tìm mô hình" />
         <ModelSelectorList>
-          <ModelSelectorEmpty>No models match.</ModelSelectorEmpty>
+          <ModelSelectorEmpty>Không tìm thấy mô hình.</ModelSelectorEmpty>
           <ModelSelectorGroup>
             <ModelSelectorItem model={options[0]!} />
           </ModelSelectorGroup>
