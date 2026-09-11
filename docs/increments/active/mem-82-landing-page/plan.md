@@ -2651,7 +2651,7 @@ git commit -m "build(landing): serve the landing page from a hardened nginx imag
 **Files:**
 - Create: `infrastructure/deployment/compose.landing.yaml`
 
-- [ ] **Step 1: Create the Compose file**
+- [x] **Step 1: Create the Compose file**
 
 ```yaml
 # Public vanda.app landing page. Operated separately from the application stack; see
@@ -2703,7 +2703,7 @@ networks:
     external: true
 ```
 
-- [ ] **Step 2: Validate and exercise it locally**
+- [x] **Step 2: Validate and exercise it locally**
 
 Run: `MEMORYOS_LANDING_IMAGE=memoryos-landing:local docker compose --file infrastructure/deployment/compose.landing.yaml config --quiet`
 Expected: exit 0.
@@ -2716,7 +2716,7 @@ Expected: `ok`.
 
 Run: `MEMORYOS_LANDING_IMAGE=memoryos-landing:local docker compose --file infrastructure/deployment/compose.landing.yaml down`, then remove `proxy-network` only if Step 2 created it.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add infrastructure/deployment/compose.landing.yaml
