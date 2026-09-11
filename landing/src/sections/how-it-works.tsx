@@ -8,10 +8,19 @@ function HowItWorks() {
     <Section id="how-it-works" title={howItWorks.title} description={howItWorks.description}>
       <ol className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
         {steps.map((step, index) => (
-          <li key={step.title} className="border-t-2 border-accent pt-5">
-            <p className="font-main-ui-action text-accent">Step {index + 1}</p>
-            <h3 className="mt-2 font-heading-h3 text-content-primary">{step.title}</h3>
-            <p className="mt-2 font-main-content-body text-content-secondary">{step.description}</p>
+          <li key={step.title} className="relative pt-5">
+            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-border-default" />
+            <span
+              aria-hidden="true"
+              className="progress-fill absolute inset-x-0 top-0 h-0.5 bg-accent"
+            />
+            <div className="reveal">
+              <p className="font-main-ui-action text-accent">Step {index + 1}</p>
+              <h3 className="mt-2 font-heading-h3 text-content-primary">{step.title}</h3>
+              <p className="mt-2 font-main-content-body text-content-secondary">
+                {step.description}
+              </p>
+            </div>
           </li>
         ))}
       </ol>
@@ -21,7 +30,7 @@ function HowItWorks() {
           {request.steps.map((step, index) => (
             <li
               key={step.title}
-              className="rounded-xl border border-border-subtle bg-surface-raised p-5"
+              className="reveal rounded-xl border border-border-subtle bg-surface-raised p-5"
             >
               <span className="inline-flex size-6 items-center justify-center rounded-full bg-accent-surface font-secondary-action text-accent-content">
                 {index + 1}

@@ -26,7 +26,7 @@ function Deployment() {
 
   return (
     <Section id="deployment" title={deployment.title} description={deployment.description}>
-      <figure className="rounded-2xl bg-surface-canvas p-4 sm:p-6 lg:p-8">
+      <figure className="reveal rounded-2xl bg-surface-canvas p-4 sm:p-6 lg:p-8">
         <figcaption className="font-main-ui-action text-content-secondary">{caption}</figcaption>
         <div className="mt-5 grid items-center gap-3 lg:grid-cols-[11rem_auto_minmax(0,1fr)]">
           <div className="rounded-lg border border-border-subtle bg-surface-raised p-4">

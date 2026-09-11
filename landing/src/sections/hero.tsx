@@ -14,8 +14,10 @@ function Hero() {
           <h1 id="hero-heading" className="font-display text-content-primary">
             {hero.title}
           </h1>
-          <p className="mt-6 max-w-xl font-lead text-content-secondary">{hero.description}</p>
-          <div className="mt-10 flex flex-wrap gap-3">
+          <p className="enter mt-6 max-w-xl font-lead text-content-secondary [--enter-delay:80ms]">
+            {hero.description}
+          </p>
+          <div className="enter mt-10 flex flex-wrap gap-3 [--enter-delay:160ms]">
             <ActionLink href={contact.href} size="lg">
               {contact.label}
             </ActionLink>
@@ -24,7 +26,9 @@ function Hero() {
             </ActionLink>
           </div>
         </div>
-        <ProductPreview />
+        <div className="enter [--enter-delay:240ms]">
+          <ProductPreview />
+        </div>
       </div>
     </section>
   );

@@ -9,7 +9,7 @@ function Footer() {
       <div aria-hidden="true" className="cta-glow pointer-events-none absolute inset-0 -z-10" />
       <div className="mx-auto max-w-[var(--page-width-wide)]">
         <div className="flex flex-col gap-8 py-16 sm:flex-row sm:items-end sm:justify-between sm:py-20">
-          <div className="max-w-xl">
+          <div className="reveal max-w-xl">
             <h2 className="font-heading-section text-content-primary">{footer.title}</h2>
             <p className="mt-4 font-lead text-content-secondary">{footer.description}</p>
           </div>
