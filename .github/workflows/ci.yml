@@ -123,10 +123,10 @@ jobs:
           sentry_args=()
           if [[ -n "$SENTRY_AUTH_TOKEN" && -n "$SENTRY_ORG" && -n "$SENTRY_PROJECT" ]]; then
             sentry_args+=(
-              --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN
-              --build-arg "SENTRY_ORG=$SENTRY_ORG"
-              --build-arg "SENTRY_PROJECT=$SENTRY_PROJECT"
-              --build-arg "SENTRY_RELEASE=$GITHUB_SHA"
+              "--secret=id=sentry_auth_token,env=SENTRY_AUTH_TOKEN"
+              "--build-arg=SENTRY_ORG=$SENTRY_ORG"
+              "--build-arg=SENTRY_PROJECT=$SENTRY_PROJECT"
+              "--build-arg=SENTRY_RELEASE=$GITHUB_SHA"
             )
           elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
             echo "Sentry source-map configuration is required for a main release." >&2
