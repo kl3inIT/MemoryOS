@@ -18,7 +18,7 @@ The trace of the first build showed one long startup task: setting up motion dur
 Orca, desktop 1881 × 1019, dark theme:
 
 - The hero types all 74 characters of the statement, then brings in the actions and preview.
-- How it works pins from scroll 1970 to 5027. The six stations play in order and snap to their labels. The timeline ends at its `station-6` label (6.5).
+- How it works now runs as a vertical beam, with the pinned row removed. At desktop width each station is 403 px tall and its drawing 576 px wide; on a 393 px phone the drawing is 325 px wide, with no overflow. Stations build in order as they cross the viewport and turn live once built. Scrolling back up resets the stations below the viewport to `--p` 0 and clears `data-live`.
 - Finished stations keep their loops while the list is on screen, measured as running CSS animations: 6 beam runs, 4 packets, 1 scan, 2 blinks, 24 levels, 1 pulse and 2 glints. Screenshots taken 1.3 s apart show light moving along the beam. Once the list leaves the screen, `data-visible` is removed.
 - Scrolling the whole page down and back up raised no `error` or `unhandledrejection` events and no Vite error overlay. There was no horizontal overflow.
 
