@@ -130,12 +130,6 @@
     animation: beam-flow-down 4.8s linear calc(var(--i, 0) * 0.8s) infinite;
   }
 
-  @media (min-width: 64rem) {
-    [data-visible] .beam-flow-run {
-      animation-name: beam-flow-across;
-    }
-  }
-
   [data-visible] [data-live] .ambient-packet {
     animation: ambient-packet 3s ease-in-out var(--delay, 0s) infinite;
   }
@@ -257,22 +251,6 @@
   16.66%,
   100% {
     translate: 0 100%;
-    opacity: 0;
-  }
-}
-
-@keyframes beam-flow-across {
-  0% {
-    translate: 0 0;
-    opacity: 0;
-  }
-  3%,
-  13% {
-    opacity: 1;
-  }
-  16.66%,
-  100% {
-    translate: 100% 0;
     opacity: 0;
   }
 }

@@ -5,22 +5,18 @@ import { cn } from "@/lib/utils";
 import { gsap, useMotion } from "@/motion/motion";
 
 /*
- * The six stages as stations on one beam. Above each station a line drawing shows the sample
- * document in that stage's form: sources converge into a page; the page is outlined region by
- * region, scanned and read into text and a table; it splits into passages with their tags; each
- * passage becomes a vector and a point; the points join the index; a question finds the nearest two
- * and the answer cites them. Motion moves one progress value `--p` per station and every part eases
- * in from it through the `ramp` utilities (src/styles/base.css), so the page runs six tweens rather
- * than one per part. Once a station has finished, and while the list is on screen, light runs along
- * the lit beam and the drawing keeps a quiet CSS loop. Without motion `--p` is unset and every
- * drawing shows its final state. The drawings are hidden from assistive technology; each station's
- * heading and sentence carry the meaning.
+ * The six stages as stations on one beam down the list. Beside each station a large line drawing
+ * shows the sample document in that stage's form: sources converge into a page; the page is
+ * outlined region by region, scanned and read into text and a table; it splits into passages with
+ * their tags; each passage becomes a vector and a point; the points join the index; a question
+ * finds the nearest two and the answer cites them. Motion moves one progress value `--p` per station
+ * as it crosses the viewport, and every part eases in from it through the `ramp` utilities
+ * (src/styles/base.css), so the page runs six tweens rather than one per part. Once a station has
+ * finished, and while the list is on screen, light runs along the lit beam and the drawing keeps a
+ * quiet CSS loop. Without motion `--p` is unset and every drawing shows its final state. The
+ * drawings are hidden from assistive technology; each station's heading and sentence carry the
+ * meaning.
  */
-
-// Where each station starts on the timeline, plus the end; Extract gets the most room.
-const stationBoundaries = [0, 1, 2.5, 3.5, 4.5, 5.5, 6.5];
-// The pinned beam holds for this many viewport heights of scrolling.
-const pinnedViewports = 3;
 
 type RampVars = Record<`--${string}`, string | number>;
 
@@ -69,8 +65,8 @@ function PullDrawing() {
           <g key={source}>
             <text
               x={0}
-              y={y + 4.5}
-              fontSize={12.5}
+              y={y + 2.7}
+              fontSize={7.5}
               className="ramp ramp-fade fill-content-secondary font-medium"
               style={ramp(leave - 0.05, leave + 0.1)}
             >
@@ -522,8 +518,11 @@ const citedPoints: readonly Point[] = [
 function AnswerDrawing() {
   const [queryX, queryY] = queryPoint;
   return (
-    <div className="flex size-full flex-col gap-1.5">
-      <p className="ramp ramp-rise font-secondary-body text-content-secondary" style={ramp(0, 0.2)}>
+    <div className="flex size-full flex-col gap-3">
+      <p
+        className="ramp ramp-rise font-main-content-body text-content-secondary"
+        style={ramp(0, 0.2)}
+      >
         “{question}”
       </p>
       <svg
@@ -584,7 +583,7 @@ function AnswerDrawing() {
         </g>
       </svg>
       <p
-        className="ramp ramp-rise font-secondary-body text-content-primary"
+        className="ramp ramp-rise font-main-content-body text-content-primary"
         style={ramp(0.62, 0.9)}
       >
         {answer}{" "}
@@ -606,31 +605,28 @@ const drawings: readonly ComponentType[] = [
   AnswerDrawing,
 ];
 
-// One segment of the beam per station: a hairline track, the lit part that grows with the
-// station's progress, a comet at its head while it moves, the light that keeps running once the
-// station has finished, and the station's node. It runs down the left edge of the stacked list, and
-// across the row from lg, up to the next station's node.
+// One segment of the beam per station, down the left edge of the list: a hairline track, the lit
+// part that grows with the station's progress, a comet at its head while it moves, the light that
+// keeps running once the station has finished, and the station's node beside its title. A segment
+// reaches the next node, so its overhang is the list's row gap plus the node's offset (3.5).
 function BeamSegment({ index, last }: { index: number; last: boolean }) {
-  const node = "absolute top-0 left-0 -mt-1 -ml-[3.5px] size-2 rounded-full lg:top-1/2";
+  const node = "absolute top-0 left-0 -mt-1 -ml-[3.5px] size-2 rounded-full";
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "absolute top-0 left-2.5 w-px lg:relative lg:inset-auto lg:my-6 lg:h-px lg:w-auto",
-        last ? "bottom-0 lg:mr-0" : "-bottom-10 lg:-mr-6",
+        "absolute top-3.5 left-2.5 w-px",
+        last ? "bottom-0" : "-bottom-19.5 lg:-bottom-27.5",
       )}
     >
       <span className="absolute inset-0 bg-border-default" />
-      <span
-        className="ramp ramp-grow-down lg:ramp-grow-x absolute inset-0 bg-accent"
-        style={ramp(0, 1)}
-      />
+      <span className="ramp ramp-grow-down absolute inset-0 bg-accent" style={ramp(0, 1)} />
       <span className={cn(node, "bg-border-strong")} />
       <span className={cn(node, "ramp ramp-fade bg-accent")} style={ramp(0, 0.04)} />
       <span
         className={cn(
           node,
-          "ramp ramp-pass top-[calc(var(--p,1)*100%)] bg-accent shadow-[0_0_10px_2px_var(--accent)] lg:left-[calc(var(--p,1)*100%)]",
+          "ramp ramp-pass top-[calc(var(--p,1)*100%)] bg-accent shadow-[0_0_10px_2px_var(--accent)]",
         )}
         style={ramp(0, 1)}
       />
@@ -646,7 +642,7 @@ function BeamSegment({ index, last }: { index: number; last: boolean }) {
 function IngestionStory() {
   const scope = useRef<HTMLOListElement>(null);
 
-  useMotion(scope, ({ wide, roomy }) => {
+  useMotion(scope, () => {
     const list = scope.current;
     if (!list) {
       return;
@@ -670,72 +666,42 @@ function IngestionStory() {
       stations.forEach((station) => station.removeAttribute("data-live"));
     };
 
-    // Stacked: each station builds while it crosses the viewport.
-    if (!wide) {
-      for (const station of stations) {
-        const build = gsap.timeline({
-          scrollTrigger: { trigger: station, start: "top 85%", end: "bottom 55%", scrub: 0.5 },
-          onUpdate: () => setLive(station, build.progress() === 1),
-        });
-        build.fromTo(station, { "--p": 0 }, { "--p": 1, ease: "none" });
-      }
-      return stopLoops;
+    // Each station builds while it crosses the viewport.
+    for (const station of stations) {
+      const build = gsap.timeline({
+        scrollTrigger: { trigger: station, start: "top 85%", end: "bottom 55%", scrub: 0.5 },
+        onUpdate: () => setLive(station, build.progress() === 1),
+      });
+      build.fromTo(station, { "--p": 0 }, { "--p": 1, ease: "none" });
     }
-
-    // In a row the beam crosses the stations in turn; pinned when there is room, snapping to the
-    // end of each station.
-    const timeline = gsap.timeline({
-      defaults: { ease: "none" },
-      onUpdate: () => {
-        const time = timeline.time();
-        stations.forEach((station, index) =>
-          setLive(station, time >= (stationBoundaries[index + 1] ?? Infinity)),
-        );
-      },
-      scrollTrigger: roomy
-        ? {
-            trigger: list,
-            start: "center center",
-            end: () => `+=${window.innerHeight * pinnedViewports}`,
-            pin: true,
-            scrub: 0.6,
-            snap: {
-              snapTo: "labels",
-              duration: { min: 0.2, max: 0.6 },
-              delay: 0.1,
-              ease: "power1.inOut",
-            },
-          }
-        : { trigger: list, start: "top 75%", end: "bottom 35%", scrub: 0.6 },
-    });
-    timeline.addLabel("start", 0);
-    stations.forEach((station, index) => {
-      const start = stationBoundaries[index] ?? 0;
-      const end = stationBoundaries[index + 1] ?? start + 1;
-      timeline
-        .fromTo(station, { "--p": 0 }, { "--p": 1, duration: end - start }, start)
-        .addLabel(`station-${index + 1}`, end);
-    });
     return stopLoops;
   });
 
   return (
-    <ol ref={scope} className="grid gap-y-10 lg:grid-cols-6 lg:gap-x-6 lg:gap-y-0">
+    <ol ref={scope} className="grid gap-y-16 lg:gap-y-24">
       {howItWorks.stages.map((stage, index) => {
         const StageDrawing = drawings[index];
         return (
-          <li key={stage.title} data-station="" className="relative pl-9 lg:pl-0">
+          <li
+            key={stage.title}
+            data-station=""
+            className="relative grid gap-y-6 pl-9 sm:pl-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-x-16"
+          >
+            <BeamSegment index={index} last={index === howItWorks.stages.length - 1} />
+            <div>
+              <h3 className="font-heading-h3 text-content-primary">
+                <span className="mr-2 text-accent tabular-nums">{index + 1}</span>
+                {stage.title}
+              </h3>
+              <p className="mt-2 max-w-sm font-main-content-body text-content-secondary">
+                {stage.description}
+              </p>
+            </div>
             {StageDrawing ? (
-              <div aria-hidden="true" className="h-40 w-full max-w-64 lg:max-w-none">
+              <div aria-hidden="true" className="aspect-[10/7] w-full max-w-xl">
                 <StageDrawing />
               </div>
             ) : null}
-            <BeamSegment index={index} last={index === howItWorks.stages.length - 1} />
-            <h3 className="mt-4 font-main-ui-action text-content-primary lg:mt-0">
-              <span className="mr-1.5 text-accent tabular-nums">{index + 1}</span>
-              {stage.title}
-            </h3>
-            <p className="mt-1 font-main-ui-body text-content-secondary">{stage.description}</p>
           </li>
         );
       })}
