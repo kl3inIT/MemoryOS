@@ -1,36 +1,29 @@
 /*
- * Light and dark subsets of web/src/styles/tokens.css, kept as a copy because the landing page and
- * the application build and deploy independently. Onyx/Opal MIT palette adapted to MemoryOS
- * semantic roles; see /THIRD_PARTY_NOTICES.txt.
+ * Semantic token names and default-tone action rows follow web/src/styles/tokens.css, so the
+ * landing page reads like the product. Values are the landing's own navy and blue identity; the
+ * application and the marketing site build and deploy independently. Onyx/Opal MIT structure; see
+ * /THIRD_PARTY_NOTICES.txt.
  */
 :root {
   color-scheme: light;
 
-  --neutral-00: #ffffff;
-  --neutral-100: #e6e6e6;
-  --neutral-200: #cccccc;
-  --neutral-400: #a4a4a4;
-  --neutral-800: #333333;
-  --neutral-900: #1c1c1c;
-  --neutral-950: #000000;
+  --surface-canvas: #eef1f7;
+  --surface-base: #f8f9fc;
+  --surface-raised: #ffffff;
 
-  --surface-canvas: #f0f0f1;
-  --surface-base: #fafafa;
-  --surface-raised: var(--neutral-00);
+  --content-primary: #0a0f1ee6;
+  --content-secondary: #0a0f1ebf;
+  --content-muted: #0a0f1e8c;
+  --content-inverse: #ffffff;
 
-  --content-primary: #000000e5;
-  --content-secondary: #000000bf;
-  --content-muted: #0000008c;
-  --content-inverse: var(--neutral-00);
-
-  --border-subtle: var(--neutral-100);
-  --border-default: var(--neutral-200);
-  --border-strong: var(--neutral-400);
+  --border-subtle: #e2e6ef;
+  --border-default: #cbd2e0;
+  --border-strong: #9ea8bd;
 
   /* Default-tone rows of the canonical action matrix. */
-  --action-default-primary-surface: var(--neutral-900);
-  --action-default-primary-surface-hover: var(--neutral-800);
-  --action-default-primary-surface-active: var(--neutral-950);
+  --action-default-primary-surface: #0b1020;
+  --action-default-primary-surface-hover: #1c2336;
+  --action-default-primary-surface-active: #000000;
   --action-default-primary-content: var(--content-inverse);
   --action-default-secondary-surface: var(--surface-base);
   --action-default-secondary-surface-hover: var(--surface-canvas);
@@ -43,15 +36,22 @@
   --action-default-tertiary-surface-active: var(--surface-raised);
   --action-default-tertiary-content: var(--content-secondary);
   --action-default-tertiary-content-hover: var(--content-primary);
-  --focus-ring: var(--neutral-950);
+  --focus-ring: #0b1020;
 
   --control-height-md: 2.25rem;
   --control-height-lg: 2.5rem;
   --control-icon-md: 1rem;
 
-  /* Meaning-bound accents: web status-info marks citations, status-success marks approval. */
-  --citation-surface: #e7effc;
-  --citation-content: #245fda;
+  /* Brand blue: text and icons, solid fills with their content, and the decorative glow. */
+  --accent: #2450e6;
+  --accent-surface: #2450e6;
+  --accent-content: #ffffff;
+  --glow-core: #3d6bff47;
+  --glow-halo: #7d9bff2e;
+
+  /* Meaning-bound accents: brand blue marks citations, green marks an approved AI asset. */
+  --citation-surface: #e8eeff;
+  --citation-content: #2450e6;
   --approval-surface: #e6f2e7;
   --approval-content: #007a2d;
 
@@ -59,8 +59,8 @@
   --brand-mark-surface: #0a0a0a;
   --brand-mark-content: #f4f2eb;
 
-  --elevation-1: 0 1px 2px #0000000d;
-  --elevation-2: 0 0 0 1px #00000005, 0 4px 8px -2px #00000014, 0 12px 24px -4px #00000014;
+  --elevation-1: 0 1px 2px #0a0f1e0d;
+  --elevation-2: 0 0 0 1px #0a0f1e05, 0 4px 8px -2px #0a0f1e14, 0 12px 24px -4px #0a0f1e14;
   --radius: 0.5rem;
 
   --page-width-wide: 80rem;
@@ -70,34 +70,39 @@
 .dark {
   color-scheme: dark;
 
-  --surface-canvas: #26262b;
-  --surface-base: #19191e;
-  --surface-raised: #000000;
+  --surface-canvas: #0f1526;
+  --surface-base: #070a13;
+  --surface-raised: #0b1020;
 
   --content-primary: #fffffff2;
   --content-secondary: #ffffffd9;
   --content-muted: #ffffff99;
-  --content-inverse: #000000e5;
+  --content-inverse: #070a13;
 
-  --border-subtle: #333333;
-  --border-default: #555555;
-  --border-strong: #808080;
+  --border-subtle: #1b2338;
+  --border-default: #2a3450;
+  --border-strong: #465274;
 
-  --action-default-primary-surface: #e9e9e9;
-  --action-default-primary-surface-hover: #cacaca;
+  --action-default-primary-surface: #f3f5fb;
+  --action-default-primary-surface-hover: #d8deec;
   --action-default-primary-surface-active: #ffffff;
   --focus-ring: #ffffff;
 
-  --citation-surface: #091938;
-  --citation-content: #8cb4ff;
-  --approval-surface: #002207;
-  --approval-content: #48c775;
+  --accent: #86a6ff;
+  --accent-surface: #2f5bff;
+  --glow-core: #3563ffc2;
+  --glow-halo: #1d44d98c;
+
+  --citation-surface: #13234f;
+  --citation-content: #9bb5ff;
+  --approval-surface: #06260f;
+  --approval-content: #4fd07e;
 
   --brand-mark-surface: #f4f2eb;
   --brand-mark-content: #0a0a0a;
 
-  --elevation-1: 0 1px 2px oklch(0 0 0 / 0.24);
-  --elevation-2: 0 1px 2px oklch(0 0 0 / 0.22), 0 12px 32px oklch(0 0 0 / 0.28);
+  --elevation-1: 0 1px 2px oklch(0 0 0 / 0.32);
+  --elevation-2: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px oklch(0 0 0 / 0.4);
 }
 
 @media (min-width: 40rem) {

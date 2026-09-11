@@ -42,3 +42,27 @@
     }
   }
 }
+
+@layer components {
+  /* The page's one light source, behind the hero preview: below the copy on small screens, beside
+   * it from lg. */
+  .hero-glow {
+    --glow-x: 50%;
+    --glow-y: 82%;
+    background:
+      radial-gradient(60% 58% at var(--glow-x) var(--glow-y), var(--glow-core), transparent 70%),
+      radial-gradient(120% 70% at 50% 120%, var(--glow-halo), transparent 72%);
+  }
+
+  @media (min-width: 64rem) {
+    .hero-glow {
+      --glow-x: 76%;
+      --glow-y: 58%;
+    }
+  }
+
+  /* A quieter echo of the hero light behind the closing call to action. */
+  .cta-glow {
+    background: radial-gradient(50% 90% at 88% 0%, var(--glow-halo), transparent 70%);
+  }
+}

@@ -16,6 +16,9 @@
   --color-border-default: var(--border-default);
   --color-border-strong: var(--border-strong);
   --color-focus-ring: var(--focus-ring);
+  --color-accent: var(--accent);
+  --color-accent-surface: var(--accent-surface);
+  --color-accent-content: var(--accent-content);
   --color-citation-surface: var(--citation-surface);
   --color-citation-content: var(--citation-content);
   --color-approval-surface: var(--approval-surface);
