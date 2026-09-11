@@ -2376,6 +2376,33 @@ git commit -m "feat(landing): add light and dark themes"
 
 ---
 
+### Task 5B: Navy and blue technical identity
+
+Added after Task 5A at the product owner's request, with a Laravel Cloud screenshot as the visual reference ("trông khá là tech"). The theme contract of Task 5A is unchanged: first visits follow the system preference.
+
+**Files:**
+- Modify: `landing/src/styles/tokens.css` (cool light and navy dark values under the web token names; `--accent`, `--accent-surface`, `--accent-content`, `--glow-core`, `--glow-halo`; citation tokens aligned to the brand blue)
+- Modify: `landing/src/styles/theme.css` (`accent`, `accent-surface`, `accent-content` colors)
+- Modify: `landing/src/styles/base.css` (`.hero-glow` behind the preview — centred below the copy on small screens, beside it from `lg` — and the quieter `.cta-glow`)
+- Modify: `landing/src/sections/hero.tsx`, `footer.tsx` (decorative `aria-hidden` glow layers behind `isolate` sections)
+- Modify: `landing/src/sections/product-preview.tsx` (translucent frame that lets the glow through)
+- Modify: `landing/src/sections/product-highlights.tsx`, `capabilities.tsx`, `how-it-works.tsx`, `roadmap.tsx` (brand blue for checks, capability icons, the index block, step markers and timeline dots)
+- Modify: `landing/index.html` (`theme-color` `#f8f9fc` / `#070a13`)
+- Modify: `landing/scripts/og-image.html`, `landing/public/og-image.png` (navy card with the same glow)
+
+- [x] **Step 1: Replace the palette and add the glow layers** as listed above.
+- [x] **Step 2: Run the package gate** — `pnpm --dir landing check`. Expected: 14 tests pass.
+- [x] **Step 3: Review both themes in the browser** at 1440 and 390 px: text over the glow keeps its contrast, the glow sits behind the preview at every width, and the accents stay readable in light and dark.
+- [x] **Step 4: Re-render the Open Graph image** with headless Chrome at 1200 × 630 and confirm the metadata test still passes.
+- [ ] **Step 5: Commit**
+
+```bash
+git add landing docs/increments/active/mem-82-landing-page
+git commit -m "feat(landing): adopt a navy and blue technical identity"
+```
+
+---
+
 ### Task 6: Production image and smoke contract
 
 **Files:**
@@ -2446,7 +2473,7 @@ asset_headers=$(curl --silent --show-error --fail --dump-header - --output /dev/
   "$origin${BASH_REMATCH[1]}")
 expect_header "$asset_headers" "Cache-Control: public, max-age=31536000, immutable"
 
-for path in /robots.txt /sitemap.xml /favicon.svg /og-image.png /THIRD_PARTY_NOTICES.txt; do
+for path in /theme-init.js /robots.txt /sitemap.xml /favicon.svg /og-image.png /THIRD_PARTY_NOTICES.txt; do
   [[ $(status_of "$path") == 200 ]] || fail "$path is not served"
 done
 [[ $(status_of /missing) == 404 ]] || fail "unknown paths must return 404"
