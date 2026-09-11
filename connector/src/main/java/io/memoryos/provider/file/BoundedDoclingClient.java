@@ -15,6 +15,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
+import java.util.EnumSet;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;
@@ -24,6 +26,7 @@ import tools.jackson.databind.annotation.JsonDeserialize;
 
 /** Official SDK operations with a bounded response transport; no response/body logging. */
 final class BoundedDoclingClient extends DoclingServeClient implements AutoCloseable {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(BoundedDoclingClient.class);
     private static final Duration HTTP_TIMEOUT = Duration.ofMinutes(2);
     private static final Pattern TASK_ID = Pattern.compile("[A-Za-z0-9_-]{1,128}");
     private final JsonMapper mapper = JsonMapper.builder().addMixIn(ErrorItem.class, ErrorMapping.class).build();
@@ -46,25 +49,47 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
 
     @Override
     public ConvertDocumentResponse convertSource(ConvertDocumentRequest request) {
-        deadline.set(System.nanoTime() + taskTimeout.toNanos());
+        long started = System.nanoTime();
+        deadline.set(started + taskTimeout.toNanos());
+        String taskId = null;
+        String stage = "SUBMISSION";
         try {
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
             var status = executePost(RequestContext.<ConvertDocumentRequest, TaskStatusPollResponse>builder()
                     .uri("/v1/convert/source/async").request(request)
                     .responseType(TaskStatusPollResponse.class).build());
-            if (status == null || status.getTaskId() == null || !TASK_ID.matcher(status.getTaskId()).matches()) {
+            if (status == null || status.getTaskId() == null || status.getTaskStatus() == null
+                    || !TASK_ID.matcher(status.getTaskId()).matches()) {
                 throw new ResponseFailure(ExtractionFailure.INTERNAL);
             }
-            String taskId = status.getTaskId();
+            taskId = status.getTaskId();
+            var observedStates = EnumSet.of(status.getTaskStatus());
+            LOG.atInfo().addKeyValue("event", "docling.task.submitted").addKeyValue("task_id", taskId)
+                    .addKeyValue("state", status.getTaskStatus().name())
+                    .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                    .log("Docling task accepted");
+            stage = "POLLING";
             while (true) {
                 remaining();
                 if (status == null || !taskId.equals(status.getTaskId()) || status.getTaskStatus() == null) {
                     throw new ResponseFailure(ExtractionFailure.INTERNAL);
                 }
+                if (observedStates.add(status.getTaskStatus())) {
+                    LOG.atInfo().addKeyValue("event", "docling.task.state_observed").addKeyValue("task_id", taskId)
+                            .addKeyValue("state", status.getTaskStatus().name())
+                            .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                            .log("Observed Docling task state");
+                }
                 switch (status.getTaskStatus()) {
                     case SUCCESS -> {
-                        return executeGet(RequestContext.<Object, ConvertDocumentResponse>builder()
+                        stage = "RESULT_READ";
+                        var result = executeGet(RequestContext.<Object, ConvertDocumentResponse>builder()
                                 .uri("/v1/result/" + taskId).responseType(ConvertDocumentResponse.class).build());
+                        LOG.atInfo().addKeyValue("event", "docling.task.result_received")
+                                .addKeyValue("task_id", taskId)
+                                .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                                .log("Received Docling result; content validation follows");
+                        return result;
                     }
                     case FAILURE -> throw new ResponseFailure(ExtractionFailure.INTERNAL);
                     case PENDING, STARTED -> {
@@ -84,8 +109,18 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
                 }
             }
         } catch (InterruptedException e) {
+            LOG.atWarn().addKeyValue("event", "docling.task.interrupted").addKeyValue("task_id", taskId)
+                    .addKeyValue("stage", stage)
+                    .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                    .log("Docling observation interrupted; remote cancellation is not confirmed");
             Thread.currentThread().interrupt();
             throw new DoclingServeClientException(e);
+        } catch (RuntimeException e) {
+            LOG.atWarn().addKeyValue("event", "docling.task.failed").addKeyValue("task_id", taskId)
+                    .addKeyValue("stage", stage).addKeyValue("error_type", e.getClass().getName())
+                    .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                    .log("Docling observation failed; no replacement task was submitted");
+            throw e;
         } finally {
             deadline.remove();
         }

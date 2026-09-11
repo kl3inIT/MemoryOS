@@ -331,3 +331,11 @@ The run took 200.143 seconds overall, including 177.822 seconds in row recogniti
 **Decision: retain the candidate offline.** Three natural positive omissions, only one on held-out pages from the same issuer, do not establish a generic production safety guarantee. No existing-number replacement, arithmetic repair or unused runtime recovery mode is shipped. Candidate SHA-256 is `9dbef331d7f1cab21786a25369bdf2b81c2e6c4b141c00c5c340fbab7e983892`; the retained row recognizer is `ab4274fb9aaac79ca38f671473798bae66faf3a5e2ded13cf3c96d3659fea89f`.
 
 Ignored evidence: `.tmp/tasco-2025/quality-followup/baseline.json`, `baseline-scorer.mjs`, `financial-smoke.json`, and `recovery-v2/{predictions,scored,overlay-invariants,final-report}.json`, with source rasters and the nine audit sheets. Exact values/raw artifacts remain private evidence rather than production fixtures.
+
+### Console correlation regression — 2026-09-12
+
+The [lifecycle logging contract](../guidelines/observability.md#extraction-lifecycle-diagnostics) separates invocation-relative elapsed offsets from durable queue waits and observed parser states. During the recreated corpus run, the existing local console configuration discarded fluent key/value fields, leaving message text without event, stage, task or elapsed values.
+
+A disposable Java program using the actual packaged Worker dependencies reproduced that loss with the packaged configuration. Loading the changed shared resources retained `event`, `stage`, `elapsed_ms` and `task_id` through `%kvp`, plus operation, delivery and workload MDC fields in the correlation pattern. Both old and changed staging-profile configurations produced JSON with the same fields and numeric elapsed type; `OTEL_SDK_DISABLED=true` prevented telemetry export in that serialization check.
+
+These are synthetic console-configuration checks, not ingestion timings, OTLP delivery or a staging deployment. Ignored evidence is `.tmp/tasco-2025/quality-followup/console-configuration-smoke.json` and `structured-console-configuration-smoke.json`.

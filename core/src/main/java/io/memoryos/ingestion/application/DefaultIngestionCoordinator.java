@@ -107,6 +107,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     }
 
     private Outcome processIndex(IndexWork work) {
+        long started = System.nanoTime();
         metrics.firstClaim(OperationWorkload.INGESTION, work.initialQueueWait());
         ScheduledFuture<?> renewal = leaseScheduler.scheduleAtFixedRate(
                 () -> renewIndexLease(work),
@@ -115,7 +116,10 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 TimeUnit.SECONDS
         );
         LOGGER.atInfo().addKeyValue("event", "ingestion.started")
-                .addKeyValue("operation_id", work.operationId().value()).log("Indexing started");
+                .addKeyValue("operation_id", work.operationId().value())
+                .addKeyValue("stage", "SOURCE_STORAGE_OPEN")
+                .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                .log("Document processing started");
         String failureStage = "SOURCE_STORAGE_READ";
         try {
             var expected = work.object().metadata();
@@ -125,6 +129,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     throw new IllegalStateException("stored object metadata changed after adoption");
                 }
                 failureStage = "SOURCE_EXTRACTION";
+                logIndexStage(work, failureStage, started);
                 content = extractor.extract(
                         objectContent.inputStream(),
                         expected.sizeBytes(),
@@ -133,8 +138,10 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 );
             }
             failureStage = "SOURCE_STORAGE_WRITE";
+            logIndexStage(work, failureStage, started);
             var staged = artifacts.stage(work.tenantId(), content);
             failureStage = "SOURCE_PUBLICATION";
+            logIndexStage(work, failureStage, started);
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
                         work.tenantId(),
@@ -147,18 +154,23 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 }
             });
             LOGGER.atInfo().addKeyValue("event", "ingestion.completed")
-                    .addKeyValue("operation_id", work.operationId().value()).log("Indexing completed");
+                    .addKeyValue("operation_id", work.operationId().value())
+                    .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                    .log("Document extraction and publication completed");
             return Outcome.COMPLETED;
         } catch (StaleIndexClaimException exception) {
             indexingPort.supersede(work);
             LOGGER.atDebug().addKeyValue("event", "ingestion.publication.stale")
                     .addKeyValue("operation_id", work.operationId().value())
+                    .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Rolled back stale index publication");
             return Outcome.SKIPPED;
         } catch (ExtractionException exception) {
             LOGGER.atWarn().addKeyValue("event", "ingestion.extraction.failed")
                     .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("error_code", "SOURCE_EXTRACTION_" + exception.failure().name())
+                    .addKeyValue("stage", failureStage)
+                    .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Extraction failed");
             if (!indexingPort.fail(work, "SOURCE_EXTRACTION_" + exception.failure().name())) {
                 LOGGER.atDebug().addKeyValue("event", "ingestion.extraction.failure.stale")
@@ -172,6 +184,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
                     .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("error_type", exception.getClass().getName())
+                    .addKeyValue("stage", failureStage).addKeyValue("error_code", errorCode)
+                    .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Indexing failed; applying retry policy");
             if (!indexingPort.retry(
                     work,
@@ -187,6 +201,13 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         } finally {
             renewal.cancel(false);
         }
+    }
+
+    private static void logIndexStage(IndexWork work, String stage, long started) {
+        LOGGER.atInfo().addKeyValue("event", "ingestion.stage.started")
+                .addKeyValue("operation_id", work.operationId().value()).addKeyValue("stage", stage)
+                .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                .log("Document processing stage started");
     }
 
     private void renewIndexLease(IndexWork work) {
