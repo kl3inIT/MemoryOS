@@ -115,10 +115,32 @@ jobs:
           persist-credentials: false
 
       - name: Build production frontend image
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         run: |
+          sentry_args=()
+          if [[ -n "$SENTRY_AUTH_TOKEN" && -n "$SENTRY_ORG" && -n "$SENTRY_PROJECT" ]]; then
+            sentry_args+=(
+              "--secret=id=sentry_auth_token,env=SENTRY_AUTH_TOKEN"
+              "--build-arg=SENTRY_ORG=$SENTRY_ORG"
+              "--build-arg=SENTRY_PROJECT=$SENTRY_PROJECT"
+              "--build-arg=SENTRY_RELEASE=$GITHUB_SHA"
+            )
+          elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            echo "Sentry source-map configuration is required for a main release." >&2
+            exit 1
+          fi
           docker build --file web/Dockerfile --tag "memoryos-web:sha-$GITHUB_SHA" \
+            "${sentry_args[@]}" \
             --build-arg "VCS_REF=$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
+          if docker run --rm --entrypoint /bin/sh "memoryos-web:sha-$GITHUB_SHA" \
+            -c 'find /usr/share/nginx/html -type f -name "*.map" -print -quit | grep -q .'; then
+            echo "Public source maps must not be present in the frontend image." >&2
+            exit 1
+          fi
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
             mkdir -p candidate
             docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
+import { captureWorkflowFailure } from "@/lib/sentry";
 import {
   getCurrentIdentityQueryKey,
   getGoogleDriveConfigurationOptions,
@@ -284,9 +285,15 @@ export function GoogleDrivePanel({
 
   function run(action: DriveAction, task: (signal: AbortSignal) => Promise<void>) {
     setError(null);
-    void perform(action, task).catch((cause: unknown) =>
-      setError(sourceMutationError(cause, "google-drive")),
-    );
+    void perform(action, task).catch((cause: unknown) => {
+      if (action === "sync")
+        captureWorkflowFailure(cause, {
+          workflow: "google-drive-sync",
+          stage: "request",
+          failureKind: "api-or-network",
+        });
+      setError(sourceMutationError(cause, "google-drive"));
+    });
   }
 
   async function incorporateConfiguration(saved: GetGoogleDriveConfigurationResponse) {
@@ -394,6 +401,13 @@ export function GoogleDrivePanel({
           description: `${source.name}: this request was replaced by newer work.`,
         });
       } else {
+        const failureKind = completed.errorCode ?? "SOURCE_SYNC_FAILED";
+        if (isSystemSynchronizationFailure(failureKind))
+          captureWorkflowFailure(new Error("Google Drive synchronization failed"), {
+            workflow: "google-drive-sync",
+            stage: "operation-complete",
+            failureKind,
+          });
         notify({
           tone: "error",
           title: "Synchronization failed",
@@ -401,14 +415,20 @@ export function GoogleDrivePanel({
         });
       }
       await refresh();
-    } catch {
-      if (!controller.signal.aborted)
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        captureWorkflowFailure(cause, {
+          workflow: "google-drive-sync",
+          stage: "operation-status",
+          failureKind: "status-unavailable",
+        });
         notify({
           tone: "error",
           title: "Synchronization status unavailable",
           description:
             "Synchronization may still be running. Refresh the source to check its status.",
         });
+      }
     } finally {
       if (synchronizationController.current === controller)
         synchronizationController.current = null;
@@ -836,5 +856,14 @@ export function GoogleDrivePanel({
         onActivated={refresh}
       />
     </section>
+  );
+}
+
+function isSystemSynchronizationFailure(errorCode: string) {
+  return (
+    errorCode.startsWith("SOURCE_STORAGE_") ||
+    errorCode === "SOURCE_ACQUISITION_INTERNAL" ||
+    errorCode === "SOURCE_GOOGLE_INTERNAL" ||
+    errorCode === "SOURCE_GOOGLE_INCOMPLETE"
   );
 }

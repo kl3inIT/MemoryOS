@@ -10,3 +10,7 @@ b825e962effd2d7b3d194b9980d32c954f90c428:docs/increments/active/mem-8-organizati
 b825e962effd2d7b3d194b9980d32c954f90c428:docs/increments/active/mem-8-organization-workspace-browser-onboarding/verification.md:generic-api-key:64
 # Model-output table prose (`finish_reason=length`), not an API credential.
 e883751aeb968c7f0dce030dc50de43a794d4437:docs/increments/active/mem-66-vllm-cpu-gateway-research/verification.md:generic-api-key:51
+# SHA-256 integrity checksums for vendored tokenizer assets; `verified(name, checksum)`
+# computes SHA-256 of each asset before it is accepted, so these are not credentials.
+fc1d3612c1865d65c6735a17fb361df3d633aa13:api/src/main/java/io/memoryos/api/chat/ChatTokenizerProfiles.java:generic-api-key:56
+fc1d3612c1865d65c6735a17fb361df3d633aa13:api/src/main/java/io/memoryos/api/chat/ChatTokenizerProfiles.java:generic-api-key:57

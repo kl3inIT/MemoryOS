@@ -2,15 +2,16 @@ import { QueryClientProvider, QueryErrorResetBoundary } from "@tanstack/react-qu
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ErrorBoundary } from "react-error-boundary";
 import "./index.css";
-import { ApplicationError } from "@/components/states/application-error";
+import { ApplicationErrorBoundary } from "@/components/states/application-error-boundary";
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import "@/lib/api";
 import { setupPreloadErrorReloadHandler } from "@/lib/preload-error-reload";
 import { queryClient } from "@/lib/query-client";
+import { captureReactRenderError, initializeSentry } from "@/lib/sentry";
 import { router } from "@/router";
 
+initializeSentry();
 setupPreloadErrorReloadHandler();
 
 const rootElement = document.getElementById("root");
@@ -21,26 +22,16 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <QueryErrorResetBoundary>
-          {({ reset }) => (
-            <ErrorBoundary
-              fallbackRender={({ error, resetErrorBoundary }) => (
-                <ApplicationError
-                  title="MemoryOS stopped unexpectedly."
-                  description="The application could not recover automatically. Your data was not changed."
-                  error={error}
-                  onRetry={resetErrorBoundary}
-                />
-              )}
-              onReset={reset}
-            >
+    <QueryClientProvider client={queryClient}>
+      <QueryErrorResetBoundary>
+        {({ reset }) => (
+          <ApplicationErrorBoundary onReset={reset} onError={captureReactRenderError}>
+            <ThemeProvider>
               <RouterProvider router={router} />
-            </ErrorBoundary>
-          )}
-        </QueryErrorResetBoundary>
-      </QueryClientProvider>
-    </ThemeProvider>
+            </ThemeProvider>
+          </ApplicationErrorBoundary>
+        )}
+      </QueryErrorResetBoundary>
+    </QueryClientProvider>
   </StrictMode>,
 );

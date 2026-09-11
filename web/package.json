@@ -27,6 +27,7 @@
     "@assistant-ui/react": "0.15.18",
     "@assistant-ui/react-markdown": "0.14.14",
     "@fontsource-variable/hanken-grotesk": "5.3.0",
+    "@sentry/react": "10.73.0",
     "@tanstack/react-query": "5.102.8",
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-table": "9.2.3",
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
+    "@sentry/vite-plugin": "5.4.0",
     "@tailwindcss/vite": "4.3.3",
     "@tanstack/router-plugin": "1.168.34",
     "@testing-library/jest-dom": "7.0.1",
