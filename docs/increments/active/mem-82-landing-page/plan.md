@@ -2441,12 +2441,13 @@ Added after Task 10 at the product owner's request, on branch `nhuxuanviet/mem-8
 
 **Files:**
 - Modify: `landing/package.json`, `landing/pnpm-lock.yaml` (`gsap` 3.15.0, `@gsap/react` 2.1.2, exact)
-- Create: `landing/src/motion/motion.ts` (ScrollTrigger registration, `useMotion`, `pinStart`, `offsetTo`)
+- Create: `landing/src/motion/motion.ts` (ScrollTrigger registration, `useMotion`, `offsetTo`), `landing/src/motion/drawings.ts` (scrubbed line drawings and their live state)
 - Modify: `landing/src/test/setup.ts` (jsdom `matchMedia` that matches nothing; canvas `getContext` returning `null`)
 - Modify: `landing/src/content.ts` (one-sentence copy; ingestion stages and access gate; capability mock keys; deployment link labels; milestone deliverables; condensed next steps; FAQ answers that carry the moved detail; footer without links)
 - Modify: `landing/src/styles/tokens.css`, `landing/src/styles/base.css` (particle, second-accent and frame tokens; gradient frame and typed caret; `ramp` utilities, ingestion loops and the hero's pre-frame rule; scroll-driven rules removed)
-- Create: `landing/src/components/particle-field.tsx`, `landing/src/lib/illustration.ts`
-- Modify: `landing/src/App.tsx` (how it works before capabilities), `landing/src/sections/hero.tsx`, `product-preview.tsx`, `footer.tsx`, `section.tsx`, `faq.tsx`, `trust-strip.tsx`, `product-highlights.tsx`
+- Create: `landing/src/components/particle-field.tsx`, `landing/src/components/line-drawing.tsx`, `landing/src/lib/illustration.ts`, `landing/src/lib/ramp.ts`
+- Modify: `landing/src/App.tsx` (how it works before capabilities), `landing/src/sections/hero.tsx`, `product-preview.tsx`, `footer.tsx`, `section.tsx`, `faq.tsx`, `trust-strip.tsx`
+- Replace: `landing/src/sections/product-highlights.tsx` with `product-highlights/index.tsx`, `search-drawing.tsx`, `governance-drawing.tsx`
 - Replace: `landing/src/sections/how-it-works.tsx` with `how-it-works/index.tsx`, `ingestion-story.tsx`, `access-gate.tsx`
 - Replace: `landing/src/sections/capabilities.tsx` with `capabilities/index.tsx`, `animate-mock.ts`, `mocks/*.tsx`
 - Rewrite: `landing/src/sections/deployment.tsx`, `landing/src/sections/roadmap.tsx`
@@ -2457,12 +2458,13 @@ Added after Task 10 at the product owner's request, on branch `nhuxuanviet/mem-8
 - [x] **Step 3: Rewrite the copy** and move technical detail into the FAQ.
 - [x] **Step 4: Hero and footer** — typed statement, particle fields, footer without links.
 - [x] **Step 5: How it works** — the ingestion beam: six stations with line drawings driven by one `--p` per station through the `ramp` utilities; quiet loops once a station finishes, while the list is on screen; then the access gate. At the product owner's request the first boxed scene design was replaced. Later the pinned horizontal row became a vertical beam at every width, with large drawings beside each station.
-- [x] **Step 6: Capability explorer** — pinned list, crossfading panels and nine component-only mocks whose entrances are `data-enter` attributes (`react/only-export-components` stays clean).
+- [x] **Step 6: Capabilities** — nine cards with component-only mocks whose entrances are `data-enter` attributes (`react/only-export-components` stays clean). The first pinned explorer with crossfading panels showed one small mock at a time; at the product owner's request the cards now converge from both sides and each mock plays once its card arrives.
 - [x] **Step 7: Deployment diagram and roadmap.**
 - [x] **Step 8: Keep the first interaction fast** — Lighthouse mobile fell to 0.78 (TBT 750 ms): setting up every section's motion while the page mounted laid out the whole page inside that task. `useMotion` now sets up after the first frame, one task per section; the hero hides its incoming parts with `data-intro` until then; capability mocks build on first use and grid panels play through an IntersectionObserver. Result: 0.96, TBT 130 ms, CLS 0.
 - [x] **Step 9: Run the package gate** — `pnpm --dir landing check`. Expected: 5 files, 50 tests pass, build and `tsc -b` pass.
 - [ ] **Step 10: Review in the Orca browser** (`orca tab`, `orca eval`, `orca screenshot`) — 390, 768, 1024 and 1440 px in both themes; every pinned and scrubbed scene in both directions; the ingestion loops; reduced motion shows the static page; no console errors. Done: see [verification](verification.md#landing-60). Remaining: a visual pass over the capabilities, deployment and roadmap scenes while scrolling up. Orca cannot emulate reduced motion, so the jsdom test covers that case.
 - [ ] **Step 11: Commit in concern clusters and push the branch.** Committed as `48ed13e`–`1bf0000` plus the verification record; push is waiting for confirmation.
+- [ ] **Step 12: Replace the boxed illustrations with line drawings** — at the product owner's request, every "boxes with labels" illustration becomes an SVG line drawing in the beam's language: few words, no box frames, and packets moving along the lines once drawn. Done: the Product highlights (search and governance). Remaining: the access gate, the nine capability mocks and the AWS deployment diagram, which keeps every service name.
 
 ---
 
