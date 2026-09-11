@@ -107,8 +107,8 @@ type TrustSignal = Entry & {
 
 const trustSignals: readonly TrustSignal[] = [
   {
-    title: "Deploying with Tasco",
-    description: "Tasco runs MemoryOS in a Production PoC from September to December 2026.",
+    title: "Partnering with Tasco",
+    description: "Vanda and Tasco run a MemoryOS Production PoC from September to December 2026.",
     logo: { src: tascoLogo, label: "Tasco" },
   },
   {
@@ -337,7 +337,7 @@ const roadmap: SectionIntro & {
 } = {
   title: "From Production PoC to company-wide memory",
   description:
-    "The Tasco Production PoC runs from September to December 2026, and each month ends with a working deliverable.",
+    "The Production PoC with our partner Tasco runs from September to December 2026, and each month ends with a working deliverable.",
   milestones: [
     {
       period: "September 2026",
@@ -421,9 +421,9 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
         "Google Drive, uploaded files, OpenAPI and REST APIs, and other business systems your company approves. Docling and OCR process documents, including scanned files.",
     },
     {
-      question: "Who uses MemoryOS today?",
+      question: "Who does Vanda work with?",
       answer:
-        "Tasco is deploying MemoryOS in a Production PoC from September to December 2026. Vanda is backed by GenAI Fund.",
+        "Vanda partners with Tasco on a MemoryOS Production PoC from September to December 2026, and is backed by GenAI Fund.",
     },
     {
       question: "How do we start?",

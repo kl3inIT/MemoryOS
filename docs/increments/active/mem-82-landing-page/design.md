@@ -10,7 +10,7 @@ Linear: [MEM-82](https://linear.app/memory-os/issue/MEM-82).
 
 - Organization **Vanda** (`vanda.app`, contact `aws@vanda.app`); product **MemoryOS** ("MemoryOS by Vanda"); **Backed by GenAI Fund**. English only.
 - The page presents the complete product: the problem MemoryOS solves, its full capability set from the Production PoC scope of work, and its direction beyond the PoC. It carries no per-feature delivery-status labels. Delivery status remains in [the roadmap](../../../roadmap.md), not on the marketing page.
-- Tasco is named as the customer deploying the Production PoC (September–December 2026). No Tasco pricing, internal architecture, users or data appear.
+- Tasco is named as Vanda's partner in the Production PoC (September–December 2026), never as a customer. No Tasco pricing, internal architecture, users or data appear.
 - The site serves the apex `vanda.app` from the existing staging VPS, replacing the current Cloudflare redirect to `roll-bits.com`. `www.vanda.app` redirects to the apex. The Google Workspace MX records stay unchanged.
 - Laura, who approves external MEM-80 material, reviews the content before the link is sent to AWS.
 
@@ -36,7 +36,7 @@ Kept: the section composition, one typed content module, the bento capability gr
 
 1. **Header** — MemoryOS mark, anchors (Product, How it works, Deployment, Roadmap, FAQ), light/dark theme toggle (inside the menu below `md`), Contact action (`mailto:aws@vanda.app`), skip link.
 2. **Hero** — the positioning, Contact and "See how it works" actions, product preview.
-3. **Trust strip** — the Tasco and GenAI Fund logos with "Deploying with Tasco" and "Backed by GenAI Fund". The logos are single-colour alpha masks (`src/assets/logos/`) cropped from the product owner's files, so they take each theme's content color.
+3. **Trust strip** — the Tasco and GenAI Fund logos with "Partnering with Tasco" and "Backed by GenAI Fund". The logos are single-colour alpha masks (`src/assets/logos/`) cropped from the product owner's files, so they take each theme's content color.
 4. **Problem → solution** — two highlighted features: scattered company knowledge becomes one place to search and ask with citations; enterprise AI stays governed through one permission model shared by search, agents and MCP.
 5. **Capabilities** (bento) — data connectors; enterprise search; cited answers; Python analysis and reports; enterprise SSO; custom agents; AI asset governance; MCP server; permission-aware retrieval.
 6. **How it works** — connect → index → ask → verify, plus the security flow: SSO sign-in, ACL check before retrieval, only permitted context reaches the model.
