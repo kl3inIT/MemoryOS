@@ -21,7 +21,7 @@ function Header() {
     <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface-base/90 px-[var(--page-gutter)] backdrop-blur-md">
       <a
         href="#main"
-        className="sr-only rounded-lg bg-surface-raised px-3 py-2 font-main-ui-action focus:not-sr-only focus:absolute focus:top-3 focus:left-3"
+        className="sr-only rounded-lg bg-surface-raised font-main-ui-action shadow-md focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-10 focus:px-3 focus:py-2"
       >
         Skip to content
       </a>
