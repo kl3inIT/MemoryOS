@@ -1,0 +1,15 @@
+type BrandMarkProps = {
+  className?: string;
+};
+
+// Same mark as public/favicon.svg; always shown next to the product name, so it is decorative.
+function BrandMark({ className }: BrandMarkProps) {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
+      <rect width="32" height="32" rx="8" fill="#0a0a0a" />
+      <path d="M8 9h3.2l4.8 7 4.8-7H24v14h-3.3v-8.7L16 21l-4.7-6.7V23H8V9Z" fill="#f4f2eb" />
+    </svg>
+  );
+}
+
+export { BrandMark };
