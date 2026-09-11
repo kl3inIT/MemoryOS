@@ -9,6 +9,8 @@ import { ProductHighlights } from "@/sections/product-highlights";
 import { Roadmap } from "@/sections/roadmap";
 import { TrustStrip } from "@/sections/trust-strip";
 
+// How it works comes before Capabilities: the unpinned access gate at its end separates the two
+// pinned scenes.
 function App() {
   return (
     <>
@@ -17,8 +19,8 @@ function App() {
         <Hero />
         <TrustStrip />
         <ProductHighlights />
-        <Capabilities />
         <HowItWorks />
+        <Capabilities />
         <Deployment />
         <Roadmap />
         <Faq />
