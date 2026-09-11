@@ -339,3 +339,26 @@ The [lifecycle logging contract](../guidelines/observability.md#extraction-lifec
 A disposable Java program using the actual packaged Worker dependencies reproduced that loss with the packaged configuration. Loading the changed shared resources retained `event`, `stage`, `elapsed_ms` and `task_id` through `%kvp`, plus operation, delivery and workload MDC fields in the correlation pattern. Both old and changed staging-profile configurations produced JSON with the same fields and numeric elapsed type; `OTEL_SDK_DISABLED=true` prevented telemetry export in that serialization check.
 
 These are synthetic console-configuration checks, not ingestion timings, OTLP delivery or a staging deployment. Ignored evidence is `.tmp/tasco-2025/quality-followup/console-configuration-smoke.json` and `structured-console-configuration-smoke.json`.
+
+### Recreated six-report Drive corpus — 2026-09-12
+
+The exact preserved Specific configuration was recreated as Source `b5237dd0-059c-4753-aeaf-2cb397c8cab4` after authorized deletion and verified cleanup of the old Source. This Q1/Q2 2026 corpus is separate from the four-report Tasco 2025 financial baseline above.
+
+All six attempts succeeded on their first processing attempt. Original hashes and byte counts matched the preserved inputs; canonical artifact sizes and SHA-256 checksums matched storage records. All Documents were `ELIGIBLE`, with matching current content/chunk/searchable generations, no search error, and chunk plus semantic-body provenance covering every original page.
+
+| Report | Pages | Chunks | Queue wait (ms) | Whole attempt (ms) |
+|---|---:|---:|---:|---:|
+| Q1 consolidated | 40 | 1,523 | 67,470 | 783,601 |
+| Q1 separate | 43 | 1,415 | 2,755,841 | 1,012,294 |
+| Q2 Vietnamese consolidated | 45 | 1,747 | 3,750,864 | 1,123,685 |
+| Q2 Vietnamese separate | 44 | 1,501 | 837,049 | 1,017,848 |
+| Q2 English consolidated | 44 | 1,328 | 1,843,287 | 919,758 |
+| Q2 English separate | 44 | 1,370 | 4,861,679 | 724,752 |
+
+Totals: 260 pages, 5,357 blocks, 214 tables, 16,268 cells, 8,884 chunks and 19,843,392 canonical artifact bytes. Timings come from durable attempt timestamps: queue wait is created-to-started; whole attempt is started-to-completed, not Docling execution time alone. Processing was sequential.
+
+All six bounded cash-flow diagnostics abstained as `INCOMPLETE`: three missing row identities, two missing row codes and one missing period headers. The known Q1 consolidated closing-cash boundary still contains a prior-period value in the current-period column and lacks an unambiguous prior-period cell. Nothing was repaired or certified. This run does not establish a new strict accuracy score for all six reports; the sealed four-report score remains 93/104, and the 95/104 recovery candidate remains offline.
+
+The actual Orca Source page showed six indexed Documents. Its final Files snapshot and screenshot showed six `Indexed` / `Search index: Ready` rows, with separated filename, Size, Status, timestamp and Actions columns. Earlier narrow-screen checks and the background keyboard-focus limitation remain as recorded in the Connector matrix. No Search/Chat interaction or staging deployment was added.
+
+Ignored evidence: `.tmp/tasco-2025/quality-followup/recreated-corpus/artifact-verification.json`, canonical artifacts, `q1-financial-boundary.private.json`, `source-completed.png` and `files-completed.png`; deletion and recreation records remain in the parent evidence directory.

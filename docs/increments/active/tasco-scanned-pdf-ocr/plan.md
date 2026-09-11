@@ -140,12 +140,28 @@ The [sixty-minute corpus record](../../../tests/ingestion.md#sixty-minute-tasco-
 
 The user authorized committing existing changes in functional groups before continuing; no push, PR or staging deployment is included. Admission is committed as `13315f9`; bounded Docling/OCR support is committed as `8a5bc6e`. Review found sparse normalized-table columns shifting left. A retained regression failed before the offset-aware renderer fix; afterwards the three focused Docling classes passed 29 tests with no failures, errors or skips. Padding is bounded before allocation. This correction preserves canonical values and does not change the 93/104 baseline score.
 
-- [ ] Pin the current four-report hashes, parser configuration and strict scorer; add correlated, bounded stage/attempt/parser-task logs.
-- [ ] Evaluate targeted OCR recovery against the unchanged sample and held-out original pages, including true blanks, negatives and multiple period columns; promote only evidence-supported generic behavior.
-- [ ] Add diagnostic-only financial consistency checks without manufacturing or silently correcting values.
-- [ ] Clarify queued/processing/indexed Sources states from available backend facts and fix filename/Size overlap; preserve run ownership and uncertainty.
-- [ ] Immediately before actual Orca verification, identify the old `Việt test Drive` Source and privately save its Specific links and recreation configuration.
-- [ ] Delete only that exact Source through the authorized product flow; wait for its durable cleanup and check referenced object/index cleanup without resetting shared storage or credentials.
-- [ ] Recreate the Source with its saved configuration; verify new attempts/parser submissions and absence of duplicate active Documents from the deleted Source.
-- [ ] Exercise the improved runtime and actual Orca Sources surface; report timing, strict financial scores, negative cases and remaining limitations separately.
-- [ ] Run final project gates apart from heavy OCR, consolidate durable evidence and commit the completed improvement groups.
+- [x] Pin the current four-report hashes, parser configuration and strict scorer; add correlated, bounded stage/attempt/parser-task logs.
+- [x] Evaluate targeted OCR recovery against the unchanged sample and held-out original pages, including true blanks, negatives and multiple period columns; promote only evidence-supported generic behavior. The [second bounded study](../../../tests/ingestion.md#tasco-quality-follow-up--2026-09-11) remains offline.
+- [x] Add diagnostic-only financial consistency checks without manufacturing or silently correcting values; exercise all four sealed artifacts and verify original blocks remain unchanged.
+- [x] Clarify queued/processing/indexed Sources states from available backend facts and fix filename/Size overlap; preserve run ownership and uncertainty.
+- [x] Immediately before actual Orca verification, identify the old `Việt test Drive` Source and privately save its Specific links and recreation configuration.
+- [x] Delete only that exact Source through the authorized product flow; wait for its durable cleanup and check referenced object/index cleanup without resetting shared storage or credentials.
+- [x] Recreate the Source with its saved configuration; verify new attempts/parser submissions and absence of duplicate active Documents from the deleted Source.
+- [x] Exercise the improved runtime and actual Orca Sources surface; report timing, strict financial scores, negative cases and remaining limitations separately.
+- [x] Run final project gates apart from heavy OCR, consolidate durable evidence and commit the completed improvement groups.
+
+The verified Sources presentation is committed as `79fd761`. The real desktop and narrow Orca observations, exact frontend gate totals and keyboard-focus limitation are recorded in the [Connector matrix](../../../tests/connector.md#tasco-source-progress-and-layout--2026-09-12).
+
+Before deletion, the exact old Source `ae142bf7-f90a-4a86-98fc-620599c888a5`, Specific selection and recreation configuration were preserved privately. Its six Documents had no other Source references. Authorized `DELETE_SOURCE` operation `fddb775d-8b4f-436a-a24f-923ba2734f0f` completed successfully; the old Pair, Documents, chunks, artifacts and stored-object records were absent, and the latest index operation for every removed Document was `DELETE` / `SUCCESS`. The separate four-report Tasco 2025 Source retained the same Document/artifact references and chunk counts.
+
+Source `b5237dd0-059c-4753-aeaf-2cb397c8cab4` was then created through the real Orca form with the exact saved name, Specific link, reusable credential, five-minute schedule and Admin association; the configuration comparison found no differences. Its six current Q1/Q2 2026 PDFs are a distinct corpus from the sealed four-report Tasco 2025 baseline. Private links, credential data and full source records remain ignored under `.tmp/tasco-2025/quality-followup/`.
+
+Diagnostic-only financial checks are committed as `084ff6b`; correlated lifecycle logs and the shared console fix are committed as `ea8ae21`. The [console regression proof](../../../tests/ingestion.md#console-correlation-regression--2026-09-12) reproduces the dropped fields and verifies both local rendering and unchanged staging JSON serialization without deploying staging.
+
+Two old browser assertions pinned the misleading aggregate `Processing` label. They were removed rather than changed to another incidental label (`dc11327`); the retained synchronization-completion and upload-finalization scenarios both passed in Chromium (2 tests, 24.2 seconds).
+
+The [recreated six-report corpus](../../../tests/ingestion.md#recreated-six-report-drive-corpus--2026-09-12) completed all six attempts: 260 pages, 8,884 chunks, verified artifact/input identities and current publication generations. The final real Orca screenshot shows all six indexed/ready rows with separated columns. All cash-flow diagnostics abstained; the known Q1 financial boundary remains incorrect.
+
+After OCR completed, the owned Worker was stopped for the final `gradlew.bat clean check :worker:bootJar --no-configuration-cache --no-daemon --no-parallel --max-workers=1 --console=plain` gate. It passed in 9m17s: 529 tests, 525 passed, four skipped, zero failures/errors. The gate emitted existing toolchain/JVM native-access/deprecation warnings and test OTLP-receiver shutdown connection warnings; it was not warning-free. The rebuilt Worker was restored with the same isolated environment and returned HTTP 200 / `UP` at readiness.
+
+The frontend gate passed 99 unit tests in 18 files; the two affected Chromium scenarios and targeted browser-test lint/format checks also passed. JetBrains MCP and a configured LSP server were unavailable, so no IDE-inspection claim is made. Disposable financial/console Java launchers and copied dependency classes were removed; private benchmark, corpus and visual evidence remain ignored. No push, PR, staging deployment or Search/Chat work was performed.

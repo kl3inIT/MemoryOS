@@ -72,7 +72,11 @@ Use existing SLF4J structured logging and operation context. Correlate processin
 
 Evaluate bounded crop re-recognition and table geometry against original bitmaps, raw tokens and canonical cells. Preserve genuine blanks, minus signs and parentheses; do not strip table-rule characters blindly, infer expected numbers from totals, specialize by filename, or change global PSM/DPI/engine without measured benefit. Keep unsupported recovery offline. Hold-out original pages and already-correct cells must participate in the promotion decision.
 
+The second bounded study remains offline: three real missing-text recoveries, including one held-out negative amount, are insufficient for a generic production guarantee. The unchanged scorer's 93-to-95 result is an experimental cell overlay, not runtime output. The [quality evidence](../../../tests/ingestion.md#tasco-quality-follow-up--2026-09-11) records guards, abstentions, visual controls, limits and frozen hashes.
+
 Financial consistency is diagnostic only. Reconcile cash-flow rows `50 + 60 + 61 = 70` only when row and period-column identity are unambiguous, and flag missing/invalid values or ambiguous structure separately. Any other identity requires equally explicit structure. Passing arithmetic does not establish OCR accuracy. Diagnostics must not replace source values or turn an incomplete parser result into success.
+
+The additive diagnostic metadata contract lives in the [Document specification](../../../specs/document.md); existing block/chunk readers remain unchanged. Parser metadata identifies the sparse-table renderer and diagnostic revision without changing the canonical artifact schema.
 
 Sources must distinguish queued work from active processing using existing attempt facts and preserve separate downstream indexing status. Do not label the whole processing interval as OCR when the API does not expose that stage. Keep run completion scoped to owned children, not the current corpus, and retain unknown states. Long filenames must remain accessible without overlapping adjacent columns. Indexing success must not imply financial verification.
 
