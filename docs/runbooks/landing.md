@@ -1,6 +1,6 @@
 # Landing page delivery
 
-The public site at `https://vanda.app` is the static [`landing/`](../../landing) package. CI verifies it, builds one nginx image and, on main, publishes that image by digest. An operator deploys it on the staging VPS as the separate Compose project `memoryos-landing` behind Nginx Proxy Manager. The application deployment script never starts, stops or rolls it back. Design and decisions: [MEM-82](../increments/active/mem-82-landing-page/design.md).
+The public site at `https://vadan.app` is the static [`landing/`](../../landing) package. CI verifies it, builds one nginx image and, on main, publishes that image by digest. An operator deploys it on the staging VPS as the separate Compose project `memoryos-landing` behind Nginx Proxy Manager. The application deployment script never starts, stops or rolls it back. Design and decisions: [MEM-82](../increments/active/mem-82-landing-page/design.md).
 
 ## Release identity
 
@@ -10,22 +10,20 @@ The public site at `https://vanda.app` is the static [`landing/`](../../landing)
 
 | Path | Content |
 | --- | --- |
-| `/apps/memoryos-landing/compose.landing.yaml` | `infrastructure/deployment/compose.landing.yaml` from the released revision |
-| `/apps/memoryos-landing/landing.env` | `MEMORYOS_LANDING_IMAGE=<digest reference>` from the release artifact |
-| `/apps/memoryos-landing/landing.env.previous` | The last accepted reference, kept for rollback |
+| `/apps/memoryos/landing/compose.landing.yaml` | `infrastructure/deployment/compose.landing.yaml` from the released revision |
+| `/apps/memoryos/landing/landing.env` | `MEMORYOS_LANDING_IMAGE=<digest reference>` from the release artifact |
+| `/apps/memoryos/landing/landing.env.previous` | The last accepted reference, kept for rollback |
 
-Run the commands below on the VPS from `/apps/memoryos-landing`.
+The directory sits inside the application root, but the application deployment script only uses `/apps/memoryos/deployments` and the Compose project `memoryos`, so it never reads or changes `landing/`. Run the commands below on the VPS from `/apps/memoryos/landing`. The package is public on GHCR, so pulling needs no credential.
 
 ## Deploy or update the container
 
 1. Keep the accepted reference: `cp landing.env landing.env.previous` (skip on the first deployment).
 2. Write `landing.env` from the release artifact and copy `compose.landing.yaml` from the same revision.
-3. Pull with a temporary GHCR credential that can read packages, remove the credential, then start:
+3. Pull and start:
 
    ```sh
-   docker login ghcr.io --username <github-user>   # read:packages token, entered at the prompt
    docker compose --env-file landing.env --file compose.landing.yaml pull
-   docker logout ghcr.io
    docker compose --env-file landing.env --file compose.landing.yaml up --detach --wait
    ```
 
@@ -35,42 +33,43 @@ Run the commands below on the VPS from `/apps/memoryos-landing`.
    docker exec memoryos-landing wget -q -S -O /dev/null http://127.0.0.1:8080/
    ```
 
-## First publication of vanda.app
+## First publication of vadan.app
 
-Before changing anything, record the current Cloudflare state for `vanda.app`: an export of the DNS records, the redirect rule to `roll-bits.com`, and the output of `nslookup -type=mx vanda.app`. Replacing the redirect was approved by the owner on 2026-09-11.
+`vadan.app` is registered at Hostinger and uses Hostinger DNS (`*.dns-parking.com`) and Hostinger mail (`mx1`/`mx2.hostinger.com`). Before changing anything, record the current DNS zone (hPanel export or screenshot) and the output of `nslookup -type=mx vadan.app`. Replacing the parking page was approved by the owner on 2026-09-11.
 
 1. Deploy the container as above.
-2. In Cloudflare for `vanda.app`:
-   - Delete the rule that redirects `vanda.app` to `roll-bits.com`.
-   - Set `vanda.app` `A` to the staging VPS public IPv4 `72.62.193.33`, proxy status **DNS only**.
-   - Set `www.vanda.app` `A` to the same address, **DNS only**.
+2. In Hostinger hPanel → **Domains** → `vadan.app` → **DNS / Nameservers** → **DNS records**:
+   - Delete the parking `A` record for `@` (`2.57.91.91` on 2026-09-11) and any existing `A` or `CNAME` record for `www`.
+   - Add `A` · name `@` · points to `72.62.193.33` (the staging VPS) · TTL `300`.
+   - Add `A` · name `www` · points to `72.62.193.33` · TTL `300`.
    - Leave MX, SPF/DKIM/DMARC TXT and verification records unchanged.
-3. Wait until `nslookup vanda.app 1.1.1.1` and `nslookup www.vanda.app 1.1.1.1` return the VPS address.
+   - If the domain still shows a Hostinger parking or website-builder page after propagation, disconnect that site from the domain in hPanel.
+3. Wait until `nslookup vadan.app 1.1.1.1` and `nslookup www.vadan.app 1.1.1.1` return the VPS address.
 4. In Nginx Proxy Manager:
-   - Proxy host `vanda.app` → `http://memoryos-landing:8080`, Block Common Exploits on, WebSockets off. SSL: new Let's Encrypt certificate, Force SSL, HTTP/2, HSTS on without subdomains.
-   - Redirection host `www.vanda.app` → `https://vanda.app`, HTTP 301, preserve path, its own Let's Encrypt certificate with Force SSL.
+   - Proxy host `vadan.app` → `http://memoryos-landing:8080`, Block Common Exploits on, WebSockets off. SSL: new Let's Encrypt certificate, Force SSL, HTTP/2, HSTS on without subdomains.
+   - Redirection host `www.vadan.app` → `https://vadan.app`, HTTP 301, preserve path, its own Let's Encrypt certificate with Force SSL.
 5. Verify from outside the server:
 
    ```sh
-   curl -sSI https://vanda.app/                                          # 200
-   curl -sSI https://www.vanda.app/                                      # 301, Location: https://vanda.app/
-   curl -sS -o /dev/null -w '%{http_code}\n' https://vanda.app/missing   # 404
-   nslookup -type=mx vanda.app                                           # equals the recorded MX set
+   curl -sSI https://vadan.app/                                          # 200
+   curl -sSI https://www.vadan.app/                                      # 301, Location: https://vadan.app/
+   curl -sS -o /dev/null -w '%{http_code}\n' https://vadan.app/missing   # 404
+   nslookup -type=mx vadan.app                                           # equals the recorded MX set
    ```
 
    The 200 response carries `Strict-Transport-Security`, the Content Security Policy, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` and `Permissions-Policy`.
-6. Run Lighthouse (mobile) against `https://vanda.app/`. Record the scores, date and deployed digest in MEM-82.
+6. Run Lighthouse (mobile) against `https://vadan.app/`. Record the scores, date and deployed digest in MEM-82.
 
 ## Roll back
 
-Container: restore the previous reference and start it. Pull it first with a temporary credential if the image is no longer on the server.
+Container: restore the previous reference and start it. Pull it first if the image is no longer on the server.
 
 ```sh
 cp landing.env.previous landing.env
 docker compose --env-file landing.env --file compose.landing.yaml up --detach --wait
 ```
 
-Publication: restore the Cloudflare records and redirect rule recorded before step 2. The Nginx Proxy Manager hosts can stay; without DNS they receive no traffic.
+Publication: restore the Hostinger DNS records recorded before step 2. The Nginx Proxy Manager hosts can stay; without DNS they receive no traffic.
 
 ## Boundaries
 

@@ -2,16 +2,26 @@
 
 ## Problem
 
-Vanda needs a public website at `https://vanda.app` that presents MemoryOS for two uses: the company-website field of the AWS Activate application, and the link sent with the AWS Production PoC infrastructure/credit brief ([MEM-80](https://linear.app/memory-os/issue/MEM-80)). No public page exists. `web/` is the per-customer self-hosted application whose `/` is authenticated Chat, and [MEM-13](../../completed/mem-13-production-web-foundation/design.md) deliberately kept marketing out of it.
+Vanda needs a public website at `https://vadan.app` that presents MemoryOS for two uses: the company-website field of the AWS Activate application, and the link sent with the AWS Production PoC infrastructure/credit brief ([MEM-80](https://linear.app/memory-os/issue/MEM-80)). No public page exists. `web/` is the per-customer self-hosted application whose `/` is authenticated Chat, and [MEM-13](../../completed/mem-13-production-web-foundation/design.md) deliberately kept marketing out of it.
 
 Linear: [MEM-82](https://linear.app/memory-os/issue/MEM-82).
 
 ## Accepted decisions (2026-09-11)
 
-- Organization **Vanda** (`vanda.app`, contact `aws@vanda.app`); product **MemoryOS** ("MemoryOS by Vanda"); **Backed by GenAI Fund**. English only.
-- The page presents the complete product: the problem MemoryOS solves, its full capability set from the Production PoC scope of work, and its direction beyond the PoC. It carries no per-feature delivery-status labels. Delivery status remains in [the roadmap](../../../roadmap.md), not on the marketing page.
-- Tasco is named as the customer deploying the Production PoC (September–December 2026). No Tasco pricing, internal architecture, users or data appear.
-- The site serves the apex `vanda.app` from the existing staging VPS, replacing the current Cloudflare redirect to `roll-bits.com`. `www.vanda.app` redirects to the apex. The Google Workspace MX records stay unchanged.
+- Organization **Vanda** (`vadan.app`, contact `info@vadan.app`); product **MemoryOS** ("MemoryOS by Vanda"); **Backed by GenAI Fund**. English only.
+- The page presents the complete product: the problem MemoryOS solves and its full capability set. It carries no per-feature delivery-status labels and no roadmap or PoC timeline. Delivery status remains in [the roadmap](../../../roadmap.md), not on the marketing page.
+- Tasco is named as MemoryOS's first enterprise **design partner**: it shows B2B adoption without claiming a purchase contract. The page never calls Tasco a customer. No PoC dates, Tasco pricing, internal architecture, users or data appear.
+- The public domain is `vadan.app` (DNS at Hostinger), with contact `info@vadan.app` on Hostinger mail. It replaces `vanda.app`, which keeps its own Cloudflare zone and Google Workspace mail untouched.
+
+Positioning revision (product owner, 2026-09-11, after the first merge):
+
+- MemoryOS is positioned as a B2B enterprise product, not a PoC. Copy states benefits, not the internal stack: no Docling, OCR engine, OpenSearch, PostgreSQL, Redis, MinIO or Python. Standards buyers look for (SAML 2.0, OpenID Connect, SCIM, MCP) and AWS service names stay.
+- Following the Onyx and Glean pattern, identity is presented as multiple SSO providers plus SCIM user and group provisioning, and connectors by named systems (Google Workspace, Microsoft 365, Slack, Confluence, Jira, Salesforce and others) without a connector count. Document indexing follows the RAG-Anything framing: every common file type, including tables, charts and scanned pages.
+- A dedicated **Organizational AI Memory** section adapts the OrgMemory Asset positioning (`D:\OrgMemory\apps\docs\content\docs\getting-started\index.mdx`): reusable AI work becomes organizational assets with owners, exact releases, permissions, provenance, dependencies and usage history, delivered through the web app, assistant, REST API, CLI and MCP. Specific asset types are not listed, and review is not presented as mandatory.
+- Deployment covers AWS (named first, with its services, for the Activate application), other clouds and on-premise with self-hosted models. The architecture diagram was removed at the product owner's request.
+- The Product section opens with "the governed context layer for your AI agents". Airbyte markets "The Context Layer for AI Agents" on connector breadth; *governed* anchors MemoryOS on permissions and approved assets instead. The hero headline stays the primary message.
+- The page does not link to the source repository.
+- The site serves the apex `vadan.app` from the existing staging VPS, replacing Hostinger's parking page. `www.vadan.app` redirects to the apex. The Hostinger MX and mail TXT records stay unchanged.
 - Laura, who approves external MEM-80 material, reviews the content before the link is sent to AWS.
 
 ## Reference baseline
@@ -34,21 +44,21 @@ Kept: the section composition, one typed content module, the bento capability gr
 
 ## Page
 
-1. **Header** — MemoryOS mark, anchors (Product, How it works, Deployment, Roadmap, FAQ), light/dark theme toggle (inside the menu below `md`), Contact action (`mailto:aws@vanda.app`), skip link.
+1. **Header** — MemoryOS mark, anchors (Product, AI assets, How it works, Deployment, FAQ), light/dark theme toggle (inside the menu below `lg`), Contact action (`mailto:info@vadan.app`), skip link.
 2. **Hero** — the positioning, Contact and "See how it works" actions, product preview.
-3. **Trust strip** — the Tasco and GenAI Fund logos with "Deploying with Tasco" and "Backed by GenAI Fund". The logos are single-colour alpha masks (`src/assets/logos/`) cropped from the product owner's files, so they take each theme's content color.
-4. **Problem → solution** — two highlighted features: scattered company knowledge becomes one place to search and ask with citations; enterprise AI stays governed through one permission model shared by search, agents and MCP.
-5. **Capabilities** (bento) — data connectors; enterprise search; cited answers; Python analysis and reports; enterprise SSO; custom agents; AI asset governance; MCP server; permission-aware retrieval.
-6. **How it works** — connect → index → ask → verify, plus the security flow: SSO sign-in, ACL check before retrieval, only permitted context reaches the model.
-7. **Deployment on AWS** — the PoC architecture as a responsive markup diagram: application and document-processing EC2, data/search/storage EC2 in a private VPC, S3 and EBS snapshot backups, CloudWatch, KMS and Secrets Manager, IAM, ECR, and a managed model endpoint on AWS. No prices, credit amounts or instance sizes.
-8. **Roadmap** — the four monthly PoC milestones from September to December 2026, then the post-PoC direction: organization-wide rollout, more business-system connectors, web search and deep research, and high-availability deployment.
-9. **FAQ** and **Footer** — contact call to action, © Vanda, GitHub repository, third-party notices.
+3. **Trust strip** — the Tasco and GenAI Fund logos with "Trusted by Tasco" (first enterprise design partner) and "Backed by GenAI Fund". The logos are single-colour alpha masks (`src/assets/logos/`) cropped from the product owner's files, so they take each theme's content color.
+4. **Problem → solution** — two highlighted features, each with a systems → MemoryOS → outcomes flow: every company system becomes one place to search and ask with citations; enterprise identity (multiple SSO providers, SCIM, roles and source permissions) governs every request.
+5. **Capabilities** (bento) — connect every system; index any file; enterprise search; cited answers; analysis and reports; enterprise identity; custom agents; MCP server; permission-aware retrieval.
+6. **Organizational AI Memory** — the problem and solution, an example released asset, four general benefits (turn what works into assets, govern every release, reuse with trusted context, improve and hand over) and the delivery surfaces. Asset types are deliberately not listed.
+7. **How it works** — connect → index → ask → verify, plus the security flow: SSO sign-in, ACL check before retrieval, only permitted context reaches the model.
+8. **Deployment** — three options: AWS (EC2 in a private VPC, S3 backups, KMS encryption, CloudWatch monitoring), other clouds, and on-premise with self-hosted models. No architecture diagram, prices, credit amounts, instance sizes or internal component names.
+9. **FAQ** and **Footer** — contact call to action, © Vanda, third-party notices.
 
 ## Visual direction
 
-The product owner asked for a technical look in the manner of Laravel Cloud. Hanken Grotesk and the product's token names stay; the values become a navy-and-blue identity: a near-black navy ground in the dark theme, a cool light ground in the light theme, and one light source — a blue glow behind the hero's cited-answer preview, echoed softly behind the closing call to action. The preview stays the one emphasized element, because a verifiable answer is what MemoryOS delivers. Brand blue marks the product's own moving parts: citations, capability icons, the index in the sources diagram, and the markers of real sequences (how it works, request flow, roadmap timeline). Approval green is used only for an approved AI asset. Headings stay left-aligned without labels above them, and capabilities form one hairline-divided grid instead of separately shadowed cards.
+The product owner asked for a technical look in the manner of Laravel Cloud. Hanken Grotesk and the product's token names stay; the values become a navy-and-blue identity: a near-black navy ground in the dark theme, a cool light ground in the light theme, and one light source — a blue glow behind the hero's cited-answer preview, echoed softly behind the closing call to action. The preview stays the one emphasized element, because a verifiable answer is what MemoryOS delivers. Brand blue marks the product's own moving parts: citations, capability icons, the index in the sources diagram, and the markers of real sequences (how it works, request flow). Approval green is used only for an approved AI asset. Headings stay left-aligned without labels above them, and capabilities form one hairline-divided grid instead of separately shadowed cards.
 
-Motion, also at the product owner's request, answers the visitor's own actions. Switching the theme grows the new theme in a circle from the toggle (View Transitions API). Scrolling drives everything else through CSS scroll-driven animations, so it follows the scroll in both directions: blocks rise into place as they enter, the how-it-works rules and the roadmap timeline fill as their steps pass, and the hero glow drifts away. The hero's copy, actions and preview enter once on load; the `h1` stays still so it paints as the largest contentful element immediately. In grids the content moves, not the cell, so the hairline grid never shows through. Browsers without scroll-driven animations and visitors who prefer reduced motion get the static page, and no content depends on JavaScript to become visible.
+Motion, also at the product owner's request, answers the visitor's own actions. Switching the theme grows the new theme in a circle from the toggle (View Transitions API). Scrolling drives everything else through CSS scroll-driven animations, so it follows the scroll in both directions: blocks rise into place as they enter, the how-it-works rules fill as their steps pass, and the hero glow drifts away. The hero's copy, actions and preview enter once on load; the `h1` stays still so it paints as the largest contentful element immediately. In grids the content moves, not the cell, so the hairline grid never shows through. Browsers without scroll-driven animations and visitors who prefer reduced motion get the static page, and no content depends on JavaScript to become visible.
 
 ## Technical design
 
@@ -65,16 +75,16 @@ Motion, also at the product owner's request, answers the visitor's own actions. 
 - `landing/nginx.conf` serves `/`, the hashed `/assets/` and the public files, returns 404 for unknown paths, answers `GET /healthz` for the container check, compresses text assets, and sets a strict CSP (`default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'`) plus `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and `X-Frame-Options`. Hashed assets are immutable; HTML is `no-cache`. HSTS is set at Nginx Proxy Manager, where TLS terminates.
 - `infrastructure/deployment/compose.landing.yaml` defines one read-only `landing` service (`memoryos-landing`, `cap_drop: ALL`, `no-new-privileges`, tmpfs, small CPU/memory limits, healthcheck, no host port) on the external `proxy-network`. It runs as Compose project `memoryos-landing`, so the application deployment script never stops, pulls or rolls it back.
 - CI adds a `landing` job to `CI Gate`: install, `pnpm --dir landing check`, image build, [`landing/scripts/smoke-image.sh`](../../../../landing/scripts/smoke-image.sh) against the built image, and Compose validation. On main it preserves the image as the `landing-image` artifact, outside the `candidate-*` pattern the application publication downloads. A `Publish landing` job after the gate pushes `ghcr.io/kl3init/memoryos-landing` and records the digest in the job summary and the `landing-release-<sha>-<attempt>` artifact. The application release bundle keeps its three-image contract.
-- Deployment is an operator step documented in `docs/runbooks/landing.md`: Cloudflare DNS (apex and `www` A records to the VPS, DNS-only, redirect rule removed, MX/TXT untouched), the Nginx Proxy Manager proxy host with Let's Encrypt, HSTS and a `www` redirection host, the digest-pinned `docker compose up --wait`, and rollback to the previous digest.
+- Deployment is an operator step documented in `docs/runbooks/landing.md`: Hostinger DNS (apex and `www` A records to the VPS, parking record removed, MX/TXT untouched), the Nginx Proxy Manager proxy host with Let's Encrypt, HSTS and a `www` redirection host, the digest-pinned `docker compose up --wait`, and rollback to the previous digest.
 
 ## Verification
 
-- Component tests (`src/App.test.tsx`): one `h1`; every in-page anchor resolves to an element `id`; every `mailto:` targets `aws@vanda.app`; every new-tab link carries `rel="noopener noreferrer"`; every image and SVG has an accessible name or is hidden as decorative. Theme hook tests (`src/lib/theme.test.ts`): a stored theme is applied, and toggling applies and remembers the visitor's choice.
-- Metadata test (`tests/site-metadata.test.mjs`): the JSON-LD in `index.html` parses and names Vanda, MemoryOS, GenAI Fund and the contact email; the canonical, `og:image`, `twitter:image` and logo URLs are absolute `https://vanda.app` URLs whose files exist in `public/`.
+- Component tests (`src/App.test.tsx`): one `h1`; every in-page anchor resolves to an element `id`; every `mailto:` targets `info@vadan.app`; no link points at the source repository; every new-tab link carries `rel="noopener noreferrer"`; every image and SVG has an accessible name or is hidden as decorative. Theme hook tests (`src/lib/theme.test.ts`): a stored theme is applied, and toggling applies and remembers the visitor's choice.
+- Metadata test (`tests/site-metadata.test.mjs`): the JSON-LD in `index.html` parses and names Vanda, MemoryOS, GenAI Fund and the contact email; the canonical, `og:image`, `twitter:image` and logo URLs are absolute `https://vadan.app` URLs whose files exist in `public/`.
 - `pnpm --dir landing check` (lint, format, tests, production build with font-asset assertion, TypeScript).
 - Image: `smoke-image.sh` runs the image read-only with no capabilities and checks UID 101, `/`, `/healthz`, an unknown path (404), the public files, every security header and immutable asset caching. CI runs it on every change.
 - Browser: inspect 390, 768 and 1440 px widths and run Lighthouse (mobile) against the container and the deployed URL.
-- Deployed: `https://vanda.app` returns 200 with the security headers and HSTS, `www` redirects, unknown paths return 404, and MX records are unchanged.
+- Deployed: `https://vadan.app` returns 200 with the security headers and HSTS, `www` redirects, unknown paths return 404, and MX records are unchanged.
 
 ## Out of scope
 
@@ -82,6 +92,7 @@ Sign-up or sign-in, pricing, blog, Vietnamese localization, analytics or cookies
 
 ## Risks
 
-- Replacing the apex redirect changes current public behavior of `vanda.app` (owner-approved 2026-09-11).
+- Pointing `vadan.app` at the VPS replaces Hostinger's parking page (owner-approved 2026-09-11).
 - The company site shares the staging VPS; its availability follows that server.
-- Roadmap capabilities are presented as part of the product by owner decision; content review precedes sending the link to AWS.
+- Capabilities not yet delivered in the repository (most named connectors, SCIM, multiple SSO providers, the asset lifecycle and on-premise packaging) are presented as part of the product by owner decision. Laura's content review precedes sending the link to AWS or customers.
+- The GitHub repository was public on 2026-09-11. Removing the footer link does not make the source private; that needs a repository visibility change by its owner. The image's OCI `source` label still names the repository.

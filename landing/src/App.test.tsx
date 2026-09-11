@@ -18,27 +18,32 @@ describe("landing page", () => {
     );
 
     expect(targets).toEqual(
-      expect.arrayContaining(["main", "product", "how-it-works", "deployment", "roadmap", "faq"]),
+      expect.arrayContaining(["main", "product", "assets", "how-it-works", "deployment", "faq"]),
     );
     for (const target of targets) {
       expect(page.querySelector(`[id="${target}"]`), `#${target}`).not.toBeNull();
     }
   });
 
-  it("sends every email link to the AWS contact address", () => {
+  it("sends every email link to the company contact address", () => {
     const emailLinks = [...renderPage().querySelectorAll('a[href^="mailto:"]')];
 
     expect(emailLinks.length).toBeGreaterThan(0);
     expect(new Set(emailLinks.map((link) => link.getAttribute("href")))).toEqual(
-      new Set(["mailto:aws@vanda.app"]),
+      new Set(["mailto:info@vadan.app"]),
     );
   });
 
-  it("isolates every new-tab link from the opener", () => {
-    const newTabLinks = [...renderPage().querySelectorAll('a[target="_blank"]')];
+  it("does not link to the private source repository", () => {
+    const hrefs = [...renderPage().querySelectorAll("a[href]")].map(
+      (link) => link.getAttribute("href") ?? "",
+    );
 
-    expect(newTabLinks.length).toBeGreaterThan(0);
-    for (const link of newTabLinks) {
+    expect(hrefs.filter((href) => href.includes("github.com"))).toEqual([]);
+  });
+
+  it("isolates every new-tab link from the opener", () => {
+    for (const link of renderPage().querySelectorAll('a[target="_blank"]')) {
       expect(link.getAttribute("rel")?.split(" ")).toEqual(
         expect.arrayContaining(["noopener", "noreferrer"]),
       );

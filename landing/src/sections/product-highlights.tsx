@@ -1,7 +1,7 @@
-import { ArrowRight, BadgeCheck, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { Section } from "@/components/section";
-import { product, type Highlight } from "@/content";
+import { product, type Flow, type Highlight } from "@/content";
 import { cn } from "@/lib/utils";
 
 type HighlightRowProps = {
@@ -32,18 +32,20 @@ function HighlightRow({ highlight, visual, reversed = false }: HighlightRowProps
   );
 }
 
-function SourcesVisual() {
-  const { sources, indexLabel, outputs } = product.search;
+type FlowVisualProps = {
+  flow: Flow;
+};
 
+function FlowVisual({ flow }: FlowVisualProps) {
   return (
     <div className="reveal grid items-center gap-4 rounded-2xl bg-surface-canvas p-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:p-8">
       <ul className="space-y-2">
-        {sources.map((source) => (
+        {flow.inputs.map((input) => (
           <li
-            key={source}
+            key={input}
             className="rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 font-main-ui-body text-content-primary"
           >
-            {source}
+            {input}
           </li>
         ))}
       </ul>
@@ -52,38 +54,12 @@ function SourcesVisual() {
         className="mx-auto size-5 rotate-90 text-content-muted sm:rotate-0"
       />
       <div className="rounded-xl bg-accent-surface p-5 text-accent-content shadow-[0_16px_48px_-12px_var(--glow-core)]">
-        <p className="font-main-ui-action">{indexLabel}</p>
+        <p className="font-main-ui-action">{flow.label}</p>
         <ul className="mt-3 space-y-2 font-main-ui-body text-accent-content/80">
-          {outputs.map((output) => (
+          {flow.outputs.map((output) => (
             <li key={output}>{output}</li>
           ))}
         </ul>
-      </div>
-    </div>
-  );
-}
-
-function GovernanceVisual() {
-  const { asset } = product.governance;
-
-  return (
-    <div className="reveal rounded-2xl bg-surface-canvas p-6 sm:p-8">
-      <div className="rounded-xl border border-border-subtle bg-surface-raised shadow-sm">
-        <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
-          <p className="font-main-ui-action text-content-primary">{asset.name}</p>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-approval-surface px-2.5 py-1 font-secondary-action text-approval-content">
-            <BadgeCheck aria-hidden="true" className="size-3.5" />
-            {asset.status}
-          </span>
-        </div>
-        <dl className="divide-y divide-border-subtle px-5">
-          {asset.fields.map((field) => (
-            <div key={field.term} className="flex justify-between gap-4 py-3 font-main-ui-body">
-              <dt className="text-content-muted">{field.term}</dt>
-              <dd className="text-right text-content-primary">{field.detail}</dd>
-            </div>
-          ))}
-        </dl>
       </div>
     </div>
   );
@@ -93,8 +69,15 @@ function ProductHighlights() {
   return (
     <Section id="product" title={product.title} description={product.description}>
       <div className="space-y-20 sm:space-y-28">
-        <HighlightRow highlight={product.search} visual={<SourcesVisual />} />
-        <HighlightRow highlight={product.governance} visual={<GovernanceVisual />} reversed />
+        <HighlightRow
+          highlight={product.search}
+          visual={<FlowVisual flow={product.search.flow} />}
+        />
+        <HighlightRow
+          highlight={product.identity}
+          visual={<FlowVisual flow={product.identity.flow} />}
+          reversed
+        />
       </div>
     </Section>
   );
