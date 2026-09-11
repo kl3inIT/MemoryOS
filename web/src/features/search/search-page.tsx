@@ -287,7 +287,7 @@ export function SearchPage() {
   const showLoadingScreen = isSearchUpdating;
 
   return (
-    <AppShell pageTitle="Search">
+    <AppShell pageTitle="Search" chatMode="Search">
       <section
         className={cn(
           "mx-auto w-full max-w-[80rem] px-5 py-5 sm:px-8 sm:py-7 lg:px-10",

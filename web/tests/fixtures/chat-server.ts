@@ -125,14 +125,21 @@ export async function handleChatFixture(
       }
     } else if (!project) json(response, {}, 404);
     else if (segments[5] === "sessions") {
-      const offset = Number(url.searchParams.get("offset") ?? 0);
-      json(
-        response,
-        [...sessions.values()]
-          .map((item) => item.session)
-          .filter((item) => item.projectId === project.id)
-          .slice(offset, offset + Number(url.searchParams.get("limit") ?? 30)),
-      );
+      if (request.method === "POST") {
+        const input = await body(request);
+        const created = create(input.title).session;
+        created.projectId = project.id;
+        json(response, created, 201);
+      } else if (request.method === "GET") {
+        const offset = Number(url.searchParams.get("offset") ?? 0);
+        json(
+          response,
+          [...sessions.values()]
+            .map((item) => item.session)
+            .filter((item) => item.projectId === project.id)
+            .slice(offset, offset + Number(url.searchParams.get("limit") ?? 30)),
+        );
+      } else json(response, {}, 405);
     } else if (request.method === "PUT" || request.method === "DELETE") {
       if (Number(url.searchParams.get("revision")) !== project.revision) json(response, {}, 409);
       else if (request.method === "DELETE") {

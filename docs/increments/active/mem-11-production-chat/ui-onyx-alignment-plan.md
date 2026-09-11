@@ -99,3 +99,7 @@ Gates khi triển khai: frontend `pnpm --dir web check`, browser `pnpm --dir web
 5. Một PR vào main, yêu cầu CodeRabbit cho thay đổi behavior; xử lý findings và CI trên commit cuối. Merge/deploy theo chỉ đạo delivery có hiệu lực, kiểm đúng revision trên staging và smoke các luồng vừa sửa.
 
 Ghi evidence triển khai và nghiệm thu vào Linear; không mở PR tài liệu riêng chỉ để ghi receipt. MEM-11 giữ trạng thái chưa hoàn tất cho đến khi các điều kiện trong phạm vi của issue thực sự đạt; kế hoạch này không thay các receipt Phase 4/6 còn cần đối chiếu.
+
+## 7. Review PR #93
+
+Năm findings của CodeRabbit được xử lý trong cùng PR: tách mode header khỏi tên hội thoại; parse response tạo Project trước khi đóng dialog; chỉ đánh dấu trợ lý/dự án không khả dụng khi danh sách đã tải; Việt hóa nút mở/đóng điều hướng; sửa fixture tạo session trong Project theo đúng HTTP method. Kiểm hồi quy gồm tên `Chat`/`Search` trên mobile, response không khớp schema giữ dialog và bản nháp, danh sách trợ lý bị trì hoãn rồi tải thành công hoặc thiếu lựa chọn, tạo session bằng endpoint Project và phân trang danh sách. Không đổi thiết kế custom assistant hoặc mở rộng backend.

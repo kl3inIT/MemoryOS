@@ -86,7 +86,7 @@ test("hides owner UI and blocks member administration deep links without request
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Mở điều hướng" }).click();
   await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
 
@@ -268,13 +268,13 @@ test("closes mobile administration navigation after a client route change", asyn
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin");
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Mở điều hướng" }).click();
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toBeVisible();
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Mở điều hướng" }).click();
   await page.getByRole("button", { name: "Tenant owner" }).click();
   await page.getByRole("link", { name: "Admin Panel" }).click();
   await expect(page).toHaveURL(/\/admin$/);

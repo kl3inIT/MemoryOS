@@ -89,7 +89,8 @@ export function ChatSessionSettings({
                   {persona.name}
                 </option>
               ))}
-              {!personas.data?.some((p) => p.id === personaId) && (
+              {personas.isPending && <option value={personaId}>Đang tải trợ lý…</option>}
+              {personas.data && !personas.data.some((p) => p.id === personaId) && (
                 <option value={personaId}>Trợ lý không còn khả dụng</option>
               )}
             </Select>
@@ -103,7 +104,10 @@ export function ChatSessionSettings({
                   {project.name}
                 </option>
               ))}
-              {projectId && !projects.data?.some((p) => p.id === projectId) && (
+              {projectId && projects.isPending && (
+                <option value={projectId}>Đang tải dự án…</option>
+              )}
+              {projectId && projects.data && !projects.data.some((p) => p.id === projectId) && (
                 <option value={projectId}>Dự án không còn khả dụng</option>
               )}
             </Select>

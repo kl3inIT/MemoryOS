@@ -14,6 +14,141 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+for (const title of ["Chat", "Search"]) {
+  test(`keeps the saved ${title} title separate from the mode switcher`, async ({ page }) => {
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", { data: { title } })
+    ).json();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/chat/${session.id}`);
+    const header = page.getByRole("banner");
+    await expect(header.getByRole("button", { name: `Thao tác hội thoại ${title}` })).toBeVisible();
+    await expect(header.getByText(title, { exact: true })).toBeVisible();
+    await expect(header.getByRole("button", { name: /switch mode/ })).toHaveCount(0);
+    await page.goto("/");
+    await expect(header.getByRole("button", { name: "Chat, switch mode" })).toBeVisible();
+    await page.goto("/search");
+    await expect(header.getByRole("button", { name: "Search, switch mode" })).toBeVisible();
+  });
+}
+
+test("keeps the project dialog and draft when the creation response is malformed", async ({
+  page,
+}) => {
+  await page.route("**/api/chat/projects", (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({ status: 201, json: { id: "40000000-0000-4000-8000-000000000003" } })
+      : route.continue(),
+  );
+  await page.goto("/projects");
+  await page.getByRole("main").getByRole("button", { name: "Tạo dự án", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Tạo dự án" });
+  await dialog.getByLabel("Tên dự án").fill("Project draft to preserve");
+  await dialog.getByRole("button", { name: "Tạo dự án", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Chưa xác nhận được kết quả");
+  await expect(dialog.getByLabel("Tên dự án")).toHaveValue("Project draft to preserve");
+  await expect(page).toHaveURL(/\/projects$/);
+  await dialog.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+test("does not mark an assistant unavailable while its settings are loading", async ({ page }) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Loading settings" } })
+  ).json();
+  let releasePersonas = () => {};
+  const pending = new Promise<void>((resolve) => {
+    releasePersonas = resolve;
+  });
+  let available = true;
+  await page.route("**/api/chat/personas?*", async (route) => {
+    await pending;
+    await route.fulfill({
+      json: available
+        ? [
+            {
+              id: session.personaId,
+              name: "Available assistant",
+              builtin: true,
+              editable: false,
+              revision: 0,
+              description: "",
+              instructions: "",
+              starterPrompts: [],
+              sourceIds: [],
+              searchEnabled: true,
+            },
+          ]
+        : [],
+    });
+  });
+  const openSettings = async () => {
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "Thao tác hội thoại Loading settings" })
+      .click();
+    await page.getByRole("menuitem", { name: "Cấu hình hội thoại" }).click();
+  };
+  await page.goto(`/chat/${session.id}`);
+  await openSettings();
+  const dialog = page.getByRole("dialog", { name: "Cấu hình hội thoại" });
+  try {
+    await expect(dialog.getByRole("button", { name: "Lưu", exact: true })).toBeDisabled();
+    await expect(dialog.getByRole("option", { name: "Trợ lý không còn khả dụng" })).toHaveCount(0);
+  } finally {
+    releasePersonas();
+  }
+  await expect(dialog.getByRole("option", { name: "Available assistant" })).toHaveCount(1);
+  await expect(dialog.getByRole("combobox", { name: "Trợ lý", exact: true })).toHaveValue(
+    session.personaId,
+  );
+  await expect(dialog.getByRole("button", { name: "Lưu", exact: true })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Đóng", exact: true }).click();
+  available = false;
+  await page.reload();
+  await openSettings();
+  await expect(dialog.getByRole("option", { name: "Trợ lý không còn khả dụng" })).toHaveCount(1);
+});
+
+test("opens sessions created through the project endpoint and preserves list pagination", async ({
+  page,
+}) => {
+  const project = await (
+    await page.request.post("/api/chat/projects", {
+      data: { name: "Project session contract", description: "", instructions: "" },
+    })
+  ).json();
+  const created = [];
+  for (const title of ["First project session", "Second project session"]) {
+    const response = await page.request.post(`/api/chat/projects/${project.id}/sessions`, {
+      data: { title },
+    });
+    expect(response.status()).toBe(201);
+    const session = await response.json();
+    expect(session).toMatchObject({ title, projectId: project.id });
+    created.push(session);
+  }
+  const firstPage = await (
+    await page.request.get(`/api/chat/projects/${project.id}/sessions?limit=1&offset=0`)
+  ).json();
+  const secondPage = await (
+    await page.request.get(`/api/chat/projects/${project.id}/sessions?limit=1&offset=1`)
+  ).json();
+  expect(firstPage).toHaveLength(1);
+  expect(secondPage).toHaveLength(1);
+  expect(new Set([firstPage[0].id, secondPage[0].id])).toEqual(
+    new Set(created.map((session) => session.id)),
+  );
+  await page.goto(`/projects/${project.id}`);
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: /^First project session/ })
+    .click();
+  await expect(page.getByRole("banner")).toContainText("First project session");
+  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeVisible();
+  await page.request.delete(`/api/chat/projects/${project.id}?revision=0`);
+});
+
 test("edits, regenerates, selects saved branches, rates, shares, revokes and deletes", async ({
   page,
 }) => {

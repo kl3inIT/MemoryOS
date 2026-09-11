@@ -290,11 +290,12 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
             signal: AbortSignal.timeout(30000),
             throwOnError: true,
           });
+          const created = projectSchema.parse(data);
           await cache.invalidateQueries({ queryKey: ["chat-projects"] });
           onClose();
           await navigate({
             to: "/projects/$projectId",
-            params: { projectId: projectSchema.parse(data).id },
+            params: { projectId: created.id },
           });
           return;
         }

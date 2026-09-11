@@ -105,7 +105,7 @@ function ChatSessionView({
   });
   if (initialSessionId && query.isPending)
     return (
-      <AppShell pageTitle="Chat">
+      <AppShell pageTitle="Chat" chatMode="Chat">
         <p role="status" className="p-6 text-content-secondary">
           Đang tải hội thoại…
         </p>
@@ -113,7 +113,7 @@ function ChatSessionView({
     );
   if (initialSessionId && query.isError)
     return (
-      <AppShell pageTitle="Chat">
+      <AppShell pageTitle="Chat" chatMode="Chat">
         <div role="alert" className="space-y-3 p-6">
           <p>Không tải được hội thoại.</p>
           <Button prominence="secondary" onClick={() => void query.refetch()}>
@@ -292,7 +292,7 @@ function ChatConversation({
 
   if (unavailable)
     return (
-      <AppShell pageTitle="Chat">
+      <AppShell pageTitle="Chat" chatMode="Chat">
         <p role="alert" className="p-6">
           Hội thoại không còn khả dụng.
         </p>
@@ -301,6 +301,7 @@ function ChatConversation({
   return (
     <AppShell
       pageTitle={headerSession?.title ?? (project ? "Dự án" : "Chat")}
+      chatMode={!headerSession && !project ? "Chat" : undefined}
       headerActions={
         <ChatSessionSettings
           session={headerSession}
