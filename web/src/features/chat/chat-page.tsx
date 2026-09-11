@@ -6,13 +6,24 @@ import { useEffect, useImperativeHandle, useRef, useState, type RefObject } from
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { ApiError } from "@/lib/api";
+import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import {
+  editChatMessage,
+  regenerateChatMessage,
+  selectChatBranch,
+  getChatBranches,
+  getChatFeedback,
+} from "@/lib/hey-api/sdk.gen";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { Accepted } from "@/lib/hey-api/types.gen";
 import { chatSessionsKey, loadChatHistory, toUiMessages, type ChatHistory } from "./chat-api";
 import { MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
 import { ChatThread } from "./chat-thread";
 import { ChatModelPicker } from "./chat-model-picker";
+import { ChatEditingContext } from "./chat-editing-context";
+import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
+import { branchSchema, feedbackSchema, type Feedback } from "./chat-workspace-api";
+import { chatActionError } from "./chat-action-utils";
 
 export function ChatPage() {
   const { sessionId } = useParams({ strict: false });
@@ -93,6 +104,7 @@ function ChatConversation({
   const queryClient = useQueryClient();
   const running = initial?.messages.find((message) => message.status === "RUNNING");
   const [transport] = useState(() => new MemoryOsChatTransport(initial?.session, running));
+  const [session, setSession] = useState(initial?.session);
   const model = useChatModelChoice(transport);
   const [connection, setConnection] = useState<ConnectionState>(running ? "recovering" : "ready");
   const [error, setError] = useState<string>();
@@ -100,7 +112,41 @@ function ChatConversation({
   const [stopping, setStopping] = useState(false);
   const [checking, setChecking] = useState(false);
   const active = useRef(true);
+  const mutationInFlight = useRef(false);
   const controls = useRef<{ check: () => Promise<void> }>(null);
+  const branches = useQuery({
+    queryKey: ["chat-branches", session?.id],
+    enabled: !!session,
+    queryFn: async ({ signal }) =>
+      branchSchema
+        .array()
+        .parse(
+          (await getChatBranches({ path: { sessionId: session!.id }, signal, throwOnError: true }))
+            .data,
+        ),
+  });
+  const feedback = useQuery({
+    queryKey: ["chat-feedback", session?.id, branches.data?.map((b) => b.id)],
+    enabled: !!session && !!branches.data,
+    queryFn: async ({ signal }) => {
+      const values: Feedback[] = [];
+      const ids = branches.data!.map((b) => b.id);
+      for (let i = 0; i < ids.length; i += 100)
+        values.push(
+          ...feedbackSchema.array().parse(
+            (
+              await getChatFeedback({
+                path: { sessionId: session!.id },
+                query: { messageIds: ids.slice(i, i + 100) },
+                signal,
+                throwOnError: true,
+              })
+            ).data,
+          ),
+        );
+      return values;
+    },
+  });
   const runtime = useChatRuntime({
     transport,
     // Server request IDs are UUIDs. No client-side model/tool continuation.
@@ -144,6 +190,33 @@ function ChatConversation({
     }
   }
 
+  async function refresh() {
+    await controls.current?.check();
+    setSession(transport.session);
+    await queryClient.invalidateQueries({ queryKey: ["chat-branches", transport.session?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["chat-feedback", transport.session?.id] });
+  }
+  async function mutate(command: () => Promise<unknown>) {
+    if (mutationInFlight.current || connection !== "ready" || checking)
+      throw new Error("Conversation is busy");
+    mutationInFlight.current = true;
+    setChecking(true);
+    setError(undefined);
+    try {
+      await command();
+      await refresh();
+    } catch (cause) {
+      if (active.current) {
+        setError(chatActionError(cause));
+        setConnection("uncertain");
+      }
+      throw cause;
+    } finally {
+      mutationInFlight.current = false;
+      if (active.current) setChecking(false);
+    }
+  }
+
   if (unavailable)
     return (
       <p role="alert" className="p-6">
@@ -152,57 +225,142 @@ function ChatConversation({
     );
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ChatRuntimeBridge
-        transport={transport}
-        resume={!!running}
-        controls={controls}
-        onState={(state) => {
-          if (active.current) {
-            setConnection(state);
-            if (state === "sending") setError(undefined);
-            if (state === "ready" || state === "uncertain") setStopping(false);
-          }
-        }}
-        onError={handleError}
-        onAccepted={(sessionId) => {
-          void queryClient.invalidateQueries({ queryKey: chatSessionsKey });
-          if (!initial) {
-            onSessionCreated(sessionId);
-            void navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true });
-          }
-        }}
-      />
-      <ChatThread
-        modelPicker={
-          <ChatModelPicker
-            sessionId={transport.session?.id}
-            value={model.choice.id}
-            onChange={model.select}
-            disabled={connection !== "ready" || checking}
+      <div className="flex h-full min-h-0 flex-col">
+        <ChatEditingContext.Provider
+          value={{
+            sessionId: session?.id,
+            busy: connection !== "ready" || checking,
+            branches: branches.data ?? [],
+            feedback: feedback.data ?? [],
+            edit: (userMessageId, text, clientRequestId) =>
+              mutate(async () => {
+                const { data } = await editChatMessage({
+                  path: { sessionId: session!.id, userMessageId },
+                  body: { text, clientRequestId, modelConfigurationId: model.choice.id },
+                  headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
+                  throwOnError: true,
+                });
+                transport.recordModelSelection(data);
+              }),
+            regenerate: (userMessageId, clientRequestId) =>
+              mutate(async () => {
+                const { data } = await regenerateChatMessage({
+                  path: { sessionId: session!.id, userMessageId },
+                  body: { clientRequestId, modelConfigurationId: model.choice.id },
+                  headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
+                  throwOnError: true,
+                });
+                transport.recordModelSelection(data);
+              }),
+            branch: (messageId, expectedChildId) =>
+              mutate(() =>
+                selectChatBranch({
+                  path: { sessionId: session!.id },
+                  body: { messageId, expectedChildId },
+                  headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
+                  throwOnError: true,
+                }),
+              ),
+          }}
+        >
+          <ChatRuntimeBridge
+            transport={transport}
+            resume={!!running}
+            controls={controls}
+            onState={(state) => {
+              if (active.current) {
+                setConnection(state);
+                if (state === "sending") setError(undefined);
+                if (state === "ready" || state === "uncertain") setStopping(false);
+                if (state === "ready") {
+                  void queryClient.invalidateQueries({
+                    queryKey: ["chat-branches", transport.session?.id],
+                  });
+                  void queryClient.invalidateQueries({
+                    queryKey: ["chat-feedback", transport.session?.id],
+                  });
+                }
+              }
+            }}
+            onError={handleError}
+            onAccepted={(sessionId) => {
+              setSession(transport.session);
+              void queryClient.invalidateQueries({ queryKey: chatSessionsKey });
+              if (!initial) {
+                onSessionCreated(sessionId);
+                void navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true });
+              }
+            }}
           />
-        }
-        modelNotice={
-          model.choice.fallback
-            ? "The selected model is unavailable. The reply is using an authorized default model."
-            : undefined
-        }
-        connection={connection}
-        stopping={stopping}
-        onStop={() => void stop()}
-        error={error}
-        onCheck={async () => {
-          setChecking(true);
-          setError(undefined);
-          try {
-            await controls.current?.check();
-          } catch (cause) {
-            handleError(cause);
-          } finally {
-            if (active.current) setChecking(false);
-          }
-        }}
-        checking={checking}
-      />
+          <ChatSessionSettings
+            session={session}
+            busy={connection !== "ready" || checking}
+            onChange={async () => {
+              model.select(undefined);
+              await refresh();
+            }}
+            onDelete={() => {
+              transport.disconnect();
+              setUnavailable(true);
+            }}
+          />
+          {(branches.isError || feedback.isError) && (
+            <p role="alert" className="px-4 text-sm">
+              Không tải được phiên bản hoặc đánh giá.{" "}
+              <Button
+                prominence="internal"
+                size="sm"
+                onClick={() => {
+                  void branches.refetch();
+                  void feedback.refetch();
+                }}
+              >
+                Tải lại
+              </Button>
+            </p>
+          )}
+          <ChatThread
+            starters={
+              <ChatStarterPrompts
+                personaId={session?.personaId}
+                disabled={connection !== "ready" || checking}
+              />
+            }
+            modelPicker={
+              <ChatModelPicker
+                sessionId={transport.session?.id}
+                value={model.choice.id}
+                onChange={model.select}
+                disabled={connection !== "ready" || checking}
+              />
+            }
+            modelNotice={
+              model.choice.fallback
+                ? "The selected model is unavailable. The reply is using an authorized default model."
+                : undefined
+            }
+            connection={connection}
+            stopping={stopping}
+            onStop={() => void stop()}
+            error={error}
+            onCheck={async () => {
+              setChecking(true);
+              setError(undefined);
+              try {
+                await refresh();
+              } catch (cause) {
+                handleError(cause);
+              } finally {
+                if (active.current) setChecking(false);
+              }
+            }}
+            checking={checking}
+          />
+        </ChatEditingContext.Provider>
+      </div>
     </AssistantRuntimeProvider>
   );
 }
@@ -253,7 +411,9 @@ function ChatRuntimeBridge({
         latest.current.chat?.clearError();
         if (history.messages.some((message) => message.status === "RUNNING")) {
           latest.current.onState("recovering");
-          await latest.current.chat?.resumeStream();
+          void latest.current.chat
+            ?.resumeStream()
+            .catch((cause: unknown) => latest.current.onError(cause));
         } else latest.current.onState("ready");
       },
     }),

@@ -14,6 +14,9 @@ import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.orm.jpa.vendor.HibernateJpaDialect;
+import org.springframework.dao.support.PersistenceExceptionTranslationInterceptor;
+import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -24,7 +27,7 @@ import org.testcontainers.utility.DockerImageName;
  * Shared database fixtures for core tests: the pinned PostgreSQL container (started once per test JVM and
  * reaped by Testcontainers), the production migration grammar, and transactional proxies for services.
  */
-@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "resource"})
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public final class TestDatabase {
 
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
@@ -84,7 +87,7 @@ public final class TestDatabase {
     public static JpaHarness jpa(DataSource dataSource) {
         var factoryBean = new LocalContainerEntityManagerFactoryBean();
         factoryBean.setDataSource(dataSource);
-        factoryBean.setPackagesToScan("io.memoryos.iam.persistence");
+        factoryBean.setPackagesToScan("io.memoryos.iam.persistence", "io.memoryos.chat.persistence");
         factoryBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factoryBean.setJpaPropertyMap(java.util.Map.of(
                 "hibernate.hbm2ddl.auto", "validate",
@@ -107,6 +110,13 @@ public final class TestDatabase {
             JpaTransactionManager transactionManager,
             EntityManagerFactory entityManagerFactory
     ) implements AutoCloseable {
+        /** Real Spring Data queries; the test's application transaction owns the unit of work. */
+        public <R> R repository(Class<R> contract) {
+            R target = new JpaRepositoryFactory(entityManager).getRepository(contract);
+            var proxy = new ProxyFactory(target);
+            proxy.addAdvice(new PersistenceExceptionTranslationInterceptor(new HibernateJpaDialect()));
+            return contract.cast(proxy.getProxy());
+        }
 
         @Override
         public void close() {

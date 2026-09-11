@@ -31,6 +31,8 @@ dependencies {
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.security.crypto)
     implementation(libs.jakarta.persistence.api)
+    implementation(libs.spring.data.jpa)
+    implementation(libs.hibernate.core)
     compileOnly(libs.spring.boot.starter.actuator)
     implementation(libs.micrometer.core)
     implementation(libs.micrometer.context)

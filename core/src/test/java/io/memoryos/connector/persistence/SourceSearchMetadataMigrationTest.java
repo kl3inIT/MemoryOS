@@ -35,7 +35,7 @@ class SourceSearchMetadataMigrationTest {
             seed(jdbc, tenant, file, file, document, false, true);
             seed(jdbc, tenant, drive, drive, document, true, true);
             seed(jdbc, tenant, inactive, file, document, false, false);
-            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").load();
+            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("35").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
             assertEquals(0, flyway.migrate().migrationsExecuted);
             flyway.validate();

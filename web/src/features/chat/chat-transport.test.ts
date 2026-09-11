@@ -9,6 +9,7 @@ const session: ChatSession = {
   id: "5230ab53-dab0-4441-acbf-840636b52953",
   rootMessageId: "49b9bc3c-5b2b-4560-a2cf-e69ce5dbe627",
   personaId: "cc9aa9f0-bcb7-4f28-ae4e-a43b5b44ce43",
+  projectId: null,
   title: "Test",
   createdAt: "2026-09-09T00:00:00Z",
   updatedAt: "2026-09-09T00:00:00Z",

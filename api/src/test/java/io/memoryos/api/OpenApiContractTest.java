@@ -55,15 +55,35 @@ class OpenApiContractTest {
             "/api/chat/models/{modelId}",
             "/api/chat/models/{modelId}/validate",
             "/api/chat/personas/{personaId}/model",
+            "/api/chat/personas",
+            "/api/chat/personas/{personaId}",
+            "/api/chat/personas/{personaId}/models",
+            "/api/chat/personas/sources",
+            "/api/chat/projects",
+            "/api/chat/projects/{projectId}",
+            "/api/chat/projects/{projectId}/sessions",
             "/api/chat/provider-adapters",
             "/api/chat/providers",
             "/api/chat/providers/{providerId}",
             "/api/chat/providers/{providerId}/models",
             "/api/chat/sessions",
             "/api/chat/sessions/{sessionId}",
+            "/api/chat/sessions/{sessionId}/title",
+            "/api/chat/sessions/{sessionId}/branches",
+            "/api/chat/sessions/{sessionId}/branch",
+            "/api/chat/sessions/{sessionId}/persona",
+            "/api/chat/sessions/{sessionId}/project",
+            "/api/chat/sessions/{sessionId}/sharing",
+            "/api/chat/sessions/{sessionId}/settings",
+            "/api/chat/sessions/{sessionId}/feedback",
+            "/api/chat/shared/{sessionId}",
+            "/api/chat/shared/{sessionId}/messages",
             "/api/chat/sessions/{sessionId}/messages",
             "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel",
             "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events",
+            "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/feedback",
+            "/api/chat/sessions/{sessionId}/messages/{userMessageId}/edit",
+            "/api/chat/sessions/{sessionId}/messages/{userMessageId}/regenerate",
             "/api/search",
             "/api/search/documents/{documentId}",
             "/api/identity/me",
@@ -239,6 +259,11 @@ class OpenApiContractTest {
         }
 
         Path contract = repositoryRoot().resolve("openapi.yml");
+        for (String property : Set.of("personaId", "projectId")) {
+            JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
+            assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());
+            assertEquals("null", schema.path("oneOf").path(1).path("type").textValue());
+        }
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
             Files.writeString(contract, Yaml.pretty(actual));
             return;

@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronDown, MessageSquare, Plus, Search } from "lucide-react";
+import { Bot, Folder, ChevronDown, MessageSquare, Plus, Search } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,24 @@ export function ChatNavigation({
         onClick={onNavigate}
       >
         Search
+      </SidebarTab>
+      <SidebarTab
+        to="/assistants"
+        icon={<Bot className="size-4" />}
+        collapsed={collapsed}
+        selected={pathname === "/assistants"}
+        onClick={onNavigate}
+      >
+        Trợ lý
+      </SidebarTab>
+      <SidebarTab
+        to="/projects"
+        icon={<Folder className="size-4" />}
+        collapsed={collapsed}
+        selected={pathname.startsWith("/projects")}
+        onClick={onNavigate}
+      >
+        Dự án
       </SidebarTab>
       {!collapsed && (
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto">

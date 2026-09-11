@@ -64,7 +64,7 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
       <div
         ref={fallbackFocusRef}
         tabIndex={-1}
-        className="flex h-full min-h-0 min-w-0 outline-none"
+        className="flex min-h-0 min-w-0 flex-1 outline-none"
       >
         {children}
         {selection && sources.length > 0 && (

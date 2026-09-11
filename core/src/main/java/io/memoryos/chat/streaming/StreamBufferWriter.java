@@ -132,6 +132,12 @@ public final class StreamBufferWriter {
         return readers;
     }
 
+    public synchronized void discard(UUID id) {
+        var stream = streams.get(id);
+        if (stream != null) remove(stream);
+        notifyAll();
+    }
+
     private Stream require(UUID id) {
         var stream = streams.get(id);
         if (stream == null) throw new IllegalStateException("Chat stream was not registered");

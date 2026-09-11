@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 import java.time.LocalDate;
 import java.time.Duration;
 import java.time.Instant;
@@ -77,6 +78,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     private @Nullable QueryExpansion queryExpansion;
     private final Instant deadline;
     private final SearchTimings timings;
+    private final Set<UUID> allowedSourceIds;
     private boolean detectSource = true;
     private boolean timeDetected;
     private SearchFilters timeFilters = SearchFilters.NONE;
@@ -87,6 +89,14 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
                       Instant deadline, SearchTimings timings) {
+        this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation, messages, deadline, timings, List.of());
+    }
+
+    public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
+                      TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
+                      IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
+                      Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds) {
+        this.allowedSourceIds = Set.copyOf(allowedSourceIds);
         this.search = search; this.actor = actor; this.selectionRunner = selectionRunner; this.tokens = tokens;
         this.limits = limits;
         this.work = new SearchTasks.Scope(limits.cleanupTimeout());
@@ -151,6 +161,9 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         } catch (SearchRequestException invalid) { return "Invalid search query. Each query must contain 1-2000 characters."; }
         try {
             var scope = search.scope(actor);
+            if (!allowedSourceIds.isEmpty()) scope = new SourceSearchScope(scope.tenant(), scope.sources().entrySet().stream()
+                    .filter(entry -> allowedSourceIds.contains(entry.getKey()))
+                    .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)));
             var preparation = prepare(queries, scope, requestedFilters == null ? SearchFilters.NONE : requestedFilters);
             var expansion = preparation.expansion();
             var filters = preparation.filters();

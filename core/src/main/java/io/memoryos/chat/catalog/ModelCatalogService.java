@@ -3,9 +3,9 @@ package io.memoryos.chat.catalog;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcModelCatalogRepository;
-import io.memoryos.chat.persistence.JdbcModelCatalogRepository.Model;
-import io.memoryos.chat.persistence.JdbcModelCatalogRepository.Provider;
+import io.memoryos.chat.persistence.ModelCatalogRepository;
+import io.memoryos.chat.persistence.ModelCatalogRepository.Model;
+import io.memoryos.chat.persistence.ModelCatalogRepository.Provider;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Tenant authorization and configuration resolution. No provider calls occur in these transactions. */
 public class ModelCatalogService {
-    private final JdbcModelCatalogRepository catalog;
+    private final ModelCatalogRepository catalog;
     private final JdbcChatRepository chats;
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
@@ -32,7 +32,7 @@ public class ModelCatalogService {
     private final PersonaProperties persona;
     private final Deployment deployment;
 
-    public ModelCatalogService(JdbcModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
+    public ModelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
             PersonaProperties persona, Deployment deployment) {
         this.catalog = catalog;
@@ -56,7 +56,9 @@ public class ModelCatalogService {
     public record AvailableModel(UUID id, UUID providerId, String providerName, String modelName, String displayName,
                                  ModelSettings.Capabilities capabilities, int contextWindow, int maxOutputTokens,
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
-    public record Selection(Model model, Provider provider, @Nullable String fallbackReason) {}
+    public record Selection(Model model, Provider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
+        public Selection(Model model, Provider provider, @Nullable String fallbackReason) { this(model, provider, fallbackReason, null); }
+    }
 
     @Transactional
     public void requireModelsManage(ActorId actor) { admin(actor, false); }
@@ -156,14 +158,14 @@ public class ModelCatalogService {
     }
 
     @Transactional
-    public JdbcModelCatalogRepository.Default defaultModel(ActorId actor) {
+    public ModelCatalogRepository.Default defaultModel(ActorId actor) {
         UUID tenant = admin(actor, false);
         initialize(tenant);
         return catalog.defaultModel(tenant);
     }
 
     @Transactional
-    public JdbcModelCatalogRepository.Default setDefault(ActorId actor, UUID id, long revision) {
+    public ModelCatalogRepository.Default setDefault(ActorId actor, UUID id, long revision) {
         UUID tenant = admin(actor, true);
         initialize(tenant);
         var model = catalog.model(tenant, id).orElseThrow(ChatException::unavailable);
@@ -175,12 +177,12 @@ public class ModelCatalogService {
     }
 
     @Transactional
-    public JdbcModelCatalogRepository.PersonaModel personaModel(ActorId actor, UUID id) {
+    public ModelCatalogRepository.PersonaModel personaModel(ActorId actor, UUID id) {
         return catalog.personaModel(admin(actor, false), id);
     }
 
     @Transactional
-    public JdbcModelCatalogRepository.PersonaModel setPersonaModel(ActorId actor, UUID id, @Nullable UUID modelId, long revision) {
+    public ModelCatalogRepository.PersonaModel setPersonaModel(ActorId actor, UUID id, @Nullable UUID modelId, long revision) {
         UUID tenant = admin(actor, true);
         initialize(tenant);
         catalog.personaModel(tenant, id);
@@ -201,6 +203,18 @@ public class ModelCatalogService {
         UUID personaId = sessionId == null
                 ? chats.provisionPersona(membership.tenantId(), persona.getName(), persona.getInstructions(), persona.getModel())
                 : chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable).personaId();
+        return availableModels(actor, tenant, personaId);
+    }
+
+    @Transactional
+    public List<AvailableModel> availableModelsForPersona(ActorId actor, UUID personaId) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        if (!chats.usablePersona(tenant, actor, personaId)) throw ChatException.unavailable();
+        initialize(tenant.value());
+        return availableModels(actor, tenant.value(), personaId);
+    }
+
+    private List<AvailableModel> availableModels(ActorId actor, UUID tenant, UUID personaId) {
         var groups = catalog.actorGroups(tenant, actor.value());
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
@@ -217,18 +231,21 @@ public class ModelCatalogService {
     public Selection resolve(ActorId actor, UUID sessionId, @Nullable UUID requested) {
         var membership = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable);
         UUID tenant = membership.tenantId().value();
+        chats.lockOwner(membership.tenantId(), actor);
         var session = chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable);
         initialize(tenant);
+        var context = chats.persona(sessionId, true);
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
-        UUID preferred = requested != null ? requested : catalog.personaModel(tenant, session.personaId()).modelConfigurationId();
+        UUID preferred = requested != null ? requested : context.modelConfigurationId();
         if (preferred == null) preferred = defaultId;
         var groups = catalog.actorGroups(tenant, actor.value());
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         var selection = accessible(tenant, preferred, session.personaId(), manager, groups);
-        if (selection != null) return selection;
+        String contextRevision = context.revision();
+        if (selection != null) return new Selection(selection.model(), selection.provider(), null, contextRevision);
         var fallback = accessible(tenant, defaultId, session.personaId(), manager, groups);
         if (fallback == null) throw ChatException.providerUnavailable();
-        return new Selection(fallback.model(), fallback.provider(), "SELECTION_UNAVAILABLE");
+        return new Selection(fallback.model(), fallback.provider(), "SELECTION_UNAVAILABLE", contextRevision);
     }
 
     @Transactional

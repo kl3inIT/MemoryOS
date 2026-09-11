@@ -8,6 +8,7 @@ import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
+import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.prompts.ChatPrompts;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantId;
@@ -26,7 +27,11 @@ import org.springframework.ai.tokenizer.TokenCountEstimator;
  * Resolved once, held only for the lifetime of this execution.
  */
 public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                            String model, List<Message> messages, Instant deadline, ChatModelBinding binding) {
+                            String model, List<Message> messages, Instant deadline, ChatModelBinding binding, ChatTurnOptions options) {
+    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
+                         String model, List<Message> messages, Instant deadline, ChatModelBinding binding) {
+        this(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, ChatTurnOptions.DEFAULT);
+    }
     public ChatTurnSetup {
         messages = List.copyOf(messages);
         Objects.requireNonNull(binding);
@@ -57,6 +62,8 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
 
     public static ChatTurnSetup resolve(UUID session, UUID assistant, TurnContext context, int contextTokenLimit,
                                         ChatModelBinding binding) {
+        binding = binding.forOptions(context.options());
+        if (context.options().contextTokenLimit() != null) contextTokenLimit = Math.min(contextTokenLimit, context.options().contextTokenLimit());
         var selected = new ArrayList<Message>();
         String instructions = instructions(context.instructions(), binding);
         // Reserve room for tool schemas/results; transcript is still stored in full.
@@ -75,6 +82,6 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         Collections.reverse(selected);
         if (selected.getFirst() instanceof AssistantMessage) selected.removeFirst();
         selected.addFirst(new SystemMessage(instructions));
-        return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, context.deadline(), binding);
+        return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, context.deadline(), binding, context.options());
     }
 }

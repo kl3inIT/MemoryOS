@@ -42,9 +42,9 @@ export async function loadChatHistory(
   throw new Error("Conversation history exceeds the supported limit");
 }
 
-export async function newChatSession(text: string, signal: AbortSignal) {
+export async function newChatSession(text: string, signal: AbortSignal, personaId?: string) {
   const { data } = await createChatSession({
-    body: { title: text.trim().slice(0, 200) || "New chat" },
+    body: { title: text.trim().slice(0, 200) || "New chat", personaId },
     headers: sameOriginMutationHeaders,
     signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
     throwOnError: true,

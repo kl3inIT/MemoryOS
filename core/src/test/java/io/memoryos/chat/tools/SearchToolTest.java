@@ -62,10 +62,14 @@ class SearchToolTest {
     }
 
     private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters) {
+        return tool(availableTokens, timeout, detectFilters, List.of());
+    }
+
+    private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, List<UUID> sourceIds) {
         var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
-                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
+                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
         tool.beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "searchKnowledge", "{}")));
         return tool;
     }
@@ -252,6 +256,28 @@ class SearchToolTest {
             verify(runner).createObject(anyList(), eq(SearchTool.SemanticQuery.class));
             verify(runner).createObject(anyList(), eq(SearchTool.KeywordQueries.class));
         }
+    }
+
+    @Test
+    void personaSourceSelectionRechecksRevocationWithoutWideningToOtherReadableSources() {
+        UUID selected = UUID.randomUUID(), unselected = UUID.randomUUID();
+        when(search.scope(any())).thenReturn(
+                new SourceSearchScope(scope.tenant(), Map.of(selected, SourceType.FILE, unselected, SourceType.FILE)),
+                new SourceSearchScope(scope.tenant(), Map.of(unselected, SourceType.FILE)));
+        var observed = new ArrayList<SourceSearchScope>();
+        var empty = mock(SearchResults.class);
+        when(empty.hits()).thenReturn(List.of());
+        when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(call -> {
+            observed.add(call.getArgument(0)); return empty;
+        });
+        try (var tool = tool(8000, Duration.ofSeconds(5), false, List.of(selected))) {
+            tool.searchKnowledge(List.of("policy"), null);
+            tool.searchKnowledge(List.of("follow up"), null);
+        }
+        assertEquals(2, observed.size());
+        assertEquals(Map.of(selected, SourceType.FILE), observed.getFirst().sources());
+        assertTrue(observed.getLast().sources().isEmpty(), "Revoking the only selected source must not expose other readable sources");
+        assertTrue(events.stream().noneMatch(event -> event.source() != null));
     }
 
     @Test

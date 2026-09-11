@@ -10,7 +10,7 @@ import io.memoryos.chat.catalog.ProviderCredentials;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcModelCatalogRepository;
+import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.TenantAccessResolver;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -55,7 +55,7 @@ class ChatModelCatalogConfiguration {
         return new ModelCatalogService.Deployment(baseUrl, persona.getModel(), settings);
     }
     @Bean
-    ModelCatalogService modelCatalogService(JdbcModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
+    ModelCatalogService modelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
             PersonaProperties persona, ModelCatalogService.Deployment deployment) {
         return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, persona, deployment);

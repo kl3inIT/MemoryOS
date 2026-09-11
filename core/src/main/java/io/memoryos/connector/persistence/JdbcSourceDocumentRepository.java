@@ -79,6 +79,18 @@ public class JdbcSourceDocumentRepository {
         return Map.copyOf(result);
     }
 
+    public List<io.memoryos.connector.SourceSearchService.SourceOption> searchableSourceOptions(TenantId tenant, int offset, int limit) {
+        return jdbcClient.sql("""
+                SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
+                JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
+                WHERE p.tenant_id=:tenant AND p.access_type='PUBLIC' AND p.status='ACTIVE'
+                    AND c.status='ACTIVE' AND c.connector_type='FILE'
+                ORDER BY c.name,p.id LIMIT :limit OFFSET :offset
+                """).param("tenant", tenant.value()).param("offset", offset).param("limit", limit)
+                .query((rs, _) -> new io.memoryos.connector.SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
+                        rs.getString("name"), SourceType.valueOf(rs.getString("connector_type")))).list();
+    }
+
     public Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
             boolean readable, @Nullable UUID generation) {
         if (ids.isEmpty()) return Map.of();

@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.chat.ChatTurnService;
+import io.memoryos.chat.ChatCommand;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
@@ -69,6 +70,31 @@ class ChatTurnController {
         var result = turns.cancel(identity.actorId(), sessionId, assistantMessageId);
         return new Cancellation(result.assistantMessageId(), result.status().name());
     }
+
+    @PostMapping("/{userMessageId}/edit")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(operationId = "editChatMessage", summary = "Create a new question branch and execute its reply")
+    @ApiResponse(responseCode = "202", description = "Reserved edited branch", useReturnTypeSchema = true)
+    Accepted edit(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+            @PathVariable UUID userMessageId, @Valid @RequestBody Edit request) {
+        var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
+                userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId()));
+        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
+    }
+
+    @PostMapping("/{userMessageId}/regenerate")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(operationId = "regenerateChatMessage", summary = "Generate a new answer under the existing question")
+    @ApiResponse(responseCode = "202", description = "Reserved regenerated reply", useReturnTypeSchema = true)
+    Accepted regenerate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+            @PathVariable UUID userMessageId, @Valid @RequestBody Regenerate request) {
+        var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
+                userMessageId, request.clientRequestId(), "", request.modelConfigurationId()));
+        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
+    }
+
+    record Edit(@NotNull UUID clientRequestId, @NotBlank @Size(max = 32000) String text, @Nullable UUID modelConfigurationId) {}
+    record Regenerate(@NotNull UUID clientRequestId, @Nullable UUID modelConfigurationId) {}
 
     record Send(@NotNull UUID parentMessageId, @NotNull UUID clientRequestId,
                 @NotBlank @Size(max = 32000) String text, @Nullable UUID modelConfigurationId) {

@@ -5,7 +5,7 @@ import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.catalog.ModelCatalogService.ModelInput;
 import io.memoryos.chat.catalog.ModelCatalogService.ProviderInput;
 import io.memoryos.chat.catalog.ModelCatalogService.ProviderView;
-import io.memoryos.chat.persistence.JdbcModelCatalogRepository;
+import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -96,20 +96,20 @@ class ChatModelCatalogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/providers/{providerId}/models")
     @Operation(operationId = "listConfiguredChatModels", summary = "List all configured models on a provider; requires model management")
-    List<JdbcModelCatalogRepository.Model> configured(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID providerId) {
+    List<ModelCatalogRepository.Model> configured(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID providerId) {
         return catalog.models(identity.actorId(), providerId);
     }
     @PostMapping("/providers/{providerId}/models")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatModel", summary = "Add a concrete model configuration to a Tenant provider")
-    JdbcModelCatalogRepository.Model createModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ModelCatalogRepository.Model createModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                                                 @PathVariable UUID providerId, @RequestBody ModelInput request) {
         return catalog.createModel(identity.actorId(), providerId, request);
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/models/{modelId}")
     @Operation(operationId = "updateChatModel", summary = "Replace a model configuration at the expected revision")
-    JdbcModelCatalogRepository.Model updateModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ModelCatalogRepository.Model updateModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID modelId, @RequestParam @Positive long revision, @RequestBody ModelInput request) {
         return catalog.updateModel(identity.actorId(), modelId, revision, request);
     }
@@ -123,26 +123,26 @@ class ChatModelCatalogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/model-default")
     @Operation(operationId = "getChatModelDefault", summary = "Read the Tenant Chat default and its revision; requires model management")
-    JdbcModelCatalogRepository.Default defaultModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    ModelCatalogRepository.Default defaultModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         return catalog.defaultModel(identity.actorId());
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/model-default")
     @Operation(operationId = "setChatModelDefault", summary = "Set a visible, publicly available Tenant Chat default")
-    JdbcModelCatalogRepository.Default setDefault(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ModelCatalogRepository.Default setDefault(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam UUID modelConfigurationId, @RequestParam @Positive long revision) {
         return catalog.setDefault(identity.actorId(), modelConfigurationId, revision);
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/personas/{personaId}/model")
     @Operation(operationId = "getPersonaModel", summary = "Read the Persona model selection and revision; requires model management")
-    JdbcModelCatalogRepository.PersonaModel persona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID personaId) {
+    ModelCatalogRepository.PersonaModel persona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID personaId) {
         return catalog.personaModel(identity.actorId(), personaId);
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/personas/{personaId}/model")
     @Operation(operationId = "setPersonaModel", summary = "Set a Persona model or omit the model ID to inherit the Chat default")
-    JdbcModelCatalogRepository.PersonaModel setPersona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ModelCatalogRepository.PersonaModel setPersona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID personaId, @RequestParam(required = false) @Nullable UUID modelConfigurationId, @RequestParam @Positive long revision) {
         return catalog.setPersonaModel(identity.actorId(), personaId, modelConfigurationId, revision);
     }
