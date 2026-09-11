@@ -29,8 +29,12 @@
         width: 1200px;
         height: 630px;
         padding: 72px 80px;
-        background: #fafafa;
-        color: #000000e5;
+        /* The landing's dark theme: navy ground and the hero's blue glow (src/styles/tokens.css). */
+        background:
+          radial-gradient(60% 75% at 82% 100%, #3563ffc2, transparent 70%),
+          radial-gradient(110% 60% at 50% 125%, #1d44d98c, transparent 72%),
+          #070a13;
+        color: #fffffff2;
         font-family: "Hanken Grotesk", sans-serif;
       }
 
@@ -43,7 +47,7 @@
       }
 
       .brand span {
-        color: #0000008c;
+        color: #ffffff99;
         font-weight: 450;
       }
 
@@ -59,7 +63,7 @@
       .footer {
         display: flex;
         justify-content: space-between;
-        color: #000000bf;
+        color: #ffffffd9;
         font-size: 28px;
         font-weight: 500;
       }
@@ -72,8 +76,8 @@
   <body>
     <div class="brand">
       <svg width="52" height="52" viewBox="0 0 32 32" aria-hidden="true">
-        <rect width="32" height="32" rx="8" fill="#0a0a0a" />
-        <path d="M8 9h3.2l4.8 7 4.8-7H24v14h-3.3v-8.7L16 21l-4.7-6.7V23H8V9Z" fill="#f4f2eb" />
+        <rect width="32" height="32" rx="8" fill="#f4f2eb" />
+        <path d="M8 9h3.2l4.8 7 4.8-7H24v14h-3.3v-8.7L16 21l-4.7-6.7V23H8V9Z" fill="#0a0a0a" />
       </svg>
       MemoryOS <span>by Vanda</span>
     </div>
