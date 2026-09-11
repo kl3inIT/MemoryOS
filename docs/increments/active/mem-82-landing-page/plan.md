@@ -14,6 +14,8 @@ Design: [design.md](design.md). Content decisions are fixed there; do not add st
 
 2026-09-11: Tasks 1–9 and the Task 10 documentation are complete and verified locally; see [verification.md](verification.md). The browser review added two fixes: the desktop navigation starts at 1024 px, and the focused skip link keeps its padding. Pull request #95 is open and reported on MEM-82.
 
+Later the same day: Task 5D, the landing page 6.0 motion redesign, is implemented on branch `nhuxuanviet/mem-82-landing-page-6.0` and passes the package gate; Lighthouse mobile performance on the local preview is 0.96 (TBT 130 ms, CLS 0), and its browser review is in progress. Pull request #95 stays the rollback point.
+
 Pending, and not passed: CI on the pull request, the first `Publish landing` digest, the operator deployment with the deployed checks from the [landing runbook](../../../runbooks/landing.md), Lighthouse on `https://vanda.app/`, and Laura's content review. The increment stays under `active/` until the pull request merges.
 
 ---
@@ -2430,6 +2432,37 @@ Added after Task 5B at the product owner's request: a theme-switch transition, m
 git add landing docs/increments/active/mem-82-landing-page
 git commit -m "feat(landing): add motion, a theme reveal and partner logos"
 ```
+
+---
+
+### Task 5D: Landing page 6.0 motion redesign
+
+Added after Task 10 at the product owner's request, on branch `nhuxuanviet/mem-82-landing-page-6.0` so pull request #95 stays the rollback point. Scope and decisions: the landing page 6.0 entry under [accepted decisions](design.md#accepted-decisions-2026-09-11), then the Page and Visual direction sections. GSAP ScrollTrigger replaces the CSS scroll-driven motion of Task 5C; the theme reveal and the logos stay.
+
+**Files:**
+- Modify: `landing/package.json`, `landing/pnpm-lock.yaml` (`gsap` 3.15.0, `@gsap/react` 2.1.2, exact)
+- Create: `landing/src/motion/motion.ts` (ScrollTrigger registration, `useMotion`, `pinStart`, `offsetTo`)
+- Modify: `landing/src/test/setup.ts` (jsdom `matchMedia` that matches nothing; canvas `getContext` returning `null`)
+- Modify: `landing/src/content.ts` (one-sentence copy; ingestion stages and access gate; capability mock keys; deployment link labels; milestone deliverables; condensed next steps; FAQ answers that carry the moved detail; footer without links)
+- Modify: `landing/src/styles/tokens.css`, `landing/src/styles/base.css` (particle, second-accent and frame tokens; gradient frame and typed caret; `ramp` utilities, ingestion loops and the hero's pre-frame rule; scroll-driven rules removed)
+- Create: `landing/src/components/particle-field.tsx`, `landing/src/lib/illustration.ts`
+- Modify: `landing/src/App.tsx` (how it works before capabilities), `landing/src/sections/hero.tsx`, `product-preview.tsx`, `footer.tsx`, `section.tsx`, `faq.tsx`, `trust-strip.tsx`, `product-highlights.tsx`
+- Replace: `landing/src/sections/how-it-works.tsx` with `how-it-works/index.tsx`, `ingestion-story.tsx`, `access-gate.tsx`
+- Replace: `landing/src/sections/capabilities.tsx` with `capabilities/index.tsx`, `animate-mock.ts`, `mocks/*.tsx`
+- Rewrite: `landing/src/sections/deployment.tsx`, `landing/src/sections/roadmap.tsx`
+- Test: `landing/src/App.test.tsx`, `landing/src/content.test.ts`
+
+- [x] **Step 1: Add the page and copy contracts** listed under Verification in the design: no repository or notices links, named or hidden graphics including canvas, the typed statement as one sentence, section order, a heading and visible sentence per stage and capability, the gate's two lists, no inline motion styles without motion, and at most 12 words per short line.
+- [x] **Step 2: Add GSAP and the motion foundation**, with the jsdom stubs.
+- [x] **Step 3: Rewrite the copy** and move technical detail into the FAQ.
+- [x] **Step 4: Hero and footer** — typed statement, particle fields, footer without links.
+- [x] **Step 5: How it works** — the ingestion beam: six stations with line drawings driven by one `--p` per station through the `ramp` utilities, pinned and snapping on roomy desktops; quiet loops once a station finishes, while the list is on screen; then the access gate. The first boxed scene design was replaced at the product owner's request.
+- [x] **Step 6: Capability explorer** — pinned list, crossfading panels and nine component-only mocks whose entrances are `data-enter` attributes (`react/only-export-components` stays clean).
+- [x] **Step 7: Deployment diagram and roadmap.**
+- [x] **Step 8: Keep the first interaction fast** — Lighthouse mobile fell to 0.78 (TBT 750 ms): setting up every section's motion while the page mounted laid out the whole page inside that task. `useMotion` now sets up after the first frame, one task per section; the hero hides its incoming parts with `data-intro` until then; capability mocks build on first use and grid panels play through an IntersectionObserver. Result: 0.96, TBT 130 ms, CLS 0.
+- [x] **Step 9: Run the package gate** — `pnpm --dir landing check`. Expected: 5 files, 50 tests pass, build and `tsc -b` pass.
+- [ ] **Step 10: Review in the Orca browser** (`orca tab`, `orca eval`, `orca screenshot`) — 390, 768, 1024 and 1440 px in both themes; every pinned and scrubbed scene in both directions; the ingestion loops; reduced motion shows the static page; no console errors.
+- [ ] **Step 11: Commit in concern clusters and push the branch.**
 
 ---
 
