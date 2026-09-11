@@ -1,25 +1,15 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  BadgeCheck,
-  Bot,
-  Cable,
-  ChartColumn,
-  KeyRound,
-  Plug,
-  Quote,
-  Search,
-  ShieldCheck,
-} from "lucide-react";
 import genaiFundLogo from "@/assets/logos/genai-fund.png";
 import tascoLogo from "@/assets/logos/tasco.png";
+
+/*
+ * Every string a reader or a screen reader meets on the page. Illustrations hidden from assistive
+ * technology (the ingestion stage and the capability mocks) keep their sample data beside them.
+ * Short copy stays at one sentence of at most 12 words (src/content.test.ts).
+ */
 
 type Link = {
   label: string;
   href: string;
-};
-
-type FooterLink = Link & {
-  external?: boolean;
 };
 
 type SectionIntro = {
@@ -36,11 +26,24 @@ type Highlight = Entry & {
   points: readonly string[];
 };
 
-type CapabilitySize = "wide" | "standard" | "full";
+type CapabilityMock =
+  | "connectors"
+  | "search"
+  | "citations"
+  | "analysis"
+  | "sso"
+  | "agents"
+  | "governance"
+  | "mcp"
+  | "permissions";
 
 type Capability = Entry & {
-  icon: LucideIcon;
-  size: CapabilitySize;
+  mock: CapabilityMock;
+};
+
+type GatePassage = {
+  title: string;
+  allowed: boolean;
 };
 
 type DeploymentHost = {
@@ -52,6 +55,7 @@ type DeploymentHost = {
 type Milestone = Entry & {
   period: string;
   dateTime: string;
+  deliverable: string;
 };
 
 const contact = {
@@ -70,8 +74,7 @@ const navigation: readonly Link[] = [
 
 const hero = {
   title: "One governed memory for your people and AI agents",
-  description:
-    "MemoryOS connects your company's documents and business systems, answers questions with citations, and applies the same access rules to search, custom agents and MCP clients. It runs in your own AWS environment.",
+  statement: "Cited answers from approved sources, under your access rules, in your AWS.",
   secondaryAction: { label: "See how it works", href: "#how-it-works" },
 } as const;
 
@@ -120,12 +123,10 @@ const trustSignals: readonly TrustSignal[] = [
 
 const product = {
   title: "Knowledge people can trust, and AI your company can govern",
-  description:
-    "MemoryOS is a separate AI and knowledge layer over the systems you already use. Employees and AI agents work from approved company data, with sources they can check.",
+  description: "A separate AI and knowledge layer over the systems you already use.",
   search: {
     title: "Ask once instead of searching five systems",
-    description:
-      "Policies live in Drive, specifications in shared files, and numbers in business systems. MemoryOS indexes the sources your company approves and gives everyone one place to search and ask. Every answer cites the passages it used.",
+    description: "MemoryOS indexes approved sources and gives everyone one place to ask.",
     points: [
       "Full-text and semantic search across approved sources",
       "Answers that cite the original document and passage",
@@ -142,8 +143,7 @@ const product = {
   },
   governance: {
     title: "Enterprise AI that follows your access rules",
-    description:
-      "People sign in with your SSO. MemoryOS checks access before it retrieves anything, so the model only sees what that person may read. Search, custom agents and MCP clients share one permission model, and every AI asset has an owner, a version and an approval.",
+    description: "People sign in with SSO; access is checked before anything is retrieved.",
     points: [
       "SSO/OIDC with your existing identity provider",
       "Access checked before every retrieval",
@@ -163,169 +163,169 @@ const product = {
   },
 } as const;
 
-const capabilities: SectionIntro & { items: readonly Capability[] } = {
-  title: "Everything a company knowledge layer needs",
-  description:
-    "Each capability works under the same permission model, from the first connected source to the last agent.",
-  items: [
-    {
-      title: "Data connectors",
-      description:
-        "Connect Google Drive, uploaded files, OpenAPI and REST APIs, and other business systems you approve. Docling and OCR extract text from documents and scans, and the index stays current as sources change.",
-      icon: Cable,
-      size: "wide",
-    },
-    {
-      title: "Enterprise search",
-      description:
-        "Hybrid full-text and vector search across everything a person is allowed to see, ranked for relevance.",
-      icon: Search,
-      size: "wide",
-    },
-    {
-      title: "Cited answers",
-      description:
-        "Retrieval-augmented answers link each claim to the document and passage it came from.",
-      icon: Quote,
-      size: "standard",
-    },
-    {
-      title: "Analysis and reports",
-      description:
-        "Built-in Python calculates, builds tables and charts, and produces reports from retrieved data.",
-      icon: ChartColumn,
-      size: "standard",
-    },
-    {
-      title: "Enterprise SSO",
-      description:
-        "Sign in through SSO/OIDC and the identity and access management you already run.",
-      icon: KeyRound,
-      size: "standard",
-    },
-    {
-      title: "Custom agents",
-      description:
-        "Agents for each department or workflow, with their own knowledge, instructions and tools.",
-      icon: Bot,
-      size: "standard",
-    },
-    {
-      title: "AI asset governance",
-      description:
-        "Versions, owners, approvals and permissions for agents, instructions and tools, so teams reuse what is approved.",
-      icon: BadgeCheck,
-      size: "standard",
-    },
-    {
-      title: "MCP server",
-      description:
-        "Approved knowledge and tools for Codex, Claude Desktop and other agents through the Model Context Protocol.",
-      icon: Plug,
-      size: "standard",
-    },
-    {
-      title: "Permission-aware by design",
-      description:
-        "Access is checked before retrieval for search, answers, agents and MCP alike. Only permitted context ever reaches the model.",
-      icon: ShieldCheck,
-      size: "full",
-    },
-  ],
-};
-
 const howItWorks: SectionIntro & {
-  steps: readonly Entry[];
-  request: { title: string; steps: readonly Entry[] };
+  stages: readonly Entry[];
+  gate: {
+    title: string;
+    summary: string;
+    person: Entry;
+    check: string;
+    model: Entry;
+    blockedLabel: string;
+    blockedNote: string;
+    allowedLabel: string;
+    passages: readonly GatePassage[];
+  };
 } = {
   title: "From connected sources to answers you can verify",
-  description: "The same path serves every search, answer, agent and MCP request.",
-  steps: [
+  description: "One path for every search, answer, agent and MCP request.",
+  stages: [
     {
-      title: "Connect",
-      description: "Administrators connect approved sources. Each source keeps its access rules.",
+      title: "Pull",
+      description: "Connectors pull from Drive, files, APIs and business systems.",
+    },
+    {
+      title: "Extract",
+      description: "Docling and OCR turn pages, tables and scans into structured text.",
+    },
+    {
+      title: "Chunk",
+      description: "Text splits into passages that keep their source and access rules.",
+    },
+    {
+      title: "Embed",
+      description: "Each passage becomes a vector that captures its meaning.",
     },
     {
       title: "Index",
-      description:
-        "Workers extract text with Docling and OCR, split it into passages, create embeddings and keep the full-text and vector index current.",
+      description: "Full-text and vector indexes stay current as sources change.",
     },
     {
-      title: "Ask",
-      description:
-        "People search and ask in plain language, work with custom agents, or use the same knowledge from MCP clients.",
-    },
-    {
-      title: "Verify",
-      description:
-        "Every answer cites its documents and passages, so people can check the source before they act.",
+      title: "Answer",
+      description: "A question finds the closest passages, and the answer cites them.",
     },
   ],
-  request: {
+  gate: {
     title: "On every request",
-    steps: [
-      {
-        title: "Sign in with SSO",
-        description: "Identity comes from your SSO/OIDC provider and existing IAM.",
-      },
-      {
-        title: "Check access first",
-        description: "MemoryOS applies access rules before any retrieval runs.",
-      },
-      {
-        title: "Send only permitted context",
-        description: "The model receives only passages the person is allowed to read.",
-      },
+    summary: "The model sees only passages the person may read.",
+    person: { title: "Procurement analyst", description: "Signed in with SSO" },
+    check: "Access check",
+    model: { title: "Model", description: "Receives permitted passages only" },
+    blockedLabel: "Blocked at the access check",
+    blockedNote: "No access",
+    allowedLabel: "Sent to the model",
+    passages: [
+      { title: "Procurement policy, section 4", allowed: true },
+      { title: "Salary bands 2026", allowed: false },
+      { title: "Supplier onboarding checklist", allowed: true },
+      { title: "Board meeting minutes", allowed: false },
     ],
   },
+};
+
+const capabilities: SectionIntro & { items: readonly Capability[] } = {
+  title: "Everything a company knowledge layer needs",
+  description: "One permission model, from the first source to the last agent.",
+  items: [
+    {
+      title: "Data connectors",
+      description: "Drive, files, APIs and approved systems, kept in sync.",
+      mock: "connectors",
+    },
+    {
+      title: "Enterprise search",
+      description: "One search across everything you are allowed to see.",
+      mock: "search",
+    },
+    {
+      title: "Cited answers",
+      description: "Every claim links to the passage it came from.",
+      mock: "citations",
+    },
+    {
+      title: "Analysis and reports",
+      description: "Built-in Python turns retrieved data into tables and charts.",
+      mock: "analysis",
+    },
+    {
+      title: "Enterprise SSO",
+      description: "Sign in with the identity provider you already run.",
+      mock: "sso",
+    },
+    {
+      title: "Custom agents",
+      description: "Agents per team, with their own knowledge and tools.",
+      mock: "agents",
+    },
+    {
+      title: "AI asset governance",
+      description: "Owners, versions and approvals for every agent and tool.",
+      mock: "governance",
+    },
+    {
+      title: "MCP server",
+      description: "Approved knowledge for Claude Desktop, Codex and other MCP clients.",
+      mock: "mcp",
+    },
+    {
+      title: "Permission-aware by design",
+      description: "Access is checked before retrieval, on every surface.",
+      mock: "permissions",
+    },
+  ],
 };
 
 const deployment: SectionIntro & {
   caption: string;
   people: Entry;
+  entry: string;
   account: string;
   network: string;
   application: DeploymentHost;
+  internalLink: string;
   data: DeploymentHost;
+  modelLink: string;
   model: DeploymentHost;
   sharedServices: readonly Entry[];
 } = {
   title: "Runs inside your AWS environment",
-  description:
-    "MemoryOS ships as containers on two Amazon EC2 instances in a private VPC. Only the web and API entry point is public; application, data and model traffic stays on private networking or protected endpoints.",
+  description: "Two EC2 hosts in a private VPC; only web traffic enters.",
   caption: "MemoryOS Production PoC architecture on AWS",
-  people: { title: "Employees and MCP clients", description: "HTTPS with SSO sign-in" },
+  people: { title: "Employees and MCP clients", description: "SSO sign-in" },
+  entry: "HTTPS",
   account: "Your AWS account",
   network: "Private VPC",
   application: {
     title: "Application and processing",
     platform: "Amazon EC2",
     services: [
-      "MemoryOS web and API",
+      "Web and API",
       "Connectors and workers",
       "Docling and OCR",
       "Reverse proxy and monitoring",
     ],
   },
+  internalLink: "Private network",
   data: {
     title: "Data, search and storage",
     platform: "Amazon EC2 with Amazon EBS",
     services: [
-      "PostgreSQL for metadata, users and access rules",
-      "Redis for queues and cache",
-      "OpenSearch for full-text and vector search",
-      "MinIO for original files and citations",
+      "PostgreSQL: metadata and access rules",
+      "Redis: queues and cache",
+      "OpenSearch: full-text and vector",
+      "MinIO: files and citations",
     ],
   },
+  modelLink: "Permitted context only",
   model: {
     title: "Managed model endpoint",
     platform: "On AWS",
-    services: ["Receives only permitted context", "No GPU servers for you to run"],
+    services: ["No GPU servers to run"],
   },
   sharedServices: [
     { title: "Amazon S3 and EBS snapshots", description: "Independent backups" },
     { title: "Amazon CloudWatch", description: "Monitoring and alerts" },
-    { title: "AWS KMS and Secrets Manager", description: "Encryption keys and secrets" },
+    { title: "AWS KMS and Secrets Manager", description: "Keys and secrets" },
     { title: "AWS IAM", description: "Least-privilege access" },
     { title: "Amazon ECR", description: "Container images" },
   ],
@@ -333,60 +333,49 @@ const deployment: SectionIntro & {
 
 const roadmap: SectionIntro & {
   milestones: readonly Milestone[];
-  next: { title: string; items: readonly Entry[] };
+  deliverableLabel: string;
+  next: { title: string; items: readonly string[] };
 } = {
   title: "From Production PoC to company-wide memory",
-  description:
-    "The Production PoC with our partner Tasco runs from September to December 2026, and each month ends with a working deliverable.",
+  description: "The PoC with our partner Tasco ships one deliverable each month.",
   milestones: [
     {
       period: "September 2026",
       dateTime: "2026-09",
       title: "Foundation",
-      description:
-        "Infrastructure, private network, SSO and sample data confirmed. Web, API, security and monitoring deployed.",
+      description: "Private network, SSO, web and API running on AWS.",
+      deliverable: "Secure platform",
     },
     {
       period: "October 2026",
       dateTime: "2026-10",
       title: "Knowledge",
-      description:
-        "Sources connected, ingested and indexed. Enterprise search and cited answers respect access rules.",
+      description: "Sources indexed; search and cited answers respect access.",
+      deliverable: "Cited search",
     },
     {
       period: "November 2026",
       dateTime: "2026-11",
       title: "Agents",
-      description:
-        "Model integration and benchmark. Custom agents, AI asset governance and the MCP server working end to end.",
+      description: "Custom agents, asset governance and the MCP server.",
+      deliverable: "Agents and MCP",
     },
     {
       period: "December 2026",
       dateTime: "2026-12",
       title: "Acceptance",
-      description:
-        "User testing. Answer quality, citations, latency and performance measured. PoC report and next-phase proposal delivered.",
+      description: "User testing, quality measured, next-phase proposal.",
+      deliverable: "PoC report",
     },
   ],
+  deliverableLabel: "Deliverable:",
   next: {
     title: "After the PoC",
     items: [
-      {
-        title: "Company-wide rollout",
-        description: "Every department on the same governed memory.",
-      },
-      {
-        title: "More business systems",
-        description: "Connectors for the ERP, CRM and HR systems teams depend on.",
-      },
-      {
-        title: "Web search and deep research",
-        description: "Answers that combine internal knowledge with vetted external sources.",
-      },
-      {
-        title: "High availability",
-        description: "Multi-AZ deployment for production scale.",
-      },
+      "Company-wide rollout",
+      "ERP, CRM and HR connectors",
+      "Web search and deep research",
+      "Multi-AZ high availability",
     ],
   },
 };
@@ -406,6 +395,11 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
         "In your own cloud environment. MemoryOS runs on Amazon EC2 in a private VPC, stores backups on Amazon S3 and EBS snapshots, and keeps keys and secrets in AWS KMS and Secrets Manager.",
     },
     {
+      question: "What is exposed to the internet?",
+      answer:
+        "Only the HTTPS entry point for the web app and API. The application and data hosts stay on private networking, and model calls go to a protected endpoint on AWS.",
+    },
+    {
       question: "Which AI model answers questions?",
       answer:
         "A managed large language model endpoint on AWS. MemoryOS sends it only the context the signed-in person may read, and you do not operate GPU servers.",
@@ -418,7 +412,12 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
     {
       question: "Which sources can we connect?",
       answer:
-        "Google Drive, uploaded files, OpenAPI and REST APIs, and other business systems your company approves. Docling and OCR process documents, including scanned files.",
+        "Google Drive, uploaded files, OpenAPI and REST APIs, and other business systems your company approves. Docling and OCR extract text, tables and layout from documents, including scanned files.",
+    },
+    {
+      question: "How does search find the right passages?",
+      answer:
+        "Documents are split into passages that keep their source and access rules. Hybrid search combines full-text and vector matching across the passages a person may read, then ranks them for relevance.",
     },
     {
       question: "Who does Vanda work with?",
@@ -436,21 +435,11 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
 const footer: SectionIntro & {
   action: string;
   organization: string;
-  links: readonly FooterLink[];
 } = {
   title: "Bring MemoryOS to your company",
-  description:
-    "Tell us about your sources, identity provider and first use cases, and we will scope a pilot together.",
+  description: "Tell us your sources and first use cases; we'll scope a pilot.",
   action: "Email aws@vanda.app",
   organization: "Vanda",
-  links: [
-    {
-      label: "Source code on GitHub",
-      href: "https://github.com/kl3inIT/MemoryOS",
-      external: true,
-    },
-    { label: "Third-party notices", href: "/THIRD_PARTY_NOTICES.txt" },
-  ],
 };
 
 export {
@@ -467,7 +456,8 @@ export {
   roadmap,
   trustSignals,
   type Capability,
-  type CapabilitySize,
+  type CapabilityMock,
   type DeploymentHost,
+  type GatePassage,
   type Highlight,
 };

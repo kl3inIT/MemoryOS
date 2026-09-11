@@ -19,7 +19,7 @@ function Section({ id, title, description, className, children }: SectionProps) 
       className={cn("scroll-mt-16 px-[var(--page-gutter)] py-20 sm:py-28", className)}
     >
       <div className="mx-auto w-full max-w-[var(--page-width-wide)]">
-        <div className="reveal max-w-2xl">
+        <div className="max-w-2xl">
           <h2 id={headingId} className="font-heading-section text-content-primary">
             {title}
           </h2>

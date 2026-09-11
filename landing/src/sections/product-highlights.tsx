@@ -13,7 +13,7 @@ type HighlightRowProps = {
 function HighlightRow({ highlight, visual, reversed = false }: HighlightRowProps) {
   return (
     <article className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-      <div className={cn("reveal max-w-xl", reversed && "lg:order-last")}>
+      <div className={cn("max-w-xl", reversed && "lg:order-last")}>
         <h3 className="font-heading-h2 text-content-primary">{highlight.title}</h3>
         <p className="mt-4 font-main-content-body text-content-secondary">
           {highlight.description}
@@ -36,7 +36,7 @@ function SourcesVisual() {
   const { sources, indexLabel, outputs } = product.search;
 
   return (
-    <div className="reveal grid items-center gap-4 rounded-2xl bg-surface-canvas p-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:p-8">
+    <div className="grid items-center gap-4 rounded-2xl bg-surface-canvas p-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:p-8">
       <ul className="space-y-2">
         {sources.map((source) => (
           <li
@@ -67,7 +67,7 @@ function GovernanceVisual() {
   const { asset } = product.governance;
 
   return (
-    <div className="reveal rounded-2xl bg-surface-canvas p-6 sm:p-8">
+    <div className="rounded-2xl bg-surface-canvas p-6 sm:p-8">
       <div className="rounded-xl border border-border-subtle bg-surface-raised shadow-sm">
         <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
           <p className="font-main-ui-action text-content-primary">{asset.name}</p>
