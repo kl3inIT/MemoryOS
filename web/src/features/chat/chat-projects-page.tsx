@@ -1,94 +1,194 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { DropdownMenu } from "radix-ui";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { Folder, MoreHorizontal, Pencil, Plus, Settings2, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ThreadList } from "@/components/assistant-ui/elements/thread-list";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createChatProject,
   updateChatProject,
   deleteChatProject,
-  getChatProject,
   listProjectChatSessions,
-  createProjectChatSession,
-  moveChatProject,
 } from "@/lib/hey-api/sdk.gen";
 import { chatSessionsKey } from "./chat-api";
 import { ChatDialog } from "./chat-dialog";
 import { chatField, chatActionError } from "./chat-action-utils";
 import { loadProjects, projectSchema, type Project } from "./chat-workspace-api";
+import { ChatSessionRow } from "./chat-session-row";
 
 export function ChatProjectsPage() {
   const { actorId, authorizationVersion } = useApplicationSession();
-  const [editing, setEditing] = useState(false);
+  const [creating, setCreating] = useState(false);
   const projects = useQuery({
     queryKey: ["chat-projects", actorId, authorizationVersion],
     queryFn: ({ signal }) => loadProjects(signal),
   });
   return (
     <AppShell pageTitle="Dự án">
-      <div className="mx-auto w-full max-w-5xl overflow-y-auto p-6">
-        <div className="mb-6 flex justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold">Dự án</h1>
-            <p className="mt-2 text-content-secondary">
-              Gom hội thoại và dùng chung hướng dẫn cho một công việc.
-            </p>
-          </div>
-          <Button onClick={() => setEditing(true)}>Tạo dự án</Button>
+      <div className="mx-auto w-full max-w-3xl overflow-y-auto px-6 py-10">
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-medium">Dự án</h1>
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="size-4" />
+            Tạo dự án
+          </Button>
         </div>
         {projects.isPending && <p role="status">Đang tải dự án…</p>}
         {projects.isError && (
           <p role="alert">
-            Không tải được dự án.{" "}
-            <Button prominence="internal" onClick={() => void projects.refetch()}>
-              Tải lại
-            </Button>
+            Không tải được dự án. <Button onClick={() => void projects.refetch()}>Tải lại</Button>
           </p>
         )}
         {projects.data?.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-border-default p-8 text-content-secondary">
-            Chưa có dự án. Tạo dự án để bắt đầu nhóm hội thoại.
-          </p>
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <Folder className="size-10 text-content-muted" />
+            <h2 className="text-lg font-medium">Một nơi cho công việc của bạn</h2>
+            <p className="max-w-sm text-sm text-content-secondary">
+              Gom hội thoại và dùng chung hướng dẫn trong một dự án.
+            </p>
+            <Button prominence="secondary" onClick={() => setCreating(true)}>
+              Tạo dự án đầu tiên
+            </Button>
+          </div>
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="divide-y divide-border-subtle">
           {projects.data?.map((project) => (
             <Link
               key={project.id}
               to="/projects/$projectId"
               params={{ projectId: project.id }}
-              className="rounded-2xl border border-border-default p-5 hover:bg-surface-sunken focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center gap-3 rounded-xl p-4 hover:bg-surface-sunken focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <h2 className="text-lg font-medium">{project.name}</h2>
-              <p className="mt-2 text-sm text-content-secondary whitespace-pre-wrap">
-                {project.description || "Dự án riêng của bạn"}
-              </p>
+              <Folder className="size-5 shrink-0 text-content-muted" />
+              <div className="min-w-0">
+                <h2 className="truncate font-medium">{project.name}</h2>
+                {project.description && (
+                  <p className="mt-1 line-clamp-2 text-sm text-content-secondary">
+                    {project.description}
+                  </p>
+                )}
+              </div>
             </Link>
           ))}
         </div>
-        {editing && <ProjectEditor onClose={() => setEditing(false)} />}
+        {creating && <ProjectEditor onClose={() => setCreating(false)} />}
       </div>
     </AppShell>
   );
 }
 
-export function ChatProjectPage({ projectId }: { projectId: string }) {
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const navigate = useNavigate();
-  const cache = useQueryClient();
+export function ProjectContextPanel({ project }: { project: Project }) {
   const [editing, setEditing] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string>();
-  const project = useQuery({
-    queryKey: ["chat-project", actorId, authorizationVersion, projectId],
-    queryFn: async ({ signal }) =>
-      projectSchema.parse(
-        (await getChatProject({ path: { projectId }, signal, throwOnError: true })).data,
-      ),
-  });
+  const [deleting, setDeleting] = useState(false);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  const cache = useQueryClient();
+  const navigate = useNavigate();
+  return (
+    <div className="space-y-5 pt-4 text-left">
+      <div className="flex items-center gap-3">
+        <Folder className="size-7 shrink-0 text-content-muted" />
+        <h1 className="min-w-0 flex-1 break-words text-2xl font-medium">{project.name}</h1>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <IconButton
+              ref={menuTrigger}
+              size="sm"
+              prominence="internal"
+              aria-label="Thao tác dự án"
+            >
+              <MoreHorizontal />
+            </IconButton>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              sideOffset={5}
+              className="z-50 min-w-48 rounded-xl border border-border-subtle bg-surface-overlay p-1.5 shadow-md"
+              onCloseAutoFocus={(event) => {
+                if (editing || deleting) event.preventDefault();
+              }}
+            >
+              <DropdownMenu.Item
+                className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-surface-sunken"
+                onSelect={() => setEditing(true)}
+              >
+                <Pencil className="size-4" /> Chỉnh sửa dự án
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator className="my-1 border-t border-border-subtle" />
+              <DropdownMenu.Item
+                className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm text-status-danger-content outline-none data-[highlighted]:bg-surface-sunken"
+                onSelect={() => setDeleting(true)}
+              >
+                <Trash2 className="size-4" /> Xóa dự án
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+        <ConfirmDialog
+          open={deleting}
+          onOpenChange={setDeleting}
+          restoreFocusRef={menuTrigger}
+          title="Xóa dự án?"
+          description="Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử."
+          confirmLabel="Xóa dự án"
+          pendingLabel="Đang xóa…"
+          errorMessage={chatActionError}
+          onConfirm={async () => {
+            await deleteChatProject({
+              path: { projectId: project.id },
+              query: { revision: project.revision },
+              headers: sameOriginMutationHeaders,
+              signal: AbortSignal.timeout(30000),
+              throwOnError: true,
+            });
+            await Promise.all([
+              cache.invalidateQueries({ queryKey: ["chat-projects"] }),
+              cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
+              cache.invalidateQueries({ queryKey: chatSessionsKey }),
+            ]);
+            await navigate({ to: "/" });
+          }}
+        />
+      </div>
+      {project.description && (
+        <p className="whitespace-pre-wrap text-sm text-content-secondary">{project.description}</p>
+      )}
+      <button
+        type="button"
+        className="flex w-full items-start gap-3 rounded-xl border border-border-subtle p-4 text-left hover:bg-surface-sunken focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => setEditing(true)}
+      >
+        <Settings2 className="mt-0.5 size-4 shrink-0 text-content-muted" />
+        <span className="min-w-0">
+          <span className="block font-medium">Hướng dẫn dự án</span>
+          <span className="mt-1 block line-clamp-3 whitespace-pre-wrap text-sm text-content-secondary">
+            {project.instructions ||
+              "Thêm hướng dẫn để các cuộc trò chuyện hiểu công việc của bạn."}
+          </span>
+        </span>
+      </button>
+      {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
+    </div>
+  );
+}
+
+export function ProjectConversationList({
+  projectId,
+  compact = false,
+  onNavigate,
+}: {
+  projectId: string;
+  compact?: boolean;
+  onNavigate?: () => void;
+}) {
+  const { actorId, authorizationVersion } = useApplicationSession();
   const sessions = useInfiniteQuery({
     queryKey: ["chat-project-sessions", actorId, authorizationVersion, projectId],
     initialPageParam: 0,
@@ -105,169 +205,59 @@ export function ChatProjectPage({ projectId }: { projectId: string }) {
       last.length === 30 && pages.length * 30 <= 10000 ? pages.length * 30 : undefined,
   });
   return (
-    <AppShell pageTitle="Dự án">
-      <div className="mx-auto w-full max-w-4xl overflow-y-auto p-6">
-        <Link to="/projects" className="text-sm underline">
-          Tất cả dự án
-        </Link>
-        {project.isPending && (
-          <p role="status" className="mt-6">
-            Đang tải dự án…
-          </p>
-        )}
-        {project.isError && (
-          <p role="alert" className="mt-6">
-            Dự án không khả dụng.{" "}
-            <Button prominence="internal" onClick={() => void project.refetch()}>
-              Tải lại
-            </Button>
-          </p>
-        )}
-        {project.data && (
-          <>
-            <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold">{project.data.name}</h1>
-                <p className="mt-2 whitespace-pre-wrap text-content-secondary">
-                  {project.data.description}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button prominence="secondary" onClick={() => setEditing(true)}>
-                  Chỉnh sửa dự án
-                </Button>
-                <ConfirmDialog
-                  pendingLabel="Đang lưu…"
-                  title="Xóa dự án?"
-                  description="Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử."
-                  confirmLabel="Xóa dự án"
-                  errorMessage={chatActionError}
-                  trigger={<Button prominence="internal">Xóa</Button>}
-                  onConfirm={async () => {
-                    await deleteChatProject({
-                      path: { projectId },
-                      query: { revision: project.data.revision },
-                      headers: sameOriginMutationHeaders,
-                      signal: AbortSignal.timeout(30000),
-                      throwOnError: true,
-                    });
-                    await cache.invalidateQueries({ queryKey: ["chat-projects"] });
-                    await cache.invalidateQueries({ queryKey: chatSessionsKey });
-                    await navigate({ to: "/projects" });
-                  }}
-                />
-              </div>
-            </div>
-            <details className="my-6 rounded-xl border border-border-default p-4">
-              <summary className="cursor-pointer font-medium">Hướng dẫn dự án</summary>
-              <p className="mt-3 whitespace-pre-wrap text-sm">
-                {project.data.instructions || "Chưa có hướng dẫn."}
-              </p>
-              <p className="mt-3 text-xs text-content-muted">
-                Áp dụng cho lượt mới dùng trợ lý mặc định. Trợ lý riêng dùng hướng dẫn của mình.
-              </p>
-            </details>
-            <Button
-              pending={pending}
-              onClick={() => {
-                if (pending) return;
-                setPending(true);
-                setError(undefined);
-                void createProjectChatSession({
-                  path: { projectId },
-                  body: { title: "Hội thoại mới" },
-                  headers: sameOriginMutationHeaders,
-                  signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
-                })
-                  .then(async ({ data }) => {
-                    await cache.invalidateQueries({ queryKey: chatSessionsKey });
-                    await navigate({ to: "/chat/$sessionId", params: { sessionId: data.id } });
-                  })
-                  .catch((cause: unknown) => setError(chatActionError(cause)))
-                  .finally(() => setPending(false));
-              }}
-            >
-              Hội thoại mới trong dự án
-            </Button>
-            {error && (
-              <p role="alert" className="mt-4">
-                {error}
-              </p>
-            )}
-            {sessions.isError && (
-              <p role="alert" className="mt-4">
-                Không tải được hội thoại.{" "}
-                <Button prominence="internal" onClick={() => void sessions.refetch()}>
-                  Tải lại
-                </Button>
-              </p>
-            )}
-            {sessions.isPending && (
-              <p role="status" className="mt-4">
-                Đang tải hội thoại…
-              </p>
-            )}
-            <ul className="mt-6 divide-y divide-border-subtle">
-              {sessions.data?.pages.flat().map((session) => (
-                <li key={session.id} className="flex items-center justify-between gap-3 py-3">
-                  <Link
-                    className="min-w-0 truncate underline-offset-4 hover:underline"
-                    to="/chat/$sessionId"
-                    params={{ sessionId: session.id }}
-                  >
-                    {session.title}
-                  </Link>
-                  <ConfirmDialog
-                    pendingLabel="Đang lưu…"
-                    title="Đưa hội thoại ra khỏi dự án?"
-                    description="Hội thoại vẫn nằm trong lịch sử của bạn. Các lượt sau dùng cấu hình của trợ lý."
-                    confirmLabel="Đưa ra ngoài"
-                    errorMessage={chatActionError}
-                    trigger={
-                      <Button size="sm" prominence="internal">
-                        Đưa ra ngoài
-                      </Button>
-                    }
-                    onConfirm={async () => {
-                      await moveChatProject({
-                        path: { sessionId: session.id },
-                        body: { projectId: null },
-                        headers: sameOriginMutationHeaders,
-                        signal: AbortSignal.timeout(30000),
-                        throwOnError: true,
-                      });
-                      await sessions.refetch();
-                      await cache.invalidateQueries({ queryKey: chatSessionsKey });
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-            {sessions.data?.pages[0]?.length === 0 && (
-              <p className="mt-6 text-content-secondary">Chưa có hội thoại trong dự án.</p>
-            )}
-            {sessions.hasNextPage && (
-              <Button
-                prominence="secondary"
-                pending={sessions.isFetchingNextPage}
-                onClick={() => void sessions.fetchNextPage()}
-              >
-                Xem thêm
-              </Button>
-            )}
-            {editing && <ProjectEditor project={project.data} onClose={() => setEditing(false)} />}
-          </>
-        )}
-      </div>
-    </AppShell>
+    <section
+      className={compact ? "ml-4 border-l border-border-subtle pl-2" : "mt-6"}
+      aria-label="Hội thoại trong dự án"
+    >
+      {!compact && (
+        <h2 className="mb-3 text-sm font-medium text-content-secondary">Hội thoại gần đây</h2>
+      )}
+      {sessions.isPending && (
+        <p role="status" className="px-2 py-2 text-sm text-content-muted">
+          Đang tải hội thoại…
+        </p>
+      )}
+      {sessions.isError && (
+        <p role="alert" className="text-sm">
+          Không tải được hội thoại.{" "}
+          <Button size="sm" onClick={() => void sessions.refetch()}>
+            Tải lại
+          </Button>
+        </p>
+      )}
+      <ThreadList label="Hội thoại dự án">
+        {sessions.data?.pages.flat().map((session) => (
+          <ChatSessionRow
+            key={session.id}
+            session={session}
+            onNavigate={onNavigate}
+            showTime={!compact}
+          />
+        ))}
+      </ThreadList>
+      {sessions.data?.pages[0]?.length === 0 && (
+        <p className="px-2 py-3 text-sm text-content-muted">
+          Chưa có hội thoại{compact ? "." : ". Gửi câu hỏi ở trên để bắt đầu."}
+        </p>
+      )}
+      {sessions.hasNextPage && (
+        <Button
+          size="sm"
+          prominence="internal"
+          pending={sessions.isFetchingNextPage}
+          onClick={() => void sessions.fetchNextPage()}
+        >
+          Xem thêm hội thoại
+        </Button>
+      )}
+    </section>
   );
 }
 
-function ProjectEditor({ project, onClose }: { project?: Project; onClose: () => void }) {
+export function ProjectEditor({ project, onClose }: { project?: Project; onClose: () => void }) {
   const cache = useQueryClient();
+  const navigate = useNavigate();
   const [name, setName] = useState(project?.name ?? "");
-  const [description, setDescription] = useState(project?.description ?? "");
   const [instructions, setInstructions] = useState(project?.instructions ?? "");
   return (
     <ChatDialog
@@ -276,9 +266,14 @@ function ProjectEditor({ project, onClose }: { project?: Project; onClose: () =>
         if (!open) onClose();
       }}
       title={project ? "Chỉnh sửa dự án" : "Tạo dự án"}
-      description="Dự án và các hội thoại bên trong chỉ mình bạn quản lý."
+      description={
+        project
+          ? "Hướng dẫn áp dụng cho những lượt tiếp theo trong dự án."
+          : "Đặt tên cho công việc bạn muốn tập trung."
+      }
+      submitLabel={project ? "Lưu" : "Tạo dự án"}
       onSubmit={async () => {
-        const body = { name, description, instructions };
+        const body = { name: name.trim(), description: project?.description ?? "", instructions };
         if (project)
           await updateChatProject({
             path: { projectId: project.id },
@@ -288,41 +283,49 @@ function ProjectEditor({ project, onClose }: { project?: Project; onClose: () =>
             signal: AbortSignal.timeout(30000),
             throwOnError: true,
           });
-        else
-          await createChatProject({
+        else {
+          const { data } = await createChatProject({
             body,
             headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
             throwOnError: true,
           });
-        await cache.invalidateQueries({ queryKey: ["chat-projects"] });
-        await cache.invalidateQueries({ queryKey: ["chat-project"] });
+          await cache.invalidateQueries({ queryKey: ["chat-projects"] });
+          onClose();
+          await navigate({
+            to: "/projects/$projectId",
+            params: { projectId: projectSchema.parse(data).id },
+          });
+          return;
+        }
+        await Promise.all([
+          cache.invalidateQueries({ queryKey: ["chat-projects"] }),
+          cache.invalidateQueries({ queryKey: ["chat-project"] }),
+        ]);
       }}
     >
       <label className="block space-y-1">
         <span>Tên dự án</span>
-        <Input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
-      </label>
-      <label className="block space-y-1">
-        <span>Mô tả</span>
-        <textarea
-          className={chatField}
-          maxLength={2000}
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
+        <Input
+          autoFocus
+          required
+          maxLength={200}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
         />
       </label>
-      <label className="block space-y-1">
-        <span>Hướng dẫn dự án</span>
-        <textarea
-          className={chatField}
-          maxLength={32000}
-          rows={6}
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-        />
-      </label>
+      {project && (
+        <label className="block space-y-1">
+          <span>Hướng dẫn dự án</span>
+          <textarea
+            className={chatField}
+            maxLength={32000}
+            rows={6}
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+          />
+        </label>
+      )}
     </ChatDialog>
   );
 }

@@ -1,5 +1,11 @@
+import { sameOriginMutationHeaders } from "@/lib/api";
 import { z } from "zod";
-import { listChatPersonas, listChatProjects, listChatPersonaSources } from "@/lib/hey-api/sdk.gen";
+import {
+  moveChatProject,
+  listChatPersonas,
+  listChatProjects,
+  listChatPersonaSources,
+} from "@/lib/hey-api/sdk.gen";
 
 export const personaSchema = z.object({
   id: z.string().uuid(),
@@ -79,4 +85,14 @@ export function loadPersonaSources(signal: AbortSignal) {
         .data,
     ),
   );
+}
+
+export async function moveConversation(sessionId: string, projectId: string | null) {
+  await moveChatProject({
+    path: { sessionId },
+    body: { projectId },
+    headers: sameOriginMutationHeaders,
+    signal: AbortSignal.timeout(30000),
+    throwOnError: true,
+  });
 }

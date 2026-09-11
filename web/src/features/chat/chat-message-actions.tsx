@@ -1,25 +1,114 @@
-import { ChatEditingContext } from "./chat-editing-context";
-import { useContext, useRef, useState } from "react";
+import { useContext, useRef, useState, type ReactNode } from "react";
 import { useAuiState } from "@assistant-ui/react";
-import { ChevronLeft, ChevronRight, Pencil, RotateCcw, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { IconButton } from "@/components/ui/icon-button";
-import { Select } from "@/components/ui/select";
+import { EditMessage } from "@/components/assistant-ui/elements/edit-message";
+import { MessageBranches } from "@/components/assistant-ui/elements/message-branches";
+import { MessageActions, type Reaction } from "@/components/assistant-ui/elements/message-actions";
+import { FeedbackDialog } from "@/components/assistant-ui/elements/feedback-dialog";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { setChatFeedback, removeChatFeedback } from "@/lib/hey-api/sdk.gen";
+import { ChatEditingContext } from "./chat-editing-context";
 import { ChatDialog } from "./chat-dialog";
-import { chatField } from "./chat-action-utils";
+import { chatActionError } from "./chat-action-utils";
 import type { Feedback } from "./chat-workspace-api";
+
+export function ChatUserMessageContent({
+  children,
+  readOnly,
+}: {
+  children: ReactNode;
+  readOnly: boolean;
+}) {
+  const editing = useContext(ChatEditingContext);
+  const message = useAuiState((state) => state.message);
+  const [editor, setEditor] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  const request = useRef(crypto.randomUUID());
+  const inFlight = useRef(false);
+  const available =
+    !readOnly &&
+    !!editing?.sessionId &&
+    editing.branches.some((entry) => entry.id === message.id && entry.parentMessageId);
+  return (
+    <>
+      {editor && editing && available ? (
+        <EditMessage
+          value={text}
+          pending={saving}
+          saveDisabled={editing.busy}
+          error={error}
+          onValueChange={(value) => {
+            setText(value);
+            request.current = crypto.randomUUID();
+          }}
+          onCancel={() => {
+            setEditor(false);
+            setError(undefined);
+          }}
+          onSave={() => {
+            if (inFlight.current || editing.busy) return;
+            inFlight.current = true;
+            setSaving(true);
+            setError(undefined);
+            void editing
+              .edit(message.id, text, request.current)
+              .then(() => setEditor(false))
+              .catch((cause: unknown) => setError(chatActionError(cause)))
+              .finally(() => {
+                inFlight.current = false;
+                setSaving(false);
+              });
+          }}
+        />
+      ) : (
+        <div className="max-w-[90%] rounded-2xl bg-surface-sunken px-4 py-3 whitespace-pre-wrap [overflow-wrap:anywhere]">
+          {children}
+        </div>
+      )}
+      {available && !editor && (
+        <div className="mt-1 flex items-center gap-1">
+          <IconButton
+            aria-label="Chỉnh sửa câu hỏi"
+            title="Chỉnh sửa câu hỏi"
+            size="sm"
+            prominence="internal"
+            disabled={editing.busy}
+            onClick={() => {
+              setText(
+                message.parts
+                  .filter((part) => part.type === "text")
+                  .map((part) => part.text)
+                  .join(""),
+              );
+              request.current = crypto.randomUUID();
+              setError(undefined);
+              setEditor(true);
+            }}
+          >
+            <Pencil />
+          </IconButton>
+          <ChatMessageActions role="user" />
+        </div>
+      )}
+    </>
+  );
+}
 
 export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
   const editing = useContext(ChatEditingContext);
   const message = useAuiState((state) => state.message);
-  const [editor, setEditor] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [text, setText] = useState("");
-  const editRequest = useRef(crypto.randomUUID());
+  const [rating, setRating] = useState<Reaction>(null);
+  const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState<string>();
+  const removeBusy = useRef(false);
   const regenerateRequest = useRef(crypto.randomUUID());
+  const cache = useQueryClient();
   if (!editing?.sessionId) return null;
+  const sessionId = editing.sessionId;
   const node = editing.branches.find((entry) => entry.id === message.id);
   if (!node?.parentMessageId) return null;
   const siblings = editing.branches.filter(
@@ -27,35 +116,26 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
   );
   const index = siblings.findIndex((entry) => entry.id === message.id);
   const feedback = editing.feedback.find((entry) => entry.assistantMessageId === message.id);
-  const content = message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join("");
+  const content = message.parts.some((part) => part.type === "text" && part.text.trim());
   return (
     <>
-      {role === "user" ? (
-        <IconButton
-          aria-label="Chỉnh sửa câu hỏi"
-          title="Chỉnh sửa câu hỏi"
-          size="sm"
-          prominence="internal"
-          disabled={editing.busy}
-          onClick={() => {
-            setText(content);
-            editRequest.current = crypto.randomUUID();
-            setEditor(true);
-          }}
-        >
-          <Pencil />
-        </IconButton>
-      ) : (
-        <IconButton
-          aria-label="Tạo lại câu trả lời"
-          title="Tạo lại câu trả lời"
-          size="sm"
-          prominence="internal"
-          disabled={editing.busy}
-          onClick={() => {
+      <MessageBranches
+        label={role === "user" ? "Phiên bản câu hỏi" : "Phiên bản câu trả lời"}
+        count={siblings.length}
+        index={index}
+        disabled={editing.busy}
+        onIndexChange={(next) => {
+          void editing.branch(siblings[next]!.id, message.id).catch(() => {});
+        }}
+      />
+      {role === "assistant" && (
+        <MessageActions
+          feedbackAvailable={content}
+          reaction={
+            feedback?.positive === true ? "up" : feedback?.positive === false ? "down" : null
+          }
+          disabled={editing.busy || removing}
+          onRegenerate={() => {
             void editing
               .regenerate(node.parentMessageId!, regenerateRequest.current)
               .then(() => {
@@ -63,173 +143,102 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
               })
               .catch(() => {});
           }}
-        >
-          <RotateCcw />
-        </IconButton>
-      )}
-      {siblings.length > 1 && (
-        <div
-          role="group"
-          aria-label={role === "user" ? "Phiên bản câu hỏi" : "Phiên bản câu trả lời"}
-          className="flex items-center gap-1 text-xs"
-        >
-          <IconButton
-            size="sm"
-            prominence="internal"
-            aria-label="Phiên bản trước"
-            disabled={editing.busy || index <= 0}
-            onClick={() => void editing.branch(siblings[index - 1]!.id, message.id).catch(() => {})}
-          >
-            <ChevronLeft />
-          </IconButton>
-          <span>
-            {index + 1} / {siblings.length}
-          </span>
-          <IconButton
-            size="sm"
-            prominence="internal"
-            aria-label="Phiên bản sau"
-            disabled={editing.busy || index >= siblings.length - 1}
-            onClick={() => void editing.branch(siblings[index + 1]!.id, message.id).catch(() => {})}
-          >
-            <ChevronRight />
-          </IconButton>
-        </div>
-      )}
-      {role === "assistant" && content.trim() && (
-        <IconButton
-          aria-label="Đánh giá câu trả lời"
-          title="Đánh giá câu trả lời"
-          size="sm"
-          prominence="internal"
-          aria-pressed={!!feedback}
-          disabled={editing.busy}
-          onClick={() => setFeedbackOpen(true)}
-        >
-          {feedback?.positive === false ? <ThumbsDown /> : <ThumbsUp />}
-        </IconButton>
-      )}
-      {editor && (
-        <ChatDialog
-          open
-          onOpenChange={setEditor}
-          title="Chỉnh sửa câu hỏi"
-          description="Tạo một nhánh mới. Câu hỏi và câu trả lời cũ vẫn có thể chọn lại."
-          submitLabel="Lưu và gửi"
-          onSubmit={async () => {
-            await editing.edit(message.id, text, editRequest.current);
+          onReactionChange={(next) => {
+            setError(undefined);
+            if (next) {
+              setRating(next);
+              return;
+            }
+            if (removeBusy.current) return;
+            removeBusy.current = true;
+            setRemoving(true);
+            void removeChatFeedback({
+              path: { sessionId, assistantMessageId: message.id },
+              headers: sameOriginMutationHeaders,
+              signal: AbortSignal.timeout(30000),
+              throwOnError: true,
+            })
+              .then(() => cache.invalidateQueries({ queryKey: ["chat-feedback", sessionId] }))
+              .catch((cause: unknown) => setError(chatActionError(cause)))
+              .finally(() => {
+                removeBusy.current = false;
+                setRemoving(false);
+              });
           }}
-        >
-          <textarea
-            aria-label="Nội dung câu hỏi"
-            required
-            maxLength={32000}
-            rows={6}
-            className={chatField}
-            value={text}
-            onChange={(event) => {
-              setText(event.target.value);
-              editRequest.current = crypto.randomUUID();
-            }}
-          />
-        </ChatDialog>
+        />
       )}
-      {feedbackOpen && (
+      {error && (
+        <p role="alert" className="text-xs">
+          {error}
+        </p>
+      )}
+      {rating && (
         <FeedbackEditor
-          sessionId={editing.sessionId}
+          sessionId={sessionId}
           messageId={message.id}
           feedback={feedback}
-          onClose={() => setFeedbackOpen(false)}
+          positive={rating === "up"}
+          onClose={() => setRating(null)}
         />
       )}
     </>
   );
 }
 
+const REASONS = {
+  incorrect: "Thông tin chưa đúng",
+  incomplete: "Thiếu thông tin",
+  sources: "Nguồn chưa phù hợp",
+  style: "Cách trình bày",
+};
 function FeedbackEditor({
   sessionId,
   messageId,
   feedback,
+  positive,
   onClose,
 }: {
   sessionId: string;
   messageId: string;
   feedback?: Feedback;
+  positive: boolean;
   onClose: () => void;
 }) {
   const cache = useQueryClient();
-  const [rating, setRating] = useState(
-    feedback?.positive === false ? "negative" : feedback?.positive === true ? "positive" : "",
-  );
   const [comment, setComment] = useState(feedback?.comment ?? "");
   const [reason, setReason] = useState(feedback?.reason ?? "");
-  const [remove, setRemove] = useState(false);
+  const selectedLabel = REASONS[reason as keyof typeof REASONS] ?? reason;
+  const reasons = Object.values(REASONS);
+  if (selectedLabel && !reasons.includes(selectedLabel)) reasons.push(selectedLabel);
   return (
     <ChatDialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      title="Đánh giá câu trả lời"
-      description="Đánh giá gắn với đúng phiên bản câu trả lời này."
+      title={positive ? "Đánh giá hữu ích" : "Đánh giá chưa hữu ích"}
+      description="Góp ý được lưu cho đúng phiên bản câu trả lời này."
+      submitLabel="Gửi đánh giá"
       onSubmit={async () => {
-        const path = { sessionId, assistantMessageId: messageId };
-        if (remove)
-          await removeChatFeedback({
-            path,
-            headers: sameOriginMutationHeaders,
-            throwOnError: true,
-          });
-        else
-          await setChatFeedback({
-            path,
-            body: { positive: rating ? rating === "positive" : null, comment, reason },
-            headers: sameOriginMutationHeaders,
-            throwOnError: true,
-          });
+        await setChatFeedback({
+          path: { sessionId, assistantMessageId: messageId },
+          body: { positive, comment, reason },
+          headers: sameOriginMutationHeaders,
+          signal: AbortSignal.timeout(30000),
+          throwOnError: true,
+        });
         await cache.invalidateQueries({ queryKey: ["chat-feedback", sessionId] });
       }}
     >
-      <fieldset disabled={remove} className="space-y-4">
-        <label className="block space-y-1">
-          <span>Mức độ hữu ích</span>
-          <Select value={rating} onChange={(e) => setRating(e.target.value)}>
-            <option value="">Chỉ góp ý</option>
-            <option value="positive">Hữu ích</option>
-            <option value="negative">Chưa hữu ích</option>
-          </Select>
-        </label>
-        <label className="block space-y-1">
-          <span>Lý do</span>
-          <Select value={reason} onChange={(e) => setReason(e.target.value)}>
-            <option value="">Chọn lý do (không bắt buộc)</option>
-            <option value="incorrect">Thông tin chưa đúng</option>
-            <option value="incomplete">Thiếu thông tin</option>
-            <option value="sources">Nguồn chưa phù hợp</option>
-            <option value="style">Cách trình bày</option>
-            {reason && !["incorrect", "incomplete", "sources", "style"].includes(reason) && (
-              <option value={reason}>{reason}</option>
-            )}
-          </Select>
-        </label>
-        <label className="block space-y-1">
-          <span>Góp ý</span>
-          <textarea
-            className={chatField}
-            rows={4}
-            maxLength={4000}
-            required={!rating}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-        </label>
-      </fieldset>
-      {feedback && (
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={remove} onChange={(e) => setRemove(e.target.checked)} />
-          Xóa đánh giá đã lưu
-        </label>
-      )}
+      <FeedbackDialog
+        reasons={reasons}
+        selected={selectedLabel}
+        note={comment}
+        onNoteChange={setComment}
+        onToggleReason={(label) =>
+          setReason(Object.entries(REASONS).find(([, value]) => value === label)?.[0] ?? label)
+        }
+      />
     </ChatDialog>
   );
 }

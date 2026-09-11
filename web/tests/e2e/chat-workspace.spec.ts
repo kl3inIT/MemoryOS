@@ -22,8 +22,8 @@ test("edits, regenerates, selects saved branches, rates, shares, revokes and del
   ).json();
   const ownUrl = `/chat/${session.id}`;
   await page.goto(ownUrl);
-  await page.getByRole("textbox", { name: "Message", exact: true }).fill("Original question");
-  await page.getByRole("button", { name: "Send message" }).click();
+  await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Original question");
+  await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
   await expect(page.getByRole("button", { name: "Chỉnh sửa câu hỏi" })).toBeEnabled();
   await page.getByRole("button", { name: "Chỉnh sửa câu hỏi" }).click();
   await page.getByRole("textbox", { name: "Nội dung câu hỏi" }).fill("Edited question");
@@ -45,18 +45,17 @@ test("edits, regenerates, selects saved branches, rates, shares, revokes and del
     data: { messageId: firstQuestion.id, expectedChildId: session.rootMessageId },
   });
   expect(staleBranch.status()).toBe(409);
-  await expect(page.getByRole("button", { name: "Đánh giá câu trả lời" })).toBeEnabled();
-  await page.getByRole("button", { name: "Đánh giá câu trả lời" }).click();
-  await page.getByLabel("Mức độ hữu ích").selectOption("negative");
+  await expect(page.getByRole("button", { name: "Không hữu ích" })).toBeEnabled();
+  await page.getByRole("button", { name: "Không hữu ích" }).click();
   await page.getByRole("textbox", { name: "Góp ý", exact: true }).fill("Please add details");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Đánh giá câu trả lời" })).toHaveAttribute(
+  await page.getByRole("dialog").getByRole("button", { name: "Gửi đánh giá" }).click();
+  await expect(page.getByRole("button", { name: "Không hữu ích" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
   await answers.getByRole("button", { name: "Phiên bản trước" }).click();
   await expect(answers.getByText("1 / 2")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Đánh giá câu trả lời" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Không hữu ích" })).toHaveAttribute(
     "aria-pressed",
     "false",
   );
@@ -72,28 +71,41 @@ test("edits, regenerates, selects saved branches, rates, shares, revokes and del
   await expect(page.getByRole("main").getByText("Edited question", { exact: true })).toHaveCount(0);
   const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
   expect(stats.sends).toBe(3);
-  await page.getByRole("button", { name: "Đổi tên", exact: true }).click();
+  await page
+    .getByRole("complementary")
+    .getByRole("button", { name: "Thao tác hội thoại Workspace versions" })
+    .click();
+  await page.getByRole("menuitem", { name: "Đổi tên", exact: true }).click();
   await page.getByRole("textbox", { name: "Tên hội thoại" }).fill("Renamed workspace");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
+  await page.getByRole("button", { name: "Lưu tên hội thoại" }).click();
+  await expect(page.getByRole("banner")).toContainText("Renamed workspace");
   await expect(page.getByRole("link", { name: "Renamed workspace" })).toBeVisible();
   await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
-  await page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" }).selectOption("shared");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
+  await page.getByRole("radio", { name: "Chia sẻ trong tổ chức", exact: true }).check();
+  await page.getByRole("dialog").getByRole("button", { name: "Tạo liên kết" }).click();
+  await expect(page.getByRole("textbox", { name: "Liên kết chỉ đọc" })).toHaveValue(
+    new URL(`/shared/${session.id}`, page.url()).href,
+  );
   await page.goto(`/shared/${session.id}`);
   await expect(page.getByRole("heading", { name: "Renamed workspace" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Chỉnh sửa câu hỏi" })).toHaveCount(0);
   await page.goto(ownUrl);
   await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" })).toHaveValue(
-    "shared",
-  );
-  await page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" }).selectOption("private");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect(
+    page.getByRole("radio", { name: "Chia sẻ trong tổ chức", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("radio", { name: "Riêng tư", exact: true }).check();
+  await page.getByRole("dialog").getByRole("button", { name: "Thu hồi liên kết" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Hội thoại đang riêng tư.");
   await page.goto(`/shared/${session.id}`);
   await expect(page.getByRole("alert")).toContainText("Hội thoại không khả dụng");
   await page.goto(ownUrl);
-  await page.getByRole("button", { name: "Xóa", exact: true }).click();
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: "Thao tác hội thoại Renamed workspace" })
+    .click();
+  await page.getByRole("menuitem", { name: "Xóa", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Xóa hội thoại" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Renamed workspace" })).toHaveCount(0);
@@ -206,9 +218,7 @@ test("reopening sharing waits for the new revision before allowing save", async 
   ).json();
   await page.goto(`/chat/${session.id}`);
   await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" })).toHaveValue(
-    "private",
-  );
+  await expect(page.getByRole("radio", { name: "Riêng tư", exact: true })).toBeChecked();
   await page.getByRole("dialog").getByRole("button", { name: "Đóng", exact: true }).click();
   await page.request.put(`/api/chat/sessions/${session.id}/sharing`, {
     data: { enabled: true, revision: 0 },
@@ -226,17 +236,20 @@ test("reopening sharing waits for the new revision before allowing save", async 
     await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
     await expect.poll(() => waiting).toBe(true);
     await expect(
-      page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }),
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: /Tạo liên kết|Sao chép liên kết|Thu hồi liên kết/ }),
     ).toHaveCount(0);
   } finally {
     refresh.resolve();
   }
-  await expect(page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" })).toHaveValue(
-    "shared",
-  );
-  await page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" }).selectOption("private");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("radio", { name: "Chia sẻ trong tổ chức", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("radio", { name: "Riêng tư", exact: true }).check();
+  await page.getByRole("dialog").getByRole("button", { name: "Thu hồi liên kết" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Hội thoại đang riêng tư.");
+  await expect(page.getByRole("dialog")).toBeVisible();
   const sharing = await (await page.request.get(`/api/chat/sessions/${session.id}/sharing`)).json();
   expect(sharing).toMatchObject({ enabled: false, revision: 2 });
 });
@@ -273,61 +286,283 @@ test("malformed shared sources show the unavailable state without crashing the p
   expect(crashes).toEqual([]);
 });
 
-test("creates and edits project instructions and retains its conversation when deleted", async ({
+test("creates a project draft, sends once without remounting, edits instructions and preserves chats on deletion", async ({
   page,
 }) => {
-  const id = "50000000-0000-4000-8000-000000000001";
-  const session = await (
-    await page.request.post("/api/chat/test-fixture", { data: { title: "Project conversation" } })
-  ).json();
-  let saved: Record<string, unknown> | undefined;
-  await page.route("**/api/chat/projects**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    if (url.pathname.endsWith("/sessions")) {
-      if (request.method() === "POST")
-        return route.fulfill({ status: 201, json: { ...session, projectId: id } });
-      return route.fulfill({ json: [session] });
-    }
-    if (request.method() === "DELETE") {
-      saved = undefined;
-      return route.fulfill({ status: 204 });
-    }
-    if (request.method() === "POST" || request.method() === "PUT") {
-      saved = {
-        ...request.postDataJSON(),
-        id,
-        revision: saved ? 1 : 0,
-        updatedAt: new Date().toISOString(),
-      };
-      return route.fulfill({ status: request.method() === "POST" ? 201 : 200, json: saved });
-    }
-    return route.fulfill({ json: url.pathname.endsWith(id) ? saved : saved ? [saved] : [] });
+  const created: Array<{ projectId?: string }> = [];
+  const historyReads: string[] = [];
+  const streams: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() === "POST" && path === "/api/chat/sessions")
+      created.push(request.postDataJSON());
+    if (
+      request.method() === "GET" &&
+      /\/api\/chat\/sessions\/[0-9a-f-]+(?:\/messages)?$/.test(path)
+    )
+      historyReads.push(path);
+    if (path.endsWith("/events")) streams.push(path);
   });
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Tạo dự án" }).click();
+  await page.getByRole("main").getByRole("button", { name: "Tạo dự án", exact: true }).click();
   await page.getByLabel("Tên dự án").fill("Policy review");
-  await page.getByLabel("Hướng dẫn dự án").fill("Summarize each policy for new staff.");
+  await expect(page.getByLabel("Hướng dẫn dự án")).toHaveCount(0);
+  await page.getByRole("dialog").getByRole("button", { name: "Tạo dự án", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+$/);
+  const projectUrl = page.url();
+  const projectId = projectUrl.split("/").at(-1);
+  await expect(page.getByRole("heading", { name: "Policy review" })).toBeVisible();
+  const input = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await input.fill("Draft only");
+  expect(created).toHaveLength(0);
+  await input.clear();
+  await page.getByRole("button", { name: /Hướng dẫn dự án/ }).click();
+  await page.getByLabel("Hướng dẫn dự án", { exact: true }).fill("Include effective dates.");
   await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
-  await page.getByRole("link", { name: /Policy review/ }).click();
-  await page.getByText("Hướng dẫn dự án", { exact: true }).click();
-  await expect(page.getByText("Summarize each policy for new staff.")).toBeVisible();
-  await page.getByRole("button", { name: "Chỉnh sửa dự án" }).click();
-  await page.getByLabel("Hướng dẫn dự án").fill("Include effective dates.");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
-  await expect(page.getByText("Include effective dates.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Hướng dẫn dự án/ })).toContainText(
+    "Include effective dates.",
+  );
+  await page.screenshot({ path: "../.tmp/mem11-ui-project-empty-desktop.png", fullPage: true });
+  const composer = await input.elementHandle();
+  await input.fill("Project policy question");
+  await input.press("Enter");
+  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]+$/);
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  expect(created).toEqual([expect.objectContaining({ projectId })]);
+  expect(historyReads).toEqual([]);
+  expect(streams).toHaveLength(1);
+  expect(await composer!.evaluate((element) => element.isConnected)).toBe(true);
+  const sessionUrl = page.url();
+  const sessionId = sessionUrl.split("/").at(-1);
+  await page.goto(projectUrl);
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Project conversation" }),
+    page.getByRole("main").getByRole("link", { name: /Project policy question/ }),
   ).toBeVisible();
+  await page.screenshot({ path: "../.tmp/mem11-ui-project-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("heading", { name: "Policy review" })).toBeVisible();
-  await page.screenshot({ path: "../.tmp/mem11-project-mobile.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
-  await page.getByRole("button", { name: "Xóa", exact: true }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Xóa dự án" }).click();
-  await expect(page).toHaveURL(/\/projects\/?$/);
+  await page.screenshot({ path: "../.tmp/mem11-ui-project-mobile.png", fullPage: true });
+  await page.getByRole("button", { name: "Thao tác dự án" }).click();
+  await page.getByRole("menuitem", { name: "Xóa dự án", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Xóa dự án", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto(sessionUrl);
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  const savedSession = await (await page.request.get(`/api/chat/sessions/${sessionId}`)).json();
+  expect(savedSession.projectId).toBeNull();
+  expect((await page.request.get(`/api/chat/projects/${projectId}`)).status()).toBe(404);
+});
+
+test("moves and removes a conversation with keyboard menus and desktop drag and drop", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Movable conversation" } })
+  ).json();
+  const project = await (
+    await page.request.post("/api/chat/projects", {
+      data: { name: "Move destination", description: "", instructions: "Use the project context." },
+    })
+  ).json();
   await page.goto(`/chat/${session.id}`);
-  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeVisible();
+  const headerMenu = page
+    .getByRole("banner")
+    .getByRole("button", { name: "Thao tác hội thoại Movable conversation" });
+  await headerMenu.focus();
+  await headerMenu.press("Enter");
+  const move = page.getByRole("menuitem", { name: "Chuyển vào dự án" });
+  await move.focus();
+  await move.press("Enter");
+  const destination = page.getByRole("radio", { name: "Move destination" });
+  await destination.focus();
+  await destination.press("Space");
+  await expect(destination).toBeChecked();
+  await page.getByRole("dialog").getByRole("button", { name: "Chuyển", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(headerMenu).toBeFocused();
+  expect(
+    (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
+  ).toBe(project.id);
+  await page.getByRole("button", { name: "Mở rộng dự án Move destination" }).click();
+  const folder = page.locator(`[data-project-id="${project.id}"]`);
+  await expect(
+    folder.getByRole("link", { name: "Movable conversation", exact: true }),
+  ).toBeVisible();
+  await headerMenu.click();
+  await page.getByRole("menuitem", { name: "Chuyển vào dự án" }).click();
+  await page.getByRole("radio", { name: "Ngoài dự án" }).check();
+  await page.getByRole("dialog").getByRole("button", { name: "Chuyển", exact: true }).click();
+  await expect(folder.getByRole("link", { name: "Movable conversation", exact: true })).toHaveCount(
+    0,
+  );
+  const row = page
+    .getByRole("complementary")
+    .locator('[data-slot="thread-list-row"]')
+    .filter({ has: page.getByRole("link", { name: "Movable conversation", exact: true }) });
+  await row.dragTo(folder.getByRole("link", { name: "Move destination", exact: true }));
+  await expect(
+    folder.getByRole("link", { name: "Movable conversation", exact: true }),
+  ).toBeVisible();
+  expect(
+    (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
+  ).toBe(project.id);
+  const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
+  expect(stats.sends).toBe(0);
+  await page.request.delete(`/api/chat/projects/${project.id}?revision=0`);
+});
+
+test("preserves rename and inline edit drafts after errors and uses the same request ID on retry", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Draft recovery" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  const sidebar = page.getByRole("complementary");
+  await sidebar.getByRole("button", { name: "Thao tác hội thoại Draft recovery" }).click();
+  await page.getByRole("menuitem", { name: "Đổi tên", exact: true }).click();
+  const title = page.getByRole("textbox", { name: "Tên hội thoại" });
+  await expect(title).toBeFocused();
+  await title.fill("Canceled title");
+  await title.press("Escape");
+  await expect(sidebar.getByRole("link", { name: "Draft recovery", exact: true })).toBeFocused();
+  await sidebar.getByRole("button", { name: "Thao tác hội thoại Draft recovery" }).click();
+  await page.getByRole("menuitem", { name: "Đổi tên", exact: true }).click();
+  await title.fill("Recovered title");
+  let failRename = true;
+  await page.route(`**/api/chat/sessions/${session.id}/title`, (route) =>
+    failRename ? route.fulfill({ status: 503, json: {} }) : route.continue(),
+  );
+  await title.press("Enter");
+  await expect(sidebar.getByRole("alert")).toBeVisible();
+  await expect(title).toHaveValue("Recovered title");
+  failRename = false;
+  await title.press("Enter");
+  await expect(page.getByRole("banner")).toContainText("Recovered title");
+  await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Original draft");
+  await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  await expect(page.getByRole("button", { name: "Chỉnh sửa câu hỏi" })).toBeEnabled();
+  await expect(page.getByRole("banner")).toContainText("Recovered title");
+  await page.getByRole("button", { name: "Chỉnh sửa câu hỏi" }).click();
+  const editor = page.getByRole("textbox", { name: "Nội dung câu hỏi" });
+  await expect(editor).toBeFocused();
+  await editor.fill("Retry this edited draft");
+  let failEdit = true;
+  const requests: string[] = [];
+  await page.route(`**/api/chat/sessions/${session.id}/messages/*/edit`, (route) => {
+    requests.push(route.request().postDataJSON().clientRequestId);
+    return failEdit ? route.fulfill({ status: 503, json: {} }) : route.continue();
+  });
+  await page.getByRole("button", { name: "Lưu và gửi" }).click();
+  await expect(page.locator('[data-slot="edit-message"]').getByRole("alert")).toBeVisible();
+  await expect(editor).toHaveValue("Retry this edited draft");
+  await expect(page.getByRole("button", { name: "Hủy", exact: true })).toBeEnabled();
+  await page.screenshot({ path: "../.tmp/mem11-ui-inline-error.png", fullPage: true });
+  failEdit = false;
+  await page.getByRole("button", { name: "Kiểm tra hội thoại" }).click();
+  await expect(page.getByRole("button", { name: "Lưu và gửi" })).toBeEnabled();
+  await page.getByRole("button", { name: "Lưu và gửi" }).click();
+  await expect(
+    page.getByRole("main").getByText("Retry this edited draft", { exact: true }),
+  ).toBeVisible();
+  expect(requests).toHaveLength(2);
+  expect(requests[0]).toBe(requests[1]);
+  expect(
+    (await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json()).sends,
+  ).toBe(2);
+});
+
+test("shares in one dialog with manual copying fallback and restores keyboard focus", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", {
+      data: { title: "Sharing clipboard fallback" },
+    })
+  ).json();
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new DOMException("Denied", "NotAllowedError")) },
+    }),
+  );
+  await page.goto(`/chat/${session.id}`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const share = page.getByRole("button", { name: "Chia sẻ", exact: true });
+  await share.click();
+  await page.getByRole("radio", { name: "Riêng tư", exact: true }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("radio", { name: "Chia sẻ trong tổ chức", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("button", { name: "Tạo liên kết", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Chưa sao chép được.");
+  await expect(page.getByRole("textbox", { name: "Liên kết chỉ đọc" })).toHaveValue(
+    new URL(`/shared/${session.id}`, page.url()).href,
+  );
+  await page.screenshot({ path: "../.tmp/mem11-ui-sharing-mobile.png", fullPage: true });
+  await page.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(share).toBeFocused();
+});
+
+test("keeps feedback drafts on failure, reloads the saved reaction and removes it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
+  await page.screenshot({ path: "../.tmp/mem11-ui-new-chat-desktop.png", fullPage: true });
+  await page.getByRole("button", { name: "Tenant member", exact: true }).click();
+  await page.getByRole("button", { name: "Use dark theme" }).click();
+  await page.keyboard.press("Escape");
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Review the policy" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  await page
+    .getByRole("textbox", { name: "Câu hỏi", exact: true })
+    .fill("Summarize the policy for new staff.");
+  await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  const negative = page.getByRole("button", { name: "Không hữu ích", exact: true });
+  await expect(negative).toBeEnabled();
+  await page.screenshot({ path: "../.tmp/mem11-ui-conversation-dark.png", fullPage: true });
+  const menu = page
+    .getByRole("banner")
+    .getByRole("button", { name: "Thao tác hội thoại Review the policy" });
+  await menu.click();
+  await page.screenshot({ path: "../.tmp/mem11-ui-conversation-menu.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Chỉnh sửa câu hỏi" }).click();
+  await page.screenshot({ path: "../.tmp/mem11-ui-inline-editor.png", fullPage: true });
+  await page.getByRole("button", { name: "Hủy", exact: true }).click();
+  await negative.click();
+  await page.getByRole("button", { name: "Thiếu thông tin", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Góp ý", exact: true })
+    .fill("Explain the effective date.");
+  let fail = true;
+  await page.route(`**/api/chat/sessions/${session.id}/messages/*/feedback`, (route) =>
+    fail ? route.fulfill({ status: 503, json: {} }) : route.continue(),
+  );
+  await page.getByRole("button", { name: "Gửi đánh giá" }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Góp ý", exact: true })).toHaveValue(
+    "Explain the effective date.",
+  );
+  fail = false;
+  await page.getByRole("button", { name: "Gửi đánh giá" }).click();
+  await expect(negative).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(negative).toHaveAttribute("aria-pressed", "true");
+  await negative.click();
+  await expect(negative).toHaveAttribute("aria-pressed", "false");
+  expect(
+    await (await page.request.get(`/api/chat/sessions/${session.id}/feedback`)).json(),
+  ).toEqual([]);
 });

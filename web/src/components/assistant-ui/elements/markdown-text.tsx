@@ -9,7 +9,7 @@ import {
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
 import remarkGfm from "remark-gfm";
-import { type FC, memo, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentProps, type FC, memo, useEffect, useMemo, useRef, useState } from "react";
 import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
@@ -93,7 +93,22 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   );
 };
 
-const defaultComponents = memoizeMarkdownComponents({
+// The code-fence adapter synthesizes pre props through a callback ref. Its AST
+// node may lag behind children during deferred rendering, so a node-only memo
+// comparison can retain a truncated code block after the final chunk.
+function Pre({ className, node: _node, ...props }: ComponentProps<"pre"> & { node?: unknown }) {
+  return (
+    <pre
+      className={cn(
+        "aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-[13px] leading-relaxed",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+const memoizedComponents = memoizeMarkdownComponents({
   h1: ({ className, ...props }) => (
     <h1
       className={cn(
@@ -228,15 +243,6 @@ const defaultComponents = memoizeMarkdownComponents({
   sup: ({ className, ...props }) => (
     <sup className={cn("aui-md-sup [&>a]:text-xs [&>a]:no-underline", className)} {...props} />
   ),
-  pre: ({ className, ...props }) => (
-    <pre
-      className={cn(
-        "aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-[13px] leading-relaxed",
-        className,
-      )}
-      {...props}
-    />
-  ),
   code: function Code({ className, ...props }) {
     const isCodeBlock = useIsMarkdownCodeBlock();
     return (
@@ -252,3 +258,5 @@ const defaultComponents = memoizeMarkdownComponents({
   },
   CodeHeader,
 });
+
+const defaultComponents = { ...memoizedComponents, pre: Pre };

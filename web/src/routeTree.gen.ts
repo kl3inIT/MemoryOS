@@ -21,9 +21,9 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
-import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated.projects.$projectId'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
 import { Route as AuthenticatedChatChatSessionIdRouteImport } from './routes/_authenticated._chat.chat.$sessionId'
+import { Route as AuthenticatedChatProjectsProjectIdRouteImport } from './routes/_authenticated._chat.projects.$projectId'
 import { Route as AuthenticatedAdminGroupsIndexRouteImport } from './routes/_authenticated.admin.groups.index'
 import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_authenticated.admin.groups.$groupId'
 import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
@@ -93,12 +93,6 @@ const AuthenticatedProjectsIndexRoute =
     path: '/projects/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedProjectsProjectIdRoute =
-  AuthenticatedProjectsProjectIdRouteImport.update({
-    id: '/projects/$projectId',
-    path: '/projects/$projectId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedSharedSessionIdRoute =
   AuthenticatedSharedSessionIdRouteImport.update({
     id: '/shared/$sessionId',
@@ -109,6 +103,12 @@ const AuthenticatedChatChatSessionIdRoute =
   AuthenticatedChatChatSessionIdRouteImport.update({
     id: '/chat/$sessionId',
     path: '/chat/$sessionId',
+    getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
+const AuthenticatedChatProjectsProjectIdRoute =
+  AuthenticatedChatProjectsProjectIdRouteImport.update({
+    id: '/projects/$projectId',
+    path: '/projects/$projectId',
     getParentRoute: () => AuthenticatedChatRoute,
   } as any)
 const AuthenticatedAdminGroupsIndexRoute =
@@ -169,11 +169,11 @@ export interface FileRoutesByFullPath {
   '/search': typeof AuthenticatedSearchRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
+  '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -190,11 +190,11 @@ export interface FileRoutesByTo {
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
+  '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -214,12 +214,12 @@ export interface FileRoutesById {
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/_chat/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
+  '/_authenticated/_chat/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
   '/_authenticated/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -240,11 +240,11 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/groups'
     | '/admin/users'
-    | '/projects/$projectId'
     | '/shared/$sessionId'
     | '/admin/'
     | '/projects/'
     | '/chat/$sessionId'
+    | '/projects/$projectId'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
@@ -261,11 +261,11 @@ export interface FileRouteTypes {
     | '/assistants'
     | '/search'
     | '/admin/users'
-    | '/projects/$projectId'
     | '/shared/$sessionId'
     | '/admin'
     | '/projects'
     | '/chat/$sessionId'
+    | '/projects/$projectId'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
@@ -284,12 +284,12 @@ export interface FileRouteTypes {
     | '/_authenticated/search'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/users'
-    | '/_authenticated/projects/$projectId'
     | '/_authenticated/shared/$sessionId'
     | '/_authenticated/_chat/'
     | '/_authenticated/admin/'
     | '/_authenticated/projects/'
     | '/_authenticated/_chat/chat/$sessionId'
+    | '/_authenticated/_chat/projects/$projectId'
     | '/_authenticated/admin/groups/$groupId'
     | '/_authenticated/admin/groups/new'
     | '/_authenticated/admin/sources/$sourceId'
@@ -392,13 +392,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/projects/$projectId': {
-      id: '/_authenticated/projects/$projectId'
-      path: '/projects/$projectId'
-      fullPath: '/projects/$projectId'
-      preLoaderRoute: typeof AuthenticatedProjectsProjectIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/shared/$sessionId': {
       id: '/_authenticated/shared/$sessionId'
       path: '/shared/$sessionId'
@@ -411,6 +404,13 @@ declare module '@tanstack/react-router' {
       path: '/chat/$sessionId'
       fullPath: '/chat/$sessionId'
       preLoaderRoute: typeof AuthenticatedChatChatSessionIdRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/_authenticated/_chat/projects/$projectId': {
+      id: '/_authenticated/_chat/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AuthenticatedChatProjectsProjectIdRouteImport
       parentRoute: typeof AuthenticatedChatRoute
     }
     '/_authenticated/admin/groups/': {
@@ -475,11 +475,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedChatRouteChildren {
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
   AuthenticatedChatChatSessionIdRoute: typeof AuthenticatedChatChatSessionIdRoute
+  AuthenticatedChatProjectsProjectIdRoute: typeof AuthenticatedChatProjectsProjectIdRoute
 }
 
 const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
   AuthenticatedChatChatSessionIdRoute: AuthenticatedChatChatSessionIdRoute,
+  AuthenticatedChatProjectsProjectIdRoute:
+    AuthenticatedChatProjectsProjectIdRoute,
 }
 
 const AuthenticatedChatRouteWithChildren =
@@ -550,7 +553,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
-  AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
@@ -560,7 +562,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
-  AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
   AuthenticatedSharedSessionIdRoute: AuthenticatedSharedSessionIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }

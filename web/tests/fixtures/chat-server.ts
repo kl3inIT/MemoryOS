@@ -1,7 +1,7 @@
 import { fixtureModels, fixtureSource } from "./chat-data.ts";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ChatMessage, ChatSession } from "../../src/lib/hey-api/types.gen.ts";
+import type { ChatMessage, ChatSession, ProjectView } from "../../src/lib/hey-api/types.gen.ts";
 
 type Run = {
   id: string;
@@ -21,6 +21,7 @@ type Session = {
   feedback: Map<string, object>;
 };
 const sessions = new Map<string, Session>();
+const projects = new Map<string, Required<ProjectView>>();
 const answer =
   'Hello 👋\n\nHere is an example:\n\n```java\nSystem.out.println("Hello");\n```\n\n[Reference](https://example.com)';
 function json(response: ServerResponse, data: unknown, status = 200) {
@@ -87,11 +88,7 @@ export async function handleChatFixture(
     json(response, fixtureModels);
     return true;
   }
-  if (
-    ["/api/chat/personas", "/api/chat/projects", "/api/chat/personas/sources"].includes(
-      url.pathname,
-    )
-  ) {
+  if (["/api/chat/personas", "/api/chat/personas/sources"].includes(url.pathname)) {
     json(response, []);
     return true;
   }
@@ -103,14 +100,73 @@ export async function handleChatFixture(
   }
   if (!url.pathname.startsWith("/api/chat/")) return false;
   const segments = url.pathname.split("/");
+  if (segments[3] === "projects") {
+    const project = projects.get(segments[4]!);
+    if (segments.length === 4) {
+      if (request.method === "POST") {
+        const input = await body(request);
+        const created = {
+          ...input,
+          id: randomUUID(),
+          revision: 0,
+          updatedAt: new Date().toISOString(),
+        };
+        projects.set(created.id, created);
+        json(response, created, 201);
+      } else {
+        const offset = Number(url.searchParams.get("offset") ?? 0);
+        json(
+          response,
+          [...projects.values()].slice(
+            offset,
+            offset + Number(url.searchParams.get("limit") ?? 100),
+          ),
+        );
+      }
+    } else if (!project) json(response, {}, 404);
+    else if (segments[5] === "sessions") {
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      json(
+        response,
+        [...sessions.values()]
+          .map((item) => item.session)
+          .filter((item) => item.projectId === project.id)
+          .slice(offset, offset + Number(url.searchParams.get("limit") ?? 30)),
+      );
+    } else if (request.method === "PUT" || request.method === "DELETE") {
+      if (Number(url.searchParams.get("revision")) !== project.revision) json(response, {}, 409);
+      else if (request.method === "DELETE") {
+        projects.delete(project.id);
+        for (const item of sessions.values())
+          if (item.session.projectId === project.id) item.session.projectId = null;
+        json(response, null, 204);
+      } else {
+        const updated = {
+          ...project,
+          ...(await body(request)),
+          revision: project.revision + 1,
+          updatedAt: new Date().toISOString(),
+        };
+        projects.set(project.id, updated);
+        json(response, updated);
+      }
+    } else json(response, project);
+    return true;
+  }
   if (segments.length === 4 && segments[3] === "sessions") {
     if (request.method === "POST") {
       const input = await body(request);
-      json(response, create(input.title).session, 201);
+      if (input.projectId && !projects.has(input.projectId)) json(response, {}, 404);
+      else {
+        const created = create(input.title).session;
+        created.projectId = input.projectId ?? null;
+        json(response, created, 201);
+      }
     } else
       json(
         response,
         [...sessions.values()]
+          .reverse()
           .map((item) => item.session)
           .slice(
             Number(url.searchParams.get("offset") ?? 0),
@@ -185,6 +241,15 @@ export async function handleChatFixture(
   if (segments[5] === "title") {
     state.session.title = (await body(request)).title;
     json(response, state.session);
+    return true;
+  }
+  if (segments[5] === "project") {
+    const input = await body(request);
+    if (input.projectId && !projects.has(input.projectId)) json(response, {}, 404);
+    else {
+      state.session.projectId = input.projectId ?? null;
+      json(response, state.session);
+    }
     return true;
   }
   if (segments[5] === "branch") {

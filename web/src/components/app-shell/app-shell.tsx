@@ -29,6 +29,7 @@ type AppShellProps = {
   adminPage?: AdminPage;
   sourceSetupStep?: 0 | 1;
   pageTitle: string;
+  headerActions?: ReactNode;
   children: ReactNode;
 };
 
@@ -264,6 +265,7 @@ export function AppShell({
   adminPage = "sources",
   sourceSetupStep,
   pageTitle,
+  headerActions,
   children,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -304,6 +306,7 @@ export function AppShell({
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-base">
         <Dialog.Root open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
           <header
+            role="banner"
             className={cn(
               "flex shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3",
               sourceSetupStep === undefined && area === "app" ? "h-14" : "h-13 md:hidden",
@@ -320,12 +323,15 @@ export function AppShell({
               </IconButton>
             </Dialog.Trigger>
             <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
-              {sourceSetupStep === undefined && area === "app" ? (
+              {sourceSetupStep === undefined &&
+              area === "app" &&
+              (pageTitle === "Chat" || pageTitle === "Search") ? (
                 <ChatModeMenu mode={pageTitle === "Search" ? "Search" : "Chat"} />
               ) : (
                 pageTitle
               )}
             </span>
+            {headerActions}
           </header>
 
           <Dialog.Portal>
