@@ -265,3 +265,30 @@ The [combined MEM-55/MEM-36 verification record](../increments/completed/mem-55-
 | Expanded Credentials retains a visible Close action and upward chevron; pointer opening and keyboard collapse remain usable | `google-drive-source-setup.spec.ts` — existing Google setup scenario and settled `google-credential-disclosure-mobile.png` capture |
 
 Raw reservation/adoption/cleanup evidence is in [object storage](object-storage.md). Execution and extraction evidence is in [ingestion](ingestion.md); current Document/artifact evidence is in [document](document.md).
+
+## Shared FILE and Drive binary admission — 2026-09-10
+
+| Contract | Evidence |
+| --- | --- |
+| Google downloads preserve every byte at the shared 20 MiB ceiling | `RestGoogleDriveProviderTest.binaryAcquisitionPreservesAllBytesAtTwentyMib` |
+| One byte above 20 MiB fails explicitly without partial content | `RestGoogleDriveProviderTest.binaryAcquisitionRejectsOneByteBeyondTwentyMibWithoutPartialContent` |
+| Offline PDF links remain readable above the former 10 MiB cap; over-20-MiB input remains rejected | `OfflineGoogleDriveLinkReaderTest.pdfReadsAnnotationTargetsAndVisibleUrlsWithPageProvenance` and its oversized-input regression |
+
+The two focused classes passed all 26 tests after their two relevant acceptance cases failed against the old implementation. The full backend gate passed in 4m50s: 501 passed, four optional-service skips, zero failures/errors; Core results came from cache while API, Connector and Worker test tasks executed. Exact command, host-memory retry and unavailable IDE inspection are recorded in the [increment ledger](../increments/active/tasco-scanned-pdf-ocr/plan.md#admission-verification--2026-09-10).
+
+After installing the rebuilt JARs and observing API/Worker readiness, the real retained Google Source's scheduled run acquired all five formerly rejected binaries (11,015,387–19,765,384 bytes), with zero acquisition failures. Run `09673299-9fd6-4ebf-8681-25bf3236c04e` completed acquisition at 07:47:28 UTC. All six Source inputs now have BINARY versions and ACTIVE stored objects with matching byte counts; Source/schedule authority was unchanged. Five indexing attempts remained pending and the earlier small-file extraction remained failed: this is acquisition proof, not Drive OCR/indexing or Search/Chat acceptance. Later Docker/host-listener interruption and recovery boundaries are retained in the ledger and ignored `.tmp/tasco-browser-evidence/google-drive-20mib-runtime-20260910.json`.
+
+## 100 MiB FILE and Drive admission — 2026-09-11
+
+This supersedes the current admission ceiling, not the historical measurements above. FILE and Google binary inputs now share 104,857,600 bytes; native snapshots and other structural/output bounds remain unchanged.
+
+| Contract | Evidence |
+| --- | --- |
+| Complete exact-100-MiB Google acquisition retains the full length and SHA-256 | `RestGoogleDriveProviderTest.binaryAcquisitionPreservesAllBytesAtOneHundredMiB`, using real local HTTP and repeated bounded response blocks |
+| One byte over the ceiling cannot publish partial content; higher provider configuration is rejected | `RestGoogleDriveProviderTest.binaryAcquisitionRejectsOneByteBeyondOneHundredMiBWithoutPartialContent`; `configuredBinaryLimitCannotExceedOneHundredMiB` |
+| FILE create/detail reject empty and over-limit files, while exact-100-MiB browser upload completes | Updated `file-source-setup.spec.ts` and `source-action-feedback.spec.ts`; 18 routed-browser scenarios passed |
+| The retained application uses the new migration and UI bound | Additive V34 succeeded; API/Worker readiness returned 200/UP; actual Orca selection enabled submission for 104,857,600 bytes and disabled it with an error for 104,857,601. No synthetic Source was created |
+
+Backend `clean check :api:bootJar :worker:bootJar` passed in 14m50s: 512 cases, 508 passed, four optional-service skips, zero failures/errors. All four test tasks executed; four compilation tasks came from cache. Frontend `check` passed 93 unit cases, generated-contract/route checks, lint, formatting, types and build. Both Compose overlays passed configuration-only validation with non-runtime interpolation fixtures; neither was deployed. JetBrains and Java LSP inspection were unavailable, so this is compilation/test evidence rather than an IDE-clean claim.
+
+The new authorized Google Source acquired all four Tasco 2025 originals in 20.13 seconds with zero acquisition failures. The 21,343,544-byte English consolidated PDF exceeds the former 20 MiB ceiling. All four stored originals passed exact byte-count and SHA-256 checks; their independent PDF inventory totals 240 pages. This acquisition result does not establish completed OCR or financial accuracy. The remote ingress still returned Nginx HTTP 413 for separate 25 MiB and 100 MiB parser probes; see the [active verification ledger](../increments/active/tasco-scanned-pdf-ocr/plan.md#100-mib-admission-and-tasco-2025--2026-09-11).
