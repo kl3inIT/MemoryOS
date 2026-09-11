@@ -12,7 +12,7 @@ Design: [design.md](design.md). Content decisions are fixed there; do not add st
 
 ## Status
 
-2026-09-11: Tasks 1–9 and the Task 10 documentation are complete and verified locally; see [verification.md](verification.md). The browser review added two fixes: the desktop navigation starts at 1024 px, and the focused skip link keeps its padding. The MEM-82 Linear report follows the pull request.
+2026-09-11: Tasks 1–9 and the Task 10 documentation are complete and verified locally; see [verification.md](verification.md). The browser review added two fixes: the desktop navigation starts at 1024 px, and the focused skip link keeps its padding. Pull request #95 is open and reported on MEM-82.
 
 Pending, and not passed: CI on the pull request, the first `Publish landing` digest, the operator deployment with the deployed checks from the [landing runbook](../../../runbooks/landing.md), Lighthouse on `https://vanda.app/`, and Laura's content review. The increment stays under `active/` until the pull request merges.
 
@@ -3059,7 +3059,7 @@ git add ARCHITECTURE.md docs/tests/delivery.md docs/runbooks/ci-cd.md README.md 
 git commit -m "docs: record the landing page delivery boundary"
 ```
 
-- [ ] **Step 6: Report to Linear**
+- [x] **Step 6: Report to Linear**
 
 Comment on MEM-82 with the branch, the verification summary and the pending gates (PR CI, publication digest, operator deployment, Laura's review). Move the increment to `completed/` only after the pull request merges.
 
