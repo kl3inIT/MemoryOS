@@ -16,11 +16,11 @@
     @apply min-w-80 bg-surface-base font-main-content-body text-content-primary antialiased;
   }
 
-  :where(a, summary) {
+  :where(a, summary, button) {
     -webkit-tap-highlight-color: transparent;
   }
 
-  :where(a, summary):focus-visible {
+  :where(a, summary, button):focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
   }
@@ -73,88 +73,287 @@
     mask-size: contain;
   }
 
+  /* The one-pixel frame around product mocks: brand light at two corners, hairline between. */
+  .frame-gradient {
+    background: linear-gradient(
+      140deg,
+      var(--frame-light) 0%,
+      var(--border-subtle) 32%,
+      var(--border-subtle) 68%,
+      var(--frame-light) 100%
+    );
+  }
+
+  /* What the hero's load sequence brings in stays hidden from the first frame until the sequence is
+   * set up a frame later (src/sections/hero.tsx). */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-intro="pending"] :is([data-character], [data-hero-actions], [data-hero-preview]) {
+      opacity: 0;
+    }
+  }
+
+  /* The typed statement's caret follows the last typed character without taking space. */
+  .typed-caret {
+    position: relative;
+  }
+
+  .typed-caret::after {
+    content: "";
+    position: absolute;
+    top: 0.15em;
+    bottom: 0.1em;
+    left: calc(100% + 1px);
+    width: 2px;
+    border-radius: 1px;
+    background: linear-gradient(var(--accent), var(--accent-alt));
+    animation: caret-blink 1s steps(1) infinite;
+  }
+
+  /*
+   * Once a station of the ingestion beam has finished (`data-live`) and the list is on screen
+   * (`data-visible`), light keeps running along the lit beam and the station's drawing keeps a quiet
+   * loop (src/sections/how-it-works/ingestion-story.tsx). Every loop starts and ends on the
+   * drawing's final state, and motion alone sets these attributes.
+   */
+  /* Every segment's run starts together when the list comes on screen, so the light stays in step
+   * from station to station; a segment only shows its run once its station has finished. */
+  .beam-flow {
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  [data-live] .beam-flow {
+    opacity: 1;
+  }
+
+  [data-visible] .beam-flow-run {
+    animation: beam-flow-down 4.8s linear calc(var(--i, 0) * 0.8s) infinite;
+  }
+
+  @media (min-width: 64rem) {
+    [data-visible] .beam-flow-run {
+      animation-name: beam-flow-across;
+    }
+  }
+
+  [data-visible] [data-live] .ambient-packet {
+    animation: ambient-packet 3s ease-in-out var(--delay, 0s) infinite;
+  }
+
+  [data-visible] [data-live] .ambient-scan {
+    animation: ambient-scan 5s ease-in-out 1s infinite;
+  }
+
+  [data-visible] [data-live] .ambient-blink {
+    animation: ambient-blink 4s ease-in-out var(--delay, 0s) infinite;
+  }
+
+  [data-visible] [data-live] .ambient-level {
+    animation: ambient-level 2.6s ease-in-out var(--delay, 0s) infinite;
+  }
+
+  [data-visible] [data-live] .ambient-pulse {
+    animation: ambient-pulse 3.2s ease-out 0.6s infinite;
+  }
+
+  /* A short dash that runs along a `pathLength="100"` path. */
+  .ambient-glint {
+    stroke-dasharray: 10px 100px;
+    stroke-dashoffset: 120px;
+  }
+
+  [data-visible] [data-live] .ambient-glint {
+    animation: ambient-glint 3.6s ease-in-out var(--delay, 0s) infinite;
+  }
+
   /* Theme switches grow the new theme in a circle from the toggle (src/lib/theme.ts). */
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
   }
-
-  /*
-   * Motion. Scroll-linked effects use CSS scroll-driven animations: they follow the scroll
-   * position in both directions and need no JavaScript. Browsers without them, and visitors who
-   * prefer reduced motion, get the static page.
-   */
-  @media (prefers-reduced-motion: no-preference) {
-    /* The hero's one load sequence; each part sets --enter-delay. */
-    .enter {
-      animation: enter 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--enter-delay, 0ms) both;
-    }
-
-    @supports (animation-timeline: view()) {
-      .reveal {
-        animation: reveal linear both;
-        animation-timeline: view();
-        animation-range: entry 0% entry 60%;
-      }
-
-      /* Sequence rules fill as their step scrolls toward the middle of the viewport. */
-      .progress-fill,
-      .timeline-fill {
-        transform-origin: left;
-        animation: fill-x linear both;
-        animation-timeline: view();
-        animation-range: entry 40% cover 50%;
-      }
-
-      .hero-glow {
-        animation: glow-drift linear both;
-        animation-timeline: scroll(root);
-        animation-range: 0 100vh;
-      }
-    }
-  }
-
-  /* The roadmap timeline runs down the page on small screens and across it from lg. */
-  @media (prefers-reduced-motion: no-preference) and (max-width: 63.999rem) {
-    @supports (animation-timeline: view()) {
-      .timeline-fill {
-        transform-origin: top;
-        animation-name: fill-y;
-      }
-    }
-  }
 }
 
-@keyframes enter {
-  from {
+/*
+ * Scrubbed ramps for the ingestion beam (src/sections/how-it-works/ingestion-story.tsx). Motion
+ * moves one progress value `--p` (0–1) per station; each part eases in between its own `--from`
+ * and `--to`. Without motion `--p` is unset and counts as 1, so the markup shows the final state.
+ */
+@utility ramp {
+  --t: clamp(0, calc((var(--p, 1) - var(--from, 0)) / (var(--to, 1) - var(--from, 0))), 1);
+  transform-box: fill-box;
+}
+
+@utility ramp-fade {
+  opacity: var(--t);
+}
+
+@utility ramp-out {
+  opacity: calc(1 - var(--t));
+}
+
+/* Visible only while its ramp runs: the scan, the cuts, packets and the comet. */
+@utility ramp-pass {
+  opacity: clamp(0, calc(min(var(--t), 1 - var(--t)) * 10), 1);
+}
+
+@utility ramp-rise {
+  opacity: var(--t);
+  translate: 0 calc((1 - var(--t)) * 6px);
+}
+
+@utility ramp-pop {
+  scale: var(--t);
+  transform-origin: center;
+}
+
+@utility ramp-grow-x {
+  scale: var(--t) 1;
+  transform-origin: left center;
+}
+
+@utility ramp-grow-y {
+  scale: 1 var(--t);
+  transform-origin: center bottom;
+}
+
+@utility ramp-grow-down {
+  scale: 1 var(--t);
+  transform-origin: center top;
+}
+
+/* Arrives from an offset of (--dx, --dy). */
+@utility ramp-travel {
+  translate: calc((1 - var(--t)) * var(--dx, 0px)) calc((1 - var(--t)) * var(--dy, 0px));
+}
+
+/* Crosses --sweep, like a scan line down a page. */
+@utility ramp-sweep {
+  translate: 0 calc(var(--t) * var(--sweep, 0px));
+}
+
+/* Strokes with pathLength="100" draw along their path. */
+@utility ramp-draw {
+  stroke-dasharray: 100px;
+  stroke-dashoffset: calc((1 - var(--t)) * 100px);
+}
+
+@keyframes caret-blink {
+  50% {
     opacity: 0;
-    transform: translateY(1rem);
   }
 }
 
-@keyframes reveal {
-  from {
+/* Each segment lights for one sixth of the cycle, so light crosses the six stations in turn. */
+@keyframes beam-flow-down {
+  0% {
+    translate: 0 0;
     opacity: 0;
-    transform: translateY(2rem);
+  }
+  3%,
+  13% {
+    opacity: 1;
+  }
+  16.66%,
+  100% {
+    translate: 0 100%;
+    opacity: 0;
   }
 }
 
-@keyframes fill-x {
-  from {
-    transform: scaleX(0);
+@keyframes beam-flow-across {
+  0% {
+    translate: 0 0;
+    opacity: 0;
+  }
+  3%,
+  13% {
+    opacity: 1;
+  }
+  16.66%,
+  100% {
+    translate: 100% 0;
+    opacity: 0;
   }
 }
 
-@keyframes fill-y {
-  from {
-    transform: scaleY(0);
+@keyframes ambient-packet {
+  0% {
+    translate: var(--dx, 0px) var(--dy, 0px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    translate: 0 0;
+    opacity: 1;
+  }
+  82%,
+  100% {
+    translate: 0 0;
+    opacity: 0;
   }
 }
 
-@keyframes glow-drift {
-  to {
-    opacity: 0.45;
-    transform: translateY(-8%) scale(1.15);
+@keyframes ambient-scan {
+  0% {
+    translate: 0 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  52% {
+    translate: 0 var(--sweep, 0px);
+    opacity: 1;
+  }
+  60%,
+  100% {
+    translate: 0 var(--sweep, 0px);
+    opacity: 0;
+  }
+}
+
+@keyframes ambient-blink {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  45%,
+  55% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes ambient-level {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+  50% {
+    scale: 1 0.55;
+  }
+}
+
+@keyframes ambient-pulse {
+  0% {
+    scale: 0.5;
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    scale: 1.8;
+    opacity: 0;
+  }
+}
+
+@keyframes ambient-glint {
+  0% {
+    stroke-dashoffset: 120px;
+  }
+  60%,
+  100% {
+    stroke-dashoffset: 10px;
   }
 }
