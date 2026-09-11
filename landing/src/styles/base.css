@@ -1,0 +1,160 @@
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    /* Keeps in-page anchor targets clear of the sticky header (h-16). */
+    scroll-padding-top: 4rem;
+  }
+
+  body {
+    @apply min-w-80 bg-surface-base font-main-content-body text-content-primary antialiased;
+  }
+
+  :where(a, summary) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :where(a, summary):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (pointer: coarse) {
+    [data-slot="action-link"] {
+      min-height: 2.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* The page's one light source, behind the hero preview: below the copy on small screens, beside
+   * it from lg. */
+  .hero-glow {
+    --glow-x: 50%;
+    --glow-y: 82%;
+    background:
+      radial-gradient(60% 58% at var(--glow-x) var(--glow-y), var(--glow-core), transparent 70%),
+      radial-gradient(120% 70% at 50% 120%, var(--glow-halo), transparent 72%);
+  }
+
+  @media (min-width: 64rem) {
+    .hero-glow {
+      --glow-x: 76%;
+      --glow-y: 58%;
+    }
+  }
+
+  /* A quieter echo of the hero light behind the closing call to action. */
+  .cta-glow {
+    background: radial-gradient(50% 90% at 88% 0%, var(--glow-halo), transparent 70%);
+  }
+
+  /* Partner logos are single-colour masks, so they take the theme's content color. */
+  .logo-mask {
+    mask-position: left center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+  }
+
+  /* Theme switches grow the new theme in a circle from the toggle (src/lib/theme.ts). */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  /*
+   * Motion. Scroll-linked effects use CSS scroll-driven animations: they follow the scroll
+   * position in both directions and need no JavaScript. Browsers without them, and visitors who
+   * prefer reduced motion, get the static page.
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    /* The hero's one load sequence; each part sets --enter-delay. */
+    .enter {
+      animation: enter 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--enter-delay, 0ms) both;
+    }
+
+    @supports (animation-timeline: view()) {
+      .reveal {
+        animation: reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 60%;
+      }
+
+      /* Sequence rules fill as their step scrolls toward the middle of the viewport. */
+      .progress-fill,
+      .timeline-fill {
+        transform-origin: left;
+        animation: fill-x linear both;
+        animation-timeline: view();
+        animation-range: entry 40% cover 50%;
+      }
+
+      .hero-glow {
+        animation: glow-drift linear both;
+        animation-timeline: scroll(root);
+        animation-range: 0 100vh;
+      }
+    }
+  }
+
+  /* The roadmap timeline runs down the page on small screens and across it from lg. */
+  @media (prefers-reduced-motion: no-preference) and (max-width: 63.999rem) {
+    @supports (animation-timeline: view()) {
+      .timeline-fill {
+        transform-origin: top;
+        animation-name: fill-y;
+      }
+    }
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+}
+
+@keyframes fill-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fill-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes glow-drift {
+  to {
+    opacity: 0.45;
+    transform: translateY(-8%) scale(1.15);
+  }
+}

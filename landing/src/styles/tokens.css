@@ -1,0 +1,118 @@
+/*
+ * Semantic token names and default-tone action rows follow web/src/styles/tokens.css, so the
+ * landing page reads like the product. Values are the landing's own navy and blue identity; the
+ * application and the marketing site build and deploy independently. Onyx/Opal MIT structure; see
+ * /THIRD_PARTY_NOTICES.txt.
+ */
+:root {
+  color-scheme: light;
+
+  --surface-canvas: #eef1f7;
+  --surface-base: #f8f9fc;
+  --surface-raised: #ffffff;
+
+  --content-primary: #0a0f1ee6;
+  --content-secondary: #0a0f1ebf;
+  --content-muted: #0a0f1e8c;
+  --content-inverse: #ffffff;
+
+  --border-subtle: #e2e6ef;
+  --border-default: #cbd2e0;
+  --border-strong: #9ea8bd;
+
+  /* Default-tone rows of the canonical action matrix. */
+  --action-default-primary-surface: #0b1020;
+  --action-default-primary-surface-hover: #1c2336;
+  --action-default-primary-surface-active: #000000;
+  --action-default-primary-content: var(--content-inverse);
+  --action-default-secondary-surface: var(--surface-base);
+  --action-default-secondary-surface-hover: var(--surface-canvas);
+  --action-default-secondary-surface-active: var(--surface-raised);
+  --action-default-secondary-content: var(--content-secondary);
+  --action-default-secondary-content-hover: var(--content-primary);
+  --action-default-secondary-border: var(--border-subtle);
+  --action-default-secondary-border-hover: var(--border-default);
+  --action-default-tertiary-surface-hover: var(--surface-canvas);
+  --action-default-tertiary-surface-active: var(--surface-raised);
+  --action-default-tertiary-content: var(--content-secondary);
+  --action-default-tertiary-content-hover: var(--content-primary);
+  --focus-ring: #0b1020;
+
+  --control-height-md: 2.25rem;
+  --control-height-lg: 2.5rem;
+  --control-icon-md: 1rem;
+
+  /* Brand blue: text and icons, solid fills with their content, and the decorative glow. */
+  --accent: #2450e6;
+  --accent-surface: #2450e6;
+  --accent-content: #ffffff;
+  --glow-core: #3d6bff47;
+  --glow-halo: #7d9bff2e;
+
+  /* Meaning-bound accents: brand blue marks citations, green marks an approved AI asset. */
+  --citation-surface: #e8eeff;
+  --citation-content: #2450e6;
+  --approval-surface: #e6f2e7;
+  --approval-content: #007a2d;
+
+  /* The favicon's colors; the dark theme inverts them so the mark keeps its contrast. */
+  --brand-mark-surface: #0a0a0a;
+  --brand-mark-content: #f4f2eb;
+
+  --elevation-1: 0 1px 2px #0a0f1e0d;
+  --elevation-2: 0 0 0 1px #0a0f1e05, 0 4px 8px -2px #0a0f1e14, 0 12px 24px -4px #0a0f1e14;
+  --radius: 0.5rem;
+
+  --page-width-wide: 80rem;
+  --page-gutter: 1rem;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --surface-canvas: #0f1526;
+  --surface-base: #070a13;
+  --surface-raised: #0b1020;
+
+  --content-primary: #fffffff2;
+  --content-secondary: #ffffffd9;
+  --content-muted: #ffffff99;
+  --content-inverse: #070a13;
+
+  --border-subtle: #1b2338;
+  --border-default: #2a3450;
+  --border-strong: #465274;
+
+  --action-default-primary-surface: #f3f5fb;
+  --action-default-primary-surface-hover: #d8deec;
+  --action-default-primary-surface-active: #ffffff;
+  --focus-ring: #ffffff;
+
+  --accent: #86a6ff;
+  --accent-surface: #2f5bff;
+  --glow-core: #3563ffc2;
+  --glow-halo: #1d44d98c;
+
+  --citation-surface: #13234f;
+  --citation-content: #9bb5ff;
+  --approval-surface: #06260f;
+  --approval-content: #4fd07e;
+
+  --brand-mark-surface: #f4f2eb;
+  --brand-mark-content: #0a0a0a;
+
+  --elevation-1: 0 1px 2px oklch(0 0 0 / 0.32);
+  --elevation-2: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px oklch(0 0 0 / 0.4);
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --page-gutter: 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-gutter: 2rem;
+  }
+}

@@ -6,7 +6,7 @@ The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.ym
 
 ## Required verification and release identity
 
-`CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, and a redacted Gitleaks history scan. Failed, canceled or skipped jobs fail the aggregate gate. Obsolete PR runs are canceled; main runs are not. PR runs have no package-write or staging authority and do not retain image archives.
+`CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, the landing page checks and image smoke, and a redacted Gitleaks history scan. Failed, canceled or skipped jobs fail the aggregate gate. Obsolete PR runs are canceled; main runs are not. PR runs have no package-write or staging authority and do not retain image archives.
 
 After successful main gates, publication loads the preserved API, worker and web images, checks their revision/source labels, and pushes those bytes to GHCR. It does not rebuild them. The release artifact is named `release-<source SHA>-<CI attempt>` and contains:
 
@@ -16,6 +16,8 @@ After successful main gates, publication loads the preserved API, worker and web
 - `manifest.json`: repository, source SHA, CI run ID and attempt.
 
 Test reports and main candidate image archives are retained seven days; release bundles are retained 90 days. There are no mutable deployment tags. A partially published image set without a successful publication job and complete artifact is not deployable. A manual rerun must produce a complete successful CI attempt containing both `CI Gate` and `Publish verified release`.
+
+The public landing page is released separately: `Publish landing` pushes its preserved image after the same gate and records the digest in its own `landing-release-<sha>-<attempt>` artifact. It is never part of `images.env`; operators deploy it with the [landing runbook](landing.md).
 
 ## First-use configuration
 
