@@ -10,6 +10,12 @@
 
 Design: [design.md](design.md). Content decisions are fixed there; do not add status labels, testimonials or metrics.
 
+## Status
+
+2026-09-11: Tasks 1–9 and the Task 10 documentation are complete and verified locally; see [verification.md](verification.md). The browser review added two fixes: the desktop navigation starts at 1024 px, and the focused skip link keeps its padding. The MEM-82 Linear report follows the pull request.
+
+Pending, and not passed: CI on the pull request, the first `Publish landing` digest, the operator deployment with the deployed checks from the [landing runbook](../../../runbooks/landing.md), Lighthouse on `https://vanda.app/`, and Laura's content review. The increment stays under `active/` until the pull request merges.
+
 ---
 
 ## File map
@@ -47,7 +53,7 @@ All commands run from the worktree root. On this Windows host use the Bash tool 
 - Create: `landing/package.json`, `landing/.gitignore`, `landing/.oxlintrc.json`, `landing/.oxfmtrc.json`, `landing/tsconfig.json`, `landing/tsconfig.app.json`, `landing/tsconfig.node.json`, `landing/vite.config.ts`, `landing/vitest.config.ts`, `landing/src/test/setup.ts`, `landing/src/lib/utils.ts`, `landing/scripts/font-data-url.mjs`, `landing/scripts/font-data-url.test.mjs`, `landing/scripts/assert-font-assets.mjs`
 - Generate: `landing/pnpm-lock.yaml`
 
-- [ ] **Step 1: Create `landing/package.json`**
+- [x] **Step 1: Create `landing/package.json`**
 
 ```json
 {
@@ -98,7 +104,7 @@ All commands run from the worktree root. On this Windows host use the Bash tool 
 }
 ```
 
-- [ ] **Step 2: Create tooling files**
+- [x] **Step 2: Create tooling files**
 
 `landing/.gitignore`:
 
@@ -280,7 +286,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 ```
 
-- [ ] **Step 3: Copy the font assertion and its test from `web/`**
+- [x] **Step 3: Copy the font assertion and its test from `web/`**
 
 `landing/scripts/font-data-url.mjs`:
 
@@ -340,17 +346,17 @@ for (const styleSheet of styleSheets) {
 console.log(`Verified ${fontFiles.length} emitted WOFF2 assets with no inline font URLs.`);
 ```
 
-- [ ] **Step 4: Install and generate the lockfile**
+- [x] **Step 4: Install and generate the lockfile**
 
 Run: `pnpm --dir landing install`
 Expected: `landing/pnpm-lock.yaml` created, no errors. If pnpm refuses a package because of `minimumReleaseAge`, create `landing/pnpm-workspace.yaml` with a `minimumReleaseAgeExclude` list naming exactly the refused `name@version` entries (same format as `web/pnpm-workspace.yaml`), rerun, and add that file to the Dockerfile `COPY` in Task 6.
 
-- [ ] **Step 5: Verify the icon exports used later exist in lucide-react 1.34.0**
+- [x] **Step 5: Verify the icon exports used later exist in lucide-react 1.34.0**
 
 Run: `grep -oE "declare const (Menu|Check|ArrowRight|ChevronDown|LockKeyhole|BadgeCheck|Bot|Cable|ChartColumn|KeyRound|Plug|Quote|Search|ShieldCheck):" landing/node_modules/lucide-react/dist/lucide-react.d.ts | sort -u`
 Expected: 14 lines. If a name is missing, pick the closest existing icon from the same file and use it consistently in Task 4.
 
-- [ ] **Step 6: Run the tooling**
+- [x] **Step 6: Run the tooling**
 
 Run: `pnpm --dir landing test:unit`
 Expected: PASS, 3 tests in `scripts/font-data-url.test.mjs`.
@@ -358,7 +364,7 @@ Expected: PASS, 3 tests in `scripts/font-data-url.test.mjs`.
 Run: `pnpm --dir landing format` then `pnpm --dir landing lint` then `pnpm --dir landing typecheck`
 Expected: all exit 0.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add landing
@@ -374,7 +380,7 @@ git commit -m "build(landing): scaffold standalone landing package"
 
 No tests: these are declarations exercised by the build (Task 5) and browser review (Task 9).
 
-- [ ] **Step 1: Create `landing/src/styles/tokens.css`**
+- [x] **Step 1: Create `landing/src/styles/tokens.css`**
 
 ```css
 /*
@@ -455,7 +461,7 @@ No tests: these are declarations exercised by the build (Task 5) and browser rev
 }
 ```
 
-- [ ] **Step 2: Create `landing/src/styles/theme.css`**
+- [x] **Step 2: Create `landing/src/styles/theme.css`**
 
 ```css
 @theme inline {
@@ -562,7 +568,7 @@ No tests: these are declarations exercised by the build (Task 5) and browser rev
 }
 ```
 
-- [ ] **Step 3: Create `landing/src/styles/base.css`**
+- [x] **Step 3: Create `landing/src/styles/base.css`**
 
 ```css
 @layer base {
@@ -609,7 +615,7 @@ No tests: these are declarations exercised by the build (Task 5) and browser rev
 }
 ```
 
-- [ ] **Step 4: Create `landing/src/index.css`**
+- [x] **Step 4: Create `landing/src/index.css`**
 
 ```css
 @import "tailwindcss";
@@ -619,7 +625,7 @@ No tests: these are declarations exercised by the build (Task 5) and browser rev
 @import "./styles/base.css";
 ```
 
-- [ ] **Step 5: Format and commit**
+- [x] **Step 5: Format and commit**
 
 Run: `pnpm --dir landing format` then `pnpm --dir landing format:check`
 Expected: exit 0.
@@ -638,7 +644,7 @@ git commit -m "feat(landing): add MemoryOS light tokens and typography"
 - Create: `landing/index.html`, `landing/public/favicon.svg`, `landing/public/robots.txt`, `landing/public/sitemap.xml`, `landing/public/THIRD_PARTY_NOTICES.txt`, `landing/scripts/og-image.html`
 - Generate: `landing/public/og-image.png`
 
-- [ ] **Step 1: Write the failing metadata test**
+- [x] **Step 1: Write the failing metadata test**
 
 `landing/tests/site-metadata.test.mjs`:
 
@@ -703,12 +709,12 @@ describe("site metadata", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --dir landing exec vitest run tests/site-metadata.test.mjs`
 Expected: FAIL with `ENOENT` for `index.html`.
 
-- [ ] **Step 3: Create `landing/index.html`**
+- [x] **Step 3: Create `landing/index.html`**
 
 ```html
 <!doctype html>
@@ -787,7 +793,7 @@ Expected: FAIL with `ENOENT` for `index.html`.
 </html>
 ```
 
-- [ ] **Step 4: Create the public text assets**
+- [x] **Step 4: Create the public text assets**
 
 `landing/public/favicon.svg` (same mark as `web/public/favicon.svg`):
 
@@ -867,7 +873,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-- [ ] **Step 5: Create the OG image source and render it**
+- [x] **Step 5: Create the OG image source and render it**
 
 Confirm the font file name first: `ls landing/node_modules/@fontsource-variable/hanken-grotesk/files/ | grep latin-wght-normal`
 Expected: `hanken-grotesk-latin-wght-normal.woff2` (use the printed name in the `src` below if it differs).
@@ -968,12 +974,12 @@ file landing/public/og-image.png
 
 Expected: `PNG image data, 1200 x 630`. Open the PNG and confirm Hanken Grotesk rendered (geometric sans, not a serif fallback) and nothing is clipped.
 
-- [ ] **Step 6: Run the metadata test to verify it passes**
+- [x] **Step 6: Run the metadata test to verify it passes**
 
 Run: `pnpm --dir landing exec vitest run tests/site-metadata.test.mjs`
 Expected: PASS, 4 tests.
 
-- [ ] **Step 7: Format, lint and commit**
+- [x] **Step 7: Format, lint and commit**
 
 Run: `pnpm --dir landing format` then `pnpm --dir landing lint`
 Expected: exit 0.
@@ -992,7 +998,7 @@ git commit -m "feat(landing): add site metadata, structured data and public asse
 
 These have no direct tests; the page contract in Task 5 exercises them.
 
-- [ ] **Step 1: Create `landing/src/content.ts`**
+- [x] **Step 1: Create `landing/src/content.ts`**
 
 ```ts
 import type { LucideIcon } from "lucide-react";
@@ -1454,7 +1460,7 @@ export {
 };
 ```
 
-- [ ] **Step 2: Create `landing/src/components/action-link.tsx`**
+- [x] **Step 2: Create `landing/src/components/action-link.tsx`**
 
 ```tsx
 import type { ComponentProps } from "react";
@@ -1501,7 +1507,7 @@ function ActionLink({ prominence = "primary", size = "md", className, ...props }
 export { ActionLink };
 ```
 
-- [ ] **Step 3: Create `landing/src/components/section.tsx`**
+- [x] **Step 3: Create `landing/src/components/section.tsx`**
 
 ```tsx
 import type { ReactNode } from "react";
@@ -1542,7 +1548,7 @@ function Section({ id, title, description, className, children }: SectionProps) 
 export { Section };
 ```
 
-- [ ] **Step 4: Create `landing/src/components/brand-mark.tsx`**
+- [x] **Step 4: Create `landing/src/components/brand-mark.tsx`**
 
 ```tsx
 type BrandMarkProps = {
@@ -1562,7 +1568,7 @@ function BrandMark({ className }: BrandMarkProps) {
 export { BrandMark };
 ```
 
-- [ ] **Step 5: Typecheck, format, lint and commit**
+- [x] **Step 5: Typecheck, format, lint and commit**
 
 Run: `pnpm --dir landing format` then `pnpm --dir landing lint` then `pnpm --dir landing typecheck`
 Expected: exit 0.
@@ -1580,7 +1586,7 @@ git commit -m "feat(landing): add page content and shared primitives"
 - Test: `landing/src/App.test.tsx`
 - Create: `landing/src/sections/header.tsx`, `hero.tsx`, `product-preview.tsx`, `trust-strip.tsx`, `product-highlights.tsx`, `capabilities.tsx`, `how-it-works.tsx`, `deployment.tsx`, `roadmap.tsx`, `faq.tsx`, `footer.tsx`, `landing/src/App.tsx`, `landing/src/main.tsx`
 
-- [ ] **Step 1: Write the failing page contract test**
+- [x] **Step 1: Write the failing page contract test**
 
 `landing/src/App.test.tsx`:
 
@@ -1648,12 +1654,12 @@ describe("landing page", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --dir landing exec vitest run src/App.test.tsx`
 Expected: FAIL, cannot resolve `@/App`.
 
-- [ ] **Step 3: Create the header**
+- [x] **Step 3: Create the header**
 
 `landing/src/sections/header.tsx`:
 
@@ -1726,7 +1732,7 @@ function Header() {
 export { Header };
 ```
 
-- [ ] **Step 4: Create the hero, product preview and trust strip**
+- [x] **Step 4: Create the hero, product preview and trust strip**
 
 `landing/src/sections/product-preview.tsx`:
 
@@ -1869,7 +1875,7 @@ function TrustStrip() {
 export { TrustStrip };
 ```
 
-- [ ] **Step 5: Create the product highlights and capabilities**
+- [x] **Step 5: Create the product highlights and capabilities**
 
 `landing/src/sections/product-highlights.tsx`:
 
@@ -2014,7 +2020,7 @@ function Capabilities() {
 export { Capabilities };
 ```
 
-- [ ] **Step 6: Create how it works and deployment**
+- [x] **Step 6: Create how it works and deployment**
 
 `landing/src/sections/how-it-works.tsx`:
 
@@ -2135,7 +2141,7 @@ function Deployment() {
 export { Deployment };
 ```
 
-- [ ] **Step 7: Create the roadmap, FAQ and footer**
+- [x] **Step 7: Create the roadmap, FAQ and footer**
 
 `landing/src/sections/roadmap.tsx`:
 
@@ -2266,7 +2272,7 @@ function Footer() {
 export { Footer };
 ```
 
-- [ ] **Step 8: Compose the page and mount it**
+- [x] **Step 8: Compose the page and mount it**
 
 `landing/src/App.tsx`:
 
@@ -2325,22 +2331,22 @@ createRoot(rootElement).render(
 );
 ```
 
-- [ ] **Step 9: Run the page contract to verify it passes**
+- [x] **Step 9: Run the page contract to verify it passes**
 
 Run: `pnpm --dir landing exec vitest run src/App.test.tsx`
 Expected: PASS, 5 tests.
 
-- [ ] **Step 10: Run the package gate**
+- [x] **Step 10: Run the package gate**
 
 Run: `pnpm --dir landing format` then `pnpm --dir landing check`
 Expected: lint, format check, 12 tests, build (`Verified N emitted WOFF2 assets`) and TypeScript all succeed.
 
-- [ ] **Step 11: Review the page in a browser and correct it**
+- [x] **Step 11: Review the page in a browser and correct it**
 
 Run in the background: `pnpm --dir landing dev --host 127.0.0.1 --port 5174 --strictPort`
 Take full-page screenshots at 390, 768 and 1440 px (Chrome DevTools MCP `emulate` viewport + `take_screenshot`, in the Chrome instance the session is attached to). Check: no horizontal scroll; header fits at 390 px; the preview is the most prominent element; bento rows have no empty cells at sm and lg; the deployment diagram reads top-to-bottom on mobile; focus rings are visible when tabbing; the mobile menu closes after choosing a link. Fix what fails, rerun Step 10, stop the dev server.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add landing/src
@@ -2367,7 +2373,7 @@ Added after Task 5 at the product owner's request. It follows the web app's them
 - [x] **Step 2: Implement tokens, pre-paint script, hook and header controls** as listed above.
 - [x] **Step 3: Run the package gate** — `pnpm --dir landing check`. Expected: 14 tests pass; the build keeps `/theme-init.js` as a classic script in `dist/index.html` and copies it to `dist/`.
 - [x] **Step 4: Review both themes in the browser** — at 390 and 1440 px, with the system preference emulated as light and as dark and storage cleared: the page follows the system with no light flash on reload, the toggle overrides it and survives reload, the citation and approval accents and every primary action remain readable in dark.
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add landing docs/increments/active/mem-82-landing-page
@@ -2394,7 +2400,7 @@ Added after Task 5A at the product owner's request, with a Laravel Cloud screens
 - [x] **Step 2: Run the package gate** — `pnpm --dir landing check`. Expected: 14 tests pass.
 - [x] **Step 3: Review both themes in the browser** at 1440 and 390 px: text over the glow keeps its contrast, the glow sits behind the preview at every width, and the accents stay readable in light and dark.
 - [x] **Step 4: Re-render the Open Graph image** with headless Chrome at 1200 × 630 and confirm the metadata test still passes.
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add landing docs/increments/active/mem-82-landing-page
@@ -2418,7 +2424,7 @@ Added after Task 5B at the product owner's request: a theme-switch transition, m
 - [x] **Step 2: Add the theme reveal and the motion layer** as listed above.
 - [x] **Step 3: Run the package gate** — `pnpm --dir landing check`. Expected: 14 tests pass.
 - [x] **Step 4: Review in the browser** — reveal on scroll down and reversal on scroll up; rules and timeline fill; glow drift; the circular theme reveal from both toggles; with reduced motion emulated, the page is static and fully visible; no console errors; logos legible in both themes.
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add landing docs/increments/active/mem-82-landing-page
@@ -2432,7 +2438,7 @@ git commit -m "feat(landing): add motion, a theme reveal and partner logos"
 **Files:**
 - Create: `landing/.dockerignore`, `landing/nginx.conf`, `landing/Dockerfile`, `landing/scripts/smoke-image.sh`
 
-- [ ] **Step 1: Write the smoke contract first**
+- [x] **Step 1: Write the smoke contract first**
 
 `landing/scripts/smoke-image.sh`:
 
@@ -2507,7 +2513,7 @@ echo "landing smoke: $image passed"
 
 Mark it executable in Git: `git add landing/scripts/smoke-image.sh` then `git update-index --chmod=+x landing/scripts/smoke-image.sh`.
 
-- [ ] **Step 2: Create `landing/.dockerignore`**
+- [x] **Step 2: Create `landing/.dockerignore`**
 
 ```gitignore
 node_modules
@@ -2517,7 +2523,7 @@ reports
 *.local
 ```
 
-- [ ] **Step 3: Create `landing/nginx.conf`**
+- [x] **Step 3: Create `landing/nginx.conf`**
 
 ```nginx
 worker_processes auto;
@@ -2587,7 +2593,7 @@ http {
 }
 ```
 
-- [ ] **Step 4: Create `landing/Dockerfile`**
+- [x] **Step 4: Create `landing/Dockerfile`**
 
 ```dockerfile
 # syntax=docker/dockerfile:1.7
@@ -2626,7 +2632,7 @@ EXPOSE 8080
 ENTRYPOINT ["nginx", "-g", "daemon off;"]
 ```
 
-- [ ] **Step 5: Build the image and run the smoke contract**
+- [x] **Step 5: Build the image and run the smoke contract**
 
 Run: `docker build --tag memoryos-landing:local --build-arg VCS_REF="$(git rev-parse HEAD)" --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" landing`
 Expected: build succeeds; the build stage prints `Verified N emitted WOFF2 assets`.
@@ -2637,7 +2643,7 @@ Expected: `landing smoke: memoryos-landing:local passed`.
 Negative check (proves the script can fail): run `LANDING_SMOKE_PORT=18091 bash landing/scripts/smoke-image.sh nginx:1.31-alpine@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913`
 Expected: non-zero exit with `landing smoke:` failure output (the stock image does not listen on 8080).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add landing/.dockerignore landing/nginx.conf landing/Dockerfile landing/scripts/smoke-image.sh
@@ -2998,20 +3004,20 @@ git commit -m "docs(landing): add delivery runbook and verification record"
 **Files:**
 - Modify: `ARCHITECTURE.md` (Deployment), `docs/tests/delivery.md`, `docs/runbooks/ci-cd.md`, `README.md`, `docs/increments/active/mem-82-landing-page/plan.md` (status)
 
-- [ ] **Step 1: `ARCHITECTURE.md` — append to the Deployment section, after the staging-origin paragraph**
+- [x] **Step 1: `ARCHITECTURE.md` — append to the Deployment section, after the staging-origin paragraph**
 
 ```markdown
 The public company site `https://vanda.app` is the separate static [`landing/`](landing) package, not part of the application. Its nginx image serves a client-rendered page read-only as UID 101 with a strict same-origin CSP; `CI Gate` requires its checks and image smoke, and a separate `Publish landing` job records its digest. Operators run it as Compose project `memoryos-landing` from [`compose.landing.yaml`](infrastructure/deployment/compose.landing.yaml) behind Nginx Proxy Manager, outside the application release bundle and deployment script. See the [landing runbook](docs/runbooks/landing.md).
 ```
 
-- [ ] **Step 2: `docs/tests/delivery.md` — add two rows after "Web base-image upgrades preserve the serving boundary"**
+- [x] **Step 2: `docs/tests/delivery.md` — add two rows after "Web base-image upgrades preserve the serving boundary"**
 
 ```markdown
 | The public landing image keeps its serving boundary | `landing/scripts/smoke-image.sh` in the `landing` CI job: read-only, capability-free UID 101 container; `/`, `/healthz`, public files, 404 for unknown paths, CSP and security headers, immutable asset caching | Local container only; DNS, TLS, HSTS and the `www` redirect are checked on the deployed host per the [landing runbook](../runbooks/landing.md) |
 | The landing release stays independent of the application release | `landing-image` artifact outside `candidate-*`; `Publish landing` after `CI Gate`; the application `images.env` keeps three images | Deployment is a manual operator step; the application script never manages `memoryos-landing` |
 ```
 
-- [ ] **Step 3: `docs/runbooks/ci-cd.md` — update the gate and publication statements**
+- [x] **Step 3: `docs/runbooks/ci-cd.md` — update the gate and publication statements**
 
 Replace the first sentence of "Required verification and release identity" with:
 
@@ -3025,7 +3031,7 @@ Append to the end of that section:
 The public landing page is released separately: `Publish landing` pushes its preserved image after the same gate and records the digest in its own `landing-release-<sha>-<attempt>` artifact. It is never part of `images.env`; operators deploy it with the [landing runbook](landing.md).
 ```
 
-- [ ] **Step 4: `README.md` — requirements and verification**
+- [x] **Step 4: `README.md` — requirements and verification**
 
 Change the Node requirement line to:
 
@@ -3044,7 +3050,7 @@ pnpm --dir landing check
 ```
 ````
 
-- [ ] **Step 5: Mark plan status and commit**
+- [x] **Step 5: Mark plan status and commit**
 
 Add a `## Status` section at the top of this plan naming completed tasks and the pending external gates from `verification.md`.
 
