@@ -14,7 +14,7 @@ Design: [design.md](design.md). Content decisions are fixed there; do not add st
 
 2026-09-11: Tasks 1–9 and the Task 10 documentation are complete and verified locally; see [verification.md](verification.md). The browser review added two fixes: the desktop navigation starts at 1024 px, and the focused skip link keeps its padding. Pull request #95 is open and reported on MEM-82.
 
-Later the same day: Task 5D, the landing page 6.0 motion redesign, is implemented on branch `nhuxuanviet/mem-82-landing-page-6.0` and passes the package gate; Lighthouse mobile performance on the local preview is 0.96 (TBT 130 ms, CLS 0), and its browser review is in progress. Pull request #95 stays the rollback point.
+Later the same day: Task 5D, the landing page 6.0 motion redesign, is implemented on branch `nhuxuanviet/mem-82-landing-page-6.0` and passes the package gate; Lighthouse mobile performance on the local preview is 0.96 (TBT 130–160 ms, CLS 0). It is committed in concern clusters (`48ed13e`–`1bf0000`), not yet pushed. The Orca browser review is recorded in [verification](verification.md#landing-60), with its remaining checks listed there. Pull request #95 stays the rollback point.
 
 Pending, and not passed: CI on the pull request, the first `Publish landing` digest, the operator deployment with the deployed checks from the [landing runbook](../../../runbooks/landing.md), Lighthouse on `https://vanda.app/`, and Laura's content review. The increment stays under `active/` until the pull request merges.
 
@@ -2461,8 +2461,8 @@ Added after Task 10 at the product owner's request, on branch `nhuxuanviet/mem-8
 - [x] **Step 7: Deployment diagram and roadmap.**
 - [x] **Step 8: Keep the first interaction fast** — Lighthouse mobile fell to 0.78 (TBT 750 ms): setting up every section's motion while the page mounted laid out the whole page inside that task. `useMotion` now sets up after the first frame, one task per section; the hero hides its incoming parts with `data-intro` until then; capability mocks build on first use and grid panels play through an IntersectionObserver. Result: 0.96, TBT 130 ms, CLS 0.
 - [x] **Step 9: Run the package gate** — `pnpm --dir landing check`. Expected: 5 files, 50 tests pass, build and `tsc -b` pass.
-- [ ] **Step 10: Review in the Orca browser** (`orca tab`, `orca eval`, `orca screenshot`) — 390, 768, 1024 and 1440 px in both themes; every pinned and scrubbed scene in both directions; the ingestion loops; reduced motion shows the static page; no console errors.
-- [ ] **Step 11: Commit in concern clusters and push the branch.**
+- [ ] **Step 10: Review in the Orca browser** (`orca tab`, `orca eval`, `orca screenshot`) — 390, 768, 1024 and 1440 px in both themes; every pinned and scrubbed scene in both directions; the ingestion loops; reduced motion shows the static page; no console errors. Done: see [verification](verification.md#landing-60). Remaining: a visual pass over the capabilities, deployment and roadmap scenes while scrolling up. Orca cannot emulate reduced motion, so the jsdom test covers that case.
+- [ ] **Step 11: Commit in concern clusters and push the branch.** Committed as `48ed13e`–`1bf0000` plus the verification record; push is waiting for confirmation.
 
 ---
 
