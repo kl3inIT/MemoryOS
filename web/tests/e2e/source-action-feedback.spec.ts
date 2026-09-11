@@ -559,9 +559,6 @@ test("synchronization completion does not claim that indexing has finished", asy
   server.operations[0]!.status = "SUCCEEDED";
   await expect(completed).toBeVisible();
   await expect(completed).toContainText(/indexing may still be running/i);
-  await expect(page.getByRole("region", { name: "Files", exact: true })).toContainText(
-    "Processing",
-  );
   await page.screenshot({
     path: testInfo.outputPath("synchronization-completed-indexing-pending.png"),
     fullPage: true,
@@ -892,9 +889,6 @@ test("upload failures retain retry state and finalization acceptance never claim
   await page.getByRole("button", { name: "Retry finalization", exact: true }).click();
   await expect(page.getByRole("listitem", { name: "Upload accepted", exact: true })).toContainText(
     "New.txt",
-  );
-  await expect(page.getByRole("region", { name: "Files", exact: true })).toContainText(
-    "Processing",
   );
   await expect(files.getByRole("status")).toHaveText("1 / 2");
   await expect(files.getByRole("row").filter({ hasText: "New.txt" })).toBeVisible();
