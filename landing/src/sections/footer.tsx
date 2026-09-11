@@ -5,7 +5,8 @@ function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border-subtle bg-surface-raised px-[var(--page-gutter)]">
+    <footer className="relative isolate overflow-hidden border-t border-border-subtle bg-surface-raised px-[var(--page-gutter)]">
+      <div aria-hidden="true" className="cta-glow pointer-events-none absolute inset-0 -z-10" />
       <div className="mx-auto max-w-[var(--page-width-wide)]">
         <div className="flex flex-col gap-8 py-16 sm:flex-row sm:items-end sm:justify-between sm:py-20">
           <div className="max-w-xl">

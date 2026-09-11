@@ -8,8 +8,8 @@ function HowItWorks() {
     <Section id="how-it-works" title={howItWorks.title} description={howItWorks.description}>
       <ol className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
         {steps.map((step, index) => (
-          <li key={step.title} className="border-t-2 border-content-primary pt-5">
-            <p className="font-main-ui-action text-content-muted">Step {index + 1}</p>
+          <li key={step.title} className="border-t-2 border-accent pt-5">
+            <p className="font-main-ui-action text-accent">Step {index + 1}</p>
             <h3 className="mt-2 font-heading-h3 text-content-primary">{step.title}</h3>
             <p className="mt-2 font-main-content-body text-content-secondary">{step.description}</p>
           </li>
@@ -23,7 +23,7 @@ function HowItWorks() {
               key={step.title}
               className="rounded-xl border border-border-subtle bg-surface-raised p-5"
             >
-              <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--action-default-primary-surface)] font-secondary-action text-content-inverse">
+              <span className="inline-flex size-6 items-center justify-center rounded-full bg-accent-surface font-secondary-action text-accent-content">
                 {index + 1}
               </span>
               <p className="mt-3 font-main-ui-action text-content-primary">{step.title}</p>

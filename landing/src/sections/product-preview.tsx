@@ -20,7 +20,10 @@ function ProductPreview() {
     productPreview;
 
   return (
-    <figure aria-label={label} className="rounded-2xl bg-surface-canvas p-3 sm:p-4">
+    <figure
+      aria-label={label}
+      className="rounded-2xl border border-border-subtle bg-surface-canvas/70 p-3 backdrop-blur-sm sm:p-4"
+    >
       <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-raised shadow-md">
         <div className="space-y-5 p-5 sm:p-6">
           <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-surface-canvas px-4 py-2.5 font-main-content-body text-content-primary">

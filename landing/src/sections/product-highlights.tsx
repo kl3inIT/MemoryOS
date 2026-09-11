@@ -21,7 +21,7 @@ function HighlightRow({ highlight, visual, reversed = false }: HighlightRowProps
         <ul className="mt-6 space-y-3">
           {highlight.points.map((point) => (
             <li key={point} className="flex gap-3 font-main-content-body text-content-primary">
-              <Check aria-hidden="true" className="mt-1 size-4 shrink-0" />
+              <Check aria-hidden="true" className="mt-1 size-4 shrink-0 text-accent" />
               {point}
             </li>
           ))}
@@ -51,9 +51,9 @@ function SourcesVisual() {
         aria-hidden="true"
         className="mx-auto size-5 rotate-90 text-content-muted sm:rotate-0"
       />
-      <div className="rounded-xl bg-[var(--action-default-primary-surface)] p-5 text-content-inverse">
+      <div className="rounded-xl bg-accent-surface p-5 text-accent-content shadow-[0_16px_48px_-12px_var(--glow-core)]">
         <p className="font-main-ui-action">{indexLabel}</p>
-        <ul className="mt-3 space-y-2 font-main-ui-body text-content-inverse/75">
+        <ul className="mt-3 space-y-2 font-main-ui-body text-accent-content/80">
           {outputs.map((output) => (
             <li key={output}>{output}</li>
           ))}

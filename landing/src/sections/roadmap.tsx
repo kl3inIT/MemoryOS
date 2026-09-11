@@ -12,7 +12,7 @@ function Roadmap() {
           >
             <span
               aria-hidden="true"
-              className="absolute top-1.5 -left-[5.5px] size-2.5 rounded-full bg-content-primary lg:-top-[5.5px] lg:left-0"
+              className="absolute top-1.5 -left-[5.5px] size-2.5 rounded-full bg-accent lg:-top-[5.5px] lg:left-0"
             />
             <time dateTime={milestone.dateTime} className="font-main-ui-action text-content-muted">
               {milestone.period}

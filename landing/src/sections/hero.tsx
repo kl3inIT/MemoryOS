@@ -6,8 +6,9 @@ function Hero() {
   return (
     <section
       aria-labelledby="hero-heading"
-      className="px-[var(--page-gutter)] pt-14 pb-20 sm:pt-20 sm:pb-24 lg:pt-24"
+      className="relative isolate overflow-hidden px-[var(--page-gutter)] pt-14 pb-20 sm:pt-20 sm:pb-24 lg:pt-24"
     >
+      <div aria-hidden="true" className="hero-glow pointer-events-none absolute inset-0 -z-10" />
       <div className="mx-auto grid max-w-[var(--page-width-wide)] items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)] lg:gap-20">
         <div className="max-w-2xl">
           <h1 id="hero-heading" className="font-display text-content-primary">
