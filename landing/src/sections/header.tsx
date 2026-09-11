@@ -1,5 +1,5 @@
 import { Menu, Moon, Sun } from "lucide-react";
-import { useRef } from "react";
+import { type MouseEvent, useRef } from "react";
 import { ActionLink } from "@/components/action-link";
 import { BrandMark } from "@/components/brand-mark";
 import { contact, navigation } from "@/content";
@@ -11,6 +11,11 @@ function Header() {
   const { theme, toggleTheme } = useTheme();
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const themeLabel = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+  // Start the theme reveal from the control's centre, which also works for keyboard activation.
+  const switchTheme = (event: MouseEvent<HTMLButtonElement>) => {
+    const { left, top, width, height } = event.currentTarget.getBoundingClientRect();
+    toggleTheme({ x: left + width / 2, y: top + height / 2 });
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface-base/90 px-[var(--page-gutter)] backdrop-blur-md">
@@ -39,7 +44,7 @@ function Header() {
         </nav>
         <button
           type="button"
-          onClick={toggleTheme}
+          onClick={switchTheme}
           className="hidden size-9 items-center justify-center rounded-lg text-content-secondary transition-colors duration-150 hover:bg-surface-canvas hover:text-content-primary md:inline-flex"
         >
           <ThemeIcon aria-hidden="true" className="size-4" />
@@ -70,7 +75,7 @@ function Header() {
             <div className="mt-2 border-t border-border-subtle pt-2">
               <button
                 type="button"
-                onClick={toggleTheme}
+                onClick={switchTheme}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 font-main-ui-action text-content-secondary hover:bg-surface-canvas hover:text-content-primary"
               >
                 <ThemeIcon aria-hidden="true" className="size-4" />
