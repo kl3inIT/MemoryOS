@@ -52,7 +52,7 @@ Kept: the section composition, one typed content module, the bento capability gr
 6. **Organizational AI Memory** — the problem and solution, an example released asset, four general benefits (turn what works into assets, govern every release, reuse with trusted context, improve and hand over) and the delivery surfaces. Asset types are deliberately not listed.
 7. **How it works** — connect → index → ask → verify, plus the security flow: SSO sign-in, ACL check before retrieval, only permitted context reaches the model.
 8. **Deployment** — three options: AWS (EC2 in a private VPC, S3 backups, KMS encryption, CloudWatch monitoring), other clouds, and on-premise with self-hosted models. No architecture diagram, prices, credit amounts, instance sizes or internal component names.
-9. **FAQ** and **Footer** — contact call to action, © Vanda, third-party notices.
+9. **FAQ** and **Footer** — contact call to action, © Vanda.
 
 ## Visual direction
 
@@ -66,7 +66,7 @@ Motion, also at the product owner's request, answers the visitor's own actions. 
 - `src/content.ts` owns every string, link and list; section components under `src/sections/` render it. Shared primitives live under `src/components/`: `ActionLink` (default-tone rows of the action matrix as links), `Section` (landmark, heading and description) and `BrandMark`.
 - `src/styles/tokens.css` keeps the `web/` semantic token names and default-tone action rows (source: `web/src/styles/tokens.css`) with the landing's own navy/blue values for light and `.dark`, plus `accent`, `glow` and `brand-mark` tokens; `src/styles/base.css` holds the two decorative glow layers. It is a deliberate copy rather than an import: the application and the marketing site deploy independently, and a cross-package import would couple their build contexts. `src/styles/theme.css` maps them for Tailwind and adds landing-only display sizes next to the web typography presets.
 - The theme follows the web app's contract: the `dark` class on `<html>` and the `memoryos-theme` storage key (`light` or `dark`; absent means the system preference). `public/theme-init.js`, a classic same-origin script at the top of `<head>`, applies it before first paint, so the strict CSP needs no inline script and dark-mode visitors never see a light flash. `src/lib/theme.ts` owns the toggle, follows system changes until the visitor chooses, and falls back to the system preference when the browser blocks storage. The Open Graph image stays light.
-- `index.html` owns the title, description, canonical URL, Open Graph/Twitter tags, and JSON-LD for `Organization` (Vanda, `funder` GenAI Fund), `SoftwareApplication` (MemoryOS) and `WebSite`. `public/` holds `favicon.svg`, `og-image.png` (1200 × 630, rendered from `scripts/og-image.html`), `robots.txt`, `sitemap.xml` and `THIRD_PARTY_NOTICES.txt` crediting Open SaaS and Onyx/Opal.
+- `index.html` owns the title, description, canonical URL, Open Graph/Twitter tags, and JSON-LD for `Organization` (Vanda, `funder` GenAI Fund), `SoftwareApplication` (MemoryOS) and `WebSite`. `public/` holds `favicon.svg`, `og-image.png` (1200 × 630, rendered from `scripts/og-image.html`), `robots.txt` and `sitemap.xml`.
 - The page renders on the client. Prerendering is not added: reviewers use browsers, crawlers that execute JavaScript see the full page, and the static head carries the metadata. Revisit only if search visibility becomes a requirement.
 
 ## Delivery

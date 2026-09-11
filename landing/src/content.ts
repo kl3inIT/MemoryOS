@@ -422,7 +422,7 @@ const footer: SectionIntro & {
     "Tell us about your systems, identity provider and first use cases, and we will scope a deployment together.",
   action: "Email info@vadan.app",
   organization: "Vanda",
-  links: [{ label: "Third-party notices", href: "/THIRD_PARTY_NOTICES.txt" }],
+  links: [],
 };
 
 export {

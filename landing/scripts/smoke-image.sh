@@ -58,7 +58,7 @@ asset_headers=$(curl --silent --show-error --fail --dump-header - --output /dev/
   "$origin${BASH_REMATCH[1]}")
 expect_header "$asset_headers" "Cache-Control: public, max-age=31536000, immutable"
 
-for path in /theme-init.js /robots.txt /sitemap.xml /favicon.svg /og-image.png /THIRD_PARTY_NOTICES.txt; do
+for path in /theme-init.js /robots.txt /sitemap.xml /favicon.svg /og-image.png; do
   [[ $(status_of "$path") == 200 ]] || fail "$path is not served"
 done
 [[ $(status_of /missing) == 404 ]] || fail "unknown paths must return 404"
