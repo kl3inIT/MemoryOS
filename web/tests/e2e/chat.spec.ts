@@ -395,7 +395,8 @@ test("mobile drawer, Chat/Search mode, and leaving a running chat only closes th
   expect(box!.y + box!.height).toBeLessThan(844);
   await expect(page.getByRole("banner")).toContainText("Mobile running");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
-  await page.getByRole("link", { name: "Search", exact: true }).last().click();
+  const navigation = page.getByRole("dialog", { name: "MemoryOS navigation" });
+  await navigation.locator('a[href="/search"]').click();
   await expect(page).toHaveURL(/\/search$/);
   await expect
     .poll(
@@ -408,7 +409,7 @@ test("mobile drawer, Chat/Search mode, and leaving a running chat only closes th
   ).json();
   expect(history.at(-1).status).toBe("RUNNING");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
-  await page.getByRole("link", { name: "Mobile running", exact: true }).last().click();
+  await navigation.locator(`a[href="/chat/${session.id}"]`).click();
   await expect(page.getByRole("button", { name: "Dừng trả lời" })).toBeVisible();
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
   await expect(page.getByText("Đã dừng", { exact: true })).toBeVisible();

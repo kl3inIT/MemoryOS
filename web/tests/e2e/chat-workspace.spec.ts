@@ -334,15 +334,37 @@ test("rechecks shared access without polling the full transcript and hides revok
   const initialAccess = accessReads;
   const initialHistory = historyReads;
   expect(initialHistory).toBeGreaterThan(0);
+  const accessPath = `/api/chat/shared/${session.id}`;
+  const reload = page.getByRole("button", { name: "Tải lại hội thoại" });
+  const pollResponse = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === accessPath,
+  );
   await page.clock.fastForward(31000);
+  await (await pollResponse).finished();
+  await expect(reload).toBeEnabled();
   await expect.poll(() => accessReads).toBeGreaterThan(initialAccess);
   expect(historyReads).toBe(initialHistory);
-  await page.getByRole("button", { name: "Tải lại hội thoại" }).click();
+  const reloadAccess = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === accessPath,
+  );
+  const reloadHistory = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === `${accessPath}/messages`,
+  );
+  await reload.click();
+  await Promise.all([
+    reloadAccess.then((response) => response.finished()),
+    reloadHistory.then((response) => response.finished()),
+  ]);
+  await expect(reload).toBeEnabled();
   await expect.poll(() => historyReads).toBeGreaterThan(initialHistory);
   await page.request.put(`/api/chat/sessions/${session.id}/sharing`, {
     data: { enabled: false, revision: 1 },
   });
+  const denied = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === accessPath && response.status() === 404,
+  );
   await page.clock.fastForward(31000);
+  await (await denied).finished();
   await expect(page.getByRole("alert")).toContainText("Hội thoại không khả dụng");
   await expect(page.getByRole("heading", { name: "Access polling" })).toHaveCount(0);
 });
