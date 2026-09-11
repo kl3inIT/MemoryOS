@@ -1,6 +1,6 @@
 # MEM-82 verification
 
-Recorded 2026-09-11 on branch `worktree-landing-page` at `f1008b4`, on Windows 11 with Docker Desktop and Chrome through Chrome DevTools MCP. Everything below ran locally; the pending gates at the end have not run.
+Recorded 2026-09-11 on branch `nhuxuanviet/mem-82-landing-page` at `b657c44`, on Windows 11 with Docker Desktop and Chrome through Chrome DevTools MCP. Everything below ran locally; the pending gates at the end have not run.
 
 ## Package gate
 
@@ -15,7 +15,7 @@ Recorded 2026-09-11 on branch `worktree-landing-page` at `f1008b4`, on Windows 1
 
 | Check | Result |
 | --- | --- |
-| `docker build --tag memoryos-landing:local landing` | Built from `f1008b4` |
+| `docker build --tag memoryos-landing:local landing` | Built from `b657c44` |
 | `bash landing/scripts/smoke-image.sh memoryos-landing:local` | `landing smoke: memoryos-landing:local passed` |
 | Negative: the smoke script against the unmodified `nginx:1.31-alpine` base (same digest) | Exit 1, `landing smoke: no answer on /healthz`; the base cannot start read-only and has no `/healthz` |
 | `docker compose --file infrastructure/deployment/compose.landing.yaml config --quiet` with `MEMORYOS_LANDING_IMAGE` set | Exit 0 |
@@ -44,13 +44,13 @@ Viewports, dark theme:
 | Width | Result |
 | --- | --- |
 | 390 px | Compact header and menu; no horizontal overflow |
-| 768 px | Initially the desktop navigation overflowed the header (page 789 px wide, contact button clipped). Fixed in `301b0a0`: the desktop navigation starts at 1024 px. Re-checked: 768 px wide, compact menu |
+| 768 px | Initially the desktop navigation overflowed the header (page 789 px wide, contact button clipped). Fixed in `05d3b8d`: the desktop navigation starts at 1024 px. Re-checked: 768 px wide, compact menu |
 | 1024 px | Desktop navigation fits on one row; no overflow |
 | 1440 px | Hero, preview and trust strip laid out as designed; logos vertically centred |
 
 Keyboard, at 1024 px:
 
-- The first Tab shows "Skip to content" with a 2 px focus outline. It first collapsed onto the brand because `not-sr-only` reset its padding. Fixed in `f1008b4`; it now has 8 × 12 px padding above the header.
+- The first Tab shows "Skip to content" with a 2 px focus outline. It first collapsed onto the brand because `not-sr-only` reset its padding. Fixed in `b657c44`; it now has 8 × 12 px padding above the header.
 - Enter on the skip link moves to `#main`, and the next Tab reaches the hero's "Contact us".
 - The tab order runs through the header, the hero actions, the seven FAQ questions and the three footer links. Enter opens a FAQ answer and Space closes it, with a visible focus outline.
 
