@@ -136,6 +136,22 @@ class ObjectUploadLifecycleIntegrationTest {
     }
 
     @Test
+    void oneHundredMiBUploadCanBeVerifiedAndAdoptedButOneMoreByteIsRejected() {
+        var specification = new ObjectUploadSpecification("scanned.pdf", "application/pdf", 104857600L, CHECKSUM);
+        var authorization = uploads.initiate(tenantId, specification);
+        var verified = uploads.verify(tenantId, authorization.uploadId());
+        uploads.adopt(tenantId, authorization.uploadId(), verified.token());
+        assertEquals("ADOPTED", uploadStatus(authorization.uploadId().value()));
+        assertEquals(104857600L, jdbcClient.sql("""
+                SELECT o.size_bytes FROM stored_objects o
+                JOIN object_uploads u ON u.tenant_id = o.tenant_id AND u.stored_object_id = o.id
+                WHERE u.id = :id
+                """).param("id", authorization.uploadId().value()).query(Long.class).single());
+        assertThrows(IllegalArgumentException.class,
+                () -> new ObjectUploadSpecification("scanned.pdf", "application/pdf", 104857601L, CHECKSUM));
+    }
+
+    @Test
     void providerInspectionFailureReturnsAStableRetryableUploadError() {
         var authorization = uploads.initiate(tenantId, SPECIFICATION);
         storage.failNextInspection();

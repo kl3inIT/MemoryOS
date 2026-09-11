@@ -3,6 +3,7 @@ package io.memoryos.provider.file;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -36,7 +37,7 @@ import org.xml.sax.SAXException;
 final class TikaExtractionProcess {
 
     private static final int MAX_TEXT_CHARACTERS = 2_000_000;
-    private static final int MAX_REQUEST_BYTES = 10 * 1024 * 1024;
+    private static final int MAX_REQUEST_BYTES = Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES);
     private static final int MAX_RESPONSE_STRING_BYTES = 8 * 1024 * 1024;
     private static final Set<String> SUPPORTED_MEDIA_TYPES = Set.of(
             "application/pdf",

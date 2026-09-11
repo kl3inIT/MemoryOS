@@ -14,6 +14,7 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -51,7 +52,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
 
     public DocumentContent extract(InputStream content, long sizeBytes, String filename,
             SourceInputDescriptor input) throws ExtractionException {
-        if (sizeBytes < 1 || sizeBytes > 10_485_760) throw failure(ExtractionFailure.WRITE_LIMIT);
+        if (sizeBytes < 1 || sizeBytes > ObjectUploadSpecification.MAX_SIZE_BYTES) throw failure(ExtractionFailure.WRITE_LIMIT);
         byte[] bytes;
         try {
             bytes = content.readNBytes((int) sizeBytes + 1);
@@ -62,7 +63,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
 
     public DocumentContent extract(byte[] bytes, String filename, String mediaType,
             SourceInputDescriptor input) throws ExtractionException {
-        if (bytes.length < 1 || bytes.length > 10_485_760) throw failure(ExtractionFailure.WRITE_LIMIT);
+        if (bytes.length < 1 || bytes.length > ObjectUploadSpecification.MAX_SIZE_BYTES) throw failure(ExtractionFailure.WRITE_LIMIT);
         if ("application/pdf".equals(mediaType)) {
             // Admission only: content extraction remains exclusively in Docling.
             try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {

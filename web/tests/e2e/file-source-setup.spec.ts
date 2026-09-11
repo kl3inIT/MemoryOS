@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 for (const failure of ["none", "create", "upload", "finalize"] as const) {
   test(`FILE single-step setup: ${failure}`, async ({ page }, testInfo) => {
+    const uploadedFilename = failure === "none" ? "knowledge.pdf" : "knowledge.txt";
     const source = {
       id: "15f8cb72-2628-4d75-bcf1-8f6cda95a120",
       name: "knowledge",
@@ -72,9 +73,9 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
                     items: [
                       {
                         id: "item-1",
-                        filename: "knowledge.txt",
+                        filename: uploadedFilename,
                         status: "PENDING",
-                        sizeBytes: 5,
+                        sizeBytes: failure === "none" ? 100 * 1024 * 1024 : 5,
                         searchStatus: "WAITING",
                         lastIndexedAt: null,
                         latestAttempt: null,
@@ -143,7 +144,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       mimeType: "text/plain",
       buffer: Buffer.alloc(0),
     });
-    await expect(page.getByRole("alert")).toContainText("between 1 byte and 10 MiB");
+    await expect(page.getByRole("alert")).toBeVisible();
     await expect(submit).toBeDisabled();
     await input.setInputFiles({
       name: "script.exe",
@@ -151,12 +152,18 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       buffer: Buffer.from("test"),
     });
     await expect(page.getByRole("alert")).toBeVisible();
-    await input.setInputFiles({
-      name: "large.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.alloc(10 * 1024 * 1024 + 1),
+    await input.evaluate((element: HTMLInputElement) => {
+      const data = new DataTransfer();
+      data.items.add(
+        new File([new Uint8Array(100 * 1024 * 1024 + 1)], "large.pdf", {
+          type: "application/pdf",
+        }),
+      );
+      element.files = data.files;
+      element.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await expect(page.getByRole("alert")).toContainText("between 1 byte and 10 MiB");
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(submit).toBeDisabled();
     expect(creates).toBe(0);
     await input.setInputFiles({
       name: "knowledge.txt",
@@ -205,6 +212,18 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
         fullPage: true,
         animations: "disabled",
       });
+      await input.evaluate((element: HTMLInputElement, filename) => {
+        const data = new DataTransfer();
+        data.items.add(
+          new File([new Uint8Array(100 * 1024 * 1024).fill(65)], filename, {
+            type: "application/pdf",
+          }),
+        );
+        element.files = data.files;
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+      }, uploadedFilename);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      await expect(submit).toBeEnabled();
     }
     await submit.evaluate((button: HTMLButtonElement) => {
       button.click();
@@ -238,7 +257,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
         .click();
     }
     await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
-    await expect(page.getByText("knowledge.txt", { exact: true })).toBeVisible();
+    await expect(page.getByText(uploadedFilename, { exact: true })).toBeVisible();
     const acceptedNotice = page.getByRole("listitem", {
       name: "Source created; upload accepted",
       exact: true,

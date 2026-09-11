@@ -58,8 +58,8 @@ export function CreateFileSourcePage() {
       setError("Choose a PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file.");
       return;
     }
-    if (selected.size === 0 || selected.size > 10 * 1024 * 1024) {
-      setError("Choose a file between 1 byte and 10 MiB.");
+    if (selected.size === 0 || selected.size > 100 * 1024 * 1024) {
+      setError("Choose a file between 1 byte and 100 MiB.");
       return;
     }
     setError(null);
@@ -276,7 +276,7 @@ export function CreateFileSourcePage() {
                 }}
               />
               <p className="mt-3 font-secondary-body text-content-muted">
-                PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 10 MiB
+                PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB
               </p>
             </div>
             {file ? (

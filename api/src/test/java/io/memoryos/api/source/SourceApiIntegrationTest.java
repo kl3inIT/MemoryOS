@@ -1293,8 +1293,19 @@ class SourceApiIntegrationTest {
                         .header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
+                                {"filename":"scanned.pdf","mediaType":"application/pdf",
+                                 "sizeBytes":104857600,
+                                 "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.method").value("PUT"));
+        mockMvc.perform(post("/api/sources/{sourceId}/uploads", sourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
                                 {"filename":"oversized.txt","mediaType":"text/plain",
-                                 "sizeBytes":10485761,
+                                 "sizeBytes":104857601,
                                  "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                                 """))
                 .andExpect(status().isBadRequest())

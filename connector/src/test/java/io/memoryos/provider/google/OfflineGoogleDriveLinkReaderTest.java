@@ -165,6 +165,11 @@ class OfflineGoogleDriveLinkReaderTest {
                 stream.showText(SHEET);
                 stream.endText();
             }
+            var payload = document.getDocument().createCOSStream();
+            try (var output = payload.createOutputStream()) {
+                output.write(new byte[11 * 1024 * 1024]);
+            }
+            document.getDocumentCatalog().getCOSObject().setItem("Payload", payload);
             document.save(bytes);
         }
         assertEquals(Set.of(new Link(DOC, "Page 1"), new Link(SHEET, "Page 1")),
@@ -216,7 +221,7 @@ class OfflineGoogleDriveLinkReaderTest {
         assertFailure(MALFORMED, binary(new byte[]{(byte) 0xc3, 0x28}, "text/plain"));
         assertFailure(MALFORMED, binary(bytes("not a PDF"), "application/pdf"));
         assertFailure(MALFORMED, binary(bytes("not a ZIP"), XLSX));
-        assertFailure(LIMIT_EXCEEDED, binary(new byte[10_485_761], "text/plain"));
+        assertFailure(LIMIT_EXCEEDED, binary(new byte[104_857_601], "text/plain"));
         var incomplete = mapper.readTree("""
                 {"spreadsheetId":"source1","sheets":[{"properties":{"title":"Missing","gridProperties":{"rowCount":2,"columnCount":1}},
                   "pages":[{"startRow":0,"endRow":1,"data":[]}]}]}

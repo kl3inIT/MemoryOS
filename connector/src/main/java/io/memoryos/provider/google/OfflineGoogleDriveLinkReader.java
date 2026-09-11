@@ -6,6 +6,7 @@ import io.memoryos.connector.GoogleDriveLinkReader;
 import io.memoryos.connector.GoogleDriveProvider.AcquiredContent;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.ingestion.ExtractionException;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.provider.StructuredContent;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -37,7 +38,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
         var links = new Links();
         boolean nativeInput = input.descriptor().format() != io.memoryos.connector.SourceInputFormat.BINARY;
         if (input.bytes().length == 0) throw failure(MALFORMED);
-        if (input.bytes().length > (nativeInput ? StructuredContent.MAX_BYTES : 10_485_760)) throw failure(LIMIT_EXCEEDED);
+        if (input.bytes().length > (nativeInput ? StructuredContent.MAX_BYTES : ObjectUploadSpecification.MAX_SIZE_BYTES)) throw failure(LIMIT_EXCEEDED);
         try {
             switch (input.descriptor().format()) {
                 case GOOGLE_SHEETS -> sheets(snapshot(input, "GOOGLE_SHEETS"), links);

@@ -8,7 +8,7 @@ public record ObjectUploadSpecification(
         long sizeBytes,
         ContentSha256 checksum
 ) {
-    public static final long MAX_SIZE_BYTES = 10L * 1024 * 1024;
+    public static final long MAX_SIZE_BYTES = 100L * 1024 * 1024;
 
     public ObjectUploadSpecification {
         Objects.requireNonNull(filename, "filename must not be null");
@@ -22,7 +22,7 @@ public record ObjectUploadSpecification(
             throw new IllegalArgumentException("mediaType must contain between 1 and 160 characters");
         }
         if (sizeBytes < 1 || sizeBytes > MAX_SIZE_BYTES) {
-            throw new IllegalArgumentException("sizeBytes must be between 1 and 10485760");
+            throw new IllegalArgumentException("sizeBytes must be between 1 and " + MAX_SIZE_BYTES);
         }
         Objects.requireNonNull(checksum, "checksum must not be null");
     }

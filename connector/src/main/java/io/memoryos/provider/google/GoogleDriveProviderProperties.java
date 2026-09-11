@@ -1,5 +1,6 @@
 package io.memoryos.provider.google;
 
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
@@ -23,7 +24,7 @@ public record GoogleDriveProviderProperties(
         maxRequests = maxRequests == 0 ? 256 : maxRequests;
         maxTabs = maxTabs == 0 ? 100 : maxTabs;
         maxCells = maxCells == 0 ? 200_000 : maxCells;
-        maxBinaryBytes = maxBinaryBytes == 0 ? 10_485_760 : maxBinaryBytes;
+        maxBinaryBytes = maxBinaryBytes == 0 ? Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES) : maxBinaryBytes;
         maxSnapshotBytes = maxSnapshotBytes == 0 ? 33_554_432 : maxSnapshotBytes;
     }
 
@@ -34,7 +35,7 @@ public record GoogleDriveProviderProperties(
                 || !duration(requestTimeout, 120) || !duration(acquisitionTimeout, 120)
                 || pageSize < 1 || pageSize > 1_000 || maxRequests < 1 || maxRequests > 256
                 || maxTabs < 1 || maxTabs > 100 || maxCells < 1 || maxCells > 200_000
-                || maxBinaryBytes < 1 || maxBinaryBytes > 10_485_760
+                || maxBinaryBytes < 1 || maxBinaryBytes > ObjectUploadSpecification.MAX_SIZE_BYTES
                 || maxSnapshotBytes < 1 || maxSnapshotBytes > 33_554_432) {
             throw new io.memoryos.connector.GoogleDriveProviderException(
                     io.memoryos.connector.GoogleDriveProviderException.Failure.UNAVAILABLE);

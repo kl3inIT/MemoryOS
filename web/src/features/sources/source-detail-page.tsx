@@ -663,7 +663,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     <h2 className="font-heading-h3 text-content-primary">Upload content</h2>
                   </div>
                   <p className="mt-2 text-sm text-content-muted">
-                    PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 10 MiB per file
+                    PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 100 MiB per file
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -676,7 +676,20 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       type="file"
                       accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                       disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
-                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                      onChange={(event) => {
+                        const selected = event.target.files?.[0] ?? null;
+                        if (
+                          selected &&
+                          (selected.size === 0 || selected.size > 100 * 1024 * 1024)
+                        ) {
+                          setFile(null);
+                          setError("Choose a file between 1 byte and 100 MiB.");
+                          event.target.value = "";
+                          return;
+                        }
+                        setError(null);
+                        setFile(selected);
+                      }}
                       className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
                     />
                   </label>
