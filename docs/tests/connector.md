@@ -37,6 +37,13 @@ Evidence below separates retained regressions, measured capacity and isolated ru
 - Final `pnpm check` passed after the cache fix: generated API/route stability, CI image consistency, lint, formatting, TypeScript, all 70 unit tests in 16 files, production build and emitted-font checks. `pnpm test:e2e tests/e2e/source-action-feedback.spec.ts tests/e2e/google-drive-enterprise.spec.ts tests/e2e/file-source-setup.spec.ts tests/e2e/identity-shell.spec.ts --workers=1 --retries=0 --global-timeout=600000` passed all 39 selected browser tests in 4.2m, without retries.
 - This is rendered Chromium plus focused real PostgreSQL/API contract proof, not live Google, customer-data or Orca embedded-browser acceptance. Orca snapshots timed out/returned `runtime_unavailable`; its dedicated temporary tab was closed without changing the user's original tab. This follow-up did not reindex, retry extraction or alter user Sources, credentials, selections, schedules or Google content.
 
+## Tasco Source progress and layout — 2026-09-12
+
+- The real recreated Drive Source rendered four Queued rows, one Processing row and one Indexed/Search ready row against the isolated API. Work pending remained visible; only the indexed current version showed a completion timestamp. The Files section explicitly separated processing completion from financial-value verification. This was the in-flight six-file corpus, not a claim that all six had completed.
+- Visually inspected Orca desktop and narrow screenshots showed wrapped full filenames, distinct Size/Status/Last indexed/Actions columns and contained horizontal scrolling. The measured narrow table was 1,024px wide inside a 360px scroll region; scrolling to the right exposed timestamps and actions without overlap. The region was focusable and filenames retained their full title values. Native keyboard scrolling was not verified: the embedded background document reported no focus and did not receive the attempted key event.
+- `pnpm --dir web check` passed, including all 99 unit tests in 18 files. `source-history-presentation.test.tsx` protects queued/processing presentation, authoritative item status and unknown-state handling. No new browser-suite or financial-accuracy claim is implied by this frontend gate.
+- Ignored visual evidence: `.tmp/tasco-2025/quality-followup/sources-live-progress-desktop.png`, `sources-processing-narrow-left.png` and `sources-processing-narrow-right.png`. Source deletion/recreation and the final corpus results are recorded separately in the [Tasco increment](../increments/active/tasco-scanned-pdf-ocr/plan.md).
+
 ## MEM-76 selection and run-history boundaries
 
 | Contract | Retained evidence |

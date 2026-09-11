@@ -43,7 +43,7 @@ import { GoogleDrivePanel } from "./google-drive-panel";
 import { waitForSourceOperation } from "./source-operations";
 import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
-import { HistoryTime } from "./source-history-presentation";
+import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
 
@@ -805,7 +805,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   </HelpPopover>
                 </div>
                 <div className="flex items-center gap-2">
-                  {detail.pendingWork ? <LoadingLabel label="Processing" /> : null}
+                  {detail.pendingWork ? <LoadingLabel label="Work pending" /> : null}
                   <Button
                     prominence="tertiary"
                     pending={itemsQuery.isFetching}
@@ -815,6 +815,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   </Button>
                 </div>
               </div>
+              <p className="mb-3 font-secondary-body text-content-muted">
+                Indexed means processing completed, not that financial values were verified.
+              </p>
               {itemsQuery.isError ? (
                 <p role="alert" className="mb-3 text-sm text-status-danger-content">
                   Files could not be loaded. Displayed files may be out of date. Retry this page or
@@ -840,12 +843,19 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 />
               ) : itemsQuery.data ? (
                 <div
-                  className="overflow-x-auto rounded-lg border border-border-subtle"
+                  className="overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline-2 focus-visible:outline-focus-ring"
                   tabIndex={0}
                   role="region"
                   aria-label="Source files table"
                 >
-                  <table className="w-full min-w-[38rem] text-left text-sm">
+                  <table className="w-full min-w-[64rem] table-fixed text-left text-sm">
+                    <colgroup>
+                      <col />
+                      <col className="w-24" />
+                      <col className="w-44" />
+                      <col className="w-48" />
+                      <col className="w-52" />
+                    </colgroup>
                     <thead className="border-b border-border-subtle bg-surface-sunken text-content-muted">
                       <tr>
                         <th scope="col" className="px-4 py-3 font-medium">
@@ -868,13 +878,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     <tbody className="divide-y divide-border-subtle">
                       {itemsQuery.data.items.map((item) => (
                         <tr key={item.id}>
-                          <td className="min-w-64 max-w-xs px-4 py-4">
-                            <span className="flex items-center gap-2 font-medium text-content-primary">
+                          <td className="px-4 py-4 [overflow-wrap:anywhere]">
+                            <span className="flex min-w-0 items-start gap-2 font-medium text-content-primary">
                               <FileText
-                                className="size-4 shrink-0 text-content-muted"
+                                className="mt-0.5 size-4 shrink-0 text-content-muted"
                                 aria-hidden="true"
                               />
-                              <span className="break-words">
+                              <span className="min-w-0" title={item.filename ?? "Uploaded file"}>
                                 {item.filename ?? "Uploaded file"}
                               </span>
                             </span>
@@ -888,21 +898,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                             {item.sizeBytes == null ? "Unknown" : formatBytes(item.sizeBytes)}
                           </td>
                           <td className="px-4 py-4 text-content-secondary">
-                            {item.status ?? "PENDING"}
-                            {item.searchStatus && (
-                              <p className="mt-1 font-secondary-body text-content-muted">
-                                Search:{" "}
-                                {item.searchStatus === "READY"
-                                  ? "Ready"
-                                  : item.searchStatus === "FAILED"
-                                    ? "Retry scheduled"
-                                    : item.searchStatus === "INDEXING"
-                                      ? "Indexing"
-                                      : "Waiting for extraction"}
-                              </p>
-                            )}
+                            <ItemStatus item={item} />
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-content-secondary">
+                          <td className="px-4 py-4 text-content-secondary">
                             <HistoryTime value={item.lastIndexedAt} />
                           </td>
                           <td className="px-4 py-4">
