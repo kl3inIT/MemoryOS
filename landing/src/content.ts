@@ -60,8 +60,8 @@ type Milestone = Entry & {
 
 const contact = {
   label: "Contact us",
-  email: "aws@vanda.app",
-  href: "mailto:aws@vanda.app",
+  email: "aws@vadan.app",
+  href: "mailto:aws@vadan.app",
 } as const;
 
 const navigation: readonly Link[] = [
@@ -111,12 +111,12 @@ type TrustSignal = Entry & {
 const trustSignals: readonly TrustSignal[] = [
   {
     title: "Partnering with Tasco",
-    description: "Vanda and Tasco run a MemoryOS Production PoC from September to December 2026.",
+    description: "Vadan and Tasco run a MemoryOS Production PoC from September to December 2026.",
     logo: { src: tascoLogo, label: "Tasco" },
   },
   {
     title: "Backed by GenAI Fund",
-    description: "Vanda builds MemoryOS with backing from GenAI Fund.",
+    description: "Vadan builds MemoryOS with backing from GenAI Fund.",
     logo: { src: genaiFundLogo, label: "GenAI Fund" },
   },
 ];
@@ -387,7 +387,7 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
     {
       question: "What is MemoryOS?",
       answer:
-        "MemoryOS is an AI and knowledge layer built by Vanda. It connects approved company sources, answers questions with citations, and gives employees, custom agents and MCP clients one permission model.",
+        "MemoryOS is an AI and knowledge layer built by Vadan. It connects approved company sources, answers questions with citations, and gives employees, custom agents and MCP clients one permission model.",
     },
     {
       question: "Where does our data stay?",
@@ -420,14 +420,14 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
         "Documents are split into passages that keep their source and access rules. Hybrid search combines full-text and vector matching across the passages a person may read, then ranks them for relevance.",
     },
     {
-      question: "Who does Vanda work with?",
+      question: "Who does Vadan work with?",
       answer:
-        "Vanda partners with Tasco on a MemoryOS Production PoC from September to December 2026, and is backed by GenAI Fund.",
+        "Vadan partners with Tasco on a MemoryOS Production PoC from September to December 2026, and is backed by GenAI Fund.",
     },
     {
       question: "How do we start?",
       answer:
-        "Email aws@vanda.app. We scope a pilot around your sources, identity provider and first use cases.",
+        "Email aws@vadan.app. We scope a pilot around your sources, identity provider and first use cases.",
     },
   ],
 };
@@ -438,8 +438,8 @@ const footer: SectionIntro & {
 } = {
   title: "Bring MemoryOS to your company",
   description: "Tell us your sources and first use cases; we'll scope a pilot.",
-  action: "Email aws@vanda.app",
-  organization: "Vanda",
+  action: "Email aws@vadan.app",
+  organization: "Vadan",
 };
 
 export {

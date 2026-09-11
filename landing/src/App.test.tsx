@@ -31,7 +31,7 @@ describe("landing page", () => {
 
     expect(emailLinks.length).toBeGreaterThan(0);
     expect(new Set(emailLinks.map((link) => link.getAttribute("href")))).toEqual(
-      new Set(["mailto:aws@vanda.app"]),
+      new Set(["mailto:aws@vadan.app"]),
     );
   });
 
