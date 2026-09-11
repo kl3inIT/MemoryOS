@@ -53,7 +53,7 @@ function SourcesVisual() {
       />
       <div className="rounded-xl bg-[var(--action-default-primary-surface)] p-5 text-content-inverse">
         <p className="font-main-ui-action">{indexLabel}</p>
-        <ul className="mt-3 space-y-2 font-main-ui-body text-white/75">
+        <ul className="mt-3 space-y-2 font-main-ui-body text-content-inverse/75">
           {outputs.map((output) => (
             <li key={output}>{output}</li>
           ))}
