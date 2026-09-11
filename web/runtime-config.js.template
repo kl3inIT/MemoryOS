@@ -1,0 +1,6 @@
+window.__MEMORYOS_RUNTIME_CONFIG__ = Object.freeze({
+  sentryDsn: "${MEMORYOS_SENTRY_DSN}",
+  sentryEnvironment: "${MEMORYOS_SENTRY_ENVIRONMENT}",
+  sentryReplayEnabled: "${MEMORYOS_SENTRY_REPLAY_ENABLED}",
+  release: "${MEMORYOS_RELEASE}",
+});

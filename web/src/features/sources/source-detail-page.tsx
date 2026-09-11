@@ -21,6 +21,7 @@ import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
+import { captureWorkflowFailure } from "@/lib/sentry";
 import {
   deleteSourceMutation,
   finalizeSourceUploadMutation,
@@ -214,6 +215,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         });
       } catch (cause) {
         if (!controller.signal.aborted) {
+          captureWorkflowFailure(cause, {
+            workflow: "file-source-upload",
+            stage: "finalize",
+            failureKind: "api-or-network",
+          });
           setPendingFinalize({
             sourceId: selectedId,
             uploadId: authorization.uploadId,
@@ -245,6 +251,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     } catch (cause) {
       if (!active.current) return;
       setUploadPhase("idle");
+      if (!controller.signal.aborted)
+        captureWorkflowFailure(cause, {
+          workflow: "file-source-upload",
+          stage: "upload",
+          failureKind: cause instanceof DirectUploadError ? "direct-upload" : "api-or-network",
+        });
       const message = controller.signal.aborted
         ? "Upload cancelled. If finalization had started, it may already be accepted; refresh the source to check."
         : cause instanceof DirectUploadError
@@ -290,6 +302,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     } catch (cause) {
       if (!active.current) return;
       setUploadPhase("finalize-retry");
+      if (!controller.signal.aborted)
+        captureWorkflowFailure(cause, {
+          workflow: "file-source-upload",
+          stage: "finalize-retry",
+          failureKind: "api-or-network",
+        });
       const message = controller.signal.aborted
         ? "Finalization stopped waiting. It may already be accepted; refresh the source before retrying."
         : `${sourceMutationError(cause, "upload")} The file remains in object storage; retry finalization without uploading it again.`;
@@ -339,6 +357,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           description: `${filename}: this request was replaced by newer work.`,
         });
       } else {
+        const failureKind = operation.errorCode ?? "SOURCE_INDEX_FAILED";
+        if (isSystemIndexFailure(failureKind))
+          captureWorkflowFailure(new Error("Source indexing operation failed"), {
+            workflow: "indexing",
+            stage: "operation-complete",
+            failureKind,
+          });
         notify({
           tone: "error",
           title: "Reindex failed",
@@ -348,6 +373,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       await refresh(selectedId);
     } catch (cause) {
       if (controller.signal.aborted) return;
+      captureWorkflowFailure(cause, {
+        workflow: "indexing",
+        stage: accepted ? "operation-status" : "request",
+        failureKind: accepted ? "status-unavailable" : "api-or-network",
+      });
       const message = accepted
         ? `${filename}: processing may still be running. Refresh the source to check its status.`
         : sourceMutationError(cause, "reindex");
@@ -1005,6 +1035,14 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         )}
       </div>
     </SettingsLayout>
+  );
+}
+
+function isSystemIndexFailure(errorCode: string) {
+  return (
+    errorCode.startsWith("SOURCE_INDEX_") ||
+    errorCode.startsWith("SOURCE_STORAGE_") ||
+    errorCode === "SOURCE_ACQUISITION_INTERNAL"
   );
 }
 
