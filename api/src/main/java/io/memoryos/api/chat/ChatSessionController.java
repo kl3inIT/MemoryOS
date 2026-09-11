@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.chat.ChatSessionService;
+import io.memoryos.chat.ChatWorkspaceService;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -43,8 +44,9 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class ChatSessionController {
     private final ChatSessionService sessions;
+    private final ChatWorkspaceService workspace;
 
-    ChatSessionController(ChatSessionService sessions) { this.sessions = sessions; }
+    ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace) { this.sessions = sessions; this.workspace = workspace; }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -52,7 +54,7 @@ class ChatSessionController {
     @ApiResponse(responseCode = "201", description = "Created private session", useReturnTypeSchema = true)
     ChatSessionResponse create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody CreateChatSession request) {
-        return ChatSessionResponse.from(sessions.create(identity.actorId(), request.title()));
+        return ChatSessionResponse.from(workspace.create(identity.actorId(), request.title(), request.personaId(), request.projectId()));
     }
 
     @GetMapping
@@ -80,5 +82,5 @@ class ChatSessionController {
         return sessions.history(identity.actorId(), sessionId, after, limit).stream().map(ChatMessageResponse::from).toList();
     }
 
-    record CreateChatSession(@NotBlank @Size(max = 200) String title) {}
+    record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId, @Nullable UUID projectId) {}
 }

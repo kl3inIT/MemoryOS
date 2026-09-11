@@ -57,8 +57,9 @@ public final class ChatModelExecutor {
         var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
                 new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
                 selected.finalRequest());
-        guard.contextLimit(selected.tokens(), Math.min(limits.contextTokenLimit(), selected.contextWindow()
-                - maxOutput));
+        int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
+        if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
+        guard.contextLimit(selected.tokens(), contextLimit);
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
@@ -75,7 +76,7 @@ public final class ChatModelExecutor {
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings);
+                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds());
                 guard.evidenceAvailable(searchTool::hasEvidence);
                 runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);
             }

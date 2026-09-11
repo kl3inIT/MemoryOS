@@ -74,6 +74,56 @@ export type GoogleDriveSelectionReceiptResponse = {
     operation: SourceOperation;
 };
 
+export type Title = {
+    title: string;
+};
+
+export type ChatSession = {
+    id: string;
+    personaId: string;
+    rootMessageId: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    projectId: string | null;
+};
+
+export type Sharing = {
+    enabled?: boolean;
+    revision?: number;
+};
+
+export type ChatSessionSettings = {
+    personaId: string;
+    projectId?: string | null;
+};
+
+export type ProjectSelection = {
+    projectId?: string | null;
+};
+
+export type PersonaSelection = {
+    personaId: string;
+};
+
+export type FeedbackInput = {
+    positive?: boolean | null;
+    comment?: string;
+    reason?: string;
+};
+
+export type Feedback = {
+    assistantMessageId?: string;
+    positive?: boolean | null;
+    comment?: string;
+    reason?: string;
+};
+
+export type BranchSelection = {
+    messageId: string;
+    expectedChildId?: string | null;
+};
+
 export type Change = {
     action?: 'KEEP' | 'REPLACE' | 'REMOVE';
     value?: string;
@@ -101,6 +151,49 @@ export type ProviderView = {
     personaIds?: Array<string>;
     credentialConfigured?: boolean;
     revision?: number;
+};
+
+export type ProjectInput = {
+    name?: string;
+    description?: string;
+    instructions?: string;
+};
+
+export type ProjectView = {
+    id?: string;
+    name?: string;
+    description?: string;
+    instructions?: string;
+    revision?: number;
+    updatedAt?: string;
+};
+
+export type PersonaInput = {
+    name?: string;
+    description?: string;
+    instructions?: string;
+    starterPrompts?: Array<string>;
+    sourceIds?: Array<string>;
+    searchEnabled?: boolean;
+    modelConfigurationId?: string | null;
+    contextTokenLimit?: number | null;
+    outputTokenLimit?: number | null;
+};
+
+export type PersonaView = {
+    id?: string;
+    builtin?: boolean;
+    editable?: boolean;
+    revision?: number;
+    name?: string;
+    description?: string;
+    instructions?: string;
+    starterPrompts?: Array<string>;
+    sourceIds?: Array<string>;
+    searchEnabled?: boolean;
+    modelConfigurationId?: string | null;
+    contextTokenLimit?: number | null;
+    outputTokenLimit?: number | null;
 };
 
 export type PersonaModel = {
@@ -356,15 +449,8 @@ export type GoogleDriveAuthorizationResponse = {
 
 export type CreateChatSession = {
     title: string;
-};
-
-export type ChatSession = {
-    id: string;
-    personaId: string;
-    rootMessageId: string;
-    title: string;
-    createdAt: string;
-    updatedAt: string;
+    personaId?: string;
+    projectId?: string;
 };
 
 export type Send = {
@@ -381,9 +467,24 @@ export type Accepted = {
     fallbackReason?: string;
 };
 
+export type Regenerate = {
+    clientRequestId: string;
+    modelConfigurationId?: string;
+};
+
+export type Edit = {
+    clientRequestId: string;
+    text: string;
+    modelConfigurationId?: string;
+};
+
 export type Cancellation = {
     assistantMessageId: string;
     status: 'RUNNING' | 'COMPLETED' | 'CANCELED' | 'FAILED';
+};
+
+export type ProjectConversation = {
+    title: string;
 };
 
 export type ChatModelValidationResult = {
@@ -710,6 +811,12 @@ export type GoogleDriveCredentialResponse = {
     sourceCount: number;
 };
 
+export type SharedSession = {
+    id?: string;
+    title?: string;
+    rootMessageId?: string;
+};
+
 export type ChatMessage = {
     id: string;
     sessionId: string;
@@ -790,6 +897,12 @@ export type SearchFilters = {
     updated?: Interval;
 };
 
+export type ChatBranch = {
+    id?: string;
+    parentMessageId?: string | null;
+    latestChildMessageId?: string | null;
+};
+
 export type Descriptor = {
     type?: string;
     credentialRequirement?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
@@ -806,6 +919,12 @@ export type AvailableModel = {
     maxOutputTokens?: number;
     pricing?: Pricing;
     isDefault?: boolean;
+};
+
+export type SourceOption = {
+    id?: string;
+    name?: string;
+    type?: 'FILE' | 'GOOGLE_DRIVE';
 };
 
 export type ApiProblem = {
@@ -884,6 +1003,443 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type RenameChatSessionData = {
+    body: Title;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/title';
+};
+
+export type RenameChatSessionErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type RenameChatSessionError = RenameChatSessionErrors[keyof RenameChatSessionErrors];
+
+export type RenameChatSessionResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: ChatSession;
+};
+
+export type RenameChatSessionResponse = RenameChatSessionResponses[keyof RenameChatSessionResponses];
+
+export type GetChatSharingData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/sharing';
+};
+
+export type GetChatSharingErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatSharingError = GetChatSharingErrors[keyof GetChatSharingErrors];
+
+export type GetChatSharingResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Sharing;
+};
+
+export type GetChatSharingResponse = GetChatSharingResponses[keyof GetChatSharingResponses];
+
+export type SetChatSharingData = {
+    body: Sharing;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/sharing';
+};
+
+export type SetChatSharingErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SetChatSharingError = SetChatSharingErrors[keyof SetChatSharingErrors];
+
+export type SetChatSharingResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Sharing;
+};
+
+export type SetChatSharingResponse = SetChatSharingResponses[keyof SetChatSharingResponses];
+
+export type ConfigureChatSessionData = {
+    body: ChatSessionSettings;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/settings';
+};
+
+export type ConfigureChatSessionErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ConfigureChatSessionError = ConfigureChatSessionErrors[keyof ConfigureChatSessionErrors];
+
+export type ConfigureChatSessionResponses = {
+    /**
+     * Updated conversation settings
+     */
+    200: ChatSession;
+};
+
+export type ConfigureChatSessionResponse = ConfigureChatSessionResponses[keyof ConfigureChatSessionResponses];
+
+export type MoveChatProjectData = {
+    body: ProjectSelection;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/project';
+};
+
+export type MoveChatProjectErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type MoveChatProjectError = MoveChatProjectErrors[keyof MoveChatProjectErrors];
+
+export type MoveChatProjectResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: ChatSession;
+};
+
+export type MoveChatProjectResponse = MoveChatProjectResponses[keyof MoveChatProjectResponses];
+
+export type SelectChatPersonaData = {
+    body: PersonaSelection;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/persona';
+};
+
+export type SelectChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SelectChatPersonaError = SelectChatPersonaErrors[keyof SelectChatPersonaErrors];
+
+export type SelectChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: ChatSession;
+};
+
+export type SelectChatPersonaResponse = SelectChatPersonaResponses[keyof SelectChatPersonaResponses];
+
+export type RemoveChatFeedbackData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+        assistantMessageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/feedback';
+};
+
+export type RemoveChatFeedbackErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type RemoveChatFeedbackError = RemoveChatFeedbackErrors[keyof RemoveChatFeedbackErrors];
+
+export type RemoveChatFeedbackResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RemoveChatFeedbackResponse = RemoveChatFeedbackResponses[keyof RemoveChatFeedbackResponses];
+
+export type SetChatFeedbackData = {
+    body: FeedbackInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+        assistantMessageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/feedback';
+};
+
+export type SetChatFeedbackErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SetChatFeedbackError = SetChatFeedbackErrors[keyof SetChatFeedbackErrors];
+
+export type SetChatFeedbackResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Feedback;
+};
+
+export type SetChatFeedbackResponse = SetChatFeedbackResponses[keyof SetChatFeedbackResponses];
+
+export type SelectChatBranchData = {
+    body: BranchSelection;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/branch';
+};
+
+export type SelectChatBranchErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SelectChatBranchError = SelectChatBranchErrors[keyof SelectChatBranchErrors];
+
+export type SelectChatBranchResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type SelectChatBranchResponse = SelectChatBranchResponses[keyof SelectChatBranchResponses];
 
 export type DeleteChatProviderData = {
     body?: never;
@@ -994,6 +1550,296 @@ export type UpdateChatProviderResponses = {
 };
 
 export type UpdateChatProviderResponse = UpdateChatProviderResponses[keyof UpdateChatProviderResponses];
+
+export type DeleteChatProjectData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        projectId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/projects/{projectId}';
+};
+
+export type DeleteChatProjectErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeleteChatProjectError = DeleteChatProjectErrors[keyof DeleteChatProjectErrors];
+
+export type DeleteChatProjectResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatProjectResponse = DeleteChatProjectResponses[keyof DeleteChatProjectResponses];
+
+export type GetChatProjectData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/chat/projects/{projectId}';
+};
+
+export type GetChatProjectErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatProjectError = GetChatProjectErrors[keyof GetChatProjectErrors];
+
+export type GetChatProjectResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: ProjectView;
+};
+
+export type GetChatProjectResponse = GetChatProjectResponses[keyof GetChatProjectResponses];
+
+export type UpdateChatProjectData = {
+    body: ProjectInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        projectId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/projects/{projectId}';
+};
+
+export type UpdateChatProjectErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateChatProjectError = UpdateChatProjectErrors[keyof UpdateChatProjectErrors];
+
+export type UpdateChatProjectResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: ProjectView;
+};
+
+export type UpdateChatProjectResponse = UpdateChatProjectResponses[keyof UpdateChatProjectResponses];
+
+export type DeleteChatPersonaData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}';
+};
+
+export type DeleteChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeleteChatPersonaError = DeleteChatPersonaErrors[keyof DeleteChatPersonaErrors];
+
+export type DeleteChatPersonaResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatPersonaResponse = DeleteChatPersonaResponses[keyof DeleteChatPersonaResponses];
+
+export type GetChatPersonaData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}';
+};
+
+export type GetChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatPersonaError = GetChatPersonaErrors[keyof GetChatPersonaErrors];
+
+export type GetChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type GetChatPersonaResponse = GetChatPersonaResponses[keyof GetChatPersonaResponses];
+
+export type UpdateChatPersonaData = {
+    body: PersonaInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}';
+};
+
+export type UpdateChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateChatPersonaError = UpdateChatPersonaErrors[keyof UpdateChatPersonaErrors];
+
+export type UpdateChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type UpdateChatPersonaResponse = UpdateChatPersonaResponses[keyof UpdateChatPersonaResponses];
 
 export type GetPersonaModelData = {
     body?: never;
@@ -2356,6 +3202,114 @@ export type SendChatMessageResponses = {
 
 export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMessageResponses];
 
+export type RegenerateChatMessageData = {
+    body: Regenerate;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+        userMessageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{userMessageId}/regenerate';
+};
+
+export type RegenerateChatMessageErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting request or active reply
+     */
+    409: ApiProblem;
+    /**
+     * Chat capacity exhausted or provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RegenerateChatMessageError = RegenerateChatMessageErrors[keyof RegenerateChatMessageErrors];
+
+export type RegenerateChatMessageResponses = {
+    /**
+     * Reserved regenerated reply
+     */
+    202: Accepted;
+};
+
+export type RegenerateChatMessageResponse = RegenerateChatMessageResponses[keyof RegenerateChatMessageResponses];
+
+export type EditChatMessageData = {
+    body: Edit;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+        userMessageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{userMessageId}/edit';
+};
+
+export type EditChatMessageErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting request or active reply
+     */
+    409: ApiProblem;
+    /**
+     * Chat capacity exhausted or provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type EditChatMessageError = EditChatMessageErrors[keyof EditChatMessageErrors];
+
+export type EditChatMessageResponses = {
+    /**
+     * Reserved edited branch
+     */
+    202: Accepted;
+};
+
+export type EditChatMessageResponse = EditChatMessageResponses[keyof EditChatMessageResponses];
+
 export type CancelChatMessageData = {
     body?: never;
     headers: {
@@ -2605,6 +3559,283 @@ export type CreateChatModelResponses = {
 };
 
 export type CreateChatModelResponse = CreateChatModelResponses[keyof CreateChatModelResponses];
+
+export type ListChatProjectsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/projects';
+};
+
+export type ListChatProjectsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatProjectsError = ListChatProjectsErrors[keyof ListChatProjectsErrors];
+
+export type ListChatProjectsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<ProjectView>;
+};
+
+export type ListChatProjectsResponse = ListChatProjectsResponses[keyof ListChatProjectsResponses];
+
+export type CreateChatProjectData = {
+    body: ProjectInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/projects';
+};
+
+export type CreateChatProjectErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateChatProjectError = CreateChatProjectErrors[keyof CreateChatProjectErrors];
+
+export type CreateChatProjectResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: ProjectView;
+};
+
+export type CreateChatProjectResponse = CreateChatProjectResponses[keyof CreateChatProjectResponses];
+
+export type ListProjectChatSessionsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/projects/{projectId}/sessions';
+};
+
+export type ListProjectChatSessionsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListProjectChatSessionsError = ListProjectChatSessionsErrors[keyof ListProjectChatSessionsErrors];
+
+export type ListProjectChatSessionsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<ChatSession>;
+};
+
+export type ListProjectChatSessionsResponse = ListProjectChatSessionsResponses[keyof ListProjectChatSessionsResponses];
+
+export type CreateProjectChatSessionData = {
+    body: ProjectConversation;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/chat/projects/{projectId}/sessions';
+};
+
+export type CreateProjectChatSessionErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateProjectChatSessionError = CreateProjectChatSessionErrors[keyof CreateProjectChatSessionErrors];
+
+export type CreateProjectChatSessionResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: ChatSession;
+};
+
+export type CreateProjectChatSessionResponse = CreateProjectChatSessionResponses[keyof CreateProjectChatSessionResponses];
+
+export type ListChatPersonasData = {
+    body?: never;
+    path?: never;
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/personas';
+};
+
+export type ListChatPersonasErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonasError = ListChatPersonasErrors[keyof ListChatPersonasErrors];
+
+export type ListChatPersonasResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PersonaView>;
+};
+
+export type ListChatPersonasResponse = ListChatPersonasResponses[keyof ListChatPersonasResponses];
+
+export type CreateChatPersonaData = {
+    body: PersonaInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/personas';
+};
+
+export type CreateChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateChatPersonaError = CreateChatPersonaErrors[keyof CreateChatPersonaErrors];
+
+export type CreateChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: PersonaView;
+};
+
+export type CreateChatPersonaResponse = CreateChatPersonaResponses[keyof CreateChatPersonaResponses];
 
 export type ValidateChatModelData = {
     body?: never;
@@ -3154,6 +4385,144 @@ export type ListGoogleDriveCredentialsResponses = {
 
 export type ListGoogleDriveCredentialsResponse = ListGoogleDriveCredentialsResponses[keyof ListGoogleDriveCredentialsResponses];
 
+export type GetSharedChatSessionData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/shared/{sessionId}';
+};
+
+export type GetSharedChatSessionErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharedChatSessionError = GetSharedChatSessionErrors[keyof GetSharedChatSessionErrors];
+
+export type GetSharedChatSessionResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: SharedSession;
+};
+
+export type GetSharedChatSessionResponse = GetSharedChatSessionResponses[keyof GetSharedChatSessionResponses];
+
+export type GetSharedChatHistoryData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: {
+        after?: string;
+        limit?: number;
+    };
+    url: '/api/chat/shared/{sessionId}/messages';
+};
+
+export type GetSharedChatHistoryErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharedChatHistoryError = GetSharedChatHistoryErrors[keyof GetSharedChatHistoryErrors];
+
+export type GetSharedChatHistoryResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<ChatMessage>;
+};
+
+export type GetSharedChatHistoryResponse = GetSharedChatHistoryResponses[keyof GetSharedChatHistoryResponses];
+
+export type DeleteChatSessionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}';
+};
+
+export type DeleteChatSessionErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeleteChatSessionError = DeleteChatSessionErrors[keyof DeleteChatSessionErrors];
+
+export type DeleteChatSessionResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatSessionResponse = DeleteChatSessionResponses[keyof DeleteChatSessionResponses];
+
 export type GetChatSessionData = {
     body?: never;
     path: {
@@ -3242,6 +4611,94 @@ export type StreamChatMessageResponses = {
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
 
+export type GetChatFeedbackData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query: {
+        messageIds: Array<string>;
+    };
+    url: '/api/chat/sessions/{sessionId}/feedback';
+};
+
+export type GetChatFeedbackErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatFeedbackError = GetChatFeedbackErrors[keyof GetChatFeedbackErrors];
+
+export type GetChatFeedbackResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<Feedback>;
+};
+
+export type GetChatFeedbackResponse = GetChatFeedbackResponses[keyof GetChatFeedbackResponses];
+
+export type GetChatBranchesData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/branches';
+};
+
+export type GetChatBranchesErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatBranchesError = GetChatBranchesErrors[keyof GetChatBranchesErrors];
+
+export type GetChatBranchesResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<ChatBranch>;
+};
+
+export type GetChatBranchesResponse = GetChatBranchesResponses[keyof GetChatBranchesResponses];
+
 export type ListChatProviderAdaptersData = {
     body?: never;
     path?: never;
@@ -3286,6 +4743,93 @@ export type ListChatProviderAdaptersResponses = {
 };
 
 export type ListChatProviderAdaptersResponse = ListChatProviderAdaptersResponses[keyof ListChatProviderAdaptersResponses];
+
+export type ListChatPersonaModelsData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/models';
+};
+
+export type ListChatPersonaModelsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaModelsError = ListChatPersonaModelsErrors[keyof ListChatPersonaModelsErrors];
+
+export type ListChatPersonaModelsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<AvailableModel>;
+};
+
+export type ListChatPersonaModelsResponse = ListChatPersonaModelsResponses[keyof ListChatPersonaModelsResponses];
+
+export type ListChatPersonaSourcesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/personas/sources';
+};
+
+export type ListChatPersonaSourcesErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaSourcesError = ListChatPersonaSourcesErrors[keyof ListChatPersonaSourcesErrors];
+
+export type ListChatPersonaSourcesResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<SourceOption>;
+};
+
+export type ListChatPersonaSourcesResponse = ListChatPersonaSourcesResponses[keyof ListChatPersonaSourcesResponses];
 
 export type ListAvailableChatModelsData = {
     body?: never;

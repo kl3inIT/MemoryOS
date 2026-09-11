@@ -5,6 +5,9 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatMessage.Role;
 import io.memoryos.chat.ChatMessage.Status;
 import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.ChatBranch;
+import io.memoryos.chat.ChatCommand;
+import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
 import tools.jackson.databind.ObjectMapper;
 import io.memoryos.iam.ActorId;
@@ -34,15 +37,15 @@ public class JdbcChatRepository {
     }
 
     public UUID provisionPersona(TenantId tenant, String name, String instructions, String model) {
-        return jdbc.sql("""
+        jdbc.sql("""
                         INSERT INTO persona(id, tenant_id, builtin_key, name, instructions, model)
                         VALUES (:id, :tenant, 'default', :name, :instructions, :model)
-                        ON CONFLICT (tenant_id, builtin_key) DO UPDATE
-                        SET name = EXCLUDED.name, instructions = EXCLUDED.instructions, model = EXCLUDED.model
-                        RETURNING id
+                        ON CONFLICT (tenant_id, builtin_key) DO NOTHING
                         """).param("id", UUID.randomUUID()).param("tenant", tenant.value())
                 .param("name", name).param("instructions", instructions).param("model", model)
-                .query(UUID.class).single();
+                .update();
+        return jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND builtin_key='default'")
+                .param("tenant", tenant.value()).query(UUID.class).single();
     }
 
     public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title) {
@@ -64,7 +67,7 @@ public class JdbcChatRepository {
     public Optional<ChatSession> findOwned(TenantId tenant, ActorId actor, UUID id, boolean lock) {
         return jdbc.sql("""
                         SELECT * FROM chat_session
-                        WHERE tenant_id = :tenant AND owner_actor_id = :actor AND id = :id
+                        WHERE tenant_id = :tenant AND owner_actor_id = :actor AND id = :id AND deleted_at IS NULL
                         """ + (lock ? " FOR UPDATE" : ""))
                 .param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .query(JdbcChatRepository::session).optional();
@@ -72,7 +75,7 @@ public class JdbcChatRepository {
 
     public List<ChatSession> list(TenantId tenant, ActorId actor, int offset, int limit) {
         return jdbc.sql("""
-                        SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
+                        SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL
                         ORDER BY updated_at DESC, id LIMIT :limit OFFSET :offset
                         """).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
@@ -113,18 +116,30 @@ public class JdbcChatRepository {
 
     public Optional<ReservedRequest> previousRequest(UUID session, UUID requestId) {
         return jdbc.sql("""
-                        SELECT id, parent_message_id, content, original_assistant_message_id,
-                            requested_model_configuration_id, selected_model_configuration_id, model_selection_fallback
-                        FROM chat_message WHERE session_id = :session AND client_request_id = :request
+                        SELECT * FROM chat_command WHERE session_id = :session AND request_id = :request
                         """).param("session", session).param("request", requestId)
-                .query((row, ignored) -> new ReservedRequest(row.getObject("id", UUID.class),
-                        row.getObject("parent_message_id", UUID.class), row.getString("content"),
-                        row.getObject("original_assistant_message_id", UUID.class), row.getObject("requested_model_configuration_id", UUID.class),
-                        row.getObject("selected_model_configuration_id", UUID.class), row.getString("model_selection_fallback"))).optional();
+                .query((row, ignored) -> new ReservedRequest(row.getObject("user_message_id", UUID.class),
+                        row.getObject("target_message_id", UUID.class), row.getString("request_text"),
+                        row.getObject("assistant_message_id", UUID.class), row.getObject("requested_model_id", UUID.class),
+                        row.getObject("selected_model_id", UUID.class), row.getString("fallback_reason"),
+                        ChatCommand.Operation.valueOf(row.getString("operation")))).optional();
     }
 
     public record ReservedRequest(UUID userMessageId, UUID parentMessageId, String content, UUID assistantMessageId,
-                                  @Nullable UUID requestedModelId, @Nullable UUID selectedModelId, @Nullable String fallbackReason) {
+                                  @Nullable UUID requestedModelId, @Nullable UUID selectedModelId, @Nullable String fallbackReason,
+                                  ChatCommand.Operation operation) {
+    }
+
+    public void saveCommand(UUID session, ChatCommand command, UUID user, UUID assistant,
+                            @Nullable UUID selectedModel, @Nullable String fallback) {
+        jdbc.sql("""
+                INSERT INTO chat_command(session_id, request_id, operation, target_message_id, request_text,
+                    requested_model_id, user_message_id, assistant_message_id, selected_model_id, fallback_reason)
+                VALUES (:session, :request, :operation, :target, :text, :requested, :user, :assistant, :selected, :fallback)
+                """).param("session", session).param("request", command.requestId()).param("operation", command.operation().name())
+                .param("target", command.targetMessageId()).param("text", command.text())
+                .param("requested", command.modelConfigurationId(), Types.OTHER).param("user", user).param("assistant", assistant)
+                .param("selected", selectedModel, Types.OTHER).param("fallback", fallback, Types.VARCHAR).update();
     }
 
     public void saveModelSelection(UUID session, UUID user, UUID assistant, @Nullable UUID requested, UUID selected, @Nullable String fallback) {
@@ -154,17 +169,21 @@ public class JdbcChatRepository {
                         VALUES (:id, :session, :parent, 'USER', :text, 'COMPLETED', :request, :assistant, CURRENT_TIMESTAMP)
                         """).param("id", user).param("session", session).param("parent", parent)
                 .param("text", text).param("request", request).param("assistant", assistant).update();
+        insertAssistant(session, user, assistant, timeout);
+        selectChild(session, parent, user);
+    }
+
+    public void insertAssistant(UUID session, UUID user, UUID assistant, Duration timeout) {
         jdbc.sql("""
                         INSERT INTO chat_message(id, session_id, parent_message_id, role, status, deadline_at)
                         VALUES (:id, :session, :parent, 'ASSISTANT', 'RUNNING', clock_timestamp() + :timeout * interval '1 millisecond')
                         """).param("id", assistant).param("session", session).param("parent", user)
                 .param("timeout", timeout.toMillis()).update();
-        selectChild(session, parent, user);
         selectChild(session, user, assistant);
         touch(session);
     }
 
-    private void selectChild(UUID session, UUID parent, UUID child) {
+    public void selectChild(UUID session, UUID parent, UUID child) {
         jdbc.sql("UPDATE chat_message SET latest_child_message_id = :child WHERE session_id = :session AND id = :parent")
                 .param("child", child).param("session", session).param("parent", parent).update();
     }
@@ -174,15 +193,92 @@ public class JdbcChatRepository {
                 .param("session", session).update();
     }
 
-    public record Persona(String instructions, String model) {
+    public record Persona(String instructions, String model, ChatTurnOptions options, String revision) {
+    }
+
+    /** Serialize an owner's editor/turn mutations before taking session or settings row locks. */
+    public void lockOwner(TenantId tenant, ActorId actor) {
+        jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))")
+                .param("key", "chat-owner:" + tenant.value() + ":" + actor.value()).query(rs -> { rs.next(); return true; });
+    }
+
+    public boolean usablePersona(TenantId tenant, ActorId actor, UUID id) {
+        return jdbc.sql("SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND id=:id AND deleted_at IS NULL "
+                        + "AND (builtin_key IS NOT NULL OR owner_actor_id=:actor))")
+                .param("tenant", tenant.value()).param("id", id).param("actor", actor.value()).query(Boolean.class).single();
     }
 
     public Persona persona(UUID session) {
         return jdbc.sql("""
-                        SELECT p.instructions, p.model FROM persona p JOIN chat_session s ON s.persona_id = p.id
-                        WHERE s.id = :session
-                        """).param("session", session)
-                .query((row, ignored) -> new Persona(row.getString("instructions"), row.getString("model"))).single();
+                        SELECT p.id, p.model, p.search_enabled, p.context_token_limit, p.output_token_limit,
+                            concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision) AS revision,
+                            CASE WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
+                                 WHEN pr.id IS NOT NULL THEN concat_ws(chr(10), p.instructions, pr.instructions)
+                                 ELSE p.instructions END AS instructions
+                        FROM persona p JOIN chat_session s ON s.persona_id=p.id AND s.tenant_id=p.tenant_id
+                        LEFT JOIN chat_project pr ON pr.id=s.project_id AND pr.tenant_id=s.tenant_id AND pr.owner_actor_id=s.owner_actor_id
+                        WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL
+                            AND (p.builtin_key IS NOT NULL OR p.owner_actor_id=s.owner_actor_id)
+                        """).param("session", session).param("base", io.memoryos.chat.prompts.ChatPrompts.DEFAULT_SYSTEM)
+                .query((row, ignored) -> new Persona(row.getString("instructions"), row.getString("model"),
+                        new ChatTurnOptions(row.getBoolean("search_enabled"), personaSources(row.getObject("id", UUID.class)),
+                                row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class)), row.getString("revision")))
+                .optional().orElseThrow(ChatException::unavailable);
+    }
+
+    private List<UUID> personaSources(UUID persona) {
+        return jdbc.sql("SELECT source_id FROM persona_source WHERE persona_id=:persona ORDER BY source_id LIMIT 100")
+                .param("persona", persona).query(UUID.class).list();
+    }
+
+    public List<ChatBranch> branches(UUID session) {
+        return jdbc.sql("SELECT id,parent_message_id,latest_child_message_id FROM chat_message WHERE session_id=:session ORDER BY created_at,id LIMIT 10000")
+                .param("session", session).query((row, ignored) -> new ChatBranch(row.getObject("id", UUID.class),
+                        row.getObject("parent_message_id", UUID.class), row.getObject("latest_child_message_id", UUID.class))).list();
+    }
+
+    public void rename(UUID session, String title) {
+        jdbc.sql("UPDATE chat_session SET title=:title,updated_at=CURRENT_TIMESTAMP WHERE id=:session AND deleted_at IS NULL")
+                .param("title", title).param("session", session).update();
+    }
+
+    public List<UUID> delete(UUID session) {
+        jdbc.sql("UPDATE chat_session SET deleted_at=CURRENT_TIMESTAMP WHERE id=:session AND deleted_at IS NULL")
+                .param("session", session).update();
+        return jdbc.sql("""
+                UPDATE chat_message SET status='CANCELED',finished_at=clock_timestamp(),failure_code=NULL
+                WHERE session_id=:session AND status='RUNNING' RETURNING id
+                """).param("session", session).query(UUID.class).list();
+    }
+
+    public void selectPersona(UUID session, UUID persona) {
+        jdbc.sql("UPDATE chat_session SET persona_id=:persona,updated_at=CURRENT_TIMESTAMP WHERE id=:session")
+                .param("session", session).param("persona", persona).update();
+    }
+
+    public void moveProject(UUID session, @Nullable UUID project) {
+        jdbc.sql("UPDATE chat_session SET project_id=:project,updated_at=CURRENT_TIMESTAMP WHERE id=:session")
+                .param("session", session).param("project", project, Types.OTHER).update();
+    }
+
+    public void unlinkProject(TenantId tenant, ActorId actor, UUID project) {
+        jdbc.sql("UPDATE chat_session SET project_id=NULL,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=:tenant AND owner_actor_id=:actor AND project_id=:project")
+                .param("tenant", tenant.value()).param("actor", actor.value()).param("project", project).update();
+    }
+
+    public List<ChatSession> projectSessions(TenantId tenant, ActorId actor, UUID project, int offset, int limit) {
+        return jdbc.sql("""
+                SELECT * FROM chat_session WHERE tenant_id=:tenant AND owner_actor_id=:actor
+                    AND project_id=:project AND deleted_at IS NULL ORDER BY updated_at DESC,id LIMIT :limit OFFSET :offset
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("project", project)
+                .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
+    }
+
+    public Optional<ChatSession> shared(TenantId tenant, UUID session) {
+        return jdbc.sql("""
+                SELECT s.* FROM chat_session s JOIN chat_sharing h ON h.session_id=s.id AND h.tenant_id=s.tenant_id
+                WHERE s.tenant_id=:tenant AND s.id=:session AND s.deleted_at IS NULL AND h.enabled
+                """).param("tenant", tenant.value()).param("session", session).query(JdbcChatRepository::session).optional();
     }
 
     /**
@@ -252,7 +348,7 @@ public class JdbcChatRepository {
     private static ChatSession session(ResultSet row, int ignored) throws SQLException {
         return new ChatSession(row.getObject("id", UUID.class), row.getObject("persona_id", UUID.class),
                 row.getObject("root_message_id", UUID.class), row.getString("title"),
-                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant());
+                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(), row.getObject("project_id", UUID.class));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

@@ -6,9 +6,22 @@
 
 Phases 2.1–2.4 đã merge qua PR #86; backend catalog/selection/BYOK và public adapter đã merge qua PR #88 theo [plan backend](../mem-77-provider-backend/plan.md). Đức Anh nhận catalog admin UI và tích hợp provider local trong MEM-77; dropdown model ở Chat vẫn thuộc MEM-11.
 
-## Phân chia PR
+## Phạm vi PR đang triển khai — chốt ngày 2026-09-10
 
-Phase 2 đã dùng nhánh tích hợp và được đưa vào `main`. Phase 3.1 backend và 3.2 UI đang cùng nằm trên `feat/mem-11-phase-3-1-grounded-chat` theo yêu cầu tiếp tục triển khai; tổng thay đổi vẫn dưới 100 file để review cùng nhau. Mỗi PR giữ dưới 100 file; số file không thay thế việc kiểm CI và review. Chưa đóng MEM-11 chỉ vì backend 3.1 đã xong.
+Ngày 2026-09-11 người dùng yêu cầu tách attachments thành [MEM-81](https://linear.app/memory-os/issue/MEM-81), Backlog, để xử lý các phần khác trước. Toàn bộ phần còn lại của MEM-11 sau khi tách được giao trong **một PR duy nhất**, làm trong checkout hiện tại, **không tách worktree**. Quyết định này thay thế yêu cầu gộp attachments vào PR trước đó; không tự tách thêm các nhóm bên dưới. Giới hạn dưới 100 file của các lần chia PR trước không được dùng để bỏ chức năng khỏi phạm vi đã điều chỉnh. Giữ nguyên yêu cầu review, migration cần thiết và verification phù hợp với thay đổi.
+
+- [x] Hội thoại: đổi tên/xóa; edit tạo nhánh, regenerate dưới user message được chọn, chọn/tiếp tục nhánh; feedback gắn message/run và Actor. Giao cả API, persistence/reservation, UI và quyền thao tác.
+- [x] Persona: tạo/sửa/chọn trợ lý, instructions, starter prompts, nguồn/tools và model settings được phép; chuyển rõ quyền sở hữu settings khỏi builtin configuration trước khi editor ghi DB.
+- [x] Projects: quản lý hội thoại và instructions theo Project; giữ đúng precedence với Persona và không lẫn context khi chuyển Project hoặc nhánh. File của Project/Persona được giao cùng attachments trong MEM-81.
+- [x] Sharing: chia sẻ có xác thực trong Tenant, reader chỉ đọc, thu hồi quyền; quyền conversation và quyền mở nguồn độc lập. Áp dụng owner bật/tắt link cho thành viên cùng Tenant; không thêm Group grants.
+
+[Kế hoạch chi tiết bốn nhóm](editor-project-sharing-plan.md) giữ UX/backend/UI, source reference, quyền đã chọn và handoff persistence và tình huống nghiệm thu. Regenerate chỉ tạo ASSISTANT dưới USER cũ; xóa Project giữ hội thoại; Persona editor phải thay đường upsert mặc định hiện tại trước khi lưu settings từ UI.
+
+Mỗi nhóm đối chiếu source Onyx theo [baseline phần còn lại](design.md#baseline-cho-phần-còn-lại--chốt-ngày-2026-09-10), triển khai và kiểm thử ngay trong cùng thay đổi. Tái sử dụng bằng chứng Phase 2–3 cho các mục Phase 4 đã đáp ứng; chỉ bổ sung tình huống thiếu bằng chứng hoặc bị thay đổi bởi tính năng mới. Nghiệm thu cuối giữ các yêu cầu còn lại ở Phase 6, không tính lại toàn bộ coverage cũ thành công việc mới. Phần tối ưu latency thêm và sửa đăng nhập CI đang tạm gác theo chỉ đạo; không đưa vào phạm vi PR này. Catalog admin UI và tích hợp provider local thuộc MEM-77.
+
+Attachments đã chuyển toàn bộ sang [design MEM-81](../chat-attachments-production/design.md) và [plan MEM-81](../chat-attachments-production/plan.md): upload, giới hạn 100/250 MiB, readiness, file message/Persona/Project, read_file/vision/tables, private retrieval và cleanup. Không thêm placeholder upload controls, schema hoặc API file trong PR đi trước. MEM-81 là related issue, không chặn giao MEM-11 theo phạm vi điều chỉnh.
+
+MEM-11 giữ In Progress tới khi phạm vi còn lại sau khi tách được giao và nghiệm thu. Việc tạo MEM-81 không làm MEM-11 hay attachments thành Done. Bằng chứng merge/deployment sau merge ghi trong Linear; không mở PR chỉ để cập nhật trạng thái.
 
 ## Phase 1 — Kiểm chứng framework và contract
 
@@ -167,6 +180,8 @@ Phase 3 exit includes 3.3 latency remediation with before/after evidence, corpus
 
 ## Phase 4 — Nghiệm thu agent với tools và context đầy đủ
 
+Các mục dưới đây là điều kiện tích hợp cần đối chiếu, không mặc định là phần code hoặc test chưa làm. Dùng [ma trận Chat](../../../tests/chat.md) và các receipt Phase 2–3 để xác định coverage đã có trước khi bổ sung công việc.
+
 - [ ] Kiểm native loop/last-cycle policy đã triển khai ở Phase 2 trên real Retrieval tools của Phase 3; không xây thêm loop hoặc dời hardening nền tảng tới phase này.
 - [ ] Nghiệm thu phối hợp native token/cost accounting/policy, context cap, cycles/deadline/cancel và bounded tools. Kiểm budget hết giữa inference và tool, known partial usage, pricing unknown, provider errors và không lặp side effect.
 - [ ] Selected-branch context dùng truncation có token bound, giữ full transcript. Nếu cần summary compression như Onyx, đánh giá thêm inference/cost và persisted summary với consumer cụ thể trước khi chọn; chưa mặc định phải làm compaction engine.
@@ -176,16 +191,17 @@ Exit: multi-turn tools, stop/timeout/process death có behavior đã kiểm; kh�
 
 ## Phase 5 — Trải nghiệm và cấu hình
 
-- [ ] Migration và reservation cho regenerate assistant-only, command identity riêng, edit từ parent không phải tip và selected-child command. V18/2.2 hiện chỉ nhận send tại tip; không tái dùng mù điều kiện đó cho regenerate.
-- [ ] Persona settings dùng native binding của một provider hiện có; resolve options rồi bọc guard theo lượt. Builtin Persona hiện configuration-backed; editor cần chuyển quyền sở hữu settings rõ ràng trước khi ghi DB. Backend catalog/BYOK is merged through PR #88. MEM-77 owns catalog admin UI and local-provider integration; the Chat model selector remains in MEM-11.
-- [ ] Trước triển khai sharing, chốt grant model cho authenticated readers trong Tenant và tách read authorization khỏi owner mutations. Onyx PUBLIC/PRIVATE cho phép anonymous link; phạm vi đã chọn loại anonymous. Lợi ích: giữ identity/Tenant boundary; tradeoff: không tương đương public-link UX. Không mặc định thêm Group grants khi chưa có yêu cầu.
-- [ ] assistant-ui list/composer, edit/regenerate/branch, source/progress, feedback, stop/retry/reload và Search handoff.
-- [ ] Persona settings/editor (assistant trên UI), starter prompts, source/tool selection và settings của binding hiện có, validation và quyền quản lý. Catalog administration/local-provider integration belong to MEM-77; Chat model-selection UI belongs to MEM-11.
-- [ ] Private attachments/readiness/retention, Projects và chia sẻ có xác thực theo parity.
-- [ ] Kiểm E2E branch A→B, edit/regenerate, đổi Persona/Project và sharing: history/assets/identity của context cũ không lọt vào lượt mới. Nếu action/tool của feature tiêu thụ native Conversation/AssetView, thêm adapter/factory với consumer đó theo design; không dựng store thứ hai hay kích hoạt long-lived Chatbot chỉ để lưu history.
-- [ ] Browser scenarios: route changes, concurrent tabs, mạng chập chờn; conversation revoke khác source revoke, update và delete.
+Đã triển khai trong nhánh `feat/mem-11-chat-editors-projects-sharing`, cùng một PR. [Contract hiện hành](../../../specs/chat.md#conversation-editing-assistants-projects-and-collaboration), [ma trận test](../../../tests/chat.md#editors-projects-assistants-and-sharing-v36) và [receipt](editor-verification.md) phân biệt code/kiểm chứng local với merge và nghiệm thu triển khai.
 
-Exit: phạm vi giao đầu chạy xuyên backend; history giữ semantics đã chốt, source reader kiểm quyền hiện tại.
+- [x] V36: command identity, edit tạo USER sibling, regenerate chỉ tạo ASSISTANT, selected-child với expected child; rename/delete và ngăn late completion.
+- [x] Persona CRUD/selection, instructions/starters, nguồn/Search, model và caps; builtin seed chỉ insert, quyền owner hoặc MODELS_MANAGE cho builtin.
+- [x] Projects riêng của actor: instructions, CRUD, tạo/chuyển/gỡ hội thoại, xóa Project giữ history. Custom Persona thắng Project kể cả prompt rỗng; snapshot theo admission.
+- [x] Sharing authenticated same-Tenant link, read-only viewer, revoke; reader không có quyền owner hoặc quyền đọc nguồn phát sinh.
+- [x] Feedback theo Actor và output, cập nhật/xóa/reload; các phiên bản regenerate có đánh giá riêng.
+- [x] UI assistant-ui nối command server và tải lại đúng nhánh; kiểm browser edit/regenerate/branch/reload/sharing, Persona/Project CRUD và mobile. Kiểm HTTP thật qua Java/PostgreSQL, revision/ownership/rollback qua integration tests.
+- [x] Theo chỉ đạo bổ sung: Spring Data JPA cho CRUD Chat và provider/model/default lifecycle. Giữ JDBC cho cây/claims/bulk/projections; note Users/Groups cho Nhật tại MEM-55/MEM-36. Xem [review](persistence-review.md) và ADR 0010.
+
+Attachments, file Persona/Project thuộc MEM-81. Catalog admin UI/local-provider thuộc MEM-77. PR/CI/review và deployment acceptance vẫn theo Phase 6; không coi các checkbox implementation là issue Done.
 
 ## Phase 6 — Nghiệm thu và vận hành
 

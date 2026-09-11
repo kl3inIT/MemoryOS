@@ -45,7 +45,22 @@
 
 API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx tests authenticate signed JWTs through the actual resource-server filter and binding/membership lookup. They do not certify live Keycloak browser login. The optional live-model check delegates to the product provider composition. Browser Chat acceptance remains Phase 2.4. Missing-buffer/expiry tests establish the reset/fallback contract, not process recovery or token durability. No two-replica deployment or load acceptance is claimed. Phase 1 probes are not substituted for product checks; see the [current plan](../increments/active/mem-11-production-chat/plan.md).
 
-## Backend model catalog
+## Editors, projects, assistants and sharing (V36)
+
+| Contract | Verification |
+| --- | --- |
+| Persona/Project ownership, instruction precedence including empty custom instructions, admission snapshot, stale revisions and deletion preserving history | `ChatPersistenceIntegrationTest.projectsAndPersonasApplyAtAdmissionAndPreserveHistoryAcrossEditsAndDeletion` |
+| Persona source restriction rechecks authority on a later tool call; revoking the last selected source must not widen to other readable sources | `SearchToolTest.personaSourceSelectionRechecksRevocationWithoutWideningToOtherReadableSources` |
+| EDIT siblings, ASSISTANT-only regeneration, immutable old branches, selected history and command replay/input identity | `ChatPersistenceIntegrationTest.editAndRegenerateKeepOldBranchesAndCommandIdentityWithoutDuplicatingUserMessages` |
+| Authenticated same-Tenant sharing, owner-only writes, output-specific feedback, revocation and deletion/late completion | `ChatPersistenceIntegrationTest.sharingIsReadOnlyTenantAccessFeedbackStaysOnOutputAndDeletionWinsLateCompletion`; `ChatSessionApiIntegrationTest.editorsProjectsPersonasSharingAndFeedbackRoundTripThroughAuthenticatedHttp` |
+| Real HTTP creates, configures, sends/edits/regenerates, selects branches, renames, rates, shares/revokes and deletes; a failed combined configuration rolls back all settings | `ChatSessionApiIntegrationTest.editorsProjectsPersonasSharingAndFeedbackRoundTripThroughAuthenticatedHttp`: actual Spring Boot port, signed synthetic identity, PostgreSQL and native runner; model responses are synthetic |
+| Spring Data provider/model JSONB and scoped collection mappings, revision advancement, cross-Tenant constraints, default protection, deletion and ORM/JDBC rollback | `ModelCatalogConstraintsTest`; existing catalog API integration scenarios |
+| Browser versions, feedback per version, reload, shared read-only UI, revocation and deletion | `web/tests/e2e/chat-workspace.spec.ts` |
+| Assistant form saves/reloads sources, starters and limits; Project CRUD/instructions and retained conversations; mobile layout | `web/tests/e2e/chat-workspace.spec.ts`; existing `chat.spec.ts` mobile/stream regression |
+
+Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do not certify a live provider, source relevance or deployed IAM. [Editor verification](../increments/active/mem-11-production-chat/editor-verification.md) records current checks and remaining deployment/acceptance boundaries.
+
+## Model catalog persistence
 
 | Contract | Verification |
 | --- | --- |

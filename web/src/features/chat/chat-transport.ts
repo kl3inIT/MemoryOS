@@ -38,6 +38,9 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectModel(id?: string) {
     this.modelConfigurationId = id;
   }
+  recordModelSelection(selection: Accepted) {
+    this.onModelAccepted?.(selection);
+  }
   listenModelSelection(listener: (selection: Accepted) => void) {
     this.onModelAccepted = listener;
     return () => {
@@ -85,7 +88,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   async sendMessages(options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0]) {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
-    if (options.trigger !== "submit-message") throw new Error("Editing is not available yet");
+    if (options.trigger !== "submit-message")
+      throw new Error("Use the conversation's message actions to create a saved version");
     const message = options.messages.at(-1);
     const text =
       message?.parts

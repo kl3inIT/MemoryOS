@@ -53,9 +53,13 @@ public final class ChatModelResolver {
             lease.close();
             throw ChatException.providerUnavailable();
         }
-        return new Resolved(model.id(), selection.fallbackReason(), lease);
+        return new Resolved(model.id(), selection.fallbackReason(), lease, selection.contextRevision());
     }
-    public record Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease) implements AutoCloseable {
+    public record Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease,
+                           @Nullable String contextRevision) implements AutoCloseable {
+        public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease) {
+            this(modelConfigurationId, fallbackReason, lease, null);
+        }
         public ChatModelBinding binding() { return lease.binding(); }
         @Override public void close() { lease.close(); }
     }

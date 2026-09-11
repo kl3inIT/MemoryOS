@@ -441,6 +441,84 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void editorsProjectsPersonasSharingAndFeedbackRoundTripThroughAuthenticatedHttp() throws Exception {
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            Prompt prompt = call.getArgument(0);
+            assertTrue(prompt.getInstructions().stream().anyMatch(m -> m.getText() != null && m.getText().contains("ASSISTANT INSTRUCTIONS")));
+            assertFalse(prompt.getInstructions().stream().anyMatch(m -> m.getText() != null && m.getText().contains("PROJECT INSTRUCTIONS")));
+            return Flux.just(response("Saved answer", "stop", 4));
+        });
+        try (var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
+            String ownerToken = token(actor), readerToken = token(other);
+            var project = workspaceRequest(http, ownerToken, "POST", "/api/chat/projects",
+                    "{\"name\":\"Work\",\"description\":\"\",\"instructions\":\"PROJECT INSTRUCTIONS\"}", 201);
+            var persona = workspaceRequest(http, ownerToken, "POST", "/api/chat/personas", """
+                    {"name":"Personal","description":"","instructions":"ASSISTANT INSTRUCTIONS",
+                     "starterPrompts":["Start here"],"sourceIds":[],"searchEnabled":false,
+                     "contextTokenLimit":8000,"outputTokenLimit":1000}
+                    """, 201);
+            String projectId = project.path("id").asText(), personaId = persona.path("id").asText();
+            workspaceRequest(http, readerToken, "GET", "/api/chat/projects/" + projectId, null, 404);
+            workspaceRequest(http, readerToken, "GET", "/api/chat/personas/" + personaId, null, 404);
+            var session = workspaceRequest(http, ownerToken, "POST", "/api/chat/sessions",
+                    Json.mapper().createObjectNode().put("title", "Workspace chat").put("personaId", personaId).put("projectId", projectId).toString(), 201);
+            String path = "/api/chat/sessions/" + session.path("id").asText();
+            assertEquals(projectId, session.path("projectId").asText());
+            var first = workspaceRequest(http, ownerToken, "POST", path + "/messages", Json.mapper().createObjectNode()
+                    .put("parentMessageId", session.path("rootMessageId").asText()).put("clientRequestId", UUID.randomUUID().toString()).put("text", "Original question").toString(), 202);
+            awaitOutcome(first.path("assistantMessageId").asText(), "COMPLETED");
+            String editBody = Json.mapper().createObjectNode().put("clientRequestId", UUID.randomUUID().toString()).put("text", "Edited question").toString();
+            var edited = workspaceRequest(http, ownerToken, "POST", path + "/messages/" + first.path("userMessageId").asText() + "/edit", editBody, 202);
+            awaitOutcome(edited.path("assistantMessageId").asText(), "COMPLETED");
+            assertEquals(edited, workspaceRequest(http, ownerToken, "POST", path + "/messages/" + first.path("userMessageId").asText() + "/edit", editBody, 202));
+            var regenerated = workspaceRequest(http, ownerToken, "POST", path + "/messages/" + edited.path("userMessageId").asText() + "/regenerate",
+                    "{\"clientRequestId\":\"" + UUID.randomUUID() + "\"}", 202);
+            awaitOutcome(regenerated.path("assistantMessageId").asText(), "COMPLETED");
+            assertEquals(edited.path("userMessageId"), regenerated.path("userMessageId"));
+            verify(model, times(3)).stream(any(Prompt.class));
+            String feedbackPath = path + "/messages/" + regenerated.path("assistantMessageId").asText() + "/feedback";
+            workspaceRequest(http, ownerToken, "PUT", feedbackPath, "{\"positive\":false,\"comment\":\"More detail\",\"reason\":\"incomplete\"}", 200);
+            var feedback = workspaceRequest(http, ownerToken, "GET", path + "/feedback?messageIds=" + regenerated.path("assistantMessageId").asText(), null, 200);
+            assertEquals("More detail", feedback.get(0).path("comment").asText());
+            assertFalse(feedback.get(0).path("positive").asBoolean());
+            workspaceRequest(http, readerToken, "PUT", feedbackPath, "{\"positive\":true,\"comment\":\"\",\"reason\":\"\"}", 404);
+            workspaceRequest(http, ownerToken, "PUT", path + "/sharing", "{\"enabled\":true,\"revision\":0}", 200);
+            String shared = "/api/chat/shared/" + session.path("id").asText();
+            workspaceRequest(http, readerToken, "GET", path, null, 404);
+            assertEquals("Workspace chat", workspaceRequest(http, readerToken, "GET", shared, null, 200).path("title").asText());
+            var history = workspaceRequest(http, readerToken, "GET", shared + "/messages", null, 200);
+            assertEquals(2, history.size()); assertEquals("Edited question", history.get(0).path("content").asText());
+            workspaceRequest(http, readerToken, "PUT", path + "/sharing", "{\"enabled\":false,\"revision\":1}", 404);
+            workspaceRequest(http, ownerToken, "PUT", path + "/branch", Json.mapper().createObjectNode()
+                    .put("messageId", first.path("userMessageId").asText()).put("expectedChildId", edited.path("userMessageId").asText()).toString(), 204);
+            assertEquals("Original question", workspaceRequest(http, readerToken, "GET", shared + "/messages", null, 200).get(0).path("content").asText());
+            workspaceRequest(http, ownerToken, "PUT", path + "/title", "{\"title\":\"Renamed\"}", 200);
+            assertEquals("Renamed", workspaceRequest(http, ownerToken, "GET", path, null, 200).path("title").asText());
+            String builtin = jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND builtin_key='default'").param("tenant", TENANT).query(UUID.class).single().toString();
+            workspaceRequest(http, ownerToken, "PUT", path + "/settings", Json.mapper().createObjectNode().put("personaId", builtin).put("projectId", UUID.randomUUID().toString()).toString(), 404);
+            assertEquals(personaId, workspaceRequest(http, ownerToken, "GET", path, null, 200).path("personaId").asText(), "Settings must roll back together");
+            workspaceRequest(http, ownerToken, "DELETE", "/api/chat/projects/" + projectId + "?revision=" + project.path("revision").asLong(), null, 204);
+            assertTrue(workspaceRequest(http, ownerToken, "GET", path, null, 200).path("projectId").isNull());
+            workspaceRequest(http, ownerToken, "DELETE", "/api/chat/personas/" + personaId + "?revision=" + persona.path("revision").asLong(), null, 204);
+            assertEquals(2, workspaceRequest(http, ownerToken, "GET", path + "/messages", null, 200).size());
+            workspaceRequest(http, ownerToken, "DELETE", feedbackPath, null, 204);
+            workspaceRequest(http, ownerToken, "PUT", path + "/sharing", "{\"enabled\":false,\"revision\":1}", 200);
+            workspaceRequest(http, readerToken, "GET", shared, null, 404);
+            workspaceRequest(http, ownerToken, "DELETE", path, null, 204);
+            workspaceRequest(http, ownerToken, "GET", path + "/branches", null, 404);
+        }
+    }
+
+    private JsonNode workspaceRequest(HttpClient http, String bearer, String method, String path, String body, int status) throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).timeout(Duration.ofSeconds(15))
+                .header("Authorization", "Bearer " + bearer).header("X-MemoryOS-CSRF", "1").header("Content-Type", "application/json")
+                .method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body)).build();
+        var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(status, response.statusCode(), method + " " + path + " " + response.body());
+        return response.body().isBlank() ? Json.mapper().nullNode() : Json.mapper().readTree(response.body());
+    }
+
+    @Test
     void eofPersistsPartialAsFailedAndAllowsNextTurn() throws Exception {
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Partial", "", 0)));
         var session = create();
@@ -787,8 +865,8 @@ class ChatSessionApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString().contains(modelId));
         // A second Persona excludes the selected session even for the model manager.
         UUID differentPersona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,:key,'Other','','model')")
-                .param("id", differentPersona).param("tenant", TENANT).param("key", differentPersona.toString().substring(0, 20)).update();
+        jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model) VALUES (:id,:tenant,:owner,'Other','','model')")
+                .param("id", differentPersona).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value()).update();
         update.putArray("personaIds").add(differentPersona.toString());
         mockMvc.perform(put("/api/chat/providers/" + provider.path("id").asText()).param("revision", "2")
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(update.toString()))

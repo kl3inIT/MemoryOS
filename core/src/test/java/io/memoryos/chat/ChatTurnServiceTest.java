@@ -68,8 +68,8 @@ class ChatTurnServiceTest {
         when(models.resolve(any(), any(), any())).thenReturn(new ChatModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
-        when(persistence.existing(any(), any(), any(), any(), anyString(), any())).thenReturn(Optional.empty());
-        when(persistence.reserve(any(), any(), any(), any(), anyString(), any(), anyInt(), any())).thenReturn(pair);
+        when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
+        when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
                 "Question", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
         when(persistence.loadContext(any(), any(), any())).thenReturn(new ChatTurnPersistence.TurnContext(actor,
@@ -88,7 +88,7 @@ class ChatTurnServiceTest {
             service.cancel(actor, session, pair.assistantMessageId());
             queued.get().run();
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any());
-            verify(persistence).reserve(any(), any(), any(), any(), anyString(), any(), anyInt(), any());
+            verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.CANCELED), eq(""),
                     isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()));
         }
@@ -105,7 +105,7 @@ class ChatTurnServiceTest {
                     eq("CHAT_SUBMIT_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()));
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any());
             // A second rejected dispatch reaches the executor; it is not falsely rejected as capacity exhausted.
-            when(persistence.reserve(any(), any(), any(), any(), anyString(), any(), anyInt(), any()))
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
                     .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));
             assertThrows(TaskRejectedException.class, () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null));
         }
@@ -119,7 +119,7 @@ class ChatTurnServiceTest {
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
             assertEquals("CHAT_PROVIDER_UNAVAILABLE", assertThrows(ChatException.class,
                     () -> service.send(actor, session, parent, request, "Question", null)).code());
-            verify(persistence, never()).reserve(any(), any(), any(), any(), anyString(), any(), anyInt(), any());
+            verify(persistence, never()).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
         }
     }
 
@@ -161,7 +161,7 @@ class ChatTurnServiceTest {
                         () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null)).code());
             } finally { draining.complete(null); }
             verify(lease).close();
-            when(persistence.reserve(any(), any(), any(), any(), anyString(), any(), anyInt(), any()))
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
                     .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));
             service.send(actor, session, parent, UUID.randomUUID(), "Question", null);
         }

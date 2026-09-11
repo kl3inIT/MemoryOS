@@ -16,6 +16,9 @@ type Session = {
   sends: number;
   mode: string;
   selectedModels: Array<string | undefined>;
+  allMessages: Map<string, ChatMessage>;
+  sharing: { enabled: boolean; revision: number };
+  feedback: Map<string, object>;
 };
 const sessions = new Map<string, Session>();
 const answer =
@@ -35,11 +38,22 @@ function create(title = "Browser conversation", mode = "normal"): Session {
     id: randomUUID(),
     rootMessageId: randomUUID(),
     personaId: randomUUID(),
+    projectId: null,
     title,
     createdAt: now,
     updatedAt: now,
   };
-  const value = { session, messages: [], runs: new Map(), sends: 0, mode, selectedModels: [] };
+  const value = {
+    session,
+    messages: [],
+    runs: new Map(),
+    sends: 0,
+    mode,
+    selectedModels: [],
+    allMessages: new Map(),
+    sharing: { enabled: false, revision: 0 },
+    feedback: new Map(),
+  };
   sessions.set(session.id, value);
   return value;
 }
@@ -50,7 +64,7 @@ function emit(run: Run, event: string, data: object) {
   for (const listener of run.listeners) listener.write(packet);
 }
 function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FAILED") {
-  const message = state.messages.find((item) => item.id === run.id)!;
+  const message = state.allMessages.get(run.id)!;
   if (message.status !== "RUNNING") return;
   clearTimeout(run.timer);
   message.status = status;
@@ -73,6 +87,14 @@ export async function handleChatFixture(
     json(response, fixtureModels);
     return true;
   }
+  if (
+    ["/api/chat/personas", "/api/chat/projects", "/api/chat/personas/sources"].includes(
+      url.pathname,
+    )
+  ) {
+    json(response, []);
+    return true;
+  }
   if (url.pathname === "/api/chat/test-fixture" && request.method === "POST") {
     const input = await body(request);
     const value = create(input.title, input.mode);
@@ -81,7 +103,7 @@ export async function handleChatFixture(
   }
   if (!url.pathname.startsWith("/api/chat/")) return false;
   const segments = url.pathname.split("/");
-  if (segments.length === 4) {
+  if (segments.length === 4 && segments[3] === "sessions") {
     if (request.method === "POST") {
       const input = await body(request);
       json(response, create(input.title).session, 201);
@@ -103,6 +125,89 @@ export async function handleChatFixture(
     json(response, {}, 404);
     return true;
   }
+  if (segments[3] === "shared") {
+    if (!state.sharing.enabled) json(response, {}, 404);
+    else if (segments.length === 5)
+      json(response, {
+        id: state.session.id,
+        title: state.session.title,
+        rootMessageId: state.session.rootMessageId,
+      });
+    else {
+      const after = url.searchParams.get("after");
+      const offset = after ? state.messages.findIndex((m) => m.id === after) + 1 : 0;
+      json(
+        response,
+        state.messages.slice(offset, offset + 100).filter((m) => m.status !== "RUNNING"),
+      );
+    }
+    return true;
+  }
+  if (segments[5] === "branches") {
+    json(response, [
+      {
+        id: state.session.rootMessageId,
+        parentMessageId: null,
+        latestChildMessageId: state.messages[0]?.id ?? null,
+      },
+      ...state.allMessages.values(),
+    ]);
+    return true;
+  }
+  if (segments[5] === "feedback") {
+    json(response, [...state.feedback.values()]);
+    return true;
+  }
+  if (segments[5] === "sharing") {
+    if (request.method === "PUT") {
+      const input = await body(request);
+      if (input.revision !== state.sharing.revision) {
+        json(response, {}, 409);
+        return true;
+      }
+      state.sharing = { enabled: input.enabled, revision: state.sharing.revision + 1 };
+    }
+    json(response, state.sharing);
+    return true;
+  }
+  if (segments[7] === "feedback") {
+    if (request.method === "DELETE") {
+      state.feedback.delete(segments[6]!);
+      response.writeHead(204).end();
+    } else {
+      const input = await body(request);
+      const value = { assistantMessageId: segments[6], ...input };
+      state.feedback.set(segments[6]!, value);
+      json(response, value);
+    }
+    return true;
+  }
+  if (segments[5] === "title") {
+    state.session.title = (await body(request)).title;
+    json(response, state.session);
+    return true;
+  }
+  if (segments[5] === "branch") {
+    const input = await body(request);
+    const target = state.allMessages.get(input.messageId);
+    if (!target) {
+      json(response, {}, 404);
+      return true;
+    }
+    const parent = state.allMessages.get(target.parentMessageId!);
+    if (parent) parent.latestChildMessageId = target.id;
+    const firstId =
+      target.parentMessageId === state.session.rootMessageId ? target.id : state.messages[0]?.id;
+    state.messages = [];
+    let cursor: string | undefined = firstId;
+    while (cursor) {
+      const node: ChatMessage = state.allMessages.get(cursor)!;
+      state.messages.push(node);
+      cursor = node.latestChildMessageId ?? undefined;
+    }
+    response.writeHead(204).end();
+    return true;
+  }
   if (segments[5] === "stats") {
     json(response, {
       sends: state.sends,
@@ -112,6 +217,12 @@ export async function handleChatFixture(
     return true;
   }
   if (segments.length === 5) {
+    if (request.method === "DELETE") {
+      for (const run of state.runs.values()) finish(state, run, "CANCELED");
+      sessions.delete(state.session.id);
+      response.writeHead(204).end();
+      return true;
+    }
     json(response, state.session);
     return true;
   }
@@ -124,11 +235,26 @@ export async function handleChatFixture(
     );
     return true;
   }
-  if (segments.length === 6 && request.method === "POST") {
+  if (
+    (segments.length === 6 || segments[7] === "edit" || segments[7] === "regenerate") &&
+    request.method === "POST"
+  ) {
     const input = await body(request);
     if (state.messages.some((message) => message.status === "RUNNING")) {
       json(response, {}, 409);
       return true;
+    }
+    const regeneration = segments[7] === "regenerate";
+    if (segments[7] === "edit" || regeneration) {
+      const index = state.messages.findIndex((m) => m.id === segments[6]);
+      const target = state.messages[index];
+      if (!target || target.role !== "USER") {
+        json(response, {}, 404);
+        return true;
+      }
+      input.text ??= target.content;
+      state.messages = state.messages.slice(0, index);
+      input.parentMessageId = target.parentMessageId;
     }
     if (
       input.parentMessageId !== (state.messages.at(-1)?.id ?? state.session.rootMessageId) ||
@@ -137,7 +263,7 @@ export async function handleChatFixture(
       json(response, {}, 400);
       return true;
     }
-    const userId = randomUUID();
+    const userId = regeneration ? segments[6]! : randomUUID();
     const assistantId = randomUUID();
     const createdAt = new Date().toISOString();
     state.messages.push(
@@ -166,6 +292,14 @@ export async function handleChatFixture(
         finishedAt: null,
       },
     );
+    if (regeneration) {
+      const original = state.allMessages.get(userId)!;
+      original.latestChildMessageId = assistantId;
+      state.messages[state.messages.length - 2] = original;
+    }
+    for (const message of state.messages) state.allMessages.set(message.id, message);
+    const parent = state.allMessages.get(input.parentMessageId);
+    if (parent) parent.latestChildMessageId = userId;
     const run: Run = { id: assistantId, packets: [], listeners: new Set() };
     state.runs.set(assistantId, run);
     state.sends++;

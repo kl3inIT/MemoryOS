@@ -1,5 +1,7 @@
 # MEM-11 implementation verification
 
+The 2026-09-11 editor/Persona/Project/sharing change and Spring Data migration are recorded in [editor verification](editor-verification.md). Earlier receipts below retain their original scope and date.
+
 Current scope, 2026-09-10: Phases 2.1–2.4, the backend model catalog and Phase 3.1–3.2 Chat are on the current main baseline `6ca5f2b`. Phase 3.3 Onyx Search parity is implemented on `kl3inIT/mem-11-onyx-search-parity` for one PR. Its [verification and latency measurements](latency-verification.md) cover the wrapper gate, current browser progress and actual provider/index corpus receipts, and distinguish these from deployed acceptance. MEM-77 owns catalog administration UI and local-provider integration; the Chat model picker remains MEM-11. Execution still uses one API process, local Stop and RAM replay. Earlier dated receipts below describe their own verification boundary, not the current branch or deployment state.
 
 ## Phase 3.2 — Chat UI and source panel, 2026-09-10

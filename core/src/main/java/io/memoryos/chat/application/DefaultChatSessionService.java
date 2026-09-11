@@ -1,6 +1,7 @@
 package io.memoryos.chat.application;
 
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSession;
 import io.memoryos.chat.ChatSessionService;
@@ -61,6 +62,39 @@ public class DefaultChatSessionService implements ChatSessionService {
 
     private TenantId tenant(ActorId actor) {
         return tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+    }
+
+    @Override
+    @Transactional
+    public ChatSession rename(ActorId actor, UUID sessionId, String title) {
+        if (title == null || title.isBlank() || title.length() > 200) throw ChatException.invalid("Title must contain 1 to 200 characters.");
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
+        chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);
+        chats.rename(sessionId, title.strip());
+        return chats.findOwned(tenant, actor, sessionId, false).orElseThrow();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChatBranch> branches(ActorId actor, UUID sessionId) {
+        chats.findOwned(tenant(actor), actor, sessionId, false).orElseThrow(ChatException::unavailable);
+        return chats.branches(sessionId);
+    }
+
+    @Override
+    @Transactional
+    public void selectBranch(ActorId actor, UUID sessionId, UUID messageId, @Nullable UUID expectedChildId) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
+        var session = chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);
+        if (chats.hasActiveReply(sessionId)) throw ChatException.conflict();
+        var target = chats.message(sessionId, messageId).orElseThrow(ChatException::unavailable);
+        if (target.parentMessageId() == null) throw ChatException.invalid("Select a message version.");
+        var parent = chats.message(sessionId, target.parentMessageId()).orElseThrow(ChatException::unavailable);
+        if (!chats.onSelectedBranch(session, parent.id()) || !java.util.Objects.equals(parent.latestChildMessageId(), expectedChildId))
+            throw ChatException.conflict();
+        chats.selectChild(sessionId, parent.id(), target.id());
     }
 
     private static void page(int offset, int limit) {

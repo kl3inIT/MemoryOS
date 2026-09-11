@@ -7,6 +7,21 @@ import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.application.DefaultChatSessionService;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persistence.JpaPersonaRepository;
+import io.memoryos.chat.persistence.JpaProjectRepository;
+import io.memoryos.chat.persistence.JpaChatSharingRepository;
+import io.memoryos.chat.persistence.JpaChatFeedbackRepository;
+import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.chat.catalog.ModelSettings;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.SourceType;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantId;
+import java.util.Map;
+import java.util.Set;
+import static org.mockito.Mockito.*;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.persistence.IamLockRepository;
@@ -32,6 +47,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class ChatPersistenceIntegrationTest {
+    private com.zaxxer.hikari.HikariDataSource dataSource;
     private JdbcClient jdbc;
     private TestDatabase.JpaHarness jpa;
     private ChatSessionService sessions;
@@ -40,10 +56,14 @@ class ChatPersistenceIntegrationTest {
     private ActorId owner;
     private ActorId other;
     private UUID tenant;
+    private ChatPersonaService personas;
+    private ChatProjectService projects;
+    private ChatCollaborationService collaboration;
+    private UUID sourceId;
 
     @BeforeEach
     void setup() throws Exception {
-        var dataSource = TestDatabase.freshPostgres();
+        dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         tx = new TransactionTemplate(jpa.transactionManager());
@@ -63,10 +83,124 @@ class ChatPersistenceIntegrationTest {
         tenant = tenant();
         owner = member(tenant);
         other = member(tenant);
+        var authorization = mock(IamAuthorization.class);
+        when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE));
+        when(authorization.effectiveCapabilities(other)).thenReturn(Set.of());
+        var models = mock(ModelCatalogService.class);
+        when(models.availableModelsForPersona(any(), any())).thenReturn(List.of(new ModelCatalogService.AvailableModel(
+                UUID.randomUUID(), UUID.randomUUID(), "Provider", "model", "Model",
+                new ModelSettings.Capabilities(true, true, false, false), 32000, 4096, null, true)));
+        var sources = mock(SourceSearchService.class); sourceId = UUID.randomUUID();
+        when(sources.scope(any())).thenReturn(new SourceSearchScope(new TenantId(tenant), Map.of(sourceId, SourceType.FILE)));
+        personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
+                new PersonaProperties(), models, sources), ChatPersonaService.class);
+        projects = service(new ChatProjectService(tenants, repository, jpa.repository(JpaProjectRepository.class), sessions), ChatProjectService.class);
+        collaboration = service(new ChatCollaborationService(tenants, repository, jpa.repository(JpaChatSharingRepository.class),
+                jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
+    }
+
+    private <T> T service(T target, Class<T> contract) {
+        var interceptor = new TransactionInterceptor();
+        interceptor.setTransactionManager(jpa.transactionManager());
+        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
+        var factory = new ProxyFactory(target); factory.setProxyTargetClass(true); factory.addAdvice(interceptor);
+        return contract.cast(factory.getProxy());
     }
 
     @Test
-    void oversizedQuestionRollsBackBeforeTreeAdvancesAndBuiltinConfigRefreshesOnSend() {
+    void projectsAndPersonasApplyAtAdmissionAndPreserveHistoryAcrossEditsAndDeletion() {
+        var project = projects.create(owner, new ChatProjectService.ProjectInput("Work", "Description", "PROJECT PROMPT"));
+        assertThrows(ChatException.class, () -> projects.get(other, project.id()));
+        var session = projects.createConversation(owner, project.id(), "Project chat");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        assertTrue(turns.loadContext(owner, session.id(), first).instructions().contains("PROJECT PROMPT"));
+        var updated = projects.update(owner, project.id(), project.revision(), new ChatProjectService.ProjectInput("Work", "", "CHANGED PROJECT"));
+        assertThrows(ChatException.class, () -> projects.update(owner, project.id(), project.revision(), new ChatProjectService.ProjectInput("Stale", "", "")));
+        assertFalse(turns.loadContext(owner, session.id(), first).instructions().contains("CHANGED PROJECT"));
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        var assistant = personas.create(owner, new ChatPersonaService.PersonaInput("Private", "", "", List.of("A starter"),
+                List.of(sourceId), false, null, 8000, 1000));
+        assertThrows(ChatException.class, () -> personas.get(other, assistant.id()));
+        personas.select(owner, session.id(), assistant.id());
+        var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Continue");
+        var context = turns.loadContext(owner, session.id(), second);
+        assertFalse(context.instructions().contains("PROJECT"));
+        assertFalse(context.options().searchEnabled());
+        assertEquals(List.of(sourceId), context.options().sourceIds());
+        assertEquals(1000, context.options().outputTokenLimit());
+        assertEquals(List.of("A starter"), personas.get(owner, assistant.id()).starterPrompts());
+        assertThrows(ChatException.class, () -> personas.select(owner, session.id(), session.personaId()));
+        turns.finish(session.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer 2");
+        projects.delete(owner, project.id(), updated.revision());
+        assertNull(sessions.get(owner, session.id()).projectId());
+        assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
+        personas.delete(owner, assistant.id(), assistant.revision());
+        assertThrows(ChatException.class, () -> reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Deleted assistant"));
+        assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
+        personas.select(owner, session.id(), session.personaId());
+        assertTrue(reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Default again").created());
+    }
+
+    @Test
+    void editAndRegenerateKeepOldBranchesAndCommandIdentityWithoutDuplicatingUserMessages() {
+        var session = sessions.create(owner, "Versions");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "First question");
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "First answer");
+        var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Follow-up");
+        turns.finish(session.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "Second answer");
+        var regenerate = new ChatCommand(ChatCommand.Operation.REGENERATE, first.userMessageId(), UUID.randomUUID(), "", null);
+        var retryAnswer = turns.reserve(owner, session.id(), regenerate, Duration.ofMinutes(2), 32000, null);
+        assertEquals(first.userMessageId(), retryAnswer.userMessageId());
+        assertEquals(2L, jdbc.sql("SELECT count(*) FROM chat_message WHERE session_id=:session AND role='USER'")
+                .param("session", session.id()).query(Long.class).single());
+        assertThrows(ChatException.class, () -> sessions.selectBranch(owner, session.id(), first.assistantMessageId(), retryAnswer.assistantMessageId()));
+        turns.finish(session.id(), retryAnswer.assistantMessageId(), ChatMessage.Status.COMPLETED, "Alternative");
+        assertEquals(2, sessions.history(owner, session.id(), null, 100).size());
+        sessions.selectBranch(owner, session.id(), first.assistantMessageId(), retryAnswer.assistantMessageId());
+        assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
+        var edit = new ChatCommand(ChatCommand.Operation.EDIT, first.userMessageId(), UUID.randomUUID(), "Edited question", null);
+        var edited = turns.reserve(owner, session.id(), edit, Duration.ofMinutes(2), 32000, null);
+        assertNotEquals(first.userMessageId(), edited.userMessageId());
+        assertEquals("Edited question", turns.loadContext(owner, session.id(), edited).newestFirst().getFirst().content());
+        assertEquals(1, turns.loadContext(owner, session.id(), edited).newestFirst().size());
+        turns.finish(session.id(), edited.assistantMessageId(), ChatMessage.Status.COMPLETED, "Edited answer");
+        assertEquals(retryAnswer.assistantMessageId(), turns.reserve(owner, session.id(), regenerate, Duration.ofMinutes(2), 32000, null).assistantMessageId());
+        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(),
+                new ChatCommand(ChatCommand.Operation.EDIT, first.userMessageId(), regenerate.requestId(), "Other", null), Duration.ofMinutes(2), 32000, null));
+        sessions.selectBranch(owner, session.id(), first.userMessageId(), edited.userMessageId());
+        assertEquals(second.assistantMessageId(), sessions.history(owner, session.id(), null, 100).getLast().id());
+    }
+
+    @Test
+    void sharingIsReadOnlyTenantAccessFeedbackStaysOnOutputAndDeletionWinsLateCompletion() {
+        var session = sessions.create(owner, "Sharing");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        assertThrows(ChatException.class, () -> collaboration.shared(other, session.id()));
+        var sharing = collaboration.share(owner, session.id(), true, 0);
+        assertTrue(sharing.revision() > 0);
+        assertEquals(2, collaboration.sharedHistory(other, session.id(), null, 100).size());
+        assertThrows(ChatException.class, () -> collaboration.share(other, session.id(), false, sharing.revision()));
+        assertThrows(ChatException.class, () -> collaboration.feedback(other, session.id(), first.assistantMessageId(), true, "", ""));
+        collaboration.feedback(owner, session.id(), first.assistantMessageId(), true, "Useful", "");
+        collaboration.feedback(owner, session.id(), first.assistantMessageId(), false, "Incomplete", "missing_context");
+        assertEquals(1, collaboration.feedback(owner, session.id(), List.of(first.assistantMessageId())).size());
+        assertEquals(Boolean.FALSE, collaboration.feedback(owner, session.id(), List.of(first.assistantMessageId())).getFirst().positive());
+        var regeneration = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.REGENERATE, first.userMessageId(),
+                UUID.randomUUID(), "", null), Duration.ofMinutes(2), 32000, null);
+        assertTrue(collaboration.feedback(owner, session.id(), List.of(regeneration.assistantMessageId())).isEmpty());
+        collaboration.removeFeedback(owner, session.id(), first.assistantMessageId());
+        collaboration.removeFeedback(owner, session.id(), first.assistantMessageId());
+        collaboration.share(owner, session.id(), false, sharing.revision());
+        assertThrows(ChatException.class, () -> collaboration.shared(other, session.id()));
+        turns.delete(owner, session.id());
+        assertFalse(turns.finish(session.id(), regeneration.assistantMessageId(), ChatMessage.Status.COMPLETED, "Late answer"));
+        assertThrows(ChatException.class, () -> sessions.get(owner, session.id()));
+        assertTrue(sessions.list(owner, 0, 100).isEmpty());
+    }
+
+    @Test
+    void oversizedQuestionRollsBackBeforeTreeAdvancesAndBuiltinConfigurationSurvivesSend() {
         var session = sessions.create(owner, "Validation");
         var request = UUID.randomUUID();
         assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
@@ -74,12 +208,13 @@ class ChatPersistenceIntegrationTest {
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET model = 'obsolete-model' WHERE id = :id").param("id", session.personaId()).update();
         var reservation = turns.reserve(owner, session.id(), session.rootMessageId(), request, "Question", Duration.ofMinutes(2), 32000);
-        assertEquals("gpt-5-mini", turns.loadContext(owner, session.id(), reservation).model());
+        assertEquals("obsolete-model", turns.loadContext(owner, session.id(), reservation).model());
     }
 
     @AfterEach
     void close() {
-        if (jpa != null) jpa.close();
+        try { if (jpa != null) jpa.close(); }
+        finally { if (dataSource != null) dataSource.close(); }
     }
 
     @Test

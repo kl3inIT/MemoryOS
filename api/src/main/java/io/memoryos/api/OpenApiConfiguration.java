@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
@@ -66,6 +67,18 @@ class OpenApiConfiguration {
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
                     Components components = openApi.getComponents();
+                    for (String schema : List.of("PersonaInput", "PersonaView")) {
+                        configureNullableProperty(components, schema, "modelConfigurationId", new StringSchema().format("uuid"));
+                        configureNullableProperty(components, schema, "contextTokenLimit", new IntegerSchema());
+                        configureNullableProperty(components, schema, "outputTokenLimit", new IntegerSchema());
+                    }
+                    configureNullableProperty(components, "ProjectSelection", "projectId", new StringSchema().format("uuid"));
+                    configureNullableProperty(components, "ChatSessionSettings", "projectId", new StringSchema().format("uuid"));
+                    configureNullableProperty(components, "BranchSelection", "expectedChildId", new StringSchema().format("uuid"));
+                    for (String property : List.of("parentMessageId", "latestChildMessageId"))
+                        configureNullableProperty(components, "ChatBranch", property, new StringSchema().format("uuid"));
+                    for (String schema : List.of("Feedback", "FeedbackInput"))
+                        configureNullableProperty(components, schema, "positive", new BooleanSchema());
                     configureNullableProperty(components, "SearchEvent", "source",
                             new Schema<>().$ref("#/components/schemas/ChatSource"));
                     configureNullableProperty(components, "CurrentIdentity", "tenant",

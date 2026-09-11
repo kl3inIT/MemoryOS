@@ -10,5 +10,8 @@ public interface ChatSessionService {
     ChatSession create(ActorId actor, String title);
     List<ChatSession> list(ActorId actor, int offset, int limit);
     ChatSession get(ActorId actor, UUID sessionId);
+    ChatSession rename(ActorId actor, UUID sessionId, String title);
+    List<ChatBranch> branches(ActorId actor, UUID sessionId);
+    void selectBranch(ActorId actor, UUID sessionId, UUID messageId, @Nullable UUID expectedChildId);
     List<ChatMessage> history(ActorId actor, UUID sessionId, @Nullable UUID after, int limit);
 }

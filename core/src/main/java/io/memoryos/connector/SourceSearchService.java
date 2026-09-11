@@ -26,6 +26,14 @@ public class SourceSearchService {
         return new SourceSearchScope(tenant, documents.searchableSources(tenant));
     }
 
+    public record SourceOption(UUID id, String name, SourceType type) {}
+
+    public List<SourceOption> options(ActorId actor, int offset, int limit) {
+        if (offset < 0 || offset > 10000 || limit < 1 || limit > 100) throw SourceException.invalid("Invalid source page", "source option page out of bounds");
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(SourceException::notFound);
+        return documents.searchableSourceOptions(tenant, offset, limit);
+    }
+
     public Map<UUID, List<DocumentSourceMetadata>> readableMetadata(SourceSearchScope scope, List<UUID> ids) {
         return documents.sourceMetadata(scope.tenant(), ids, true, null).entrySet().stream()
                 .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey,

@@ -62,25 +62,29 @@ public final class ChatTurnService implements AutoCloseable {
     public record Cancellation(UUID assistantMessageId, ChatMessage.Status status) {}
 
     public Accepted send(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
+        return command(actor, session, new ChatCommand(ChatCommand.Operation.SEND, parent, request, text, modelConfigurationId));
+    }
+
+    public Accepted command(ActorId actor, UUID session, ChatCommand command) {
         var lock = commandLock(session);
         lock.lock();
-        try { return sendLocked(actor, session, parent, request, text, modelConfigurationId); }
+        try { return sendLocked(actor, session, command); }
         finally { lock.unlock(); }
     }
 
-    private Accepted sendLocked(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
-        var previous = persistence.existing(actor, session, parent, request, text, modelConfigurationId);
+    private Accepted sendLocked(ActorId actor, UUID session, ChatCommand command) {
+        var previous = persistence.existing(actor, session, command);
         if (previous.isPresent()) return accepted(previous.orElseThrow());
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
         ChatModelResolver.Resolved resolved = null;
         boolean transferred = false;
         try {
-            resolved = models.resolve(actor, session, modelConfigurationId);
+            resolved = models.resolve(actor, session, command.modelConfigurationId());
             var binding = resolved.binding();
             int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
-            reserved = persistence.reserve(actor, session, parent, request, text, limits.deadline(), contextLimit,
-                    new ChatTurnPersistence.ModelSelection(modelConfigurationId, resolved.modelConfigurationId(), resolved.fallbackReason(), binding));
+            reserved = persistence.reserve(actor, session, command, limits.deadline(), contextLimit,
+                    new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(), resolved.fallbackReason(), binding, resolved.contextRevision()));
             if (!reserved.created()) return accepted(reserved);
             var context = persistence.loadContext(actor, session, reserved);
             var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding);
@@ -132,11 +136,28 @@ public final class ChatTurnService implements AutoCloseable {
             persistence.authorizeReply(actor, session, assistant);
             streams.validateSubscription(assistant, after);
             // Authorization/cursor errors remain synchronous; no reader slot is held until subscription.
-            return () -> streams.subscribe(assistant, after);
+            return () -> {
+                lock.lock();
+                try { persistence.authorizeReply(actor, session, assistant); return streams.subscribe(assistant, after); }
+                finally { lock.unlock(); }
+            };
         } finally { lock.unlock(); }
     }
 
     private ReentrantLock commandLock(UUID session) { return commands[Math.floorMod(session.hashCode(), commands.length)]; }
+
+    public void delete(ActorId actor, UUID session) {
+        var lock = commandLock(session);
+        lock.lock();
+        try {
+            var messages = persistence.delete(actor, session);
+            for (UUID message : messages) {
+                var run = active.get(message);
+                if (run != null) { run.deleted = true; run.cancel(StopReason.USER); }
+                streams.discard(message);
+            }
+        } finally { lock.unlock(); }
+    }
 
     private static Accepted accepted(ChatTurnPersistence.Reservation reservation) {
         return new Accepted(reservation.userMessageId(), reservation.assistantMessageId(), reservation.modelConfigurationId(), reservation.fallbackReason());
@@ -211,7 +232,7 @@ public final class ChatTurnService implements AutoCloseable {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
                             run.accounting.output(), run.accounting.cost(), outcome.sources());
-                    streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
+                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
                     run.persisted = true;
                 }
                 releaseIfFinished(run);
@@ -256,6 +277,7 @@ public final class ChatTurnService implements AutoCloseable {
         CompletableFuture<Void> draining = CompletableFuture.completedFuture(null);
         volatile boolean drained;
         volatile boolean persisted;
+        volatile boolean deleted;
         // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
