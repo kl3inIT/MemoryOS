@@ -10,22 +10,20 @@ The public site at `https://vadan.app` is the static [`landing/`](../../landing)
 
 | Path | Content |
 | --- | --- |
-| `/apps/memoryos-landing/compose.landing.yaml` | `infrastructure/deployment/compose.landing.yaml` from the released revision |
-| `/apps/memoryos-landing/landing.env` | `MEMORYOS_LANDING_IMAGE=<digest reference>` from the release artifact |
-| `/apps/memoryos-landing/landing.env.previous` | The last accepted reference, kept for rollback |
+| `/apps/memoryos/landing/compose.landing.yaml` | `infrastructure/deployment/compose.landing.yaml` from the released revision |
+| `/apps/memoryos/landing/landing.env` | `MEMORYOS_LANDING_IMAGE=<digest reference>` from the release artifact |
+| `/apps/memoryos/landing/landing.env.previous` | The last accepted reference, kept for rollback |
 
-Run the commands below on the VPS from `/apps/memoryos-landing`.
+The directory sits inside the application root, but the application deployment script only uses `/apps/memoryos/deployments` and the Compose project `memoryos`, so it never reads or changes `landing/`. Run the commands below on the VPS from `/apps/memoryos/landing`. The package is public on GHCR, so pulling needs no credential.
 
 ## Deploy or update the container
 
 1. Keep the accepted reference: `cp landing.env landing.env.previous` (skip on the first deployment).
 2. Write `landing.env` from the release artifact and copy `compose.landing.yaml` from the same revision.
-3. Pull with a temporary GHCR credential that can read packages, remove the credential, then start:
+3. Pull and start:
 
    ```sh
-   docker login ghcr.io --username <github-user>   # read:packages token, entered at the prompt
    docker compose --env-file landing.env --file compose.landing.yaml pull
-   docker logout ghcr.io
    docker compose --env-file landing.env --file compose.landing.yaml up --detach --wait
    ```
 
@@ -64,7 +62,7 @@ Run the commands below on the VPS from `/apps/memoryos-landing`.
 
 ## Roll back
 
-Container: restore the previous reference and start it. Pull it first with a temporary credential if the image is no longer on the server.
+Container: restore the previous reference and start it. Pull it first if the image is no longer on the server.
 
 ```sh
 cp landing.env.previous landing.env
