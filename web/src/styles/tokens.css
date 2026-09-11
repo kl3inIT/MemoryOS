@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
 
-  /* Onyx/Opal MIT palette adapted to MemoryOS semantic roles; see /THIRD_PARTY_NOTICES.txt. */
+  /* Monochrome primitives mapped to MemoryOS semantic roles. */
   --neutral-00: #ffffff;
   --neutral-25: #fafafa;
   --neutral-50: #f0f0f0;

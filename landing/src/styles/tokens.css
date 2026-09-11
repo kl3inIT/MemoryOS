@@ -1,8 +1,7 @@
 /*
  * Semantic token names and default-tone action rows follow web/src/styles/tokens.css, so the
  * landing page reads like the product. Values are the landing's own navy and blue identity; the
- * application and the marketing site build and deploy independently. Onyx/Opal MIT structure; see
- * /THIRD_PARTY_NOTICES.txt.
+ * application and the marketing site build and deploy independently.
  */
 :root {
   color-scheme: light;
