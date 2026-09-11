@@ -55,7 +55,8 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
                 + ";ocr=" + ocrEngine.name().toLowerCase(Locale.ROOT) + ":" + String.join(",", ocrLanguages)
                 + ";force=" + forceOcr + ";tables=accurate;images=embedded;maxPages=" + maxPages
                 + ";timeoutSeconds=" + timeout.toSeconds() + ";maxInput=" + ObjectUploadSpecification.MAX_SIZE_BYTES
-                + ";maxOutput=33554432;native=tika-4.0.0";
+                + ";maxOutput=33554432;native=tika-4.0.0"
+                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-v1";
     }
 
     @Override public String toString() { return "DoclingProperties[redacted]"; }

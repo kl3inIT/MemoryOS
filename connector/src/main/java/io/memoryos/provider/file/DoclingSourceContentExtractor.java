@@ -109,6 +109,17 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             canonical.set("pages", document.path("pages"));
             String text = semanticText(blocks);
             if (text.isBlank()) throw failure(ExtractionFailure.MALFORMED);
+            var financialChecks = FinancialTableDiagnostics.assess(blocks, mapper);
+            canonical.set("financial_checks", financialChecks);
+            if (!financialChecks.isEmpty()) {
+                int reviewChecks = 0;
+                for (var check : financialChecks) {
+                    if (!"CONSISTENT".equals(check.path("status").asString())) reviewChecks++;
+                }
+                LOG.atInfo().addKeyValue("event", "docling.financial_checks.completed")
+                        .addKeyValue("check_count", financialChecks.size()).addKeyValue("review_count", reviewChecks)
+                        .log("Scoped financial checks completed; source values unchanged");
+            }
             String json = mapper.writeValueAsString(canonical);
             if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 33_554_432) {
                 throw failure(ExtractionFailure.WRITE_LIMIT);
@@ -139,9 +150,11 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             }
             if (httpStatus == 413) reason = ExtractionFailure.WRITE_LIMIT;
             else if (httpStatus == 408 || httpStatus == 504) reason = ExtractionFailure.TIMEOUT;
-            LOG.warn("Docling extraction failed: failure={}, http_status={}, exception_type={}, cause_type={}",
-                    reason, httpStatus, e.getClass().getName(),
-                    e.getCause() == null ? "none" : e.getCause().getClass().getName());
+            LOG.atWarn().addKeyValue("event", "docling.extraction.failed")
+                    .addKeyValue("error_code", reason.name()).addKeyValue("http_status", httpStatus)
+                    .addKeyValue("error_type", e.getClass().getName())
+                    .addKeyValue("cause_type", e.getCause() == null ? "none" : e.getCause().getClass().getName())
+                    .log("Docling extraction failed");
             // Expected external/ambiguous requests terminate; retry must not submit duplicate remote work.
             if (externalFailure) throw failure(reason);
             throw new IllegalStateException("Docling request failed");

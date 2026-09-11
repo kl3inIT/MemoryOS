@@ -302,3 +302,32 @@ Attempt timings use the current Worker process's start/completion logs. The Viet
 Actual Orca Sources verification showed an Active Source, four indexed Documents and four completed file states. Reindex returned HTTP 202 and reused the existing nonterminal attempt without a duplicate. Long English filenames visibly overlap the Size column; that UI defect remains open. Financial correctness remains unaccepted despite successful indexing. Search/Chat and Google authorization behavior were not changed or accepted by this Sources check.
 
 The installed private Worker JAR SHA-256 is `c6d0bcac98b4398d01bd2b1d3f4a58bc9c50d50fdf25d4e01cbce7898ef2e881`; retained evidence is under ignored `.tmp/tasco-2025/sixty-minute-reindex/`, including `final-verification.json`, `corpus-assessment.json`, current-process logs and Sources screenshots. The largest completed original is 21,343,544 bytes; completion proves admission of that input, not 100 MiB. No production OCR recovery algorithm was promoted.
+
+## Tasco quality follow-up — 2026-09-11
+
+### Frozen comparison and diagnostic smoke
+
+The preceding four-report result is frozen independently of subsequent parser runs. The unchanged 104-cell truth has SHA-256 `94b3f546c7a2ce7b16a32ad1e89a733e4b3a32df8ddd4a1a2ae78b9683ae4964`; the exact copied scorer has SHA-256 `2a354e23116800b064f0fa70f50bf3f1ab37586046d134604dd6db5109f907da`. It requires a unique coded row on the specified physical page, compares the last two period columns, removes whitespace and numeric grouping, and accepts only ASCII minus or enclosing parentheses for negatives. It does not repair malformed amounts or ambiguous rows.
+
+| Report | Original SHA-256 | Baseline canonical artifact SHA-256 |
+| --- | --- | --- |
+| Vietnamese separate | `60c9b52774d2394a401961598d7c76275501ca902b4c6807d04d228a821848e5` | `25c4299265bdc7aea000ba2df079e15ced53f912dc897794a937a7acbd6a80e7` |
+| Vietnamese consolidated | `997eb989b1bf2dfa0c45175434352121566ec4b1f0e6f4d7f8d447a5513856cd` | `d6e533e008522a3bcddf01d54e97ed4be66601115145aa2d10268ca3fb141da9` |
+| English consolidated | `94cbcca723a4463aa04c763bca1782b07d5a370803cf02f98d36118330455ff1` | `aec4eea64e3e36ffbc169e2374c7103953dbe9d047eba07dd8e0d137ce0cab40` |
+| English separate | `bbc1b0410af55209468f01f94e6e9178bc35ebd426d3cdeb43955a417609c589` | `7305fef20d6029598202cf044036c9c52a6649ea1e2a7902527b80323cd8a9f6` |
+
+All four persisted baseline parser fingerprints select `docling-java=0.6.5`, `docling-serve=1.32.0`, `docling=2.124.0`, Tesseract `vie,eng`, forced OCR, accurate tables, embedded images, 200 pages, 3,600 seconds, 104,857,600 input bytes and 33,554,432 output bytes. The new diagnostic/renderer fingerprint suffix is separate; the baseline artifacts were not rewritten.
+
+An actual Java invocation of the new [financial diagnostics](../specs/document.md) assessed all four sealed canonical artifacts, checked their hashes and verified deep equality of every original block afterwards. Vietnamese separate remained unassessed because the damaged statement labels are unsupported. Vietnamese consolidated reported a current-period mismatch and invalid prior-period code 70; English consolidated reported two scoped arithmetic matches; English separate reported missing codes 61/70 for both periods. The helper took 6.4–33.6 ms per artifact in this invocation, not an ingestion throughput measurement. An authenticated live DOCX integration case also executed successfully with the changed extractor/client; that test's XML does not capture lifecycle logs.
+
+### Bounded recovery evaluation, not production rollout
+
+The next offline candidate used only original PDFs and frozen canonical geometry—no truth amounts during recognition. It requires two explicit period headers, isolated cells and reliable row anchors; whole-token containment and two padded PSM-6 crops must agree. Both-missing rows need an unambiguous row code. Only missing text receives an experimental grid/sparse-cell overlay; existing values are immutable. The global OCR engine, full-page segmentation and input raster policy were not changed.
+
+The network-disabled run examined 24 pages: eight eligible sealed pages and sixteen held-out pages, four per report. Four sealed balance-sheet pages abstained under the structural guards. Across 261 rows, 26 missing-text candidates yielded three visually confirmed fills: both English separate closing-cash amounts and one held-out Vietnamese consolidated negative amount. The unchanged 104-cell scorer moved from **93 to 95**, with no sampled regression; this is an offline cell overlay, not published extraction or whole-report accuracy. Twenty-three other missing-text cells and twenty explicit dash controls received no number. Original-pixel contact sheets confirm genuine blanks/dashes were preserved. Twelve nonempty shadow string disagreements were reviewed, including two already numerically equal under the frozen scorer; none was applied.
+
+The run took 200.143 seconds overall, including 177.822 seconds in row recognition, with a measured cgroup memory peak of 404,688,896 bytes. Limits were two CPUs, 1 GiB memory, a 900-second process deadline, 150 attempted rows per document and 48 per page; no errors or truncation occurred. Original/artifact hashes and the frozen truth/scorer hashes remained unchanged. Structural comparison found exactly three inserted grid values and three corresponding sparse cells, with no other overlay changes.
+
+**Decision: retain the candidate offline.** Three natural positive omissions, only one on held-out pages from the same issuer, do not establish a generic production safety guarantee. No existing-number replacement, arithmetic repair or unused runtime recovery mode is shipped. Candidate SHA-256 is `9dbef331d7f1cab21786a25369bdf2b81c2e6c4b141c00c5c340fbab7e983892`; the retained row recognizer is `ab4274fb9aaac79ca38f671473798bae66faf3a5e2ded13cf3c96d3659fea89f`.
+
+Ignored evidence: `.tmp/tasco-2025/quality-followup/baseline.json`, `baseline-scorer.mjs`, `financial-smoke.json`, and `recovery-v2/{predictions,scored,overlay-invariants,final-report}.json`, with source rasters and the nine audit sheets. Exact values/raw artifacts remain private evidence rather than production fixtures.
