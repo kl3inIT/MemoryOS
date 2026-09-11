@@ -27,7 +27,7 @@ On Windows, enable Developer Mode or use an elevated terminal, and clone with
 
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
-- Node.js 24 with Corepack; `web/package.json` pins pnpm.
+- Node.js 24 with Corepack; `web/package.json` and `landing/package.json` pin pnpm.
 - Docker with the Compose plugin for the hardened PostgreSQL, private MinIO, shared Keycloak, API, indexing worker, and web deployment stack.
 
 ## Modules and capabilities
@@ -68,6 +68,13 @@ pnpm test:e2e
 ```
 
 The Gradle gate compiles all server modules, runs capability and HTTP integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests. The frontend gate regenerates the OpenAPI client, rejects generated drift, lints without product-source warnings, checks formatting and TypeScript, runs focused tests, and creates the production bundle; Playwright exercises the observable browser states.
+
+Public landing page (`https://vanda.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
+
+```powershell
+pnpm --dir landing install --frozen-lockfile
+pnpm --dir landing check
+```
 
 ## Refresh the generated API contract
 
