@@ -31,7 +31,7 @@ function Header() {
           <span className="font-heading-h3 text-content-primary">MemoryOS</span>
           <span className="hidden font-main-ui-body text-content-muted sm:inline">by Vanda</span>
         </a>
-        <nav aria-label="Primary" className="hidden md:block">
+        <nav aria-label="Primary" className="hidden lg:block">
           <ul className="flex items-center gap-1">
             {navigation.map((item) => (
               <li key={item.href}>
@@ -45,13 +45,13 @@ function Header() {
         <button
           type="button"
           onClick={switchTheme}
-          className="hidden size-9 items-center justify-center rounded-lg text-content-secondary transition-colors duration-150 hover:bg-surface-canvas hover:text-content-primary md:inline-flex"
+          className="hidden size-9 items-center justify-center rounded-lg text-content-secondary transition-colors duration-150 hover:bg-surface-canvas hover:text-content-primary lg:inline-flex"
         >
           <ThemeIcon aria-hidden="true" className="size-4" />
           <span className="sr-only">{themeLabel}</span>
         </button>
         <ActionLink href={contact.href}>{contact.label}</ActionLink>
-        <details ref={mobileMenu} className="relative md:hidden">
+        <details ref={mobileMenu} className="relative lg:hidden">
           <summary className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg text-content-secondary hover:bg-surface-canvas [&::-webkit-details-marker]:hidden">
             <Menu aria-hidden="true" className="size-5" />
             <span className="sr-only">Menu</span>
