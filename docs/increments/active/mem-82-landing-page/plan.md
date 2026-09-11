@@ -2730,7 +2730,7 @@ git commit -m "build(deploy): add the landing page Compose definition"
 **Files:**
 - Modify: `.github/workflows/ci.yml` (`check` job validation step; new `landing` job after `frontend-image`; `gate` needs and jq keys; new `publish-landing` job at the end)
 
-- [ ] **Step 1: ShellCheck the smoke script with the workflow validation**
+- [x] **Step 1: ShellCheck the smoke script with the workflow validation**
 
 Replace the `Validate workflows and staging script` run block:
 
@@ -2741,7 +2741,7 @@ Replace the `Validate workflows and staging script` run block:
           shellcheck infrastructure/deployment/deploy-staging.sh landing/scripts/smoke-image.sh
 ```
 
-- [ ] **Step 2: Add the `landing` job after `frontend-image`**
+- [x] **Step 2: Add the `landing` job after `frontend-image`**
 
 ```yaml
   landing:
@@ -2803,7 +2803,7 @@ Replace the `Validate workflows and staging script` run block:
           retention-days: 7
 ```
 
-- [ ] **Step 3: Require it in `CI Gate`**
+- [x] **Step 3: Require it in `CI Gate`**
 
 ```yaml
     needs: [check, frontend, frontend-image, backend-images, landing, secrets]
@@ -2816,7 +2816,7 @@ Replace the `Validate workflows and staging script` run block:
           ' <<< "$RESULTS"
 ```
 
-- [ ] **Step 4: Append the `publish-landing` job**
+- [x] **Step 4: Append the `publish-landing` job**
 
 ```yaml
   publish-landing:
@@ -2855,6 +2855,7 @@ Replace the `Validate workflows and staging script` run block:
           [[ "$digest" =~ ^ghcr\.io/kl3init/memoryos-landing@sha256:[0-9a-f]{64}$ ]]
           mkdir landing-release
           printf 'MEMORYOS_LANDING_IMAGE=%s\n' "$digest" > landing-release/landing.env
+          # shellcheck disable=SC2016 # The backticks are Markdown code formatting, not a substitution.
           printf '### Landing image\n\n`%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve the landing release reference
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -2868,7 +2869,7 @@ Replace the `Validate workflows and staging script` run block:
         run: docker logout ghcr.io
 ```
 
-- [ ] **Step 5: Lint the workflow and script locally**
+- [x] **Step 5: Lint the workflow and script locally**
 
 Run: `docker run --rm -v "$(cygpath -w "$PWD"):/repo" -w /repo rhysd/actionlint:1.7.12 -color`
 Expected: no findings.
@@ -2876,7 +2877,7 @@ Expected: no findings.
 Run: `docker run --rm -v "$(cygpath -w "$PWD"):/mnt" -w /mnt koalaman/shellcheck:stable infrastructure/deployment/deploy-staging.sh landing/scripts/smoke-image.sh`
 Expected: no findings.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .github/workflows/ci.yml
