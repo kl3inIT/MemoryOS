@@ -10,6 +10,8 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react";
+import genaiFundLogo from "@/assets/logos/genai-fund.png";
+import tascoLogo from "@/assets/logos/tasco.png";
 
 type Link = {
   label: string;
@@ -95,14 +97,24 @@ const productPreview = {
   accessNote: "Answered only from documents you can access",
 } as const;
 
-const trustSignals: readonly Entry[] = [
+// Single-colour alpha masks of the product owner's logo files; the page tints them per theme.
+type TrustSignal = Entry & {
+  logo: {
+    src: string;
+    label: string;
+  };
+};
+
+const trustSignals: readonly TrustSignal[] = [
   {
     title: "Deploying with Tasco",
     description: "Tasco runs MemoryOS in a Production PoC from September to December 2026.",
+    logo: { src: tascoLogo, label: "Tasco" },
   },
   {
     title: "Backed by GenAI Fund",
     description: "Vanda builds MemoryOS with backing from GenAI Fund.",
+    logo: { src: genaiFundLogo, label: "GenAI Fund" },
   },
 ];
 
