@@ -3,7 +3,7 @@ import { trustSignals } from "@/content";
 function TrustStrip() {
   return (
     <section
-      aria-label="Customer and backing"
+      aria-label="Design partner and backing"
       className="border-y border-border-subtle bg-surface-raised px-[var(--page-gutter)]"
     >
       <ul className="mx-auto grid max-w-[var(--page-width-wide)] divide-y divide-border-subtle sm:grid-cols-2 sm:divide-x sm:divide-y-0">

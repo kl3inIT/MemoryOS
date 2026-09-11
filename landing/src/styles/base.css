@@ -99,8 +99,7 @@
       }
 
       /* Sequence rules fill as their step scrolls toward the middle of the viewport. */
-      .progress-fill,
-      .timeline-fill {
+      .progress-fill {
         transform-origin: left;
         animation: fill-x linear both;
         animation-timeline: view();
@@ -111,16 +110,6 @@
         animation: glow-drift linear both;
         animation-timeline: scroll(root);
         animation-range: 0 100vh;
-      }
-    }
-  }
-
-  /* The roadmap timeline runs down the page on small screens and across it from lg. */
-  @media (prefers-reduced-motion: no-preference) and (max-width: 63.999rem) {
-    @supports (animation-timeline: view()) {
-      .timeline-fill {
-        transform-origin: top;
-        animation-name: fill-y;
       }
     }
   }
@@ -143,12 +132,6 @@
 @keyframes fill-x {
   from {
     transform: scaleX(0);
-  }
-}
-
-@keyframes fill-y {
-  from {
-    transform: scaleY(0);
   }
 }
 

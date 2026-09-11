@@ -56,6 +56,17 @@ Keyboard, at 1024 px:
 
 The earlier theme review covered no light flash before first paint, a stored choice overriding the system theme, the circular theme reveal and the scroll-linked reveals. Reduced motion could not be emulated with this tool. It relies on the `prefers-reduced-motion` CSS guards and the script's `matchMedia` check.
 
+## Positioning revision
+
+Recorded 2026-09-11 on branch `nhuxuanviet/mem-82-landing-positioning` (from `c8e60e5`), after the product owner's positioning, domain (`vadan.app`) and contact (`info@vadan.app`) decisions in [design](design.md).
+
+- `pnpm check`: oxlint and oxfmt clean; Vitest 4 files, 15 tests passed (adds "does not link to the private source repository"; the email test now expects `mailto:info@vadan.app`); production build, WOFF2 assertion and `tsc -b` passed.
+- `gradlew.bat clean check --no-daemon`: BUILD SUCCESSFUL (no Gradle sources changed).
+- `docker build` plus `landing/scripts/smoke-image.sh memoryos-landing:local`: passed.
+- `public/og-image.png` re-rendered from `scripts/og-image.html` with headless Chrome.
+- Browser, dark theme, reduced motion: 1440 px reviewed section by section with no layout defects. At 390 px the capabilities, AI Memory text and asset card, how-it-works and deployment cards stack without overflow in the last successful capture; the final AI Memory surfaces band was not re-captured at 390 px.
+- The commits `2949b78` and `bae43dc` pushed to `nhuxuanviet/mem-82-landing-page` after PR #95 merged were not taken: the product owner chose "design partner" for Tasco instead of "partner".
+
 ## Pending gates
 
 These have not run and are not passed:

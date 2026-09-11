@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const siteOrigin = "https://vanda.app";
+const siteOrigin = "https://vadan.app";
 // jsdom replaces the global URL, which node:fs does not accept as a file URL.
 const landingRoot = join(import.meta.dirname, "..");
 const head = new DOMParser().parseFromString(
@@ -47,7 +47,7 @@ describe("site metadata", () => {
     expect(organization).toMatchObject({
       name: "Vanda",
       url: `${siteOrigin}/`,
-      email: "aws@vanda.app",
+      email: "info@vadan.app",
       funder: { name: "GenAI Fund" },
     });
     expect(existsSync(publicFileFor(organization.logo))).toBe(true);
