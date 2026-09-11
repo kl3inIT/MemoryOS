@@ -38,7 +38,7 @@ function GovernanceMock() {
         </ol>
         <span
           {...enter("stamp", 1.4)}
-          className="absolute right-4 bottom-4 -rotate-6 rounded-md border-2 border-approval-content bg-surface-raised px-2 py-0.5 font-main-ui-action text-approval-content"
+          className="absolute top-4 right-4 -rotate-6 rounded-md border-2 border-approval-content bg-surface-raised px-2 py-0.5 font-main-ui-action text-approval-content"
         >
           Approved
         </span>

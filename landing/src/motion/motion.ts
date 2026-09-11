@@ -5,27 +5,24 @@ import type { RefObject } from "react";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-// Mobile address bars resize the viewport while scrolling; re-measuring then would make pins jump.
+// Mobile address bars resize the viewport while scrolling; re-measuring then would make scrubbed
+// scenes jump.
 // ScrollTrigger measures every trigger again on the window load event, after the web fonts.
 ScrollTrigger.config({ ignoreMobileResize: true });
 
 /*
  * gsap.matchMedia() conditions. Effects run only while `motion` holds, so visitors who prefer
  * reduced motion, and browsers where the script fails, get the static page with every element in
- * its final place. Pinned scenes also need a `roomy` viewport; elsewhere they play in normal flow.
+ * its final place. `wide` matches the lg layouts, where scenes run across the page.
  */
 const motionConditions = {
   motion: "(prefers-reduced-motion: no-preference)",
   wide: "(min-width: 64rem)",
-  roomy: "(min-width: 64rem) and (min-height: 44rem)",
 };
 
 type MotionConditions = Record<keyof typeof motionConditions, boolean>;
 
 type MotionSetup = (conditions: MotionConditions) => void | (() => void);
-
-// Pinned scenes start below the sticky header (h-16), leaving a small gap.
-const pinStart = "top top+=80";
 
 type Point = {
   x: number;
@@ -96,4 +93,4 @@ function useMotion(scope: RefObject<HTMLElement | null>, setup: MotionSetup) {
   );
 }
 
-export { allowsMotion, gsap, offsetTo, pinStart, ScrollTrigger, useMotion, type MotionConditions };
+export { allowsMotion, gsap, offsetTo, ScrollTrigger, useMotion, type MotionConditions };
