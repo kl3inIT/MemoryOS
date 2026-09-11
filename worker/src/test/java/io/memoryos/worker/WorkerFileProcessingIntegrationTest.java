@@ -218,6 +218,8 @@ class WorkerFileProcessingIntegrationTest {
     static void serviceProperties(DynamicPropertyRegistry registry) {
         if (System.getenv("DOCLING_TEST_ENDPOINT") != null) {
             registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
+            registry.add("memoryos.extraction.docling.api-key",
+                    () -> System.getenv().getOrDefault("DOCLING_TEST_API_KEY", ""));
         }
         registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
         WorkerPostgresDatabase.configure(registry, POSTGRES);
