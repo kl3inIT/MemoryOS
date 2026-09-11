@@ -132,14 +132,6 @@ const product = {
       "Answers that cite the original document and passage",
       "Built-in Python that turns data into tables, charts and reports",
     ],
-    sources: [
-      "Google Drive",
-      "Uploaded files",
-      "OpenAPI and REST APIs",
-      "Approved business systems",
-    ],
-    indexLabel: "MemoryOS index",
-    outputs: ["Search", "Cited answers", "Analysis and reports"],
   },
   governance: {
     title: "Enterprise AI that follows your access rules",
@@ -149,17 +141,6 @@ const product = {
       "Access checked before every retrieval",
       "Owners, versions and approvals for agents, instructions and tools",
     ],
-    asset: {
-      name: "Supplier review agent",
-      status: "Approved",
-      fields: [
-        { term: "Owner", detail: "Procurement team" },
-        { term: "Version", detail: "3" },
-        { term: "Knowledge", detail: "Procurement policies" },
-        { term: "Tools", detail: "Contract lookup" },
-        { term: "Available to", detail: "Procurement and Legal" },
-      ],
-    },
   },
 } as const;
 
