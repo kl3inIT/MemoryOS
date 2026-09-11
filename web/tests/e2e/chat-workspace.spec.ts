@@ -34,6 +34,17 @@ test("edits, regenerates, selects saved branches, rates, shares, revokes and del
   await page.getByRole("button", { name: "Tạo lại câu trả lời" }).click();
   const answers = page.getByRole("group", { name: "Phiên bản câu trả lời" });
   await expect(answers.getByText("2 / 2")).toBeVisible();
+  const branches = await (
+    await page.request.get(`/api/chat/sessions/${session.id}/branches`)
+  ).json();
+  const firstQuestion = branches.find(
+    (branch: { parentMessageId: string | null }) =>
+      branch.parentMessageId === session.rootMessageId,
+  );
+  const staleBranch = await page.request.put(`/api/chat/sessions/${session.id}/branch`, {
+    data: { messageId: firstQuestion.id, expectedChildId: session.rootMessageId },
+  });
+  expect(staleBranch.status()).toBe(409);
   await expect(page.getByRole("button", { name: "Đánh giá câu trả lời" })).toBeEnabled();
   await page.getByRole("button", { name: "Đánh giá câu trả lời" }).click();
   await page.getByLabel("Mức độ hữu ích").selectOption("negative");
@@ -123,6 +134,14 @@ test("creates and revises private assistants with source, starter and limit sett
   await page.getByLabel("Hướng dẫn", { exact: true }).fill("Answer using the employee handbook.");
   await page
     .getByLabel("Câu hỏi gợi ý")
+    .fill(Array.from({ length: 9 }, (_, index) => `Question ${index}`).join("\n"));
+  await expect(page.getByRole("alert")).toHaveText("Dùng tối đa 8 câu hỏi gợi ý.");
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }),
+  ).toHaveCount(0);
+  expect(saved).toBeUndefined();
+  await page
+    .getByLabel("Câu hỏi gợi ý")
     .fill("How do I request leave?\nWhat is the expense policy?");
   await page.getByRole("checkbox", { name: "Employee handbook", exact: true }).check();
   await page.getByText("Giới hạn nâng cao", { exact: true }).click();
@@ -144,6 +163,114 @@ test("creates and revises private assistants with source, starter and limit sett
   await page.getByRole("button", { name: "Xóa", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Xóa trợ lý" }).click();
   await expect(page.getByRole("heading", { name: "Updated assistant" })).toHaveCount(0);
+});
+
+test("rechecks shared access without polling the full transcript and hides revoked content", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Access polling" } })
+  ).json();
+  await page.request.put(`/api/chat/sessions/${session.id}/sharing`, {
+    data: { enabled: true, revision: 0 },
+  });
+  let accessReads = 0;
+  let historyReads = 0;
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path === `/api/chat/shared/${session.id}`) accessReads++;
+    if (path === `/api/chat/shared/${session.id}/messages`) historyReads++;
+  });
+  await page.clock.install();
+  await page.goto(`/shared/${session.id}`);
+  await expect(page.getByRole("heading", { name: "Access polling" })).toBeVisible();
+  const initialAccess = accessReads;
+  const initialHistory = historyReads;
+  expect(initialHistory).toBeGreaterThan(0);
+  await page.clock.fastForward(31000);
+  await expect.poll(() => accessReads).toBeGreaterThan(initialAccess);
+  expect(historyReads).toBe(initialHistory);
+  await page.getByRole("button", { name: "Tải lại hội thoại" }).click();
+  await expect.poll(() => historyReads).toBeGreaterThan(initialHistory);
+  await page.request.put(`/api/chat/sessions/${session.id}/sharing`, {
+    data: { enabled: false, revision: 1 },
+  });
+  await page.clock.fastForward(31000);
+  await expect(page.getByRole("alert")).toContainText("Hội thoại không khả dụng");
+  await expect(page.getByRole("heading", { name: "Access polling" })).toHaveCount(0);
+});
+
+test("reopening sharing waits for the new revision before allowing save", async ({ page }) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Sharing revisions" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" })).toHaveValue(
+    "private",
+  );
+  await page.getByRole("dialog").getByRole("button", { name: "Đóng", exact: true }).click();
+  await page.request.put(`/api/chat/sessions/${session.id}/sharing`, {
+    data: { enabled: true, revision: 0 },
+  });
+  const refresh = Promise.withResolvers<void>();
+  let waiting = false;
+  await page.route(`**/api/chat/sessions/${session.id}/sharing`, async (route) => {
+    if (route.request().method() === "GET") {
+      waiting = true;
+      await refresh.promise;
+    }
+    await route.continue();
+  });
+  try {
+    await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
+    await expect.poll(() => waiting).toBe(true);
+    await expect(
+      page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    refresh.resolve();
+  }
+  await expect(page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" })).toHaveValue(
+    "shared",
+  );
+  await page.getByRole("combobox", { name: "Thay đổi quyền chia sẻ" }).selectOption("private");
+  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const sharing = await (await page.request.get(`/api/chat/sessions/${session.id}/sharing`)).json();
+  expect(sharing).toMatchObject({ enabled: false, revision: 2 });
+});
+
+test("malformed shared sources show the unavailable state without crashing the page", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Invalid sources" } })
+  ).json();
+  await page.request.put(`/api/chat/sessions/${session.id}/sharing`, {
+    data: { enabled: true, revision: 0 },
+  });
+  await page.route(`**/api/chat/shared/${session.id}/messages*`, (route) =>
+    route.fulfill({
+      json: new URL(route.request().url()).searchParams.has("after")
+        ? []
+        : [
+            {
+              id: "60000000-0000-4000-8000-000000000001",
+              role: "ASSISTANT",
+              status: "COMPLETED",
+              content: "Unvalidated answer",
+              sources: [{ invalid: true }],
+            },
+          ],
+    }),
+  );
+  const crashes: string[] = [];
+  page.on("pageerror", (error) => crashes.push(error.message));
+  await page.goto(`/shared/${session.id}`);
+  await expect(page.getByRole("alert")).toContainText("Hội thoại không khả dụng");
+  await expect(page.getByText("Unvalidated answer")).toHaveCount(0);
+  expect(crashes).toEqual([]);
 });
 
 test("creates and edits project instructions and retains its conversation when deleted", async ({

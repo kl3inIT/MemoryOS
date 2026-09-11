@@ -259,6 +259,11 @@ class OpenApiContractTest {
         }
 
         Path contract = repositoryRoot().resolve("openapi.yml");
+        for (String property : Set.of("personaId", "projectId")) {
+            JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
+            assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());
+            assertEquals("null", schema.path("oneOf").path(1).path("type").textValue());
+        }
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
             Files.writeString(contract, Yaml.pretty(actual));
             return;

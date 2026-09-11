@@ -85,7 +85,7 @@ public class ChatTurnPersistence {
         if (chats.messageCount(sessionId) > 9998) throw ChatException.invalid("Chat session message limit reached.");
         // Initialization is insert-only: editor-owned settings must survive every send.
         chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
-        var settings = chats.persona(sessionId);
+        var settings = chats.persona(sessionId, true);
         if (selection != null && selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
             throw ChatException.conflict();
         int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
@@ -155,7 +155,7 @@ public class ChatTurnPersistence {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
         if (reservation.context() != null) return reservation.context();
-        var persona = chats.persona(sessionId);
+        var persona = chats.persona(sessionId, false);
         return new TurnContext(actor, tenant, persona.model(), persona.instructions(), chats.context(sessionId, reservation.userMessageId(), 200),
                 chats.control(reservation.assistantMessageId()).deadline(), persona.options());
     }

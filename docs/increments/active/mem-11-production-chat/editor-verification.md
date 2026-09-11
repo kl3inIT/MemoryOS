@@ -20,3 +20,17 @@ All edited Java/Kotlin DSL files were inspected with JetBrains warnings enabled.
 The first `gradlew.bat clean check --no-daemon` failed in one of 363 core tests: `OpenSearchRetrievalIntegrationTest.indexes3072DimensionsFusesKeywordAndSemanticResultsReusesVectorsAndRepairsProjection` returned `SearchUnavailableException` at the gateway's timeout/failed-shards guard. API, worker and connector checks passed. Running the complete OpenSearch integration class again, together with the source-revocation regression above, passed in 1m17s. This does not establish the cause of the first failure. A fresh full gate is running at PR publication; its result and current-head CI/review evidence will be recorded on the PR and linked issue.
 
 No deployment or MEM-11 issue closure is implied by these local receipts. Live corpus/latency follow-up remains deferred under the user's existing scope instruction.
+
+## PR #92 review follow-up — 2026-09-11
+
+The first published head `fe2115fa427d0353f615a969098e7f9bdaad57fa` passed the full local gate in 8m26s and all GitHub CI gates on attempt 2 of run `34559436390`. CodeRabbit submitted 11 findings; the user explicitly requested inspecting the completed review after the original bounded watch had expired.
+
+Eight findings are addressed: nullable UUIDs in conversation creation, atomic locked Persona model/revision reads, starter validation, separate Project create/list errors, bounded editor mutations, lightweight shared-access polling, source validation before rendering, and fixture branch compare-and-set. The shared page retains periodic revocation checks; it no longer reloads the complete transcript on each interval.
+
+Three proposals are rejected with concrete evidence:
+
+- Provider collections reference the V33 unique key `(tenant_id,id)` through explicit `referencedColumnName` mappings. Real Hibernate/PostgreSQL tests reload nonempty Group and Persona collections in new transactions, advance revisions and delete the provider; changing the entity's UUID primary key is unnecessary.
+- Project pagination already matches `ChatPersonaService.page` and the documented offset bound 0–10000. Removing only the browser bound would send a request the API rejects.
+- Sharing submit is unavailable while `isFetching` or `isError`; the delayed-refetch browser test proves reopening waits for the new revision. `gcTime: 0` would not remove a cache entry with a still-mounted observer.
+
+Focused PostgreSQL, catalog, authenticated Chat HTTP and OpenAPI tests pass. Browser regressions establish access-only polling, revocation, stale sharing revision handling and malformed-source failure handling. The generated UUID union types and frontend checks pass. Changed Java files were inspected with warnings enabled; only the existing boolean naming suggestions remain. The generated YAML inspection timed out twice without reporting a finding, so it is validated by the OpenAPI contract and client generation rather than claimed IDE-clean for this follow-up. Final full-gate and current-head CI results are recorded on the PR and Linear.

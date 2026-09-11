@@ -72,6 +72,7 @@ export function ChatSessionSettings({
                 path: { sessionId: session.id },
                 body: { title },
                 headers: sameOriginMutationHeaders,
+                signal: AbortSignal.timeout(30000),
                 throwOnError: true,
               });
               await onChange();
@@ -114,6 +115,7 @@ export function ChatSessionSettings({
               await deleteChatSession({
                 path: { sessionId: session.id },
                 headers: sameOriginMutationHeaders,
+                signal: AbortSignal.timeout(30000),
                 throwOnError: true,
               });
               onDelete();
@@ -133,6 +135,7 @@ export function ChatSessionSettings({
                   path: { sessionId: session.id },
                   body: { personaId, projectId: projectId || null },
                   headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
                   throwOnError: true,
                 });
                 await onChange();
@@ -269,6 +272,7 @@ function SharingDialog({ sessionId }: { sessionId: string }) {
                 path: { sessionId },
                 body: { enabled: enabled ?? sharing.data.enabled, revision: sharing.data.revision },
                 headers: sameOriginMutationHeaders,
+                signal: AbortSignal.timeout(30000),
                 throwOnError: true,
               });
               cache.setQueryData(["chat-sharing", sessionId], sharingSchema.parse(data));

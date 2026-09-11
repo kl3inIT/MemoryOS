@@ -449,8 +449,8 @@ export type GoogleDriveAuthorizationResponse = {
 
 export type CreateChatSession = {
     title: string;
-    personaId?: string;
-    projectId?: string;
+    personaId?: string | null;
+    projectId?: string | null;
 };
 
 export type Send = {

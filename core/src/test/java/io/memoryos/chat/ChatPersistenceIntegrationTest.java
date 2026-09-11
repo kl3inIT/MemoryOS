@@ -440,6 +440,51 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void builtinPersonaSnapshotBlocksAnotherOwnersEditUntilAdmissionReadCompletes() throws Exception {
+        var session = sessions.create(other, "Shared builtin");
+        var before = personas.get(owner, session.personaId());
+        var repository = new JdbcChatRepository(jdbc);
+        var locked = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var reader = executor.submit(() -> tx.execute(_ -> {
+                repository.lockOwner(new TenantId(tenant), other);
+                var snapshot = repository.persona(session.id(), true);
+                locked.countDown();
+                try {
+                    if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("timeout");
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(ex);
+                }
+                assertEquals(snapshot, repository.persona(session.id(), true));
+                return snapshot;
+            }));
+            try {
+                assertTrue(locked.await(10, TimeUnit.SECONDS));
+                var writer = executor.submit(() -> personas.update(owner, before.id(), before.revision(),
+                        new ChatPersonaService.PersonaInput(before.name(), "", "Updated builtin", List.of(), List.of(sourceId),
+                                false, null, null, null)));
+                try {
+                    assertThrows(java.util.concurrent.TimeoutException.class, () -> writer.get(200, TimeUnit.MILLISECONDS));
+                } finally {
+                    release.countDown();
+                }
+                writer.get(10, TimeUnit.SECONDS);
+                var snapshot = reader.get(10, TimeUnit.SECONDS);
+                var after = tx.execute(_ -> repository.persona(session.id(), true));
+                assertNotNull(snapshot);
+                assertNotNull(after);
+                assertNotEquals(snapshot.revision(), after.revision());
+                assertEquals("Updated builtin", after.instructions());
+                assertEquals(List.of(sourceId), after.options().sourceIds());
+            } finally {
+                release.countDown();
+            }
+        }
+    }
+
+    @Test
     void membershipGuardWaitsForRevocationAndThenDeniesWrite() throws Exception {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var locked = new CountDownLatch(1);

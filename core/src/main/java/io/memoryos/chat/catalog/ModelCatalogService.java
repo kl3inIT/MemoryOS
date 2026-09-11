@@ -231,15 +231,17 @@ public class ModelCatalogService {
     public Selection resolve(ActorId actor, UUID sessionId, @Nullable UUID requested) {
         var membership = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable);
         UUID tenant = membership.tenantId().value();
+        chats.lockOwner(membership.tenantId(), actor);
         var session = chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable);
         initialize(tenant);
+        var context = chats.persona(sessionId, true);
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
-        UUID preferred = requested != null ? requested : catalog.personaModel(tenant, session.personaId()).modelConfigurationId();
+        UUID preferred = requested != null ? requested : context.modelConfigurationId();
         if (preferred == null) preferred = defaultId;
         var groups = catalog.actorGroups(tenant, actor.value());
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         var selection = accessible(tenant, preferred, session.personaId(), manager, groups);
-        String contextRevision = chats.persona(sessionId).revision();
+        String contextRevision = context.revision();
         if (selection != null) return new Selection(selection.model(), selection.provider(), null, contextRevision);
         var fallback = accessible(tenant, defaultId, session.personaId(), manager, groups);
         if (fallback == null) throw ChatException.providerUnavailable();

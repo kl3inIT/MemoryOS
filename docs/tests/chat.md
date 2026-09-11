@@ -23,6 +23,9 @@
 | Selected branch retains old answers, rejects off-branch cursor; retry returns original message IDs after switching branch and continuing, without adding rows or changing selection | `selectedBranchSkipsOlderAnswersWithoutDeletingThem`; direct persistence fixture, not a regenerate endpoint |
 | No successful completion after deadline | `deadlineRejectsLateCompletionAndRetainsPartialFailure` |
 | Write waits for concurrent IAM revoke and revalidates | `membershipGuardWaitsForRevocationAndThenDeniesWrite` using existing IAM Tenant lock |
+| Admission reads one model/revision snapshot; a builtin Persona edit by another owner waits until the locked settings read completes | `ChatPersistenceIntegrationTest.builtinPersonaSnapshotBlocksAnotherOwnersEditUntilAdmissionReadCompletes` with independent PostgreSQL transactions |
+| Shared access polling does not reload transcript pages; revoked access hides the view; malformed sources fail inside the query boundary | `chat-workspace.spec.ts` access-polling and malformed-source browser cases |
+| Reopening sharing cannot submit its cached revision while the authoritative read is pending | `chat-workspace.spec.ts` delayed-refetch browser case |
 | Real session HTTP create/list/reload/history, owner denial and membership revoke | `ChatSessionApiIntegrationTest` with full API context/PostgreSQL and existing security filters |
 | Missing authentication/CSRF and input bounds on session/send operations | `ChatSessionApiIntegrationTest` |
 | Native runner send, usage persistence, same-request retry without another inference, partial EOF and local Stop | `ChatSessionApiIntegrationTest`; model transport mocked, native framework/IAM/PostgreSQL execute |

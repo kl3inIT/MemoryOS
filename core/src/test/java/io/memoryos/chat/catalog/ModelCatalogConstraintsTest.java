@@ -73,11 +73,15 @@ class ModelCatalogConstraintsTest {
         assertEquals(1L, (long) read(() -> catalog.model(tenant, model.id()).orElseThrow().revision()));
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,'Allowed')").param("tenant", tenant).param("id", group).update();
+        UUID persona = UUID.randomUUID();
+        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Default','','model')")
+                .param("id", persona).param("tenant", tenant).update();
         var original = read(() -> catalog.provider(tenant, provider).orElseThrow());
         tx(() -> catalog.updateProvider(new ModelCatalogRepository.Provider(provider, tenant, original.name(), original.adapterType(),
-                original.baseUrl(), original.enabled(), original.isPublic(), original.credential(), original.revision(), Set.of(group), Set.of())));
+                original.baseUrl(), original.enabled(), original.isPublic(), original.credential(), original.revision(), Set.of(group), Set.of(persona))));
         var changed = read(() -> catalog.provider(tenant, provider).orElseThrow());
         assertEquals(Set.of(group), changed.groupIds());
+        assertEquals(Set.of(persona), changed.personaIds());
         assertTrue(changed.revision() > original.revision());
         assertThrows(ChatException.class, () -> tx(() -> catalog.updateProvider(original)));
         UUID rolledBack = UUID.randomUUID();

@@ -100,6 +100,7 @@ export function ChatPersonasPage() {
                         path: { personaId: persona.id },
                         query: { revision: persona.revision },
                         headers: sameOriginMutationHeaders,
+                        signal: AbortSignal.timeout(30000),
                         throwOnError: true,
                       });
                       await cache.invalidateQueries({ queryKey: ["chat-personas"] });
@@ -152,6 +153,16 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
         : (await listAvailableChatModels({ signal, throwOnError: true })).data,
   });
   const editable = persona?.editable ?? true;
+  const starterPrompts = starters
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const starterError =
+    starterPrompts.length > 8
+      ? "Dùng tối đa 8 câu hỏi gợi ý."
+      : starterPrompts.some((prompt) => prompt.length > 1000)
+        ? "Mỗi câu hỏi gợi ý dài tối đa 1.000 ký tự."
+        : undefined;
   return (
     <ChatDialog
       open
@@ -161,16 +172,13 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
       title={persona ? persona.name : "Tạo trợ lý"}
       description="Trợ lý riêng chỉ bạn sử dụng. Hướng dẫn của trợ lý riêng được ưu tiên hơn hướng dẫn dự án."
       onSubmit={
-        editable
+        editable && !starterError
           ? async () => {
               const body = {
                 name,
                 description,
                 instructions,
-                starterPrompts: starters
-                  .split("\n")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
+                starterPrompts,
                 sourceIds,
                 searchEnabled,
                 modelConfigurationId: model || null,
@@ -183,12 +191,14 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
                   query: { revision: persona.revision },
                   body,
                   headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
                   throwOnError: true,
                 });
               else
                 await createChatPersona({
                   body,
                   headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
                   throwOnError: true,
                 });
               await cache.invalidateQueries({ queryKey: ["chat-personas"] });
@@ -197,6 +207,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
           : undefined
       }
     >
+      {starterError && <p role="alert">{starterError}</p>}
       <fieldset disabled={!editable} className="space-y-4">
         <label className="block space-y-1">
           <span>Tên trợ lý</span>

@@ -18,12 +18,11 @@ const sharedSchema = z.object({
   title: z.string(),
   rootMessageId: z.string().uuid(),
 });
+type SharedMessage = Omit<ChatMessage, "sources"> & { sources: z.infer<typeof sourcesSchema> };
+
 async function loadShared(sessionId: string, signal: AbortSignal) {
   signal = AbortSignal.any([signal, AbortSignal.timeout(30000)]);
-  const session = sharedSchema.parse(
-    (await getSharedChatSession({ path: { sessionId }, signal, throwOnError: true })).data,
-  );
-  const messages: ChatMessage[] = [];
+  const messages: SharedMessage[] = [];
   let characters = 0;
   for (let page = 0; page < 100; page++) {
     const { data } = await getSharedChatHistory({
@@ -32,50 +31,80 @@ async function loadShared(sessionId: string, signal: AbortSignal) {
       signal,
       throwOnError: true,
     });
-    if (data.length === 0) return { session, messages };
+    if (data.length === 0) return messages;
     characters += data.reduce((count, message) => count + message.content.length, 0);
     if (characters > 8000000 || data.at(-1)?.id === messages.at(-1)?.id)
       throw new Error("Shared history exceeds the browser limit");
-    messages.push(...data);
+    messages.push(
+      ...data.map((message) => ({ ...message, sources: sourcesSchema.parse(message.sources) })),
+    );
   }
   throw new Error("Shared history exceeds the browser limit");
 }
 
 export function ChatSharedPage({ sessionId }: { sessionId: string }) {
   const { actorId, authorizationVersion } = useApplicationSession();
+  const access = useQuery({
+    queryKey: ["chat-shared-access", actorId, authorizationVersion, sessionId],
+    queryFn: async ({ signal }) =>
+      sharedSchema.parse(
+        (
+          await getSharedChatSession({
+            path: { sessionId },
+            signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
+            throwOnError: true,
+          })
+        ).data,
+      ),
+    retry: false,
+    gcTime: 0,
+    refetchInterval: 30000,
+  });
   const shared = useQuery({
     queryKey: ["chat-shared", actorId, authorizationVersion, sessionId],
     queryFn: ({ signal }) => loadShared(sessionId, signal),
     retry: false,
     gcTime: 0,
-    refetchInterval: 30000,
+    enabled: access.isSuccess,
   });
+  const reload = () => {
+    void access.refetch();
+    void shared.refetch();
+  };
   return (
     <AppShell pageTitle="Hội thoại được chia sẻ">
       <div className="flex h-full min-h-0 flex-col">
-        {shared.isPending ? (
-          <p role="status" className="p-6">
-            Đang tải hội thoại…
-          </p>
-        ) : shared.isError ? (
+        {access.isError || shared.isError ? (
           <div role="alert" className="space-y-3 p-6">
             <p>
               Hội thoại không khả dụng. Liên kết có thể đã bị thu hồi hoặc bạn không thuộc Tenant
               được chia sẻ.
             </p>
-            <Button prominence="secondary" onClick={() => void shared.refetch()}>
+            <Button prominence="secondary" onClick={reload}>
               Tải lại
             </Button>
           </div>
+        ) : access.isPending || shared.isPending ? (
+          <p role="status" className="p-6">
+            Đang tải hội thoại…
+          </p>
         ) : (
           <>
             <div className="border-b border-border-subtle px-6 py-3">
-              <h1 className="font-medium">{shared.data.session.title}</h1>
+              <h1 className="font-medium">{access.data.title}</h1>
               <p className="mt-1 text-xs text-content-muted">
                 Chỉ đọc · Nhánh hiện đang được chủ hội thoại chia sẻ
               </p>
+              <Button
+                size="sm"
+                prominence="internal"
+                pending={shared.isFetching || access.isFetching}
+                onClick={reload}
+              >
+                Tải lại hội thoại
+              </Button>
             </div>
-            <SharedTranscript messages={shared.data.messages} />
+            <SharedTranscript messages={shared.data} />
           </>
         )}
       </div>
@@ -83,17 +112,17 @@ export function ChatSharedPage({ sessionId }: { sessionId: string }) {
   );
 }
 
-function convertMessage(message: ChatMessage): ThreadMessageLike {
+function convertMessage(message: SharedMessage): ThreadMessageLike {
   return {
     id: message.id,
     role: message.role === "USER" ? "user" : "assistant",
     content: [{ type: "text", text: message.content }],
     metadata: {
-      custom: { serverStatus: message.status, sources: sourcesSchema.parse(message.sources) },
+      custom: { serverStatus: message.status, sources: message.sources },
     },
   };
 }
-function SharedTranscript({ messages }: { messages: ChatMessage[] }) {
+function SharedTranscript({ messages }: { messages: SharedMessage[] }) {
   const runtime = useExternalStoreRuntime({
     messages,
     convertMessage,

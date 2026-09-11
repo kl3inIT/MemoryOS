@@ -195,6 +195,14 @@ export async function handleChatFixture(
       return true;
     }
     const parent = state.allMessages.get(target.parentMessageId!);
+    const selectedChild =
+      target.parentMessageId === state.session.rootMessageId
+        ? state.messages[0]?.id
+        : parent?.latestChildMessageId;
+    if ((selectedChild ?? null) !== input.expectedChildId) {
+      json(response, {}, 409);
+      return true;
+    }
     if (parent) parent.latestChildMessageId = target.id;
     const firstId =
       target.parentMessageId === state.session.rootMessageId ? target.id : state.messages[0]?.id;

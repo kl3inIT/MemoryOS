@@ -6481,11 +6481,15 @@ components:
           maxLength: 200
           minLength: 0
         personaId:
-          type: string
-          format: uuid
+          oneOf:
+          - type: string
+            format: uuid
+          - type: "null"
         projectId:
-          type: string
-          format: uuid
+          oneOf:
+          - type: string
+            format: uuid
+          - type: "null"
       required:
       - title
     Send:

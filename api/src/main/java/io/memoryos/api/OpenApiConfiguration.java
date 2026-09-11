@@ -73,6 +73,8 @@ class OpenApiConfiguration {
                         configureNullableProperty(components, schema, "outputTokenLimit", new IntegerSchema());
                     }
                     configureNullableProperty(components, "ProjectSelection", "projectId", new StringSchema().format("uuid"));
+                    for (String property : List.of("personaId", "projectId"))
+                        configureNullableProperty(components, "CreateChatSession", property, new StringSchema().format("uuid"));
                     configureNullableProperty(components, "ChatSessionSettings", "projectId", new StringSchema().format("uuid"));
                     configureNullableProperty(components, "BranchSelection", "expectedChildId", new StringSchema().format("uuid"));
                     for (String property : List.of("parentMessageId", "latestChildMessageId"))

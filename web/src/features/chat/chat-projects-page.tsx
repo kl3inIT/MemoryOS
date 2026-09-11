@@ -148,6 +148,7 @@ export function ChatProjectPage({ projectId }: { projectId: string }) {
                       path: { projectId },
                       query: { revision: project.data.revision },
                       headers: sameOriginMutationHeaders,
+                      signal: AbortSignal.timeout(30000),
                       throwOnError: true,
                     });
                     await cache.invalidateQueries({ queryKey: ["chat-projects"] });
@@ -176,6 +177,7 @@ export function ChatProjectPage({ projectId }: { projectId: string }) {
                   path: { projectId },
                   body: { title: "Hội thoại mới" },
                   headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
                   throwOnError: true,
                 })
                   .then(async ({ data }) => {
@@ -188,9 +190,14 @@ export function ChatProjectPage({ projectId }: { projectId: string }) {
             >
               Hội thoại mới trong dự án
             </Button>
-            {(error || sessions.isError) && (
+            {error && (
               <p role="alert" className="mt-4">
-                {error ?? "Không tải được hội thoại."}{" "}
+                {error}
+              </p>
+            )}
+            {sessions.isError && (
+              <p role="alert" className="mt-4">
+                Không tải được hội thoại.{" "}
                 <Button prominence="internal" onClick={() => void sessions.refetch()}>
                   Tải lại
                 </Button>
@@ -227,6 +234,7 @@ export function ChatProjectPage({ projectId }: { projectId: string }) {
                         path: { sessionId: session.id },
                         body: { projectId: null },
                         headers: sameOriginMutationHeaders,
+                        signal: AbortSignal.timeout(30000),
                         throwOnError: true,
                       });
                       await sessions.refetch();
@@ -277,10 +285,16 @@ function ProjectEditor({ project, onClose }: { project?: Project; onClose: () =>
             query: { revision: project.revision },
             body,
             headers: sameOriginMutationHeaders,
+            signal: AbortSignal.timeout(30000),
             throwOnError: true,
           });
         else
-          await createChatProject({ body, headers: sameOriginMutationHeaders, throwOnError: true });
+          await createChatProject({
+            body,
+            headers: sameOriginMutationHeaders,
+            signal: AbortSignal.timeout(30000),
+            throwOnError: true,
+          });
         await cache.invalidateQueries({ queryKey: ["chat-projects"] });
         await cache.invalidateQueries({ queryKey: ["chat-project"] });
       }}

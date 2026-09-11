@@ -193,7 +193,8 @@ public class JdbcChatRepository {
                 .param("session", session).update();
     }
 
-    public record Persona(String instructions, String model, ChatTurnOptions options, String revision) {
+    public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
+                          @Nullable UUID modelConfigurationId) {
     }
 
     /** Serialize an owner's editor/turn mutations before taking session or settings row locks. */
@@ -208,9 +209,9 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).param("id", id).param("actor", actor.value()).query(Boolean.class).single();
     }
 
-    public Persona persona(UUID session) {
+    public Persona persona(UUID session, boolean lock) {
         return jdbc.sql("""
-                        SELECT p.id, p.model, p.search_enabled, p.context_token_limit, p.output_token_limit,
+                        SELECT p.id, p.model, p.model_configuration_id, p.search_enabled, p.context_token_limit, p.output_token_limit,
                             concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision) AS revision,
                             CASE WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
                                  WHEN pr.id IS NOT NULL THEN concat_ws(chr(10), p.instructions, pr.instructions)
@@ -219,10 +220,12 @@ public class JdbcChatRepository {
                         LEFT JOIN chat_project pr ON pr.id=s.project_id AND pr.tenant_id=s.tenant_id AND pr.owner_actor_id=s.owner_actor_id
                         WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL
                             AND (p.builtin_key IS NOT NULL OR p.owner_actor_id=s.owner_actor_id)
-                        """).param("session", session).param("base", io.memoryos.chat.prompts.ChatPrompts.DEFAULT_SYSTEM)
+                        """ + (lock ? " FOR SHARE OF p" : ""))
+                .param("session", session).param("base", io.memoryos.chat.prompts.ChatPrompts.DEFAULT_SYSTEM)
                 .query((row, ignored) -> new Persona(row.getString("instructions"), row.getString("model"),
                         new ChatTurnOptions(row.getBoolean("search_enabled"), personaSources(row.getObject("id", UUID.class)),
-                                row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class)), row.getString("revision")))
+                                row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class)),
+                        row.getString("revision"), row.getObject("model_configuration_id", UUID.class)))
                 .optional().orElseThrow(ChatException::unavailable);
     }
 
