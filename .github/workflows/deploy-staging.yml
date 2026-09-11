@@ -44,6 +44,8 @@ jobs:
       MEMORYOS_SMOKE_ISSUER: ${{ vars.STAGING_ISSUER }}
       MEMORYOS_SMOKE_STORAGE_ORIGIN: ${{ vars.STAGING_STORAGE_ORIGIN }}
       MEMORYOS_SMOKE_ACTOR_ID: ${{ vars.STAGING_SMOKE_ACTOR_ID }}
+      MEMORYOS_SMOKE_CHAT_ACTOR_ID: ${{ vars.STAGING_SMOKE_CHAT_ACTOR_ID }}
+      MEMORYOS_SMOKE_CHAT_MODEL_ID: ${{ vars.STAGING_SMOKE_CHAT_MODEL_ID }}
     steps:
       - name: Check out trusted deployment workflow and smoke tests
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -97,17 +99,28 @@ jobs:
         env:
           MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
           MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+          MEMORYOS_SMOKE_CHAT_USERNAME: ${{ secrets.STAGING_SMOKE_CHAT_USERNAME }}
+          MEMORYOS_SMOKE_CHAT_PASSWORD: ${{ secrets.STAGING_SMOKE_CHAT_PASSWORD }}
           SHA: ${{ steps.release.outputs.sha }}
           CI_RUN: ${{ steps.release.outputs.run_id }}
           ATTEMPT: ${{ steps.release.outputs.attempt }}
         run: |
           jq --exit-status --arg sha "$SHA" --arg run "$CI_RUN" --arg attempt "$ATTEMPT" '
             .repository == "kl3inIT/MemoryOS" and .sha == $sha and .run == $run and .attempt == $attempt
+            and (.servingManifestSha256 | test("^[0-9a-f]{64}$"))
           ' release/manifest.json
           (cd release && sha256sum --check --strict SHA256SUMS)
+          mkdir "$RUNNER_TEMP/release-config"
+          tar --extract --file release/configuration.tar --directory "$RUNNER_TEMP/release-config" --no-same-owner --no-same-permissions
+          expected=$(jq --raw-output .servingManifestSha256 release/manifest.json)
+          actual=$(sha256sum "$RUNNER_TEMP/release-config/infrastructure/inference/managed/manifest.json" | cut -d ' ' -f 1)
+          [[ "$actual" == "$expected" ]]
+          checksums="$PWD/release/serving.sha256"
+          (cd "$RUNNER_TEMP/release-config" && sha256sum --check --strict "$checksums")
+          python3 infrastructure/deployment/check-inference-release.py --root "$RUNNER_TEMP/release-config"
           [[ "$STAGING_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+$ ]]
           [[ "$STAGING_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
-          for variable in MEMORYOS_SMOKE_ORIGIN MEMORYOS_SMOKE_ISSUER MEMORYOS_SMOKE_STORAGE_ORIGIN MEMORYOS_SMOKE_ACTOR_ID MEMORYOS_SMOKE_USERNAME MEMORYOS_SMOKE_PASSWORD; do
+          for variable in MEMORYOS_SMOKE_ORIGIN MEMORYOS_SMOKE_ISSUER MEMORYOS_SMOKE_STORAGE_ORIGIN MEMORYOS_SMOKE_ACTOR_ID MEMORYOS_SMOKE_USERNAME MEMORYOS_SMOKE_PASSWORD MEMORYOS_SMOKE_CHAT_ACTOR_ID MEMORYOS_SMOKE_CHAT_MODEL_ID MEMORYOS_SMOKE_CHAT_USERNAME MEMORYOS_SMOKE_CHAT_PASSWORD; do
             test -n "${!variable}" || { echo "Missing $variable"; exit 1; }
           done
 
@@ -149,7 +162,7 @@ jobs:
             ServerAliveCountMax 4
           EOF
 
-      - name: Pull images, back up, migrate and wait for readiness
+      - name: Verify and provision serving, back up, migrate and wait for readiness
         id: rollout
         if: steps.release.outputs.ready == 'true'
         env:
@@ -158,16 +171,18 @@ jobs:
         run: |
           remote="/apps/memoryos/incoming/$RELEASE"
           ssh -F "$RUNNER_TEMP/staging-ssh/config" staging "umask 077; mkdir '$remote'"
-          cp infrastructure/deployment/deploy-staging.sh release/
+          cp "$RUNNER_TEMP/release-config/infrastructure/deployment/deploy-staging.sh" release/
           scp -F "$RUNNER_TEMP/staging-ssh/config" release/* "staging:$remote/"
           printf '%s' "$REGISTRY_TOKEN" | ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
             "sudo -n bash '$remote/deploy-staging.sh' deploy '$RELEASE' '$GITHUB_ACTOR'"
 
-      - name: Require real authenticated upload, indexing, Search and reader smoke
+      - name: Require authenticated upload, indexing, Search, reader and managed Chat smoke
         if: steps.release.outputs.ready == 'true'
         env:
           MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
           MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+          MEMORYOS_SMOKE_CHAT_USERNAME: ${{ secrets.STAGING_SMOKE_CHAT_USERNAME }}
+          MEMORYOS_SMOKE_CHAT_PASSWORD: ${{ secrets.STAGING_SMOKE_CHAT_PASSWORD }}
         run: pnpm --dir web test:staging
 
       - name: Accept the verified runtime
@@ -184,6 +199,8 @@ jobs:
         env:
           MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
           MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+          MEMORYOS_SMOKE_CHAT_USERNAME: ${{ secrets.STAGING_SMOKE_CHAT_USERNAME }}
+          MEMORYOS_SMOKE_CHAT_PASSWORD: ${{ secrets.STAGING_SMOKE_CHAT_PASSWORD }}
           RELEASE: ${{ steps.release.outputs.release }}
         run: |
           set +e

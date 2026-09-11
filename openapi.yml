@@ -5220,6 +5220,76 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/model-personas:
+    get:
+      tags:
+      - Chat models
+      summary: List builtin and actor-owned Personas for model selection; requires
+        MODELS_MANAGE
+      operationId: listChatModelPersonas
+      parameters:
+      - name: cursor
+        in: query
+        description: "Canonical last-returned UUID; must identify an accessible, nondeleted\
+          \ Persona"
+        required: false
+        schema:
+          type: string
+          format: uuid
+          maxLength: 36
+          minLength: 36
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Tenant Persona page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPersonaPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:
@@ -5602,7 +5672,11 @@ components:
           - REPLACE
           - REMOVE
         value:
-          type: string
+          oneOf:
+          - type: string
+          - type: "null"
+      required:
+      - action
     ProviderInput:
       type: object
       properties:
@@ -5630,6 +5704,15 @@ components:
           uniqueItems: true
         credential:
           $ref: "#/components/schemas/Change"
+      required:
+      - adapterType
+      - baseUrl
+      - credential
+      - enabled
+      - groupIds
+      - isPublic
+      - name
+      - personaIds
     ProviderView:
       type: object
       properties:
@@ -5663,6 +5746,17 @@ components:
         revision:
           type: integer
           format: int64
+      required:
+      - adapterType
+      - baseUrl
+      - credentialConfigured
+      - enabled
+      - groupIds
+      - id
+      - isPublic
+      - name
+      - personaIds
+      - revision
     ProjectInput:
       type: object
       properties:
@@ -5777,11 +5871,91 @@ components:
           type: string
           format: uuid
         modelConfigurationId:
-          type: string
-          format: uuid
+          oneOf:
+          - type: string
+            format: uuid
+          - type: "null"
         revision:
           type: integer
           format: int64
+      required:
+      - modelConfigurationId
+      - personaId
+      - revision
+    CapabilitiesInput:
+      type: object
+      properties:
+        streaming:
+          type: boolean
+        toolCalling:
+          type: boolean
+        vision:
+          type: boolean
+        reasoning:
+          type: boolean
+      required:
+      - reasoning
+      - streaming
+      - toolCalling
+      - vision
+    ModelInput:
+      type: object
+      properties:
+        modelName:
+          type: string
+        displayName:
+          type: string
+        visible:
+          type: boolean
+        settings:
+          $ref: "#/components/schemas/ModelSettingsInput"
+      required:
+      - displayName
+      - modelName
+      - settings
+      - visible
+    ModelSettingsInput:
+      type: object
+      properties:
+        contextWindow:
+          type: integer
+          format: int32
+          maximum: 10000000
+          minimum: 256
+        maxOutputTokens:
+          type: integer
+          format: int32
+          minimum: 1
+        capabilities:
+          $ref: "#/components/schemas/CapabilitiesInput"
+        options:
+          type: object
+          additionalProperties: {}
+        pricing:
+          oneOf:
+          - $ref: "#/components/schemas/PricingInput"
+          - type: "null"
+        tokenizerProfile:
+          type: string
+          minLength: 1
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - options
+      - tokenizerProfile
+    PricingInput:
+      type: object
+      properties:
+        inputPerMillion:
+          type: number
+          format: double
+        outputPerMillion:
+          type: number
+          format: double
+      required:
+      - inputPerMillion
+      - outputPerMillion
     Capabilities:
       type: object
       properties:
@@ -5793,42 +5967,11 @@ components:
           type: boolean
         reasoning:
           type: boolean
-    ModelInput:
-      type: object
-      properties:
-        modelName:
-          type: string
-        displayName:
-          type: string
-        visible:
-          type: boolean
-        settings:
-          $ref: "#/components/schemas/ModelSettings"
-    ModelSettings:
-      type: object
-      properties:
-        contextWindow:
-          type: integer
-          format: int32
-        maxOutputTokens:
-          type: integer
-          format: int32
-        capabilities:
-          $ref: "#/components/schemas/Capabilities"
-        options:
-          type: object
-          additionalProperties: {}
-        pricing:
-          $ref: "#/components/schemas/Pricing"
-    Pricing:
-      type: object
-      properties:
-        inputPerMillion:
-          type: number
-          format: double
-        outputPerMillion:
-          type: number
-          format: double
+      required:
+      - reasoning
+      - streaming
+      - toolCalling
+      - vision
     Model:
       type: object
       properties:
@@ -5852,15 +5995,68 @@ components:
         revision:
           type: integer
           format: int64
+      required:
+      - displayName
+      - id
+      - modelName
+      - providerId
+      - revision
+      - settings
+      - tenantId
+      - visible
+    ModelSettings:
+      type: object
+      properties:
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type: integer
+          format: int32
+        capabilities:
+          $ref: "#/components/schemas/Capabilities"
+        options:
+          type: object
+          additionalProperties: {}
+        pricing:
+          oneOf:
+          - $ref: "#/components/schemas/Pricing"
+          - type: "null"
+        tokenizerProfile:
+          type: string
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - options
+      - pricing
+      - tokenizerProfile
+    Pricing:
+      type: object
+      properties:
+        inputPerMillion:
+          type: number
+          format: double
+        outputPerMillion:
+          type: number
+          format: double
+      required:
+      - inputPerMillion
+      - outputPerMillion
     Default:
       type: object
       properties:
         modelConfigurationId:
-          type: string
-          format: uuid
+          oneOf:
+          - type: string
+            format: uuid
+          - type: "null"
         revision:
           type: integer
           format: int64
+      required:
+      - modelConfigurationId
+      - revision
     ReplaceUserGroupsRequest:
       type: object
       additionalProperties: false
@@ -6587,7 +6783,12 @@ components:
         reachable:
           type: boolean
         failureCode:
-          type: string
+          oneOf:
+          - type: string
+          - type: "null"
+      required:
+      - failureCode
+      - reachable
     AccountType:
       type: string
       enum:
@@ -7975,6 +8176,24 @@ components:
           - REQUIRED
           - OPTIONAL
           - NONE
+        tokenizerProfiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenizerProfile"
+      required:
+      - credentialRequirement
+      - tokenizerProfiles
+      - type
+    TokenizerProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+      required:
+      - displayName
+      - id
     AvailableModel:
       type: object
       properties:
@@ -7999,9 +8218,22 @@ components:
           type: integer
           format: int32
         pricing:
-          $ref: "#/components/schemas/Pricing"
+          oneOf:
+          - $ref: "#/components/schemas/Pricing"
+          - type: "null"
         isDefault:
           type: boolean
+      required:
+      - capabilities
+      - contextWindow
+      - displayName
+      - id
+      - isDefault
+      - maxOutputTokens
+      - modelName
+      - pricing
+      - providerId
+      - providerName
     SourceOption:
       type: object
       properties:
@@ -8015,6 +8247,31 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
+    ChatPersona:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    ChatPersonaPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatPersona"
+        nextCursor:
+          oneOf:
+          - type: string
+          - type: "null"
+      required:
+      - items
+      - nextCursor
     ApiProblem:
       type: object
       additionalProperties: false

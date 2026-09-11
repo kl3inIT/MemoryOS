@@ -19,8 +19,11 @@ public final class ChatProviderAdapters {
     }
     public boolean supports(String type) { return adapters.containsKey(type); }
     public List<Descriptor> available() {
-        return adapters.values().stream().map(a -> new Descriptor(a.type(), a.credentialRequirement()))
+        return adapters.values().stream().map(a -> new Descriptor(a.type(), a.credentialRequirement(), a.tokenizerProfiles()))
                 .sorted(java.util.Comparator.comparing(Descriptor::type)).toList();
     }
-    public record Descriptor(String type, ChatProviderAdapter.CredentialRequirement credentialRequirement) {}
+    public record Descriptor(String type, ChatProviderAdapter.CredentialRequirement credentialRequirement,
+                             List<ChatProviderAdapter.TokenizerProfile> tokenizerProfiles) {
+        public Descriptor { tokenizerProfiles = List.copyOf(tokenizerProfiles); }
+    }
 }

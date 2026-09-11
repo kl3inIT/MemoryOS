@@ -54,6 +54,7 @@ class OpenApiContractTest {
             "/api/chat/models",
             "/api/chat/models/{modelId}",
             "/api/chat/models/{modelId}/validate",
+            "/api/chat/model-personas",
             "/api/chat/personas/{personaId}/model",
             "/api/chat/personas",
             "/api/chat/personas/{personaId}",
@@ -248,7 +249,9 @@ class OpenApiContractTest {
         );
         assertEquals("null", tenantSchema.path("oneOf").path(1).path("type").textValue());
 
-        for (String name : Set.of("SearchPage", "Result", "Section", "ChunkProvenance", "Passage", "SearchDocument", "ChatSession", "ChatMessage")) {
+        for (String name : Set.of("SearchPage", "Result", "Section", "ChunkProvenance", "Passage", "SearchDocument", "ChatSession", "ChatMessage",
+                "ProviderView", "Model", "ModelSettings", "Capabilities", "Pricing", "AvailableModel", "Descriptor",
+                "TokenizerProfile", "Default", "PersonaModel", "ChatModelValidationResult", "ChatPersona", "ChatPersonaPage")) {
             JsonNode schema = actual.path("components").path("schemas").path(name);
             Set<String> fields = new TreeSet<>();
             schema.path("properties").fieldNames().forEachRemaining(fields::add);
@@ -256,6 +259,36 @@ class OpenApiContractTest {
             schema.path("required").forEach(value -> required.add(value.asText()));
             assertFalse(fields.isEmpty(), name);
             assertEquals(fields, required, name + " response fields must be required");
+        }
+
+        var schemas = actual.path("components").path("schemas");
+        for (String field : Set.of("ModelSettings.pricing", "ModelSettingsInput.pricing", "AvailableModel.pricing",
+                "Default.modelConfigurationId", "PersonaModel.modelConfigurationId", "ChatModelValidationResult.failureCode",
+                "ChatPersonaPage.nextCursor", "Change.value")) {
+            var parts = field.split("\\.");
+            var variants = schemas.path(parts[0]).path("properties").path(parts[1]).path("oneOf");
+            assertEquals(2, variants.size(), field);
+            assertEquals("null", variants.path(1).path("type").asText(), field + " must accept an actual JSON null");
+        }
+        var settingsRequired = new TreeSet<String>();
+        schemas.path("ModelSettingsInput").path("required").forEach(value -> settingsRequired.add(value.asText()));
+        assertEquals(Set.of("contextWindow", "maxOutputTokens", "capabilities", "options", "tokenizerProfile"), settingsRequired);
+        for (String requiredField : Set.of("ProviderInput.enabled", "ProviderInput.isPublic", "ModelInput.visible",
+                "CapabilitiesInput.toolCalling", "CapabilitiesInput.vision", "CapabilitiesInput.reasoning",
+                "PricingInput.inputPerMillion", "PricingInput.outputPerMillion")) {
+            var parts = requiredField.split("\\.");
+            var requiredFields = new TreeSet<String>();
+            schemas.path(parts[0]).path("required").forEach(value -> requiredFields.add(value.asText()));
+            assertTrue(requiredFields.contains(parts[1]), requiredField + " is rejected when omitted by the live JSON mapper");
+        }
+        assertEquals("listChatModelPersonas", actual.path("paths").path("/api/chat/model-personas").path("get").path("operationId").asText());
+        for (var parameter : actual.path("paths").path("/api/chat/model-personas").path("get").path("parameters")) {
+            if (parameter.path("name").asText().equals("limit")) {
+                assertEquals("integer", parameter.path("schema").path("type").asText());
+                assertEquals(25, parameter.path("schema").path("default").asInt());
+                assertEquals(1, parameter.path("schema").path("minimum").asInt());
+                assertEquals(100, parameter.path("schema").path("maximum").asInt());
+            }
         }
 
         Path contract = repositoryRoot().resolve("openapi.yml");

@@ -1,0 +1,148 @@
+name: memoryos-inference
+
+x-managed-defaults: &managed-defaults
+  platform: linux/amd64
+  user: "1654:1654"
+  init: true
+  read_only: true
+  restart: "on-failure:3"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  stop_grace_period: 150s
+  ulimits:
+    nofile:
+      soft: 1024
+      hard: 1024
+    core: 0
+
+services:
+  vllm:
+    <<: *managed-defaults
+    image: vllm/vllm-openai-cpu:v0.28.0-x86_64@sha256:ea8b61f8ccab650e1c369105373863ac12a581b53f289b344cea72a09238e131
+    entrypoint: ["/opt/venv/bin/python3", "/opt/memoryos-inference/start-vllm.py"]
+    # All actual model/tokenizer paths and immutable serving options come from
+    # the verified managed manifest, never an automatic Hub model lookup.
+    environment:
+      HOME: /var/cache/memoryos-inference/home
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: /opt/memoryos-inference
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      VLLM_NO_USAGE_STATS: "1"
+      DO_NOT_TRACK: "1"
+      VLLM_CPU_OMP_THREADS_BIND: nobind
+      VLLM_CPU_KVCACHE_SPACE: "1"
+      VLLM_MAX_N_SEQUENCES: "1"
+      CUDA_VISIBLE_DEVICES: ""
+    networks:
+      - memoryos-inference-backend
+    volumes:
+      - type: bind
+        source: ../inference/managed
+        target: /opt/memoryos-inference
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEMORYOS_INFERENCE_ASSETS_ROOT:?Set MEMORYOS_INFERENCE_ASSETS_ROOT}
+        target: /var/lib/memoryos-inference/assets
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEMORYOS_INFERENCE_CACHE_ROOT:?Set MEMORYOS_INFERENCE_CACHE_ROOT}
+        target: /var/cache/memoryos-inference
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEMORYOS_INFERENCE_API_KEY_FILE:?Set MEMORYOS_INFERENCE_API_KEY_FILE}
+        target: /run/secrets/inference_api_key
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=256m,mode=0700,uid=1654,gid=1654,nosuid,nodev
+    shm_size: 1g
+    mem_limit: 4g
+    memswap_limit: 4g
+    cpus: 2.0
+    pids_limit: 256
+    healthcheck:
+      test:
+        - CMD
+        - /opt/venv/bin/python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).close()"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 600s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "2"
+
+  inference-gateway:
+    <<: *managed-defaults
+    image: nginx:1.28.0-alpine@sha256:30f1c0d78e0ad60901648be663a710bdadf19e4c10ac6782c235200619158284
+    entrypoint: ["/bin/sh", "/opt/memoryos-inference/start-gateway.sh"]
+    depends_on:
+      vllm:
+        condition: service_started
+    networks:
+      - memoryos-inference-client
+      - memoryos-inference-backend
+    volumes:
+      - type: bind
+        source: ../inference/managed
+        target: /opt/memoryos-inference
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEMORYOS_INFERENCE_CONTROL_DIR:?Set MEMORYOS_INFERENCE_CONTROL_DIR}
+        target: /var/lib/memoryos-inference/control
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEMORYOS_INFERENCE_API_KEY_FILE:?Set MEMORYOS_INFERENCE_API_KEY_FILE}
+        target: /run/secrets/inference_api_key
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=16m,mode=0700,uid=1654,gid=1654,nosuid,nodev,noexec
+    mem_limit: 96m
+    memswap_limit: 96m
+    cpus: 0.25
+    pids_limit: 32
+    stop_signal: SIGQUIT
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "-T", "3", "http://127.0.0.1:8081/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 600s
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
+# No published ports and no default/egress network. Only the normal API overlay
+# joins the client network; authorized Prometheus may join the backend separately.
+networks:
+  memoryos-inference-client:
+    name: ${MEMORYOS_INFERENCE_CLIENT_NETWORK:-memoryos-inference-client}
+    internal: true
+  memoryos-inference-backend:
+    name: ${MEMORYOS_INFERENCE_BACKEND_NETWORK:-memoryos-inference-backend}
+    internal: true

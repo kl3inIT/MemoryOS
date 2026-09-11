@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Boxes,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { ChatModeMenu, ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups";
+export type AdminPage = "sources" | "users" | "groups" | "models";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -98,8 +99,14 @@ function SidebarContents({
   mobile = false,
 }: SidebarContentsProps) {
   const appArea = area === "app";
-  const { canManageUsers, canReadGroups, canReadSources, canAccessAdmin, adminEntryPath } =
-    useAdminAccess();
+  const {
+    canManageUsers,
+    canReadGroups,
+    canReadSources,
+    canManageModels,
+    canAccessAdmin,
+    adminEntryPath,
+  } = useAdminAccess();
 
   return (
     <div className="flex h-full min-h-0 flex-col pb-2">
@@ -211,6 +218,19 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   Sources
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageModels ? (
+              <SidebarSection title="AI" collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/models"
+                  icon={<Boxes className="size-4" />}
+                  selected={adminPage === "models"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  Models
                 </SidebarTab>
               </SidebarSection>
             ) : null}

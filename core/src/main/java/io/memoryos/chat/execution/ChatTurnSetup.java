@@ -9,7 +9,6 @@ import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatTurnOptions;
-import io.memoryos.chat.prompts.ChatPrompts;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantId;
 
@@ -21,7 +20,6 @@ import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
-import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /**
  * Resolved once, held only for the lifetime of this execution.
@@ -37,23 +35,23 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         Objects.requireNonNull(binding);
     }
 
-    private static final TokenCountEstimator TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+    private static final class Hosted {
+        private static final ChatRequestPolicy POLICY = ChatRequestPolicy.hosted(
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), prompt -> prompt);
+    }
 
     public static void validateQuestion(String instructions, String text, int contextTokenLimit) {
-        validateQuestion(instructions, text, contextTokenLimit, TOKENS);
+        Hosted.POLICY.validateQuestion(instructions, text, contextTokenLimit);
     }
 
-    public static void validateQuestion(String instructions, String text, int contextTokenLimit, TokenCountEstimator tokens) {
-        if (tokens.estimate(instructions) + tokens.estimate(text) + 64 > contextTokenLimit)
-            throw ChatException.invalid("The current question exceeds the configured context limit.");
+    /** Matches Embabel's consolidation, with the unpredictable date frozen before reservation. */
+    public static String instructions(String instructions, String contribution) {
+        return contribution.isEmpty() ? instructions : instructions.isEmpty() ? contribution : contribution + "\n\n" + instructions;
     }
 
-    public static void validateQuestion(String instructions, String text, int contextTokenLimit, ChatModelBinding binding) {
-        validateQuestion(instructions(instructions, binding), text, historyLimit(contextTokenLimit, binding), binding.tokens());
-    }
-
-    private static String instructions(String instructions, ChatModelBinding binding) {
-        return ChatPrompts.resolve(instructions, binding.toolCalling(), Instant.now());
+    public static void validateQuestion(String instructions, String text, int contextTokenLimit, ChatModelBinding binding,
+                                        String contribution) {
+        binding.policy().validateQuestion(instructions(instructions, contribution), text, historyLimit(contextTokenLimit, binding));
     }
 
     private static int historyLimit(int limit, ChatModelBinding binding) {
@@ -61,19 +59,24 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     }
 
     public static ChatTurnSetup resolve(UUID session, UUID assistant, TurnContext context, int contextTokenLimit,
-                                        ChatModelBinding binding) {
+                                        ChatModelBinding binding, String contribution) {
         binding = binding.forOptions(context.options());
         if (context.options().contextTokenLimit() != null) contextTokenLimit = Math.min(contextTokenLimit, context.options().contextTokenLimit());
         var selected = new ArrayList<Message>();
-        String instructions = instructions(context.instructions(), binding);
-        // Reserve room for tool schemas/results; transcript is still stored in full.
+        var nativeMessages = new ArrayList<org.springframework.ai.chat.messages.Message>();
+        String instructions = instructions(context.instructions(), contribution);
+        nativeMessages.add(new org.springframework.ai.chat.messages.SystemMessage(instructions));
         int historyLimit = historyLimit(contextTokenLimit, binding);
-        int tokens = binding.tokens().estimate(instructions) + 32;
         for (var message : context.newestFirst()) {
             if (message.content() == null || message.content().isEmpty()) continue;
-            int size = binding.tokens().estimate(message.content()) + 32;
-            if (tokens + size > historyLimit) break;
-            tokens += size;
+            var nativeMessage = message.role() == ChatMessage.Role.USER
+                    ? new org.springframework.ai.chat.messages.UserMessage(message.content())
+                    : new org.springframework.ai.chat.messages.AssistantMessage(message.content());
+            nativeMessages.add(1, nativeMessage);
+            if (binding.policy().framing().applyAsInt(new org.springframework.ai.chat.prompt.Prompt(nativeMessages)) > historyLimit) {
+                nativeMessages.remove(1);
+                break;
+            }
             selected.add(message.role() == ChatMessage.Role.USER
                     ? new UserMessage(message.content()) : new AssistantMessage(message.content()));
         }

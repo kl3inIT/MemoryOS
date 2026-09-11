@@ -24,14 +24,15 @@ import org.junit.jupiter.api.Test;
 
 class ChatTurnSetupTest {
     private static ChatModelBinding binding() {
-        var binding = new ChatModelBinding(new SpringAiLlmService("binding-model", "fixture", mock(ChatModel.class)), p -> p);
-        return new ChatModelBinding(binding.service(), binding.finalRequest(), binding.tokens(), binding.contextWindow(), binding.maxOutputTokens(), false);
+        return new ChatModelBinding(new SpringAiLlmService(
+                "binding-model", "fixture", mock(ChatModel.class)), p -> p, ChatRequestPolicy.hosted(
+                new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, false);
     }
     @Test
     void contextLimitKeepsNewestQuestionAndDropsOrphanAssistant() {
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(
                 message(ChatMessage.Role.USER, "Newest"), message(ChatMessage.Role.ASSISTANT, "Previous"),
-                message(ChatMessage.Role.USER, "Old question ".repeat(1000)))), 120, binding());
+                message(ChatMessage.Role.USER, "Old question ".repeat(1000)))), 120, binding(), "");
         assertEquals(2, setup.messages().size());
         assertEquals("binding-model", setup.model());
         assertInstanceOf(SystemMessage.class, setup.messages().getFirst());
@@ -42,7 +43,7 @@ class ChatTurnSetupTest {
     @Test
     void rejectsQuestionThatCannotFitWithInstructions() {
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(),
-                context(List.of(message(ChatMessage.Role.USER, "Large question ".repeat(1000)))), 100, binding()));
+                context(List.of(message(ChatMessage.Role.USER, "Large question ".repeat(1000)))), 100, binding(), ""));
     }
 
     private TurnContext context(List<ChatMessage> messages) {
@@ -57,8 +58,22 @@ class ChatTurnSetupTest {
                 new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.ASSISTANT,
                         null, ChatMessage.Status.FAILED, Instant.now(), Instant.now()),
                 message(ChatMessage.Role.ASSISTANT, ""), message(ChatMessage.Role.USER, "Earlier"))),
-                32000, binding());
+                32000, binding(), "");
         assertEquals(List.of("Answer", "Earlier", "Newest"), setup.messages().stream().map(Message::getContent).toList());
+    }
+
+    @Test
+    void frozenFrameworkContributionSharesTheUnicodeHistoryBoundary() {
+        var binding = binding();
+        String question = "Hãy giải thích cách lưu trữ tài liệu.";
+        String contribution = "Current date: 2026-09-11\n";
+        String system = ChatTurnSetup.instructions("Answer", contribution);
+        int exact = binding.policy().framing().applyAsInt(new org.springframework.ai.chat.prompt.Prompt(List.of(
+                new org.springframework.ai.chat.messages.SystemMessage(system), new org.springframework.ai.chat.messages.UserMessage(question))));
+        var context = context(List.of(message(ChatMessage.Role.USER, question), message(ChatMessage.Role.ASSISTANT, "Older")));
+        assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, exact - 1, binding, contribution));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, exact, binding, contribution);
+        assertEquals(List.of(system, question), setup.messages().stream().map(Message::getContent).toList());
     }
 
     private ChatMessage message(ChatMessage.Role role, String content) {

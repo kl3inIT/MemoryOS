@@ -17,9 +17,11 @@ commons-compress = "1.28.0"
 spring-ai = "2.0.1"
 embabel = "1.5.1"
 opensearch-java = "3.9.0"
+djl-tokenizers = "0.38.0"
 
 [libraries]
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
+djl-tokenizers = { module = "ai.djl.huggingface:tokenizers", version.ref = "djl-tokenizers" }
 spring-ai-openai = { module = "org.springframework.ai:spring-ai-openai" }
 embabel-api = { module = "com.embabel.agent:embabel-agent-api", version.ref = "embabel" }
 embabel-platform = { module = "com.embabel.agent:embabel-agent-starter-platform", version.ref = "embabel" }

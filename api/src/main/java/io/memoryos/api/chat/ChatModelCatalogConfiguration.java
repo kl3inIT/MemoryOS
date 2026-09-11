@@ -24,7 +24,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 class ChatModelCatalogConfiguration {
-    @Bean
+    @Bean(destroyMethod = "close")
     OpenAiChatProviderAdapter openAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
         return new OpenAiChatProviderAdapter(observations, meters);
     }
@@ -51,7 +51,7 @@ class ChatModelCatalogConfiguration {
         var settings = new ModelSettings(limits.contextTokenLimit() + limits.maxOutputTokens(), limits.maxOutputTokens(),
                 new ModelSettings.Capabilities(true, toolCalling == null ? gpt5 : toolCalling,
                         vision == null ? gpt5 : vision, reasoning == null ? gpt5 : reasoning),
-                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens), pricing);
+                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens), pricing, "openai-o200k-v1");
         return new ModelCatalogService.Deployment(baseUrl, persona.getModel(), settings);
     }
     @Bean

@@ -19,6 +19,7 @@ import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
+import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
@@ -80,6 +81,12 @@ const AuthenticatedAdminGroupsRoute =
   AuthenticatedAdminGroupsRouteImport.update({
     id: '/groups',
     path: '/groups',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminModelsRoute =
+  AuthenticatedAdminModelsRouteImport.update({
+    id: '/models',
+    path: '/models',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
@@ -168,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
+  '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -189,6 +197,7 @@ export interface FileRoutesByTo {
   '/invitation': typeof InvitationRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
+  '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -213,6 +222,7 @@ export interface FileRoutesById {
   '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
+  '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/assistants'
     | '/search'
     | '/admin/groups'
+    | '/admin/models'
     | '/admin/users'
     | '/shared/$sessionId'
     | '/admin/'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/invitation'
     | '/assistants'
     | '/search'
+    | '/admin/models'
     | '/admin/users'
     | '/shared/$sessionId'
     | '/admin'
@@ -283,6 +295,7 @@ export interface FileRouteTypes {
     | '/_authenticated/assistants'
     | '/_authenticated/search'
     | '/_authenticated/admin/groups'
+    | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
     | '/_authenticated/shared/$sessionId'
     | '/_authenticated/_chat/'
@@ -376,6 +389,13 @@ declare module '@tanstack/react-router' {
       path: '/groups'
       fullPath: '/admin/groups'
       preLoaderRoute: typeof AuthenticatedAdminGroupsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/models': {
+      id: '/_authenticated/admin/models'
+      path: '/models'
+      fullPath: '/admin/models'
+      preLoaderRoute: typeof AuthenticatedAdminModelsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/users': {
@@ -529,6 +549,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
+  AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -537,6 +558,7 @@ interface AuthenticatedAdminRouteChildren {
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
+  AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminSourcesSourceIdRoute:

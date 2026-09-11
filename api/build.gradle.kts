@@ -18,6 +18,7 @@ dependencies {
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.embabel.platform)
     implementation(libs.embabel.openai)
+    implementation(libs.djl.tokenizers)
     implementation(libs.spring.ai.model.tool)
     implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
@@ -51,6 +52,8 @@ dependencies {
 
 tasks.named<Test>("test") {
     systemProperty("arconia.dev.services.postgresql.enabled", "false")
+    // Cached integration contexts own token vocabularies, HTTP servers and pools.
+    systemProperty("spring.test.context.cache.maxSize", "2")
     inputs.file(rootProject.file("openapi.yml"))
     inputs.property(
         "memoryosOpenApiWrite",

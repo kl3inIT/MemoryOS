@@ -125,32 +125,32 @@ export type BranchSelection = {
 };
 
 export type Change = {
-    action?: 'KEEP' | 'REPLACE' | 'REMOVE';
-    value?: string;
+    action: 'KEEP' | 'REPLACE' | 'REMOVE';
+    value?: string | null;
 };
 
 export type ProviderInput = {
-    name?: string;
-    adapterType?: string;
-    baseUrl?: string;
-    enabled?: boolean;
-    isPublic?: boolean;
-    groupIds?: Array<string>;
-    personaIds?: Array<string>;
-    credential?: Change;
+    name: string;
+    adapterType: string;
+    baseUrl: string;
+    enabled: boolean;
+    isPublic: boolean;
+    groupIds: Array<string>;
+    personaIds: Array<string>;
+    credential: Change;
 };
 
 export type ProviderView = {
-    id?: string;
-    name?: string;
-    adapterType?: string;
-    baseUrl?: string;
-    enabled?: boolean;
-    isPublic?: boolean;
-    groupIds?: Array<string>;
-    personaIds?: Array<string>;
-    credentialConfigured?: boolean;
-    revision?: number;
+    id: string;
+    name: string;
+    adapterType: string;
+    baseUrl: string;
+    enabled: boolean;
+    isPublic: boolean;
+    groupIds: Array<string>;
+    personaIds: Array<string>;
+    credentialConfigured: boolean;
+    revision: number;
 };
 
 export type ProjectInput = {
@@ -197,54 +197,78 @@ export type PersonaView = {
 };
 
 export type PersonaModel = {
-    personaId?: string;
-    modelConfigurationId?: string;
-    revision?: number;
+    personaId: string;
+    modelConfigurationId: string | null;
+    revision: number;
 };
 
-export type Capabilities = {
-    streaming?: boolean;
-    toolCalling?: boolean;
-    vision?: boolean;
-    reasoning?: boolean;
+export type CapabilitiesInput = {
+    streaming: boolean;
+    toolCalling: boolean;
+    vision: boolean;
+    reasoning: boolean;
 };
 
 export type ModelInput = {
-    modelName?: string;
-    displayName?: string;
-    visible?: boolean;
-    settings?: ModelSettings;
+    modelName: string;
+    displayName: string;
+    visible: boolean;
+    settings: ModelSettingsInput;
 };
 
-export type ModelSettings = {
-    contextWindow?: number;
-    maxOutputTokens?: number;
-    capabilities?: Capabilities;
-    options?: {
+export type ModelSettingsInput = {
+    contextWindow: number;
+    maxOutputTokens: number;
+    capabilities: CapabilitiesInput;
+    options: {
         [key: string]: unknown;
     };
-    pricing?: Pricing;
+    pricing?: PricingInput | null;
+    tokenizerProfile: string;
 };
 
-export type Pricing = {
-    inputPerMillion?: number;
-    outputPerMillion?: number;
+export type PricingInput = {
+    inputPerMillion: number;
+    outputPerMillion: number;
+};
+
+export type Capabilities = {
+    streaming: boolean;
+    toolCalling: boolean;
+    vision: boolean;
+    reasoning: boolean;
 };
 
 export type Model = {
-    id?: string;
-    tenantId?: string;
-    providerId?: string;
-    modelName?: string;
-    displayName?: string;
-    visible?: boolean;
-    settings?: ModelSettings;
-    revision?: number;
+    id: string;
+    tenantId: string;
+    providerId: string;
+    modelName: string;
+    displayName: string;
+    visible: boolean;
+    settings: ModelSettings;
+    revision: number;
+};
+
+export type ModelSettings = {
+    contextWindow: number;
+    maxOutputTokens: number;
+    capabilities: Capabilities;
+    options: {
+        [key: string]: unknown;
+    };
+    pricing: Pricing | null;
+    tokenizerProfile: string;
+};
+
+export type Pricing = {
+    inputPerMillion: number;
+    outputPerMillion: number;
 };
 
 export type Default = {
-    modelConfigurationId?: string;
-    revision?: number;
+    modelConfigurationId: string | null;
+    revision: number;
 };
 
 export type ReplaceUserGroupsRequest = {
@@ -488,8 +512,8 @@ export type ProjectConversation = {
 };
 
 export type ChatModelValidationResult = {
-    reachable?: boolean;
-    failureCode?: string;
+    reachable: boolean;
+    failureCode: string | null;
 };
 
 export type AccountType = 'STANDARD';
@@ -904,27 +928,43 @@ export type ChatBranch = {
 };
 
 export type Descriptor = {
-    type?: string;
-    credentialRequirement?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
+    type: string;
+    credentialRequirement: 'REQUIRED' | 'OPTIONAL' | 'NONE';
+    tokenizerProfiles: Array<TokenizerProfile>;
+};
+
+export type TokenizerProfile = {
+    id: string;
+    displayName: string;
 };
 
 export type AvailableModel = {
-    id?: string;
-    providerId?: string;
-    providerName?: string;
-    modelName?: string;
-    displayName?: string;
-    capabilities?: Capabilities;
-    contextWindow?: number;
-    maxOutputTokens?: number;
-    pricing?: Pricing;
-    isDefault?: boolean;
+    id: string;
+    providerId: string;
+    providerName: string;
+    modelName: string;
+    displayName: string;
+    capabilities: Capabilities;
+    contextWindow: number;
+    maxOutputTokens: number;
+    pricing: Pricing | null;
+    isDefault: boolean;
 };
 
 export type SourceOption = {
     id?: string;
     name?: string;
     type?: 'FILE' | 'GOOGLE_DRIVE';
+};
+
+export type ChatPersona = {
+    id: string;
+    name: string;
+};
+
+export type ChatPersonaPage = {
+    items: Array<ChatPersona>;
+    nextCursor: string | null;
 };
 
 export type ApiProblem = {
@@ -4877,6 +4917,57 @@ export type ListAvailableChatModelsResponses = {
 };
 
 export type ListAvailableChatModelsResponse = ListAvailableChatModelsResponses[keyof ListAvailableChatModelsResponses];
+
+export type ListChatModelPersonasData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Canonical last-returned UUID; must identify an accessible, nondeleted Persona
+         */
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/chat/model-personas';
+};
+
+export type ListChatModelPersonasErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatModelPersonasError = ListChatModelPersonasErrors[keyof ListChatModelPersonasErrors];
+
+export type ListChatModelPersonasResponses = {
+    /**
+     * Tenant Persona page
+     */
+    200: ChatPersonaPage;
+};
+
+export type ListChatModelPersonasResponse = ListChatModelPersonasResponses[keyof ListChatModelPersonasResponses];
 
 export type DeleteGoogleDriveCredentialData = {
     body?: never;

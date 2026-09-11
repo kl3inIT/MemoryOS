@@ -40,11 +40,15 @@ class ChatModelBindingTest {
         var configured = new SpringAiLlmService("another-model", "another-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 LocalDate.of(2025, 1, 1), List.of(), pricing);
-        var binding = new ChatModelBinding(configured, prompt -> prompt);
+        var binding = new ChatModelBinding(configured, prompt -> prompt, ChatRequestPolicy.hosted(
+                new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true);
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);
-        var guard = new ChatModelGuard(provider, process, configured, budget, 1, () -> {}, binding.finalRequest());
+        when(budget.getTokens()).thenReturn(100000);
+        when(budget.getCost()).thenReturn(100.0);
+        var guard = new ChatModelGuard(provider, process, configured, budget, 1, () -> {},
+                binding.policy(), 32000 - 4096, binding.finalRequest());
         var decorated = binding.withModel(guard);
         assertSame(guard, decorated.getChatModel());
         decorated.getChatModel().stream(new Prompt("question", decorated.convertOptions(LlmOptions.withModel("ignored")))).blockLast();

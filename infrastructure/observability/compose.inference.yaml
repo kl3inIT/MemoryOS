@@ -1,0 +1,10 @@
+# Apply explicitly with compose.observability.yaml; only Prometheus gains engine trust.
+services:
+  prometheus:
+    networks:
+      backend:
+      inference-backend:
+networks:
+  inference-backend:
+    name: ${MEMORYOS_INFERENCE_BACKEND_NETWORK:-memoryos-inference-backend}
+    external: true

@@ -104,6 +104,16 @@ class OpenApiConfiguration {
                             new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
                     configureNullableProperty(components, "SourceGroup", "systemKey",
                             new Schema<>().$ref("#/components/schemas/GroupSystemKey"));
+                    for (String settings : List.of("ModelSettings", "ModelSettingsInput", "AvailableModel")) {
+                        configureNullableProperty(components, settings, "pricing",
+                                new Schema<>().$ref("#/components/schemas/" + (settings.equals("ModelSettingsInput") ? "PricingInput" : "Pricing")));
+                    }
+                    for (String selection : List.of("Default", "PersonaModel")) {
+                        configureNullableProperty(components, selection, "modelConfigurationId", new StringSchema().format("uuid"));
+                    }
+                    configureNullableProperty(components, "ChatModelValidationResult", "failureCode", new StringSchema());
+                    configureNullableProperty(components, "ChatPersonaPage", "nextCursor", new StringSchema());
+                    configureNullableProperty(components, "Change", "value", new StringSchema());
                 })
                 .build();
     }

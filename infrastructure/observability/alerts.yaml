@@ -33,3 +33,42 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: Application requests are waiting for a database connection
+  # Warning rules are locally evaluated; no paging destination is installed.
+  - name: memoryos-inference
+    rules:
+      - alert: MemoryOSInferenceEngineUnavailable
+        expr: up{job="memoryos-inference"} == 0 or absent(up{job="memoryos-inference"})
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: Native engine scrape unavailable; separately check authenticated gateway readiness
+      - alert: MemoryOSInferenceWaiting
+        expr: sum(vllm:num_requests_waiting{job="memoryos-inference"}) > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: Engine has waiting work despite the one-slot zero-queue contract
+      - alert: MemoryOSInferenceRunningOverLimit
+        expr: sum(vllm:num_requests_running{job="memoryos-inference"}) > 1
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: Native running work exceeds the configured single sequence
+      - alert: MemoryOSInferenceKVPressure
+        expr: max(vllm:kv_cache_usage_perc{job="memoryos-inference"}) > 0.9
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: Engine KV cache exceeds ninety percent; this is not host memory usage
+      - alert: MemoryOSInferenceFirstTokenSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket{job="memoryos-inference"}[5m]))) > 5
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Native p95 first-token latency exceeds the candidate five-second gate
+      - alert: MemoryOSInferenceGenerationSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket{job="memoryos-inference"}[5m]))) > 20
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Native p95 generation exceeds the candidate twenty-second gate

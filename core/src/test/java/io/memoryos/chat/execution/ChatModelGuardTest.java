@@ -38,7 +38,8 @@ class ChatModelGuardTest {
     private final ChatModel provider = mock(ChatModel.class);
     private final AgentProcess process = mock(AgentProcess.class);
     private final Budget budget = mock(Budget.class, RETURNS_DEEP_STUBS);
-    private final ChatModelGuard guard = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 1, () -> {},
+    private final ChatRequestPolicy policy = ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(), p -> p);
+    private final ChatModelGuard guard = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 1, () -> {}, policy, 32000,
             request -> new Prompt(request.getInstructions(), assertInstanceOf(OpenAiChatOptions.class, request.getOptions()).mutate()
                     .toolCallbacks(List.of()).toolChoice(null).build()));
     private final Prompt prompt = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini").toolChoice("auto").build());
@@ -101,7 +102,7 @@ class ChatModelGuardTest {
     @Test
     void citationReminderTracksAvailableEvidenceWithoutMutatingConversationMessages() {
         var evidence = new java.util.concurrent.atomic.AtomicBoolean();
-        var twoCycles = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, request -> request);
+        var twoCycles = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, request -> request);
         twoCycles.evidenceAvailable(evidence::get);
         var calls = new java.util.concurrent.atomic.AtomicInteger();
         when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
@@ -162,12 +163,26 @@ class ChatModelGuardTest {
 
     @Test
     void toolResponseContentCountsAgainstContextBeforeProviderInference() {
-        guard.contextLimit(new JTokkitTokenCountEstimator(), 128);
+        var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 1, () -> {}, policy, 128, p -> p);
         var response = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse(
                 "tool-1", "searchKnowledge", "private document ".repeat(1000)))).build();
         var request = new Prompt(List.of(response), prompt.getOptions());
-        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guard.stream(request).blockLast()).getMessage());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.stream(request).blockLast()).getMessage());
         verify(provider, never()).stream(any(Prompt.class));
+    }
+
+    @Test
+    void budgetPolicyRejectsExpandedContinuationBeforeAnotherProviderCall() {
+        var tokens = new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE);
+        var policy = ChatRequestPolicy.hosted(tokens, p -> p);
+        var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {},
+                policy, 64, p -> p);
+        when(provider.stream(any(Prompt.class))).thenReturn(Flux.just(response("first", "stop", 12)));
+        assertEquals("first", guarded.stream(prompt).blockLast().getResult().getOutput().getText());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class,
+                () -> guarded.stream(new Prompt("Expanded tool result ".repeat(200))).blockLast()).getMessage());
+        assertTrue(guarded.usageKnown(), "A local rejection must not erase usage from completed native calls");
+        verify(provider).stream(any(Prompt.class));
     }
 
     private ChatResponse response(String text, String reason, int tokens) {

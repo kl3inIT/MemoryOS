@@ -4,7 +4,7 @@
 
 ## Bổ sung nền provider/model
 
-Phases 2.1–2.4 đã merge qua PR #86; backend catalog/selection/BYOK và public adapter đã merge qua PR #88 theo [plan backend](../mem-77-provider-backend/plan.md). Đức Anh nhận catalog admin UI và tích hợp provider local trong MEM-77; dropdown model ở Chat vẫn thuộc MEM-11.
+Phases 2.1–2.4 đã merge qua PR #86; backend catalog/selection/BYOK và public adapter đã merge qua PR #88. [MEM-77](../mem-77-provider-backend/plan.md) tiếp tục UI quản trị provider/model, Tenant/Persona model default, inference self-host vận hành thật và tích hợp OpenAI-compatible qua native binding. MEM-77 dùng SmolLM2-135M của MEM-66 làm model nghiệm thu ban đầu; không yêu cầu model lớn hơn hoặc chất lượng câu trả lời cao hơn để đóng issue. Bằng chứng MEM-66 không thay nghiệm thu runtime/tích hợp trên máy đích. Main `0310a24` đã có Chat model selector và Persona editor thuộc MEM-11; lần tích hợp MEM-77 giữ nguyên các flow này và JPA lifecycle mới. Access UI mới vẫn hoãn, quyền và ownership hiện có vẫn được kiểm.
 
 ## Phạm vi PR đang triển khai — chốt ngày 2026-09-10
 

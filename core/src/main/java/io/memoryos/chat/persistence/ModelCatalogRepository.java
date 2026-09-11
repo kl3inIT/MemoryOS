@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ModelSettings;
 import java.sql.Types;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -37,6 +40,23 @@ public class ModelCatalogRepository {
                         boolean visible, ModelSettings settings, long revision) {}
     public record Default(@Nullable UUID modelConfigurationId, long revision) {}
     public record PersonaModel(UUID personaId, @Nullable UUID modelConfigurationId, long revision) {}
+    public record PersonaSummary(UUID id, String name) {}
+
+    public boolean personaExists(UUID tenant, UUID actor, UUID persona) {
+        return jdbc.sql("""
+                SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND id=:id
+                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor))
+                """).param("tenant", tenant).param("actor", actor).param("id", persona).query(Boolean.class).single();
+    }
+
+    public List<PersonaSummary> personas(UUID tenant, UUID actor, @Nullable UUID after, int limit) {
+        return jdbc.sql("""
+                SELECT id, name FROM persona WHERE tenant_id=:tenant
+                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
+                """ + (after == null ? "" : " AND id > :after") + " ORDER BY id LIMIT :limit")
+                .param("tenant", tenant).param("actor", actor).param("after", after, Types.OTHER).param("limit", limit)
+                .query((row, number) -> new PersonaSummary(row.getObject("id", UUID.class), row.getString("name"))).list();
+    }
 
     public boolean initialize(UUID tenant) {
         return jdbc.sql("INSERT INTO chat_model_default(tenant_id) VALUES (:tenant) ON CONFLICT DO NOTHING")
@@ -44,7 +64,25 @@ public class ModelCatalogRepository {
     }
 
     public List<Provider> providers(UUID tenant) {
-        return providers.findByTenantIdOrderByNameAscIdAsc(tenant, PageRequest.of(0, 64)).stream().map(ModelCatalogRepository::provider).toList();
+        var groups = associationIndex(tenant, "llm_provider_group", "group_id");
+        var personas = associationIndex(tenant, "llm_provider_persona", "persona_id");
+        return jdbc.sql("SELECT * FROM llm_provider WHERE tenant_id=:tenant ORDER BY name, id LIMIT 64")
+                .param("tenant", tenant).query((r, ignored) -> {
+                    UUID id = r.getObject("id", UUID.class);
+                    return new Provider(id, r.getObject("tenant_id", UUID.class), r.getString("name"), r.getString("adapter_type"),
+                            r.getString("base_url"), r.getBoolean("enabled"), r.getBoolean("is_public"), r.getString("credential"),
+                            r.getLong("revision"), Set.copyOf(groups.getOrDefault(id, Set.of())), Set.copyOf(personas.getOrDefault(id, Set.of())));
+                }).list();
+    }
+    private Map<UUID, Set<UUID>> associationIndex(UUID tenant, String table, String column) {
+        var index = new HashMap<UUID, Set<UUID>>();
+        // Identifiers are internal constants; Tenant values remain bound parameters.
+        jdbc.sql("SELECT provider_id, " + column + " FROM " + table + " WHERE tenant_id=:tenant")
+                .param("tenant", tenant).query((r, ignored) -> {
+                    index.computeIfAbsent(r.getObject(1, UUID.class), _ -> new HashSet<>()).add(r.getObject(2, UUID.class));
+                    return r.getObject(1, UUID.class);
+                }).list();
+        return index;
     }
     public Optional<Provider> provider(UUID tenant, UUID id) {
         return providers.findByTenantIdAndId(tenant, id).map(ModelCatalogRepository::provider);
@@ -97,15 +135,21 @@ public class ModelCatalogRepository {
         if (entity.revision() != revision) throw ChatException.conflict();
         entity.select(model); defaults.flush();
     }
-    public PersonaModel personaModel(UUID tenant, UUID persona) {
-        return jdbc.sql("SELECT id, model_configuration_id, model_revision FROM persona WHERE tenant_id=:tenant AND id=:id")
-                .param("tenant", tenant).param("id", persona)
+    public PersonaModel personaModel(UUID tenant, UUID actor, UUID persona) {
+        return jdbc.sql("""
+                SELECT id, model_configuration_id, model_revision FROM persona WHERE tenant_id=:tenant AND id=:id
+                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
+                """).param("tenant", tenant).param("actor", actor).param("id", persona)
                 .query((r, ignored) -> new PersonaModel(r.getObject(1, UUID.class), r.getObject(2, UUID.class), r.getLong(3)))
                 .optional().orElseThrow(ChatException::unavailable);
     }
-    public void setPersonaModel(UUID tenant, UUID persona, @Nullable UUID model, long revision) {
-        requireChanged(jdbc.sql("UPDATE persona SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1 WHERE tenant_id=:tenant AND id=:persona AND model_revision=:revision")
-                .param("tenant", tenant).param("persona", persona).param("model", model, Types.OTHER).param("revision", revision).update());
+    public void setPersonaModel(UUID tenant, UUID actor, UUID persona, @Nullable UUID model, long revision) {
+        requireChanged(jdbc.sql("""
+                UPDATE persona SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1
+                WHERE tenant_id=:tenant AND id=:persona AND model_revision=:revision
+                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
+                """).param("tenant", tenant).param("actor", actor).param("persona", persona)
+                .param("model", model, Types.OTHER).param("revision", revision).update());
     }
     public void deleteModel(UUID tenant, UUID model, long revision) {
         var entity = models.findByTenantIdAndId(tenant, model).orElseThrow(ChatException::unavailable);

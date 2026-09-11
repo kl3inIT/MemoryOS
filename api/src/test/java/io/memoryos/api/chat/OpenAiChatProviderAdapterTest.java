@@ -32,8 +32,7 @@ class OpenAiChatProviderAdapterTest {
         });
         server.start();
         var meters = new SimpleMeterRegistry();
-        try {
-            var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters)) {
             var connection = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
             for (String lowest : java.util.List.of("default", "none", "minimal", "low")) {
                 Map<String, Object> options = lowest.equals("default")
@@ -58,19 +57,18 @@ class OpenAiChatProviderAdapterTest {
         var generic = settings(Map.of("temperature", 0.3, "maxCompletionTokens", false), false);
         var reasoning = settings(Map.of("maxCompletionTokens", true, "reasoningEffort", "low"), true);
         var meters = new SimpleMeterRegistry();
-        try {
-            var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters)) {
             adapter.validate("http://model.internal/v1", "custom-deployment-name", generic);
             adapter.validate("https://api.example/v1", "reasoning-deployment-name", reasoning);
         } finally { meters.close(); }
-        var first = OpenAiChatProviderAdapter.binding("custom-deployment-name", generic, mock(ChatModel.class));
+        var first = OpenAiChatProviderAdapter.binding("custom-deployment-name", generic, mock(ChatModel.class), ChatTokenizerProfiles.hostedTokens());
         var options = (OpenAiChatOptions) first.service().convertOptions(new LlmOptions().withMaxTokens(100));
         assertEquals("custom-deployment-name", options.getModel());
         assertEquals(100, options.getMaxTokens());
         assertNull(options.getMaxCompletionTokens());
         assertEquals(0.3, options.getTemperature());
         assertNull(first.service().getPricingModel(), "Unknown pricing must not be reported as free");
-        var second = OpenAiChatProviderAdapter.binding("reasoning-deployment-name", reasoning, mock(ChatModel.class));
+        var second = OpenAiChatProviderAdapter.binding("reasoning-deployment-name", reasoning, mock(ChatModel.class), ChatTokenizerProfiles.hostedTokens());
         var secondOptions = (OpenAiChatOptions) second.service().convertOptions(new LlmOptions().withMaxTokens(100));
         assertNull(secondOptions.getMaxTokens());
         assertEquals(100, secondOptions.getMaxCompletionTokens());
@@ -87,8 +85,7 @@ class OpenAiChatProviderAdapterTest {
     @Test
     void rejectsUnknownOrMalformedOptionsBeforeAnyProviderRequest() {
         var meters = new SimpleMeterRegistry();
-        try {
-            var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters)) {
             for (var options : java.util.List.<Map<String, Object>>of(Map.of("apiKey", "must-not-be-an-option"),
                     Map.of("temperature", "hot"), Map.of("temperature", 3), Map.of("topP", Double.NaN),
                     Map.of("maxCompletionTokens", "true"), Map.of("reasoningEffort", "unlimited"),
@@ -98,6 +95,6 @@ class OpenAiChatProviderAdapterTest {
         } finally { meters.close(); }
     }
     private static ModelSettings settings(Map<String, Object> options, boolean reasoning) {
-        return new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, true, false, reasoning), options, null);
+        return new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, true, false, reasoning), options, null, "openai-o200k-v1");
     }
 }

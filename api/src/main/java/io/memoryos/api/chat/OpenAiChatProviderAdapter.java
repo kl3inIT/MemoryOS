@@ -5,9 +5,7 @@ import com.embabel.agent.openai.ModelCapabilities;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.OptionsConverter;
 import com.embabel.common.ai.model.PricingModel;
-import com.knuddels.jtokkit.api.EncodingType;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
-import com.openai.client.okhttp.OpenAIOkHttpClientAsync;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ChatProviderAdapter;
 import io.memoryos.chat.catalog.ModelCatalogService;
@@ -22,12 +20,11 @@ import java.util.Set;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
+import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /** OpenAI Chat Completions adapter. Hosted web/image tools are separate integrations. */
-public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
-    // O200K's vocabulary is immutable and large; share it across model configurations and revisions.
-    private static final JTokkitTokenCountEstimator TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, AutoCloseable {
+    private final ChatTokenizerProfiles tokenizers = new ChatTokenizerProfiles();
     private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort");
     private final ObservationRegistry observations;
     private final MeterRegistry meters;
@@ -37,9 +34,12 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     }
     @Override public String type() { return "openai"; }
     @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.REQUIRED; }
+    @Override public List<TokenizerProfile> tokenizerProfiles() { return ChatTokenizerProfiles.METADATA; }
+    @Override public void close() { tokenizers.close(); }
 
     @Override public void validate(String baseUrl, String modelName, ModelSettings settings) {
         ModelCatalogService.validateEndpoint(baseUrl);
+        ChatTokenizerProfiles.validate(settings);
         if (modelName == null || modelName.isBlank() || modelName.length() > 200 || !settings.capabilities().streaming())
             throw ChatException.invalid("Invalid streaming model configuration.");
         var options = settings.options();
@@ -68,21 +68,25 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     public Client create(Connection connection, String modelName, ModelSettings settings, Duration timeout) {
         validate(connection.baseUrl(), modelName, settings);
         if (connection.credential().isBlank()) throw ChatException.providerUnavailable();
-        var sync = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl()).apiKey(connection.credential())
-                .maxRetries(0).timeout(timeout).build();
+        var tokenizer = tokenizers.acquire(settings.tokenizerProfile());
         try {
-            var async = OpenAIOkHttpClientAsync.builder().baseUrl(connection.baseUrl()).apiKey(connection.credential())
+            var sync = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl()).apiKey(connection.credential())
                     .maxRetries(0).timeout(timeout).build();
             try {
-                var model = OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(async)
-                        .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
-                        .observationRegistry(observations).meterRegistry(meters).build();
-                return new Client(binding(modelName, settings, model), () -> { try { async.close(); } finally { sync.close(); } });
-            } catch (RuntimeException | Error failure) { async.close(); throw failure; }
-        } catch (RuntimeException | Error failure) { sync.close(); throw failure; }
+                var async = asyncClient(connection.baseUrl(), connection.credential(), timeout);
+                try {
+                    var model = async.decorate(view -> OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
+                            .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
+                            .observationRegistry(observations).meterRegistry(meters).build());
+                    return new Client(binding(modelName, settings, model, tokenizer.tokens()),
+                            () -> { try { async.close(); } finally { try { sync.close(); } finally { tokenizer.close(); } } });
+                } catch (RuntimeException | Error failure) { async.close(); throw failure; }
+            } catch (RuntimeException | Error failure) { sync.close(); throw failure; }
+        } catch (RuntimeException | Error failure) { tokenizer.close(); throw failure; }
     }
 
-    static ChatModelBinding binding(String name, ModelSettings settings, ChatModel model) {
+    static ChatModelBinding binding(String name, ModelSettings settings, ChatModel model, TokenCountEstimator tokens) {
+        ChatTokenizerProfiles.validate(settings);
         boolean completionTokens = Boolean.TRUE.equals(settings.options().get("maxCompletionTokens"));
         var nativeConverter = new CapabilityAwareOpenAiOptionsConverter(completionTokens ? ModelCapabilities.GPT5_FAMILY : ModelCapabilities.DEFAULT);
         OptionsConverter converter = (options, modelName) -> {
@@ -105,8 +109,12 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         var price = settings.pricing();
         var service = new SpringAiLlmService(name, "OpenAI", model, converter, null, List.of(),
                 price == null ? null : PricingModel.usdPer1MTokens(price.inputPerMillion(), price.outputPerMillion()), settings.capabilities().reasoning());
-        return new ChatModelBinding(service, OpenAiChatProviderConfiguration::withoutTools,
-                TOKENS, settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling());
+        return new ChatModelBinding(service, OpenAiChatRequestPolicy::withoutTools,
+                OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling());
+    }
+
+    static OpenAiCancellation asyncClient(String baseUrl, String credential, Duration timeout) {
+        return new OpenAiCancellation(baseUrl, credential, timeout);
     }
 
     private static void number(Map<String, Object> options, String key, double min, double max) {

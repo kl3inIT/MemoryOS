@@ -2,10 +2,16 @@ package io.memoryos.api.chat;
 
 import io.memoryos.chat.catalog.ChatProviderAdapters;
 import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.ModelCatalogService.ModelInput;
-import io.memoryos.chat.catalog.ModelCatalogService.ProviderInput;
-import io.memoryos.chat.catalog.ModelCatalogService.ProviderView;
-import io.memoryos.chat.persistence.ModelCatalogRepository;
+import io.memoryos.api.chat.contract.AvailableChatModelResponse;
+import io.memoryos.api.chat.contract.ChatModelDefaultResponse;
+import io.memoryos.api.chat.contract.ChatModelRequest;
+import io.memoryos.api.chat.contract.ChatModelResponse;
+import io.memoryos.api.chat.contract.ChatModelValidationResponse;
+import io.memoryos.api.chat.contract.ChatPersonaModelResponse;
+import io.memoryos.api.chat.contract.ChatPersonaPageResponse;
+import io.memoryos.api.chat.contract.ChatProviderAdapterResponse;
+import io.memoryos.api.chat.contract.ChatProviderRequest;
+import io.memoryos.api.chat.contract.ChatProviderResponse;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -56,35 +62,35 @@ class ChatModelCatalogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/models")
     @Operation(operationId = "listAvailableChatModels", summary = "List visible models authorized for this session or the builtin Persona")
-    List<ModelCatalogService.AvailableModel> available(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    List<AvailableChatModelResponse> available(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                                                        @RequestParam(required = false) @Nullable UUID sessionId) {
-        return catalog.availableModels(identity.actorId(), sessionId);
+        return catalog.availableModels(identity.actorId(), sessionId).stream().map(AvailableChatModelResponse::from).toList();
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/provider-adapters")
     @Operation(operationId = "listChatProviderAdapters", summary = "List installed adapter types and credential requirements; requires model management")
-    List<ChatProviderAdapters.Descriptor> adapters(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    List<ChatProviderAdapterResponse> adapters(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         catalog.requireModelsManage(identity.actorId());
-        return adapters.available();
+        return adapters.available().stream().map(ChatProviderAdapterResponse::from).toList();
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/providers")
     @Operation(operationId = "listChatProviders", summary = "List Tenant provider configuration with credentials redacted")
-    List<ProviderView> providers(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return catalog.providers(identity.actorId());
+    List<ChatProviderResponse> providers(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return catalog.providers(identity.actorId()).stream().map(ChatProviderResponse::from).toList();
     }
     @PostMapping("/providers")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatProvider", summary = "Create a Tenant provider; requires MODELS_MANAGE")
-    ProviderView createProvider(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ProviderInput request) {
-        return catalog.createProvider(identity.actorId(), request);
+    ChatProviderResponse createProvider(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ChatProviderRequest request) {
+        return ChatProviderResponse.from(catalog.createProvider(identity.actorId(), request.toInput()));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/providers/{providerId}")
     @Operation(operationId = "updateChatProvider", summary = "Replace provider settings at the expected revision; credential action is explicit")
-    ProviderView updateProvider(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID providerId, @RequestParam @Positive long revision, @RequestBody ProviderInput request) {
-        return catalog.updateProvider(identity.actorId(), providerId, revision, request);
+    ChatProviderResponse updateProvider(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID providerId, @RequestParam @Positive long revision, @RequestBody ChatProviderRequest request) {
+        return ChatProviderResponse.from(catalog.updateProvider(identity.actorId(), providerId, revision, request.toInput()));
     }
     @DeleteMapping("/providers/{providerId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -96,22 +102,22 @@ class ChatModelCatalogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/providers/{providerId}/models")
     @Operation(operationId = "listConfiguredChatModels", summary = "List all configured models on a provider; requires model management")
-    List<ModelCatalogRepository.Model> configured(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID providerId) {
-        return catalog.models(identity.actorId(), providerId);
+    List<ChatModelResponse> configured(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID providerId) {
+        return catalog.models(identity.actorId(), providerId).stream().map(ChatModelResponse::from).toList();
     }
     @PostMapping("/providers/{providerId}/models")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatModel", summary = "Add a concrete model configuration to a Tenant provider")
-    ModelCatalogRepository.Model createModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-                                                @PathVariable UUID providerId, @RequestBody ModelInput request) {
-        return catalog.createModel(identity.actorId(), providerId, request);
+    ChatModelResponse createModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                                @PathVariable UUID providerId, @RequestBody ChatModelRequest request) {
+        return ChatModelResponse.from(catalog.createModel(identity.actorId(), providerId, request.toInput()));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/models/{modelId}")
     @Operation(operationId = "updateChatModel", summary = "Replace a model configuration at the expected revision")
-    ModelCatalogRepository.Model updateModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID modelId, @RequestParam @Positive long revision, @RequestBody ModelInput request) {
-        return catalog.updateModel(identity.actorId(), modelId, revision, request);
+    ChatModelResponse updateModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID modelId, @RequestParam @Positive long revision, @RequestBody ChatModelRequest request) {
+        return ChatModelResponse.from(catalog.updateModel(identity.actorId(), modelId, revision, request.toInput()));
     }
     @DeleteMapping("/models/{modelId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -123,33 +129,45 @@ class ChatModelCatalogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/model-default")
     @Operation(operationId = "getChatModelDefault", summary = "Read the Tenant Chat default and its revision; requires model management")
-    ModelCatalogRepository.Default defaultModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return catalog.defaultModel(identity.actorId());
+    ChatModelDefaultResponse defaultModel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return ChatModelDefaultResponse.from(catalog.defaultModel(identity.actorId()));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/model-default")
     @Operation(operationId = "setChatModelDefault", summary = "Set a visible, publicly available Tenant Chat default")
-    ModelCatalogRepository.Default setDefault(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatModelDefaultResponse setDefault(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam UUID modelConfigurationId, @RequestParam @Positive long revision) {
-        return catalog.setDefault(identity.actorId(), modelConfigurationId, revision);
+        return ChatModelDefaultResponse.from(catalog.setDefault(identity.actorId(), modelConfigurationId, revision));
+    }
+    @ApiResponse(responseCode = "200", description = "Tenant Persona page", useReturnTypeSchema = true)
+    @GetMapping("/model-personas")
+    @Operation(operationId = "listChatModelPersonas", summary = "List builtin and actor-owned Personas for model selection; requires MODELS_MANAGE")
+    ChatPersonaPageResponse personas(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Parameter(description = "Canonical last-returned UUID; must identify an accessible, nondeleted Persona",
+                    schema = @Schema(type = "string", format = "uuid", minLength = 36, maxLength = 36))
+            @RequestParam(required = false) @Nullable String cursor,
+            @Parameter(schema = @Schema(type = "integer", format = "int32", minimum = "1", maximum = "100", defaultValue = "25"))
+            @RequestParam(defaultValue = "25") int limit) {
+        return ChatPersonaPageResponse.from(catalog.personas(identity.actorId(), cursor, limit));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/personas/{personaId}/model")
     @Operation(operationId = "getPersonaModel", summary = "Read the Persona model selection and revision; requires model management")
-    ModelCatalogRepository.PersonaModel persona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID personaId) {
-        return catalog.personaModel(identity.actorId(), personaId);
+    ChatPersonaModelResponse persona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID personaId) {
+        return ChatPersonaModelResponse.from(catalog.personaModel(identity.actorId(), personaId));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/personas/{personaId}/model")
     @Operation(operationId = "setPersonaModel", summary = "Set a Persona model or omit the model ID to inherit the Chat default")
-    ModelCatalogRepository.PersonaModel setPersona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatPersonaModelResponse setPersona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID personaId, @RequestParam(required = false) @Nullable UUID modelConfigurationId, @RequestParam @Positive long revision) {
-        return catalog.setPersonaModel(identity.actorId(), personaId, modelConfigurationId, revision);
+        return ChatPersonaModelResponse.from(catalog.setPersonaModel(identity.actorId(), personaId, modelConfigurationId, revision));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PostMapping("/models/{modelId}/validate")
     @Operation(operationId = "validateChatModel", summary = "Explicit bounded provider connectivity check; does not certify model capabilities")
-    ChatModelValidation.Result validate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID modelId) {
-        return validation.validate(identity.actorId(), modelId);
+    ChatModelValidationResponse validate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID modelId) {
+        var result = validation.validate(identity.actorId(), modelId);
+        return new ChatModelValidationResponse(result.reachable(), result.failureCode());
     }
 }

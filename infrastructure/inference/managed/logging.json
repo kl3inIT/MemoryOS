@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "safe": {"()": "runtime.SafeDiagnosticFormatter"}
+  },
+  "handlers": {
+    "safe": {
+      "class": "logging.StreamHandler",
+      "stream": "ext://sys.stderr",
+      "formatter": "safe"
+    }
+  },
+  "root": {"level": "INFO", "handlers": ["safe"]},
+  "loggers": {
+    "vllm": {"level": "INFO", "handlers": ["safe"], "propagate": false},
+    "uvicorn": {"level": "WARNING", "handlers": ["safe"], "propagate": false},
+    "uvicorn.error": {"level": "WARNING", "handlers": ["safe"], "propagate": false},
+    "uvicorn.access": {"level": "WARNING", "handlers": ["safe"], "propagate": false}
+  }
+}

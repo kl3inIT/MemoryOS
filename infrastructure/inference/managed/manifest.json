@@ -1,0 +1,314 @@
+{
+  "manifestVersion": 1,
+  "candidateId": "smollm2-135m-12fd25f-candidate-1",
+  "status": "managed-source-implemented-runtime-qualification-pending",
+  "model": {
+    "repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+    "license": "Apache-2.0",
+    "modelCardUrl": "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/README.md",
+    "assetBaseUrl": "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/",
+    "servedModelName": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "dtype": "bfloat16",
+    "quantization": null,
+    "capabilities": {
+      "streaming": true,
+      "tools": false,
+      "vision": false,
+      "reasoning": false
+    },
+    "limitations": [
+      "Primarily English; Vietnamese encoding is not a Vietnamese answer-quality guarantee.",
+      "Generated claims may be inaccurate, logically inconsistent or biased.",
+      "No larger-model or language-quality benchmark is a prerequisite."
+    ],
+    "files": [
+      {
+        "path": "config.json",
+        "sizeBytes": 861,
+        "sha256": "8eb740e8bbe4cff95ea7b4588d17a2432deb16e8075bc5828ff7ba9be94d982a"
+      },
+      {
+        "path": "generation_config.json",
+        "sizeBytes": 132,
+        "sha256": "87b916edaaab66b3899b9d0dd0752727dff6666686da0504d89ae0a6e055a013"
+      },
+      {
+        "path": "tokenizer.json",
+        "sizeBytes": 2104556,
+        "sha256": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "sizeBytes": 3764,
+        "sha256": "4ec77d44f62efeb38d7e044a1db318f6a939438425312dfa333b8382dbad98df"
+      },
+      {
+        "path": "special_tokens_map.json",
+        "sizeBytes": 655,
+        "sha256": "2b7379f3ae813529281a5c602bc5a11c1d4e0a99107aaa597fe936c1e813ca52"
+      },
+      {
+        "path": "model.safetensors",
+        "sizeBytes": 269060552,
+        "sha256": "5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c"
+      }
+    ],
+    "chatTemplate": {
+      "source": "tokenizer_config.json#/chat_template",
+      "encoding": "UTF-8",
+      "sizeBytes": 368,
+      "sha256": "872be49dbb638044ad01b60388f48d469ff2980e5f0dccdc22ec907db54d0788"
+    },
+    "totalAssetBytesIncludingTemplate": 271170888,
+    "candidateTokenizerProfile": "smollm2-135m-12fd25f-v1",
+    "tokenizerProfile": "smollm2-135m-12fd25f-v1"
+  },
+  "images": {
+    "engine": {
+      "reference": "vllm/vllm-openai-cpu:v0.28.0-x86_64@sha256:ea8b61f8ccab650e1c369105373863ac12a581b53f289b344cea72a09238e131",
+      "platform": "linux/amd64",
+      "localImageSizeBytes": 1779899934
+    },
+    "gateway": {
+      "reference": "nginx:1.28.0-alpine@sha256:30f1c0d78e0ad60901648be663a710bdadf19e4c10ac6782c235200619158284",
+      "platform": "linux/amd64",
+      "localImageSizeBytes": 21015643
+    }
+  },
+  "provisionalRuntime": {
+    "contextTokens": 1024,
+    "maxOutputTokens": 128,
+    "maxRequestBodyBytes": 16384,
+    "maxBatchedTokens": 1024,
+    "maxSequences": 1,
+    "generationSlots": 1,
+    "queueCapacity": 0,
+    "queueWaitMilliseconds": 0,
+    "excessStatus": 429,
+    "engine": {
+      "cpuQuota": 2,
+      "memoryLimitBytes": 4294967296,
+      "memoryAndSwapLimitBytes": 4294967296,
+      "sharedMemoryBytes": 1073741824,
+      "kvCacheBytes": 1073741824,
+      "uid": 1654,
+      "gid": 1654
+    },
+    "gateway": {
+      "cpuQuota": 0.25,
+      "memoryLimitBytes": 100663296,
+      "uid": 1654,
+      "gid": 1654
+    },
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "VLLM_CPU_OMP_THREADS_BIND": "nobind",
+      "VLLM_CPU_KVCACHE_SPACE": "1",
+      "VLLM_MAX_N_SEQUENCES": "1",
+      "HF_HUB_OFFLINE": "1",
+      "HF_HUB_DISABLE_TELEMETRY": "1",
+      "VLLM_NO_USAGE_STATS": "1",
+      "DO_NOT_TRACK": "1"
+    },
+    "serverGenerationOverride": {
+      "max_new_tokens": 128
+    },
+    "chatDeadlineSeconds": 120,
+    "validateDeadlineSeconds": 15,
+    "connectTimeoutSeconds": 5,
+    "sendInactivitySeconds": 30,
+    "readInactivitySeconds": 120,
+    "automaticRetries": 0,
+    "rootFilesystemReadOnly": true,
+    "noNewPrivileges": true,
+    "addedCapabilities": [],
+    "assetMountReadOnly": true,
+    "runtimeCacheSeparateFromAssets": true,
+    "downloadEgressDuringServing": false,
+    "qualificationRequired": [
+      "Full native system/user/history framing and serialized Unicode body fit in Phases 3-4; 896 is only the theoretical total prompt budget, not a user-text allowance.",
+      "Server output/fan-out/admission controls and non-root vLLM/nginx execution in Phase 2; the Phase 1 probe proves only Python/tokenizer access.",
+      "AVX2 execution is a candidate supported path, not native BF16 or AVX-512 hardware acceleration.",
+      "Preserve hosted bootstrap/default, unknown local prices and existing global Chat/Validate admission."
+    ]
+  },
+  "hostRequirements": {
+    "os": "Linux",
+    "architecture": "x86_64",
+    "minimumCpuFlags": [
+      "avx2"
+    ],
+    "gpuRequired": false,
+    "cgroupControls": [
+      "CPU CFS quota",
+      "memory limit",
+      "memory-plus-swap limit",
+      "PIDs limit"
+    ],
+    "minimumAvailableMemoryBeforeStartBytes": 5469372416,
+    "minimumAvailableMemoryDuringRunBytes": 1073741824,
+    "minimumFreeDiskBeforeProvisioningBytes": 17179869184,
+    "minimumFreeDiskDuringRunBytes": 4294967296,
+    "diskBudgetBytes": {
+      "currentAndPreviousImages": 4294967296,
+      "currentAndPreviousAssets": 1073741824,
+      "currentAndPreviousRuntimeCaches": 4294967296,
+      "provisioningTemporarySpace": 2147483648,
+      "boundedLogs": 67108864,
+      "freeReserve": 4294967296
+    },
+    "diskBudgetIsQuota": false,
+    "checks": "Measure the actual Docker/cache filesystem and physical backing drive; co-location additionally requires the paired application/Docling workload. On Docker Desktop, conservatively apply the memory pre-start floor to both guest MemAvailable and Windows available memory."
+  },
+  "acceptanceThresholds": {
+    "status": "predeclared-gates-not-measured-results",
+    "coldStartSeconds": 600,
+    "warmOfflineStartSeconds": 300,
+    "firstNonemptyContentP95Seconds": 5,
+    "generationE2EP95Seconds": 20,
+    "generationE2EMaxSeconds": 60,
+    "stopOrDeadlineReleaseSeconds": 5,
+    "postReleaseObservationSeconds": 8,
+    "rejectionResponseMaxSeconds": 1,
+    "authenticatedModelListMaxSeconds": 2,
+    "startupRepeatsEach": 3,
+    "serialGenerationSamples": 30,
+    "burstConcurrency": 3,
+    "burstRepeats": 10,
+    "collisionRepeatsPerOrdering": 10,
+    "pairedBaselineAndCoLoadDurationSecondsEach": 1800,
+    "generationArrivalIntervalSeconds": 30,
+    "searchArrivalIntervalSeconds": 10,
+    "doclingArrivalIntervalSeconds": 60,
+    "maximumApplicationP95LatencyRegressionPercent": 20,
+    "maximumHostCpuP95Percent": 85,
+    "maximumOomOrUnexpectedRestarts": 0,
+    "maximumSwapGrowthBytes": 0,
+    "resourceSampleIntervalSeconds": 1,
+    "protocol": "design.md#phase-1-measurement-protocol"
+  },
+  "candidateTopology": {
+    "host": "Current Windows workstation, docker-desktop Linux VM; not the accepted target host.",
+    "operatorPrincipal": "Current interactive checkout operator, Windows account Gigabyte.",
+    "layout": "One Linux Docker host; separate internal API-to-gateway and gateway-to-engine networks.",
+    "apiBaseUrl": "http://inference-gateway:8080/v1",
+    "engineUrl": "http://vllm:8000",
+    "clientNetworkMembers": [
+      "api",
+      "inference-gateway"
+    ],
+    "backendNetworkMembers": [
+      "inference-gateway",
+      "vllm",
+      "authorized Prometheus only"
+    ],
+    "publishedModelPorts": [],
+    "crossHostTransport": "Requires explicit private routing and protected transport; these Docker aliases are not cross-host addresses.",
+    "connectivityStatus": "Not deployed or probed; target owner and authenticated target access required.",
+    "inferenceKey": {
+      "proposedSecretReference": "MEMORYOS_INFERENCE_API_KEY",
+      "provisioned": false,
+      "mountPath": "/run/secrets/inference_api_key",
+      "uid": 1654,
+      "gid": 1654,
+      "mode": "0400"
+    },
+    "catalogCredential": "Normal manager-only catalog write with encrypted BYOK; no new deployment-reference resolver.",
+    "catalogEncryptionKeyReference": "MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY"
+  },
+  "managedRuntime": {
+    "manifestPath": "/opt/memoryos-inference/manifest.json",
+    "assetsRoot": "/var/lib/memoryos-inference/assets",
+    "revisionDirectory": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+    "templateFile": "chat-template.jinja",
+    "cacheRoot": "/var/cache/memoryos-inference",
+    "maintenanceFile": "/var/lib/memoryos-inference/control/maintenance",
+    "keyFile": "/run/secrets/inference_api_key",
+    "clientNetwork": "memoryos-inference-client",
+    "backendNetwork": "memoryos-inference-backend",
+    "enginePort": 8000,
+    "gatewayPort": 8080,
+    "enginePidsLimit": 256,
+    "gatewayPidsLimit": 32,
+    "restartPolicy": "on-failure:3",
+    "engineStopGraceSeconds": 150,
+    "gatewayStopGraceSeconds": 150,
+    "gatewayWorkerShutdownSeconds": 130,
+    "gatewayContainerLocalHealthPort": 8081,
+    "workerConnections": 128,
+    "listenBacklog": 64,
+    "maxHeaderBufferBytes": 4096,
+    "largeHeaderBuffers": 2,
+    "headerTimeoutSeconds": 10,
+    "bodyTimeoutSeconds": 10,
+    "keepaliveTimeoutSeconds": 5,
+    "keepaliveRequests": 100,
+    "provisioning": {
+      "httpsOnly": true,
+      "maxRedirects": 5,
+      "totalTimeoutSeconds": 900,
+      "socketTimeoutSeconds": 15,
+      "chunkBytes": 1048576,
+      "maximumAssetBytes": 536870912,
+      "minimumFreeReserveBytes": 4294967296
+    },
+    "launcherFiles": [
+      {
+        "path": "runtime.py",
+        "sha256": "7e2f4a31dc7e9b8c5ff2caff96d19ae57754f91756a96996b27ed0b24e4b1499"
+      },
+      {
+        "path": "provision.py",
+        "sha256": "ea0aff63ae9aebb3d76c2b70589f9d4931ccca8928d66e89d05bb5dce36fb5ca"
+      },
+      {
+        "path": "probe.py",
+        "sha256": "b260aeb612d1469f93be43437c58db1dbd2cf1e555a337ff87caa597b7091780"
+      },
+      {
+        "path": "start-vllm.py",
+        "sha256": "173dddffc71b774504e831c8c04ebe5387f7bca57d51c082fc3975d6ea825c29"
+      },
+      {
+        "path": "start-gateway.sh",
+        "sha256": "6fe3215f9b35296afaf63066b5fe7d7e19c3c18b0af2cabd743e4e2e9b015abe"
+      },
+      {
+        "path": "nginx.conf",
+        "sha256": "7f2df6d69179dbf052ad166989189741e5e07028d79c85a2e736c157bcc146c9"
+      },
+      {
+        "path": "logging.json",
+        "sha256": "17e071e1b80ccd5e42bc199b2fa09e7001abe1d2e4dccfb20d316aeb45b09770"
+      }
+    ],
+    "sourceQualification": {
+      "status": "source-inspected-not-executed-in-digest-image",
+      "serverOutputArguments": [
+        "--generation-config=auto",
+        "--override-generation-config={\"max_new_tokens\":128}"
+      ],
+      "fanoutEnvironment": {
+        "VLLM_MAX_N_SEQUENCES": "1"
+      },
+      "references": [
+        "https://github.com/vllm-project/vllm/blob/v0.28.0/vllm/config/model.py",
+        "https://github.com/vllm-project/vllm/blob/v0.28.0/vllm/entrypoints/openai/chat_completion/serving.py",
+        "https://github.com/vllm-project/vllm/blob/v0.28.0/vllm/entrypoints/serve/utils/api_utils.py",
+        "https://github.com/vllm-project/vllm/blob/v0.28.0/vllm/sampling_params.py",
+        "https://nginx.org/en/docs/http/ngx_http_limit_conn_module.html"
+      ],
+      "requiredExecutionCases": [
+        "omitted max_tokens",
+        "max_tokens above128",
+        "max_completion_tokens above128",
+        "n greater than1 rejected",
+        "overlapping generation returns429",
+        "models succeeds during generation",
+        "maintenance returns503 without interrupting SSE"
+      ]
+    }
+  }
+}

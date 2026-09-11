@@ -1,0 +1,12 @@
+# Layer over the normal application Compose files, not the standalone serving
+# project. Inference must be independently provisioned/started by its lifecycle.
+# No inference dependency or inference-backed aggregate application health check.
+services:
+  api:
+    networks:
+      memoryos-inference-client:
+
+networks:
+  memoryos-inference-client:
+    name: ${MEMORYOS_INFERENCE_CLIENT_NETWORK:-memoryos-inference-client}
+    external: true

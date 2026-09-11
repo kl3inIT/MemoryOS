@@ -45,7 +45,7 @@ public class ChatTurnPersistence {
     }
 
     public record ModelSelection(@Nullable UUID requestedId, UUID selectedId, @Nullable String fallbackReason,
-                                 ChatModelBinding binding, @Nullable String contextRevision) {}
+                                 ChatModelBinding binding, @Nullable String contextRevision, String promptContribution) {}
 
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
@@ -90,8 +90,13 @@ public class ChatTurnPersistence {
             throw ChatException.conflict();
         int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
                 : Math.min(contextTokenLimit, settings.options().contextTokenLimit());
-        if (selection == null) ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext);
-        else ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext, selection.binding().forOptions(settings.options()));
+        String instructions = settings.instructions();
+        if (selection == null) ChatTurnSetup.validateQuestion(instructions, text, effectiveContext);
+        else {
+            var binding = selection.binding().forOptions(settings.options());
+            instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions, binding.toolCalling(), Instant.now());
+            ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
+        }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
         UUID assistant = UUID.randomUUID();
         if (command.operation() == ChatCommand.Operation.REGENERATE) chats.insertAssistant(sessionId, user, assistant, timeout);
@@ -101,7 +106,7 @@ public class ChatTurnPersistence {
                 assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());
         chats.saveCommand(sessionId, command, user, assistant, selection == null ? null : selection.selectedId(),
                 selection == null ? null : selection.fallbackReason());
-        var context = new TurnContext(actor, tenant, settings.model(), settings.instructions(), chats.context(sessionId, user, 200),
+        var context = new TurnContext(actor, tenant, settings.model(), instructions, chats.context(sessionId, user, 200),
                 chats.control(assistant).deadline(), settings.options());
         return new Reservation(user, assistant, true, selection == null ? null : selection.selectedId(), selection == null ? null : selection.fallbackReason(), context);
     }

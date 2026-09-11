@@ -3,6 +3,11 @@ package io.memoryos.chat.execution;
 import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.streaming.StreamingPromptRunnerBuilder;
 import com.embabel.agent.core.AgentProcessRepository;
+import com.embabel.common.ai.model.LlmOptions;
+import com.embabel.common.ai.prompt.CurrentDate;
+import com.embabel.common.ai.prompt.PromptContributor;
+import java.util.List;
+import java.util.Set;
 import com.embabel.agent.core.Budget;
 import com.embabel.agent.api.tool.Tool;
 import io.memoryos.chat.ChatSearchEvent;
@@ -54,12 +59,11 @@ public final class ChatModelExecutor {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         int maxOutput = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
-        var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
-                new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
-                selected.finalRequest());
         int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
-        guard.contextLimit(selected.tokens(), contextLimit);
+        var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
+                new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
+                selected.policy(), contextLimit, selected.finalRequest());
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
@@ -67,7 +71,9 @@ public final class ChatModelExecutor {
         try {
             var nativeService = selected.withModel(guard);
             var service = new StreamingLlmService(nativeService);
-            var runner = context.ai().withLlmService(service);
+            // Date was frozen into the admitted system message. Override Embabel's automatic date by role.
+            var runner = context.promptRunner(new LlmOptions(), Set.of(), List.of(),
+                    List.of(PromptContributor.fixed("", new CurrentDate().getRole())), List.of(), false).withLlmService(service);
             runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withMaxTokens(maxOutput))
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             var messages = new ArrayList<>(setup.messages());
@@ -75,7 +81,7 @@ public final class ChatModelExecutor {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
-                searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.tokens(), searchLimits,
+                searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds());
                 guard.evidenceAvailable(searchTool::hasEvidence);
                 runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);

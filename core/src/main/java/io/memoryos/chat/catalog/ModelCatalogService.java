@@ -10,6 +10,7 @@ import io.memoryos.iam.ActorId;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.iam.TenantId;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
@@ -58,6 +59,9 @@ public class ModelCatalogService {
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
     public record Selection(Model model, Provider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
         public Selection(Model model, Provider provider, @Nullable String fallbackReason) { this(model, provider, fallbackReason, null); }
+    }
+    public record PersonaPage(List<ModelCatalogRepository.PersonaSummary> items, @Nullable String nextCursor) {
+        public PersonaPage { items = List.copyOf(items); }
     }
 
     @Transactional
@@ -177,22 +181,43 @@ public class ModelCatalogService {
     }
 
     @Transactional
+    public PersonaPage personas(ActorId actor, @Nullable String cursor, int limit) {
+        UUID tenant = admin(actor, false);
+        if (limit < 1 || limit > 100) throw ChatException.invalid("Persona page limit must be between 1 and 100.");
+        UUID after = null;
+        if (cursor != null) {
+            try {
+                after = UUID.fromString(cursor);
+                if (!after.toString().equals(cursor)) throw new IllegalArgumentException();
+            } catch (IllegalArgumentException invalid) {
+                throw ChatException.invalid("Invalid Persona cursor.");
+            }
+            if (!catalog.personaExists(tenant, actor.value(), after)) throw ChatException.invalid("Invalid Persona cursor.");
+        }
+        chats.provisionPersona(new TenantId(tenant), persona.getName(), persona.getInstructions(), persona.getModel());
+        var page = catalog.personas(tenant, actor.value(), after, limit + 1);
+        boolean hasMore = page.size() > limit;
+        var items = hasMore ? page.subList(0, limit) : page;
+        return new PersonaPage(items, hasMore ? items.getLast().id().toString() : null);
+    }
+
+    @Transactional
     public ModelCatalogRepository.PersonaModel personaModel(ActorId actor, UUID id) {
-        return catalog.personaModel(admin(actor, false), id);
+        return catalog.personaModel(admin(actor, false), actor.value(), id);
     }
 
     @Transactional
     public ModelCatalogRepository.PersonaModel setPersonaModel(ActorId actor, UUID id, @Nullable UUID modelId, long revision) {
         UUID tenant = admin(actor, true);
         initialize(tenant);
-        catalog.personaModel(tenant, id);
+        catalog.personaModel(tenant, actor.value(), id);
         if (modelId != null) {
             var model = catalog.model(tenant, modelId).orElseThrow(ChatException::unavailable);
             var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
             if (!available(provider, id, true, Set.of())) throw ChatException.invalid("Model is unavailable to this Persona.");
         }
-        catalog.setPersonaModel(tenant, id, modelId, revision);
-        return catalog.personaModel(tenant, id);
+        catalog.setPersonaModel(tenant, actor.value(), id, modelId, revision);
+        return catalog.personaModel(tenant, actor.value(), id);
     }
 
     @Transactional
@@ -321,7 +346,10 @@ public class ModelCatalogService {
     }
     private void validateModel(Provider provider, String name, ModelSettings settings) {
         if (settings == null || !settings.capabilities().streaming()) throw ChatException.invalid("Chat requires a streaming model.");
-        adapters.require(provider.adapterType()).validate(provider.baseUrl(), name, settings);
+        var adapter = adapters.require(provider.adapterType());
+        if (adapter.tokenizerProfiles().stream().noneMatch(profile -> profile.id().equals(settings.tokenizerProfile())))
+            throw ChatException.invalid("Unsupported tokenizer profile for this provider adapter.");
+        adapter.validate(provider.baseUrl(), name, settings);
     }
     private ProviderView view(Provider p) {
         return new ProviderView(p.id(), p.name(), p.adapterType(), p.baseUrl(), p.enabled(), p.isPublic(), p.groupIds(), p.personaIds(),
