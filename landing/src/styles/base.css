@@ -8,6 +8,8 @@
   html {
     font-family: var(--font-sans);
     scroll-behavior: smooth;
+    /* Keeps in-page anchor targets clear of the sticky header (h-16). */
+    scroll-padding-top: 4rem;
   }
 
   body {
