@@ -20,7 +20,7 @@ Design: [design.md](design.md). Content decisions are fixed there; do not add st
 | `landing/.gitignore`, `.dockerignore`, `.oxlintrc.json`, `.oxfmtrc.json` | Local tooling boundaries |
 | `landing/tsconfig*.json`, `vite.config.ts`, `vitest.config.ts` | Build, typecheck and test configuration |
 | `landing/index.html` | Title, description, canonical, Open Graph/Twitter, JSON-LD |
-| `landing/public/*` | Favicon, OG image, robots, sitemap, third-party notices |
+| `landing/public/*` | Favicon, OG image, robots, sitemap, third-party notices, pre-paint `theme-init.js` |
 | `landing/scripts/font-data-url.mjs`, `assert-font-assets.mjs`, `font-data-url.test.mjs` | CSP-compatible font assertion (copied from `web/`) |
 | `landing/scripts/og-image.html` | Source of `public/og-image.png` |
 | `landing/scripts/smoke-image.sh` | Runtime contract of the built image |
@@ -28,8 +28,9 @@ Design: [design.md](design.md). Content decisions are fixed there; do not add st
 | `landing/src/content.ts` | Every string, link and list on the page |
 | `landing/src/components/*` | `ActionLink`, `Section`, `BrandMark` |
 | `landing/src/sections/*` | One file per page section |
-| `landing/src/styles/*`, `index.css` | Tokens, Tailwind theme mapping, base layer |
-| `landing/src/App.test.tsx`, `tests/site-metadata.test.mjs` | Page and metadata contracts |
+| `landing/src/styles/*`, `index.css` | Light and dark tokens, Tailwind theme mapping, base layer |
+| `landing/src/lib/theme.ts` | Theme toggle state, storage and system-preference tracking |
+| `landing/src/App.test.tsx`, `src/lib/theme.test.ts`, `tests/site-metadata.test.mjs` | Page, theme and metadata contracts |
 | `landing/Dockerfile`, `nginx.conf` | Production image |
 | `infrastructure/deployment/compose.landing.yaml` | Operator runtime definition |
 | `.github/workflows/ci.yml` | `landing` job, gate, `Publish landing` |
@@ -2337,13 +2338,40 @@ Expected: lint, format check, 12 tests, build (`Verified N emitted WOFF2 assets`
 - [ ] **Step 11: Review the page in a browser and correct it**
 
 Run in the background: `pnpm --dir landing dev --host 127.0.0.1 --port 5174 --strictPort`
-Take full-page screenshots at 390, 768 and 1440 px (Playwright MCP `browser_resize` + `browser_take_screenshot`). Check: no horizontal scroll; header fits at 390 px; the preview is the most prominent element; bento rows have no empty cells at sm and lg; the deployment diagram reads top-to-bottom on mobile; focus rings are visible when tabbing; the mobile menu closes after choosing a link. Fix what fails, rerun Step 10, stop the dev server.
+Take full-page screenshots at 390, 768 and 1440 px (Chrome DevTools MCP `emulate` viewport + `take_screenshot`, in the Chrome instance the session is attached to). Check: no horizontal scroll; header fits at 390 px; the preview is the most prominent element; bento rows have no empty cells at sm and lg; the deployment diagram reads top-to-bottom on mobile; focus rings are visible when tabbing; the mobile menu closes after choosing a link. Fix what fails, rerun Step 10, stop the dev server.
 
 - [ ] **Step 12: Commit**
 
 ```bash
 git add landing/src
 git commit -m "feat(landing): build the MemoryOS landing page"
+```
+
+---
+
+### Task 5A: Light and dark theme
+
+Added after Task 5 at the product owner's request. It follows the web app's theme contract (`web/src/features/theme/theme-provider.tsx`): the `dark` class on `<html>` and the `memoryos-theme` storage key, where `light` or `dark` is an explicit choice and an absent key means the system preference.
+
+**Files:**
+- Modify: `landing/src/styles/tokens.css` (add the `.dark` block copied from `web/src/styles/tokens.css` for the tokens the landing uses, dark citation/approval values from web status-info/status-success, and `--brand-mark-surface`/`--brand-mark-content`, inverted in dark)
+- Modify: `landing/src/components/brand-mark.tsx` (fill from the brand-mark tokens)
+- Modify: `landing/src/sections/product-highlights.tsx` (`text-white/75` → `text-content-inverse/75`, which stays readable on the inverted primary surface)
+- Create: `landing/public/theme-init.js` (classic same-origin script: read the key in `try`, fall back to `prefers-color-scheme`, toggle the `dark` class)
+- Modify: `landing/index.html` (`<script src="/theme-init.js"></script>` directly after the viewport meta; `theme-color` `#fafafa` for light and `#19191e` for dark via `media`)
+- Create: `landing/src/lib/theme.ts` (`useTheme()` returns `{ theme, toggleTheme }`; initial state from storage or system; a layout effect toggles the class; a `matchMedia` listener follows the system while no choice is stored; storage access is wrapped because browsers can block site data)
+- Modify: `landing/src/sections/header.tsx` (icon button labelled "Switch to dark/light theme" before Contact from `md`; the same action as a row under the links in the mobile menu, which keeps the 390 px header to mark, Contact and menu)
+- Test: `landing/src/lib/theme.test.ts`
+
+- [x] **Step 1: Write the hook tests** — a stored `dark` applies the class; toggling twice applies and stores `dark`, then `light`. `afterEach` clears storage and the class.
+- [x] **Step 2: Implement tokens, pre-paint script, hook and header controls** as listed above.
+- [x] **Step 3: Run the package gate** — `pnpm --dir landing check`. Expected: 14 tests pass; the build keeps `/theme-init.js` as a classic script in `dist/index.html` and copies it to `dist/`.
+- [x] **Step 4: Review both themes in the browser** — at 390 and 1440 px, with the system preference emulated as light and as dark and storage cleared: the page follows the system with no light flash on reload, the toggle overrides it and survives reload, the citation and approval accents and every primary action remain readable in dark.
+- [ ] **Step 5: Commit**
+
+```bash
+git add landing docs/increments/active/mem-82-landing-page
+git commit -m "feat(landing): add light and dark themes"
 ```
 
 ---
@@ -2898,7 +2926,7 @@ Publication: restore the Cloudflare records and redirect rule recorded before st
 - [ ] **Step 2: Verify the served page in a browser**
 
 Run the image as production does: `docker run --detach --name landing-review --read-only --tmpfs /tmp:size=16m --cap-drop ALL --security-opt no-new-privileges:true --publish 127.0.0.1:18092:8080 memoryos-landing:local`
-With Playwright MCP, open `http://127.0.0.1:18092/`: no console errors (a CSP violation would appear there), screenshots at 390, 768 and 1440 px, keyboard pass through header, skip link, FAQ and footer. With Chrome DevTools MCP `lighthouse_audit` (mobile): record Performance, Accessibility, Best Practices and SEO; each must be ≥ 90, otherwise fix and repeat from Task 5 Step 10. Remove the container: `docker rm --force landing-review`.
+With Chrome DevTools MCP, open `http://127.0.0.1:18092/`: no console errors (a CSP violation would appear there), screenshots at 390, 768 and 1440 px, keyboard pass through header, skip link, FAQ and footer. With Chrome DevTools MCP `lighthouse_audit` (mobile): record Performance, Accessibility, Best Practices and SEO; each must be ≥ 90, otherwise fix and repeat from Task 5 Step 10. Remove the container: `docker rm --force landing-review`.
 
 - [ ] **Step 3: Create `verification.md` with the observed evidence**
 

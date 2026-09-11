@@ -28,13 +28,13 @@ Kept: the section composition, one typed content module, the bento capability gr
 | Testimonials, examples carousel, client logos | Text trust strip: Tasco and GenAI Fund | No fabricated social proof; no logo usage approval |
 | Radix Accordion and Sheet | Native `<details>` for FAQ and mobile menu | Same behavior without a component-library dependency on a static page |
 | NavBar that shrinks on scroll | Fixed-height sticky header | No scroll listener for a cosmetic change |
-| Default palette, gradients, dark-mode switcher | MemoryOS monochrome tokens and Hanken Grotesk, light theme | One brand with the product; dark mode doubles visual QA for no current audience need |
+| Default palette, gradients, dark-mode switcher | MemoryOS monochrome light and dark tokens, Hanken Grotesk, and a header theme toggle | One brand with the product, including the web app's dark theme |
 | Screenshot images in the highlighted feature | Markup-built product preview (question → cited answer) | Crisp at every width and needs no screenshot pipeline or customer data |
 | JSON-LD rendered by React | Static JSON-LD in `index.html` | Visible to crawlers without JavaScript; data blocks do not execute under the strict CSP |
 
 ## Page
 
-1. **Header** — MemoryOS mark, anchors (Product, How it works, Deployment, Roadmap, FAQ), Contact action (`mailto:aws@vanda.app`), skip link.
+1. **Header** — MemoryOS mark, anchors (Product, How it works, Deployment, Roadmap, FAQ), light/dark theme toggle (inside the menu below `md`), Contact action (`mailto:aws@vanda.app`), skip link.
 2. **Hero** — the positioning, Contact and "See how it works" actions, product preview.
 3. **Trust strip** — "Deploying with Tasco" and "Backed by GenAI Fund".
 4. **Problem → solution** — two highlighted features: scattered company knowledge becomes one place to search and ask with citations; enterprise AI stays governed through one permission model shared by search, agents and MCP.
@@ -46,13 +46,14 @@ Kept: the section composition, one typed content module, the bento capability gr
 
 ## Visual direction
 
-The product's own light tokens and Hanken Grotesk carry the brand. The one emphasized element is the hero's cited-answer preview, because a verifiable answer is what MemoryOS delivers. Everything else stays quiet: left-aligned headings without labels above them, no entrance animations, and motion only on hover, focus and FAQ disclosure. Two colors carry meaning and are used only for it: the web status-info blue marks citations, and status-success green marks an approved AI asset. Numbered markers appear only for real sequences (how it works, request flow, roadmap timeline). Capabilities form one hairline-divided grid instead of separately shadowed cards.
+The product's own light and dark tokens and Hanken Grotesk carry the brand. The one emphasized element is the hero's cited-answer preview, because a verifiable answer is what MemoryOS delivers. Everything else stays quiet: left-aligned headings without labels above them, no entrance animations, and motion only on hover, focus and FAQ disclosure. Two colors carry meaning and are used only for it: the web status-info blue marks citations, and status-success green marks an approved AI asset. Numbered markers appear only for real sequences (how it works, request flow, roadmap timeline). Capabilities form one hairline-divided grid instead of separately shadowed cards.
 
 ## Technical design
 
 - `landing/` is a standalone pnpm package (own lockfile, not a workspace member of `web/`). It uses the same pinned versions as `web/` for React, Vite, TypeScript, Tailwind, lucide-react, clsx/tailwind-merge, Hanken Grotesk, Vitest, Testing Library, oxlint and oxfmt. There is no router, query client, API client, Radix or class-variance-authority.
 - `src/content.ts` owns every string, link and list; section components under `src/sections/` render it. Shared primitives live under `src/components/`: `ActionLink` (default-tone rows of the action matrix as links), `Section` (landmark, heading and description) and `BrandMark`.
-- `src/styles/tokens.css` copies the light subset of the `web/` semantic tokens and the default-tone action rows, with a note naming `web/src/styles/tokens.css` as the source. It is a deliberate copy: the application and the marketing site deploy independently, and a cross-package import would couple their build contexts. `src/styles/theme.css` maps them for Tailwind and adds landing-only display sizes next to the web typography presets.
+- `src/styles/tokens.css` copies the light and `.dark` subsets of the `web/` semantic tokens and the default-tone action rows, with a note naming `web/src/styles/tokens.css` as the source. It is a deliberate copy: the application and the marketing site deploy independently, and a cross-package import would couple their build contexts. `src/styles/theme.css` maps them for Tailwind and adds landing-only display sizes next to the web typography presets.
+- The theme follows the web app's contract: the `dark` class on `<html>` and the `memoryos-theme` storage key (`light` or `dark`; absent means the system preference). `public/theme-init.js`, a classic same-origin script at the top of `<head>`, applies it before first paint, so the strict CSP needs no inline script and dark-mode visitors never see a light flash. `src/lib/theme.ts` owns the toggle, follows system changes until the visitor chooses, and falls back to the system preference when the browser blocks storage. The Open Graph image stays light.
 - `index.html` owns the title, description, canonical URL, Open Graph/Twitter tags, and JSON-LD for `Organization` (Vanda, `funder` GenAI Fund), `SoftwareApplication` (MemoryOS) and `WebSite`. `public/` holds `favicon.svg`, `og-image.png` (1200 × 630, rendered from `scripts/og-image.html`), `robots.txt`, `sitemap.xml` and `THIRD_PARTY_NOTICES.txt` crediting Open SaaS and Onyx/Opal.
 - The page renders on the client. Prerendering is not added: reviewers use browsers, crawlers that execute JavaScript see the full page, and the static head carries the metadata. Revisit only if search visibility becomes a requirement.
 
@@ -66,7 +67,7 @@ The product's own light tokens and Hanken Grotesk carry the brand. The one empha
 
 ## Verification
 
-- Component tests (`src/App.test.tsx`): one `h1`; every in-page anchor resolves to an element `id`; every `mailto:` targets `aws@vanda.app`; every new-tab link carries `rel="noopener noreferrer"`; every image and SVG has an accessible name or is hidden as decorative.
+- Component tests (`src/App.test.tsx`): one `h1`; every in-page anchor resolves to an element `id`; every `mailto:` targets `aws@vanda.app`; every new-tab link carries `rel="noopener noreferrer"`; every image and SVG has an accessible name or is hidden as decorative. Theme hook tests (`src/lib/theme.test.ts`): a stored theme is applied, and toggling applies and remembers the visitor's choice.
 - Metadata test (`tests/site-metadata.test.mjs`): the JSON-LD in `index.html` parses and names Vanda, MemoryOS, GenAI Fund and the contact email; the canonical, `og:image`, `twitter:image` and logo URLs are absolute `https://vanda.app` URLs whose files exist in `public/`.
 - `pnpm --dir landing check` (lint, format, tests, production build with font-asset assertion, TypeScript).
 - Image: `smoke-image.sh` runs the image read-only with no capabilities and checks UID 101, `/`, `/healthz`, an unknown path (404), the public files, every security header and immutable asset caching. CI runs it on every change.
@@ -75,7 +76,7 @@ The product's own light tokens and Hanken Grotesk carry the brand. The one empha
 
 ## Out of scope
 
-Sign-up or sign-in, pricing, blog, Vietnamese localization, dark mode, analytics or cookies, a contact-form backend, prerendering/SSR, and an automated deployment workflow.
+Sign-up or sign-in, pricing, blog, Vietnamese localization, analytics or cookies, a contact-form backend, prerendering/SSR, and an automated deployment workflow.
 
 ## Risks
 
