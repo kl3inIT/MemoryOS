@@ -1,7 +1,10 @@
-import { type ComponentType, type CSSProperties, type ReactNode, useRef } from "react";
+import { type ComponentType, useRef } from "react";
+import { Drawing } from "@/components/line-drawing";
 import { howItWorks } from "@/content";
 import { citationMarker } from "@/lib/illustration";
+import { cssVars, ramp, type Point } from "@/lib/ramp";
 import { cn } from "@/lib/utils";
+import { scrubDrawings } from "@/motion/drawings";
 import { gsap, useMotion } from "@/motion/motion";
 
 /*
@@ -17,33 +20,6 @@ import { gsap, useMotion } from "@/motion/motion";
  * drawings are hidden from assistive technology; each station's heading and sentence carry the
  * meaning.
  */
-
-type RampVars = Record<`--${string}`, string | number>;
-
-// Custom properties as a style object.
-function cssVars(vars: RampVars): CSSProperties & RampVars {
-  return vars;
-}
-
-// A part's ramp: it eases in while its station's progress runs from `from` to `to`.
-function ramp(from: number, to: number, vars: RampVars = {}): CSSProperties & RampVars {
-  return cssVars({ "--from": from, "--to": to, ...vars });
-}
-
-type Point = readonly [x: number, y: number];
-
-// Every drawing shares one 200 × 140 canvas, aligned to the start of its column.
-function Drawing({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 200 140"
-      preserveAspectRatio="xMinYMid meet"
-      className="size-full overflow-visible"
-    >
-      {children}
-    </svg>
-  );
-}
 
 const sources = ["Drive", "Files", "APIs", "Systems"];
 const sourceRows = [22, 54, 86, 118];
@@ -643,38 +619,11 @@ function IngestionStory() {
   const scope = useRef<HTMLOListElement>(null);
 
   useMotion(scope, () => {
+    // Each station builds while it crosses the viewport; finished stations keep their loops.
     const list = scope.current;
-    if (!list) {
-      return;
-    }
-    const stations = gsap.utils.toArray<HTMLElement>("[data-station]", list);
-
-    // A finished station keeps its loops (src/styles/base.css), which run while the list is on
-    // screen.
-    const setLive = (station: HTMLElement, live: boolean) => {
-      if (station.hasAttribute("data-live") !== live) {
-        station.toggleAttribute("data-live", live);
-      }
-    };
-    const visibility = new IntersectionObserver(([entry]) => {
-      list.toggleAttribute("data-visible", Boolean(entry?.isIntersecting));
-    });
-    visibility.observe(list);
-    const stopLoops = () => {
-      visibility.disconnect();
-      list.removeAttribute("data-visible");
-      stations.forEach((station) => station.removeAttribute("data-live"));
-    };
-
-    // Each station builds while it crosses the viewport.
-    for (const station of stations) {
-      const build = gsap.timeline({
-        scrollTrigger: { trigger: station, start: "top 85%", end: "bottom 55%", scrub: 0.5 },
-        onUpdate: () => setLive(station, build.progress() === 1),
-      });
-      build.fromTo(station, { "--p": 0 }, { "--p": 1, ease: "none" });
-    }
-    return stopLoops;
+    return list
+      ? scrubDrawings(list, gsap.utils.toArray<HTMLElement>("[data-station]", list))
+      : undefined;
   });
 
   return (
