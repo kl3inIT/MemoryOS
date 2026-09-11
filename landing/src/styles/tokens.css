@@ -1,0 +1,76 @@
+/*
+ * Light subset of web/src/styles/tokens.css, kept as a copy because the landing page and the
+ * application build and deploy independently. Onyx/Opal MIT palette adapted to MemoryOS
+ * semantic roles; see /THIRD_PARTY_NOTICES.txt.
+ */
+:root {
+  color-scheme: light;
+
+  --neutral-00: #ffffff;
+  --neutral-100: #e6e6e6;
+  --neutral-200: #cccccc;
+  --neutral-400: #a4a4a4;
+  --neutral-800: #333333;
+  --neutral-900: #1c1c1c;
+  --neutral-950: #000000;
+
+  --surface-canvas: #f0f0f1;
+  --surface-base: #fafafa;
+  --surface-raised: var(--neutral-00);
+
+  --content-primary: #000000e5;
+  --content-secondary: #000000bf;
+  --content-muted: #0000008c;
+  --content-inverse: var(--neutral-00);
+
+  --border-subtle: var(--neutral-100);
+  --border-default: var(--neutral-200);
+  --border-strong: var(--neutral-400);
+
+  /* Default-tone rows of the canonical action matrix. */
+  --action-default-primary-surface: var(--neutral-900);
+  --action-default-primary-surface-hover: var(--neutral-800);
+  --action-default-primary-surface-active: var(--neutral-950);
+  --action-default-primary-content: var(--content-inverse);
+  --action-default-secondary-surface: var(--surface-base);
+  --action-default-secondary-surface-hover: var(--surface-canvas);
+  --action-default-secondary-surface-active: var(--surface-raised);
+  --action-default-secondary-content: var(--content-secondary);
+  --action-default-secondary-content-hover: var(--content-primary);
+  --action-default-secondary-border: var(--border-subtle);
+  --action-default-secondary-border-hover: var(--border-default);
+  --action-default-tertiary-surface-hover: var(--surface-canvas);
+  --action-default-tertiary-surface-active: var(--surface-raised);
+  --action-default-tertiary-content: var(--content-secondary);
+  --action-default-tertiary-content-hover: var(--content-primary);
+  --focus-ring: var(--neutral-950);
+
+  --control-height-md: 2.25rem;
+  --control-height-lg: 2.5rem;
+  --control-icon-md: 1rem;
+
+  /* Meaning-bound accents: web status-info marks citations, status-success marks approval. */
+  --citation-surface: #e7effc;
+  --citation-content: #245fda;
+  --approval-surface: #e6f2e7;
+  --approval-content: #007a2d;
+
+  --elevation-1: 0 1px 2px #0000000d;
+  --elevation-2: 0 0 0 1px #00000005, 0 4px 8px -2px #00000014, 0 12px 24px -4px #00000014;
+  --radius: 0.5rem;
+
+  --page-width-wide: 80rem;
+  --page-gutter: 1rem;
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --page-gutter: 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-gutter: 2rem;
+  }
+}

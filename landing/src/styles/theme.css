@@ -1,0 +1,102 @@
+@theme inline {
+  --font-sans: "Hanken Grotesk Variable", "Segoe UI Variable", "Segoe UI", sans-serif;
+
+  --radius-lg: var(--radius);
+  --shadow-sm: var(--elevation-1);
+  --shadow-md: var(--elevation-2);
+
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-muted: var(--content-muted);
+  --color-content-inverse: var(--content-inverse);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-focus-ring: var(--focus-ring);
+  --color-citation-surface: var(--citation-surface);
+  --color-citation-content: var(--citation-content);
+  --color-approval-surface: var(--approval-surface);
+  --color-approval-content: var(--approval-content);
+}
+
+/* Landing-only display sizes. */
+@utility font-display {
+  font-family: var(--font-sans);
+  font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4rem);
+  font-weight: 620;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+@utility font-heading-section {
+  font-family: var(--font-sans);
+  font-size: clamp(1.875rem, 1.5rem + 1.5vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+@utility font-lead {
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 450;
+  line-height: 1.75rem;
+  text-wrap: pretty;
+}
+
+/* The following presets match web/src/styles/theme.css. */
+@utility font-heading-h2 {
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 2.25rem;
+  letter-spacing: -0.01em;
+}
+
+@utility font-heading-h3 {
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.75rem;
+  letter-spacing: -0.01em;
+}
+
+@utility font-main-content-body {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 450;
+  line-height: 1.5rem;
+}
+
+@utility font-main-ui-body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+@utility font-main-ui-action {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+@utility font-secondary-body {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1rem;
+}
+
+@utility font-secondary-action {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+}

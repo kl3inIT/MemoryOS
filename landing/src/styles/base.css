@@ -1,0 +1,42 @@
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-w-80 bg-surface-base font-main-content-body text-content-primary antialiased;
+  }
+
+  :where(a, summary) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :where(a, summary):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (pointer: coarse) {
+    [data-slot="action-link"] {
+      min-height: 2.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
