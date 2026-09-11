@@ -2891,7 +2891,7 @@ git commit -m "ci: gate and publish the landing image independently"
 **Files:**
 - Create: `docs/runbooks/landing.md`, `docs/increments/active/mem-82-landing-page/verification.md`
 
-- [ ] **Step 1: Create `docs/runbooks/landing.md`**
+- [x] **Step 1: Create `docs/runbooks/landing.md`**
 
 ````markdown
 # Landing page delivery
@@ -2975,16 +2975,16 @@ Publication: restore the Cloudflare records and redirect rule recorded before st
 - Never add `compose.landing.yaml` to the application deployment or its image to `images.env`.
 ````
 
-- [ ] **Step 2: Verify the served page in a browser**
+- [x] **Step 2: Verify the served page in a browser**
 
 Run the image as production does: `docker run --detach --name landing-review --read-only --tmpfs /tmp:size=16m --cap-drop ALL --security-opt no-new-privileges:true --publish 127.0.0.1:18092:8080 memoryos-landing:local`
 With Chrome DevTools MCP, open `http://127.0.0.1:18092/`: no console errors (a CSP violation would appear there), screenshots at 390, 768 and 1440 px, keyboard pass through header, skip link, FAQ and footer. With Chrome DevTools MCP `lighthouse_audit` (mobile): record Performance, Accessibility, Best Practices and SEO; each must be ≥ 90, otherwise fix and repeat from Task 5 Step 10. Remove the container: `docker rm --force landing-review`.
 
-- [ ] **Step 3: Create `verification.md` with the observed evidence**
+- [x] **Step 3: Create `verification.md` with the observed evidence**
 
 Record, with date and commit: `pnpm --dir landing check` counts; the smoke script result and the negative check; Compose validation and health; actionlint/ShellCheck; the four Lighthouse scores and viewport findings; and the gates still pending: CI on the pull request, the first `Publish landing` digest, the operator deployment, the deployed checks from the runbook, and Laura's content review. Do not mark a pending gate as passed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/runbooks/landing.md docs/increments/active/mem-82-landing-page/verification.md
