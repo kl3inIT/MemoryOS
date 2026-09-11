@@ -2403,6 +2403,30 @@ git commit -m "feat(landing): adopt a navy and blue technical identity"
 
 ---
 
+### Task 5C: Motion and partner logos
+
+Added after Task 5B at the product owner's request: a theme-switch transition, motion while scrolling up and down, and the Tasco and GenAI Fund logos (supplied as `D:\Capstone Project\tasco-logo.png` and `genai-logo-black.png`).
+
+**Files:**
+- Create: `landing/src/assets/logos/tasco.png`, `genai-fund.png` (single-colour alpha masks: dark-on-light and light-on-dark sources mapped to alpha by luminance, normalised to the darkest/lightest ink, cropped to the mark)
+- Modify: `landing/src/content.ts` (`trustSignals[].logo` with `src` and `label`), `landing/src/sections/trust-strip.tsx` (`role="img"` mask in a fixed `contain` box, tinted `bg-content-primary`; the second logo reveals slightly later)
+- Modify: `landing/src/lib/theme.ts` (`toggleTheme(origin?)`: inside `document.startViewTransition`, `flushSync` applies the theme, then the new root view grows as a `clip-path` circle from the origin; without the API, without an origin, or with reduced motion it switches directly), `landing/src/sections/header.tsx` (origin = the toggle's centre)
+- Modify: `landing/src/styles/base.css` (view-transition root reset; `.enter` load sequence; scroll-driven `.reveal`, `.progress-fill`, `.timeline-fill` — vertical below `lg` — and the `.hero-glow` drift; keyframes; everything behind `prefers-reduced-motion: no-preference` and `@supports (animation-timeline: view())`)
+- Modify: `landing/src/components/section.tsx`, `landing/src/sections/hero.tsx`, `product-highlights.tsx`, `capabilities.tsx`, `how-it-works.tsx`, `deployment.tsx`, `roadmap.tsx`, `faq.tsx`, `footer.tsx` (motion classes; in hairline grids the cell content moves, not the cell; the how-it-works rules and roadmap timeline become a track plus a filling accent line)
+
+- [x] **Step 1: Build the logo masks and the trust strip.**
+- [x] **Step 2: Add the theme reveal and the motion layer** as listed above.
+- [x] **Step 3: Run the package gate** — `pnpm --dir landing check`. Expected: 14 tests pass.
+- [x] **Step 4: Review in the browser** — reveal on scroll down and reversal on scroll up; rules and timeline fill; glow drift; the circular theme reveal from both toggles; with reduced motion emulated, the page is static and fully visible; no console errors; logos legible in both themes.
+- [ ] **Step 5: Commit**
+
+```bash
+git add landing docs/increments/active/mem-82-landing-page
+git commit -m "feat(landing): add motion, a theme reveal and partner logos"
+```
+
+---
+
 ### Task 6: Production image and smoke contract
 
 **Files:**

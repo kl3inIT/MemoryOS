@@ -25,7 +25,7 @@ Kept: the section composition, one typed content module, the bento capability gr
 | Open SaaS | MemoryOS landing | Reason |
 | --- | --- | --- |
 | Wasp app with routes, auth and payments | Static single-page Vite build, no auth | Only public content is needed; product sign-in stays in `web/` |
-| Testimonials, examples carousel, client logos | Text trust strip: Tasco and GenAI Fund | No fabricated social proof; no logo usage approval |
+| Testimonials, examples carousel, client logos | Trust strip with the Tasco and GenAI Fund logos | No fabricated social proof; the product owner supplied both logos for this page |
 | Radix Accordion and Sheet | Native `<details>` for FAQ and mobile menu | Same behavior without a component-library dependency on a static page |
 | NavBar that shrinks on scroll | Fixed-height sticky header | No scroll listener for a cosmetic change |
 | Default palette, gradients, dark-mode switcher | Navy and brand-blue light and dark tokens with one hero glow, Hanken Grotesk, and a header theme toggle | Product-owner direction: a technical look in the manner of Laravel Cloud, on the product's own token names and typography |
@@ -36,7 +36,7 @@ Kept: the section composition, one typed content module, the bento capability gr
 
 1. **Header** — MemoryOS mark, anchors (Product, How it works, Deployment, Roadmap, FAQ), light/dark theme toggle (inside the menu below `md`), Contact action (`mailto:aws@vanda.app`), skip link.
 2. **Hero** — the positioning, Contact and "See how it works" actions, product preview.
-3. **Trust strip** — "Deploying with Tasco" and "Backed by GenAI Fund".
+3. **Trust strip** — the Tasco and GenAI Fund logos with "Deploying with Tasco" and "Backed by GenAI Fund". The logos are single-colour alpha masks (`src/assets/logos/`) cropped from the product owner's files, so they take each theme's content color.
 4. **Problem → solution** — two highlighted features: scattered company knowledge becomes one place to search and ask with citations; enterprise AI stays governed through one permission model shared by search, agents and MCP.
 5. **Capabilities** (bento) — data connectors; enterprise search; cited answers; Python analysis and reports; enterprise SSO; custom agents; AI asset governance; MCP server; permission-aware retrieval.
 6. **How it works** — connect → index → ask → verify, plus the security flow: SSO sign-in, ACL check before retrieval, only permitted context reaches the model.
@@ -46,7 +46,9 @@ Kept: the section composition, one typed content module, the bento capability gr
 
 ## Visual direction
 
-The product owner asked for a technical look in the manner of Laravel Cloud. Hanken Grotesk and the product's token names stay; the values become a navy-and-blue identity: a near-black navy ground in the dark theme, a cool light ground in the light theme, and one light source — a blue glow behind the hero's cited-answer preview, echoed softly behind the closing call to action. The preview stays the one emphasized element, because a verifiable answer is what MemoryOS delivers. Brand blue marks the product's own moving parts: citations, capability icons, the index in the sources diagram, and the markers of real sequences (how it works, request flow, roadmap timeline). Approval green is used only for an approved AI asset. Everything else stays quiet: left-aligned headings without labels above them, no entrance animations, motion only on hover, focus and FAQ disclosure, and one hairline-divided capability grid instead of separately shadowed cards.
+The product owner asked for a technical look in the manner of Laravel Cloud. Hanken Grotesk and the product's token names stay; the values become a navy-and-blue identity: a near-black navy ground in the dark theme, a cool light ground in the light theme, and one light source — a blue glow behind the hero's cited-answer preview, echoed softly behind the closing call to action. The preview stays the one emphasized element, because a verifiable answer is what MemoryOS delivers. Brand blue marks the product's own moving parts: citations, capability icons, the index in the sources diagram, and the markers of real sequences (how it works, request flow, roadmap timeline). Approval green is used only for an approved AI asset. Headings stay left-aligned without labels above them, and capabilities form one hairline-divided grid instead of separately shadowed cards.
+
+Motion, also at the product owner's request, answers the visitor's own actions. Switching the theme grows the new theme in a circle from the toggle (View Transitions API). Scrolling drives everything else through CSS scroll-driven animations, so it follows the scroll in both directions: blocks rise into place as they enter, the how-it-works rules and the roadmap timeline fill as their steps pass, and the hero glow drifts away. The hero's copy, actions and preview enter once on load; the `h1` stays still so it paints as the largest contentful element immediately. In grids the content moves, not the cell, so the hairline grid never shows through. Browsers without scroll-driven animations and visitors who prefer reduced motion get the static page, and no content depends on JavaScript to become visible.
 
 ## Technical design
 
