@@ -1,8 +1,8 @@
-# MEM-82 — Vanda landing page implementation plan
+# MEM-82 — Vadan landing page implementation plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship `https://vanda.app` as a standalone static landing page for MemoryOS by Vanda, verified in CI and deployable by digest on the staging VPS without touching the application release.
+**Goal:** Ship `https://vadan.app` as a standalone static landing page for MemoryOS by Vadan, verified in CI and deployable by digest on the staging VPS without touching the application release.
 
 **Architecture:** A standalone pnpm package `landing/` (Vite + React + Tailwind) renders one page from a typed content module. An nginx image serves the build read-only with a strict CSP. CI gates it with lint/tests/build and an image smoke script, then publishes the image by digest in its own job; an operator deploys it as Compose project `memoryos-landing` behind Nginx Proxy Manager.
 
@@ -16,7 +16,7 @@ Design: [design.md](design.md). Content decisions are fixed there; do not add st
 
 Later the same day: Task 5D, the landing page 6.0 motion redesign, is implemented on branch `nhuxuanviet/mem-82-landing-page-6.0` and passes the package gate; Lighthouse mobile performance on the local preview is 0.96 (TBT 130–160 ms, CLS 0). It is committed in concern clusters (`48ed13e`–`1bf0000`), not yet pushed. The Orca browser review is recorded in [verification](verification.md#landing-60), with its remaining checks listed there. Pull request #95 stays the rollback point.
 
-Pending, and not passed: CI on the pull request, the first `Publish landing` digest, the operator deployment with the deployed checks from the [landing runbook](../../../runbooks/landing.md), Lighthouse on `https://vanda.app/`, and Laura's content review. The increment stays under `active/` until the pull request merges.
+Pending, and not passed: CI on the pull request, the first `Publish landing` digest, the operator deployment with the deployed checks from the [landing runbook](../../../runbooks/landing.md), Lighthouse on `https://vadan.app/`, and Laura's content review. The increment stays under `active/` until the pull request merges.
 
 ---
 
@@ -654,7 +654,7 @@ git commit -m "feat(landing): add MemoryOS light tokens and typography"
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const siteOrigin = "https://vanda.app";
+const siteOrigin = "https://vadan.app";
 const landingRoot = new URL("../", import.meta.url);
 const head = new DOMParser().parseFromString(
   readFileSync(new URL("index.html", landingRoot), "utf8"),
@@ -691,14 +691,14 @@ describe("site metadata", () => {
     },
   );
 
-  it("describes Vanda, its backer and MemoryOS as structured data", () => {
+  it("describes Vadan, its backer and MemoryOS as structured data", () => {
     const nodeOfType = structuredData();
     const organization = nodeOfType("Organization");
 
     expect(organization).toMatchObject({
-      name: "Vanda",
+      name: "Vadan",
       url: `${siteOrigin}/`,
-      email: "aws@vanda.app",
+      email: "aws@vadan.app",
       funder: { name: "GenAI Fund" },
     });
     expect(existsSync(publicFileFor(organization.logo))).toBe(true);
@@ -724,65 +724,65 @@ Expected: FAIL with `ENOENT` for `index.html`.
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MemoryOS by Vanda | Governed AI knowledge for your company</title>
+    <title>MemoryOS by Vadan | Governed AI knowledge for your company</title>
     <meta
       name="description"
       content="MemoryOS connects company documents and business systems, answers with citations, and applies one permission model to search, custom agents and MCP. It runs in your own AWS environment."
     />
     <meta name="theme-color" content="#fafafa" />
-    <link rel="canonical" href="https://vanda.app/" />
+    <link rel="canonical" href="https://vadan.app/" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Vanda" />
-    <meta property="og:url" content="https://vanda.app/" />
-    <meta property="og:title" content="MemoryOS by Vanda" />
+    <meta property="og:site_name" content="Vadan" />
+    <meta property="og:url" content="https://vadan.app/" />
+    <meta property="og:title" content="MemoryOS by Vadan" />
     <meta
       property="og:description"
       content="One governed memory for your people and AI agents: cited answers, one permission model, and deployment in your own AWS environment."
     />
-    <meta property="og:image" content="https://vanda.app/og-image.png" />
+    <meta property="og:image" content="https://vadan.app/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="MemoryOS by Vanda: one governed memory for your people and AI agents"
+      content="MemoryOS by Vadan: one governed memory for your people and AI agents"
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="MemoryOS by Vanda" />
+    <meta name="twitter:title" content="MemoryOS by Vadan" />
     <meta
       name="twitter:description"
       content="One governed memory for your people and AI agents: cited answers, one permission model, and deployment in your own AWS environment."
     />
-    <meta name="twitter:image" content="https://vanda.app/og-image.png" />
+    <meta name="twitter:image" content="https://vadan.app/og-image.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@graph": [
           {
             "@type": "Organization",
-            "@id": "https://vanda.app/#organization",
-            "name": "Vanda",
-            "url": "https://vanda.app/",
-            "logo": "https://vanda.app/favicon.svg",
-            "email": "aws@vanda.app",
+            "@id": "https://vadan.app/#organization",
+            "name": "Vadan",
+            "url": "https://vadan.app/",
+            "logo": "https://vadan.app/favicon.svg",
+            "email": "aws@vadan.app",
             "funder": { "@type": "Organization", "name": "GenAI Fund" }
           },
           {
             "@type": "SoftwareApplication",
-            "@id": "https://vanda.app/#memoryos",
+            "@id": "https://vadan.app/#memoryos",
             "name": "MemoryOS",
             "applicationCategory": "BusinessApplication",
             "operatingSystem": "Web",
-            "url": "https://vanda.app/",
+            "url": "https://vadan.app/",
             "description": "An AI and knowledge layer that connects approved company sources, answers with citations, and applies one permission model to search, custom agents and MCP clients.",
-            "publisher": { "@id": "https://vanda.app/#organization" }
+            "publisher": { "@id": "https://vadan.app/#organization" }
           },
           {
             "@type": "WebSite",
-            "@id": "https://vanda.app/#website",
-            "name": "MemoryOS by Vanda",
-            "url": "https://vanda.app/",
-            "publisher": { "@id": "https://vanda.app/#organization" }
+            "@id": "https://vadan.app/#website",
+            "name": "MemoryOS by Vadan",
+            "url": "https://vadan.app/",
+            "publisher": { "@id": "https://vadan.app/#organization" }
           }
         ]
       }
@@ -812,7 +812,7 @@ Expected: FAIL with `ENOENT` for `index.html`.
 User-agent: *
 Allow: /
 
-Sitemap: https://vanda.app/sitemap.xml
+Sitemap: https://vadan.app/sitemap.xml
 ```
 
 `landing/public/sitemap.xml`:
@@ -821,7 +821,7 @@ Sitemap: https://vanda.app/sitemap.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://vanda.app/</loc>
+    <loc>https://vadan.app/</loc>
   </url>
 </urlset>
 ```
@@ -892,7 +892,7 @@ Expected: `hanken-grotesk-latin-wght-normal.woff2` (use the printed name in the 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>MemoryOS by Vanda</title>
+    <title>MemoryOS by Vadan</title>
     <style>
       @font-face {
         font-family: "Hanken Grotesk";
@@ -956,12 +956,12 @@ Expected: `hanken-grotesk-latin-wght-normal.woff2` (use the printed name in the 
         <rect width="32" height="32" rx="8" fill="#0a0a0a" />
         <path d="M8 9h3.2l4.8 7 4.8-7H24v14h-3.3v-8.7L16 21l-4.7-6.7V23H8V9Z" fill="#f4f2eb" />
       </svg>
-      MemoryOS <span>by Vanda</span>
+      MemoryOS <span>by Vadan</span>
     </div>
     <h1>One governed memory for your people and AI agents</h1>
     <div class="footer">
       <p>Deploying with Tasco. Backed by GenAI Fund.</p>
-      <p>vanda.app</p>
+      <p>vadan.app</p>
     </div>
   </body>
 </html>
@@ -1059,8 +1059,8 @@ type Milestone = Entry & {
 
 const contact = {
   label: "Contact us",
-  email: "aws@vanda.app",
-  href: "mailto:aws@vanda.app",
+  email: "aws@vadan.app",
+  href: "mailto:aws@vadan.app",
 } as const;
 
 const navigation: readonly Link[] = [
@@ -1107,7 +1107,7 @@ const trustSignals: readonly Entry[] = [
   },
   {
     title: "Backed by GenAI Fund",
-    description: "Vanda builds MemoryOS with backing from GenAI Fund.",
+    description: "Vadan builds MemoryOS with backing from GenAI Fund.",
   },
 ];
 
@@ -1387,7 +1387,7 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
     {
       question: "What is MemoryOS?",
       answer:
-        "MemoryOS is an AI and knowledge layer built by Vanda. It connects approved company sources, answers questions with citations, and gives employees, custom agents and MCP clients one permission model.",
+        "MemoryOS is an AI and knowledge layer built by Vadan. It connects approved company sources, answers questions with citations, and gives employees, custom agents and MCP clients one permission model.",
     },
     {
       question: "Where does our data stay?",
@@ -1412,12 +1412,12 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
     {
       question: "Who uses MemoryOS today?",
       answer:
-        "Tasco is deploying MemoryOS in a Production PoC from September to December 2026. Vanda is backed by GenAI Fund.",
+        "Tasco is deploying MemoryOS in a Production PoC from September to December 2026. Vadan is backed by GenAI Fund.",
     },
     {
       question: "How do we start?",
       answer:
-        "Email aws@vanda.app. We scope a pilot around your sources, identity provider and first use cases.",
+        "Email aws@vadan.app. We scope a pilot around your sources, identity provider and first use cases.",
     },
   ],
 };
@@ -1430,8 +1430,8 @@ const footer: SectionIntro & {
   title: "Bring MemoryOS to your company",
   description:
     "Tell us about your sources, identity provider and first use cases, and we will scope a pilot together.",
-  action: "Email aws@vanda.app",
-  organization: "Vanda",
+  action: "Email aws@vadan.app",
+  organization: "Vadan",
   links: [
     {
       label: "Source code on GitHub",
@@ -1625,7 +1625,7 @@ describe("landing page", () => {
 
     expect(emailLinks.length).toBeGreaterThan(0);
     expect(new Set(emailLinks.map((link) => link.getAttribute("href")))).toEqual(
-      new Set(["mailto:aws@vanda.app"]),
+      new Set(["mailto:aws@vadan.app"]),
     );
   });
 
@@ -1688,7 +1688,7 @@ function Header() {
         <a href="/" className="mr-auto flex items-center gap-2.5 rounded-md">
           <BrandMark className="size-7" />
           <span className="font-heading-h3 text-content-primary">MemoryOS</span>
-          <span className="hidden font-main-ui-body text-content-muted sm:inline">by Vanda</span>
+          <span className="hidden font-main-ui-body text-content-muted sm:inline">by Vadan</span>
         </a>
         <nav aria-label="Primary" className="hidden md:block">
           <ul className="flex items-center gap-1">
@@ -2693,7 +2693,7 @@ git commit -m "build(landing): serve the landing page from a hardened nginx imag
 - [x] **Step 1: Create the Compose file**
 
 ```yaml
-# Public vanda.app landing page. Operated separately from the application stack; see
+# Public vadan.app landing page. Operated separately from the application stack; see
 # docs/runbooks/landing.md.
 name: memoryos-landing
 
@@ -2935,7 +2935,7 @@ git commit -m "ci: gate and publish the landing image independently"
 ````markdown
 # Landing page delivery
 
-The public site at `https://vanda.app` is the static [`landing/`](../../landing) package. CI verifies it, builds one nginx image and, on main, publishes that image by digest. An operator deploys it on the staging VPS as the separate Compose project `memoryos-landing` behind Nginx Proxy Manager. The application deployment script never starts, stops or rolls it back. Design and decisions: [MEM-82](../increments/active/mem-82-landing-page/design.md).
+The public site at `https://vadan.app` is the static [`landing/`](../../landing) package. CI verifies it, builds one nginx image and, on main, publishes that image by digest. An operator deploys it on the staging VPS as the separate Compose project `memoryos-landing` behind Nginx Proxy Manager. The application deployment script never starts, stops or rolls it back. Design and decisions: [MEM-82](../increments/active/mem-82-landing-page/design.md).
 
 ## Release identity
 
@@ -2970,31 +2970,31 @@ Run the commands below on the VPS from `/apps/memoryos-landing`.
    docker exec memoryos-landing wget -q -S -O /dev/null http://127.0.0.1:8080/
    ```
 
-## First publication of vanda.app
+## First publication of vadan.app
 
-Before changing anything, record the current Cloudflare state for `vanda.app`: an export of the DNS records, the redirect rule to `roll-bits.com`, and the output of `nslookup -type=mx vanda.app`. Replacing the redirect was approved by the owner on 2026-09-11.
+Before changing anything, record the current Cloudflare state for `vadan.app`: an export of the DNS records, the redirect rule to `roll-bits.com`, and the output of `nslookup -type=mx vadan.app`. Replacing the redirect was approved by the owner on 2026-09-11.
 
 1. Deploy the container as above.
-2. In Cloudflare for `vanda.app`:
-   - Delete the rule that redirects `vanda.app` to `roll-bits.com`.
-   - Set `vanda.app` `A` to the staging VPS public IPv4 `72.62.193.33`, proxy status **DNS only**.
-   - Set `www.vanda.app` `A` to the same address, **DNS only**.
+2. In Cloudflare for `vadan.app`:
+   - Delete the rule that redirects `vadan.app` to `roll-bits.com`.
+   - Set `vadan.app` `A` to the staging VPS public IPv4 `72.62.193.33`, proxy status **DNS only**.
+   - Set `www.vadan.app` `A` to the same address, **DNS only**.
    - Leave MX, SPF/DKIM/DMARC TXT and verification records unchanged.
-3. Wait until `nslookup vanda.app 1.1.1.1` and `nslookup www.vanda.app 1.1.1.1` return the VPS address.
+3. Wait until `nslookup vadan.app 1.1.1.1` and `nslookup www.vadan.app 1.1.1.1` return the VPS address.
 4. In Nginx Proxy Manager:
-   - Proxy host `vanda.app` → `http://memoryos-landing:8080`, Block Common Exploits on, WebSockets off. SSL: new Let's Encrypt certificate, Force SSL, HTTP/2, HSTS on without subdomains.
-   - Redirection host `www.vanda.app` → `https://vanda.app`, HTTP 301, preserve path, its own Let's Encrypt certificate with Force SSL.
+   - Proxy host `vadan.app` → `http://memoryos-landing:8080`, Block Common Exploits on, WebSockets off. SSL: new Let's Encrypt certificate, Force SSL, HTTP/2, HSTS on without subdomains.
+   - Redirection host `www.vadan.app` → `https://vadan.app`, HTTP 301, preserve path, its own Let's Encrypt certificate with Force SSL.
 5. Verify from outside the server:
 
    ```sh
-   curl -sSI https://vanda.app/                                          # 200
-   curl -sSI https://www.vanda.app/                                      # 301, Location: https://vanda.app/
-   curl -sS -o /dev/null -w '%{http_code}\n' https://vanda.app/missing   # 404
-   nslookup -type=mx vanda.app                                           # equals the recorded MX set
+   curl -sSI https://vadan.app/                                          # 200
+   curl -sSI https://www.vadan.app/                                      # 301, Location: https://vadan.app/
+   curl -sS -o /dev/null -w '%{http_code}\n' https://vadan.app/missing   # 404
+   nslookup -type=mx vadan.app                                           # equals the recorded MX set
    ```
 
    The 200 response carries `Strict-Transport-Security`, the Content Security Policy, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` and `Permissions-Policy`.
-6. Run Lighthouse (mobile) against `https://vanda.app/`. Record the scores, date and deployed digest in MEM-82.
+6. Run Lighthouse (mobile) against `https://vadan.app/`. Record the scores, date and deployed digest in MEM-82.
 
 ## Roll back
 
@@ -3040,7 +3040,7 @@ git commit -m "docs(landing): add delivery runbook and verification record"
 - [x] **Step 1: `ARCHITECTURE.md` — append to the Deployment section, after the staging-origin paragraph**
 
 ```markdown
-The public company site `https://vanda.app` is the separate static [`landing/`](landing) package, not part of the application. Its nginx image serves a client-rendered page read-only as UID 101 with a strict same-origin CSP; `CI Gate` requires its checks and image smoke, and a separate `Publish landing` job records its digest. Operators run it as Compose project `memoryos-landing` from [`compose.landing.yaml`](infrastructure/deployment/compose.landing.yaml) behind Nginx Proxy Manager, outside the application release bundle and deployment script. See the [landing runbook](docs/runbooks/landing.md).
+The public company site `https://vadan.app` is the separate static [`landing/`](landing) package, not part of the application. Its nginx image serves a client-rendered page read-only as UID 101 with a strict same-origin CSP; `CI Gate` requires its checks and image smoke, and a separate `Publish landing` job records its digest. Operators run it as Compose project `memoryos-landing` from [`compose.landing.yaml`](infrastructure/deployment/compose.landing.yaml) behind Nginx Proxy Manager, outside the application release bundle and deployment script. See the [landing runbook](docs/runbooks/landing.md).
 ```
 
 - [x] **Step 2: `docs/tests/delivery.md` — add two rows after "Web base-image upgrades preserve the serving boundary"**
@@ -3075,7 +3075,7 @@ Change the Node requirement line to:
 After the frontend verification block, add:
 
 ````markdown
-Public landing page (`https://vanda.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
+Public landing page (`https://vadan.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
 
 ```powershell
 pnpm --dir landing install --frozen-lockfile

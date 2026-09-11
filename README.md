@@ -69,7 +69,7 @@ pnpm test:e2e
 
 The Gradle gate compiles all server modules, runs capability and HTTP integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests. The frontend gate regenerates the OpenAPI client, rejects generated drift, lints without product-source warnings, checks formatting and TypeScript, runs focused tests, and creates the production bundle; Playwright exercises the observable browser states.
 
-Public landing page (`https://vanda.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
+Public landing page (`https://vadan.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
 
 ```powershell
 pnpm --dir landing install --frozen-lockfile

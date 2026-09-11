@@ -109,5 +109,5 @@ These have not run and are not passed:
 - CI on the pull request, including the new `landing` job in `CI Gate`.
 - The first `Publish landing` run on main and its recorded digest.
 - The operator deployment on the staging VPS, the Cloudflare and Nginx Proxy Manager changes, and the deployed checks from the [landing runbook](../../../runbooks/landing.md).
-- Lighthouse against `https://vanda.app/`.
+- Lighthouse against `https://vadan.app/`.
 - Laura's content review.
