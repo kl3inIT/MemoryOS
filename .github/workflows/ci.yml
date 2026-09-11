@@ -343,8 +343,10 @@ jobs:
 
   publish-landing:
     name: Publish landing
+    # The landing site is an independent artifact and deployment, so it publishes as
+    # soon as its own job and the secret scan pass, without waiting for the app gate.
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    needs: gate
+    needs: [landing, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
