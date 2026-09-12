@@ -1,13 +1,15 @@
 package io.memoryos.provider.file;
 
 import ai.docling.serve.api.convert.request.ConvertDocumentRequest;
-import ai.docling.serve.api.convert.response.ConvertDocumentResponse;
 import ai.docling.serve.api.convert.response.ErrorItem;
+import ai.docling.serve.api.convert.response.ResponseType;
 import ai.docling.serve.api.task.request.TaskStatusPollRequest;
 import ai.docling.serve.api.task.response.TaskStatusPollResponse;
 import ai.docling.serve.client.DoclingServeClient;
 import ai.docling.serve.client.DoclingServeClientException;
 import ai.docling.serve.client.operations.RequestContext;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.memoryos.ingestion.ExtractionFailure;
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -16,10 +18,13 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ValueDeserializer;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.annotation.JsonDeserialize;
@@ -50,8 +55,7 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
                 .readTimeout(HTTP_TIMEOUT).logRequests(false).logResponses(false).build();
     }
 
-    @Override
-    public ConvertDocumentResponse convertSource(ConvertDocumentRequest request) {
+    CanonicalResponse convertDocument(ConvertDocumentRequest request) {
         long started = System.nanoTime();
         deadline.set(started + taskTimeout.toNanos());
         String taskId = null;
@@ -86,8 +90,8 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
                 switch (status.getTaskStatus()) {
                     case SUCCESS -> {
                         stage = "RESULT_READ";
-                        var result = executeGet(RequestContext.<Object, ConvertDocumentResponse>builder()
-                                .uri("/v1/result/" + taskId).responseType(ConvertDocumentResponse.class).build());
+                        var result = executeGet(RequestContext.<Object, CanonicalResponse>builder()
+                                .uri("/v1/result/" + taskId).responseType(CanonicalResponse.class).build());
                         LOG.atInfo().addKeyValue("event", "docling.task.result_received")
                                 .addKeyValue("task_id", taskId)
                                 .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
@@ -139,8 +143,8 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
     @Override protected <T> T readValue(String json, Class<T> type) { return mapper.readValue(json, type); }
     @Override protected <T> String writeValueAsString(T value) { return mapper.writeValueAsString(value); }
 
-    ai.docling.serve.api.convert.response.InBodyConvertDocumentResponse convertFile(java.nio.file.Path file, String extension,
-                                                                                   DoclingProperties properties) throws IOException {
+    CanonicalResponse convertFile(java.nio.file.Path file, String extension,
+                                  DoclingProperties properties) throws IOException {
         String boundary = "memoryos-" + java.util.UUID.randomUUID();
         StringBuilder fields = new StringBuilder();
         // Serialize the SDK options once; multipart and JSON use the same names, values and defaults.
@@ -156,7 +160,7 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
         var endpoint = java.net.URI.create(properties.endpoint().toString().replaceAll("/+$", "") + "/v1/convert/file");
         var request = HttpRequest.newBuilder(endpoint).timeout(properties.timeout().plusSeconds(15))
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary).header("Accept", "application/json").POST(body).build();
-        return execute(request, ai.docling.serve.api.convert.response.InBodyConvertDocumentResponse.class);
+        return execute(request, CanonicalResponse.class);
     }
 
     @Override
@@ -218,6 +222,19 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
         ResponseFailure(ExtractionFailure failure) {
             super("Docling conversion rejected: " + failure.name());
             this.failure = failure;
+        }
+    }
+
+    /** Retain supported custom metadata without a lossy SDK document-model round trip. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record CanonicalResponse(@Nullable JsonNode document, @Nullable List<ErrorItem> errors,
+                             @Nullable String status,
+                             @JsonProperty("response_type") @Nullable ResponseType responseType) {
+        CanonicalResponse {
+            // Serve omits this discriminator for in-body results.
+            if (responseType != null && responseType != ResponseType.IN_BODY) {
+                throw new ResponseFailure(ExtractionFailure.MALFORMED);
+            }
         }
     }
 

@@ -249,3 +249,54 @@ The single captured [CodeRabbit review finding](https://github.com/kl3inIT/Memor
 The focused `FinancialTableDiagnosticsTest` run passed all 22 cases after the fix. This is a read-only diagnostic correction, not an OCR orientation or period-identity repair.
 
 The post-review repository `clean check` passed in 4m32s: 24 actionable tasks, 15 executed and nine restored from cache. The two new regression cases failed before the fix and the complete 22-case financial diagnostic suite passed afterward. Existing JVM native-access/deprecation and test OTLP-shutdown warnings remain; IDE inspection is still unavailable.
+
+#### Approved Docling-service implementation
+
+- [x] Establish owned service composition at the pinned SDK boundary while preserving the existing Serve API and lifecycle.
+- [x] Implement bounded, evidence-gated pre-layout orientation without modifying original source bytes or shared settings.
+- [x] Resolve period ancestry only where source headers and geometry establish it; keep unsupported cases explicit.
+- [x] Exercise the real service path and unchanged sealed financial scorers, including upright/no-regression controls and resource limits.
+- [x] Record verified behavior and limitations in canonical documentation before publishing; do not deploy or reindex Sources.
+
+##### Implementation and local service evidence — 2026-09-12
+
+The standalone image starts owned `memoryos_docling` composition over Serve 1.32.0 rather than patching upstream objects or preprocessing in Worker. Only the standard PDF/OCR route is wrapped; requested backend/options, stock authentication/admission, local queue lifecycle and non-PDF routes remain in use. The service refuses non-local orchestration and UI mode. Original PDF bytes are retained; accepted corrections modify only the temporary PDF's rotation metadata before layout. Native-text pages, unresolved votes and expired preprocessing budgets remain unchanged.
+
+The Java SDK 0.6.5 roundtrip dropped supported custom `BaseMeta` fields, and its sealed response hierarchy cannot be extended. The existing bounded client now decodes a minimal owned response envelope with raw document JSON and the SDK's typed error records. The same canonical validation remains shared by Source and multipart extraction. Real Serve omits `response_type` for in-body responses: absence is accepted, an explicit non-inbody discriminator is rejected. The transport still submits once, observes the same task and does not retry result retrieval. No separate Chat implementation or publication path was added.
+
+Final local image: `sha256:e729024a63bb22aa7ab41c1633462592705f7bc17f2512830dbbc0512411d921`. The API controls used four CPUs, an 8 GiB configured container limit, a read-only filesystem, one local worker, shared models, offline models and a synthetic private API key. These settings belong only to the isolated probe; the deployment manifest, published image references, managed settings and retained runtimes were not changed. Container limits are not peak-RSS or sustained-capacity measurements.
+
+- The production detector exercised all sixteen sealed source rasters at four right-angle rotations: 64 controls, 59 accepted orientations, five abstentions and zero wrong accepted orientations. The isolated detector had one CPU/1 GiB and no network; maximum observed case time was 3.856 seconds.
+- Final-image real API requests sent each complete original PDF with a single-page range, verifying its original SHA-256 first. All sixteen conversions succeeded: the four sideways income pages received the correct 90-degree correction; twelve upright pages were not rotated. The consolidated income tables became 24×7 and the separate tables 20×7. Total observed conversion elapsed time was 599.23 seconds, with individual requests between 18.27 and 52.67 seconds; this is a page-window run, not whole-report throughput.
+- All sixteen raw responses passed the actual production decoder and canonicalizer, retaining exact orientation and page-map equality. Canonical `page_orientation` records revision, accepted clockwise correction or abstention reason, and original frame details when examined. Bboxes and page images remain in the corrected frame; retained Sources/artifacts were not rewritten.
+- The actual API returned readiness 200, missing/wrong-key 401 and over-maximum timeout 422. A native-text PDF succeeded with `NATIVE_TEXT` and zero correction. A 201-page PDF produced a structured `policy` failure at the configured 200-page limit even though its asynchronous task completed successfully; task success remains distinct from document success.
+
+The unchanged sealed scorer evaluated six report-shaped inputs assembled only from these page-window canonical blocks, with financial-check indices offset to match concatenation. This assembly is a private scoring input, not a full-document conversion or published artifact.
+
+| Sealed metric | Historical baseline | Final orientation image |
+| --- | ---: | ---: |
+| Exact numeric cells with row/period identity | 30/121 | 41/121 |
+| Row identity | 37/60 | 46/60 |
+| Period-column order | 28/60 | 31/60 |
+| Merged-parent headers | 0/4 | 1/4 |
+| Source period context | 12/16 | 13/16 |
+
+Remaining boundaries are explicit: dash identity is 1/20, note-column blanks 4/16, absence controls 1/3 and continuation identity 0/3; three source cells remain unscorable. Scope/unit/title remain 16/16. Most period/digit failures are not fixed. The red-stamped Q1 amount is not recovered, no number is moved into another period, and no damaged header is repaired by weakening identity matching. Existing OCR languages, full-page choice, ACCURATE tables and global concurrency are unchanged.
+
+One upright Vietnamese Q1 consolidated page loses a historical numeric match. A paired stock-entrypoint conversion using the same final image, resources, page and options produced exactly identical table data to the owned service. This isolates that witness from orientation preprocessing, not all OCR variability; it does not justify accepting the wrong cell or claim all upright output is byte-identical to stock.
+
+Local Python evidence: nine behavioral regressions passed inside the final image; Ruff lint/format passed for eight files; basedpyright 1.40.1 standard analysis against the actual installed SDK checked six source files with zero errors/warnings. A separate mypy dependency traversal timed out and is not a passing result. Focused Java decoder/extractor tests passed. JetBrains MCP and a configured Java language server are unavailable; compiler/runtime checks are fallback evidence, not IDE-clean inspection.
+
+Private evidence remains under `.tmp/tasco-2025/structure-followup/service-orientation/`: production controls, final-image API/raw/canonical/scorer results, paired stock comparison and admission summary. Original annotations/scorers, the separate 104-cell baseline and all published artifacts remain unchanged. This verifies the bounded service implementation, not financial-fidelity promotion, deployment, Source reindexing or a new Sources UI acceptance.
+
+The separate full-original English Q2 separate report probe submitted all 44 pages with the unchanged 300-second document budget. It returned `partial_success` after 332.51 seconds: 29 pages completed, 15 incomplete, and sixteen typed timeout records including the pipeline summary. All 44 page/orientation records were present, which does not establish complete extraction. The preprocessing budget explicitly left 28 pages unexamined (`BUDGET_EXHAUSTED`); examined pages recorded fourteen unchanged, one accepted rotation and one unresolved OSD vote. The production decoder/error classifier rejected this actual response as terminal `TIMEOUT`, and rejected the actual 201-page response as `WRITE_LIMIT`, without exposing parser causes. No canonical artifact was published. This failed full-report acceptance is retained, not rerun with a larger budget or represented as throughput success.
+
+The first uncached endpoint-enabled gate failed the three optional Docling cases because the isolated read-only container omitted EasyOCR's writable auxiliary directory; service logs identify `/opt/app-root/src/.EasyOCR` as the rejected write. Cached model files were already present. The local-only correction sets `EASYOCR_MODULE_PATH=/tmp/easyocr`, matching the existing deployment manifest, while retaining the same image, read-only root, offline models, options and assertions. The failed gate and its XML/log evidence remain private; neither product code nor the manifest was changed to hide this environment error.
+
+The corrected terminating `gradlew.bat clean check --rerun-tasks --no-daemon --no-parallel --max-workers=1 --console=plain` passed in 12m26s on JDK 25.0.3 with CI enabled, Arconia dev services disabled, OpenAPI writes disabled and the authenticated local Docling endpoint enabled. Gradle reports 24 actionable tasks: 23 executed and one up-to-date; every module's test task executed, with no restored test results. JUnit contains 663 cases: 658 passed, five skipped, zero failures/errors. Module totals are API 130, Connector 108, Core 398 and Worker 27. The skips are four optional Chat-provider cases and one optional Chat resource measurement, not Docling tests.
+
+All three real `DoclingServeIntegrationTest` cases passed: Vietnamese DOCX/table cells, scanned-PDF OCR/page provenance and PPTX text. `WorkerFileProcessingIntegrationTest` passed its endpoint-enabled DOCX indexing/redelivery/remove/delete flow against its own PostgreSQL/Redis/MinIO fixtures. No retained Source was involved. Existing unchecked-operation, JVM/dependency and OTLP fixture-shutdown warnings remain; this is not a warning-free gate.
+
+Final service health returned 200, Docker reported no OOM kill, and no `memoryos-orientation-*` scratch directory remained after consumed conversions. The owned service container then stopped successfully. Disposable launchers, synthetic PDFs, compiler arguments/classes and analysis caches were removed; private raw/canonical/scorer and failed/successful gate evidence remain. Unrelated JVM crash logs were preserved and excluded from publication.
+
+The separate original 104-cell financial baseline was not re-run on this final image; its historical score must not be attributed to the orientation service. The new service gate is limited to the sixteen-page sealed evaluation, synthetic format/admission checks, strict rejection of the timed-out full report and endpoint-enabled repository verification above.

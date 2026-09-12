@@ -4,7 +4,6 @@ import ai.docling.serve.api.DoclingServeApi;
 import ai.docling.serve.api.convert.request.ConvertDocumentRequest;
 import ai.docling.serve.api.convert.request.source.FileSource;
 import ai.docling.serve.api.convert.request.target.InBodyTarget;
-import ai.docling.serve.api.convert.response.InBodyConvertDocumentResponse;
 import ai.docling.serve.client.DoclingServeClientException;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.connector.SourceInputDescriptor;
@@ -78,6 +77,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             }
             return nativeReader.extract(new java.io.ByteArrayInputStream(bytes), bytes.length, filename, input);
         }
+        if (!(client instanceof BoundedDoclingClient bounded)) throw failure(ExtractionFailure.UNSUPPORTED);
         // FileSource sends bounded bytes, never an arbitrary URL or provider credential.
         var request = ConvertDocumentRequest.builder()
                 .source(FileSource.builder().filename("document" + FORMATS.get(mediaType))
@@ -85,12 +85,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                 .options(properties.options())
                 .target(InBodyTarget.builder().build()).build();
         try {
-            var response = client.convertSource(request);
-            if (!(response instanceof InBodyConvertDocumentResponse result)
-                    || !"success".equals(result.getStatus()) || result.getErrors() == null || !result.getErrors().isEmpty()
-                    || result.getDocument() == null || result.getDocument().getJsonContent() == null) {
-                throw failure(ExtractionFailure.MALFORMED);
-            }
+            var result = bounded.convertDocument(request);
             return canonical(result, filename, mediaType, ObjectUploadSpecification.MAX_SIZE_BYTES);
         } catch (RuntimeException e) {
             throw requestFailure(e);
@@ -110,23 +105,25 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                 }
             }
             var result = bounded.convertFile(file, FORMATS.get(mediaType), properties);
-            if (result == null || !"success".equals(result.getStatus()) || result.getErrors() == null
-                    || !result.getErrors().isEmpty() || result.getDocument() == null
-                    || result.getDocument().getJsonContent() == null) throw failure(ExtractionFailure.MALFORMED);
             return canonical(result, filename, mediaType, 262_144_000);
         } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException encrypted) { throw failure(ExtractionFailure.ENCRYPTED); }
         catch (IOException invalid) { throw failure(ExtractionFailure.MALFORMED); }
         catch (RuntimeException e) { throw requestFailure(e); }
     }
 
-    private DocumentContent canonical(InBodyConvertDocumentResponse result, String filename, String mediaType, long maxInput) throws ExtractionException {
-            JsonNode document = mapper.valueToTree(result.getDocument().getJsonContent());
+    private DocumentContent canonical(BoundedDoclingClient.CanonicalResponse result, String filename, String mediaType, long maxInput) throws ExtractionException {
+            if (result == null || !"success".equals(result.status()) || result.errors() == null
+                    || !result.errors().isEmpty() || result.document() == null
+                    || !result.document().path("json_content").isObject()) throw failure(ExtractionFailure.MALFORMED);
+            JsonNode document = result.document().path("json_content");
             if (document.path("pages").size() > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
             ObjectNode canonical = mapper.createObjectNode();
             canonical.put("schema", "memoryos-extraction-v1");
             ArrayNode blocks = canonical.putArray("blocks");
             visit(document, document.path("body"), blocks, new HashSet<>(), 0);
             canonical.set("pages", document.path("pages"));
+            JsonNode orientation = document.path("body").path("meta").path("memoryos__orientation");
+            if (orientation.isObject()) canonical.set("page_orientation", orientation);
             String text = semanticText(blocks);
             if (text.isBlank()) throw failure(ExtractionFailure.MALFORMED);
             var financialChecks = FinancialTableDiagnostics.assess(blocks, mapper);

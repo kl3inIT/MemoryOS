@@ -10,7 +10,8 @@ for the actual rollout state; checked-in manifests do not establish deployment.
 
 `Dockerfile` derives from the repository's pinned Docling Serve CPU 1.32.0,
 adds the pinned Vietnamese Tesseract language package, and restricts Tesseract
-CLI threading through the wrapper. It retains the upstream model assets.
+CLI threading through the wrapper. It retains upstream model assets and starts
+the owned `memoryos_docling` service composition.
 `deployment.yaml` pins the published private registry digest, not a mutable tag.
 
 The service accepts file bytes and in-body results, up to 100 MiB and 200 pages,
@@ -19,9 +20,42 @@ the API key in `X-Api-Key`. For the tested scanned-PDF request, choose
 `ocr_engine=tesseract`, `ocr_lang=["vie","eng"]`, `do_ocr=true`, and
 `force_ocr=true`. Mixed native PDFs should choose force_ocr deliberately.
 
-Current main's Worker remains a separate integration step: it uses EasyOCR,
-limits input to 10 MiB, and does not supply the service API-key header. Merely
-changing its endpoint does not complete this authenticated integration.
+Worker supports configured OCR, the API-key header and a bounded asynchronous
+Source observer; see the [ingestion contract](../../../docs/specs/ingestion.md).
+Building this image does not update an endpoint, engine revision or deployment.
+
+## Pre-layout orientation
+
+The local-engine service keeps upstream conversion routes, authentication,
+admission, options and task handling. UI mode and non-local engines fail startup.
+Standard PDF conversions with OCR enabled use the requested PDF backend behind
+an orientation wrapper; other formats and pipelines retain upstream behavior.
+
+Pages containing native text are left alone. Raster analysis has a 1600-pixel
+maximum edge and a five-second limit per Tesseract process. The cooperative
+preprocessing budget is at most thirty seconds, further limited by the requested
+document timeout; native PDFium work is not forcibly interrupted. A proposed
+quarter-turn is accepted only when both disjoint page halves report upright
+after that turn. Missing, conflicting or timed-out evidence abstains.
+
+Only a temporary normalized PDF changes rotation metadata. Original source
+bytes remain untouched; the temporary file must fit admission bounds and is
+removed on backend unload. `body.meta.memoryos__orientation` records source-frame
+provenance and is retained as canonical `page_orientation`. Corrected layout does
+not prove period ancestry or financial digits; see the
+[Document contract](../../../docs/specs/document.md).
+
+Local build and regression verification, without publishing or deploying:
+
+```powershell
+docker build -t memoryos-docling:orientation-candidate infrastructure/deployment/ocr
+$tests = (Resolve-Path infrastructure/deployment/ocr/tests).Path
+docker run --rm --network none --entrypoint python --mount "type=bind,source=$tests,target=/tests,readonly" memoryos-docling:orientation-candidate -m unittest discover -s /tests -v
+```
+
+The checked-in deployment digest is intentionally unchanged. Selecting a new
+published image and its matching caller engine revision requires separate
+deployment authorization.
 
 ## Apply
 
