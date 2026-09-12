@@ -1,28 +1,16 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  Bot,
-  Building2,
-  Cable,
-  ChartColumn,
-  Cloud,
-  FileText,
-  KeyRound,
-  Layers,
-  Plug,
-  Quote,
-  Search,
-  ShieldCheck,
-} from "lucide-react";
 import genaiFundLogo from "@/assets/logos/genai-fund.png";
 import tascoLogo from "@/assets/logos/tasco.png";
+import vadanLogo from "@/assets/logos/vadan.png";
+
+/*
+ * Every string a reader or a screen reader meets on the page. Illustrations hidden from assistive
+ * technology (the line drawings) keep their sample data beside them. The page names standards
+ * buyers look for, never the internal stack (src/App.test.tsx).
+ */
 
 type Link = {
   label: string;
   href: string;
-};
-
-type FooterLink = Link & {
-  external?: boolean;
 };
 
 type SectionIntro = {
@@ -35,26 +23,9 @@ type Entry = {
   description: string;
 };
 
-type IconEntry = Entry & {
-  icon: LucideIcon;
-};
-
-// Systems on the left feed MemoryOS in the middle, which produces what is on the right.
-type Flow = {
-  inputs: readonly string[];
-  label: string;
-  outputs: readonly string[];
-};
-
-type Highlight = Entry & {
-  points: readonly string[];
-  flow: Flow;
-};
-
-type CapabilitySize = "wide" | "standard" | "full";
-
-type Capability = IconEntry & {
-  size: CapabilitySize;
+type GatePassage = {
+  title: string;
+  allowed: boolean;
 };
 
 const contact = {
@@ -116,7 +87,7 @@ const trustSignals: readonly TrustSignal[] = [
   },
   {
     title: "Backed by GenAI Fund",
-    description: "Vanda builds MemoryOS with backing from GenAI Fund.",
+    description: "Vadan builds MemoryOS with backing from GenAI Fund.",
     logo: { src: genaiFundLogo, label: "GenAI Fund" },
   },
 ];
@@ -124,53 +95,20 @@ const trustSignals: readonly TrustSignal[] = [
 const product = {
   title: "Knowledge people can trust, and AI your company can govern",
   description:
-    "MemoryOS is the governed context layer for your AI agents and one trusted place for your people to search and ask. Both work from approved company data, see only what they may access, and can check every source.",
+    "The governed context layer for your AI agents, and one trusted place for your people to search and ask.",
   search: {
     title: "Ask once instead of searching ten systems",
     description:
-      "Policies live in SharePoint, specifications in Drive, decisions in Slack and numbers in business systems. MemoryOS connects them all, understands every document, and gives everyone one place to search and ask. Every answer cites the passages it used.",
-    points: [
-      "Keyword and semantic search across every connected source",
-      "Answers that cite the original document and passage",
-      "Calculations, tables, charts and reports from company data",
-    ],
-    flow: {
-      inputs: [
-        "Google Workspace",
-        "Microsoft 365",
-        "Slack and Teams",
-        "Confluence and Jira",
-        "Salesforce and HubSpot",
-        "Files, databases and APIs",
-      ],
-      label: "MemoryOS",
-      outputs: ["Search", "Cited answers", "Analysis and reports"],
-    },
+      "MemoryOS connects SharePoint, Drive, Slack and your business systems into one place to search and ask. Every answer cites its sources.",
   },
   identity: {
     title: "Enterprise identity and access, built in",
     description:
-      "People sign in with the identity providers your company already runs, and users and groups stay in sync on their own. MemoryOS checks access before it retrieves anything, so search, agents and MCP clients only ever see what that person may read.",
-    points: [
-      "Multiple SSO providers over SAML 2.0 and OpenID Connect",
-      "SCIM provisioning for users and groups",
-      "Roles, groups and source permissions enforced on every request",
-    ],
-    flow: {
-      inputs: [
-        "Microsoft Entra ID",
-        "Okta",
-        "Google Workspace",
-        "Keycloak",
-        "Any SAML or OIDC provider",
-      ],
-      label: "MemoryOS access",
-      outputs: ["Single sign-on", "SCIM users and groups", "Roles and permissions"],
-    },
+      "Sign in over SAML 2.0 or OpenID Connect with the provider you already run, and SCIM keeps users and groups in sync. Access is checked before anything is retrieved.",
   },
 } as const;
 
-const capabilities: SectionIntro & { items: readonly Capability[] } = {
+const capabilities: SectionIntro & { items: readonly Entry[] } = {
   title: "Everything an enterprise knowledge layer needs",
   description:
     "Each capability works under the same permission model, from the first connected source to the last agent.",
@@ -179,63 +117,45 @@ const capabilities: SectionIntro & { items: readonly Capability[] } = {
       title: "Connect every system",
       description:
         "Google Workspace, Microsoft 365, SharePoint, Teams, Slack, Confluence, Notion, Jira, Salesforce, HubSpot, Zendesk, GitHub, Box, Dropbox, Amazon S3, email, databases and REST APIs. Content and permissions stay in sync as sources change.",
-      icon: Cable,
-      size: "wide",
     },
     {
       title: "Index any file",
       description:
         "PDFs, Word, Excel, PowerPoint, Google Docs and Sheets, emails, web pages, images and scanned pages. MemoryOS reads the text, tables and charts inside them, in Vietnamese and English.",
-      icon: FileText,
-      size: "wide",
     },
     {
       title: "Enterprise search",
       description:
         "Keyword and semantic search across everything a person is allowed to see, ranked for relevance.",
-      icon: Search,
-      size: "standard",
     },
     {
       title: "Cited answers",
       description:
         "Answers link each claim to the document and passage it came from, so people can check before they act.",
-      icon: Quote,
-      size: "standard",
     },
     {
       title: "Analysis and reports",
       description: "Calculates, builds tables and charts, and produces reports from company data.",
-      icon: ChartColumn,
-      size: "standard",
     },
     {
       title: "Enterprise identity",
       description:
         "Multiple SSO providers over SAML and OIDC, SCIM user and group provisioning, and role-based access.",
-      icon: KeyRound,
-      size: "standard",
     },
     {
       title: "Custom agents",
       description:
         "Agents for each department or workflow, with their own knowledge, instructions and tools.",
-      icon: Bot,
-      size: "standard",
     },
     {
       title: "MCP server",
       description:
         "Approved knowledge and AI assets for your other agents through the Model Context Protocol.",
-      icon: Plug,
-      size: "standard",
     },
     {
       title: "Permission-aware by design",
       description:
         "Access is checked before retrieval for search, answers, agents and MCP alike. Only permitted context ever reaches the model.",
-      icon: ShieldCheck,
-      size: "full",
     },
   ],
 };
@@ -243,16 +163,16 @@ const capabilities: SectionIntro & { items: readonly Capability[] } = {
 const assets = {
   title: "Organizational AI Memory",
   description:
-    "MemoryOS is the system of record for reusable AI capability inside your company. It brings the knowledge, instructions, prompts, packages, ownership and permissions behind successful AI-assisted work into one governed lifecycle, so people and agents can discover, use and improve what the organization already knows.",
+    "The system of record for reusable AI work: the knowledge, prompts and instructions behind it, with owners and permissions, in one governed lifecycle.",
   problem: {
     title: "The problem",
     description:
-      "AI is moving from individual assistance to repeatable human-agent workflows. Yet the parts that make those workflows reliable, from source knowledge and instructions to prompts, quality standards and approvals, stay scattered across personal tools and team silos. When they are not owned and versioned together, teams duplicate work, proven methods drift, handovers lose context, and agents act without a record of what was approved or why.",
+      "The knowledge, prompts and approvals that make AI work reliable stay scattered across personal tools. Teams duplicate work, proven methods drift, and agents act without a record of what was approved.",
   },
   solution: {
     title: "The solution",
     description:
-      "MemoryOS treats reusable AI-assisted work as governed assets. Each exact release keeps its accountable owner, permissions, provenance, dependencies and usage history, and authorized employees and agents receive the same approved capability wherever they work.",
+      "MemoryOS turns proven AI work into governed assets. Each release keeps its owner, permissions and history, so people and agents reuse the same approved version.",
   },
   pillars: [
     {
@@ -294,54 +214,66 @@ const assets = {
 } as const;
 
 const howItWorks: SectionIntro & {
-  steps: readonly Entry[];
-  request: { title: string; steps: readonly Entry[] };
+  stages: readonly Entry[];
+  gate: {
+    title: string;
+    summary: string;
+    person: Entry;
+    check: string;
+    model: Entry;
+    blockedLabel: string;
+    blockedNote: string;
+    allowedLabel: string;
+    passages: readonly GatePassage[];
+  };
 } = {
   title: "From connected sources to answers you can verify",
   description: "The same path serves every search, answer, agent and MCP request.",
-  steps: [
+  stages: [
     {
-      title: "Connect",
-      description:
-        "Administrators connect the systems they approve. Each source keeps its own access rules.",
+      title: "Pull",
+      description: "Connectors pull from every system you approve, with its access rules.",
+    },
+    {
+      title: "Extract",
+      description: "MemoryOS reads pages, tables, charts and scans into structured text.",
+    },
+    {
+      title: "Chunk",
+      description: "Text splits into passages that keep their source and access rules.",
+    },
+    {
+      title: "Embed",
+      description: "Each passage becomes a vector that captures its meaning.",
     },
     {
       title: "Index",
-      description:
-        "MemoryOS reads every document, including scans, splits it into passages and keeps the search index current as sources change.",
+      description: "Keyword and semantic indexes stay current as sources change.",
     },
     {
-      title: "Ask",
-      description:
-        "People search and ask in plain language, work with custom agents, or use the same knowledge from MCP clients.",
-    },
-    {
-      title: "Verify",
-      description:
-        "Every answer cites its documents and passages, so people can check the source before they act.",
+      title: "Answer",
+      description: "A question finds the closest passages, and the answer cites them.",
     },
   ],
-  request: {
+  gate: {
     title: "On every request",
-    steps: [
-      {
-        title: "Sign in with SSO",
-        description:
-          "Identity comes from your identity provider; users and groups stay in sync through SCIM.",
-      },
-      {
-        title: "Check access first",
-        description: "MemoryOS applies access rules before any retrieval runs.",
-      },
-      {
-        title: "Send only permitted context",
-        description: "The model receives only passages the person is allowed to read.",
-      },
+    summary: "The model sees only passages the person may read.",
+    person: { title: "Procurement analyst", description: "Signed in with SSO" },
+    check: "Access check",
+    model: { title: "Model", description: "Receives permitted passages only" },
+    blockedLabel: "Blocked at the access check",
+    blockedNote: "No access",
+    allowedLabel: "Sent to the model",
+    passages: [
+      { title: "Procurement policy, section 4", allowed: true },
+      { title: "Salary bands 2026", allowed: false },
+      { title: "Supplier onboarding checklist", allowed: true },
+      { title: "Board meeting minutes", allowed: false },
     ],
   },
 };
 
-const deployment: SectionIntro & { options: readonly IconEntry[] } = {
+const deployment: SectionIntro & { options: readonly Entry[] } = {
   title: "Deploy in your cloud or your data center",
   description:
     "MemoryOS runs inside infrastructure you control, so documents, search indexes and conversations stay in your environment. Use a managed model endpoint in your cloud or open-weight models on your own GPUs.",
@@ -350,18 +282,15 @@ const deployment: SectionIntro & { options: readonly IconEntry[] } = {
       title: "Amazon Web Services",
       description:
         "In your own AWS account on Amazon EC2 in a private VPC, with Amazon S3 backups, AWS KMS encryption and Amazon CloudWatch monitoring.",
-      icon: Cloud,
     },
     {
       title: "Other clouds",
       description: "The same containers on the public or private cloud your IT team already runs.",
-      icon: Layers,
     },
     {
       title: "On-premise",
       description:
         "Inside your own data center, with self-hosted models and no data leaving your network.",
-      icon: Building2,
     },
   ],
 };
@@ -373,7 +302,7 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
     {
       question: "What is MemoryOS?",
       answer:
-        "MemoryOS, built by Vanda, is the governed context layer between your company's systems and the people and AI agents who use them. It connects those systems, answers questions with citations, and turns proven AI work into governed assets under one permission model.",
+        "MemoryOS, built by Vadan, is the governed context layer between your company's systems and the people and AI agents who use them. It connects those systems, answers questions with citations, and turns proven AI work into governed assets under one permission model.",
     },
     {
       question: "Where does our data stay?",
@@ -402,7 +331,7 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
     },
     {
       question: "Who uses MemoryOS today?",
-      answer: "Tasco is our first enterprise design partner. Vanda is backed by GenAI Fund.",
+      answer: "Tasco is our first enterprise design partner. Vadan is backed by GenAI Fund.",
     },
     {
       question: "How do we start?",
@@ -412,17 +341,14 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
   ],
 };
 
-const footer: SectionIntro & {
-  action: string;
-  organization: string;
-  links: readonly FooterLink[];
-} = {
+// The company behind MemoryOS, named beside the product in the header and in the footer.
+const organization = { name: "Vadan", logo: vadanLogo } as const;
+
+const footer: SectionIntro & { action: string } = {
   title: "Bring MemoryOS to your company",
   description:
     "Tell us about your systems, identity provider and first use cases, and we will scope a deployment together.",
   action: "Email info@vadan.app",
-  organization: "Vanda",
-  links: [],
 };
 
 export {
@@ -435,11 +361,10 @@ export {
   hero,
   howItWorks,
   navigation,
+  organization,
   product,
   productPreview,
   trustSignals,
-  type Capability,
-  type CapabilitySize,
-  type Flow,
-  type Highlight,
+  type Entry,
+  type GatePassage,
 };

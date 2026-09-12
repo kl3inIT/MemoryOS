@@ -1,6 +1,10 @@
-import { render } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "@/App";
+import { capabilities, howItWorks } from "@/content";
+
+// The page states benefits, not the internal stack (design: positioning revision).
+const internalTechnology = /\b(Docling|OCR|OpenSearch|PostgreSQL|Redis|MinIO|Python)\b/;
 
 function renderPage() {
   return render(<App />).container;
@@ -34,14 +38,6 @@ describe("landing page", () => {
     );
   });
 
-  it("does not link to the private source repository", () => {
-    const hrefs = [...renderPage().querySelectorAll("a[href]")].map(
-      (link) => link.getAttribute("href") ?? "",
-    );
-
-    expect(hrefs.filter((href) => href.includes("github.com"))).toEqual([]);
-  });
-
   it("isolates every new-tab link from the opener", () => {
     for (const link of renderPage().querySelectorAll('a[target="_blank"]')) {
       expect(link.getAttribute("rel")?.split(" ")).toEqual(
@@ -50,17 +46,69 @@ describe("landing page", () => {
     }
   });
 
+  it("links neither the source repository nor third-party notices", () => {
+    const page = renderPage();
+
+    expect(page.querySelector('a[href*="github.com"]')).toBeNull();
+    expect(page.querySelector('a[href$="THIRD_PARTY_NOTICES.txt"]')).toBeNull();
+  });
+
+  it("names no internal technology", () => {
+    expect(renderPage().textContent).not.toMatch(internalTechnology);
+  });
+
   it("names every graphic or hides it from assistive technology", () => {
     const page = renderPage();
 
     for (const image of page.querySelectorAll("img")) {
       expect(image.hasAttribute("alt")).toBe(true);
     }
-    for (const graphic of page.querySelectorAll("svg")) {
+    for (const graphic of page.querySelectorAll("svg, canvas")) {
       const named =
         graphic.getAttribute("role") === "img" &&
         (graphic.hasAttribute("aria-label") || graphic.hasAttribute("aria-labelledby"));
-      expect(named || graphic.getAttribute("aria-hidden") === "true", graphic.outerHTML).toBe(true);
+      const hidden = graphic.closest('[aria-hidden="true"]') !== null;
+      expect(named || hidden, graphic.outerHTML).toBe(true);
     }
+  });
+
+  it("gives every ingestion stage and capability a heading and its description", () => {
+    renderPage();
+
+    for (const entry of [...howItWorks.stages, ...capabilities.items]) {
+      expect(
+        // Anchored at the end: "Index" and "Enterprise identity" also begin longer headings.
+        screen.getByRole("heading", { level: 3, name: new RegExp(`${entry.title}$`) }),
+      ).toBeVisible();
+      expect(screen.getByText(entry.description)).toBeVisible();
+    }
+  });
+
+  it("lists the passages the access check blocks and the ones it sends to the model", () => {
+    renderPage();
+    const { gate } = howItWorks;
+    const titlesIn = (name: string) =>
+      within(screen.getByRole("list", { name }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent);
+
+    expect(titlesIn(gate.blockedLabel)).toEqual(
+      gate.passages
+        .filter((passage) => !passage.allowed)
+        .map((passage) => `${passage.title}${gate.blockedNote}`),
+    );
+    expect(titlesIn(gate.allowedLabel)).toEqual(
+      gate.passages.filter((passage) => passage.allowed).map((passage) => passage.title),
+    );
+  });
+
+  it("renders every element in its final place when motion is not allowed", () => {
+    const page = renderPage();
+    const moved = [...page.querySelectorAll<HTMLElement>("[style]")].filter(
+      ({ style }) => style.opacity !== "" || style.transform !== "" || style.visibility !== "",
+    );
+
+    expect(moved).toEqual([]);
+    expect(page.querySelector("[data-mode], [data-intro], [data-live], [data-visible]")).toBeNull();
   });
 });

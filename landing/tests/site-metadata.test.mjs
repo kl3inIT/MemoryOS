@@ -40,12 +40,12 @@ describe("site metadata", () => {
     },
   );
 
-  it("describes Vanda, its backer and MemoryOS as structured data", () => {
+  it("describes Vadan, its backer and MemoryOS as structured data", () => {
     const nodeOfType = structuredData();
     const organization = nodeOfType("Organization");
 
     expect(organization).toMatchObject({
-      name: "Vanda",
+      name: "Vadan",
       url: `${siteOrigin}/`,
       email: "info@vadan.app",
       funder: { name: "GenAI Fund" },
