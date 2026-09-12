@@ -4,6 +4,8 @@ This document describes the architecture implemented by the current repository. 
 
 ## Runtime overview
 
+The web application's account-language and safe error boundary is documented in [localization](docs/specs/localization.md). Chat's lazy code/diagram renderers and bounded persisted read-only presentations reuse the existing native tool loop, authorized history and responsive reader panel; see [Chat renderers](docs/specs/chat.md#message-renderers-and-read-only-presentations).
+
 ```mermaid
 flowchart LR
     U[User browser] --> RP[Reverse proxy and TLS]

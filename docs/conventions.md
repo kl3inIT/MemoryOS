@@ -119,7 +119,7 @@ Domain Story and Consumer
 
 - Expected capability failures use capability-prefixed stable codes through root-package typed `BusinessException` subclasses; HTTP types never enter core.
 - REST failures use RFC 9457 `application/problem+json`. Clients branch on status or `code`, never on `title`, `detail`, or diagnostic exception messages.
-- Spring Boot owns built-in MVC Problem Details. Custom advice handles only `BusinessException`; never add a global `Exception` catch.
+- Spring Boot owns built-in MVC Problem Details. Capability/provider failures and request validation have narrow typed advice; never add a global `Exception` catch. Validation entries retain safe fallback `message` and expose stable `code` plus allowlisted numeric `params` (`min`/`max`), never rejected values. UI consumers translate codes at render time rather than displaying arbitrary backend/provider text.
 - Browser redirect responses and Spring Security filter failures retain their surface-specific contracts.
 
 ## Published API contracts

@@ -1,5 +1,7 @@
 # Chat verification matrix
 
+Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/Mermaid, streaming fallback, whitespace, malformed/oversized diagrams and dialog focus. `chat-artifacts.test.tsx` validates the read-only allowlist and desktop/mobile panels. `chat-transport.test.ts` checks one authorized metadata read, no second inference and restored history. `ChatArtifactTest` checks native tool binding/bounds/sealing; `ChatTurnSetupTest` checks bounded follow-up context; persistence tests retain the terminal winner; `ChatSessionApiIntegrationTest.nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata` exercises actual native tool execution, saved HTTP history, denied foreign reads and the SSE flag. English/VI browser cases exercise runtime renderers, drafts and reload. Live provider quality is separate.
+
 | Contract | Test and boundary |
 | --- | --- |
 | One-time automatic naming uses native model; owner/CSRF denial, repeat requests, original answer and manual title preserved | `ChatSessionApiIntegrationTest.automaticTitleUsesNativeProviderOnceAndKeepsAnswerAndManualRename`: Spring API/native runner/real PostgreSQL, synthetic provider |
@@ -21,6 +23,8 @@
 | Ordered file IDs through attachment-only send, replay, regenerate, edit and sharing; foreign file rejection rolls back | `ChatPersistenceIntegrationTest.orderedMessageFilesSurviveReplayRegenerationEditingAndSharedHistoryWithoutNewUploads`: real PostgreSQL/message transactions; READY file metadata seeded |
 | Empty custom Persona overrides Project files; replay context can acquire required locks; revision updates preserve admitted snapshots | `ChatPersistenceIntegrationTest.customPersonaEmptyFileListOverridesProjectAndReloadContextDoesNotUseReadOnlyLocks`: real PostgreSQL/JPA/transaction boundary |
 | Upload preview/removal cleanup, asynchronous readiness and stable file ID, Gửi/Enter blocked until READY, file-only message editing | `chat-attachments.test.tsx`: real assistant-ui runtime/adapter and production composer wrappers, mocked upload APIs |
+| Message files use the source workspace's desktop panel/mobile modal; Escape restores the trigger, locale changes preserve the reader and composer draft, close releases private data | `chat-file-reader.test.tsx`: native assistant-ui runtime and real readers with API/layout doubles; Playwright CLI desktop/390px fixture inspection in MEM-74/22 verification |
+| Feedback failure retains stable reason IDs and note through locale changes without automatically replaying a mutation | `chat-dialog.test.tsx`; existing feedback persistence/retry browser case in `chat-workspace.spec.ts` |
 | Inert paged text, no cached private reader data after close, saved image URL cleanup, unavailable-file denial and selection preservation | `chat-file-reader.test.tsx`: real React Query/components, mocked APIs; deletion reuses the project confirmation dialog |
 | Stable server message IDs, UUID request identity, duplicate replay, EOF cursor resume and one send | `web/src/features/chat/chat-transport.test.ts`; production transport/generated client with HTTP response fixtures |
 | Reset/gap history fallback, partial FAILED, committed Stop and complete/cancel race | `chat-transport.test.ts`; no model re-execution on recovery |

@@ -1,8 +1,26 @@
 # Chat session contract
 
-## MEM-81 in-flight file backend
+## Message renderers and read-only presentations
 
-The local attachment change adds owner-private UserFiles independently of conversations. `/api/chat/files` provides policy, idempotent upload initiation (`requestId` plus filename/type/size/SHA-256), finalize, recent-list/status, processing retry and deletion. API selects the `CHAT_FILE` storage purpose; browser input cannot select it. Finalize verifies storage outside the ownership transaction, then rechecks active membership/owner and atomically adopts the upload and queues PostgreSQL work. Replaying a completed finalize does not enqueue again. List/get do not return raw keys or plaintext. Stable extraction failure codes accompany failed metadata.
+Complete code fences lazily use Shiki's JavaScript regex engine; streaming/fences above 100,000 characters retain plain code. Complete Mermaid uses `beautiful-mermaid`, bounded to 20,000 characters/250 lines and displayed as inert SVG image data. Unsupported diagrams retain source. Radix Dialog owns expansion, zoom, Escape and focus. Raw HTML is not executed; CSP is unchanged.
+
+Tool-capable models receive `render_gui` in the existing backend tool loop. V42 adds `chat_message.artifacts` (JSONB array, at most three, 128 KiB database cap). Each has UUID, title (120 characters) and validated JSON spec (16 KiB UTF-8, 80 nodes, depth eight, 24 children/node, 2,048 characters/property). The closed vocabulary is Card, Heading, Text, Metric, Table, Row and Cell with display-only string props. No HTML/JS, forms, URLs, event handlers or application actions.
+
+Artifacts freeze and commit with the same terminal winner as answer content/sources. Authorized owner/shared history returns them. SSE outcome carries `hasArtifacts`, not the large specs; one authorized history read loads the committed answer. Replay gaps/reloads restore artifacts without another inference. Previous artifact data enters the normal bounded follow-up context as data, never system instructions, with the answer's sharing/retention semantics.
+
+Answer cards open the existing right panel/mobile dialog, using assistant-ui `GenerativeUIRender` and allowlisted app components. The native runtime owns content; only panel selection is local. Unsupported historical specs show a localized fallback without removing the answer. Model numbers are not verified computations; factual citations remain in the accompanying answer. See [localization](localization.md).
+
+## Account reply language
+
+Turn admission captures IAM's account `uiLanguage` in its resolved context. Native prompt assembly uses one language hint: `vi` prefers Vietnamese while allowing explicit requests for another language; `en`, absent or unknown values follow the language of the user's question. English does not force English replies. Default prompts with appended Persona/Project instructions replace the default language line rather than adding conflicting language blocks. Custom instructions remain intact after the account preference. Locale changes do not alter an admitted running turn, stored conversation content, retrieval queries or evidence.
+
+`ChatLanguagePromptTest` verifies prompt composition, fallback and instruction preservation. `ChatPersistenceIntegrationTest.accountLanguageIsCapturedAtAdmissionAndChangesOnlyForTheNextTurn` verifies the real persisted preference snapshot across turns. These are request-contract checks, not live-model language-quality acceptance.
+
+## Chat file backend
+
+Chat message files and answer citations share the existing responsive reader workspace: one right-hand panel on desktop, a focus-contained Radix modal drawer on mobile. File triggers keep the originating focus target; closing preserves the composer draft and native Chat runtime. The readers retain current authority checks and zero-retention private query behavior. Shared transcript file descriptors remain non-opening. Composer attachments use bounded horizontal cards with a truncated name/full tooltip, known size and adjacent remove action; native upload/readiness and the upstream preview store remain authoritative. This does not introduce generated HTML artifacts, code execution, artifact editing or version history.
+
+The implemented attachment flow adds owner-private UserFiles independently of conversations. `/api/chat/files` provides policy, idempotent upload initiation (`requestId` plus filename/type/size/SHA-256), finalize, recent-list/status, processing retry and deletion. API selects the `CHAT_FILE` storage purpose; browser input cannot select it. Finalize verifies storage outside the ownership transaction, then rechecks active membership/owner and atomically adopts the upload and queues PostgreSQL work. Replaying a completed finalize does not enqueue again. List/get do not return raw keys or plaintext. Stable extraction failure codes accompany failed metadata.
 
 The browser repeats initiate/finalize once on a fetch network TypeError with the same request/file identity, without repeating PUT. It does not retry HTTP authorization/validation failures or canceled requests. Existing recent-file/finalize/expiry paths remain the recovery surface after reload; this is not resumable chunked upload or persistent browser drafts.
 
