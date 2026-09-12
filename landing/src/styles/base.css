@@ -93,54 +93,16 @@
   }
 
   /*
-   * Once a station of the ingestion beam has finished (`data-live`) and the list is on screen
-   * (`data-visible`), light keeps running along the lit beam and the station's drawing keeps a quiet
-   * loop (src/sections/how-it-works/ingestion-story.tsx). Every loop starts and ends on the
-   * drawing's final state, and motion alone sets these attributes.
+   * Once a line drawing has finished (`data-live`) and its row is on screen (`data-visible`), it
+   * keeps a quiet loop (src/motion/drawings.ts). Every loop starts and ends on the drawing's final
+   * state, and motion alone sets these attributes.
    */
-  /* Every segment's run starts together when the list comes on screen, so the light stays in step
-   * from station to station; a segment only shows its run once its station has finished. */
-  .beam-flow {
-    opacity: 0;
-    transition: opacity 0.4s;
-  }
-
-  [data-live] .beam-flow {
-    opacity: 1;
-  }
-
-  [data-visible] .beam-flow-run {
-    animation: beam-flow-down 4.8s linear calc(var(--i, 0) * 0.8s) infinite;
-  }
-
   [data-visible] [data-live] .ambient-packet {
     animation: ambient-packet 3s ease-in-out var(--delay, 0s) infinite;
   }
 
-  [data-visible] [data-live] .ambient-scan {
-    animation: ambient-scan 5s ease-in-out 1s infinite;
-  }
-
-  [data-visible] [data-live] .ambient-blink {
-    animation: ambient-blink 4s ease-in-out var(--delay, 0s) infinite;
-  }
-
-  [data-visible] [data-live] .ambient-level {
-    animation: ambient-level 2.6s ease-in-out var(--delay, 0s) infinite;
-  }
-
   [data-visible] [data-live] .ambient-pulse {
     animation: ambient-pulse 3.2s ease-out 0.6s infinite;
-  }
-
-  /* A short dash that runs along a `pathLength="100"` path. */
-  .ambient-glint {
-    stroke-dasharray: 10px 100px;
-    stroke-dashoffset: 120px;
-  }
-
-  [data-visible] [data-live] .ambient-glint {
-    animation: ambient-glint 3.6s ease-in-out var(--delay, 0s) infinite;
   }
 
   /* Theme switches grow the new theme in a circle from the toggle (src/lib/theme.ts). */
@@ -152,9 +114,9 @@
 }
 
 /*
- * Scrubbed ramps for the ingestion beam (src/sections/how-it-works/ingestion-story.tsx). Motion
- * moves one progress value `--p` (0–1) per station; each part eases in between its own `--from`
- * and `--to`. Without motion `--p` is unset and counts as 1, so the markup shows the final state.
+ * Scrubbed ramps for the line drawings (src/components/line-drawing.tsx). Motion moves one
+ * progress value `--p` (0–1) per drawing; each part eases in between its own `--from` and `--to`.
+ * Without motion `--p` is unset and counts as 1, so the markup shows the final state.
  */
 @utility ramp {
   --t: clamp(0, calc((var(--p, 1) - var(--from, 0)) / (var(--to, 1) - var(--from, 0))), 1);
@@ -165,11 +127,7 @@
   opacity: var(--t);
 }
 
-@utility ramp-out {
-  opacity: calc(1 - var(--t));
-}
-
-/* Visible only while its ramp runs: the scan, the cuts, packets and the comet. */
+/* Visible only while its ramp runs, like a packet in flight. */
 @utility ramp-pass {
   opacity: clamp(0, calc(min(var(--t), 1 - var(--t)) * 10), 1);
 }
@@ -184,52 +142,15 @@
   transform-origin: center;
 }
 
-@utility ramp-grow-x {
-  scale: var(--t) 1;
-  transform-origin: left center;
-}
-
-@utility ramp-grow-y {
-  scale: 1 var(--t);
-  transform-origin: center bottom;
-}
-
-@utility ramp-grow-down {
-  scale: 1 var(--t);
-  transform-origin: center top;
-}
-
 /* Arrives from an offset of (--dx, --dy). */
 @utility ramp-travel {
   translate: calc((1 - var(--t)) * var(--dx, 0px)) calc((1 - var(--t)) * var(--dy, 0px));
-}
-
-/* Crosses --sweep, like a scan line down a page. */
-@utility ramp-sweep {
-  translate: 0 calc(var(--t) * var(--sweep, 0px));
 }
 
 /* Strokes with pathLength="100" draw along their path. */
 @utility ramp-draw {
   stroke-dasharray: 100px;
   stroke-dashoffset: calc((1 - var(--t)) * 100px);
-}
-
-/* Each segment lights for one sixth of the cycle, so light crosses the six stations in turn. */
-@keyframes beam-flow-down {
-  0% {
-    translate: 0 0;
-    opacity: 0;
-  }
-  3%,
-  13% {
-    opacity: 1;
-  }
-  16.66%,
-  100% {
-    translate: 0 100%;
-    opacity: 0;
-  }
 }
 
 @keyframes ambient-packet {

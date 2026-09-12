@@ -25,6 +25,10 @@
   --color-approval-content: var(--approval-content);
 }
 
+/* Inside the horizontal track of how it works, which motion switches on with `data-track`
+ * (src/motion/track.ts). The attribute selector outweighs the list's own layout utilities. */
+@custom-variant track ([data-track] &);
+
 /* Landing-only display sizes. */
 @utility font-display {
   font-family: var(--font-sans);
@@ -42,6 +46,27 @@
   line-height: 1.1;
   letter-spacing: -0.02em;
   text-wrap: balance;
+}
+
+/* The stage titles of how it works. Their letters are split to rise one by one
+ * (src/motion/text.ts), so kerning stays off and the split letters keep the whole word's spacing. */
+@utility font-stage-title {
+  font-family: var(--font-sans);
+  font-size: clamp(3rem, 1.2rem + 5.6vw, 8.5rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-kerning: none;
+}
+
+/* A single sentence set large enough to read as a statement. */
+@utility font-statement {
+  font-family: var(--font-sans);
+  font-size: clamp(1.5rem, 0.95rem + 2vw, 3.25rem);
+  font-weight: 450;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
 }
 
 @utility font-lead {

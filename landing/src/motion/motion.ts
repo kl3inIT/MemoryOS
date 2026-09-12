@@ -1,9 +1,10 @@
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { SplitText } from "gsap/SplitText";
 import type { RefObject } from "react";
 
-gsap.registerPlugin(ScrollTrigger, useGSAP);
+gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
 
 // Mobile address bars resize the viewport while scrolling; re-measuring then would make scrubbed
 // scenes jump.
@@ -93,4 +94,4 @@ function useMotion(scope: RefObject<HTMLElement | null>, setup: MotionSetup) {
   );
 }
 
-export { allowsMotion, gsap, offsetTo, ScrollTrigger, useMotion, type MotionConditions };
+export { allowsMotion, gsap, offsetTo, ScrollTrigger, SplitText, useMotion, type MotionConditions };

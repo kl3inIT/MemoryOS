@@ -77,8 +77,7 @@ describe("landing page", () => {
 
     for (const entry of [...howItWorks.stages, ...capabilities.items]) {
       expect(
-        // Anchored at the end: a stage heading starts with its number, and "Index" and "Enterprise
-        // identity" also begin longer headings.
+        // Anchored at the end: "Index" and "Enterprise identity" also begin longer headings.
         screen.getByRole("heading", { level: 3, name: new RegExp(`${entry.title}$`) }),
       ).toBeVisible();
       expect(screen.getByText(entry.description)).toBeVisible();
