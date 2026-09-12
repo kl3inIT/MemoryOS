@@ -45,8 +45,12 @@
   --accent: #2450e6;
   --accent-surface: #2450e6;
   --accent-content: #ffffff;
-  --glow-core: #3d6bff47;
-  --glow-halo: #7d9bff2e;
+  /* On the light ground the glow keeps the brand hue at a strength that still reads as blue. */
+  --glow-core: #2f5bff66;
+  --glow-halo: #2450e63d;
+
+  /* The particle fields behind the hero and the closing call to action. */
+  --particle: #2450e6;
 
   /* Meaning-bound accents: brand blue marks citations, green marks an approved AI asset. */
   --citation-surface: #e8eeff;
@@ -91,6 +95,8 @@
   --accent-surface: #2f5bff;
   --glow-core: #3563ffc2;
   --glow-halo: #1d44d98c;
+
+  --particle: #9bb5ff;
 
   --citation-surface: #13234f;
   --citation-content: #9bb5ff;

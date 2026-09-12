@@ -1,18 +1,18 @@
 import { Section } from "@/components/section";
 import { deployment } from "@/content";
 
+// One option to a row, its title beside its description from lg, like the capabilities list.
 function Deployment() {
   return (
     <Section id="deployment" title={deployment.title} description={deployment.description}>
-      <ul className="grid gap-4 md:grid-cols-3">
-        {deployment.options.map(({ title, description, icon: Icon }) => (
+      <ul className="border-b border-border-subtle">
+        {deployment.options.map((option) => (
           <li
-            key={title}
-            className="reveal rounded-xl border border-border-subtle bg-surface-raised p-5 sm:p-6"
+            key={option.title}
+            className="grid gap-3 border-t border-border-subtle py-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:gap-16 lg:py-10"
           >
-            <Icon aria-hidden="true" className="size-5 text-accent" />
-            <h3 className="mt-4 font-heading-h3 text-content-primary">{title}</h3>
-            <p className="mt-2 font-main-content-body text-content-secondary">{description}</p>
+            <h3 className="font-title text-content-primary">{option.title}</h3>
+            <p className="max-w-2xl font-lead text-content-secondary">{option.description}</p>
           </li>
         ))}
       </ul>

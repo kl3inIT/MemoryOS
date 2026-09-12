@@ -10,7 +10,7 @@ function TrustStrip() {
         {trustSignals.map(({ title, description, logo }) => (
           <li
             key={title}
-            className="reveal flex items-center gap-5 py-6 sm:gap-6 sm:py-8 sm:pr-8 sm:not-first:pl-8 sm:not-first:[animation-range:entry_15%_entry_75%]"
+            className="flex items-center gap-5 py-6 sm:gap-6 sm:py-8 sm:pr-8 sm:not-first:pl-8"
           >
             {/* A fixed box with `contain` balances a wide wordmark against a compact one. */}
             <span

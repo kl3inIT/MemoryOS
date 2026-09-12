@@ -14,8 +14,12 @@ function App() {
     <>
       <Header />
       <main id="main">
-        <Hero />
-        <TrustStrip />
+        {/* The hero fills the first screen below the sticky header (h-16 and its border), with the
+            trust strip along its bottom edge. */}
+        <div className="flex min-h-[calc(100svh-4rem-1px)] flex-col">
+          <Hero />
+          <TrustStrip />
+        </div>
         <ProductHighlights />
         <Capabilities />
         <Assets />

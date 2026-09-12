@@ -2,6 +2,7 @@ import { Menu, Moon, Sun } from "lucide-react";
 import { type MouseEvent, useRef } from "react";
 import { ActionLink } from "@/components/action-link";
 import { BrandMark } from "@/components/brand-mark";
+import { VadanLogo } from "@/components/vadan-logo";
 import { contact, navigation } from "@/content";
 import { useTheme } from "@/lib/theme";
 
@@ -29,7 +30,10 @@ function Header() {
         <a href="/" className="mr-auto flex items-center gap-2.5 rounded-md">
           <BrandMark className="size-7" />
           <span className="font-heading-h3 text-content-primary">MemoryOS</span>
-          <span className="hidden font-main-ui-body text-content-muted sm:inline">by Vanda</span>
+          <span className="hidden items-center gap-1.5 font-main-ui-body text-content-muted sm:flex">
+            by
+            <VadanLogo className="h-3.5" />
+          </span>
         </a>
         <nav aria-label="Primary" className="hidden lg:block">
           <ul className="flex items-center gap-1">
