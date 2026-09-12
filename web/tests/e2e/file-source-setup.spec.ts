@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 for (const failure of ["none", "create", "upload", "finalize"] as const) {
   test(`FILE single-step setup: ${failure}`, async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
     const uploadedFilename = failure === "none" ? "knowledge.pdf" : "knowledge.txt";
     const source = {
       id: "15f8cb72-2628-4d75-bcf1-8f6cda95a120",
@@ -225,6 +226,10 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       await expect(page.getByRole("alert")).toHaveCount(0);
       await expect(submit).toBeEnabled();
     }
+    const acceptedUpload = page.waitForResponse(
+      (response) => response.url().endsWith("/finalize") && response.status() === 202,
+      { timeout: 30_000 },
+    );
     await submit.evaluate((button: HTMLButtonElement) => {
       button.click();
       button.click();
@@ -256,6 +261,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
         })
         .click();
     }
+    await acceptedUpload;
     await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
     await expect(page.getByText(uploadedFilename, { exact: true })).toBeVisible();
     const acceptedNotice = page.getByRole("listitem", {

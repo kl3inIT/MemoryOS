@@ -181,6 +181,18 @@ The frontend gate passed 99 unit tests in 18 files; the two affected Chromium sc
 The user requested committing and publishing the current code for a PR into `main` before further research, with staging deployment performed by the user. The latest instruction explicitly prioritizes resolving the main merge and opening the PR before integrated gates or further fixes. Unfinished structural correction, expanded corpus scoring, recovery promotion and performance optimization above are paused, not accepted. The diagnostic-only change passed its pre-merge focused checks; integrated verification remains pending and must be reported as such.
 
 - [x] Verify and commit the current diagnostic change and reconcile its contract/evidence.
-- [ ] Integrate current `origin/main` without replacing its features or applied migrations.
-- [ ] Push the merged branch and open a PR targeting `main`; report its exact head and pending checks.
-- [ ] After PR creation, run the integrated backend/frontend gates and address integration findings.
+- [x] Integrate current `origin/main` without replacing its features or applied migrations.
+- [x] Push the merged branch and open a PR targeting `main`; report its exact head and pending checks.
+- [x] After PR creation, run the integrated local backend/frontend gates and address the initial integration findings.
+
+Publication receipt: [PR #101](https://github.com/kl3inIT/MemoryOS/pull/101), head `3083fdb`, contains main `f807c1c`. Released V1–V38 hashes are unchanged; V39 replaces the conflicting unpublished admission migrations. Local/remote heads matched at publication. The PR was intentionally opened before integrated verification, not merged or deployed.
+
+### PR CI convergence — 2026-09-12
+
+The first CI run failed three behavioral tests and the dependent aggregate gate. The Chat lifecycle test still rejected Source uploads above the obsolete 10 MiB ceiling; its rejection boundary now follows the accepted 100 MiB contract. Both browser failure snapshots showed the real 100 MiB request still uploading at 0%, not a completed upload or application error. Setup and paging scenarios now wait for successful finalization within a bounded 30-second transfer wait before applying the unchanged five-second UI assertions; the encompassing test budget is 60 seconds. Payload size, admission rejection, retry, navigation and pagination assertions remain intact. No runtime limits, automatic retries or product behavior were changed to silence CI.
+
+The two affected browser files passed all five selected Chromium scenarios locally (1.1 minutes), including setup success/create failure/upload failure/finalization failure and concurrent paging with maximum-size upload. The complete frontend gate passed 130 unit tests in 22 files, generated API/routes checks, lint, formatting, type checking and production build; the existing large-chunk warning remains.
+
+The first local `clean check` passed API, connector and all 395 core cases, but the Worker Source convergence test timed out. The command incorrectly supplied an empty `DOCLING_TEST_ENDPOINT`; that test selects the optional DOCX/Docling path whenever the variable exists, unlike the ordinary CI environment where it is absent. The corrected gate omits the variable rather than changing Worker behavior or its timeout. This initial local gate is not a passing result. JetBrains semantic inspection remains unavailable.
+
+The corrected terminating `clean check --no-daemon --no-parallel --max-workers=1 --no-configuration-cache --console=plain` passed in 1m27s on JDK 25 with `JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=2`, `CI=true`, dev services disabled, OpenAPI writes disabled and the optional Docling endpoint absent. Reports contain 655 cases: 647 passed, eight skipped, zero failures/errors. API/connector/core results were restored from the preceding successful module executions; Worker executed and passed its real TXT upload/index/remove/delete flow. Latest-head GitHub CI is checked separately after pushing the fix.

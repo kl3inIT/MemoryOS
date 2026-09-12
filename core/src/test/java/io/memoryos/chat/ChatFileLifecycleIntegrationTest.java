@@ -207,7 +207,7 @@ class ChatFileLifecycleIntegrationTest {
     void uploadCapDoesNotChangeSourcePolicyAndResumeCannotReviveExpiredUpload() {
         assertDoesNotThrow(() -> files.initiate(owner,input(UUID.randomUUID(),104857600)));
         assertThrows(ChatException.class,() -> files.initiate(owner,input(UUID.randomUUID(),104857601)));
-        assertThrows(IllegalArgumentException.class,() -> new ObjectUploadSpecification("a.txt","text/plain",10485761,new ContentSha256(SHA)));
+        assertThrows(IllegalArgumentException.class,() -> new ObjectUploadSpecification("a.txt","text/plain",104857601,new ContentSha256(SHA)));
         assertThrows(IllegalArgumentException.class,() -> new ChatFileProperties(262144001,262144000));
         var input = input(UUID.randomUUID(),4);
         files.initiate(owner,input);

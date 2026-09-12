@@ -252,6 +252,7 @@ async function sourcePage(
 test("Files paging preserves concurrent item operations and uploads return to the newest page", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const server = await sourcePage(
     page,
     "FILE",
@@ -357,7 +358,12 @@ test("Files paging preserves concurrent item operations and uploads return to th
     { filename: uploaded.filename, sizeBytes: uploaded.sizeBytes },
   );
   await expect(page.getByRole("alert")).toHaveCount(0);
+  const acceptedUpload = page.waitForResponse(
+    (response) => response.url().endsWith("/finalize") && response.status() === 202,
+    { timeout: 30_000 },
+  );
   await upload.click();
+  await acceptedUpload;
   await expect(row(uploaded.filename)).toBeVisible();
   await expect(files.getByRole("status")).toHaveText("1 / 3");
   await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
