@@ -5,7 +5,7 @@ import { product, type Highlight } from "@/content";
 import { cn } from "@/lib/utils";
 import { scrubDrawings } from "@/motion/drawings";
 import { gsap, useMotion } from "@/motion/motion";
-import { GovernanceDrawing } from "@/sections/product-highlights/governance-drawing";
+import { AccessDrawing } from "@/sections/product-highlights/access-drawing";
 import { SearchDrawing } from "@/sections/product-highlights/search-drawing";
 
 type HighlightRowProps = {
@@ -54,7 +54,7 @@ function ProductHighlights() {
     <Section id="product" title={product.title} description={product.description}>
       <div ref={scope} className="space-y-20 sm:space-y-28">
         <HighlightRow highlight={product.search} Illustration={SearchDrawing} />
-        <HighlightRow highlight={product.governance} Illustration={GovernanceDrawing} reversed />
+        <HighlightRow highlight={product.identity} Illustration={AccessDrawing} reversed />
       </div>
     </Section>
   );

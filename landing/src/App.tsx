@@ -1,3 +1,4 @@
+import { Assets } from "@/sections/assets";
 import { Capabilities } from "@/sections/capabilities";
 import { Deployment } from "@/sections/deployment";
 import { Faq } from "@/sections/faq";
@@ -6,7 +7,6 @@ import { Header } from "@/sections/header";
 import { Hero } from "@/sections/hero";
 import { HowItWorks } from "@/sections/how-it-works";
 import { ProductHighlights } from "@/sections/product-highlights";
-import { Roadmap } from "@/sections/roadmap";
 import { TrustStrip } from "@/sections/trust-strip";
 
 function App() {
@@ -17,10 +17,10 @@ function App() {
         <Hero />
         <TrustStrip />
         <ProductHighlights />
-        <HowItWorks />
         <Capabilities />
+        <Assets />
+        <HowItWorks />
         <Deployment />
-        <Roadmap />
         <Faq />
       </main>
       <Footer />

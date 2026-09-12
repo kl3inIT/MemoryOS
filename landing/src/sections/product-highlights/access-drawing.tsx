@@ -4,8 +4,8 @@ import { ramp, type Point } from "@/lib/ramp";
 import { cn } from "@/lib/utils";
 
 /*
- * One permission model for everyone who asks: people, approved agents and MCP clients all pass the
- * same access check, which lets through the documents they may read and stops the rest.
+ * Enterprise identity governs every request: search, agents and MCP clients all pass the same access
+ * check, which lets through the documents the signed-in person may read and stops the rest.
  */
 const glyphX = 18;
 const labelX = 32;
@@ -17,11 +17,11 @@ const documentX = 208;
 // How far along its line a blocked request gets before the check stops it.
 const blockedAt = 0.6;
 
-function PersonGlyph({ y }: { y: number }) {
+function SearchGlyph({ y }: { y: number }) {
   return (
     <>
-      <circle cx={glyphX} cy={y - 3} r={3} />
-      <path d={`M${glyphX - 6} ${y + 6} a6 5 0 0 1 12 0`} />
+      <circle cx={glyphX - 1.5} cy={y - 1.5} r={4.5} />
+      <path d={`M${glyphX + 1.8} ${y + 1.8} l4 4`} strokeLinecap="round" />
     </>
   );
 }
@@ -44,14 +44,11 @@ function ClientGlyph({ y }: { y: number }) {
   );
 }
 
-const agentY = 75;
 const consumers: readonly { label: string; y: number; glyph: ReactNode }[] = [
-  { label: "People", y: 28, glyph: <PersonGlyph y={28} /> },
-  { label: "Agents", y: agentY, glyph: <AgentGlyph y={agentY} /> },
+  { label: "Search", y: 28, glyph: <SearchGlyph y={28} /> },
+  { label: "Agents", y: 75, glyph: <AgentGlyph y={75} /> },
   { label: "MCP clients", y: 122, glyph: <ClientGlyph y={122} /> },
 ];
-// The approval badge on the agent's top-right corner.
-const badge: Point = [glyphX + 7, agentY - 6];
 const documents = [
   { y: 24, allowed: true },
   { y: 58, allowed: false },
@@ -59,7 +56,7 @@ const documents = [
   { y: 126, allowed: false },
 ];
 
-function GovernanceDrawing() {
+function AccessDrawing() {
   const [gateX, gateY] = gate;
   const gateExit: Point = [gateX + gateRadius, gateY];
   const gateEntry: Point = [gateX - gateRadius, gateY];
@@ -102,23 +99,6 @@ function GovernanceDrawing() {
           </g>
         );
       })}
-      {/* The agent is an approved asset. */}
-      <g className="ramp ramp-pop" style={ramp(0.88, 1)}>
-        <circle
-          cx={badge[0]}
-          cy={badge[1]}
-          r={4.5}
-          strokeWidth={0.75}
-          className="fill-approval-surface stroke-approval-content"
-        />
-        <path
-          d={`M${badge[0] - 2.2} ${badge[1]} l1.5 1.5 l2.8 -3`}
-          strokeWidth={1.1}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="fill-none stroke-approval-content"
-        />
-      </g>
       <g className="ramp ramp-pop" style={ramp(0.35, 0.55)}>
         <circle
           cx={gateX}
@@ -200,4 +180,4 @@ function GovernanceDrawing() {
   );
 }
 
-export { GovernanceDrawing };
+export { AccessDrawing };

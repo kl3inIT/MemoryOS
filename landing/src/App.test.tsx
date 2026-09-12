@@ -1,7 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "@/App";
-import { capabilities, hero, howItWorks } from "@/content";
+import { capabilities, howItWorks } from "@/content";
+
+// The page states benefits, not the internal stack (design: positioning revision).
+const internalTechnology = /\b(Docling|OCR|OpenSearch|PostgreSQL|Redis|MinIO|Python)\b/;
 
 function renderPage() {
   return render(<App />).container;
@@ -19,19 +22,19 @@ describe("landing page", () => {
     );
 
     expect(targets).toEqual(
-      expect.arrayContaining(["main", "product", "how-it-works", "deployment", "roadmap", "faq"]),
+      expect.arrayContaining(["main", "product", "assets", "how-it-works", "deployment", "faq"]),
     );
     for (const target of targets) {
       expect(page.querySelector(`[id="${target}"]`), `#${target}`).not.toBeNull();
     }
   });
 
-  it("sends every email link to the AWS contact address", () => {
+  it("sends every email link to the company contact address", () => {
     const emailLinks = [...renderPage().querySelectorAll('a[href^="mailto:"]')];
 
     expect(emailLinks.length).toBeGreaterThan(0);
     expect(new Set(emailLinks.map((link) => link.getAttribute("href")))).toEqual(
-      new Set(["mailto:aws@vadan.app"]),
+      new Set(["mailto:info@vadan.app"]),
     );
   });
 
@@ -43,11 +46,15 @@ describe("landing page", () => {
     }
   });
 
-  it("links neither the source repository nor the third-party notices", () => {
+  it("links neither the source repository nor third-party notices", () => {
     const page = renderPage();
 
     expect(page.querySelector('a[href*="github.com"]')).toBeNull();
     expect(page.querySelector('a[href$="THIRD_PARTY_NOTICES.txt"]')).toBeNull();
+  });
+
+  it("names no internal technology", () => {
+    expect(renderPage().textContent).not.toMatch(internalTechnology);
   });
 
   it("names every graphic or hides it from assistive technology", () => {
@@ -65,27 +72,14 @@ describe("landing page", () => {
     }
   });
 
-  it("reads the typed statement as one sentence", () => {
-    renderPage();
-
-    expect(screen.getByText(hero.statement)).toHaveClass("sr-only");
-  });
-
-  it("explains how it works before listing capabilities", () => {
-    const sections = [...renderPage().querySelectorAll("main > section[id]")].map(
-      (section) => section.id,
-    );
-
-    expect(sections.indexOf("how-it-works")).toBeGreaterThan(-1);
-    expect(sections.indexOf("how-it-works")).toBeLessThan(sections.indexOf("capabilities"));
-  });
-
-  it("gives every ingestion stage and capability a heading and its sentence", () => {
+  it("gives every ingestion stage and capability a heading and its description", () => {
     renderPage();
 
     for (const entry of [...howItWorks.stages, ...capabilities.items]) {
       expect(
-        screen.getByRole("heading", { level: 3, name: new RegExp(entry.title) }),
+        // Anchored at the end: a stage heading starts with its number, and "Index" and "Enterprise
+        // identity" also begin longer headings.
+        screen.getByRole("heading", { level: 3, name: new RegExp(`${entry.title}$`) }),
       ).toBeVisible();
       expect(screen.getByText(entry.description)).toBeVisible();
     }

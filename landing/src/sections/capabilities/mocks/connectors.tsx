@@ -2,7 +2,7 @@ import { illustrationCard } from "@/lib/illustration";
 import { cn } from "@/lib/utils";
 import { enter } from "@/sections/capabilities/animate-mock";
 
-const sources = ["Google Drive", "Uploaded files", "REST API", "Business system"];
+const sources = ["Microsoft 365", "Google Drive", "Slack", "Salesforce"];
 
 function ConnectorsMock() {
   return (

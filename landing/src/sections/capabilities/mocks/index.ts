@@ -4,7 +4,7 @@ import { AgentsMock } from "@/sections/capabilities/mocks/agents";
 import { AnalysisMock } from "@/sections/capabilities/mocks/analysis";
 import { CitationsMock } from "@/sections/capabilities/mocks/citations";
 import { ConnectorsMock } from "@/sections/capabilities/mocks/connectors";
-import { GovernanceMock } from "@/sections/capabilities/mocks/governance";
+import { FilesMock } from "@/sections/capabilities/mocks/files";
 import { McpMock } from "@/sections/capabilities/mocks/mcp";
 import { PermissionsMock } from "@/sections/capabilities/mocks/permissions";
 import { SearchMock } from "@/sections/capabilities/mocks/search";
@@ -17,12 +17,12 @@ import { SsoMock } from "@/sections/capabilities/mocks/sso";
  */
 const mocks: Record<CapabilityMock, ComponentType> = {
   connectors: ConnectorsMock,
+  files: FilesMock,
   search: SearchMock,
   citations: CitationsMock,
   analysis: AnalysisMock,
   sso: SsoMock,
   agents: AgentsMock,
-  governance: GovernanceMock,
   mcp: McpMock,
   permissions: PermissionsMock,
 };

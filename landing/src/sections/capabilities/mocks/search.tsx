@@ -4,9 +4,9 @@ import { enter } from "@/sections/capabilities/animate-mock";
 
 const query = "supplier approval limit";
 const results = [
-  { title: "Procurement policy 2026.pdf", source: "Google Drive", relevance: 0.92 },
-  { title: "Supplier onboarding checklist.docx", source: "Uploaded file", relevance: 0.74 },
-  { title: "Contract register", source: "Business system", relevance: 0.58 },
+  { title: "Procurement policy 2026.pdf", source: "SharePoint", relevance: 0.92 },
+  { title: "Supplier onboarding checklist.docx", source: "Google Drive", relevance: 0.74 },
+  { title: "Contract register", source: "Salesforce", relevance: 0.58 },
 ];
 
 function SearchMock() {

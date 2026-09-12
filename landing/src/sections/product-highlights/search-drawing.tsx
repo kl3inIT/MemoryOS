@@ -9,9 +9,9 @@ const question = "supplier approval limit";
 // The bottom of the question bar, where the search leaves it.
 const asked: Point = [120, 26];
 const sources = [
-  { label: "Drive", x: 36, cited: true },
-  { label: "Files", x: 92, cited: true },
-  { label: "APIs", x: 148, cited: false },
+  { label: "SharePoint", x: 36, cited: true },
+  { label: "Drive", x: 92, cited: true },
+  { label: "Slack", x: 148, cited: false },
   { label: "Systems", x: 204, cited: false },
 ];
 const pageTop = 56;

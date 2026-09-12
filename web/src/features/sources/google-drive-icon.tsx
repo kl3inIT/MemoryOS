@@ -1,6 +1,5 @@
 import type { SVGProps } from "react";
 
-// Adapted from Onyx Opal's Google Drive logo; see THIRD_PARTY_NOTICES.
 export function GoogleDriveIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

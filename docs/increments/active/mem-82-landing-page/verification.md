@@ -40,10 +40,21 @@ Reduced motion could not be emulated: `orca set media --reduced-motion reduce` l
 
 Still to run for 6.0:
 
-- A visual pass over the capabilities, deployment and roadmap scenes while scrolling up.
+- A visual pass over the capabilities while scrolling up.
 - A keyboard pass over the new sections.
 - The Docker image and its smoke script.
 - CI on a pull request.
+- Lighthouse again after the merge below.
+
+### Merge of the positioning revision
+
+Recorded 2026-09-12 after merging `origin/main` into the 6.0 branch, with the product owner's three decisions in [design](design.md#accepted-decisions-2026-09-11).
+
+- `pnpm --dir landing check`: oxlint and oxfmt clean; Vitest 4 files, 19 tests passed; build, WOFF2 assertion and `tsc -b` passed. The first run failed: the heading lookup `/Index/` also matched "Index any file", and "Enterprise identity" also begins a Product heading. The lookup is now anchored at the end of the heading.
+- `public/og-image.png` was re-rendered from `scripts/og-image.html` with headless Chrome. It shows "MemoryOS by Vadan", "Trusted by Tasco. Backed by GenAI Fund." and `vadan.app`.
+- Orca, desktop 1881 × 1019, dark theme: the page renders six sections with 27 level-3 headings and no horizontal overflow. The access drawing reached `--p` 1: search, agents and MCP clients meet at the lock, and two documents are reached while two are stopped. The files mock, the Organizational AI Memory section and the three deployment options render main's copy.
+- The first load after the merge was blank. The Vite dev server still resolved `@/sections/product-highlights` to the deleted `product-highlights.tsx`. Touching `App.tsx` made it resolve the folder again. The production build was not affected.
+- After a reload, the first deep scroll runs ScrollTrigger's refresh. A trace showed it scroll to 0 to measure and then restore the position (5023 → 0 → 5023). Once, with Orca's window unfocused, the position stayed at 0; two traced attempts did not reproduce it.
 
 ## Landing 5.x
 
@@ -103,12 +114,23 @@ Keyboard, at 1024 px:
 
 The earlier theme review covered no light flash before first paint, a stored choice overriding the system theme, the circular theme reveal and the scroll-linked reveals. Reduced motion could not be emulated with this tool. It relies on the `prefers-reduced-motion` CSS guards and the script's `matchMedia` check.
 
-### Pending gates
+## Positioning revision
+
+Recorded 2026-09-11 on branch `nhuxuanviet/mem-82-landing-positioning` (from `c8e60e5`), after the product owner's positioning, domain (`vadan.app`) and contact (`info@vadan.app`) decisions in [design](design.md).
+
+- `pnpm check`: oxlint and oxfmt clean; Vitest 4 files, 15 tests passed (adds "does not link to the private source repository"; the email test now expects `mailto:info@vadan.app`); production build, WOFF2 assertion and `tsc -b` passed.
+- `gradlew.bat clean check --no-daemon`: BUILD SUCCESSFUL (no Gradle sources changed).
+- `docker build` plus `landing/scripts/smoke-image.sh memoryos-landing:local`: passed.
+- `public/og-image.png` re-rendered from `scripts/og-image.html` with headless Chrome.
+- Browser, dark theme, reduced motion: 1440 px reviewed section by section with no layout defects. At 390 px the capabilities, AI Memory text and asset card, how-it-works and deployment cards stack without overflow in the last successful capture; the final AI Memory surfaces band was not re-captured at 390 px.
+- The commits `2949b78` and `bae43dc` pushed to `nhuxuanviet/mem-82-landing-page` after PR #95 merged were not taken: the product owner chose "design partner" for Tasco instead of "partner".
+
+## Pending gates
 
 These have not run and are not passed:
 
 - CI on the pull request, including the new `landing` job in `CI Gate`.
 - The first `Publish landing` run on main and its recorded digest.
-- The operator deployment on the staging VPS, the Cloudflare and Nginx Proxy Manager changes, and the deployed checks from the [landing runbook](../../../runbooks/landing.md).
+- The operator deployment on the staging VPS, the Hostinger DNS and Nginx Proxy Manager changes, and the deployed checks from the [landing runbook](../../../runbooks/landing.md).
 - Lighthouse against `https://vadan.app/`.
 - Laura's content review.

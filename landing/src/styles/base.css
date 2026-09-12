@@ -87,26 +87,9 @@
   /* What the hero's load sequence brings in stays hidden from the first frame until the sequence is
    * set up a frame later (src/sections/hero.tsx). */
   @media (prefers-reduced-motion: no-preference) {
-    [data-intro="pending"] :is([data-character], [data-hero-actions], [data-hero-preview]) {
+    [data-intro="pending"] :is([data-hero-description], [data-hero-actions], [data-hero-preview]) {
       opacity: 0;
     }
-  }
-
-  /* The typed statement's caret follows the last typed character without taking space. */
-  .typed-caret {
-    position: relative;
-  }
-
-  .typed-caret::after {
-    content: "";
-    position: absolute;
-    top: 0.15em;
-    bottom: 0.1em;
-    left: calc(100% + 1px);
-    width: 2px;
-    border-radius: 1px;
-    background: linear-gradient(var(--accent), var(--accent-alt));
-    animation: caret-blink 1s steps(1) infinite;
   }
 
   /*
@@ -230,12 +213,6 @@
 @utility ramp-draw {
   stroke-dasharray: 100px;
   stroke-dashoffset: calc((1 - var(--t)) * 100px);
-}
-
-@keyframes caret-blink {
-  50% {
-    opacity: 0;
-  }
 }
 
 /* Each segment lights for one sixth of the cycle, so light crosses the six stations in turn. */

@@ -47,7 +47,7 @@ describe("site metadata", () => {
     expect(organization).toMatchObject({
       name: "Vadan",
       url: `${siteOrigin}/`,
-      email: "aws@vadan.app",
+      email: "info@vadan.app",
       funder: { name: "GenAI Fund" },
     });
     expect(existsSync(publicFileFor(organization.logo))).toBe(true);
