@@ -73,17 +73,6 @@
     mask-size: contain;
   }
 
-  /* The one-pixel frame around product mocks: brand light at two corners, hairline between. */
-  .frame-gradient {
-    background: linear-gradient(
-      140deg,
-      var(--frame-light) 0%,
-      var(--border-subtle) 32%,
-      var(--border-subtle) 68%,
-      var(--frame-light) 100%
-    );
-  }
-
   /* What the hero's load sequence brings in stays hidden from the first frame until the sequence is
    * set up a frame later (src/sections/hero.tsx). */
   @media (prefers-reduced-motion: no-preference) {

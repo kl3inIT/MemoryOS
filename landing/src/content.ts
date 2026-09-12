@@ -3,9 +3,8 @@ import tascoLogo from "@/assets/logos/tasco.png";
 
 /*
  * Every string a reader or a screen reader meets on the page. Illustrations hidden from assistive
- * technology (the line drawings, the ingestion stage and the capability mocks) keep their sample
- * data beside them. The page names standards buyers look for, never the internal stack
- * (src/App.test.tsx).
+ * technology (the line drawings) keep their sample data beside them. The page names standards
+ * buyers look for, never the internal stack (src/App.test.tsx).
  */
 
 type Link = {
@@ -25,21 +24,6 @@ type Entry = {
 
 type Highlight = Entry & {
   points: readonly string[];
-};
-
-type CapabilityMock =
-  | "connectors"
-  | "files"
-  | "search"
-  | "citations"
-  | "analysis"
-  | "sso"
-  | "agents"
-  | "mcp"
-  | "permissions";
-
-type Capability = Entry & {
-  mock: CapabilityMock;
 };
 
 type GatePassage = {
@@ -137,7 +121,7 @@ const product = {
   },
 } as const;
 
-const capabilities: SectionIntro & { items: readonly Capability[] } = {
+const capabilities: SectionIntro & { items: readonly Entry[] } = {
   title: "Everything an enterprise knowledge layer needs",
   description:
     "Each capability works under the same permission model, from the first connected source to the last agent.",
@@ -146,54 +130,45 @@ const capabilities: SectionIntro & { items: readonly Capability[] } = {
       title: "Connect every system",
       description:
         "Google Workspace, Microsoft 365, SharePoint, Teams, Slack, Confluence, Notion, Jira, Salesforce, HubSpot, Zendesk, GitHub, Box, Dropbox, Amazon S3, email, databases and REST APIs. Content and permissions stay in sync as sources change.",
-      mock: "connectors",
     },
     {
       title: "Index any file",
       description:
         "PDFs, Word, Excel, PowerPoint, Google Docs and Sheets, emails, web pages, images and scanned pages. MemoryOS reads the text, tables and charts inside them, in Vietnamese and English.",
-      mock: "files",
     },
     {
       title: "Enterprise search",
       description:
         "Keyword and semantic search across everything a person is allowed to see, ranked for relevance.",
-      mock: "search",
     },
     {
       title: "Cited answers",
       description:
         "Answers link each claim to the document and passage it came from, so people can check before they act.",
-      mock: "citations",
     },
     {
       title: "Analysis and reports",
       description: "Calculates, builds tables and charts, and produces reports from company data.",
-      mock: "analysis",
     },
     {
       title: "Enterprise identity",
       description:
         "Multiple SSO providers over SAML and OIDC, SCIM user and group provisioning, and role-based access.",
-      mock: "sso",
     },
     {
       title: "Custom agents",
       description:
         "Agents for each department or workflow, with their own knowledge, instructions and tools.",
-      mock: "agents",
     },
     {
       title: "MCP server",
       description:
         "Approved knowledge and AI assets for your other agents through the Model Context Protocol.",
-      mock: "mcp",
     },
     {
       title: "Permission-aware by design",
       description:
         "Access is checked before retrieval for search, answers, agents and MCP alike. Only permitted context ever reaches the model.",
-      mock: "permissions",
     },
   ],
 };
@@ -403,8 +378,7 @@ export {
   product,
   productPreview,
   trustSignals,
-  type Capability,
-  type CapabilityMock,
+  type Entry,
   type GatePassage,
   type Highlight,
 };

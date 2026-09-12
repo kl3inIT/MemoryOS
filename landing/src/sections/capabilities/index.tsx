@@ -1,105 +1,76 @@
 import { useRef } from "react";
 import { Section } from "@/components/section";
 import { capabilities } from "@/content";
-import { cn } from "@/lib/utils";
-import { gsap, useMotion } from "@/motion/motion";
-import { animateMock } from "@/sections/capabilities/animate-mock";
-import { mocks } from "@/sections/capabilities/mocks";
-
-// How far a card starts beside its place, as a share of its own width, and how far it is tilted.
-const sideOffset = { wide: 40, narrow: 16 };
-const sideTilt = 3;
+import { gsap, ScrollTrigger, useMotion } from "@/motion/motion";
+import { revealText } from "@/motion/text";
 
 /*
- * The capabilities as cards that converge while they scroll in. From lg the left column slides in
- * from the left and the right column from the right; on one column the cards alternate sides. The
- * last capability, the principle the others share, spans both columns and rises from the middle. A
- * card's mock plays once the card has arrived. Without motion every card rests in place with its
- * mock in its final state; the section clips the cards while they are still beside the page.
+ * The capabilities as type, after the tools list on gsap.com: each is a title in brand blue over
+ * its description, both set large, down the page. From lg a sticky index of the titles runs beside
+ * them; each entry links to its capability, and motion marks the one crossing the middle of the
+ * viewport. As a capability scrolls in, its words rise into place (src/motion/text.ts).
  */
+
+const anchorOf = (title: string) => `capability-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
 function Capabilities() {
   const { items } = capabilities;
   const scope = useRef<HTMLDivElement>(null);
 
-  useMotion(scope, ({ wide }) => {
+  useMotion(scope, () => {
     const root = scope.current;
     if (!root) {
-      return;
+      return undefined;
     }
-    const cards = gsap.utils.toArray<HTMLElement>("[data-capability]", root);
-
-    // Building a mock's timeline puts its elements in their start state, so it waits until its card
-    // starts to arrive.
-    const timelines = new Map<number, gsap.core.Timeline>();
-    const mockTimeline = (index: number) => {
-      const mockRoot = cards[index]?.querySelector<HTMLElement>("[data-mock]");
-      if (!mockRoot) {
-        return undefined;
-      }
-      const timeline = timelines.get(index) ?? animateMock(mockRoot);
-      timelines.set(index, timeline);
-      return timeline;
-    };
-
-    cards.forEach((card, index) => {
-      const side = index % 2 === 0 ? -1 : 1;
-      const start =
-        index === cards.length - 1
-          ? { opacity: 0, scale: 0.88, y: 48 }
-          : {
-              opacity: 0,
-              xPercent: side * (wide ? sideOffset.wide : sideOffset.narrow),
-              rotation: side * sideTilt,
-            };
-      gsap
-        .timeline({
-          scrollTrigger: { trigger: card, start: "top 95%", end: "top 55%", scrub: 0.6 },
-          onStart: () => mockTimeline(index),
-          onComplete: () => mockTimeline(index)?.play(),
-        })
-        .from(card, { ...start, ease: "power2.out" });
+    const entries = gsap.utils.toArray<HTMLElement>("[data-capability]", root);
+    const links = gsap.utils.toArray<HTMLElement>("[data-capability-link]", root);
+    entries.forEach((entry, index) => {
+      revealText(entry, { trigger: entry, start: "top 85%" });
+      ScrollTrigger.create({
+        trigger: entry,
+        start: "top 50%",
+        end: "bottom 50%",
+        onToggle: (self) => links[index]?.toggleAttribute("data-active", self.isActive),
+      });
     });
-
-    return () => timelines.forEach((timeline) => timeline.revert());
+    return () => links.forEach((link) => link.removeAttribute("data-active"));
   });
 
   return (
-    <Section
-      id="capabilities"
-      title={capabilities.title}
-      description={capabilities.description}
-      className="overflow-x-clip"
-    >
-      <div ref={scope} className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-        {items.map((item, index) => {
-          const Illustration = mocks[item.mock];
-          return (
+    <Section id="capabilities" title={capabilities.title} description={capabilities.description}>
+      <div ref={scope} className="grid gap-x-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]">
+        <nav aria-labelledby="capabilities-heading" className="hidden lg:block">
+          <ol className="sticky top-28 grid border-l border-border-subtle">
+            {items.map((item) => (
+              <li key={item.title}>
+                <a
+                  href={`#${anchorOf(item.title)}`}
+                  data-capability-link=""
+                  className="-ml-px block border-l-2 border-transparent py-2 pl-4 font-main-ui-body text-content-muted transition-colors hover:text-content-primary data-active:border-accent data-active:text-content-primary"
+                >
+                  {item.title}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <div>
+          {items.map((item) => (
             <article
               key={item.title}
+              id={anchorOf(item.title)}
               data-capability=""
-              className={cn(
-                "frame-gradient rounded-2xl p-px",
-                index === items.length - 1 && "lg:col-span-2",
-              )}
+              className="scroll-mt-24 border-t border-border-subtle py-12 first:border-t-0 first:pt-0 lg:py-16"
             >
-              <div className="flex h-full flex-col overflow-hidden rounded-[calc(1rem-1px)] bg-surface-raised">
-                <div className="p-5 sm:p-6">
-                  <h3 className="font-heading-h3 text-content-primary">{item.title}</h3>
-                  <p className="mt-1 font-main-content-body text-content-secondary">
-                    {item.description}
-                  </p>
-                </div>
-                <div
-                  aria-hidden="true"
-                  data-mock=""
-                  className="relative mt-auto h-72 border-t border-border-subtle bg-surface-canvas sm:h-80"
-                >
-                  <Illustration />
-                </div>
-              </div>
+              <h3 data-reveal-words="" className="font-title text-accent">
+                {item.title}
+              </h3>
+              <p data-reveal-words="" className="mt-4 max-w-2xl font-lead text-content-primary">
+                {item.description}
+              </p>
             </article>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </Section>
   );

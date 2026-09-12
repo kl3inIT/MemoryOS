@@ -48,10 +48,8 @@
   --glow-core: #3d6bff47;
   --glow-halo: #7d9bff2e;
 
-  /* Motion accents: the particle fields, the caret gradient and the mock frames' corner light. */
+  /* The particle fields behind the hero and the closing call to action. */
   --particle: #2450e6;
-  --accent-alt: #0891b2;
-  --frame-light: #2450e666;
 
   /* Meaning-bound accents: brand blue marks citations, green marks an approved AI asset. */
   --citation-surface: #e8eeff;
@@ -98,8 +96,6 @@
   --glow-halo: #1d44d98c;
 
   --particle: #9bb5ff;
-  --accent-alt: #5ad1f0;
-  --frame-light: #86a6ff80;
 
   --citation-surface: #13234f;
   --citation-content: #9bb5ff;
