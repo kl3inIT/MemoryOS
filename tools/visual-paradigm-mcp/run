@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+command="${1:-help}"
+shift || true
+
+case "$command" in
+  build)   ./gradlew clean build "$@" ;;
+  test)    ./gradlew test "$@" ;;
+  package) ./gradlew :vp-bridge-plugin:packagePlugin :mcp-server:bootJar "$@" ;;
+  install) ./gradlew :vp-bridge-plugin:installPlugin "$@" ;;
+  sidecar) ./gradlew :mcp-server:bootRun "$@" ;;
+  clean)   ./gradlew clean "$@" ;;
+  *)
+    echo "Usage: ./run {build|test|package|install|sidecar|clean}"
+    exit 1
+    ;;
+esac

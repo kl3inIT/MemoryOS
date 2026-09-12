@@ -1,0 +1,4 @@
+interface:
+  display_name: "PE Diagram DOCX"
+  short_description: "Capture diagrams and finish PE Word templates"
+  default_prompt: "Use $pe-diagram-docx to capture each Visual Paradigm answer and complete the PE DOCX concisely."

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin id="vn.edu.swd392.vpmcp"
+        name="SWD392 Visual Paradigm Bridge"
+        provider="SWD392"
+        class="vn.edu.swd392.vpmcp.bridge.VpMcpPlugin">
+    <runtime>
+        <library path="lib/swd392-vp-bridge.jar"/>
+        <library path="lib/jackson-annotations.jar"/>
+        <library path="lib/jackson-core.jar"/>
+        <library path="lib/jackson-databind.jar"/>
+        <library path="lib/undertow-core.jar"/>
+        <library path="lib/xnio-api.jar"/>
+        <library path="lib/xnio-nio.jar"/>
+        <library path="lib/jboss-logging.jar"/>
+        <library path="lib/jboss-threads.jar"/>
+        <library path="lib/wildfly-common.jar"/>
+    </runtime>
+</plugin>
