@@ -1,6 +1,6 @@
 # Search capability contract
 
-MEM-46 implements direct document Search; production acceptance is tracked in the [active increment](../increments/active/mem-46-search/verification.md). Chat remains MEM-11.
+MEM-46 implements direct document Search; production acceptance is tracked in the [active increment](../increments/completed/mem-46-search/verification.md). Chat remains MEM-11.
 
 ## Shared runtime configuration
 
@@ -73,7 +73,7 @@ After retrieval, the service batch-checks current ready generations and existing
 
 Each result exposes `sections`, with `startOrdinal`, `endOrdinal`, `matchingOrdinal`, best-member `score`, combined `content`, and `provenance` entries preserving each member's ordinal and original `provenanceJson`. All ordinals are zero-based and endpoints are inclusive. A section ranks at its best member's position; equal scores use that member's ordinal. Merging precedes the limit of three sections per document, so a contiguous run can contain more than three chunks. Documents retain their best-hit ranking. Section content remains bounded by the query candidate budget; there is no extra three-chunk text truncation. No index migration or embedding call is required for this step.
 
-For example, ranked hits `11, 40, 10` become section `10–11` anchored at match `11`, then section `40`. This follows Onyx's `merge_individual_chunks` and newline concatenation at reference commit `06aa2b09cc4aa5135fa2627e5235814e996f1514`. MemoryOS additionally presents these sections inside one document card and pages documents. Existing public-source eligibility is preserved; no additional permission model is introduced.
+For example, ranked hits `11, 40, 10` become section `10–11` anchored at match `11`, then section `40`. This follows the retired reference implementation's `merge_individual_chunks` and newline concatenation at reference commit `06aa2b09cc4aa5135fa2627e5235814e996f1514`. MemoryOS additionally presents these sections inside one document card and pages documents. Existing public-source eligibility is preserved; no additional permission model is introduced.
 
 `POST /api/search` accepts a trimmed query of 1–1000 characters, up to ten MIME-type filters, optional `updatedSince`, zero-based `page` up to 49 and `pageSize` 1–20. The retrieval budget defaults to 500 and stays fixed across pages; it bounds keyword collection/hybrid pagination/response size and semantic `ef_search`, while the semantic score floor decides vector eligibility. `hasMore` describes the bounded grouped candidate set, not a global exact document count. Paging recomputes retrieval and can reflect concurrent source updates. Server configuration owns hybrid weight, semantic score floor and candidate limits; the browser cannot select a provider/model/backend or arbitrary search DSL.
 

@@ -105,9 +105,9 @@ Frontend quality and browser checks run inside the exact `mcr.microsoft.com/play
 - Airbyte: a centered, single-purpose login stack with a compact heading, full-width identity-provider actions, and no marketing hero ([live login](https://cloud.airbyte.com/login), [source](https://github.com/airbytehq/airbyte-platform/blob/main/airbyte-webapp/src/cloud/views/auth/LoginPage/LoginPage.tsx)).
 - Camunda: a quiet full-page canvas with a focused sign-in surface, product identity, and restrained supporting copy ([documented login screenshot](https://docs.camunda.io/assets/images/login-268a4863bad25d9f9ba9dfd2af59fe16.png)).
 - Kestra: backend-generated OpenAPI as a build input, deterministic SDK freshness, separated quality gates, and packages only after a real independent lifecycle exists.
-- Onyx: explicit authentication service/hook/component boundaries, colocated behavior tests, accessible asynchronous states, and browser-level product verification.
+- reference implementation: explicit authentication service/hook/component boundaries, colocated behavior tests, accessible asynchronous states, and browser-level product verification.
 
-MemoryOS does not copy Kestra's Vue packages, custom generator plugin, module federation, or early design-system split; it does not copy Onyx's Next.js server or handwritten API approach.
+MemoryOS does not copy Kestra's Vue packages, custom generator plugin, module federation, or early design-system split; it does not copy reference implementation's Next.js server or handwritten API approach.
 
 ## Verification boundary
 

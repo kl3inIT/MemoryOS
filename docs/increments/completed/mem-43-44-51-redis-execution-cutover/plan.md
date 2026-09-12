@@ -2,7 +2,7 @@
 
 ## Contract and persistence
 
-- [x] Reconcile the three Linear work packages, current architecture, local Onyx reference, and clean-cutover decision.
+- [x] Reconcile the three Linear work packages, current architecture, local reference implementation reference, and clean-cutover decision.
 - [x] Add Flyway-owned dispatch evidence and bounded relay indexes to index and cleanup attempts.
 - [x] Add concrete ingestion dispatch contracts and JDBC persistence without a generic outbox or event bus.
 - [x] Replace batch claim APIs with identifier-scoped token-fenced claim, renewal, retry, and reclaim evidence.

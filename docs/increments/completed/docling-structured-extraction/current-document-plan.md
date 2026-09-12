@@ -4,8 +4,8 @@
 
 Align Docling request configuration with the pinned server ceilings (200 pages, 300 seconds); test defaults, exact limits, lower limits and invalid overrides. Retain the approved private single-host Docker HTTP service endpoint for MinIO; public browser uploads remain HTTPS. Do not expand this PR into internal PKI provisioning. Verify review findings against the object-storage contract before resolution.
 
-User-approved direction: follow Onyx's current-document model, not immutable extraction history.
-Reference: `.tmp/onyx` e3320d8fe, Document/FileRecord models and indexing staging/promotion.
+User-approved direction: follow reference implementation's current-document model, not immutable extraction history.
+Reference: the retired reference checkout e3320d8fe, Document/FileRecord models and indexing staging/promotion.
 
 Keep stable Document identity with current metadata, source checksum and artifact reference.
 Remove profile/output pinning; parser configuration is diagnostic metadata only. Replace

@@ -6,23 +6,23 @@ MemoryOS moves immutable FILE binaries out of PostgreSQL and into private object
 
 PostgreSQL remains authoritative for Tenant ownership, upload state, ConnectorItem/version identity, index and cleanup operations, claims, leases, and terminal results. MinIO owns raw immutable bytes. Redis remains rebuildable identifier-only delivery state.
 
-## Onyx evidence and deliberate differences
+## reference implementation evidence and deliberate differences
 
-MemoryOS adopts the durable parts of Onyx's design, not its implementation shape:
+MemoryOS adopts the durable parts of reference implementation's design, not its implementation shape:
 
-- Onyx exposes a provider-neutral `FileStore` and persists an opaque `file_id` separately from display metadata and provider location.
+- reference implementation exposes a provider-neutral `FileStore` and persists an opaque `file_id` separately from display metadata and provider location.
 - Its adapters include `S3BackedFileStore`, `GCSBackedFileStore`, `AzureBlobBackedFileStore`, and `PostgresBackedFileStore`.
 - `FileOrigin.INDEXING_STAGING` is promoted to a retained connector origin, and attempt cleanup reaps abandoned staging files.
 
-Onyx does not have a generic presigned `ObjectUpload`, upload-intent, or finalize state machine. Browser-facing FILE, project/user-file, avatar, skill-bundle, and user-library uploads are API-proxied and each capability owns its database association, status, replacement, and cleanup choreography. Chat-generated files, indexing checkpoints, log exports, sandbox snapshots, and other artifacts share `FileStore` plus `FileOrigin`, but not one generic upload aggregate.
+reference implementation does not have a generic presigned `ObjectUpload`, upload-intent, or finalize state machine. Browser-facing FILE, project/user-file, avatar, skill-bundle, and user-library uploads are API-proxied and each capability owns its database association, status, replacement, and cleanup choreography. Chat-generated files, indexing checkpoints, log exports, sandbox snapshots, and other artifacts share `FileStore` plus `FileOrigin`, but not one generic upload aggregate.
 
-The strongest reusable Onyx lifecycle is indexing staging: connector-generated raw files are saved with `INDEXING_STAGING`, promoted to `CONNECTOR` in the same database commit that adopts their `file_id`, cleaned at attempt end, and reaped from a crashed prior attempt when the next attempt starts. MemoryOS generalizes this stage/verify/adopt/reap invariant for direct presigned uploads while keeping each consuming capability responsible for its own association and receipt.
+The strongest reusable reference implementation lifecycle is indexing staging: connector-generated raw files are saved with `INDEXING_STAGING`, promoted to `CONNECTOR` in the same database commit that adopts their `file_id`, cleaned at attempt end, and reaped from a crashed prior attempt when the next attempt starts. MemoryOS generalizes this stage/verify/adopt/reap invariant for direct presigned uploads while keeping each consuming capability responsible for its own association and receipt.
 
-MemoryOS keeps those invariants: opaque application identity, metadata/byte separation, explicit staging/adoption, and orphan cleanup. It intentionally does not copy Onyx's API-proxied `UploadFile` path, global backend factory, provider location leakage, startup bucket creation, PostgreSQL compatibility backend, or mixed metadata/provider-I/O responsibility.
+MemoryOS keeps those invariants: opaque application identity, metadata/byte separation, explicit staging/adoption, and orphan cleanup. It intentionally does not copy reference implementation's API-proxied `UploadFile` path, global backend factory, provider location leakage, startup bucket creation, PostgreSQL compatibility backend, or mixed metadata/provider-I/O responsibility.
 
 ## Browser source discovery and setup
 
-Onyx separates available connector types from configured connector instances: `/admin/add-connector` renders provider metadata tiles, then the selected provider owns its setup steps. MemoryOS adopts that information architecture without copying Onyx's deprecated numeric `FormContext` or FILE-specific step skipping.
+reference implementation separates available connector types from configured connector instances: `/admin/add-connector` renders provider metadata tiles, then the selected provider owns its setup steps. MemoryOS adopts that information architecture without copying reference implementation's deprecated numeric `FormContext` or FILE-specific step skipping.
 
 The public browser vocabulary remains provider-neutral:
 
@@ -38,7 +38,7 @@ The persistent administration layout also owns in-memory pending-finalization re
 
 The TanStack route shape is explicit: `_authenticated.admin.sources.new.tsx` renders an `Outlet`, `_authenticated.admin.sources.new.index.tsx` is the catalog leaf, `_authenticated.admin.sources.new.file.tsx` is the FILE setup leaf, and `_authenticated.admin.sources.$sourceId.tsx` is the configured-Source detail leaf. The persistent administration `AppShell` remains mounted across the flow.
 
-Provider discovery uses the same stacked icon/title header, full-width search field, and exact Onyx `w-40` tile rhythm: `160px` width, `16px` padding, a `24px` provider icon, intrinsic content height, rounded corners, and a restrained shadow. Icon-and-label tiles wrap without stretching and remain grouped under nonempty provider categories. FILE appears exactly once under `Popular` while it is the sole implementation. Descriptions inside tiles, unavailable-provider tiles, and “coming soon” connectors remain absent until their runtimes exist.
+Provider discovery uses the same stacked icon/title header, full-width search field, and exact reference implementation `w-40` tile rhythm: `160px` width, `16px` padding, a `24px` provider icon, intrinsic content height, rounded corners, and a restrained shadow. Icon-and-label tiles wrap without stretching and remain grouped under nonempty provider categories. FILE appears exactly once under `Popular` while it is the sole implementation. Descriptions inside tiles, unavailable-provider tiles, and “coming soon” connectors remain absent until their runtimes exist.
 
 
 ## Naming model

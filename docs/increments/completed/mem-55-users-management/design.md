@@ -4,7 +4,7 @@
 
 ## Authority and scope
 
-The user authorized MEM-55 implementation after the planning/Onyx audit and then approved combining MEM-36 on the same `kl3inIT/mem-55-users-management` branch and IntelliJ checkout. The preserved Users work was restored after fast-forwarding to main, with its profile migration moved after main V10–V12. The [combined IAM design](../mem-36-iam-jpa/design.md) and [ADR 0007](../../../decisions/0007-unified-jpa-iam-and-group-authorization.md) define the accepted extension; neither issue implies deployment or merge.
+The user authorized MEM-55 implementation after the planning/reference implementation audit and then approved combining MEM-36 on the same `kl3inIT/mem-55-users-management` branch and IntelliJ checkout. The preserved Users work was restored after fast-forwarding to main, with its profile migration moved after main V10–V12. The [combined IAM design](../mem-36-iam-jpa/design.md) and [ADR 0007](../../../decisions/0007-unified-jpa-iam-and-group-authorization.md) define the accepted extension; neither issue implies deployment or merge.
 
 Deliver `/admin/users`, a global-`USERS_MANAGE` directory with invitations and activate/deactivate, integrated with real Groups and persisted `STANDARD` Account Type. Preserve invitation credential/provisioning behavior and add the `IAM_ADMIN` ordinary-membership editor. MEM-36 supplies the Groups UI and scoped FILE Source authority in the same vertical flow. No JIT, unsupported account creation, user-detail route, hard deletion, role editing, SCIM or Requests controls are added.
 
@@ -39,9 +39,9 @@ Real Keycloak verification exposed that an undeclared `memoryos.provisioned` att
 
 ## Frontend direction
 
-Match the existing monochrome semantic tokens and Hanken Grotesk typography. Learn Onyx's centered table-first layout, compact summary filters, clear name/email hierarchy and status-aware overflow menu, not its client-side all-user loading or enterprise placeholders. Keep search/filter/page state in TanStack Router and requests in generated TanStack Query clients.
+Match the existing monochrome semantic tokens and Hanken Grotesk typography. Learn reference implementation's centered table-first layout, compact summary filters, clear name/email hierarchy and status-aware overflow menu, not its client-side all-user loading or enterprise placeholders. Keep search/filter/page state in TanStack Router and requests in generated TanStack Query clients.
 
-Use the local Onyx Users page and English message catalog as the naming reference. Keep one `Users` heading and `Invite member`, `Search users…` and `No users found`, without a duplicate directory heading. Membership Role remains distinct from the implemented Actor Account Type. Show real Group tags/overflow and guarded editing; do not copy unsupported Requests or bulk-invite controls. Counts remain in summary filters and pagination, with accessible background refresh announcements.
+Use the local reference implementation Users page and English message catalog as the naming reference. Keep one `Users` heading and `Invite member`, `Search users…` and `No users found`, without a duplicate directory heading. Membership Role remains distinct from the implemented Actor Account Type. Show real Group tags/overflow and guarded editing; do not copy unsupported Requests or bulk-invite controls. Counts remain in summary filters and pagination, with accessible background refresh announcements.
 
 Separate feature orchestration, query/search model, table columns, filters, summary and invitation modal. Shared UI primitives should represent real reusable interaction contracts, not a generalized admin-table framework. Reuse existing confirmation/buttons/menu/session shell. Preserve keyboard/focus, responsive horizontal table scrolling, loading skeletons, retry states and mutation feedback. Invitation submission is synchronously single-flight; successful secret receipt is not turned into a failed invite if list refresh fails.
 

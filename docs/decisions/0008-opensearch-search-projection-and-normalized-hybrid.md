@@ -4,7 +4,7 @@ Date: 2026-09-08. Status: Accepted; implementation in MEM-46.
 
 ## Decision
 
-Use Spring AI `EmbeddingModel` for both passage and query embeddings, and the native OpenSearch Java client for precomputed-vector writes and hybrid queries. The initial model is OpenAI `text-embedding-3-large`, 3072 dimensions. Within one query, OpenSearch combines title/content BM25 and content-vector k-NN using `normalization-processor`, `min_max`, `arithmetic_mean`, and default weights 0.5/0.5. This is the accepted Onyx-aligned path; no alternative fusion experiment or separate Lucene index is introduced.
+Use Spring AI `EmbeddingModel` for both passage and query embeddings, and the native OpenSearch Java client for precomputed-vector writes and hybrid queries. The initial model is OpenAI `text-embedding-3-large`, 3072 dimensions. Within one query, OpenSearch combines title/content BM25 and content-vector k-NN using `normalization-processor`, `min_max`, `arithmetic_mean`, and default weights 0.5/0.5. This is the accepted reference implementation-aligned path; no alternative fusion experiment or separate Lucene index is introduced.
 
 PostgreSQL owns the current Document generation, bounded current chunks with source provenance, and durable indexing work. Vector arrays are persisted only in OpenSearch. MinIO retains the original source object and canonical extraction JSON. An OpenSearch repository snapshot, when an operator configures one, is a separate recovery resource; it is not a PostgreSQL embedding artifact ledger.
 

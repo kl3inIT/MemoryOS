@@ -1,6 +1,6 @@
 # Landing page delivery
 
-The public site at `https://vadan.app` is the static [`landing/`](../../landing) package. CI verifies it, builds one nginx image and, on main, publishes that image by digest. An operator deploys it on the staging VPS as the separate Compose project `memoryos-landing` behind Nginx Proxy Manager. The application deployment script never starts, stops or rolls it back. Design and decisions: [MEM-82](../increments/active/mem-82-landing-page/design.md).
+The public site at `https://vadan.app` is the static [`landing/`](../../landing) package. CI verifies it, builds one nginx image and, on main, publishes that image by digest. An operator deploys it on the staging VPS as the separate Compose project `memoryos-landing` behind Nginx Proxy Manager. The application deployment script never starts, stops or rolls it back. Design and decisions: [MEM-82](../increments/completed/mem-82-landing-page/design.md).
 
 ## Release identity
 

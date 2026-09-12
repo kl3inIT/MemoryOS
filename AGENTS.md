@@ -20,25 +20,25 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - Keep SQL, row mapping, locks, claims, and bulk persistence mechanics in concrete capability `persistence` repositories. Application services own authorization, validation, orchestration, and cross-repository transaction boundaries; do not add single-implementation repository interfaces. See [persistence policy](docs/guidelines/persistence.md).
 - Keep `core` limited to implemented capabilities. Current modules are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, and `chat`; IAM owns identity, Tenant membership, invitations, Users, Groups, and authorization. The shared `connector` Gradle integration bundle is organized by provider folders. Never predeclare empty future capability or provider packages.
 - Start non-trivial work with an increment directory containing `design.md` and `plan.md`. Update both as scope changes.
-- Preserve the accepted reference baseline and scope while delivering production quality from the start. Scope control must not remove necessary hardening. Before proposing a departure, apply [reference-based design and scope control](docs/conventions.md#reference-based-design-and-scope-control); for Chat, follow the [accepted Onyx baseline](docs/increments/active/mem-11-production-chat/design.md#baseline-da-chot). Do not turn speculative improvements into requirements.
+- Preserve accepted MemoryOS contracts and scope while delivering production quality from the start. Scope control must not remove necessary hardening. Before proposing a departure, apply [reference-based design and scope control](docs/conventions.md#reference-based-design-and-scope-control) and the relevant capability spec. Do not turn comparative research or speculative improvements into requirements.
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
 - After verification, consolidate durable facts into architecture/spec/test/guideline documents in the same change. Keep the increment under `active/` until the pull request merges; then move it to `completed/` and reconcile the roadmap.
 - Never ship a temporary runtime mode, one-shot application profile, speculative endpoint, or unused abstraction to make an incomplete flow operable. Implement the real authorized runtime path, or keep the capability absent. See [ADR 0002](docs/decisions/0002-no-speculative-operational-surfaces.md).
 - Test observable contracts at the narrowest useful boundary, then exercise the changed runtime surface. See [testing guidelines](docs/guidelines/testing.md).
 - Use the checked-in Gradle wrapper. `clean check` is the repository-wide gate.
-- For Onyx implementation research, read the reference checkout under `.tmp/onyx/` before GitHub or web sources. If it is absent or stale for the question, create or refresh that ignored reference checkout there; never infer Onyx behavior from MemoryOS notes alone.
 
 ## Current active increments
 
 - [Tasco scanned-PDF OCR](docs/increments/active/tasco-scanned-pdf-ocr/design.md) owns OCR, extraction and indexing of the supplied financial reports, verified through Orca Sources; Search and Chat changes are excluded.
-- [MEM-46 — Search](docs/increments/active/mem-46-search/design.md) is deployed and In Review; Search UI/UX completion and feature acceptance are assigned to `phamnhatanh811`.
-- [MEM-11 — Production Chat](docs/increments/active/mem-11-production-chat/design.md) has Phases 2.1–2.4 persistence, native execution, provider baseline, local Stop, RAM replay/SSE and browser Chat implemented on phase/integration branches. Retrieval tools and editor/sharing remain later phases. MEM-46/MEM-25 Linear dependency metadata is unchanged by this local work.
-- [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates MEM-9/MEM-10/MEM-63 and the MEM-76 selection/sync-history extension. These are In Progress with `nhuxuanviet27102004`; the provider is not yet merged into main.
-- [MEM-82 — Vadan public landing page](docs/increments/active/mem-82-landing-page/design.md) builds the standalone `landing/` site for `vadan.app`; In Progress with `nhuxuanviet27102004`.
+- [Docling timeout configuration](docs/increments/active/docling-timeout-configuration/design.md) owns the bounded external parser timeout configuration.
+- [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
+- [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
+- [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
+- [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
+- [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
+- [MEM-84 — Architecture documentation sync](docs/increments/active/architecture-documentation-sync/design.md) owns the current Linear and repository documentation audit.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
-
-- [Google Drive structured ingestion — scoped MEM-9/MEM-10/MEM-60/MEM-63](docs/increments/active/google-drive-structured-ingestion/design.md)
 
 Keep each increment's design, plan, verification evidence, and Linear scope aligned while implementation is in flight.
 
@@ -51,6 +51,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)
 - [Roadmap](docs/roadmap.md)
+- [MEM-84 architecture audit](https://linear.app/memory-os/issue/MEM-84)
 - [Conventions](docs/conventions.md)
 - [Observability conventions](docs/guidelines/observability.md)
 - [Operating model](docs/guidelines/operating-model.md)

@@ -56,7 +56,7 @@ For a trusted browser identity without active membership, the IAM application tr
 
 Email and `email_verified` are profile observations, not JIT eligibility or linking inputs. JIT never creates, consumes, or modifies an invitation. Existing active-member admission has precedence; when the provider does not qualify, the existing invitation path retains its own verified-email rules. Bearer authentication remains resolve-only even if a token contains this provider claim.
 
-Realm reconciliation maps the Keycloak User Session Note `identity_provider` into String ID-token claim `memoryos_identity_provider` on `memoryos-web` only. Access-token, UserInfo, introspection, and token-response emission are disabled. This mapper neither changes an upstream provider nor grants authority by itself. [MEM-59](../increments/active/mem-59-tasco-jit/design.md) separates pending simulator verification from actual Tasco acceptance.
+Realm reconciliation maps the Keycloak User Session Note `identity_provider` into String ID-token claim `memoryos_identity_provider` on `memoryos-web` only. Access-token, UserInfo, introspection, and token-response emission are disabled. This mapper neither changes an upstream provider nor grants authority by itself. [MEM-59](../increments/completed/mem-59-tasco-jit/design.md) separates pending simulator verification from actual Tasco acceptance.
 
 ## Account classification and Group authority
 
