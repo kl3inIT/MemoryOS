@@ -111,10 +111,15 @@ class OpenAiCancellationTest {
                         .mapToInt(line -> Integer.parseInt(line.substring(line.indexOf(':') + 1).trim())).findFirst().orElseThrow();
                 assertEquals(length, input.readNBytes(length).length);
                 if (sendContent) {
-                    String chunk = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n"
-                            + "data: {\"id\":\"fixture\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fixture\","
+                    String data = "data: {\"id\":\"fixture\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fixture\","
                             + "\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n";
-                    socket.getOutputStream().write(chunk.getBytes(StandardCharsets.UTF_8));
+                    byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+                    String headers = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                            + "Transfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\n"
+                            + Integer.toHexString(bytes.length) + "\r\n";
+                    socket.getOutputStream().write(headers.getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().write(bytes);
+                    socket.getOutputStream().write("\r\n".getBytes(StandardCharsets.US_ASCII));
                     socket.getOutputStream().flush();
                 }
                 ready.complete(null);

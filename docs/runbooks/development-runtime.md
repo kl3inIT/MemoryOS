@@ -14,9 +14,13 @@
 
 Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. Arconia reads `META-INF/arconia-bootstrap.properties` and activates only `development` in its development bootstrap mode, for both Gradle `bootRun` and the checked-in direct IntelliJ configurations. The API owns PostgreSQL on fixed host port `55432`, while the worker connects to that database and owns Redis on fixed host port `56379`. Object storage is intentionally not synthesized by Arconia: both processes use the same explicitly configured development S3/MinIO service, bucket, and sentinel, with a browser-reachable upload endpoint. The profile selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, claims, and presigned query strings are not expanded into logs.
 
+Terminal launches must explicitly set `ARCONIA_BOOTSTRAP_MODE=dev`, as the checked-in IntelliJ configurations do. `infisical --env=dev` selects the secret environment, not the Spring profile, and `bootRun` alone does not select Arconia development mode. Without that mode, the API can fall back to Spring's `default` profile without PostgreSQL Dev Services and fail datasource initialization with `'url' must start with "jdbc"`. Correct the launch mode rather than inventing a JDBC URL or pointing the local application at staging.
+
 Start a local API without exporting secret values:
 
-```text
+```powershell
+$env:ARCONIA_BOOTSTRAP_MODE = "dev"
+$env:SERVER_PORT = "18080"
 infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :api:bootRun --no-daemon
 ```
 
@@ -92,6 +96,7 @@ OMP JavaScript debugging requires Microsoft `vscode-js-debug`; install the pinne
 For Spring Boot attach debugging, load the normal managed runtime environment first, then start the checked-in wrapper in suspended JDWP mode:
 
 ```powershell
+$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 .\gradlew.bat :api:bootRun --debug-jvm --no-daemon
 ```
 
@@ -182,12 +187,15 @@ Launch the direct configurations in this order:
 
 For full runtime verification, launch both direct IntelliJ configurations, observe the single `development` profile, and confirm API health plus worker readiness. XML parsing and Gradle checks do not prove this end-to-end launch; record explicitly when missing development prerequisites or host resource limits prevent it.
 
-For a terminal-only managed API launch, do not open a staging tunnel. Set `SERVER_PORT=18080`, then let Infisical inject the same `dev` values:
+For a terminal-only managed API launch, do not open a staging tunnel. Set `ARCONIA_BOOTSTRAP_MODE=dev` and `SERVER_PORT=18080`, then let Infisical inject the same `dev` values:
 
 ```powershell
+$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 $env:SERVER_PORT = "18080"
 infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :api:bootRun --no-daemon
 ```
+
+Verify the active `development` profile, PostgreSQL Dev Service and aggregate `/actuator/health`. A successful process start or an `UP` readiness group alone does not certify all external dependencies. If aggregate health remains `DOWN`, diagnose the configured dependency; do not disable its health indicator or replace the development datasource to hide a separate object-storage credential failure.
 
 Run the Vite web application on `127.0.0.1:8080` only after the API is healthy, as documented below. When a developer leaves, remove their Infisical project access and delete `.memoryos-dev.yaml`; rotate a server machine identity only when its bootstrap credential or server boundary is affected.
 
@@ -224,6 +232,7 @@ $env:MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE = "<approved development/change re
 
 $env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
 
+$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 .\gradlew.bat :api:bootRun --no-daemon
 ```
 
@@ -241,6 +250,17 @@ cd web
 pnpm install --frozen-lockfile
 pnpm dev
 ```
+
+The `dev` script generates the API client before starting Vite. Keep pnpm's `--package=...` options **before** `dlx` in `generate:api`; pnpm 11 can otherwise interpret `--package` as the package name and fail with `ERR_PNPM_FETCH_404`. Preserve the pinned generator and its TypeScript 6 package; the application uses its separately pinned TypeScript version.
+
+On Windows, an `Unsupported engine` warning can identify a different Node version from `node --version`: a Corepack `.cmd` launcher prefers a `node.exe` beside itself over `PATH`. For example, a tool-bundled Corepack may use Node 22 while the shell selects Node 26. With a supported Node selected by the shell, run the installed Corepack JavaScript entry point directly from `web/`:
+
+```powershell
+$corepackRoot = Split-Path (Get-Command corepack.cmd -ErrorAction Stop).Source
+node (Join-Path $corepackRoot 'node_modules/corepack/dist/corepack.js') pnpm dev
+```
+
+This retains the repository-pinned pnpm and normal API generation without modifying the other tool's runtime or lowering the project's Node requirement. Node 24 remains the CI baseline.
 
 Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to `MEMORYOS_API_URL`, which defaults to `http://127.0.0.1:18080`. Open the exact loopback origin registered in Keycloak so the generated callback uses the same host. The loopback-only development proxy removes the production `Secure` attribute from response cookies because local verification uses HTTP; it preserves every other cookie attribute. Production Nginx never performs this rewrite.
 
@@ -456,6 +476,7 @@ Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keyclo
 Start the API first and wait for its health endpoint so Flyway completes. Then run `MemoryOS Worker Dev` as described above or, in a second terminal, launch the persistent worker with the same managed development values:
 
 ```powershell
+$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :worker:bootRun --no-daemon
 ```
 

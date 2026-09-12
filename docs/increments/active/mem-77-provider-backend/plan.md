@@ -55,6 +55,33 @@ The user requested continuing Phase2 with the described private, single-generati
 
 The first outer-host snapshot is3,854,811,136 available bytes; the later10:48Z snapshot is2,879,692,800. Both are below5,469,372,416 required for model startup. Guest available memory was6,353,043,456 bytes with zero swap use. Real-model startup/generation and deployed lifecycle/monitoring acceptance remain blocked, not completed by the source fixes.
 
+### Local application qualification — 2026-09-12
+
+The user requested continuing with a real local model after the UI successfully validated the existing hosted provider. Keep the running Windows API/UI and add an explicit loopback-only gateway overlay; do not publish the engine or change staging/production composition.
+
+- [x] Add and verify the local overlay, including rejection of non-loopback ingress or changed managed settings.
+- [x] Prepare independent persistent POSIX assets/cache/control/key paths and verify pinned assets without importing the model.
+- [x] Correct terminal startup instructions to explicitly select Arconia development bootstrap, matching IntelliJ; prove the JDBC startup failure no longer occurs with the normal managed development configuration.
+- [x] Correct pnpm 11 generator option parsing and the Windows Node/Corepack runtime selection; verify that the normal frontend development command reaches Vite.
+- [x] Correct and verify native library loading from the engine's private scratch tmpfs, preserving the gateway's noexec boundary.
+- [x] Start the pinned managed engine after restoring the existing memory floor; verify native readiness and real SSE generation.
+- [x] Apply the user-approved gateway-only local bridge, prove Windows loopback access, and reject engine access to that bridge or changes to base isolation.
+- [x] Configure the local provider/model through the user's normal Models UI and complete basic Chat with SmolLM2 selected; the user supplied a two-turn conversation screenshot.
+- [x] Verify saved-model Validate, selected UUID/no-fallback identity, incremental streaming, context-preserving follow-up, persisted reload and upstream Stop/slot release. The authenticated 2026-09-12 candidate receipt covers these paths; weak answer quality and broader target acceptance remain separate.
+
+Record local results and blockers separately in [verification](verification.md). This work does not authorize main publication, a staging deployment, changing other workloads or declaring final target acceptance.
+
+The initial provisioning and low-memory observations are historical preparation receipts. Current engine startup, Windows connectivity, resource observations and remaining authenticated application gates are recorded separately in [verification](verification.md); earlier absent-listener or model-unrun statements are not current runtime status.
+
+### Authorized branch publication and main refresh — 2026-09-12
+
+The user authorized committing/pushing the MEM-77 continuation to `anhnd`, then fetching and merging current `origin/main`, resolving conflicts, verifying the integrated tree, pushing again and posting the exact receipts to MEM-77 through Linear MCP. This does not authorize a push/merge to `main`, deployment, unrelated-work publication or closing outstanding acceptance gates.
+
+- [ ] Publish the current MEM-77 continuation, keeping unrelated IAM/theme and research work outside the commit.
+- [ ] Integrate the fetched main commit without discarding either branch's implemented behavior or local uncommitted work.
+- [ ] Verify the isolated integrated tree, record the exact gates and publish the merge on `anhnd`.
+- [ ] Post commit links, integration evidence and unchanged remaining blockers to MEM-77 through Linear MCP.
+
 ### Fixed implementation decisions
 
 | Boundary | Decision before coding |
@@ -178,12 +205,13 @@ Exit: both default workflows operate from administration, use current revisions 
 
 Run normal API/isolated DB/identity/browser plus the managed candidate composition after Phases 3–4 are wired and UI/defaults are ready. This is pre-merge product evidence, not a staging release. Freeze the final context/body/output/profile manifest only after full native request qualification, then use it for workload checks.
 
-- [ ] Exercise two real paths: existing hosted provider and managed SmolLM2, with genuine credentials and the fixed unknown-pricing policy. A fixture adapter, historical research run or two records at one endpoint is not this gate; a larger local model is not required. Missing hosted credentials block that regression, not independent local implementation.
+- [x] Exercise two real paths: existing hosted provider and managed SmolLM2, with genuine credentials and the fixed unknown-pricing policy. A fixture adapter, historical research run or two records at one endpoint is not this gate; a larger local model is not required. The 2026-09-12 candidate executed hosted `gpt-5-mini` and managed SmolLM2 through the normal product path; target rollout remains separate.
 - [ ] Trace UUID and provider/model revisions → authorized binding → Embabel/Spring AI/SDK → authenticated gateway → expected served alias/release manifest → SSE/transcript. Capture actual wire model and manifest hashes; persisted configured model_name alone does not attest upstream weights. Preserve idempotency and do not add transcript configuration snapshots.
 - [ ] Send short and boundary-size English/Vietnamese inputs, then a follow-up using prior context; reload history. Prove encoding, prompt/history preservation and real generation. Record weak answers as a known model limitation, not a reason to replace the small baseline; this is not language/reasoning-quality certification.
 - [ ] Prove prompt plus effective output fits the target's explicit context limit, history uses the bound profile, and an oversized new question is rejected without advancing the tree. Include framework-added content. Use the 1,024/128 baseline if the full-request gate accepts it, otherwise use and explain the measured manifest/catalog adjustment.
 - [ ] Verify content arrives incrementally; stop/length finish and trailing usage-only frames are handled; EOF without a valid finish is not success. Missing usage stays unknown and pricing is not invented.
 - [ ] Stop before headers/first token, mid-stream and near completion; observe the authoritative DB winner and retained partial text. Verify upstream work stops and capacity can serve the next request. Browser/SSE disconnect alone must not cancel execution.
+  - [x] Close the 2026-09-12 candidate Stop reproduction: first-content browser Stop settled Chat but native generation continued to128 tokens. The retained chunked keep-alive socket regression fails before the fix and passes afterwards; the updated real candidate stops at6 tokens, stays idle for8 seconds and completes the next admitted Chat turn. vLLM0.28 frontend abort does not necessarily increment its success/abort counter; that counter is not the cancellation assertion.
 - [ ] Exercise wrong credentials, unsupported model, context overflow and gateway unavailability against the real environment. Use controlled transport faults for precise 429/503/timeout/partial-EOF races and label that evidence as fixture-based; never retry a partially streamed completion automatically.
 - [ ] Verify same API model name under distinct endpoints and in-flight endpoint/key/options/profile edits. Old turns retain old leases; later turns use new revisions; repeats retain accepted IDs; retired assets close after real last use, including shutdown timeout. Use labeled fixtures for deterministic races; drain before replacing weights behind a stable endpoint.
 - [ ] Execute the declared workload matrix: cold/warm readiness, single stream, burst >1, Chat/Validate contention, boundary Unicode/history, Stop/deadline and sustained low load with other services running. Observe one slot/zero queue, correct rejected-turn outcome, peak CPU/cgroup memory/swap/throttling/disk growth and recovery. Probe GET-models while busy; test omitted/raised output limits and `n>1`.

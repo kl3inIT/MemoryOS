@@ -67,7 +67,8 @@ services:
         bind:
           create_host_path: false
     tmpfs:
-      - /tmp:size=256m,mode=0700,uid=1654,gid=1654,nosuid,nodev
+      # Docker defaults tmpfs to noexec; CPU JIT libraries must be loadable here.
+      - /tmp:size=256m,mode=0700,uid=1654,gid=1654,nosuid,nodev,exec
     shm_size: 1g
     mem_limit: 4g
     memswap_limit: 4g

@@ -1,0 +1,17 @@
+# Explicit developer overlay for an API running on the Docker host.
+# Keep staging/production unpublished; never publish the engine or health port.
+services:
+  inference-gateway:
+    # Host publishing needs a non-internal network. Only the gateway joins it.
+    networks:
+      - memoryos-inference-host
+    ports:
+      - target: 8080
+        published: "18081"
+        host_ip: 127.0.0.1
+        protocol: tcp
+
+networks:
+  memoryos-inference-host:
+    driver: bridge
+    internal: false

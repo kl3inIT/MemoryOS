@@ -96,11 +96,34 @@ Before first use, an authorized operator must provide `/apps/memoryos/inference.
 
 Keep assets operator-owned with a nonsymlink root; provisioning publishes revision directories 0555 and exact files 0444. Cache is separate UID/GID1654 mode0700; control directory is operator-owned0755. The inference key is a regular nonsymlink UID/GID1654 mode0400 file containing exactly 64 lowercase hex characters plus at most one final LF. Never put its value in environment metadata, command arguments or logs. Both serving processes use UID/GID1654 and readonly roots with dropped capabilities. API alone joins the client network; only gateway, engine and authorized Prometheus join the backend. Neither model port is published and ordinary serving networks have no download egress.
 
+The CPU engine needs executable private scratch for generated native libraries: its 256 MiB `/tmp` tmpfs explicitly uses `exec`, mode0700, UID/GID1654, `nosuid` and `nodev`. Docker's implicit `noexec` default otherwise causes `.so: failed to map segment from shared object` after model weights load. The gateway's private `/tmp` remains `noexec`. Do not replace this narrow native-loading requirement with a writable root filesystem or higher memory limits.
+
 For an approved isolated candidate, the environment example supplies the exact provision/verify-only/Compose/probe commands. `provision.py` performs bounded HTTPS download of only the pinned allowlist, size/hash verification and atomic publication; `--verify-only` checks installed assets without downloading. Readiness checks expected model/fingerprint and authenticated gateway listing; `--mode generation` is a distinct real SSE smoke. Cold provisioning timing is **not** cold model startup. Qualify model cold startup with verified assets/empty separate runtime caches, warm/offline restart with caches retained, and corrupt/missing-asset failure. Never delete the MEM-66 cache or retained previous assets to create a test condition.
 
 Provisioning uses a stable `.provision.lock` inode with nonblocking process-lifetime locking. A killed downloader releases ownership automatically; rerun the normal provisioning command without deleting the lock file. A live publisher returns `ASSET_PROVISIONING_BUSY`. Abandoned `.provision-*` directories and current/previous revisions are not automatically deleted: retained disk still counts against preflight and any later cleanup requires explicit operator review.
 
 Do not start the model while host capacity fails. On Docker Desktop, measure outer-host available physical memory as well as guest headroom; the guest does not override the manifest's outer-host floor. A successful downloader/tokenizer probe does not authorize model startup or weakening that floor. [Current local and target limitations](../increments/active/mem-77-provider-backend/verification.md#unverified-and-blocked-acceptance) remain separate from the operational procedure; target SSH/operator/capacity and normal-login/model credentials are prerequisites.
+
+### Local Windows API with Docker Desktop inference
+
+Use [compose.inference.local.yaml](../../infrastructure/deployment/compose.inference.local.yaml) only for a developer API running on the Docker host. It adds authenticated gateway `127.0.0.1:18081` → container8080 and a project-scoped ordinary bridge attached only to the gateway. This is an explicitly accepted local exception: the gateway gains an outbound route so Docker can publish its host port, while the engine remains solely on the internal backend with no published ports or ordinary egress. Engine8000 and readiness8081 remain unpublished. Do not include this overlay in staging/production. The release checker allows only the gateway bridge/loopback exception and rejects engine attachment to the bridge, public binding, engine publication, resource changes or base-network egress.
+
+The local preparation uses project `memoryos-inference-local` and the separately labeled persistent volume `memoryos-inference-local-data`. Its POSIX `assets`, `cache`, `control` and `secrets` paths retain the ownership/modes above; Compose binds their Docker-reported mountpoint, verified with the real non-root interpreter. `%LOCALAPPDATA%\MemoryOS\inference\inference.env` contains paths/network names only and has a current-user-only Windows ACL. Keep this environment file outside Git and retain the volume between sessions; neither provisioning nor cleanup may overwrite an existing key or reuse MEM-66 state.
+
+Inspect the composition without starting any service:
+
+```powershell
+$inferenceEnv = Join-Path $env:LOCALAPPDATA 'MemoryOS\inference\inference.env'
+docker compose --env-file $inferenceEnv -p memoryos-inference-local `
+  -f infrastructure/deployment/compose.inference.yaml `
+  -f infrastructure/deployment/compose.inference.local.yaml config --quiet
+```
+
+Before replacing `config --quiet` with `up -d --wait --wait-timeout 600`, verify the manifest's memory floor on **both** Windows and the Docker guest, physical/Docker disk reserve, pinned assets, restricted mounts and the normal API/UI prerequisites. `config` does not perform those runtime checks. Do not start inference below the floor or stop unrelated applications to manufacture headroom.
+
+Once real readiness/generation pass, use endpoint `http://127.0.0.1:18081/v1`, the existing `openai` adapter, encrypted local BYOK and `smollm2-135m-12fd25f-v1` with1,024/128 limits. Create a separate manager-only provider/model; keep the hosted Tenant default and select the local UUID explicitly for acceptance. The browser remains API-only. If the normal API/UI is not running, restore its existing development configuration rather than creating a one-shot application profile or writing the catalog directly in SQL.
+
+Current preparation/engine/Chat evidence and retained state belong to [local qualification](../increments/active/mem-77-provider-backend/verification.md#local-application-qualification--2026-09-12). Prepared assets, a Compose pass or a listening gateway do not imply a loaded model or a usable Chat path.
 
 ### Drain, rotation, resume and recovery
 

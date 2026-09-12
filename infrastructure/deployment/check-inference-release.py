@@ -21,6 +21,7 @@ REQUIRED = (
     "infrastructure/inference/managed/logging.json",
     "infrastructure/deployment/compose.inference.yaml",
     "infrastructure/deployment/compose.inference.application.yaml",
+    "infrastructure/deployment/compose.inference.local.yaml",
     "infrastructure/deployment/inference.env.example",
     "infrastructure/deployment/deploy-staging.sh",
     "infrastructure/deployment/inference-operations.sh",
@@ -60,14 +61,20 @@ def check(root, compose):
             raise ValueError("Missing pinned model asset digest")
     if compose:
         command = ["docker", "compose", "--env-file", "infrastructure/deployment/inference.env.example",
-                   "-f", "infrastructure/deployment/compose.inference.yaml", "config", "--format", "json"]
-        config = json.loads(subprocess.check_output(command, cwd=root, timeout=30))
+                   "-f", "infrastructure/deployment/compose.inference.yaml"]
+        config = json.loads(subprocess.check_output(
+            [*command, "config", "--format", "json"], cwd=root, timeout=30))
         for role, service in (("engine", "vllm"), ("gateway", "inference-gateway")):
             selected = config["services"][service]
             if selected["image"] != manifest["images"][role]["reference"] or selected.get("ports"):
                 raise ValueError("Serving image/ingress differs from manifest")
             if selected.get("user") != "1654:1654" or not selected.get("read_only"):
                 raise ValueError("Serving identity/root filesystem boundary changed")
+            scratch = next((mount for mount in selected.get("tmpfs", []) if mount.startswith("/tmp:")), "")
+            scratch_flags = set(scratch.partition(":")[2].split(","))
+            expected_execution = {"exec"} if role == "engine" else {"noexec"}
+            if scratch_flags.intersection({"exec", "noexec"}) != expected_execution:
+                raise ValueError("Engine scratch must explicitly allow native loading; gateway scratch must remain noexec")
             for mount in selected.get("volumes", []):
                 if mount["target"] == "/opt/memoryos-inference":
                     source = Path(mount["source"])
@@ -78,6 +85,23 @@ def check(root, compose):
             raise ValueError("Engine must have only the private backend network")
         if not all(network.get("internal") for network in config["networks"].values()):
             raise ValueError("Serving network must not provide ordinary download egress")
+        local = json.loads(subprocess.check_output(
+            [*command, "-f", "infrastructure/deployment/compose.inference.local.yaml",
+             "config", "--format", "json"], cwd=root, timeout=30))
+        ports = local["services"]["inference-gateway"].pop("ports", [])
+        if (len(ports) != 1 or ports[0].get("host_ip") != "127.0.0.1"
+                or ports[0].get("target") != 8080 or str(ports[0].get("published")) != "18081"
+                or ports[0].get("protocol", "tcp") != "tcp"):
+            raise ValueError("Local inference must publish only the authenticated loopback gateway")
+        host_network = "memoryos-inference-host"
+        if local["services"]["inference-gateway"]["networks"].pop(host_network, False) is not None:
+            raise ValueError("Local host bridge must attach only to the gateway without extra network options")
+        host_bridge = local["networks"].pop(host_network, {})
+        if (host_bridge.pop("ipam", {}) or host_bridge != {
+                "name": f"{config['name']}_{host_network}", "driver": "bridge"}):
+            raise ValueError("Local host ingress requires a project-scoped ordinary bridge")
+        if local != config:
+            raise ValueError("Local overlay must not change managed settings beyond gateway-only bridge and loopback ingress")
     return manifest
 
 

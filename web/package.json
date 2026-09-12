@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate:api": "pnpm dlx --package @hey-api/openapi-ts@0.99.0 --package typescript@6.0.3 openapi-ts",
+    "generate:api": "pnpm --package=@hey-api/openapi-ts@0.99.0 --package=typescript@6.0.3 dlx openapi-ts",
     "check:api": "node scripts/assert-generated-stable.mjs src/lib/hey-api -- pnpm generate:api",
     "check:ci": "node scripts/assert-playwright-image.ts",
     "dev": "pnpm generate:api && vite",
