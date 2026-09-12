@@ -3,6 +3,7 @@ package io.memoryos.provider.file;
 import java.math.BigInteger;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -18,15 +19,20 @@ final class FinancialTableDiagnostics {
     private static final int MAX_TOTAL_CELLS = 100_000;
     private static final int MAX_TABLE_CELLS = 4_096;
     private static final int MAX_COLUMNS = 64;
+    private static final int MAX_HEADER_DEPTH = 4;
+    private static final int AMBIGUOUS_CASH_BALANCE = -2;
     private static final int[] ROW_CODES = {50, 60, 61, 70};
     private static final String[] OFFSETS = {
             "start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx"
     };
+    private static final String[] UNIT_PREFIXES = {"unit:vnd", "currency:vnd", "donvitinh:vnd"};
     private static final Pattern MARKS = Pattern.compile("\\p{M}+");
     private static final Pattern SPACES = Pattern.compile("\\s+");
     private static final Pattern INTEGER = Pattern.compile(
             "(?:[0-9]+|[0-9]{1,3}(?:\\.[0-9]{3})+|[0-9]{1,3}(?:,[0-9]{3})+|[0-9]{1,3}(?: [0-9]{3})+)");
     private static final Pattern YEAR = Pattern.compile("(?:19|20)[0-9]{2}");
+    private static final Pattern QUARTER = Pattern.compile("quy([1-4])nam((?:19|20)[0-9]{2})");
+    private static final Pattern HEADER_RULES = Pattern.compile("^[|=—–-]+|[|=—–-]+$");
 
     private FinancialTableDiagnostics() {}
 
@@ -43,11 +49,11 @@ final class FinancialTableDiagnostics {
             var table = block.path("table");
             var rawCells = table.path("table_cells");
             if (!rawCells.isArray()) continue;
-            totalCells += rawCells.size();
-            if (totalCells > MAX_TOTAL_CELLS) {
+            if (rawCells.size() > MAX_TOTAL_CELLS - totalCells) {
                 add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"));
                 break;
             }
+            totalCells += rawCells.size();
             if (rawCells.size() > MAX_TABLE_CELLS) {
                 if (!add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"))) break;
                 continue;
@@ -59,20 +65,20 @@ final class FinancialTableDiagnostics {
 
     private static boolean assessTable(JsonNode table, JsonNode rawCells, int index,
             ArrayNode checks, ObjectMapper mapper) {
-        boolean cashBalanceLabel = false;
-        for (var raw : rawCells) {
-            int code = rowCode(normalize(raw.path("text").asString("")));
-            if (code == 60 || code == 70) {
-                cashBalanceLabel = true;
-                break;
-            }
-        }
-        if (!cashBalanceLabel) return true;
         int rows = table.path("num_rows").asInt(-1);
         int columns = table.path("num_cols").asInt(-1);
         if (rows > MAX_TABLE_CELLS || columns > MAX_COLUMNS) {
             return add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"));
         }
+        boolean cashBalanceLabel = false;
+        for (var raw : rawCells) {
+            int code = rowCode(normalize(raw.path("text").asString("")));
+            if (code == 60 || code == 70 || code == AMBIGUOUS_CASH_BALANCE) {
+                cashBalanceLabel = true;
+                break;
+            }
+        }
+        if (!cashBalanceLabel) return true;
         var cells = new ArrayList<Cell>(rawCells.size());
         for (var raw : rawCells) {
             var cell = cell(raw);
@@ -82,64 +88,158 @@ final class FinancialTableDiagnostics {
             }
             cells.add(cell);
         }
+        var issues = mapper.createArrayNode();
         var labels = new Cell[ROW_CODES.length];
+        var duplicateLabels = new boolean[ROW_CODES.length];
         for (var cell : cells) {
             int code = rowCode(normalize(cell.text()));
             for (int i = 0; i < ROW_CODES.length; i++) {
-                if (code != ROW_CODES[i]) continue;
-                if (labels[i] != null || !isolated(cell, cells)) {
-                    return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "AMBIGUOUS_ROW_IDENTITY"));
-                }
+                boolean ambiguousBalance = code == AMBIGUOUS_CASH_BALANCE && (ROW_CODES[i] == 60 || ROW_CODES[i] == 70);
+                if (code != ROW_CODES[i] && !ambiguousBalance) continue;
+                if (ambiguousBalance || labels[i] != null || !isolated(cell, cells)
+                        || cell.raw.path("column_header").asBoolean(false)) duplicateLabels[i] = true;
                 labels[i] = cell;
             }
         }
+        int firstRow = rows;
         int codeColumn = -1;
+        Cell previousLabel = null;
         for (int i = 0; i < labels.length; i++) {
-            if (labels[i] == null) {
-                return add(checks, diagnostic(mapper, index, "INCOMPLETE", "MISSING_ROW_IDENTITY"));
-            }
             var label = labels[i];
-            if (i > 0 && (label.row <= labels[i - 1].row || label.column != labels[0].column)) {
-                return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "AMBIGUOUS_ROW_IDENTITY"));
+            if (label == null) {
+                rowIssue(issues, "MISSING_ROW_IDENTITY", ROW_CODES[i]);
+                continue;
             }
+            firstRow = Math.min(firstRow, label.row);
+            if (duplicateLabels[i] || previousLabel != null
+                    && (label.row <= previousLabel.row || label.column != previousLabel.column)) {
+                rowIssue(issues, "AMBIGUOUS_ROW_IDENTITY", ROW_CODES[i]);
+            }
+            previousLabel = label;
             Cell codeCell = null;
+            boolean ambiguousCode = false;
             for (var cell : cells) {
-                if (cell.row != label.row || !cell.text().strip().equals(Integer.toString(ROW_CODES[i]))) continue;
-                if (codeCell != null || !isolated(cell, cells) || cell.column <= label.column) {
-                    return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "AMBIGUOUS_ROW_CODE"));
-                }
+                if (cell.row != label.row || cell.text().length() > 80
+                        || !cell.text().strip().equals(Integer.toString(ROW_CODES[i]))) continue;
+                if (codeCell != null || !isolated(cell, cells) || cell.column <= label.column
+                        || cell.raw.path("column_header").asBoolean(false)) ambiguousCode = true;
                 codeCell = cell;
             }
             if (codeCell == null) {
-                return add(checks, diagnostic(mapper, index, "INCOMPLETE", "MISSING_ROW_CODE"));
+                rowIssue(issues, "MISSING_ROW_CODE", ROW_CODES[i]);
+            } else if (ambiguousCode || codeColumn >= 0 && codeColumn != codeCell.column) {
+                rowIssue(issues, "AMBIGUOUS_ROW_CODE", ROW_CODES[i]);
+            } else {
+                codeColumn = codeCell.column;
             }
-            if (codeColumn >= 0 && codeColumn != codeCell.column) {
-                return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "AMBIGUOUS_ROW_CODE"));
-            }
-            codeColumn = codeCell.column;
         }
-        var periods = new ArrayList<Cell>();
+        var periods = new ArrayList<Period>();
         var identities = new HashSet<String>();
-        var periodColumns = new HashSet<Integer>();
-        for (var cell : cells) {
-            if (cell.row >= labels[0].row || cell.endColumn <= codeColumn + 1) continue;
-            String identity = periodIdentity(normalize(cell.text()));
-            if (identity.isEmpty()) continue;
-            if (!cell.raw.path("column_header").asBoolean(false) || !isolated(cell, cells)
-                    || cell.endRow > labels[0].row || cell.column <= codeColumn
-                    || !identities.add(identity) || !periodColumns.add(cell.column)) {
-                return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "AMBIGUOUS_PERIOD_HEADERS"));
+        if (codeColumn < 0) {
+            issues.addObject().put("reason", "UNRESOLVED_PERIOD_COLUMNS");
+        } else {
+            int rowIssueCount = issues.size();
+            for (int column = codeColumn + 1; column < columns; column++) {
+                var headers = new ArrayList<Cell>(MAX_HEADER_DEPTH);
+                boolean occupied = false;
+                boolean tooDeep = false;
+                for (var cell : cells) {
+                    if (cell.column > column || cell.endColumn <= column) continue;
+                    if (cell.row < firstRow && cell.raw.path("column_header").asBoolean(false)) {
+                        if (headers.size() == MAX_HEADER_DEPTH) {
+                            tooDeep = true;
+                            break;
+                        }
+                        headers.add(cell);
+                    } else {
+                        for (var label : labels) {
+                            if (label != null && cell.covers(label.row, column)) occupied = true;
+                        }
+                    }
+                }
+                if (tooDeep) return add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"));
+                if (headers.isEmpty() && !occupied) continue;
+                headers.sort(Comparator.comparingInt(Cell::row));
+                String identity = headerIdentity(headers, cells, firstRow, codeColumn);
+                if (identity.equals("NOTE")) continue;
+                if (identity.equals("AMBIGUOUS") || !identity.isEmpty() && !identities.add(identity)) {
+                    columnIssue(issues, "AMBIGUOUS_PERIOD_HEADERS", column);
+                } else if (identity.isEmpty()) {
+                    columnIssue(issues, "MISSING_PERIOD_HEADERS", column);
+                } else {
+                    periods.add(new Period(column, identity));
+                }
             }
-            periods.add(cell);
+            if (periods.isEmpty() && issues.size() == rowIssueCount) {
+                issues.addObject().put("reason", "MISSING_PERIOD_HEADERS");
+            }
         }
-        if (periods.isEmpty()) {
-            return add(checks, diagnostic(mapper, index, "INCOMPLETE", "MISSING_PERIOD_HEADERS"));
+        if (!issues.isEmpty()) {
+            String reason = issues.get(0).path("reason").asString();
+            String status = "INCOMPLETE";
+            for (var issue : issues) {
+                if (issue.path("reason").asString().startsWith("AMBIGUOUS")) {
+                    status = "AMBIGUOUS";
+                    reason = issue.path("reason").asString();
+                    break;
+                }
+            }
+            var result = diagnostic(mapper, index, status, reason);
+            result.set("structure_issues", issues);
+            return add(checks, result);
         }
-        // A period must be explicitly named; never borrow a header from a previous table/page.
+        // Every period belongs to this table; absent structures never come from another page.
         for (var period : periods) {
-            if (!add(checks, assessPeriod(cells, labels, period.column, index, mapper))) return false;
+            var result = assessPeriod(cells, labels, period.column, index, mapper);
+            result.put("period_identity", period.identity);
+            if (!add(checks, result)) return false;
         }
         return true;
+    }
+
+    private static void rowIssue(ArrayNode issues, String reason, int code) {
+        issues.addObject().put("reason", reason).put("row_code", code);
+    }
+
+    private static void columnIssue(ArrayNode issues, String reason, int column) {
+        issues.addObject().put("reason", reason).put("column_index", column);
+    }
+
+    private static String headerIdentity(List<Cell> headers, List<Cell> cells, int firstRow, int codeColumn) {
+        var text = new StringBuilder();
+        int endRow = -1;
+        boolean namedPeriod = false;
+        for (var header : headers) {
+            if (header.endRow > firstRow || header.column <= codeColumn
+                    || endRow >= 0 && header.row != endRow) return "AMBIGUOUS";
+            for (var other : cells) {
+                if (other != header && other.row < header.endRow && header.row < other.endRow
+                        && other.column < header.endColumn && header.column < other.endColumn) return "AMBIGUOUS";
+            }
+            endRow = header.endRow;
+            if (header.text().length() > 512) return "";
+            String part = headerText(header.text());
+            // A shared currency ancestor does not identify a period; its explicit leaves must.
+            if (unitHeader(part)) continue;
+            if (header.endColumn != header.column + 1) return "AMBIGUOUS";
+            if (text.length() + part.length() > 512) return "";
+            if (!periodIdentity(part).isEmpty()) {
+                if (namedPeriod) return "AMBIGUOUS";
+                namedPeriod = true;
+            }
+            text.append(part);
+        }
+        String value = text.toString();
+        if (value.equals("note") || value.equals("notes") || value.equals("thuyetminh")) return "NOTE";
+        return periodIdentity(value);
+    }
+
+    private static String headerText(String text) {
+        return HEADER_RULES.matcher(normalize(text)).replaceAll("");
+    }
+
+    private static boolean unitHeader(String text) {
+        return text.equals("unit:vnd") || text.equals("currency:vnd") || text.equals("donvitinh:vnd");
     }
 
     private static ObjectNode assessPeriod(List<Cell> cells, Cell[] labels, int column,
@@ -184,6 +284,7 @@ final class FinancialTableDiagnostics {
     }
 
     private static boolean missingAmount(String text) {
+        if (text.length() > 80) return false;
         String value = text.strip();
         return value.isEmpty() || value.equals("-") || value.equals("—") || value.equals("–");
     }
@@ -201,8 +302,11 @@ final class FinancialTableDiagnostics {
 
     private static int rowCode(String label) {
         if (label.contains("cashandcashequivalents") || label.contains("tienvatuongduongtien")) {
-            if (label.contains("beginning") || label.contains("daunam") || label.contains("dauky")) return 60;
-            if (label.contains("attheend") || label.contains("cuoinam") || label.contains("cuoiky")) return 70;
+            if (label.equals("cashandcashequivalentsatboy")) return 60;
+            boolean beginning = label.contains("beginning") || label.contains("daunam") || label.contains("dauky");
+            boolean ending = label.contains("attheend") || label.contains("cuoinam") || label.contains("cuoiky");
+            if (beginning && ending) return AMBIGUOUS_CASH_BALANCE;
+            if (beginning != ending) return beginning ? 60 : 70;
         }
         if (label.contains("netcashflow") && (label.contains("duringtheyear") || label.contains("duringtheperiod"))
                 || label.contains("luuchuyentienthuantrongnam") || label.contains("luuchuyentienthuantrongky")) return 50;
@@ -212,7 +316,14 @@ final class FinancialTableDiagnostics {
     }
 
     private static String periodIdentity(String header) {
-        if (header.startsWith("unit:vnd")) header = header.substring("unit:vnd".length());
+        for (var prefix : UNIT_PREFIXES) {
+            if (header.startsWith(prefix)) {
+                header = header.substring(prefix.length());
+                break;
+            }
+        }
+        var quarter = QUARTER.matcher(header);
+        if (quarter.matches()) return quarter.group(2) + "-Q" + quarter.group(1);
         return switch (header) {
             case "currentyear", "currentperiod", "namnay", "kynay" -> "CURRENT";
             case "previousyear", "prioryear", "previousperiod", "priorperiod", "namtruoc", "kytruoc" -> "PRIOR";
@@ -222,7 +333,8 @@ final class FinancialTableDiagnostics {
 
     private static String normalize(String text) {
         if (text.length() > 512) return "";
-        String folded = MARKS.matcher(Normalizer.normalize(text, Normalizer.Form.NFD)).replaceAll("")
+        String folded = MARKS.matcher(Normalizer.normalize(
+                        text.replace('\u00a0', ' ').replace('\u202f', ' '), Normalizer.Form.NFD)).replaceAll("")
                 .toLowerCase(Locale.ROOT).replace('đ', 'd');
         return SPACES.matcher(folded).replaceAll("");
     }
@@ -256,11 +368,15 @@ final class FinancialTableDiagnostics {
             check.remove("invalid_row_codes");
             check.remove("ambiguous_row_codes");
             checks.set(MAX_CHECKS - 1, check);
+            check.remove("structure_issues");
+            check.remove("period_identity");
             return false;
         }
         checks.add(check);
         return true;
     }
+
+    private record Period(int column, String identity) {}
 
     private record Cell(JsonNode raw, int row, int endRow, int column, int endColumn) {
         String text() { return raw.path("text").asString(""); }

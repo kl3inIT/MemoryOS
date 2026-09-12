@@ -165,3 +165,22 @@ The [recreated six-report corpus](../../../tests/ingestion.md#recreated-six-repo
 After OCR completed, the owned Worker was stopped for the final `gradlew.bat clean check :worker:bootJar --no-configuration-cache --no-daemon --no-parallel --max-workers=1 --console=plain` gate. It passed in 9m17s: 529 tests, 525 passed, four skipped, zero failures/errors. The gate emitted existing toolchain/JVM native-access/deprecation warnings and test OTLP-receiver shutdown connection warnings; it was not warning-free. The rebuilt Worker was restored with the same isolated environment and returned HTTP 200 / `UP` at readiness.
 
 The frontend gate passed 99 unit tests in 18 files; the two affected Chromium scenarios and targeted browser-test lint/format checks also passed. JetBrains MCP and a configured LSP server were unavailable, so no IDE-inspection claim is made. Disposable financial/console Java launchers and copied dependency classes were removed; private benchmark, corpus and visual evidence remain ignored. No push, PR, staging deployment or Search/Chat work was performed.
+
+### Approved structural-quality and runtime follow-up
+
+- [x] Investigate Windows Worker termination `1073807364` from process, host and runtime evidence before adding restart behavior; no automatic restart was added.
+- [ ] Correct evidence-backed row/period-column assignment, beginning with Q1 consolidated total liabilities and equity on physical page 8; preserve genuine ambiguity and source values.
+- [ ] Expand separately sealed original-page benchmarks with held-out reports, blanks, dashes, negatives, multiple periods, merged headers and continuation cases; retain the original 104-cell scorer unchanged.
+- [ ] Reevaluate bounded OCR recovery against those controls and document the evidence-based production/offline decision.
+- [x] Improve bounded financial diagnostic coverage and explain missing/ambiguous structures without arithmetic repair.
+- [ ] Measure actual processing stages, then apply only demonstrated performance improvements without blindly increasing concurrency.
+- [ ] Verify the changed extraction/indexing runtime and actual Sources surface, consolidate durable evidence and commit in local functional groups.
+
+### Publication priority — 2026-09-12
+
+The user requested committing and publishing the current code for a PR into `main` before further research, with staging deployment performed by the user. Unfinished structural correction, expanded corpus scoring, recovery promotion and performance optimization above are paused, not accepted. The diagnostic-only coverage change is included subject to its focused and integration gates.
+
+- [x] Verify and commit the current diagnostic change and reconcile its contract/evidence.
+- [ ] Integrate current `origin/main` without replacing its features or applied migrations.
+- [ ] Run the integrated backend/frontend gates and account for every published path.
+- [ ] Push the verified branch and open a PR targeting `main`; report its exact head and checks.
