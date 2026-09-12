@@ -9,6 +9,8 @@ Yêu cầu tiếp theo đã mở quyền sửa/tối ưu CI, merge PR #99 khi đ
 3. Kiểm IDE, workflow lint, focused integration và full gates; push fix rồi đo thời gian CI thực. CodeRabbit đã từ chối 135 files vượt quota 100, không có review/inline/thread finding trong một lần thu evidence; chỉ dùng fallback đã ghi khi latest-head CI xanh và base/head còn đúng.
 4. Merge với exact-head guard, chờ CI main đúng merge SHA, triển khai release đã xác minh qua đường delivery hiện có và kiểm có xác thực. Giữ OCR và bằng chứng parser/live vision đã ghi ở checkpoint trước.
 
+Người dùng yêu cầu sửa tiếp CI/CD trong cùng turn. Run PR `34667847443` đã xanh trên `8cee98b`: aggregate khoảng 7m19s thay 11m14s. CD cũ `34609144624` rollout thành công nhưng login smoke lỗi cả candidate lẫn runtime đã rollback, nên giữ reservation. Bổ sung preflight identity/quyền trước mutation, diagnostic theo phase không lộ secrets, và input recovery thủ công có exact release: full smoke trước `finish` hiện có; không xóa khóa trực tiếp hoặc restore DB. Cấu hình identity smoke cần kiểm lại live; chưa coi credential, membership hay quyền admin là đã được cấp đúng.
+
 ## Publication được duyệt — 2026-09-12
 
 Người dùng đã duyệt chia commit và mở một PR review vào main. Dùng branch trong checkout hiện tại, không tạo worktree. Chỉ publish MEM-81 và quy tắc component/library reuse đã được yêu cầu; loại `infrastructure/deployment/ocr/` và `docs/increments/active/mem-79-rancher-ocr/`. Không merge, deploy hoặc cập nhật/đóng Linear trong phạm vi này.

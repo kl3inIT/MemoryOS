@@ -2,6 +2,8 @@
 
 CI/delivery follow-up 2026-09-12: người dùng đã duyệt sửa CI, merge và staging sau gates. Backend fixture pull chuyển Docker Hub sang Quay với cùng MinIO digest; browser dùng hai CI shard cách ly, vẫn một worker/shard và không bỏ test. Không đổi baseline attachment hoặc OCR; [plan](plan.md#ci-merge-và-staging-được-duyệt--2026-09-12) giữ thứ tự delivery. Các giới hạn publication sau đây là lịch sử trước yêu cầu mới.
 
+CD hardening trong cùng scope: kiểm login, actor, Tenant và Source permissions trước rollout; lỗi chỉ ghi phase an toàn. Recovery phải chọn rõ transaction cũ qua manual dispatch, full smoke runtime hiện hành rồi gọi `finish` sẵn có để kiểm lại image/health và ownership reservation. Không có auto-unlock, auto-restore database hoặc cấp quyền IAM ngầm.
+
 Publication scope 2026-09-12: người dùng duyệt nhiều commit trong một PR review, giữ một cột message `files JSONB`, parser/component reuse và các khác biệt Onyx đã chốt. Không thêm thiết kế runtime trong bước publish. OCR checkout, deploy, merge và Linear closure nằm ngoài quyền lần này; [plan](plan.md#publication-được-duyệt--2026-09-12) ghi thứ tự commit và [verification](verification.md) ghi evidence, không coi PR là release acceptance.
 
 ## Phép kiểm được chọn ngày 2026-09-12

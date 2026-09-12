@@ -18,7 +18,8 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:staging": "playwright test --config playwright.staging.config.ts",
+    "test:staging": "playwright test --config playwright.staging.config.ts --grep-invert @preflight",
+    "test:staging:preflight": "playwright test --config playwright.staging.config.ts --grep @preflight",
     "preview": "vite preview",
     "check": "pnpm check:api && pnpm check:ci && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm check:routes"
   },
