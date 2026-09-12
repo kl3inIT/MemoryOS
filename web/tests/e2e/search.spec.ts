@@ -129,13 +129,13 @@ test("searches merged sections, filters, pages and opens each best match with es
   expect(requests[1]).toMatchObject({ mediaTypes: ["application/pdf"], page: 0 });
   await titleButton.click();
   const reader = page.getByRole("dialog", { name: "HR-2026 Quy định nghỉ phép" });
-  await expect(reader).toContainText("Selected match");
+  await expect(reader).toContainText("Đoạn được chọn");
   await expect(reader).toContainText(nextPassage.content);
   expect(previewOffsets).toEqual([2]);
-  await reader.getByRole("button", { name: "Match 2" }).click();
+  await reader.getByRole("button", { name: "Đoạn 2" }).click();
   await expect(reader).toContainText(sections[1].content);
   expect(previewOffsets).toEqual([2, 39]);
-  await reader.getByRole("button", { name: "Match 1" }).click();
+  await reader.getByRole("button", { name: "Đoạn 1" }).click();
   await expect(reader).toContainText(nextPassage.content);
   await page.keyboard.press("Escape");
   await expect(reader).toHaveCount(0);

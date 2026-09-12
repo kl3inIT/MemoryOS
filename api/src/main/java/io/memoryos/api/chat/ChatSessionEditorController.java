@@ -64,6 +64,14 @@ class ChatSessionEditorController {
     void delete(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId) {
         turns.delete(identity.actorId(), sessionId);
     }
+
+    @PostMapping("/title")
+    @Operation(operationId = "generateChatTitle", summary = "Generate a short owned conversation title once, preserving manual renames")
+    @ApiResponse(responseCode = "200", description = "Current title, including fallback when naming is unavailable", useReturnTypeSchema = true)
+    ChatSessionResponse generateTitle(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId) {
+        turns.generateTitle(identity.actorId(), sessionId);
+        return ChatSessionResponse.from(sessions.get(identity.actorId(), sessionId));
+    }
     @GetMapping("/branches")
     @Operation(operationId = "getChatBranches", summary = "Read version relationships in an owned conversation")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)

@@ -43,6 +43,27 @@ public class ChatTurnPersistence {
         this.files = files;
     }
 
+    public record TitleInput(io.memoryos.chat.ChatSession session, List<ChatMessage> messages) {}
+
+    @Transactional
+    public Optional<TitleInput> claimTitle(ActorId actor, UUID sessionId) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
+        var session = chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);
+        if (chats.hasActiveReply(sessionId)) return Optional.empty();
+        var history = chats.history(session, null, 3);
+        if (history.stream().noneMatch(message -> message.role() == ChatMessage.Role.ASSISTANT && message.status() == ChatMessage.Status.COMPLETED)) return Optional.empty();
+        return chats.claimTitle(sessionId) ? Optional.of(new TitleInput(session, history)) : Optional.empty();
+    }
+
+    @Transactional
+    public void completeTitle(ActorId actor, TitleInput input, String title) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
+        chats.findOwned(tenant, actor, input.session().id(), true).orElseThrow(ChatException::unavailable);
+        chats.completeTitle(input.session(), title);
+    }
+
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
                                String text, Duration timeout, int contextTokenLimit) {

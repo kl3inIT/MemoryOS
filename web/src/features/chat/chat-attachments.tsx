@@ -5,18 +5,16 @@ import {
   useAuiState,
   type FileMessagePartProps,
 } from "@assistant-ui/react";
-import { Paperclip } from "lucide-react";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatFilePicker } from "./chat-file-picker";
 import { fileReference, fileIdFromReference } from "./chat-files";
-import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { File as FileDisplay } from "@/components/assistant-ui/elements/file";
 import { ChatDialog } from "./chat-dialog";
 import { ChatFileReader } from "./chat-file-reader";
 
 export function ChatComposerFiles() {
   const aui = useAui();
-  const [recent, setRecent] = useState(false);
   const attachments = useAuiState((state) => state.composer.attachments);
   const identities = attachments.map((attachment) => {
     const part = attachment.content?.find((part) => part.type === "file");
@@ -26,50 +24,44 @@ export function ChatComposerFiles() {
   });
   return (
     <>
-      <ComposerAttachments />
-      {attachments.length > 20 && (
-        <p role="alert" className="text-sm">
-          Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.
-        </p>
-      )}
-      <div className="flex gap-2">
-        <ComposerPrimitive.AddAttachment asChild>
-          <Button type="button" size="sm" prominence="internal" disabled={attachments.length >= 20}>
-            <Paperclip className="size-4" />
-            Đính kèm
-          </Button>
-        </ComposerPrimitive.AddAttachment>
-        <Button type="button" size="sm" prominence="internal" onClick={() => setRecent(!recent)}>
-          Tệp gần đây
-        </Button>
-      </div>
-      {recent && (
-        <ChatFilePicker
-          selected={identities.filter((id): id is string => !!id)}
-          onSelect={(ids, files) => {
-            attachments.forEach((attachment, index) => {
-              if (identities[index] && !ids.includes(identities[index]))
-                aui.composer.attachment({ id: attachment.id }).remove();
-            });
-            for (const file of files)
-              if (!identities.includes(file.id))
-                void aui.composer.addAttachment({
-                  id: file.id,
-                  name: file.filename,
-                  type: "file",
-                  contentType: file.mediaType,
-                  content: [
-                    {
-                      type: "file",
-                      filename: file.filename,
-                      mimeType: file.mediaType,
-                      data: fileReference(file.id),
-                    },
-                  ],
-                });
-          }}
-        />
-      )}
+      <ChatFilePicker
+        uploadAction={
+          <ComposerPrimitive.AddAttachment asChild>
+            <Button
+              type="button"
+              size="sm"
+              prominence="internal"
+              disabled={attachments.length >= 20}
+            >
+              <Upload className="size-4" />
+              Tải tệp lên
+            </Button>
+          </ComposerPrimitive.AddAttachment>
+        }
+        selected={identities.filter((id): id is string => !!id)}
+        onSelect={(ids, files) => {
+          attachments.forEach((attachment, index) => {
+            if (identities[index] && !ids.includes(identities[index]))
+              aui.composer.attachment({ id: attachment.id }).remove();
+          });
+          for (const file of files)
+            if (!identities.includes(file.id))
+              void aui.composer.addAttachment({
+                id: file.id,
+                name: file.filename,
+                type: "file",
+                contentType: file.mediaType,
+                content: [
+                  {
+                    type: "file",
+                    filename: file.filename,
+                    mimeType: file.mediaType,
+                    data: fileReference(file.id),
+                  },
+                ],
+              });
+        }}
+      />
     </>
   );
 }

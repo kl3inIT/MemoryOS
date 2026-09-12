@@ -16,6 +16,7 @@ import {
   getChatFeedback,
   getChatProject,
   getChatSession,
+  generateChatTitle,
 } from "@/lib/hey-api/sdk.gen";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { Accepted, ChatSession } from "@/lib/hey-api/types.gen";
@@ -374,6 +375,29 @@ function ChatConversation({
                   if (state === "sending") setError(undefined);
                   if (state === "ready" || state === "uncertain") setStopping(false);
                   if (state === "ready") {
+                    const id = transport.session?.id;
+                    if (id)
+                      void generateChatTitle({
+                        path: { sessionId: id },
+                        headers: sameOriginMutationHeaders,
+                        signal: AbortSignal.timeout(15000),
+                        throwOnError: true,
+                      })
+                        .then(({ data }) =>
+                          data.title ===
+                          queryClient.getQueryData<ChatSession>(["chat-session", id])?.title
+                            ? undefined
+                            : Promise.all([
+                                queryClient.invalidateQueries({ queryKey: ["chat-session", id] }),
+                                queryClient.invalidateQueries({ queryKey: chatSessionsKey }),
+                                queryClient.invalidateQueries({
+                                  queryKey: ["chat-project-sessions"],
+                                }),
+                              ]),
+                        )
+                        .catch(() => {
+                          /* Best-effort naming never changes answer/error state. */
+                        });
                     void queryClient.invalidateQueries({
                       queryKey: ["chat-branches", transport.session?.id],
                     });

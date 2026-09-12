@@ -246,8 +246,19 @@ public class JdbcChatRepository {
     }
 
     public void rename(UUID session, String title) {
-        jdbc.sql("UPDATE chat_session SET title=:title,updated_at=CURRENT_TIMESTAMP WHERE id=:session AND deleted_at IS NULL")
+        jdbc.sql("UPDATE chat_session SET title=:title,title_naming_pending=false,updated_at=CURRENT_TIMESTAMP WHERE id=:session AND deleted_at IS NULL")
                 .param("title", title).param("session", session).update();
+    }
+
+    public boolean claimTitle(UUID session) {
+        return jdbc.sql("UPDATE chat_session SET title_naming_pending=false WHERE id=:id AND title_naming_pending=true AND deleted_at IS NULL")
+                .param("id", session).update() == 1;
+    }
+
+    public void completeTitle(ChatSession expected, String title) {
+        jdbc.sql("UPDATE chat_session SET title=:title,updated_at=CURRENT_TIMESTAMP WHERE id=:id AND updated_at=:updated AND title=:previous AND deleted_at IS NULL")
+                .param("id", expected.id()).param("updated", java.sql.Timestamp.from(expected.updatedAt()))
+                .param("previous", expected.title()).param("title", title).update();
     }
 
     public List<UUID> delete(UUID session) {

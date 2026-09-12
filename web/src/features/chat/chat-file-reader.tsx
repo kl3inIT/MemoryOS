@@ -15,9 +15,17 @@ const textWindow = z.object({
 });
 
 /** Mounted only while the owner opens a file. No private content persists in the query cache. */
-export function ChatFileReader({ fileId }: { fileId: string }) {
+export function ChatFileReader({
+  fileId,
+  initialOffset = 0,
+  citationCount,
+}: {
+  fileId: string;
+  initialOffset?: number;
+  citationCount?: number;
+}) {
   const { actorId, authorizationVersion } = useApplicationSession();
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(initialOffset);
   const [imageFailed, setImageFailed] = useState(false);
   const metadata = useQuery({
     queryKey: ["chat-file-reader", actorId, authorizationVersion, fileId],
@@ -88,12 +96,31 @@ export function ChatFileReader({ fileId }: { fileId: string }) {
       {!failed && window && (
         <>
           <pre className="max-h-[55dvh] overflow-y-auto rounded-lg bg-surface-sunken p-3 text-sm whitespace-pre-wrap break-words">
-            {window.text || "Tệp không có nội dung văn bản."}
+            {citationCount && offset === initialOffset ? (
+              <>
+                <mark className="bg-status-info-surface text-content-primary">
+                  {Array.from(window.text).slice(0, citationCount).join("")}
+                </mark>
+                {Array.from(window.text).slice(citationCount).join("")}
+              </>
+            ) : (
+              window.text || "Tệp không có nội dung văn bản."
+            )}
           </pre>
           <p className="text-sm text-content-secondary">
             Ký tự {window.offset}–{window.nextOffset} / {window.totalCharacters}
           </p>
           <div className="flex gap-2">
+            {citationCount && offset !== initialOffset && (
+              <Button
+                type="button"
+                size="sm"
+                prominence="internal"
+                onClick={() => setOffset(initialOffset)}
+              >
+                Về đoạn trích dẫn
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"

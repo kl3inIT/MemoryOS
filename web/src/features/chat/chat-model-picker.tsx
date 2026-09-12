@@ -71,7 +71,7 @@ export function ChatModelPicker({
         variant="ghost"
         size="sm"
         disabled={disabled || catalog.isPending || models.length === 0}
-        className="max-w-[min(18rem,65vw)] text-content-secondary"
+        className="min-w-0 max-w-[min(18rem,50vw)] text-content-secondary"
       >
         {catalog.isPending
           ? "Đang tải mô hình…"
@@ -82,7 +82,7 @@ export function ChatModelPicker({
               : undefined}
       </ModelSelectorTrigger>
       <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="start">
-        <ModelSelectorSearch aria-label="Tìm mô hình" />
+        <ModelSelectorSearch aria-label="Tìm mô hình" placeholder="Tìm mô hình…" />
         <ModelSelectorList>
           <ModelSelectorEmpty>Không tìm thấy mô hình.</ModelSelectorEmpty>
           <ModelSelectorGroup>
