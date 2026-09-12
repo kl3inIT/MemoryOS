@@ -27,7 +27,7 @@ On Windows, enable Developer Mode or use an elevated terminal, and clone with
 
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
-- Node.js 24 with Corepack; `web/package.json` pins pnpm.
+- Node.js 24 with Corepack; `web/package.json` and `landing/package.json` pin pnpm.
 - Docker with the Compose plugin for the hardened PostgreSQL, private MinIO, shared Keycloak, API, indexing worker, and web deployment stack.
 
 ## Modules and capabilities
@@ -69,6 +69,13 @@ pnpm test:e2e
 
 The Gradle gate compiles all server modules, runs capability and HTTP integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests. The frontend gate regenerates the OpenAPI client, rejects generated drift, lints without product-source warnings, checks formatting and TypeScript, runs focused tests, and creates the production bundle; Playwright exercises the observable browser states.
 
+Public landing page (`https://vadan.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
+
+```powershell
+pnpm --dir landing install --frozen-lockfile
+pnpm --dir landing check
+```
+
 ## Refresh the generated API contract
 
 Spring controllers and Spring-visible request/response metadata own the browser API contract. The committed `openapi.yml` is generated from a full API test context and the web client is generated from that snapshot.
@@ -91,7 +98,9 @@ The staging application is available at `https://memoryos.72-62-193-33.nip.io`; 
 
 ## Current runtime behavior
 
-API startup runs Flyway through V34, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
+API startup runs Flyway through V41, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
+
+The integrated tokenizer backfill is V41; main V1–V40 are preserved. Do not start this layout against a local/review database carrying the former branch-only tokenizer V37. Preserve that runtime until a separately authorized data-preserving cutover; see [migration ownership](ARCHITECTURE.md#persistence-and-startup).
 
 V14 invalidates existing Spring Sessions for the `io.memoryos.iam.ActorId` package cutover. Deploy API and worker as one coordinated version transition; existing browser users sign in again.
 
@@ -111,7 +120,9 @@ Globally authorized Source administrators configure each Google Source under **S
 
 For Google Drive, **Indexing attempts** is a compact per-Source execution table: real Started, Outcome, Checked, Indexed, Unchanged, Completed/duration and Errors. It uses retained run records, not current document totals or fabricated Onyx-style New/Total Docs counters. FILE Sources retain separately named **File indexing attempts** with filenames and processing timestamps. Both histories use real Tenant/Source-scoped `totalItems` and the shared `TablePagination` with Users/Groups: `current / total`, Rows and text Previous/Next controls, 5 rows by default and 5/10/25/50-row cursor pages. Run totals also respect status, trigger and time filters, independently of the cursor. Acquisition and owned indexing remain distinct; unknown legacy counts remain Unknown. Detail/summary retention is 14/90 days with protected live/current references. Historical verification and capacity boundaries are recorded in the [active increment](docs/increments/active/google-drive-structured-ingestion/plan.md#mem-76-verification--2026-09-08); controlled fixtures are not live Google proof or production SLOs.
 
-Binary inputs remain capped at 10 MiB; native snapshots have a separate 32 MiB bound and explicit structural/request/time limits. `INDEXED` means a current extraction artifact, not Search readiness. Item `searchStatus` separately reports the downstream chunk/embedding/projection state. For real Docling coverage in the Gradle worker integration suite, set `DOCLING_TEST_ENDPOINT` to a reachable pinned Docling service before running the normal gate.
+FILE uploads and Google binary acquisition share a 100 MiB (104,857,600-byte) admission ceiling, including Slides exports and offline binary link reading; native snapshots have a separate 32 MiB bound and explicit structural/request/time limits. Lower configured Google provider limits remain allowed. `INDEXED` means a current extraction artifact, not Search readiness. Item `searchStatus` separately reports the downstream chunk/embedding/projection state. For real Docling coverage in the Gradle worker integration suite, set `DOCLING_TEST_ENDPOINT` to a reachable pinned Docling service before running the normal gate. Remote Docling and its ingress must independently admit the input and its base64 request body; see the [parser runbook](docs/runbooks/docling-extraction.md).
+
+Docling defaults remain the pinned upstream CPU image with EasyOCR `vi,en`. For Vietnamese scans, the optional [derived Tesseract image and Compose configuration](docs/specs/ingestion.md#docling-deployment-environment) add the Vietnamese language pack and require explicit image, engine, language and image-revision selection; there is no automatic fallback. OCR financial figures still require checking against the source PDF; this setup is not whole-corpus or deployed-service verification.
 
 | Endpoint | Access | Result |
 | --- | --- | --- |

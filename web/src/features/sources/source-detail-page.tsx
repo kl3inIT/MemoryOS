@@ -21,6 +21,7 @@ import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
+import { captureWorkflowFailure } from "@/lib/sentry";
 import {
   deleteSourceMutation,
   finalizeSourceUploadMutation,
@@ -43,7 +44,7 @@ import { GoogleDrivePanel } from "./google-drive-panel";
 import { waitForSourceOperation } from "./source-operations";
 import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
-import { HistoryTime } from "./source-history-presentation";
+import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
 
@@ -214,6 +215,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         });
       } catch (cause) {
         if (!controller.signal.aborted) {
+          captureWorkflowFailure(cause, {
+            workflow: "file-source-upload",
+            stage: "finalize",
+            failureKind: "api-or-network",
+          });
           setPendingFinalize({
             sourceId: selectedId,
             uploadId: authorization.uploadId,
@@ -245,6 +251,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     } catch (cause) {
       if (!active.current) return;
       setUploadPhase("idle");
+      if (!controller.signal.aborted)
+        captureWorkflowFailure(cause, {
+          workflow: "file-source-upload",
+          stage: "upload",
+          failureKind: cause instanceof DirectUploadError ? "direct-upload" : "api-or-network",
+        });
       const message = controller.signal.aborted
         ? "Upload cancelled. If finalization had started, it may already be accepted; refresh the source to check."
         : cause instanceof DirectUploadError
@@ -290,6 +302,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     } catch (cause) {
       if (!active.current) return;
       setUploadPhase("finalize-retry");
+      if (!controller.signal.aborted)
+        captureWorkflowFailure(cause, {
+          workflow: "file-source-upload",
+          stage: "finalize-retry",
+          failureKind: "api-or-network",
+        });
       const message = controller.signal.aborted
         ? "Finalization stopped waiting. It may already be accepted; refresh the source before retrying."
         : `${sourceMutationError(cause, "upload")} The file remains in object storage; retry finalization without uploading it again.`;
@@ -339,6 +357,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           description: `${filename}: this request was replaced by newer work.`,
         });
       } else {
+        const failureKind = operation.errorCode ?? "SOURCE_INDEX_FAILED";
+        if (isSystemIndexFailure(failureKind))
+          captureWorkflowFailure(new Error("Source indexing operation failed"), {
+            workflow: "indexing",
+            stage: "operation-complete",
+            failureKind,
+          });
         notify({
           tone: "error",
           title: "Reindex failed",
@@ -348,6 +373,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       await refresh(selectedId);
     } catch (cause) {
       if (controller.signal.aborted) return;
+      captureWorkflowFailure(cause, {
+        workflow: "indexing",
+        stage: accepted ? "operation-status" : "request",
+        failureKind: accepted ? "status-unavailable" : "api-or-network",
+      });
       const message = accepted
         ? `${filename}: processing may still be running. Refresh the source to check its status.`
         : sourceMutationError(cause, "reindex");
@@ -663,7 +693,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     <h2 className="font-heading-h3 text-content-primary">Upload content</h2>
                   </div>
                   <p className="mt-2 text-sm text-content-muted">
-                    PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 10 MiB per file
+                    PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 100 MiB per file
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -676,7 +706,20 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       type="file"
                       accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                       disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
-                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                      onChange={(event) => {
+                        const selected = event.target.files?.[0] ?? null;
+                        if (
+                          selected &&
+                          (selected.size === 0 || selected.size > 100 * 1024 * 1024)
+                        ) {
+                          setFile(null);
+                          setError("Choose a file between 1 byte and 100 MiB.");
+                          event.target.value = "";
+                          return;
+                        }
+                        setError(null);
+                        setFile(selected);
+                      }}
                       className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
                     />
                   </label>
@@ -792,7 +835,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   </HelpPopover>
                 </div>
                 <div className="flex items-center gap-2">
-                  {detail.pendingWork ? <LoadingLabel label="Processing" /> : null}
+                  {detail.pendingWork ? <LoadingLabel label="Work pending" /> : null}
                   <Button
                     prominence="tertiary"
                     pending={itemsQuery.isFetching}
@@ -802,6 +845,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   </Button>
                 </div>
               </div>
+              <p className="mb-3 font-secondary-body text-content-muted">
+                Indexed means processing completed, not that financial values were verified.
+              </p>
               {itemsQuery.isError ? (
                 <p role="alert" className="mb-3 text-sm text-status-danger-content">
                   Files could not be loaded. Displayed files may be out of date. Retry this page or
@@ -827,12 +873,19 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 />
               ) : itemsQuery.data ? (
                 <div
-                  className="overflow-x-auto rounded-lg border border-border-subtle"
+                  className="overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline-2 focus-visible:outline-focus-ring"
                   tabIndex={0}
                   role="region"
                   aria-label="Source files table"
                 >
-                  <table className="w-full min-w-[38rem] text-left text-sm">
+                  <table className="w-full min-w-[64rem] table-fixed text-left text-sm">
+                    <colgroup>
+                      <col />
+                      <col className="w-24" />
+                      <col className="w-44" />
+                      <col className="w-48" />
+                      <col className="w-52" />
+                    </colgroup>
                     <thead className="border-b border-border-subtle bg-surface-sunken text-content-muted">
                       <tr>
                         <th scope="col" className="px-4 py-3 font-medium">
@@ -855,13 +908,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     <tbody className="divide-y divide-border-subtle">
                       {itemsQuery.data.items.map((item) => (
                         <tr key={item.id}>
-                          <td className="min-w-64 max-w-xs px-4 py-4">
-                            <span className="flex items-center gap-2 font-medium text-content-primary">
+                          <td className="px-4 py-4 [overflow-wrap:anywhere]">
+                            <span className="flex min-w-0 items-start gap-2 font-medium text-content-primary">
                               <FileText
-                                className="size-4 shrink-0 text-content-muted"
+                                className="mt-0.5 size-4 shrink-0 text-content-muted"
                                 aria-hidden="true"
                               />
-                              <span className="break-words">
+                              <span className="min-w-0" title={item.filename ?? "Uploaded file"}>
                                 {item.filename ?? "Uploaded file"}
                               </span>
                             </span>
@@ -875,21 +928,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                             {item.sizeBytes == null ? "Unknown" : formatBytes(item.sizeBytes)}
                           </td>
                           <td className="px-4 py-4 text-content-secondary">
-                            {item.status ?? "PENDING"}
-                            {item.searchStatus && (
-                              <p className="mt-1 font-secondary-body text-content-muted">
-                                Search:{" "}
-                                {item.searchStatus === "READY"
-                                  ? "Ready"
-                                  : item.searchStatus === "FAILED"
-                                    ? "Retry scheduled"
-                                    : item.searchStatus === "INDEXING"
-                                      ? "Indexing"
-                                      : "Waiting for extraction"}
-                              </p>
-                            )}
+                            <ItemStatus item={item} />
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-content-secondary">
+                          <td className="px-4 py-4 text-content-secondary">
                             <HistoryTime value={item.lastIndexedAt} />
                           </td>
                           <td className="px-4 py-4">
@@ -1005,6 +1046,14 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         )}
       </div>
     </SettingsLayout>
+  );
+}
+
+function isSystemIndexFailure(errorCode: string) {
+  return (
+    errorCode.startsWith("SOURCE_INDEX_") ||
+    errorCode.startsWith("SOURCE_STORAGE_") ||
+    errorCode === "SOURCE_ACQUISITION_INTERNAL"
   );
 }
 

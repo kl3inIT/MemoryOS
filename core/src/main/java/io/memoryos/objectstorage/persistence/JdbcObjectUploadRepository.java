@@ -1,6 +1,7 @@
 package io.memoryos.objectstorage.persistence;
 
 import io.memoryos.objectstorage.ObjectUploadId;
+import io.memoryos.objectstorage.ObjectUploadPurpose;
 import io.memoryos.objectstorage.ObjectVerificationToken;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.iam.TenantId;
@@ -25,19 +26,24 @@ public class JdbcObjectUploadRepository {
     }
 
     public void create(TenantId tenantId, ObjectUploadId id, StoredObjectId storedObjectId) {
+        create(tenantId, id, storedObjectId, ObjectUploadPurpose.BINARY);
+    }
+
+    public void create(TenantId tenantId, ObjectUploadId id, StoredObjectId storedObjectId, ObjectUploadPurpose purpose) {
         jdbcClient.sql("""
-                        INSERT INTO object_uploads (id, tenant_id, stored_object_id, status)
-                        VALUES (:id, :tenantId, :storedObjectId, 'PENDING')
+                        INSERT INTO object_uploads (id, tenant_id, stored_object_id, input_kind, status)
+                        VALUES (:id, :tenantId, :storedObjectId, :purpose, 'PENDING')
                         """)
                 .param("id", id.value())
                 .param("tenantId", tenantId.value())
                 .param("storedObjectId", storedObjectId.value())
+                .param("purpose", purpose.name())
                 .update();
     }
 
     public Optional<UploadRow> find(TenantId tenantId, ObjectUploadId id) {
         return jdbcClient.sql("""
-                        SELECT id, stored_object_id, status, verification_token,
+                        SELECT id, stored_object_id, status, input_kind, verification_token,
                                verification_lease_until, adoption_deadline
                         FROM object_uploads
                         WHERE tenant_id = :tenantId AND id = :id
@@ -50,7 +56,8 @@ public class JdbcObjectUploadRepository {
                         resultSet.getString("status"),
                         resultSet.getObject("verification_token", UUID.class),
                         optionalInstant(resultSet, "verification_lease_until"),
-                        optionalInstant(resultSet, "adoption_deadline")
+                        optionalInstant(resultSet, "adoption_deadline"),
+                        ObjectUploadPurpose.valueOf(resultSet.getString("input_kind"))
                 ))
                 .optional();
     }
@@ -162,6 +169,13 @@ public class JdbcObjectUploadRepository {
         }
     }
 
+    public boolean retireAdopted(TenantId tenant, ObjectUploadId id) {
+        return jdbcClient.sql("""
+                UPDATE object_uploads SET status='DISCARDED',updated_at=CURRENT_TIMESTAMP
+                WHERE tenant_id=:tenant AND id=:id AND status='ADOPTED'
+                """).param("tenant", tenant.value()).param("id", id.value()).update() == 1;
+    }
+
     public List<CleanupRow> claimAbandoned(Instant now, Instant leaseUntil, UUID token, int limit) {
         List<CleanupRow> rows = jdbcClient.sql("""
                         SELECT upload.id, upload.tenant_id, upload.stored_object_id
@@ -248,8 +262,18 @@ public class JdbcObjectUploadRepository {
             String status,
             UUID verificationToken,
             Instant verificationLeaseUntil,
-            Instant adoptionDeadline
+            Instant adoptionDeadline,
+            ObjectUploadPurpose purpose
     ) {
+    }
+
+    public boolean extendPendingLifetime(TenantId tenant, ObjectUploadId id, Instant now, Instant expiresAt) {
+        return jdbcClient.sql("""
+                UPDATE stored_objects o SET expires_at=GREATEST(o.expires_at,:expiresAt)
+                FROM object_uploads u WHERE u.tenant_id=o.tenant_id AND u.stored_object_id=o.id
+                    AND u.tenant_id=:tenant AND u.id=:id AND u.status='PENDING' AND o.state='STAGED' AND o.expires_at>=:now
+                """).param("tenant", tenant.value()).param("id", id.value()).param("now", Timestamp.from(now))
+                .param("expiresAt", Timestamp.from(expiresAt)).update() == 1;
     }
 
     public record CleanupRow(

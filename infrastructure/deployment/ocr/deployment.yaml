@@ -20,7 +20,7 @@ spec:
         app.kubernetes.io/part-of: memoryos
     spec:
       automountServiceAccountToken: false
-      terminationGracePeriodSeconds: 930
+      terminationGracePeriodSeconds: 3630
       imagePullSecrets:
         - name: ghcr-pull
       securityContext:
@@ -51,19 +51,19 @@ spec:
             - name: UVICORN_WORKERS
               value: "1"
             - name: UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN
-              value: "920"
+              value: "3620"
             - name: DOCLING_SERVE_ENG_LOC_NUM_WORKERS
               value: "1"
             - name: DOCLING_SERVE_MAX_NUM_PAGES
               value: "200"
             - name: DOCLING_SERVE_MAX_FILE_SIZE
-              value: "20971520"
+              value: "104857600"
             - name: DOCLING_SERVE_MAX_SOURCES_PER_REQUEST
               value: "1"
             - name: DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT
-              value: "900"
+              value: "3600"
             - name: DOCLING_SERVE_MAX_SYNC_WAIT
-              value: "910"
+              value: "3610"
             - name: DOCLING_SERVE_ALLOWED_SOURCE_TYPES
               value: file
             - name: DOCLING_SERVE_ALLOWED_TARGET_TYPES

@@ -55,7 +55,7 @@ public final class StructuredContent {
     }
 
     public void checkTime() throws ExtractionException {
-        if (System.nanoTime() - deadline >= 0) throw failure(ExtractionFailure.TIMEOUT);
+        if (Thread.currentThread().isInterrupted() || System.nanoTime() - deadline >= 0) throw failure(ExtractionFailure.TIMEOUT);
     }
 
     public DocumentContent finish(String mediaType, String title, String parser) throws ExtractionException {

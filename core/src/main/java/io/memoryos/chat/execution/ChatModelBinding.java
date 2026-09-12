@@ -9,11 +9,11 @@ import java.util.List;
 
 /** A configured native model and immutable request policy. No run state or client cache. */
 public record ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                               ChatRequestPolicy policy, int contextWindow, int maxOutputTokens, boolean toolCalling) {
+                               ChatRequestPolicy policy, int contextWindow, int maxOutputTokens, boolean toolCalling, boolean vision) {
     public ChatModelBinding forOptions(io.memoryos.chat.ChatTurnOptions options) {
         return new ChatModelBinding(service, finalRequest, policy, contextWindow,
                 options.outputTokenLimit() == null ? maxOutputTokens : Math.min(maxOutputTokens, options.outputTokenLimit()),
-                toolCalling && options.searchEnabled());
+                toolCalling, vision);
     }
     public ChatModelBinding {
         Objects.requireNonNull(service);

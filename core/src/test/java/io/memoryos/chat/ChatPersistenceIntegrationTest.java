@@ -83,7 +83,9 @@ class ChatPersistenceIntegrationTest {
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
-        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, repository, new PersonaProperties()));
+        var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
+                mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
+        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, repository, new PersonaProperties(), fileService));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
@@ -100,8 +102,8 @@ class ChatPersistenceIntegrationTest {
         var sources = mock(SourceSearchService.class); sourceId = UUID.randomUUID();
         when(sources.scope(any())).thenReturn(new SourceSearchScope(new TenantId(tenant), Map.of(sourceId, SourceType.FILE)));
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
-                new PersonaProperties(), models, sources), ChatPersonaService.class);
-        projects = service(new ChatProjectService(tenants, repository, jpa.repository(JpaProjectRepository.class), sessions), ChatProjectService.class);
+                new PersonaProperties(), models, sources, fileService), ChatPersonaService.class);
+        projects = service(new ChatProjectService(tenants, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         collaboration = service(new ChatCollaborationService(tenants, repository, jpa.repository(JpaChatSharingRepository.class),
                 jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
     }
@@ -146,6 +148,29 @@ class ChatPersistenceIntegrationTest {
         assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
         personas.select(owner, session.id(), session.personaId());
         assertTrue(reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Default again").created());
+    }
+
+    @Test
+    void automaticTitlesAreOnceOnlyAuthorizedAndManualRenameWinsEvenWithTheSameText() {
+        var session = sessions.create(owner, "Short initial title");
+        assertTrue(turns.claimTitle(owner, session.id()).isEmpty());
+        var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        assertTrue(turns.claimTitle(owner, session.id()).isEmpty());
+        turns.finish(session.id(), reply.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        assertThrows(ChatException.class, () -> turns.claimTitle(other, session.id()));
+        var input = turns.claimTitle(owner, session.id()).orElseThrow();
+        assertTrue(turns.claimTitle(owner, session.id()).isEmpty());
+        sessions.rename(owner, session.id(), "Short initial title");
+        turns.completeTitle(owner, input, "Generated title");
+        assertEquals("Short initial title", sessions.get(owner, session.id()).title());
+
+        var second = sessions.create(owner, "Fallback");
+        var secondReply = reserve(second, second.rootMessageId(), UUID.randomUUID(), "Question");
+        turns.finish(second.id(), secondReply.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        var pending = turns.claimTitle(owner, second.id()).orElseThrow();
+        turns.completeTitle(owner, pending, "Generated title");
+        assertEquals("Generated title", sessions.get(owner, second.id()).title());
+        assertTrue(turns.claimTitle(owner, second.id()).isEmpty());
     }
 
     @Test
@@ -217,7 +242,7 @@ class ChatPersistenceIntegrationTest {
         var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
         var policy = ChatRequestPolicy.hosted(tokens, p -> p);
         var binding = new ChatModelBinding(new SpringAiLlmService("fixture", "fixture",
-                org.mockito.Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false);
+                org.mockito.Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false, false);
         String contribution = "Current date: 2026-09-11\n";
         String instructions = ChatTurnSetup.instructions("Answer", contribution);
         int raw = tokens.estimate(instructions) + tokens.estimate("Question");
@@ -538,6 +563,84 @@ class ChatPersistenceIntegrationTest {
 
     private ChatTurnPersistence.Reservation reserve(ChatSession session, UUID parent, UUID request, String text) {
         return turns.reserve(owner, session.id(), parent, request, text, Duration.ofMinutes(2), 32000);
+    }
+
+    @Test
+    void orderedMessageFilesSurviveReplayRegenerationEditingAndSharedHistoryWithoutNewUploads() {
+        var a = readyFile(owner); var b = readyFile(owner); var foreign = readyFile(other);
+        var session = sessions.create(owner, "Files");
+        var denied = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(foreign));
+        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), denied, Duration.ofMinutes(2), 32000, null));
+        assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
+        var command = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(b, a));
+        var first = turns.reserve(owner, session.id(), command, Duration.ofMinutes(2), 32000, null);
+        var replay = turns.reserve(owner, session.id(), command, Duration.ofMinutes(2), 32000, null);
+        assertFalse(replay.created());
+        assertEquals(first.assistantMessageId(), replay.assistantMessageId());
+        assertEquals(List.of(b, a), turns.loadContext(owner, session.id(), replay).newestFirst().getFirst().files().stream().map(ChatFileDescriptor::id).toList());
+        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), new ChatCommand(command.operation(),
+                command.targetMessageId(), command.requestId(), "", null, List.of(a, b)), Duration.ofMinutes(2), 32000, null));
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "File answer");
+        var regenerated = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.REGENERATE,
+                first.userMessageId(), UUID.randomUUID(), "", null), Duration.ofMinutes(2), 32000, null);
+        assertEquals(first.userMessageId(), regenerated.userMessageId());
+        assertNotNull(regenerated.context());
+        assertEquals(List.of(b, a), regenerated.context().newestFirst().getFirst().files().stream().map(ChatFileDescriptor::id).toList());
+        turns.finish(session.id(), regenerated.assistantMessageId(), ChatMessage.Status.COMPLETED, "Regenerated answer");
+        var edited = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.EDIT,
+                first.userMessageId(), UUID.randomUUID(), "", null, List.of(a)), Duration.ofMinutes(2), 32000, null);
+        turns.finish(session.id(), edited.assistantMessageId(), ChatMessage.Status.COMPLETED, "Edited answer");
+        assertEquals(List.of(a), sessions.history(owner, session.id(), null, 100).getFirst().files().stream().map(ChatFileDescriptor::id).toList());
+        var original = new JdbcChatRepository(jdbc).message(session.id(), first.userMessageId()).orElseThrow();
+        assertEquals(List.of(b, a), original.files().stream().map(ChatFileDescriptor::id).toList());
+        collaboration.share(owner, session.id(), true, 0);
+        assertEquals(List.of(a), collaboration.sharedHistory(other, session.id(), null, 100).getFirst().files().stream().map(ChatFileDescriptor::id).toList());
+        assertEquals(3, jdbc.sql("SELECT count(*) FROM object_uploads").query(Integer.class).single());
+    }
+
+    @Test
+    void customPersonaEmptyFileListOverridesProjectAndReloadContextDoesNotUseReadOnlyLocks() {
+        var file = readyFile(owner);
+        var project = projects.create(owner, new ChatProjectService.ProjectInput("Files", "", "", List.of(file)));
+        var session = projects.createConversation(owner, project.id(), "Files");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Read project");
+        assertNotNull(first.context());
+        assertEquals(List.of(file), first.context().workspaceFiles().stream().map(ChatFileDescriptor::id).toList());
+        var reloaded = turns.loadContext(owner, session.id(), new ChatTurnPersistence.Reservation(first.userMessageId(), first.assistantMessageId(), false));
+        assertEquals(List.of(file), reloaded.workspaceFiles().stream().map(ChatFileDescriptor::id).toList());
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Project answer");
+        var persona = personas.create(owner, new ChatPersonaService.PersonaInput("No files", "", "", List.of(),
+                List.of(), false, null, null, null, List.of()));
+        personas.select(owner, session.id(), persona.id());
+        var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Custom assistant");
+        assertNotNull(second.context());
+        assertTrue(second.context().workspaceFiles().isEmpty());
+        turns.finish(session.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "No project files");
+        var settings = new ChatPersonaService.PersonaInput("With files", "", "", List.of(), List.of(), false, null, null, null, List.of(file));
+        personas.update(owner, persona.id(), persona.revision(), settings);
+        assertThrows(ChatException.class, () -> personas.update(owner, persona.id(), persona.revision(), settings));
+        var third = reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Read custom files");
+        assertNotNull(third.context());
+        assertEquals(List.of(file), third.context().workspaceFiles().stream().map(ChatFileDescriptor::id).toList());
+        assertTrue(second.context().workspaceFiles().isEmpty());
+    }
+
+    private UUID readyFile(ActorId actor) {
+        return java.util.Objects.requireNonNull(tx.execute(ignored -> {
+            var tenantId = new TenantId(tenant);
+            var objectId = new io.memoryos.objectstorage.StoredObjectId(UUID.randomUUID());
+            var uploadId = new io.memoryos.objectstorage.ObjectUploadId(UUID.randomUUID());
+            var spec = new io.memoryos.objectstorage.ObjectUploadSpecification("Ghi chú.txt", "text/plain", 4,
+                    new io.memoryos.objectstorage.ContentSha256("a".repeat(64)), io.memoryos.objectstorage.ObjectUploadPurpose.CHAT_FILE);
+            new io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository(jdbc).create(tenantId, objectId,
+                    new io.memoryos.objectstorage.ObjectKey("raw/" + tenant + "/" + objectId.value()), spec, java.time.Instant.now().plusSeconds(600));
+            new io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository(jdbc).create(tenantId, uploadId, objectId, spec.purpose());
+            var id = new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).create(tenantId, actor, UUID.randomUUID(), uploadId, spec);
+            // This suite tests message transactions; worker/adoption publication is exercised separately.
+            jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext='Test',detected_media_type='text/plain' WHERE id=:id")
+                    .param("id", id).update();
+            return id;
+        }));
     }
 
     private UUID tenant() {

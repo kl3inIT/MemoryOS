@@ -9,6 +9,7 @@ import {
 } from "@/lib/hey-api/sdk.gen";
 import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "./chat-api";
+import { fileIdFromReference } from "./chat-files";
 import {
   searchEventSchema,
   sourcesSchema,
@@ -98,7 +99,13 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         .filter((part) => part.type === "text")
         .map((part) => part.text)
         .join("") ?? "";
-    if (!message || !text.trim() || text.length > 32_000)
+    const fileIds =
+      message?.parts
+        .filter((part) => part.type === "file")
+        .map((part) => fileIdFromReference(part.url)) ?? [];
+    if (fileIds.some((id) => !id) || fileIds.length > 20)
+      throw new Error("Danh sách tệp không hợp lệ.");
+    if (!message || (!text.trim() && fileIds.length === 0) || text.length > 32_000)
       throw new Error("Enter a message of at most 32,000 characters");
     const signal = this.openReader(options.abortSignal);
     this.sending = true;
@@ -113,6 +120,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           clientRequestId: message.id,
           text,
           modelConfigurationId,
+          fileIds: fileIds as string[],
         },
         headers: sameOriginMutationHeaders,
         signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),

@@ -6,8 +6,11 @@ Shared resources live in `core/src/main/resources` and reach both deployables th
 The explicit SDK version override is required by the newer Logback instrumentation;
 do not upgrade the appender independently of its SDK/API/incubator dependencies.
 
-- Local console output is readable text. Staging uses Boot Logstash JSON plus one
-  asynchronous OTLP log appender. Never also tail stdout into Loki.
+- Local console output is readable text and retains fluent key/value fields through
+  Boot's `logging.pattern.level` (`%5p %kvp`). The correlation pattern includes
+  trace/span and the existing operation, delivery and workload MDC values. Staging
+  uses Boot Logstash JSON plus one asynchronous OTLP log appender. Never also tail
+  stdout into Loki.
 - Application logs use SLF4J fluent key/value fields: stable `event`, and relevant
   `operation_id`, `delivery_id`, `workload`, typed `error_code` or `error_type`.
   Use INFO for lifecycle transitions, DEBUG for stale/no-op details, WARN for
@@ -49,6 +52,12 @@ Deployment, SSO, retention, health checks and rollback are described in the
 - Use histogram buckets that cover the operation's useful latency range. Bucket boundaries are measurement resolution, not an accepted service-level objective. Aggregate histograms across instances before computing percentiles; do not average per-instance percentiles. Empty traffic is no data, not zero latency.
 - Export asynchronously with bounded resources; recording/export failures must not change business results or trigger retries. Metrics are best effort and can lose observations during crashes. Verify handled/unhandled errors, duplicate/retry behavior and exporter outage, not just happy-path emission.
 - Verify exported names, units, labels and actual PromQL results after changing instrumentation. A configured exemplar or trace-to-log link is not evidence that matching telemetry exists; demonstrate correlation with a real request.
+
+### Extraction lifecycle diagnostics
+
+`ingestion.started`, `ingestion.stage.started` and terminal ingestion events carry `operation_id` and monotonic `elapsed_ms` for the current claimed processing invocation. Adjacent elapsed readings delimit storage opening, extraction (including streaming input consumption), artifact storage and transactional publication. These are not page-level OCR timings. Existing Worker `delivery_id` and `traceId`/`spanId` context distinguish processing deliveries; the operation ID identifies the logical attempt and is not a retry ordinal. Persisted first-claim queue metrics remain separate from in-process elapsed time.
+
+The bounded Docling client logs the validated `task_id` when submission is accepted, each task state on its first observation, result receipt and terminal observation failure/interruption. It emits no per-poll stream and does not resubmit after an uncertain submission/result. Its `elapsed_ms` starts before asynchronous submission, so `PENDING`/`STARTED` observations include HTTP/polling delay and do not measure exact remote queue/OCR duration. Result receipt is not content acceptance, and local timeout/interruption does not confirm remote cancellation. Financial assessment logs only bounded check/review counts, never values or filenames. No new metric labels are introduced.
 
 ## Staging and future integrations
 

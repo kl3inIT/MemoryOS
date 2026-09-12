@@ -1,0 +1,96 @@
+import { Menu, Moon, Sun } from "lucide-react";
+import { type MouseEvent, useRef } from "react";
+import { ActionLink } from "@/components/action-link";
+import { BrandMark } from "@/components/brand-mark";
+import { VadanLogo } from "@/components/vadan-logo";
+import { contact, navigation } from "@/content";
+import { useTheme } from "@/lib/theme";
+
+function Header() {
+  const mobileMenu = useRef<HTMLDetailsElement>(null);
+  const closeMobileMenu = () => mobileMenu.current?.removeAttribute("open");
+  const { theme, toggleTheme } = useTheme();
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
+  const themeLabel = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+  // Start the theme reveal from the control's centre, which also works for keyboard activation.
+  const switchTheme = (event: MouseEvent<HTMLButtonElement>) => {
+    const { left, top, width, height } = event.currentTarget.getBoundingClientRect();
+    toggleTheme({ x: left + width / 2, y: top + height / 2 });
+  };
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface-base/90 px-[var(--page-gutter)] backdrop-blur-md">
+      <a
+        href="#main"
+        className="sr-only rounded-lg bg-surface-raised font-main-ui-action shadow-md focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-10 focus:px-3 focus:py-2"
+      >
+        Skip to content
+      </a>
+      <div className="mx-auto flex h-16 max-w-[var(--page-width-wide)] items-center gap-3">
+        <a href="/" className="mr-auto flex items-center gap-2.5 rounded-md">
+          <BrandMark className="size-7" />
+          <span className="font-heading-h3 text-content-primary">MemoryOS</span>
+          <span className="hidden items-center gap-1.5 font-main-ui-body text-content-muted sm:flex">
+            by
+            <VadanLogo className="h-3.5" />
+          </span>
+        </a>
+        <nav aria-label="Primary" className="hidden lg:block">
+          <ul className="flex items-center gap-1">
+            {navigation.map((item) => (
+              <li key={item.href}>
+                <ActionLink href={item.href} prominence="tertiary">
+                  {item.label}
+                </ActionLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <button
+          type="button"
+          onClick={switchTheme}
+          className="hidden size-9 items-center justify-center rounded-lg text-content-secondary transition-colors duration-150 hover:bg-surface-canvas hover:text-content-primary lg:inline-flex"
+        >
+          <ThemeIcon aria-hidden="true" className="size-4" />
+          <span className="sr-only">{themeLabel}</span>
+        </button>
+        <ActionLink href={contact.href}>{contact.label}</ActionLink>
+        <details ref={mobileMenu} className="relative lg:hidden">
+          <summary className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg text-content-secondary hover:bg-surface-canvas [&::-webkit-details-marker]:hidden">
+            <Menu aria-hidden="true" className="size-5" />
+            <span className="sr-only">Menu</span>
+          </summary>
+          <div className="absolute top-full right-0 mt-2 w-56 rounded-xl border border-border-subtle bg-surface-raised p-2 shadow-md">
+            <nav aria-label="Primary">
+              <ul>
+                {navigation.map((item) => (
+                  <li key={item.href}>
+                    <a
+                      href={item.href}
+                      onClick={closeMobileMenu}
+                      className="block rounded-lg px-3 py-2.5 font-main-ui-action text-content-secondary hover:bg-surface-canvas hover:text-content-primary"
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="mt-2 border-t border-border-subtle pt-2">
+              <button
+                type="button"
+                onClick={switchTheme}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 font-main-ui-action text-content-secondary hover:bg-surface-canvas hover:text-content-primary"
+              >
+                <ThemeIcon aria-hidden="true" className="size-4" />
+                {themeLabel}
+              </button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </header>
+  );
+}
+
+export { Header };

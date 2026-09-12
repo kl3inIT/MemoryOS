@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Invoked by Deploy staging. Workflow owns smoke and selects finish or rollback.
+# CD deploys and finalizes healthy images. Operators explicitly select rollback.
 set -Eeuo pipefail
 umask 077
 mode=${1:?deploy, rollback, finish, drain, resume, rotate-key, complete-rotation or serving-rollback}
@@ -143,7 +143,7 @@ if [[ "$mode" == deploy ]]; then
   available=$(df --output=avail --block-size=1 "$root" | tail -n 1)
   (( available > 2 * database_size + 2000000000 ))
 
-  # Keep this reservation through the workflow's authenticated smoke and finalization.
+  # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"
   if [[ -f "$tx/previous.inference.source" ]]; then
     serving_target=previous; inference_drain
@@ -160,7 +160,7 @@ if [[ "$mode" == deploy ]]; then
   serving_target=candidate; inference_start; inference_resume
   inference_monitoring_apply
   target=candidate; rollout; verify_runtime
-  echo 'Candidate ready; authenticated smoke is required before acceptance'
+  echo 'Candidate healthy; finish records deployment, not business acceptance'
 elif [[ "$mode" == rollback ]]; then
   if [[ ! -f "$state/pending" ]]; then echo 'No runtime mutation was reserved'; exit 2; fi
   [[ -f "$state/pending" && "$(cat "$state/pending")" == "$release" ]]
@@ -191,7 +191,7 @@ elif [[ "$mode" == rollback ]]; then
   fi
   target=previous; rollout; verify_runtime
   touch "$tx/rolled-back"
-  echo 'Previous images restored; authenticated smoke is still required'
+  echo 'Previous images restored and healthy; finish records recovery'
 elif [[ "$mode" == finish ]]; then
   [[ -f "$state/pending" && "$(cat "$state/pending")" == "$release" ]]
   operation_parent=$tx
@@ -225,7 +225,7 @@ elif [[ "$mode" == finish ]]; then
   printf '%s %s\n' "$release" "$target" > "$tx/result"
   if [[ -f "$tx/serving-only" ]]; then rm -- "$operation_parent/active-operation"; fi
   rm -- "$state/pending"
-  echo "Accepted $target runtime for workflow $release"
+  echo "Finalized $target runtime for workflow $release; business acceptance remains separate"
 elif [[ "$mode" == drain ]]; then
   if [[ -f "$state/pending" ]]; then inference_operation_open; else inference_operation_begin; fi
   inference_drain
@@ -234,7 +234,7 @@ elif [[ "$mode" == resume ]]; then
   inference_operation_open
   [[ ! -f "$tx/rotation.started" ]] || { echo 'Use complete-rotation; bypassing credential handoff is refused' >&2; exit 1; }
   inference_resume
-  echo 'Serving resumed; authenticated Chat smoke and finish are required'
+  echo 'Serving resumed; finish is required to verify runtime health and release the reservation'
 elif [[ "$mode" == rotate-key ]]; then
   inference_operation_open
   inference_rotate "${3:?new protected key file}" "${4:?protected BYOK handoff request file}" "${5:?new secret version identifier}"
@@ -258,7 +258,7 @@ elif [[ "$mode" == serving-rollback ]]; then
   serving_target=previous
   touch "$tx/serving-restored"
   inference_start; inference_resume
-  echo 'Compatible serving restored with the current credential; application and database unchanged. Run authenticated smoke, then finish.'
+  echo 'Compatible serving restored with the current credential; application and database unchanged. Verify runtime health with finish.'
 else
   echo 'Expected deploy, rollback, finish, drain, resume, rotate-key, complete-rotation or serving-rollback' >&2
   exit 1

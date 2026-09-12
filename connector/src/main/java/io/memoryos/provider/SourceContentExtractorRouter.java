@@ -4,6 +4,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.SourceContentExtractor;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.provider.file.DoclingSourceContentExtractor;
 import io.memoryos.provider.file.SpreadsheetSourceContentExtractor;
 import io.memoryos.provider.google.GoogleDocsSourceContentExtractor;
@@ -37,7 +38,7 @@ public final class SourceContentExtractorRouter implements SourceContentExtracto
 
     private DocumentContent binary(InputStream content, long size, String filename,
                                     SourceInputDescriptor input) throws ExtractionException {
-        byte[] bytes = StructuredContent.read(content, size, 10_485_760);
+        byte[] bytes = StructuredContent.read(content, size, Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES));
         String mediaType = new Tika().detect(bytes, filename);
         if (DoclingSourceContentExtractor.usesDocling(mediaType)) {
             return docling.extract(bytes, filename, mediaType, input);

@@ -26,14 +26,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate workflows and staging script
+      - name: Validate workflows and shell scripts
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           for script in infrastructure/deployment/deploy-staging.sh infrastructure/deployment/inference-operations.sh; do
             bash -n "$script"
           done
           shellcheck -x infrastructure/deployment/deploy-staging.sh
-          shellcheck infrastructure/inference/managed/start-gateway.sh
+          shellcheck infrastructure/inference/managed/start-gateway.sh landing/scripts/smoke-image.sh
 
       - name: Verify model-free managed serving and release configuration
         # Interpolation-only values; this step never starts application services.
@@ -52,7 +52,6 @@ jobs:
           MEMORYOS_RELEASE: config-check
         run: |
           python3 infrastructure/deployment/check-inference-release.py --compose
-          python3 -m unittest discover -s infrastructure/deployment -p 'test_*.py'
           python3 -m unittest discover -s infrastructure/inference/managed -p 'test_*.py'
           docker compose --env-file infrastructure/deployment/staging.env.example \
             -f infrastructure/deployment/compose.base.yaml \
@@ -89,6 +88,9 @@ jobs:
       - name: Verify Search administration and certificate renewal
         run: python3 -m unittest discover -s infrastructure/opensearch -p 'test_*.py'
 
+      - name: Verify staging deployment boundaries
+        run: python3 -m unittest discover -s infrastructure/deployment -p 'test_*.py'
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -105,6 +107,10 @@ jobs:
   frontend:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
@@ -128,16 +134,17 @@ jobs:
         run: pnpm --dir web install --frozen-lockfile
 
       - name: Verify frontend
+        if: matrix.shard == 1
         run: pnpm --dir web check
 
       - name: Exercise browser states
-        run: pnpm --dir web test:e2e
+        run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/2
 
       - name: Upload frontend test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: frontend-tests
+          name: frontend-tests-${{ matrix.shard }}
           path: |
             web/reports/
             web/playwright-report/
@@ -155,10 +162,32 @@ jobs:
           persist-credentials: false
 
       - name: Build production frontend image
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         run: |
+          sentry_args=()
+          if [[ -n "$SENTRY_AUTH_TOKEN" && -n "$SENTRY_ORG" && -n "$SENTRY_PROJECT" ]]; then
+            sentry_args+=(
+              "--secret=id=sentry_auth_token,env=SENTRY_AUTH_TOKEN"
+              "--build-arg=SENTRY_ORG=$SENTRY_ORG"
+              "--build-arg=SENTRY_PROJECT=$SENTRY_PROJECT"
+              "--build-arg=SENTRY_RELEASE=$GITHUB_SHA"
+            )
+          elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            echo "Sentry source-map configuration is required for a main release." >&2
+            exit 1
+          fi
           docker build --file web/Dockerfile --tag "memoryos-web:sha-$GITHUB_SHA" \
+            "${sentry_args[@]}" \
             --build-arg "VCS_REF=$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
+          if docker run --rm --entrypoint /bin/sh "memoryos-web:sha-$GITHUB_SHA" \
+            -c 'find /usr/share/nginx/html -type f -name "*.map" -print -quit | grep -q .'; then
+            echo "Public source maps must not be present in the frontend image." >&2
+            exit 1
+          fi
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
             mkdir -p candidate
             docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"
@@ -170,6 +199,64 @@ jobs:
         with:
           name: candidate-web
           path: candidate/web.tar
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 7
+
+  landing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm 11.22.0
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.22.0
+
+      - name: Install landing dependencies
+        run: pnpm --dir landing install --frozen-lockfile
+
+      - name: Verify landing page
+        run: pnpm --dir landing check
+
+      - name: Build and exercise the landing image
+        run: |
+          docker build --tag "memoryos-landing:sha-$GITHUB_SHA" \
+            --build-arg "VCS_REF=$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" landing
+          bash landing/scripts/smoke-image.sh "memoryos-landing:sha-$GITHUB_SHA"
+          MEMORYOS_LANDING_IMAGE="memoryos-landing:sha-$GITHUB_SHA" \
+            docker compose --file infrastructure/deployment/compose.landing.yaml config --quiet
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            mkdir -p candidate
+            docker save --output candidate/landing.tar "memoryos-landing:sha-$GITHUB_SHA"
+          fi
+
+      - name: Upload landing test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: landing-tests
+          path: landing/reports/
+          if-no-files-found: warn
+          retention-days: 7
+
+      # Named outside candidate-* so the application publication never downloads it.
+      - name: Preserve verified landing image
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: landing-image
+          path: candidate/landing.tar
           if-no-files-found: error
           compression-level: 1
           retention-days: 7
@@ -229,7 +316,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [check, frontend, frontend-image, backend-images, secrets]
+    needs: [check, frontend, frontend-image, backend-images, landing, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -238,7 +325,7 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           jq --exit-status '
-            keys == ["backend-images", "check", "frontend", "frontend-image", "secrets"]
+            keys == ["backend-images", "check", "frontend", "frontend-image", "landing", "secrets"]
             and all(.[]; .result == "success")
           ' <<< "$RESULTS"
 
@@ -298,6 +385,57 @@ jobs:
         with:
           name: release-${{ github.sha }}-${{ github.run_attempt }}
           path: release/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
+
+  publish-landing:
+    name: Publish landing
+    # The landing site is an independent artifact and deployment, so it publishes as
+    # soon as its own job and the secret scan pass, without waiting for the app gate.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: [landing, secrets]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Required by the workflow token; no repository content is read.
+      packages: write # Publish the preserved landing image after landing checks and the secret scan succeed.
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: landing-image
+          path: candidate
+      - name: Authenticate to GHCR for this job
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publish the preserved landing image and record its digest
+        run: |
+          docker load --input candidate/landing.tar
+          image="memoryos-landing:sha-$GITHUB_SHA"
+          docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
+            .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha
+            and .["org.opencontainers.image.source"] == "https://github.com/kl3inIT/MemoryOS"
+          '
+          repository="ghcr.io/kl3init/memoryos-landing"
+          tag="$repository:sha-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          docker tag "$image" "$tag"
+          docker push "$tag"
+          digest=$(docker image inspect "$tag" | jq --exit-status --raw-output --arg repo "$repository@" '
+            [.[0].RepoDigests[] | select(startswith($repo))] | if length == 1 then .[0] else error("Ambiguous digest") end
+          ')
+          [[ "$digest" =~ ^ghcr\.io/kl3init/memoryos-landing@sha256:[0-9a-f]{64}$ ]]
+          mkdir landing-release
+          printf 'MEMORYOS_LANDING_IMAGE=%s\n' "$digest" > landing-release/landing.env
+          # shellcheck disable=SC2016 # The backticks are Markdown code formatting, not a substitution.
+          printf '### Landing image\n\n`%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve the landing release reference
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: landing-release-${{ github.sha }}-${{ github.run_attempt }}
+          path: landing-release/landing.env
           if-no-files-found: error
           retention-days: 90
       - name: Remove registry credentials

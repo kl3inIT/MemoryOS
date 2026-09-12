@@ -427,5 +427,5 @@ for base in ("http://127.0.0.1:8000", "http://inference-gateway:8080"):
   inference_resume
   touch "$tx/rotation.completed"
   rm -- "$tx/rotation.old-key" "$tx/rotation.new-key"
-  echo 'Server key remounted, BYOK revision checked, new key accepted and old key rejected. Run authenticated Chat smoke before finish.'
+  echo 'Server key remounted, BYOK revision checked, new key accepted and old key rejected. Finish verifies runtime health and releases the reservation.'
 }

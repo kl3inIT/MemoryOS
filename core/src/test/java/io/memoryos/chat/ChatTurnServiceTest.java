@@ -63,9 +63,8 @@ class ChatTurnServiceTest {
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
     private void prepare() {
-        var binding = new ChatModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
-                io.memoryos.chat.execution.ChatRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
-                        com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true);
+        var binding = new ChatModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, io.memoryos.chat.execution.ChatRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
+                com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any())).thenReturn(new ChatModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any()))

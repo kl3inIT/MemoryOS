@@ -7,9 +7,9 @@ metadata:
     app.kubernetes.io/name: docling
     app.kubernetes.io/part-of: memoryos
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "30m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "930"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "930"
+    nginx.ingress.kubernetes.io/proxy-body-size: "150m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3630"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3630"
 spec:
   ingressClassName: nginx
   rules:

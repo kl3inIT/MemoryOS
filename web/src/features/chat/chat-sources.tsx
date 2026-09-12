@@ -116,12 +116,12 @@ function Citation({ source }: { source: ChatSource }) {
     <InlineCitation
       open={open}
       onOpenChange={setOpen}
-      aria-label={`Open source ${source.citationId}: ${source.title}`}
+      aria-label={`Mở nguồn ${source.citationId}: ${source.title}`}
       onClick={(event) => panel.open(messageId, event.currentTarget, source.citationId)}
       preview={
         <>
           <div className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
-            <FileText className="size-3.5" aria-hidden="true" /> Document · Source{" "}
+            <FileText className="size-3.5" aria-hidden="true" /> Tài liệu · Nguồn{" "}
             {source.citationId}
           </div>
           <p className="text-sm font-medium leading-5">{source.title}</p>
@@ -170,13 +170,13 @@ export function ChatSearchStatus() {
   const stage = active?.stage;
   const label =
     stage === "SELECTING"
-      ? "Selecting relevant passages…"
+      ? "Đang chọn đoạn liên quan…"
       : stage === "EXPANDING" || stage === "SOURCE"
-        ? "Reading document context…"
+        ? "Đang đọc ngữ cảnh tài liệu…"
         : stage === "STARTED" || stage === "SEARCHING"
-          ? "Searching your documents…"
+          ? "Đang tìm trong tài liệu…"
           : !hasText
-            ? "Thinking…"
+            ? "Đang suy nghĩ…"
             : undefined;
   if (!label) return null;
   const filters = active?.search?.filters;
@@ -185,7 +185,7 @@ export function ChatSearchStatus() {
       <ThinkingIndicator role="status" label={label} />
       {active?.search && (
         <details className="text-muted-foreground">
-          <summary className="cursor-pointer">Search details</summary>
+          <summary className="cursor-pointer">Chi tiết tìm kiếm</summary>
           <ul className="mt-2 space-y-1 pl-4 list-disc">
             {active.search.queries.map((query) => (
               <li key={query} className="break-words">
@@ -195,27 +195,27 @@ export function ChatSearchStatus() {
           </ul>
           {!!filters?.sources.length && (
             <p>
-              Sources:{" "}
+              Nguồn:{" "}
               {filters.sources
-                .map((source) => (source === "FILE" ? "Uploaded files" : "Google Drive"))
+                .map((source) => (source === "FILE" ? "Tệp tải lên" : "Google Drive"))
                 .join(", ")}
             </p>
           )}
           {filters?.created && (
             <p>
-              Created: {displayDate(filters.created.from)} – {displayDate(filters.created.to)}
+              Ngày tạo: {displayDate(filters.created.from)} – {displayDate(filters.created.to)}
             </p>
           )}
           {filters?.updated && (
             <p>
-              Updated: {displayDate(filters.updated.from)} – {displayDate(filters.updated.to)}
+              Ngày cập nhật: {displayDate(filters.updated.from)} – {displayDate(filters.updated.to)}
             </p>
           )}
         </details>
       )}
       {!!active?.documents.length && (
         <div className="text-muted-foreground">
-          <p>Reading documents</p>
+          <p>Đang đọc tài liệu</p>
           <ul className="mt-1 space-y-1 pl-4 list-disc">
             {active.documents.map((document) => (
               <li key={`${document.documentId}:${document.startOrdinal}`}>{document.title}</li>
@@ -234,5 +234,5 @@ function displayDate(value: string | null) {
         timeStyle: "short",
         timeZone: "UTC",
       }).format(new Date(value)) + " UTC"
-    : "Unbounded";
+    : "Không giới hạn";
 }

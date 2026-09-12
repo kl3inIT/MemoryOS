@@ -45,6 +45,24 @@ class DocumentSearchServiceTest {
     private final UUID generation = UUID.randomUUID();
 
     @Test
+    void privateFileReaderRejectsWrongScopeAndStaleGenerationWithoutSourceAuthorization() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var document = UUID.randomUUID();
+        var file = UUID.randomUUID();
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        when(index.identity()).thenReturn("space");
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation));
+        var result = new SearchDocument(document, generation, "Private", List.of(), 5, 8, false);
+        when(index.document(tenant, document, generation, 5, 20)).thenReturn(result);
+        assertEquals(result, service.fileDocument(actor, tenant, Map.of(file, document), document, generation, 5));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.fileDocument(actor, tenant, Map.of(file, document), document, UUID.randomUUID(), 5));
+        assertThrows(SearchRequestException.class, () -> service.fileDocument(actor, tenant, Map.of(file, document), document, generation, -1));
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation)).thenReturn(Map.of());
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.fileDocument(actor, tenant, Map.of(file, document), document, generation, 5));
+        verifyNoInteractions(access);
+    }
+
+    @Test
     void filtersObsoleteAndIneligibleHitsBeforeGroupingAndBoundedPaging() {
         var tenant = new TenantId(UUID.randomUUID());
         var first = UUID.fromString("00000000-0000-0000-0000-000000000001");

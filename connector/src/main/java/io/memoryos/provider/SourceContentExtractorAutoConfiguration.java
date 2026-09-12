@@ -12,6 +12,10 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfiguration(after = FileProviderAutoConfiguration.class)
 @ConditionalOnBean(DoclingSourceContentExtractor.class)
 public class SourceContentExtractorAutoConfiguration {
+    @org.springframework.context.annotation.Bean
+    io.memoryos.ingestion.ChatFileExtractor chatFileExtractor(DoclingSourceContentExtractor docling, ObjectMapper mapper) {
+        return new io.memoryos.provider.file.BoundedChatFileExtractor(docling, mapper);
+    }
     @Bean
     @ConditionalOnMissingBean(SourceContentExtractor.class)
     SourceContentExtractor sourceContentExtractor(DoclingSourceContentExtractor docling, ObjectMapper mapper) {

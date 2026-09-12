@@ -172,6 +172,20 @@ class ChatModelGuardTest {
     }
 
     @Test
+    void imageInputsCannotReachProviderUsingOnlyTheirTextBudget() {
+        var media = new org.springframework.ai.content.Media(org.springframework.util.MimeTypeUtils.IMAGE_PNG,
+                new org.springframework.core.io.ByteArrayResource(new byte[]{1, 2, 3}));
+        var message = org.springframework.ai.chat.messages.UserMessage.builder().text("Inspect").media(List.of(media)).build();
+        var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {},
+                policy, ChatTurnSetup.IMAGE_INPUT_TOKENS - 1, p -> p);
+        var request = new Prompt(List.of(message), prompt.getOptions());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.stream(request).blockLast()).getMessage());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.call(request)).getMessage());
+        verify(provider, never()).stream(any(Prompt.class));
+        verify(provider, never()).call(any(Prompt.class));
+    }
+
+    @Test
     void budgetPolicyRejectsExpandedContinuationBeforeAnotherProviderCall() {
         var tokens = new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE);
         var policy = ChatRequestPolicy.hosted(tokens, p -> p);

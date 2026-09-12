@@ -135,6 +135,7 @@ class RedisOperationRelayTest {
                         "google_drive_selection_validation",
                         "cleanup",
                         "search",
+                        "user_file",
                         "backpressure",
                         "published",
                         "stale",
@@ -177,7 +178,8 @@ class RedisOperationRelayTest {
                 new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8),
                 new RedisExecutionProperties.Workload("search", "search-workers", 2),
                 new RedisExecutionProperties.Workload("sync", "sync-workers", 2),
-                new RedisExecutionProperties.Workload("selection", "selection-workers", 2)
+                new RedisExecutionProperties.Workload("selection", "selection-workers", 2),
+                new RedisExecutionProperties.Workload("files", "file-workers", 1)
         );
     }
 }

@@ -9,6 +9,7 @@ import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatFileDescriptor;
 import tools.jackson.databind.ObjectMapper;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantId;
@@ -122,24 +123,26 @@ public class JdbcChatRepository {
                         row.getObject("target_message_id", UUID.class), row.getString("request_text"),
                         row.getObject("assistant_message_id", UUID.class), row.getObject("requested_model_id", UUID.class),
                         row.getObject("selected_model_id", UUID.class), row.getString("fallback_reason"),
-                        ChatCommand.Operation.valueOf(row.getString("operation")))).optional();
+                        ChatCommand.Operation.valueOf(row.getString("operation")),
+                        List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)))).optional();
     }
 
     public record ReservedRequest(UUID userMessageId, UUID parentMessageId, String content, UUID assistantMessageId,
                                   @Nullable UUID requestedModelId, @Nullable UUID selectedModelId, @Nullable String fallbackReason,
-                                  ChatCommand.Operation operation) {
+                                  ChatCommand.Operation operation, List<UUID> fileIds) {
     }
 
     public void saveCommand(UUID session, ChatCommand command, UUID user, UUID assistant,
                             @Nullable UUID selectedModel, @Nullable String fallback) {
         jdbc.sql("""
                 INSERT INTO chat_command(session_id, request_id, operation, target_message_id, request_text,
-                    requested_model_id, user_message_id, assistant_message_id, selected_model_id, fallback_reason)
-                VALUES (:session, :request, :operation, :target, :text, :requested, :user, :assistant, :selected, :fallback)
+                    requested_model_id, user_message_id, assistant_message_id, selected_model_id, fallback_reason, file_ids)
+                VALUES (:session, :request, :operation, :target, :text, :requested, :user, :assistant, :selected, :fallback, CAST(:files AS jsonb))
                 """).param("session", session).param("request", command.requestId()).param("operation", command.operation().name())
                 .param("target", command.targetMessageId()).param("text", command.text())
                 .param("requested", command.modelConfigurationId(), Types.OTHER).param("user", user).param("assistant", assistant)
-                .param("selected", selectedModel, Types.OTHER).param("fallback", fallback, Types.VARCHAR).update();
+                .param("selected", selectedModel, Types.OTHER).param("fallback", fallback, Types.VARCHAR)
+                .param("files", JSON.writeValueAsString(command.fileIds())).update();
     }
 
     public void saveModelSelection(UUID session, UUID user, UUID assistant, @Nullable UUID requested, UUID selected, @Nullable String fallback) {
@@ -162,13 +165,14 @@ public class JdbcChatRepository {
     }
 
     public void insertPair(UUID session, UUID parent, UUID request, UUID user, UUID assistant,
-                           String text, Duration timeout) {
+                           String text, Duration timeout, List<ChatFileDescriptor> files) {
         jdbc.sql("""
                         INSERT INTO chat_message(id, session_id, parent_message_id, role, content, status,
-                            client_request_id, original_assistant_message_id, finished_at)
-                        VALUES (:id, :session, :parent, 'USER', :text, 'COMPLETED', :request, :assistant, CURRENT_TIMESTAMP)
+                            client_request_id, original_assistant_message_id, finished_at, files)
+                        VALUES (:id, :session, :parent, 'USER', :text, 'COMPLETED', :request, :assistant, CURRENT_TIMESTAMP, CAST(:files AS jsonb))
                         """).param("id", user).param("session", session).param("parent", parent)
-                .param("text", text).param("request", request).param("assistant", assistant).update();
+                .param("text", text).param("request", request).param("assistant", assistant)
+                .param("files", JSON.writeValueAsString(files)).update();
         insertAssistant(session, user, assistant, timeout);
         selectChild(session, parent, user);
     }
@@ -194,7 +198,7 @@ public class JdbcChatRepository {
     }
 
     public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
-                          @Nullable UUID modelConfigurationId) {
+                          @Nullable UUID modelConfigurationId, List<UUID> fileIds) {
     }
 
     /** Serialize an owner's editor/turn mutations before taking session or settings row locks. */
@@ -212,6 +216,7 @@ public class JdbcChatRepository {
     public Persona persona(UUID session, boolean lock) {
         return jdbc.sql("""
                         SELECT p.id, p.model, p.model_configuration_id, p.search_enabled, p.context_token_limit, p.output_token_limit,
+                            CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
                             concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision) AS revision,
                             CASE WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
                                  WHEN pr.id IS NOT NULL THEN concat_ws(chr(10), p.instructions, pr.instructions)
@@ -225,7 +230,7 @@ public class JdbcChatRepository {
                 .query((row, ignored) -> new Persona(row.getString("instructions"), row.getString("model"),
                         new ChatTurnOptions(row.getBoolean("search_enabled"), personaSources(row.getObject("id", UUID.class)),
                                 row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class)),
-                        row.getString("revision"), row.getObject("model_configuration_id", UUID.class)))
+                        row.getString("revision"), row.getObject("model_configuration_id", UUID.class), List.of(JSON.readValue(row.getString("file_ids"), UUID[].class))))
                 .optional().orElseThrow(ChatException::unavailable);
     }
 
@@ -241,8 +246,19 @@ public class JdbcChatRepository {
     }
 
     public void rename(UUID session, String title) {
-        jdbc.sql("UPDATE chat_session SET title=:title,updated_at=CURRENT_TIMESTAMP WHERE id=:session AND deleted_at IS NULL")
+        jdbc.sql("UPDATE chat_session SET title=:title,title_naming_pending=false,updated_at=CURRENT_TIMESTAMP WHERE id=:session AND deleted_at IS NULL")
                 .param("title", title).param("session", session).update();
+    }
+
+    public boolean claimTitle(UUID session) {
+        return jdbc.sql("UPDATE chat_session SET title_naming_pending=false WHERE id=:id AND title_naming_pending=true AND deleted_at IS NULL")
+                .param("id", session).update() == 1;
+    }
+
+    public void completeTitle(ChatSession expected, String title) {
+        jdbc.sql("UPDATE chat_session SET title=:title,updated_at=CURRENT_TIMESTAMP WHERE id=:id AND updated_at=:updated AND title=:previous AND deleted_at IS NULL")
+                .param("id", expected.id()).param("updated", java.sql.Timestamp.from(expected.updatedAt()))
+                .param("previous", expected.title()).param("title", title).update();
     }
 
     public List<UUID> delete(UUID session) {
@@ -360,6 +376,7 @@ public class JdbcChatRepository {
                 row.getObject("parent_message_id", UUID.class), row.getObject("latest_child_message_id", UUID.class),
                 Role.valueOf(row.getString("role")), row.getString("content"), Status.valueOf(row.getString("status")),
                 row.getTimestamp("created_at").toInstant(), finished == null ? null : finished.toInstant(),
-                List.of(JSON.readValue(row.getString("sources"), ChatSource[].class)));
+                List.of(JSON.readValue(row.getString("sources"), ChatSource[].class)),
+                List.of(JSON.readValue(row.getString("files"), ChatFileDescriptor[].class)));
     }
 }

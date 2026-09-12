@@ -46,7 +46,7 @@ class ModelCatalogConstraintsTest {
             new ModelSettings.Capabilities(true, true, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
 
     @BeforeEach void setup() throws Exception {
-        dataSource = TestDatabase.freshPostgres("36"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource);
+        dataSource = TestDatabase.freshPostgres("40"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource);
         tx = new TransactionTemplate(jpa.transactionManager());
         catalog = new ModelCatalogRepository(jdbc, jpa.repository(JpaLlmProviderRepository.class),
                 jpa.repository(JpaModelConfigurationRepository.class), jpa.repository(JpaChatModelDefaultRepository.class));
@@ -167,7 +167,7 @@ class ModelCatalogConstraintsTest {
             catalog.setPersonaModel(tenant, actor.value(), persona, installed, 1);
             var session = chats.create(new TenantId(tenant), actor, persona, "Preserved history");
             UUID user = UUID.randomUUID(), assistant = UUID.randomUUID();
-            chats.insertPair(session.id(), session.rootMessageId(), UUID.randomUUID(), user, assistant, "Tiếng Việt", Duration.ofMinutes(1));
+            chats.insertPair(session.id(), session.rootMessageId(), UUID.randomUUID(), user, assistant, "Tiếng Việt", Duration.ofMinutes(1), List.of());
             jdbc.sql("""
                     UPDATE chat_message SET status='COMPLETED',content='Preserved answer',finished_at=CURRENT_TIMESTAMP,
                         requested_model_configuration_id=:model,selected_model_configuration_id=:model
@@ -180,7 +180,7 @@ class ModelCatalogConstraintsTest {
                 "persona", "chat_session", "chat_message")) {
             preserved.put(table, jdbc.sql("SELECT * FROM " + table).query().listOfRows());
         }
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("37").load().migrate();
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("41").load().migrate();
         var restored = read(() -> catalog.model(tenant, legacy).orElseThrow());
         assertEquals(new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false),
                 Map.of("temperature", 0.2), null, "openai-o200k-v1"), restored.settings());

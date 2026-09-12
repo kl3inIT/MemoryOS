@@ -3,6 +3,7 @@ package io.memoryos.provider.file;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -16,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import org.apache.tika.Tika;
 import org.apache.tika.exception.EncryptedDocumentException;
@@ -36,7 +38,7 @@ import org.xml.sax.SAXException;
 final class TikaExtractionProcess {
 
     private static final int MAX_TEXT_CHARACTERS = 2_000_000;
-    private static final int MAX_REQUEST_BYTES = 10 * 1024 * 1024;
+    private static final int MAX_REQUEST_BYTES = Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES);
     private static final int MAX_RESPONSE_STRING_BYTES = 8 * 1024 * 1024;
     private static final Set<String> SUPPORTED_MEDIA_TYPES = Set.of(
             "application/pdf",
@@ -56,12 +58,20 @@ final class TikaExtractionProcess {
         Path responsePath = Path.of(arguments[1]);
         Request request = readRequest(requestPath);
         try {
-            writeSuccess(responsePath, extract(request.content(), request.filename()));
+            writeSuccess(responsePath, request.file() == null ? extract(request.content(), request.filename()) : extractChat(request));
         } catch (ExtractionException exception) {
             writeFailure(responsePath, exception.failure(), exception.getMessage());
         } catch (RuntimeException exception) {
             writeFailure(responsePath, ExtractionFailure.INTERNAL, "document extraction failed");
         }
+    }
+
+    private static DocumentContent extractChat(Request request) throws ExtractionException, IOException {
+        var file = Objects.requireNonNull(request.file());
+        var type = Objects.requireNonNull(request.mediaType());
+        var mapper = new tools.jackson.databind.ObjectMapper();
+        return type.startsWith("image/") ? ChatImageExtractor.extract(file, request.filename(), type, mapper)
+                : ChatMarkupExtractor.extract(file, request.filename(), type, mapper);
     }
 
     static void writeRequest(Path path, InputStream content, long sizeBytes, String filename) throws IOException {
@@ -76,6 +86,15 @@ final class TikaExtractionProcess {
             if (copied != sizeBytes) {
                 throw new IOException("extraction content size changed while streaming");
             }
+        }
+    }
+
+    static void writeChatRequest(Path request, Path file, String filename, String mediaType) throws IOException {
+        try (var output = new DataOutputStream(Files.newOutputStream(request))) {
+            writeString(output, filename);
+            output.writeInt(-1); // File-backed Chat request; Source retains its separately bounded byte protocol.
+            writeString(output, file.toAbsolutePath().toString());
+            writeString(output, mediaType);
         }
     }
 
@@ -96,7 +115,8 @@ final class TikaExtractionProcess {
             for (int index = 0; index < metadataSize; index++) {
                 metadata.put(readString(input), readString(input));
             }
-            return new DocumentContent(mediaType, title, normalizedText, metadata);
+            return new DocumentContent(mediaType, title, normalizedText, metadata,
+                    readString(input, io.memoryos.provider.StructuredContent.MAX_BYTES), null);
         }
     }
 
@@ -104,10 +124,19 @@ final class TikaExtractionProcess {
         try (var input = new DataInputStream(Files.newInputStream(path))) {
             String filename = readString(input);
             int contentLength = input.readInt();
+            if (contentLength == -1) {
+                Path file = Path.of(readString(input));
+                String mediaType = readString(input);
+                if (!file.isAbsolute() || !Files.isRegularFile(file) || Files.size(file) < 1 || Files.size(file) > 262144000
+                        || !Set.of("text/html", "application/xhtml+xml", "message/rfc822", "application/epub+zip",
+                                "image/png", "image/jpeg", "image/webp").contains(mediaType))
+                    throw new IOException("invalid Chat extraction request");
+                return new Request(filename, new byte[0], file, mediaType);
+            }
             if (contentLength < 1 || contentLength > MAX_REQUEST_BYTES) {
                 throw new IOException("invalid extraction request size");
             }
-            return new Request(filename, readBytes(input, contentLength));
+            return new Request(filename, readBytes(input, contentLength), null, null);
         }
     }
 
@@ -170,6 +199,7 @@ final class TikaExtractionProcess {
                 writeString(output, entry.getKey());
                 writeString(output, entry.getValue());
             }
+            writeString(output, result.structuredJson());
         }
     }
 
@@ -188,8 +218,12 @@ final class TikaExtractionProcess {
     }
 
     private static String readString(DataInputStream input) throws IOException {
+        return readString(input, MAX_RESPONSE_STRING_BYTES);
+    }
+
+    private static String readString(DataInputStream input, int maxBytes) throws IOException {
         int length = input.readInt();
-        if (length < 0 || length > MAX_RESPONSE_STRING_BYTES) {
+        if (length < 0 || length > maxBytes) {
             throw new IOException("invalid extraction string length");
         }
         return new String(readBytes(input, length), StandardCharsets.UTF_8);
@@ -203,7 +237,7 @@ final class TikaExtractionProcess {
         return bytes;
     }
 
-    private record Request(String filename, byte[] content) {
+    private record Request(String filename, byte[] content, @Nullable Path file, @Nullable String mediaType) {
     }
 
     private static final class RejectingEmbeddedDocumentExtractor implements EmbeddedDocumentExtractor {

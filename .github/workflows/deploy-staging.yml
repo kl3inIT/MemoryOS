@@ -11,6 +11,11 @@ name: Deploy staging
         description: Successful main CI run containing the verified release
         required: true
         type: string
+      recovery_release:
+        description: Optional exact healthy pending SHA-run-attempt to finish before deploying; never restores a database
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read # Check out trusted main deployment code.
@@ -40,14 +45,8 @@ jobs:
     env:
       STAGING_HOST: ${{ vars.STAGING_HOST }}
       STAGING_USER: ${{ vars.STAGING_USER }}
-      MEMORYOS_SMOKE_ORIGIN: ${{ vars.STAGING_ORIGIN }}
-      MEMORYOS_SMOKE_ISSUER: ${{ vars.STAGING_ISSUER }}
-      MEMORYOS_SMOKE_STORAGE_ORIGIN: ${{ vars.STAGING_STORAGE_ORIGIN }}
-      MEMORYOS_SMOKE_ACTOR_ID: ${{ vars.STAGING_SMOKE_ACTOR_ID }}
-      MEMORYOS_SMOKE_CHAT_ACTOR_ID: ${{ vars.STAGING_SMOKE_CHAT_ACTOR_ID }}
-      MEMORYOS_SMOKE_CHAT_MODEL_ID: ${{ vars.STAGING_SMOKE_CHAT_MODEL_ID }}
     steps:
-      - name: Check out trusted deployment workflow and smoke tests
+      - name: Check out trusted deployment code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
@@ -97,10 +96,6 @@ jobs:
       - name: Verify bundle and required staging configuration
         if: steps.release.outputs.ready == 'true'
         env:
-          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
-          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
-          MEMORYOS_SMOKE_CHAT_USERNAME: ${{ secrets.STAGING_SMOKE_CHAT_USERNAME }}
-          MEMORYOS_SMOKE_CHAT_PASSWORD: ${{ secrets.STAGING_SMOKE_CHAT_PASSWORD }}
           SHA: ${{ steps.release.outputs.sha }}
           CI_RUN: ${{ steps.release.outputs.run_id }}
           ATTEMPT: ${{ steps.release.outputs.attempt }}
@@ -120,22 +115,14 @@ jobs:
           python3 infrastructure/deployment/check-inference-release.py --root "$RUNNER_TEMP/release-config"
           [[ "$STAGING_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+$ ]]
           [[ "$STAGING_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
-          for variable in MEMORYOS_SMOKE_ORIGIN MEMORYOS_SMOKE_ISSUER MEMORYOS_SMOKE_STORAGE_ORIGIN MEMORYOS_SMOKE_ACTOR_ID MEMORYOS_SMOKE_USERNAME MEMORYOS_SMOKE_PASSWORD MEMORYOS_SMOKE_CHAT_ACTOR_ID MEMORYOS_SMOKE_CHAT_MODEL_ID MEMORYOS_SMOKE_CHAT_USERNAME MEMORYOS_SMOKE_CHAT_PASSWORD; do
-            test -n "${!variable}" || { echo "Missing $variable"; exit 1; }
-          done
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        if: steps.release.outputs.ready == 'true'
-        with:
-          node-version: '24'
-      - name: Prepare existing Playwright tooling before changing staging
-        if: steps.release.outputs.ready == 'true'
+      - name: Validate explicitly selected recovery
+        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
+        env:
+          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
         run: |
-          corepack enable
-          corepack install --global pnpm@11.22.0
-          pnpm --dir web install --frozen-lockfile
-          pnpm --dir web exec playwright install --with-deps chromium
-          pnpm --dir web test:staging --list
+          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
+          git merge-base --is-ancestor "${RECOVERY_RELEASE:0:40}" origin/main
 
       - name: Prepare dedicated SSH identity and verified host trust
         if: steps.release.outputs.ready == 'true'
@@ -162,6 +149,15 @@ jobs:
             ServerAliveCountMax 4
           EOF
 
+      - name: Finish only the explicitly selected healthy recovery
+        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
+        env:
+          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
+        run: |
+          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
+          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
+            "sudo -n bash '/apps/memoryos/incoming/$RECOVERY_RELEASE/deploy-staging.sh' finish '$RECOVERY_RELEASE'"
+
       - name: Verify and provision serving, back up, migrate and wait for readiness
         id: rollout
         if: steps.release.outputs.ready == 'true'
@@ -176,44 +172,22 @@ jobs:
           printf '%s' "$REGISTRY_TOKEN" | ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
             "sudo -n bash '$remote/deploy-staging.sh' deploy '$RELEASE' '$GITHUB_ACTOR'"
 
-      - name: Require authenticated upload, indexing, Search, reader and managed Chat smoke
-        if: steps.release.outputs.ready == 'true'
-        env:
-          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
-          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
-          MEMORYOS_SMOKE_CHAT_USERNAME: ${{ secrets.STAGING_SMOKE_CHAT_USERNAME }}
-          MEMORYOS_SMOKE_CHAT_PASSWORD: ${{ secrets.STAGING_SMOKE_CHAT_PASSWORD }}
-        run: pnpm --dir web test:staging
-
-      - name: Accept the verified runtime
+      - name: Finalize the healthy deployment
         if: steps.release.outputs.ready == 'true'
         env:
           RELEASE: ${{ steps.release.outputs.release }}
         run: |
           ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
             "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' finish '$RELEASE'"
+          echo 'Deployment health and revision verified; business acceptance belongs to the user.' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Restore compatible previous images after failure or cancellation
-        # Best effort on cancellation; interrupted recovery retains the server reservation.
+      - name: Report manual recovery after an interrupted deployment
         if: ${{ (failure() || cancelled()) && steps.rollout.outcome != 'skipped' && steps.rollout.outcome != '' }}
         env:
-          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
-          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
-          MEMORYOS_SMOKE_CHAT_USERNAME: ${{ secrets.STAGING_SMOKE_CHAT_USERNAME }}
-          MEMORYOS_SMOKE_CHAT_PASSWORD: ${{ secrets.STAGING_SMOKE_CHAT_PASSWORD }}
           RELEASE: ${{ steps.release.outputs.release }}
         run: |
-          set +e
-          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' rollback '$RELEASE'"
-          result=$?
-          set -e
-          if [[ $result == 2 ]]; then exit 0; fi # Preflight failed before writers changed.
-          test "$result" == 0
-          pnpm --dir web test:staging
-          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' finish '$RELEASE'"
-          echo 'Previous runtime passed smoke; the original deployment still failed'
+          echo "Deployment did not finish: $RELEASE. Inspect the server transaction and any pending reservation; follow docs/runbooks/ci-cd.md for manual recovery." >> "$GITHUB_STEP_SUMMARY"
+          echo 'No automatic rollback, database restore or reservation removal was attempted.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove ephemeral SSH credentials
         if: ${{ always() }}

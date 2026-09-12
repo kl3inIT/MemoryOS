@@ -61,6 +61,22 @@ public final class ChatTurnService implements AutoCloseable {
     public record Accepted(UUID userMessageId, UUID assistantMessageId, @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {}
     public record Cancellation(UUID assistantMessageId, ChatMessage.Status status) {}
 
+    /** The browser invokes this after the first completed exchange, never in the answer stream. */
+    public void generateTitle(ActorId actor, UUID session) {
+        if (!accepting.get() || !permits.tryAcquire()) return;
+        try {
+            var input = persistence.claimTitle(actor, session);
+            if (input.isEmpty()) return;
+            try (var selected = models.resolve(actor, session, null)) {
+                var title = model.generateTitle(selected.binding(), input.orElseThrow().messages());
+                persistence.completeTitle(actor, input.orElseThrow(), title);
+            } catch (RuntimeException failure) {
+                // Preserve the initial short title. Never log conversation/provider payloads.
+                LOG.warn("Chat naming unavailable for session {} ({})", session, failure.getClass().getSimpleName());
+            }
+        } finally { permits.release(); }
+    }
+
     public Accepted send(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
         return command(actor, session, new ChatCommand(ChatCommand.Operation.SEND, parent, request, text, modelConfigurationId));
     }

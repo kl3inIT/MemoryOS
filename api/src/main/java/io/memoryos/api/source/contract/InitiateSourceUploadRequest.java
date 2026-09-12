@@ -21,7 +21,7 @@ public record InitiateSourceUploadRequest(
         String mediaType,
         @Min(1)
         @Max(ObjectUploadSpecification.MAX_SIZE_BYTES)
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "10485760")
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "104857600")
         long sizeBytes,
         @NotBlank
         @Pattern(regexp = "^[0-9a-f]{64}$")

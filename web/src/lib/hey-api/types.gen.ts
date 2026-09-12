@@ -157,6 +157,7 @@ export type ProjectInput = {
     name?: string;
     description?: string;
     instructions?: string;
+    fileIds?: Array<string>;
 };
 
 export type ProjectView = {
@@ -166,6 +167,7 @@ export type ProjectView = {
     instructions?: string;
     revision?: number;
     updatedAt?: string;
+    fileIds?: Array<string>;
 };
 
 export type PersonaInput = {
@@ -178,6 +180,7 @@ export type PersonaInput = {
     modelConfigurationId?: string | null;
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
+    fileIds?: Array<string>;
 };
 
 export type PersonaView = {
@@ -194,6 +197,7 @@ export type PersonaView = {
     modelConfigurationId?: string | null;
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
+    fileIds?: Array<string>;
 };
 
 export type PersonaModel = {
@@ -482,6 +486,7 @@ export type Send = {
     clientRequestId: string;
     text: string;
     modelConfigurationId?: string;
+    fileIds?: Array<string>;
 };
 
 export type Accepted = {
@@ -500,6 +505,7 @@ export type Edit = {
     clientRequestId: string;
     text: string;
     modelConfigurationId?: string;
+    fileIds?: Array<string>;
 };
 
 export type Cancellation = {
@@ -514,6 +520,40 @@ export type ProjectConversation = {
 export type ChatModelValidationResult = {
     reachable: boolean;
     failureCode: string | null;
+};
+
+export type ChatFileResponse = {
+    id?: string;
+    filename?: string;
+    mediaType?: string;
+    sizeBytes?: number;
+    status?: 'UPLOADING' | 'PROCESSING' | 'READY' | 'FAILED' | 'DELETING' | 'DELETED';
+    createdAt?: string;
+    updatedAt?: string;
+    errorCode?: string;
+    searchReady?: boolean;
+};
+
+export type ChatFileUploadRequest = {
+    requestId: string;
+    filename: string;
+    mediaType: string;
+    sizeBytes?: number;
+    sha256: string;
+};
+
+export type ChatFileUploadResponse = {
+    file?: ChatFileResponse;
+    upload?: UploadAuthorization;
+};
+
+export type UploadAuthorization = {
+    method?: string;
+    uri?: string;
+    requiredHeaders?: {
+        [key: string]: string;
+    };
+    expiresAt?: string;
 };
 
 export type AccountType = 'STANDARD';
@@ -841,6 +881,13 @@ export type SharedSession = {
     rootMessageId?: string;
 };
 
+export type ChatFileDescriptor = {
+    id?: string;
+    filename?: string;
+    mediaType?: string;
+    sizeBytes?: number;
+};
+
 export type ChatMessage = {
     id: string;
     sessionId: string;
@@ -852,16 +899,18 @@ export type ChatMessage = {
     createdAt: string;
     finishedAt: string | null;
     sources: Array<ChatSource>;
+    files: Array<ChatFileDescriptor>;
 };
 
 export type ChatSource = {
     citationId: number;
-    documentId: string;
-    generation: string;
+    documentId?: string;
+    generation?: string;
     title: string;
     startOrdinal: number;
     endOrdinal: number;
     provenance: Array<Provenance>;
+    fileId?: string;
 };
 
 export type Provenance = {
@@ -967,6 +1016,18 @@ export type ChatPersonaPage = {
     nextCursor: string | null;
 };
 
+export type ChatFileTextResponse = {
+    text?: string;
+    offset?: number;
+    nextOffset?: number;
+    totalCharacters?: number;
+};
+
+export type ChatFilePolicyResponse = {
+    maxSizeBytes?: number;
+    deploymentCeilingBytes?: number;
+};
+
 export type ApiProblem = {
     /**
      * Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
@@ -1043,6 +1104,55 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type GenerateChatTitleData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/title';
+};
+
+export type GenerateChatTitleErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GenerateChatTitleError = GenerateChatTitleErrors[keyof GenerateChatTitleErrors];
+
+export type GenerateChatTitleResponses = {
+    /**
+     * Current title, including fallback when naming is unavailable
+     */
+    200: ChatSession;
+};
+
+export type GenerateChatTitleResponse = GenerateChatTitleResponses[keyof GenerateChatTitleResponses];
 
 export type RenameChatSessionData = {
     body: Title;
@@ -3930,6 +4040,163 @@ export type ValidateChatModelResponses = {
 
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
+export type RetryChatFileData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/retry';
+};
+
+export type RetryChatFileErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RetryChatFileError = RetryChatFileErrors[keyof RetryChatFileErrors];
+
+export type RetryChatFileResponses = {
+    /**
+     * Retry queued
+     */
+    202: ChatFileResponse;
+};
+
+export type RetryChatFileResponse = RetryChatFileResponses[keyof RetryChatFileResponses];
+
+export type FinalizeChatFileUploadData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/finalize';
+};
+
+export type FinalizeChatFileUploadErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type FinalizeChatFileUploadError = FinalizeChatFileUploadErrors[keyof FinalizeChatFileUploadErrors];
+
+export type FinalizeChatFileUploadResponses = {
+    /**
+     * File accepted for asynchronous processing
+     */
+    202: ChatFileResponse;
+};
+
+export type FinalizeChatFileUploadResponse = FinalizeChatFileUploadResponses[keyof FinalizeChatFileUploadResponses];
+
+export type InitiateChatFileUploadData = {
+    body: ChatFileUploadRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/files/uploads';
+};
+
+export type InitiateChatFileUploadErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type InitiateChatFileUploadError = InitiateChatFileUploadErrors[keyof InitiateChatFileUploadErrors];
+
+export type InitiateChatFileUploadResponses = {
+    /**
+     * Upload receipt and authorization when pending
+     */
+    200: ChatFileUploadResponse;
+};
+
+export type InitiateChatFileUploadResponse = InitiateChatFileUploadResponses[keyof InitiateChatFileUploadResponses];
+
 export type ListUsersData = {
     body?: never;
     path?: never;
@@ -4968,6 +5235,346 @@ export type ListChatModelPersonasResponses = {
 };
 
 export type ListChatModelPersonasResponse = ListChatModelPersonasResponses[keyof ListChatModelPersonasResponses];
+
+export type ListChatFilesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/files';
+};
+
+export type ListChatFilesErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatFilesError = ListChatFilesErrors[keyof ListChatFilesErrors];
+
+export type ListChatFilesResponses = {
+    /**
+     * Recent files
+     */
+    200: Array<ChatFileResponse>;
+};
+
+export type ListChatFilesResponse = ListChatFilesResponses[keyof ListChatFilesResponses];
+
+export type DeleteChatFileData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}';
+};
+
+export type DeleteChatFileErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatFileError = DeleteChatFileErrors[keyof DeleteChatFileErrors];
+
+export type DeleteChatFileResponses = {
+    /**
+     * File deletion accepted
+     */
+    202: ChatFileResponse;
+};
+
+export type DeleteChatFileResponse = DeleteChatFileResponses[keyof DeleteChatFileResponses];
+
+export type GetChatFileData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}';
+};
+
+export type GetChatFileErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileError = GetChatFileErrors[keyof GetChatFileErrors];
+
+export type GetChatFileResponses = {
+    /**
+     * File metadata
+     */
+    200: ChatFileResponse;
+};
+
+export type GetChatFileResponse = GetChatFileResponses[keyof GetChatFileResponses];
+
+export type ReadChatFileTextData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: {
+        offset?: number;
+        count?: number;
+    };
+    url: '/api/chat/files/{fileId}/text';
+};
+
+export type ReadChatFileTextErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ReadChatFileTextError = ReadChatFileTextErrors[keyof ReadChatFileTextErrors];
+
+export type ReadChatFileTextResponses = {
+    /**
+     * Extracted text window
+     */
+    200: ChatFileTextResponse;
+};
+
+export type ReadChatFileTextResponse = ReadChatFileTextResponses[keyof ReadChatFileTextResponses];
+
+export type ReadChatFilePassagesData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query: {
+        generation: string;
+        from?: number;
+    };
+    url: '/api/chat/files/{fileId}/passages';
+};
+
+export type ReadChatFilePassagesErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ReadChatFilePassagesError = ReadChatFilePassagesErrors[keyof ReadChatFilePassagesErrors];
+
+export type ReadChatFilePassagesResponses = {
+    /**
+     * Authorized file passages
+     */
+    200: SearchDocument;
+};
+
+export type ReadChatFilePassagesResponse = ReadChatFilePassagesResponses[keyof ReadChatFilePassagesResponses];
+
+export type DownloadChatFileData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/content';
+};
+
+export type DownloadChatFileErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DownloadChatFileError = DownloadChatFileErrors[keyof DownloadChatFileErrors];
+
+export type DownloadChatFileResponses = {
+    /**
+     * Original file bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadChatFileResponse = DownloadChatFileResponses[keyof DownloadChatFileResponses];
+
+export type GetChatFilePolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/files/policy';
+};
+
+export type GetChatFilePolicyErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFilePolicyError = GetChatFilePolicyErrors[keyof GetChatFilePolicyErrors];
+
+export type GetChatFilePolicyResponses = {
+    /**
+     * Active upload policy
+     */
+    200: ChatFilePolicyResponse;
+};
+
+export type GetChatFilePolicyResponse = GetChatFilePolicyResponses[keyof GetChatFilePolicyResponses];
 
 export type DeleteGoogleDriveCredentialData = {
     body?: never;

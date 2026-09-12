@@ -29,6 +29,8 @@ public record ChatRequestPolicy(TokenCountEstimator tokens, ToIntFunction<Prompt
             int count = 0;
             for (var message : prompt.getInstructions()) {
                 count = Math.addExact(count, tokens.estimate(message.getText()) + 32);
+                if (message instanceof org.springframework.ai.content.MediaContent media)
+                    count = Math.addExact(count, Math.multiplyExact(media.getMedia().size(), ChatTurnSetup.IMAGE_INPUT_TOKENS));
                 if (message instanceof org.springframework.ai.chat.messages.ToolResponseMessage tool)
                     for (var result : tool.getResponses()) count = Math.addExact(count, tokens.estimate(result.responseData()) + 32);
                 if (message instanceof org.springframework.ai.chat.messages.AssistantMessage assistant)

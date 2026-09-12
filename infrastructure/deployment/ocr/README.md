@@ -3,7 +3,7 @@
 The deployment targets namespace `jmix-ocr` in Rancher project `local:p-vs2td`
 (Jmix team). Its requests and limits are both 8 CPU / 16 GiB, with one replica
 and a Recreate update strategy. Existing project workloads keep their images,
-replicas and storage. See the [deployment record](../../../docs/increments/completed/mem-79-rancher-ocr/plan.md)
+replicas and storage. See the [deployment record](../../../docs/increments/active/mem-79-rancher-ocr/plan.md)
 for the actual rollout state; checked-in manifests do not establish deployment.
 
 ## Image and request contract
@@ -13,8 +13,8 @@ adds the pinned Vietnamese Tesseract language package, and restricts Tesseract
 CLI threading through the wrapper. It retains the upstream model assets.
 `deployment.yaml` pins the published private registry digest, not a mutable tag.
 
-The service accepts file bytes and in-body results, up to 20 MiB and 200 pages,
-with 900-second document processing and a 910-second synchronous wait. Supply
+The service accepts file bytes and in-body results, up to 100 MiB and 200 pages,
+with 3600-second document processing and a 3610-second synchronous wait. Supply
 the API key in `X-Api-Key`. For the tested scanned-PDF request, choose
 `ocr_engine=tesseract`, `ocr_lang=["vie","eng"]`, `do_ocr=true`, and
 `force_ocr=true`. Mixed native PDFs should choose force_ocr deliberately.
@@ -59,8 +59,8 @@ verify existing project workloads after rollout.
 
 The primary endpoint is `http://ocr.10.123.123.194.nip.io`, routed by the existing
 nginx ingress to `docling:5001`. Conversion uses `POST /v1/convert/source` and
-the `X-Api-Key` header. The ingress accepts a 30 MiB request body to accommodate
-base64 encoding of a 20 MiB input file, with 930-second read/send timeouts.
+the `X-Api-Key` header. The ingress accepts a 150 MiB request body to accommodate
+base64 encoding of a 100 MiB input file, with 3630-second read/send timeouts.
 The direct NodePort endpoint remains `http://10.123.123.194:31079`.
 The hostname resolves to a private node IP. Connect the calling server
 to the organization's VPN, allow the OCR port through the applicable firewall,
@@ -84,6 +84,42 @@ resolver (`192.168.1.1`) returns no A record, so ingress verification used an
 explicit IP/Host mapping. No machine DNS or hosts-file settings were changed.
 `72.62.193.33` still times out on the private endpoint; VPN installation and
 connection have not been completed. nip.io supplies DNS, not network routing.
+
+## Timeout configuration ownership
+
+The standalone Kubernetes Deployment supplies Docling's environment directly;
+the caller's Infisical settings do not update this pod. Keep
+`DOCLING_SERVE_MAX_FILE_SIZE=104857600`,
+`DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT=3600` and `DOCLING_SERVE_MAX_SYNC_WAIT=3610`
+in `deployment.yaml`, with Uvicorn graceful shutdown at 3620 seconds and pod
+termination grace at 3630 seconds. Apply the matching 150 MiB body allowance
+and 3630-second ingress timeouts as well. A caller-only increase can otherwise
+hit ingress HTTP 413 or the unchanged service's file/processing limits.
+
+The 2026-09-11 correction verified 1800/1810 inside the replacement container.
+Through ingress, the scanned Vietnamese/English PDF succeeded with a requested
+1800-second budget in 12.09 seconds; 1801 seconds was rejected with HTTP 422.
+Missing and wrong API keys still returned 401. This verifies request admission
+and OCR after the configuration change, not a full thirty-minute conversion or
+external-Worker indexing.
+
+The subsequent 100 MiB / sixty-minute correction verified the three limits
+inside the replacement container. An exact 104857600-byte valid scanned PDF
+containing an uncompressed 5900×5900 RGB image produced a 139810458-byte JSON
+request. Through ingress, that request with `document_timeout=3600` completed
+with HTTP 200/status success in 47.0 seconds, expected Vietnamese/English
+phrases and numeric strings, and page provenance `{1}`. This is a one-page
+admission/OCR boundary check, not a sixty-minute or large-corpus benchmark.
+
+A 3601-second budget is rejected with HTTP 422; missing/wrong API keys remain
+401. For a file of 104857601 bytes, the service log confirms rejection by the
+104857600-byte file limit, but this upstream version returns HTTP 404
+`Task result not found` rather than a clear size-policy response. Do not
+interpret that response as a missing Deployment or a successful conversion.
+
+The ingress controller manages Nginx reconciliation. The current project
+account cannot exec into `ingress-nginx` to run `nginx -t`; verification used
+Kubernetes server-side dry-run, applied annotations and the real ingress request.
 
 ## Rollback
 

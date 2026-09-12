@@ -113,6 +113,15 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             ORDER BY work.created_at,work.id LIMIT :limit FOR UPDATE OF work SKIP LOCKED
             """;
 
+    private static final String FILE_CANDIDATES = """
+            SELECT work.id,work.tenant_id,work.origin_trace_id,work.origin_span_id
+            FROM chat_file_work work
+            WHERE work.next_dispatch_at<=:now
+              AND (work.dispatch_token IS NULL OR work.dispatch_lease_expires_at<:now)
+              AND (work.status='NOT_STARTED' OR (work.status='IN_PROGRESS' AND work.lease_expires_at<:now))
+            ORDER BY work.created_at,work.id LIMIT :limit FOR UPDATE OF work SKIP LOCKED
+            """;
+
     public JdbcOperationDispatchRepository(JdbcClient jdbcClient) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
     }
@@ -313,6 +322,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case SOURCE_SYNC -> "source_sync_attempts";
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> "google_drive_selection_operations";
             case SEARCH -> "search_index_operations";
+            case USER_FILE -> "chat_file_work";
         };
     }
 
@@ -323,6 +333,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case SOURCE_SYNC -> SYNC_CANDIDATES;
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> SELECTION_CANDIDATES;
             case SEARCH -> SEARCH_CANDIDATES;
+            case USER_FILE -> FILE_CANDIDATES;
         };
     }
 

@@ -69,6 +69,8 @@ final class OpenAiChatRequestPolicy {
         int count = 0;
         for (var message : prompt.getInstructions()) {
             count = Math.addExact(count, tokens.estimate(message.getText()) + 32);
+            if (message instanceof MediaContent media)
+                count = Math.addExact(count, Math.multiplyExact(media.getMedia().size(), io.memoryos.chat.execution.ChatTurnSetup.IMAGE_INPUT_TOKENS));
             if (message instanceof ToolResponseMessage tool)
                 for (var result : tool.getResponses()) count = Math.addExact(count, tokens.estimate(result.responseData()) + 32);
             if (message instanceof AssistantMessage assistant)

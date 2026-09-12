@@ -108,6 +108,8 @@ The CPU engine's private 256 MiB `/tmp` tmpfs must explicitly include `exec`: Do
 
 The 2026-09-12 publication authorization covers the MEM-77 continuation and a current-main merge on `anhnd`, followed by verified branch publication and a Linear MCP receipt. Preserve unrelated uncommitted IAM/theme and research work. It does not authorize merging into `main`, deploying, weakening the host-memory floor or closing the remaining target acceptance gates.
 
+The fetched integration target is main `24db388`. Its attachment/vision/private-file and automatic-title contracts compose with the immutable profile-bound request policy and per-subscription cancellation; neither side replaces the other's safety checks. Main migrations V1–V40 stay unchanged, and the tokenizer backfill becomes V41. The retained local candidate database has the historical tokenizer V37 and is not silently upgraded or reset during branch integration.
+
 ### Phase 1 measurement protocol
 
 Freeze the candidate manifest SHA-256 before running an acceptance series. Its `acceptanceThresholds`, `hostRequirements` and `provisionalRuntime` contain the numeric gates, not measured results or an inferred target SLO. A resource/context/threshold change requires a new recorded manifest hash and a fresh affected series; do not tune a gate after a failed run and retain the old pass claim.
@@ -195,7 +197,7 @@ Profile metadata is a small immutable composition-owned data catalog, not a toke
 
 Extend each existing adapter descriptor with `tokenizerProfiles: [{id, displayName}]`. Both fields and the array are required; expose only profiles supported by that adapter. `ModelSettings.tokenizerProfile` is a required nonblank ID; adapter/catalog validation rejects unknown/incompatible IDs and capability settings contradicting the installed profile's supported contract, locally without network/native loading in a transaction. No admin-supplied path/URL, per-turn download, silent fallback or generic profile-discovery endpoint is accepted.
 
-`model_configuration.settings` stores JSONB. V37 backfills existing settings to `openai-o200k-v1`; deployment import writes that profile explicitly. Main's applied V34–V36 are unchanged. Existing UUIDs, revisions, associations and history remain intact. Source DTOs/OpenAPI/generated callers require the profile instead of preserving a missing-field alias.
+`model_configuration.settings` stores JSONB. V41 backfills existing settings to `openai-o200k-v1`; deployment import writes that profile explicitly. Main's applied V1–V40 are unchanged. Existing UUIDs, revisions, associations and history remain intact. Source DTOs/OpenAPI/generated callers require the profile instead of preserving a missing-field alias.
 
 ### Concrete tokenizer integration
 

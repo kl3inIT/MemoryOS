@@ -1,0 +1,198 @@
+# Tasco scanned-PDF OCR plan
+
+- [x] Finish PR #89 with preserved history, exact-head green CI and exact merge-SHA main CI; staging deployment skipped.
+- [x] Create isolated worktree from main `274bc783`; preserve old review runtimes/data.
+- [x] Inventory all six original PDFs: hashes, byte sizes, page counts and native text/image coverage; record input-limit and unreachable-Docling evidence.
+- [x] Research RAGFlow DeepDoc OCR and its Docling/MinerU alternatives using pinned upstream implementation.
+- [x] Trace admission/extraction/indexing boundaries; apply the final user scope of OCR, extraction and indexing only.
+- [x] Start bounded real OCR services and compare three engines against the same rendered source; select explicit Tesseract Vietnamese trial.
+- [x] Exclude Search/Chat changes, integration and further acceptance testing; keep Orca verification on Sources.
+- [x] Correct evidence-backed runtime/configuration/code causes while preserving existing contracts and coherent limits; retain the unresolved financial-fidelity finding.
+- [x] Ingest all six complete documents through the real authorized FILE path into an isolated current-schema runtime.
+- [x] Verify extraction artifacts, all 260 page maps/provenance, current chunks/indexing and six active indexed Sources in Orca; compare financial output with the original page.
+- [x] Run focused regression and terminating repository gates for permanent changes; record exact successes/failures and resource bounds.
+
+## Evidence policy
+
+Private corpus/run evidence stays under ignored local `.tmp/` paths. Durable documentation records reproducible setup, engine/version/configuration, counts, timings, quality criteria and remaining limitations, not credentials or full financial text. No claims of production rollout, live Google completion or new PR/merge authorization arise from this test increment.
+
+## Verification — 2026-09-10
+
+- Real Orca owner UI uploaded all six originals, including the 19,765,384-byte file. The final Sources overview visibly shows six Sources, Active 6/6 and six indexed Documents. All six final artifacts passed original-source SHA-256, artifact byte-count/checksum and complete page/provenance checks; current indexing produced 8,779 chunks. The [canonical corpus matrix](../../../tests/ingestion.md#tasco-scanned-pdf-corpus--2026-09-10) contains exact per-report counts and timings.
+- The initial 45-page conversion exceeded the 900-second service budget and returned HTTP 504. No Document was published. API/worker/Docling were paused while checking resource pressure; unrelated PostgreSQL, OpenSearch and Oracle runtimes were left untouched.
+- Isolated Tesseract timing on identical 216-dpi input was 15.06 seconds with four threads and 6.55 seconds with one; TSV bytes were identical. The global-limit trial image `sha256:f9eccf2baec90d2d952d4b3b5f4e5ecd259a8c458ffedfc346e895d6e7a529ca` initially published the English consolidated report. The final image `sha256:a7d3753fa80f66b8b79dfe451350f2d4a437f36c20a2836d10afb7cd3cb24055` scopes `OMP_THREAD_LIMIT=1` to Tesseract only, preserving four-thread model execution and `eng`, `osd`, `vie`; its real-page smoke check passed. An explicit Orca Sources Reindex refreshed the trial report, so all six current artifacts record the final image.
+- `pnpm --dir web check` passed: 18 files, 93 tests, generated API/routes, lint, formatting, type checking and production build. The existing large-chunk build warning remains.
+- Staging and production `docker compose config --quiet` passed using the checked-in example plus non-runtime interpolation fixtures for required release/identity/password values; no deployment was performed.
+- First `clean check` attempt hit the existing ten-minute `:core:test` task timeout while OCR competed for resources. The separate attempt completed 315 core tests with one setup failure: Windows `SocketException: No buffer space available` when creating a PostgreSQL connection. These are failed gates, not green verification. A subsequent snapshot showed only 171 TIME_WAIT sockets but about 450 MiB free physical RAM; memory pressure is a risk, not proof of port exhaustion.
+- Final `gradlew.bat clean check --no-configuration-cache --no-daemon --no-parallel --max-workers=1 --console=plain` passed in 1m38s with `JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=2` and `DOCLING_TEST_ENDPOINT` unset. Reports contain 503 tests: 499 passed, no failures/errors, four skipped (three optional Docling service cases and one optional real Chat-provider case). API/connector/core test results were restored from the Gradle build cache; Worker tests executed. Earlier Worker runs timed out with cached configuration; the fresh-environment real-file index/remove/delete test passed before the final gate.
+- JetBrains MCP and a Java LSP are unavailable. Compilation and project commands are fallback evidence, not IDE-clean inspection.
+- Orca displayed a lossless rendering of original Q1 consolidated PDF page 8 (printed page 6). Source/artifact comparison confirms period, consolidated scope and VND units, but exposes a missing current-period total and a prior-period total mislabeled as current-period. The error already exists in canonical table cell offsets. Financial accuracy is not accepted; screenshots, snapshots and exact figures remain in ignored local evidence.
+- The repeated English consolidated conversion took 635.56 seconds versus 709.49 seconds in the earlier global-thread-limit trial. Page metadata, text and semantic table-cell fields were unchanged; six tables had bounding-box differences, so artifact bytes were not identical. Host/warm-state conditions were not controlled; this is not a throughput benchmark or retry-output identity guarantee.
+- Earlier Search observations predate the final scope correction and are not this increment's acceptance gate. No Search/Chat source was changed; further consumer checks were stopped. The completed browser gate is the real Sources upload/indexing surface.
+- Cleanup removed the completed direct-parser probe and corpus-watcher scripts; private evidence and immutable runtime JARs remain ignored. The watcher exited successfully. API, Worker, Docling, web and the isolated queue remain running for continued Sources review; Orca is left on the Sources overview. No shared database/container was reset, and no new PR or deployment was performed.
+- Later runtime incident, 2026-09-10 13:54 ICT: Docker reported `OOMKilled=true`, exit 137, during a subsequent Docling conversion; Worker logged indexing failure and retries. The retained container has a 5 GiB memory limit. It was restarted once with the same final image and memory configuration; startup readiness and `/health` (`status: ok`) passed. This is service recovery only, not a successful replay or a fix for memory exhaustion. The earlier six-document verification remains historical evidence, not a sustained-load stability guarantee. Before further quality acceptance, investigate peak memory and resource retention alongside the OCR/table defects. Private incident evidence: `.tmp/tasco-browser-evidence/docling-oom-20260910.json`.
+
+## Unified FILE and Drive binary admission
+
+- [x] Reuse the 20 MiB object-upload ceiling for Google provider defaults/validation and offline binary link reading; align the Worker binding and preserve native/structural limits.
+- [x] Keep boundary regressions for complete 20 MiB acquisition, oversized rejection and real offline PDF links above 10 MiB.
+- [x] Run affected checks and the repository gate, rebuild API/Worker and verify the real retained Drive acquisition path without changing Docling resources or Search/Chat.
+- [x] Reconcile canonical contracts and record observed runtime results separately from unresolved OCR/OOM acceptance.
+
+### Admission verification — 2026-09-10
+
+- RED: the two focused provider/reader classes ran 26 tests against the old implementation; exact-20-MiB acquisition and the PDF-link fixture above 10 MiB failed. GREEN: all 26 passed after cutover, including rejection of 20,971,521 bytes without partial content.
+- `gradlew.bat clean check :api:bootJar :worker:bootJar --no-configuration-cache --no-daemon --no-parallel --max-workers=1 --console=plain` passed in 4m50s with JDK 25.0.3, `JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=2`, `CI=true`, `ARCONIA_DEV_SERVICES_ENABLED=false` and `MEMORYOS_OPENAPI_WRITE=false`. JUnit reports 505 cases: 501 passed, four optional-service cases skipped, zero failures/errors. API (102), Connector (62) and Worker (26) test tasks executed; Core (315) results came from cache. An earlier attempt stopped on host JVM native-memory allocation failure; pausing only the owned API/Worker allowed the gate to complete. No JetBrains/LSP inspection was available; this is not an IDE-clean or warning-free claim.
+- Rebuilt API/Worker JARs were installed into the existing isolated runtime and both reached readiness. The retained five-minute schedule then ran actual Google acquisition: run `09673299-9fd6-4ebf-8681-25bf3236c04e`, 07:46:40–07:47:28 UTC, `SUCCEEDED`, acquired five, acquisition failures zero. All five formerly rejected files (11,015,387–19,765,384 bytes) now have adopted BINARY versions and ACTIVE stored objects with matching byte counts. Together with the earlier 9,193,540-byte input, the Source retains all six binaries. Source revision 1, SPECIFIC scope and schedule revision 1/five-minute interval are unchanged.
+- This proves admission/acquisition, not completed Drive OCR/indexing: the new run owns five pending indexing attempts; the earlier Q1 consolidated attempt remains failed after the documented Docling incident. The 20 MiB change does not fix OOM, financial-cell fidelity or establish sustained-load capacity. No Search/Chat source, resource configuration, selection or credential configuration was changed.
+- After successful acquisition, the local runtime/container session was interrupted. Existing Docling, Redis and MinIO containers were restored without recreation; Docling still has four CPUs and 5 GiB. The original Vite process remains on port 8080. API recovery initially failed because the shared PostgreSQL Docker Desktop listener on `127.0.0.1:15555` closed connections during SSL negotiation, although TCP queries inside the container succeeded. After explicit user approval, restarting only `memoryos-postgres-local` restored host negotiation; all six binary versions survived. API and Worker reached readiness and both health endpoints returned `UP`; Docling returned `status: ok`. No database/volume reset or data rewrite occurred. At the recovered indexing boundary, two attempts were `IN_PROGRESS`, three `NOT_STARTED`, and the earlier Q1 consolidated attempt remained failed; completed Drive OCR/indexing is still not claimed.
+- The recovered web surface reached the real Keycloak sign-in page after resuming the company sign-in link. The previous browser session requires user reauthentication; no credentials were entered and no post-recovery authenticated Sources visual acceptance is claimed.
+- Sanitized private evidence: `.tmp/tasco-browser-evidence/google-drive-20mib-runtime-20260910.json`. Canonical limits are reconciled in README, architecture and Connector/Ingestion/Object Storage contracts; boundary/runtime evidence is in the Connector matrix.
+
+## Authorized remote Docling cutover
+
+The user authorized the existing Worker to use a remote Docling endpoint over the trusted VPN, then explicitly requested the endpoint, optional API key and observed engine revision in Infisical **shared dev**, not staging. No Search/Chat changes, deployment, PR/commit or remote capacity/model-revision guarantee is included.
+
+- [x] Bind optional `MEMORYOS_EXTRACTION_DOCLING_API_KEY`; use SDK `X-Api-Key`, redact property rendering, omit parser metadata, disable request/response logging and refuse redirects without rejecting trusted-VPN HTTP.
+- [x] Make the Compose Worker endpoint configurable with its existing local default; remove only its local Docling startup dependency and document explicit local readiness versus selective remote startup. Both staging and production Compose configuration checks passed; neither was deployed.
+- [x] Save and read back the three shared Infisical dev values; remove only the personal overrides created for this cutover. Keep the key and private endpoint out of Git.
+- [x] Pass focused authentication/security checks, the final `clean check :worker:bootJar` gate and a real authenticated synthetic PDF extraction. Exact counts, cache/skipped boundaries and measured OCR evidence are in the [Ingestion verification matrix](../../../tests/ingestion.md#authenticated-remote-docling--partial-runtime-verification).
+- [x] Restore trusted-VPN reachability and restart the retained Worker with the refreshed managed configuration. The rebuilt Worker is running against the remote endpoint and readiness returned 200 with `UP`.
+- [x] Complete remote extraction and Worker indexing verification after VPN recovery: three real conversion tests and the isolated Worker DOCX publication/redelivery/cleanup test passed. This verifies the authenticated path, not completion or financial fidelity of the retained Tasco corpus.
+
+Local resumption verification: Worker/API readiness returned HTTP 200 with `UP`, and the frontend returned 200. MinIO readiness passed before the VPN-dependent restart. Existing PostgreSQL/OpenSearch data was not reset and local Docling was not restarted. The earlier remote timeout was resolved before Worker startup; measured conversion/publication evidence is in the matrix linked above. The disposable Java smoke source and extracted smoke-only libraries were removed; the rebuilt runtime Worker JAR is retained.
+
+## 100 MiB admission and Tasco 2025 — 2026-09-11
+
+- [x] Raise FILE upload and Drive binary acquisition admission to 104,857,600 bytes through the existing shared contract, browser validation, persisted constraints and Worker configuration. Preserve the separate native-snapshot, expanded-archive, output and text limits.
+- [x] Add forward V34 without rewriting applied V33; prove exact-limit acceptance and limit-plus-one rejection through existing behavioral tests.
+- [x] Probe the actual remote admission path, rebuild API/Worker, apply V34 and verify the changed local upload/acquisition surface before starting the new corpus.
+- [ ] Obtain an authorized remote ingress/parser change and verify full 100 MiB OCR admission. Both 100 MiB and 25 MiB authenticated probes currently receive Nginx HTTP 413 before parser output; no administrative connection to that host is configured. Local Compose/example defaults do not change that deployment.
+- [x] Use the signed-in Orca browser to create `Báo cáo Tasco 2025` with the user's exact Specific folder link, reusing the existing credential without editing it. Existing Sources, schedules and credentials are preserved.
+- [x] Observe acquisition and indexing timestamps/errors per report, compare current extracted content and provenance with original PDF pages, and report measured speed and financial accuracy without treating Indexed status as proof.
+
+Local verification: backend `clean check :api:bootJar :worker:bootJar` passed in 14m50s with 508 passed/four skipped, all four test tasks executed. Frontend `check` passed 93 unit cases; the two affected E2E files passed all 18 scenarios. Initial zero-filled 100 MiB intercepted request fixtures exceeded the DevTools string limit; printable equal-size fixtures retain the real upload boundary and passed without changing production behavior. V34 applied successfully and both retained runtimes returned readiness 200/UP. Actual Orca selection accepts exactly 100 MiB and rejects one byte over without creating a test Source. Configuration-only checks passed for both deployment overlays; no deployment or IDE-clean claim.
+
+The requested Source was created through the real Orca credential/Specific-links form. Initial Google acquisition ran from 18:09:30.621 to 18:09:50.746 UTC, acquired all four originals and reported zero acquisition failures. Stored original byte counts and SHA-256 values match; independent PDF counts are Vietnamese separate 49, Vietnamese consolidated 70, English separate 50 and English consolidated 71 pages. Indexing and financial acceptance remain separate. Private evidence is under `.tmp/tasco-2025/`, including 104 independently read financial cells across twelve original balance-sheet, income and cash-flow pages, sealed before inspecting extraction output.
+
+### Fifteen-minute failure investigation — 2026-09-11
+
+- The user requested diagnosing the repeated long failures and assessing a longer processing budget. The English separate report published in 859.42 seconds. Vietnamese consolidated retries failed after 916.08 and 914.93 seconds; Vietnamese separate retries failed after 912.77 and 913.72 seconds. These are indexing-attempt elapsed times, not isolated OCR CPU measurements.
+- The retained Worker configuration selects `15m`; `DoclingProperties` rejects values above fifteen minutes. The extractor sends that duration as `documentTimeout`, and `BoundedDoclingClient` sets the synchronous HTTP request deadline to that duration plus fifteen seconds. Merely setting `30m` would currently prevent Worker startup.
+- The SDK synchronous conversion does not introduce an asynchronous wrapper. A directly wrapped JDK `HttpTimeoutException` maps to `TIMEOUT`; other runtime exceptions, including SDK HTTP errors, are sanitized to the same generic failure. Consequently the observed `SOURCE_EXTRACTION_INTERNAL` does not establish which server/proxy/transport condition ended these requests. Do not infer remote OOM from the earlier local OOM incident.
+- At resumption, authenticated remote `/health` and `/openapi.json` requests both timed out; the company VPN adapter was Disconnected. The harness also reported the local API, Worker, web and monitor exited. No Worker restart or additional retry was initiated while remote readiness was unavailable.
+- A thirty-minute trial is a candidate, not an applied or verified change. First restore VPN access, inspect the actual failure and service/proxy limits, then coordinate the application ceiling, document budget, synchronous wait and HTTP/proxy deadlines before replaying a failed Vietnamese report. No timeout configuration, managed secret, Source or schedule was changed by this investigation.
+
+### Authorized thirty-minute trial — 2026-09-11
+
+- [x] Confirm remote connectivity after VPN recovery and test actual thirty-minute admission with a one-page PDF using unchanged OCR/table options.
+- [x] Raise the application configuration ceiling to thirty minutes, retain its five-minute default, and verify the accepted/rejected boundaries.
+- [x] Apply managed thirty-minute settings, verify effective remote document admission, restart the retained Worker with `30m`, then reindex only the requested Tasco 2025 Source. Remote proxy configuration remains uninspected.
+- [x] Record per-report outcomes, attempt times, provenance and financial comparison against the unchanged fifteen-minute baseline.
+
+The authenticated admission request returned HTTP 422 in 0.12 seconds with `document_timeout exceeds the configured maximum of 900.0 seconds.` The actual remote document maximum is therefore confirmed, but this does not reconstruct the earlier generic errors or prove that a longer run will complete. No SSH host is configured for that server; the existing OpenSSH alias addresses staging and is out of scope. Do not consume corpus retries while the actual service rejects the requested budget.
+
+Local verification passed: `gradlew.bat clean check :worker:bootJar --no-configuration-cache --no-daemon --no-parallel --max-workers=1 --console=plain` completed in 3m40s with JDK 25.0.3, CI enabled, Arconia dev services disabled and OpenAPI writes disabled. API, connector and Worker tests executed; core tests were restored from cache. This gate did not enable the optional real Docling endpoint. Existing unchecked-operation, JDK/dependency and OTLP fixture-shutdown warnings remain; no JetBrains MCP or Java LSP was available.
+
+A disposable launcher against the compiled production `DoclingProperties` accepted exactly thirty minutes and rejected thirty minutes plus one nanosecond. It was removed after passing. The rebuilt Worker JAR was installed into the retained private runtime and its local environment prepared with `30m`; the Worker remains stopped pending remote admission. No managed secret, existing Source, schedule or extraction-quality option was changed. Ignored `.tmp/tasco-2025/thirty-minute-admission.json` records the remote rejection; no thirty-minute corpus run, reindex or throughput improvement is claimed.
+
+The user subsequently directed configuring the trial through Infisical. Updated shared `dev` root values to `MEMORYOS_EXTRACTION_DOCLING_TIMEOUT=30m`, `DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT=1800`, and `DOCLING_SERVE_MAX_SYNC_WAIT=1810`; an export with personal overrides disabled confirmed all three. No staging values or personal overrides were changed. The immediately subsequent authenticated one-page request still returned HTTP 422 with the configured-maximum-of-900-seconds detail, so the running remote service had not adopted the new maximum at that observation. Worker startup and corpus reindex remain pending effective remote configuration. Sanitized readback/probe evidence is `.tmp/tasco-2025/infisical-thirty-minute-readback.json`.
+
+At 2026-09-11 04:41:34 UTC, the authenticated one-page request with `document_timeout=1800` completed with HTTP 200, `status=success`, no errors, in 8.116 seconds. Remote admission is now verified; this is not a thirty-minute corpus completion. On the user's instruction to reindex and monitor, restored the retained MinIO/Redis containers, API and frontend; API readiness returned `UP`. The Orca session requires owner login again at the registered `http://127.0.0.1:8080` origin. Worker remains stopped pending that authorized UI session, and no reindex has been submitted. A read-only four-file baseline is retained in `.tmp/tasco-2025/before-thirty-minute-reindex.json`; the English separate revision-three attempt still has the interrupted `IN_PROGRESS` state, not a currently running Worker.
+
+The 12:12:58 local-time OAuth callback failed while saving JDBC session attributes after another request deleted the session; Keycloak token/userinfo requests had succeeded. A fresh ordinary OAuth login recovered the Tenant owner session and Admin Panel without permission or database changes. This is session recovery, not a permanent concurrency fix. Invoked the four Reindex controls only within the Tasco 2025 Source and started the read-only monitor. Live attempts are reused by the normal reindex contract rather than forcibly replaced in SQL.
+
+The first restored Worker (PID 4788) was stopped after roughly three minutes because its older private environment omitted full-page OCR; exclude that interrupted run from the controlled comparison. Remote cancellation is not established, so possible residual queue contention must also be distinguished from parser speed. The corrected Worker (PID 16308) reached readiness with shared `30m`, Tesseract `vie,eng`, and explicit `MEMORYOS_EXTRACTION_DOCLING_FORCE_OCR=true`; the private retained environment now also stores that flag. Ignored `.tmp/tasco-2025/thirty-minute-runtime-start.json` records the runtime boundary. No extraction-quality algorithm, Source schedule or authorization rule was changed.
+
+The controlled run ended at 14:10:16 ICT with one successful and three failed current reports; the read-only monitor exited normally. A subsequent Source-scoped query found no unfinished indexing attempts. Exact outcomes and comparison are in the [canonical thirty-minute trial results](../../../tests/ingestion.md#thirty-minute-tasco-trial-admission--2026-09-11). Orca showed the matching per-file outcomes. Aggregate status initially displayed `Indexing`, then returned to `Active` in the saved screenshot without a repair or additional reindex; a persistent status defect is not established. Private evidence includes `thirty-minute-final-state.json`, `thirty-minute-en-separate-comparison.json`, `thirty-minute-final-ui.json` and `thirty-minute-final-source.png` under `.tmp/tasco-2025/`.
+
+### Follow-up root-cause diagnosis — 2026-09-11
+
+- [x] Capture actual report rejection and the deployed SDK/extractor error boundary without creating indexing attempts.
+- [x] Observe a full Vietnamese conversion independently of the synchronous HTTP deadline.
+- [x] Trace the two missing English cash values through raw remote output and a bounded offline reproduction; verify same-bitmap OCR variants without changing production configuration.
+- [x] Consolidate confirmed causes, remaining uncertainty and correction priorities in the canonical verification matrix.
+
+Completed direct runtime and offline diagnosis is recorded in the [canonical root-cause report](../../../tests/ingestion.md#tasco-failure-root-causes--2026-09-11). Evidence separates parser admission/HTTP classification, actual document timeout, synchronous waiting and OCR-stage numeric omissions. No production correction or new indexing attempt was made; Source state remains one successful and three failed current reports.
+
+### Approved corrections
+
+- [x] Correct and read back managed shared-dev admission/budget values, preserving credentials and unrelated settings.
+- [ ] Complete actual remote parser/ingress rollout and effective admission verification; blocked on authorized deployment access, not on Infisical configuration.
+- [x] Cut over to bounded asynchronous task observation, safe typed errors and no blind resubmission.
+- [x] Permit the selected long-document budget while preserving the default and partial-result rejection.
+- [x] Evaluate geometry-based OCR recovery against the original corpus; keep the candidate offline because omission safety is not established.
+- [x] Run affected regression/runtime checks, the repository gate and reconcile canonical evidence; replay only when prerequisites pass.
+
+The [canonical correction record](../../../tests/ingestion.md#tasco-corrections--2026-09-11) separates implemented Java behavior and successful live one-page/size-policy smoke checks from unapplied remote deployment. The saved shared-dev settings do not override the observed live 20 MiB/1800-second maximum or the ingress 413. The retained Worker was not restarted with the incompatible `60m` setting, and the Source was not replayed. No production OCR image change was made.
+
+Final correction verification passed `clean check :worker:bootJar`: 515 passed, four skipped, zero failures/errors, with API/connector/core results from cache and Worker tests executed. The final artifact passed live OCR/policy and controlled observer smoke checks. After a host-memory-related pause, both retained development runtimes were restored with their original JARs/configurations and returned readiness `UP`; this was not a correction rollout. Initial verification failures and remaining static-analysis limits are recorded in the canonical matrix.
+
+### Subsequent sixty-minute corpus completion — 2026-09-11
+
+- [x] Resume the retained corrected Worker after effective remote admission; preserve Tesseract `vie,eng` and full-page OCR.
+- [x] Complete all four original Google Drive reports and compare the unchanged sealed 104-cell sample.
+- [x] Verify current-process timings, artifact/input integrity and actual Orca Sources states.
+
+The [sixty-minute corpus record](../../../tests/ingestion.md#sixty-minute-tasco-corpus--2026-09-11) supersedes the earlier blocked Worker/reindex state: four reports, 240 pages and 8,907 chunks completed, with 93/104 strict sampled financial cells correct. Full 100 MiB remote admission and whole-corpus financial fidelity remain unverified. Existing `Việt test Drive` was not deleted by this run. No new OCR recovery algorithm, Search/Chat change, staging deployment or PR was included.
+
+### Grouped local checkpoint and next approved work
+
+The user authorized committing existing changes in functional groups before continuing; no push, PR or staging deployment is included. Admission is committed as `13315f9`; bounded Docling/OCR support is committed as `8a5bc6e`. Review found sparse normalized-table columns shifting left. A retained regression failed before the offset-aware renderer fix; afterwards the three focused Docling classes passed 29 tests with no failures, errors or skips. Padding is bounded before allocation. This correction preserves canonical values and does not change the 93/104 baseline score.
+
+- [x] Pin the current four-report hashes, parser configuration and strict scorer; add correlated, bounded stage/attempt/parser-task logs.
+- [x] Evaluate targeted OCR recovery against the unchanged sample and held-out original pages, including true blanks, negatives and multiple period columns; promote only evidence-supported generic behavior. The [second bounded study](../../../tests/ingestion.md#tasco-quality-follow-up--2026-09-11) remains offline.
+- [x] Add diagnostic-only financial consistency checks without manufacturing or silently correcting values; exercise all four sealed artifacts and verify original blocks remain unchanged.
+- [x] Clarify queued/processing/indexed Sources states from available backend facts and fix filename/Size overlap; preserve run ownership and uncertainty.
+- [x] Immediately before actual Orca verification, identify the old `Việt test Drive` Source and privately save its Specific links and recreation configuration.
+- [x] Delete only that exact Source through the authorized product flow; wait for its durable cleanup and check referenced object/index cleanup without resetting shared storage or credentials.
+- [x] Recreate the Source with its saved configuration; verify new attempts/parser submissions and absence of duplicate active Documents from the deleted Source.
+- [x] Exercise the improved runtime and actual Orca Sources surface; report timing, strict financial scores, negative cases and remaining limitations separately.
+- [x] Run final project gates apart from heavy OCR, consolidate durable evidence and commit the completed improvement groups.
+
+The verified Sources presentation is committed as `79fd761`. The real desktop and narrow Orca observations, exact frontend gate totals and keyboard-focus limitation are recorded in the [Connector matrix](../../../tests/connector.md#tasco-source-progress-and-layout--2026-09-12).
+
+Before deletion, the exact old Source `ae142bf7-f90a-4a86-98fc-620599c888a5`, Specific selection and recreation configuration were preserved privately. Its six Documents had no other Source references. Authorized `DELETE_SOURCE` operation `fddb775d-8b4f-436a-a24f-923ba2734f0f` completed successfully; the old Pair, Documents, chunks, artifacts and stored-object records were absent, and the latest index operation for every removed Document was `DELETE` / `SUCCESS`. The separate four-report Tasco 2025 Source retained the same Document/artifact references and chunk counts.
+
+Source `b5237dd0-059c-4753-aeaf-2cb397c8cab4` was then created through the real Orca form with the exact saved name, Specific link, reusable credential, five-minute schedule and Admin association; the configuration comparison found no differences. Its six current Q1/Q2 2026 PDFs are a distinct corpus from the sealed four-report Tasco 2025 baseline. Private links, credential data and full source records remain ignored under `.tmp/tasco-2025/quality-followup/`.
+
+Diagnostic-only financial checks are committed as `084ff6b`; correlated lifecycle logs and the shared console fix are committed as `ea8ae21`. The [console regression proof](../../../tests/ingestion.md#console-correlation-regression--2026-09-12) reproduces the dropped fields and verifies both local rendering and unchanged staging JSON serialization without deploying staging.
+
+Two old browser assertions pinned the misleading aggregate `Processing` label. They were removed rather than changed to another incidental label (`dc11327`); the retained synchronization-completion and upload-finalization scenarios both passed in Chromium (2 tests, 24.2 seconds).
+
+The [recreated six-report corpus](../../../tests/ingestion.md#recreated-six-report-drive-corpus--2026-09-12) completed all six attempts: 260 pages, 8,884 chunks, verified artifact/input identities and current publication generations. The final real Orca screenshot shows all six indexed/ready rows with separated columns. All cash-flow diagnostics abstained; the known Q1 financial boundary remains incorrect.
+
+After OCR completed, the owned Worker was stopped for the final `gradlew.bat clean check :worker:bootJar --no-configuration-cache --no-daemon --no-parallel --max-workers=1 --console=plain` gate. It passed in 9m17s: 529 tests, 525 passed, four skipped, zero failures/errors. The gate emitted existing toolchain/JVM native-access/deprecation warnings and test OTLP-receiver shutdown connection warnings; it was not warning-free. The rebuilt Worker was restored with the same isolated environment and returned HTTP 200 / `UP` at readiness.
+
+The frontend gate passed 99 unit tests in 18 files; the two affected Chromium scenarios and targeted browser-test lint/format checks also passed. JetBrains MCP and a configured LSP server were unavailable, so no IDE-inspection claim is made. Disposable financial/console Java launchers and copied dependency classes were removed; private benchmark, corpus and visual evidence remain ignored. No push, PR, staging deployment or Search/Chat work was performed.
+
+### Approved structural-quality and runtime follow-up
+
+- [x] Investigate Windows Worker termination `1073807364` from process, host and runtime evidence before adding restart behavior; no automatic restart was added.
+- [ ] Correct evidence-backed row/period-column assignment, beginning with Q1 consolidated total liabilities and equity on physical page 8; preserve genuine ambiguity and source values.
+- [ ] Expand separately sealed original-page benchmarks with held-out reports, blanks, dashes, negatives, multiple periods, merged headers and continuation cases; retain the original 104-cell scorer unchanged.
+- [ ] Reevaluate bounded OCR recovery against those controls and document the evidence-based production/offline decision.
+- [x] Improve bounded financial diagnostic coverage and explain missing/ambiguous structures without arithmetic repair.
+- [ ] Measure actual processing stages, then apply only demonstrated performance improvements without blindly increasing concurrency.
+- [ ] Verify the changed extraction/indexing runtime and actual Sources surface, consolidate durable evidence and commit in local functional groups.
+
+### Publication priority — 2026-09-12
+
+The user requested committing and publishing the current code for a PR into `main` before further research, with staging deployment performed by the user. The latest instruction explicitly prioritizes resolving the main merge and opening the PR before integrated gates or further fixes. Unfinished structural correction, expanded corpus scoring, recovery promotion and performance optimization above are paused, not accepted. The diagnostic-only change passed its pre-merge focused checks; integrated verification remains pending and must be reported as such.
+
+- [x] Verify and commit the current diagnostic change and reconcile its contract/evidence.
+- [x] Integrate current `origin/main` without replacing its features or applied migrations.
+- [x] Push the merged branch and open a PR targeting `main`; report its exact head and pending checks.
+- [x] After PR creation, run the integrated local backend/frontend gates and address the initial integration findings.
+
+Publication receipt: [PR #101](https://github.com/kl3inIT/MemoryOS/pull/101), head `3083fdb`, contains main `f807c1c`. Released V1–V38 hashes are unchanged; V39 replaces the conflicting unpublished admission migrations. Local/remote heads matched at publication. The PR was intentionally opened before integrated verification, not merged or deployed.
+
+### PR CI convergence — 2026-09-12
+
+The first CI run failed three behavioral tests and the dependent aggregate gate. The Chat lifecycle test still rejected Source uploads above the obsolete 10 MiB ceiling; its rejection boundary now follows the accepted 100 MiB contract. Both browser failure snapshots showed the real 100 MiB request still uploading at 0%, not a completed upload or application error. Setup and paging scenarios now wait for successful finalization within a bounded 30-second transfer wait before applying the unchanged five-second UI assertions; the encompassing test budget is 60 seconds. Payload size, admission rejection, retry, navigation and pagination assertions remain intact. No runtime limits, automatic retries or product behavior were changed to silence CI.
+
+The two affected browser files passed all five selected Chromium scenarios locally (1.1 minutes), including setup success/create failure/upload failure/finalization failure and concurrent paging with maximum-size upload. The complete frontend gate passed 130 unit tests in 22 files, generated API/routes checks, lint, formatting, type checking and production build; the existing large-chunk warning remains.
+
+The first local `clean check` passed API, connector and all 395 core cases, but the Worker Source convergence test timed out. The command incorrectly supplied an empty `DOCLING_TEST_ENDPOINT`; that test selects the optional DOCX/Docling path whenever the variable exists, unlike the ordinary CI environment where it is absent. The corrected gate omits the variable rather than changing Worker behavior or its timeout. This initial local gate is not a passing result. JetBrains semantic inspection remains unavailable.
+
+The corrected terminating `clean check --no-daemon --no-parallel --max-workers=1 --no-configuration-cache --console=plain` passed in 1m27s on JDK 25 with `JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=2`, `CI=true`, dev services disabled, OpenAPI writes disabled and the optional Docling endpoint absent. Reports contain 655 cases: 647 passed, eight skipped, zero failures/errors. API/connector/core results were restored from the preceding successful module executions; Worker executed and passed its real TXT upload/index/remove/delete flow. Latest-head GitHub CI is checked separately after pushing the fix.

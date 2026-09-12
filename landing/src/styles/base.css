@@ -1,0 +1,233 @@
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    /* Keeps in-page anchor targets clear of the sticky header (h-16). */
+    scroll-padding-top: 4rem;
+  }
+
+  body {
+    @apply min-w-80 bg-surface-base font-main-content-body text-content-primary antialiased;
+  }
+
+  :where(a, summary, button) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :where(a, summary, button):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (pointer: coarse) {
+    [data-slot="action-link"] {
+      min-height: 2.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* The page's one light source, behind the hero preview: below the copy on small screens, beside
+   * it from lg. */
+  .hero-glow {
+    --glow-x: 50%;
+    --glow-y: 82%;
+    background:
+      radial-gradient(60% 58% at var(--glow-x) var(--glow-y), var(--glow-core), transparent 70%),
+      radial-gradient(120% 70% at 50% 120%, var(--glow-halo), transparent 72%);
+  }
+
+  @media (min-width: 64rem) {
+    .hero-glow {
+      --glow-x: 76%;
+      --glow-y: 58%;
+    }
+  }
+
+  /* A quieter echo of the hero light behind the closing call to action. */
+  .cta-glow {
+    background: radial-gradient(50% 90% at 88% 0%, var(--glow-halo), transparent 70%);
+  }
+
+  /* Partner logos are single-colour masks, so they take the theme's content color. */
+  .logo-mask {
+    mask-position: left center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+  }
+
+  /* What the hero's load sequence brings in stays hidden from the first frame until the sequence is
+   * set up a frame later (src/sections/hero.tsx). */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-intro="pending"]
+      :is([data-hero-title], [data-hero-description], [data-hero-actions], [data-hero-preview]) {
+      opacity: 0;
+    }
+  }
+
+  /* The masks SplitText puts around the headline's words while its letters rise
+   * (src/sections/hero.tsx). The display type's tight leading would clip descenders, so each mask
+   * reaches past its line box without changing the layout. */
+  .hero-word-mask {
+    padding-block: 0.15em;
+    margin-block: -0.15em;
+  }
+
+  /*
+   * Once a line drawing has finished (`data-live`) and its row is on screen (`data-visible`), it
+   * keeps a quiet loop (src/motion/drawings.ts). Every loop starts and ends on the drawing's final
+   * state, and motion alone sets these attributes.
+   */
+  [data-visible] [data-live] .ambient-packet {
+    animation: ambient-packet 3s ease-in-out var(--delay, 0s) infinite;
+  }
+
+  [data-visible] [data-live] .ambient-pulse {
+    animation: ambient-pulse 3.2s ease-out 0.6s infinite;
+  }
+
+  /* Theme switches grow the new theme in a circle from the toggle (src/lib/theme.ts). */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+}
+
+/*
+ * Scrubbed ramps for the line drawings (src/components/line-drawing.tsx). Motion moves one
+ * progress value `--p` (0–1) per drawing; each part eases in between its own `--from` and `--to`.
+ * Without motion `--p` is unset and counts as 1, so the markup shows the final state.
+ */
+@utility ramp {
+  --t: clamp(0, calc((var(--p, 1) - var(--from, 0)) / (var(--to, 1) - var(--from, 0))), 1);
+  transform-box: fill-box;
+}
+
+@utility ramp-fade {
+  opacity: var(--t);
+}
+
+/* Visible only while its ramp runs, like a packet in flight. */
+@utility ramp-pass {
+  opacity: clamp(0, calc(min(var(--t), 1 - var(--t)) * 10), 1);
+}
+
+@utility ramp-rise {
+  opacity: var(--t);
+  translate: 0 calc((1 - var(--t)) * 6px);
+}
+
+@utility ramp-pop {
+  scale: var(--t);
+  transform-origin: center;
+}
+
+/* Arrives from an offset of (--dx, --dy). */
+@utility ramp-travel {
+  translate: calc((1 - var(--t)) * var(--dx, 0px)) calc((1 - var(--t)) * var(--dy, 0px));
+}
+
+/* Strokes with pathLength="100" draw along their path. */
+@utility ramp-draw {
+  stroke-dasharray: 100px;
+  stroke-dashoffset: calc((1 - var(--t)) * 100px);
+}
+
+@keyframes ambient-packet {
+  0% {
+    translate: var(--dx, 0px) var(--dy, 0px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    translate: 0 0;
+    opacity: 1;
+  }
+  82%,
+  100% {
+    translate: 0 0;
+    opacity: 0;
+  }
+}
+
+@keyframes ambient-scan {
+  0% {
+    translate: 0 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  52% {
+    translate: 0 var(--sweep, 0px);
+    opacity: 1;
+  }
+  60%,
+  100% {
+    translate: 0 var(--sweep, 0px);
+    opacity: 0;
+  }
+}
+
+@keyframes ambient-blink {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  45%,
+  55% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes ambient-level {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+  50% {
+    scale: 1 0.55;
+  }
+}
+
+@keyframes ambient-pulse {
+  0% {
+    scale: 0.5;
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    scale: 1.8;
+    opacity: 0;
+  }
+}
+
+@keyframes ambient-glint {
+  0% {
+    stroke-dashoffset: 120px;
+  }
+  60%,
+  100% {
+    stroke-dashoffset: 10px;
+  }
+}

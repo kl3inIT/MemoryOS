@@ -83,6 +83,9 @@ class OpenSearchRetrievalIntegrationTest {
             var tenant = new TenantId(UUID.randomUUID());
             var leave = document(tenant, "HR-2026 Nghỉ phép", "Annual vacation policy provides 12 leave days.");
             var unrelated = document(tenant, "IT-2026", "Hardware inventory and laptop replacement.");
+            var privateText = document(tenant, "Private HR-2026", "Annual vacation policy provides private leave days.");
+            var privateFile = new DocumentChunkSet(tenant,privateText.documentId(),privateText.generation(),privateText.title(),
+                    privateText.mediaType(),privateText.updatedAt(),privateText.chunks(),UUID.randomUUID());
             UUID fileSource = UUID.randomUUID(), driveSource = UUID.randomUUID();
             var uploaded = new DocumentSourceMetadata(fileSource, UUID.randomUUID(), SourceType.FILE,
                     Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-09-07T00:00:00Z"), List.of("Alice"));
@@ -93,6 +96,11 @@ class OpenSearchRetrievalIntegrationTest {
                     leave.documentId().equals(call.getArgument(1)) ? origins.get() : List.of());
             index.index(leave);
             index.index(unrelated);
+            index.index(privateFile);
+            assertTrue(index.contains(new DocumentIndexState(tenant,privateFile.documentId(),privateFile.generation(),1,true)));
+            assertTrue(index.search(tenant,"vacation policy",List.of(),null).stream()
+                    .noneMatch(hit -> hit.documentId().equals(privateFile.documentId().value())),
+                    "Private files must be excluded before lexical/vector candidate ranking, even without a source filter");
             String collision = index.identity() + "-collision";
             gateway.json("PUT", "/" + collision, Map.of(),
                     Map.of("aliases", Map.of(index.identity() + "-read", Map.of())));

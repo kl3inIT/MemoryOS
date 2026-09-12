@@ -346,3 +346,31 @@ Gradle reports contain585 tests, zero failures and six explicit skips: API135/3 
 Using Node26.7.0 with the installed Corepack JavaScript entry point, `pnpm --dir web check` passed: generated API and routes stable, CI image contract, lint, formatting, types,123 unit tests, production build and four external WOFF2 assets. `pnpm --dir web test:e2e --workers=1` passed all90 Chromium fixture scenarios in6.2m; its isolated4173 server released its port while the user's18080/8080 listeners remained. These browser fixtures are separate from the real provider/identity smoke above. `check-inference-release.py --compose` passed without launching a model. The disposable Gradle init script/build tree were removed after retaining the receipts. Warm restart remains resource-blocked, not passed.
 
 No commit, push, main merge, staging deployment, API-image/native-load acceptance, credential rotation or target rollout is claimed by this continuation. The remaining broader Phase7/target matrix is not waived by these local candidate results.
+
+## Authorized publication and main refresh — 2026-09-12
+
+### Scope and integration
+
+The user authorized two ordered `anhnd` publications followed by a Linear MCP comment, not a PR, main push, deployment or issue closure. First publication is `b26555a34ebf2564f56ab2b6f5b25d0f30aefc02` (`fix(chat): abort native generation on Stop and qualify local inference`), pushed successfully before fetching main `24db3885ab84663560d1d1b11462fb31403e693e`.
+
+The merge was prepared in an isolated detached worktree so the data-bearing development API and unrelated working files were not used as the integration/build surface. Sixteen files required conflict resolution. Native composition retains the immutable `ChatRequestPolicy`, installed profiles and fixed per-subscription transport alongside main's attachments, vision, private-file evidence and automatic titles. The canonical binding includes both policy and vision; callers were migrated without a legacy estimator shim. Media admission retains the existing conservative 4,096-token allowance, not measured provider usage; text-only SmolLM2 does not gain vision or tool capability.
+
+Main migrations V1–V40 were compared against the fetched commit and are unchanged. The branch-only tokenizer backfill becomes V41 with identical SQL. The existing catalog preservation regression now exercises V40 → V41 and retains configuration identities/revisions, selections, associations and history. The retained local candidate database carrying tokenizer V37 was not restarted, reset or repaired against this layout.
+
+CI/CD keeps main's independent landing publication, browser sharding, Sentry inputs and separation of deployment from business acceptance, plus MEM-77's managed serving/release reservation and recovery guards. Finalization still checks runtime identity/readiness and ownership; it does not certify business acceptance. Source-text-pinning deployment tests were replaced with isolated behavioral transaction checks. OpenAPI was regenerated from the integrated Spring source, then the browser client was regenerated; generated conflict sides were not accepted as the final contract.
+
+### Integrated verification
+
+- Normal checked-in wrapper `clean check --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=-Xmx512m`: **PASS**, final run10m4s. Reports contain678 tests,670 passed,8 explicitly skipped,0 failures: API141/4 skipped, connector104/4, core406/0, worker27/0. API/connector executed in the first attempt and were reused from cache in the successful final run; core/worker executed in the final run. The first attempt exposed the catalog test's old repository signature and migration targets; those were migrated before the successful gate.
+- Source-owned OpenAPI generation: **PASS**. `pnpm --dir web check`: **PASS**, generated API/routes stable, lint/format/types,153 unit tests, production bundle and four external WOFF2 assets.
+- `pnpm --dir web test:e2e --workers=1`: **87/87 PASS** in7.7m with zero retries. These are integrated browser/API fixtures, not a fresh live-provider acceptance run; unrelated untracked Keycloak-theme scenarios are outside this published tree.
+- `pnpm --dir landing check`: **19/19 PASS**, lint/format/types/build and font checks. Actual built landing observed at1280×900 and390×844 with no horizontal overflow; dark/light rendering was confirmed through the theme control. This is local UI proof, not a landing deployment.
+- Isolated POSIX execution: deployment transaction/credential/serving lifecycle **24/24 PASS** and managed probe/provisioning **5/5 PASS**. Bash syntax, actionlint1.7.12, canonical ShellCheck0.11.0 and `check-inference-release.py --compose` pass. No native model or deployment was launched by these checks.
+
+Warnings remain explicit: JVM native-access/Unsafe warnings, the frontend's approximately511kB minified entry chunk warning and no configured LSP/IDE verification. Repository gates do not attest the final API image, actual target capacity, deployment, credentials rotation or live-provider behavior on this merged tree.
+
+### Publication and runtime boundary
+
+Twelve unrelated tracked working files and24 untracked files were recorded separately before advancing the primary checkout; they are not part of the MEM-77 commit. The validated merge is published only to `anhnd`, with exact push/comment receipts recorded on [MEM-77](https://linear.app/memory-os/issue/MEM-77) after the ordered Git operations. Linear MCP was reached through the existing OAuth-configured Codex app-server direct tool-call protocol; no model turn or new credential was required. Issue status/assignee are not changed by the requested comment.
+
+The earlier real hosted/local and six-token upstream Stop receipts above remain candidate evidence at their original revision, not a rerun against this merge. Local inference remains intentionally stopped with assets/cache/key retained; warm restart, full co-load/target qualification, final API-image verification, rotation/recovery and broader acceptance remain open. The running development API still uses its earlier migration/runtime history. Do not restart it against the newly integrated source without an authorized data-preserving cutover.

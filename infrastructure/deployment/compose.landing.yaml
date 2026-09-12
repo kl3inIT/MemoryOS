@@ -1,0 +1,47 @@
+# Public vadan.app landing page. Operated separately from the application stack; see
+# docs/runbooks/landing.md.
+name: memoryos-landing
+
+services:
+  landing:
+    image: ${MEMORYOS_LANDING_IMAGE:?Set MEMORYOS_LANDING_IMAGE}
+    container_name: memoryos-landing
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      proxy:
+        aliases:
+          - memoryos-landing
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1:8080/healthz
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64m
+        reservations:
+          memory: 16m
+
+networks:
+  proxy:
+    name: ${MEMORYOS_PROXY_NETWORK:-proxy-network}
+    external: true

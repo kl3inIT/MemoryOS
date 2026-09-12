@@ -16,6 +16,8 @@ Infisical `dev` is the developer-local environment. Its shared keys are the runn
 
 Terminal launches must explicitly set `ARCONIA_BOOTSTRAP_MODE=dev`, as the checked-in IntelliJ configurations do. `infisical --env=dev` selects the secret environment, not the Spring profile, and `bootRun` alone does not select Arconia development mode. Without that mode, the API can fall back to Spring's `default` profile without PostgreSQL Dev Services and fail datasource initialization with `'url' must start with "jdbc"`. Correct the launch mode rather than inventing a JDBC URL or pointing the local application at staging.
 
+The user-authorized remote OCR cutover stores its endpoint, optional API key and observed engine revision in **shared dev**, rather than developer-personal overrides. Developers using this baseline need the trusted VPN for PDF/DOCX/PPTX extraction. See the [Docling runtime runbook](docling-extraction.md#local-or-authenticated-remote-runtime); this does not change staging or the local database/queue isolation policy.
+
 Start a local API without exporting secret values:
 
 ```powershell
@@ -61,6 +63,8 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
 | `MEMORYOS_WORKER_INGESTION_BATCH_SIZE` | No | Bounded ingestion relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
 | `MEMORYOS_WORKER_CLEANUP_BATCH_SIZE` | No | Independently bounded cleanup relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
+| `MEMORYOS_EXTRACTION_DOCLING_ENDPOINT` | No | Worker runtime endpoint for PDF/DOCX/PPTX; direct default `http://localhost:5001`, configurable Compose default `http://docling:5001`. An authorized remote VPN endpoint needs no local Docling startup; keep private addresses out of Git. Restart Worker after changes. |
+| `MEMORYOS_EXTRACTION_DOCLING_API_KEY` | Yes | Optional Worker secret; current remote cutover authorizes Infisical **dev**, not staging. Empty/unset means unauthenticated local access. SDK sends `X-Api-Key`; property rendering redacts it, parser metadata omits it and request/response logs stay disabled. No Compose interpolation/blank override. Refresh managed configuration and restart Worker after rotation. |
 | `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development is supplied by worker-owned Arconia Redis Dev Services. |
 | `MEMORYOS_REDIS_PORT` | No | Staging Redis TLS port `6379`; development host port `56379`. |
 | `MEMORYOS_REDIS_USERNAME` | No | Staging worker ACL username `memoryos-worker`. |
@@ -166,7 +170,7 @@ Infisical `dev` is an isolated development baseline, not a mirror of staging. It
 
 Give each developer project role `No Access` plus permanent `Describe Secret` and `Read Value` privileges conditioned on environment slug `dev`. Never grant developers the `prod` role or reuse a staging or production machine identity.
 
-Before launch, ensure Docker is running, the development Keycloak issuer/JWK endpoint and browser/provisioner clients represented by `MEMORYOS_IDENTITY_*`, `MEMORYOS_BROWSER_*`, and `MEMORYOS_KEYCLOAK_ADMIN_*` are reachable, and the development S3/MinIO bucket and readiness sentinel represented by `MEMORYOS_OBJECT_STORAGE_*` are provisioned. The API needs Keycloak configuration; the worker does not. API health and worker readiness both inspect the object-storage sentinel. For PDF, DOCX, or PPTX processing, also start the pinned Docling Serve runtime from [the extraction runbook](docling-extraction.md) at `MEMORYOS_EXTRACTION_DOCLING_ENDPOINT`, which defaults to `http://localhost:5001`. Docling is contacted when one of those formats is processed, not merely because an idle worker starts.
+Before launch, ensure Docker is running, the development Keycloak issuer/JWK endpoint and browser/provisioner clients represented by `MEMORYOS_IDENTITY_*`, `MEMORYOS_BROWSER_*`, and `MEMORYOS_KEYCLOAK_ADMIN_*` are reachable, and the development S3/MinIO bucket and readiness sentinel represented by `MEMORYOS_OBJECT_STORAGE_*` are provisioned. The API needs Keycloak configuration; the worker does not. API health and worker readiness both inspect the object-storage sentinel. For PDF, DOCX, or PPTX processing, explicitly start and await local Docling readiness or establish the authorized remote VPN service's readiness at `MEMORYOS_EXTRACTION_DOCLING_ENDPOINT`; see [the extraction runbook](docling-extraction.md#local-or-authenticated-remote-runtime). The direct default is `http://localhost:5001`. Docling is contacted only during extraction, not idle Worker startup. Full Compose startup still includes local Docling, but selective remote Worker startup does not require it.
 
 Authenticate the local Infisical CLI once:
 

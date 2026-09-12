@@ -26,6 +26,7 @@ import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu"
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
 import { sameOriginMutationHeaders } from "@/lib/api";
+import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
 import type { Result as SearchResult, SearchRequest, Section } from "@/lib/hey-api/types.gen";
@@ -101,6 +102,7 @@ export function SearchPage() {
   const previousSearchTopRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const reportedSearchError = useRef<unknown>(null);
   const voiceQueryPrefixRef = useRef("");
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
   const SpeechRecognition = getSpeechRecognitionConstructor();
@@ -159,6 +161,16 @@ export function SearchPage() {
     const timeout = window.setTimeout(() => setSubmitFeedback(false), 180);
     return () => window.clearTimeout(timeout);
   }, [result.isFetching, submitFeedback]);
+
+  useEffect(() => {
+    if (!request || !result.isError || result.error === reportedSearchError.current) return;
+    reportedSearchError.current = result.error;
+    captureWorkflowFailure(result.error, {
+      workflow: "search",
+      stage: "request",
+      failureKind: "api-or-network",
+    });
+  }, [request, result.error, result.isError]);
 
   function toggleVoiceSearch() {
     if (isListening) {

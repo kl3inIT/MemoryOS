@@ -110,7 +110,8 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, Aut
         var service = new SpringAiLlmService(name, "OpenAI", model, converter, null, List.of(),
                 price == null ? null : PricingModel.usdPer1MTokens(price.inputPerMillion(), price.outputPerMillion()), settings.capabilities().reasoning());
         return new ChatModelBinding(service, OpenAiChatRequestPolicy::withoutTools,
-                OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling());
+                OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
+                settings.capabilities().toolCalling(), settings.capabilities().vision());
     }
 
     static OpenAiCancellation asyncClient(String baseUrl, String credential, Duration timeout) {

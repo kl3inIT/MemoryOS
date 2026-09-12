@@ -49,8 +49,9 @@ class ChatRuntimeConfiguration {
     @Bean
     ChatModelExecutor chatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
                                         ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits,
-                                        @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings);
+                                        @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings,
+                                        io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent);
     }
 
     @Bean(destroyMethod = "dispose")

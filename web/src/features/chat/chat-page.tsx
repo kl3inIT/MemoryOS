@@ -1,5 +1,6 @@
 import { AssistantRuntimeProvider, useAui } from "@assistant-ui/react";
 import { useAISDKChat, useChatRuntime } from "@assistant-ui/ai-sdk";
+import { createChatAttachmentAdapter } from "./chat-files";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useImperativeHandle, useRef, useState, type RefObject } from "react";
@@ -15,6 +16,7 @@ import {
   getChatFeedback,
   getChatProject,
   getChatSession,
+  generateChatTitle,
 } from "@/lib/hey-api/sdk.gen";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { Accepted, ChatSession } from "@/lib/hey-api/types.gen";
@@ -218,8 +220,12 @@ function ChatConversation({
       return values;
     },
   });
+  const [attachmentError, setAttachmentError] = useState<string>();
+  const [attachmentAdapter] = useState(() => createChatAttachmentAdapter(setAttachmentError));
+  useEffect(() => () => attachmentAdapter.cancelPending(), [attachmentAdapter]);
   const runtime = useChatRuntime({
     transport,
+    adapters: { attachments: attachmentAdapter },
     // Server request IDs are UUIDs. No client-side model/tool continuation.
     generateId: () => crypto.randomUUID(),
     messages: toUiMessages(
@@ -325,11 +331,11 @@ function ChatConversation({
               busy: connection !== "ready" || checking,
               branches: branches.data ?? [],
               feedback: feedback.data ?? [],
-              edit: (userMessageId, text, clientRequestId) =>
+              edit: (userMessageId, text, clientRequestId, fileIds) =>
                 mutate(async () => {
                   const { data } = await editChatMessage({
                     path: { sessionId: session!.id, userMessageId },
-                    body: { text, clientRequestId, modelConfigurationId: model.choice.id },
+                    body: { text, clientRequestId, modelConfigurationId: model.choice.id, fileIds },
                     headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
                     throwOnError: true,
@@ -369,6 +375,29 @@ function ChatConversation({
                   if (state === "sending") setError(undefined);
                   if (state === "ready" || state === "uncertain") setStopping(false);
                   if (state === "ready") {
+                    const id = transport.session?.id;
+                    if (id)
+                      void generateChatTitle({
+                        path: { sessionId: id },
+                        headers: sameOriginMutationHeaders,
+                        signal: AbortSignal.timeout(15000),
+                        throwOnError: true,
+                      })
+                        .then(({ data }) =>
+                          data.title ===
+                          queryClient.getQueryData<ChatSession>(["chat-session", id])?.title
+                            ? undefined
+                            : Promise.all([
+                                queryClient.invalidateQueries({ queryKey: ["chat-session", id] }),
+                                queryClient.invalidateQueries({ queryKey: chatSessionsKey }),
+                                queryClient.invalidateQueries({
+                                  queryKey: ["chat-project-sessions"],
+                                }),
+                              ]),
+                        )
+                        .catch(() => {
+                          /* Best-effort naming never changes answer/error state. */
+                        });
                     void queryClient.invalidateQueries({
                       queryKey: ["chat-branches", transport.session?.id],
                     });
@@ -406,6 +435,19 @@ function ChatConversation({
                   }}
                 >
                   Tải lại
+                </Button>
+              </p>
+            )}
+            {attachmentError && (
+              <p role="alert" className="text-sm">
+                {attachmentError}
+                <Button
+                  type="button"
+                  size="sm"
+                  prominence="internal"
+                  onClick={() => setAttachmentError(undefined)}
+                >
+                  Đóng
                 </Button>
               </p>
             )}

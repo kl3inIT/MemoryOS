@@ -11,13 +11,13 @@ import org.springframework.http.MediaType;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -57,7 +57,8 @@ class ChatTurnController {
     @ApiResponse(responseCode = "202", description = "Reserved reply", useReturnTypeSchema = true)
     Accepted send(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                   @PathVariable UUID sessionId, @Valid @RequestBody Send request) {
-        var accepted = turns.send(identity.actorId(), sessionId, request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId());
+        var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
+                request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds()));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -78,7 +79,7 @@ class ChatTurnController {
     Accepted edit(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
             @PathVariable UUID userMessageId, @Valid @RequestBody Edit request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
-                userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId()));
+                userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds()));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -93,11 +94,13 @@ class ChatTurnController {
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
-    record Edit(@NotNull UUID clientRequestId, @NotBlank @Size(max = 32000) String text, @Nullable UUID modelConfigurationId) {}
+    record Edit(@NotNull UUID clientRequestId, @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
+                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds) {}
     record Regenerate(@NotNull UUID clientRequestId, @Nullable UUID modelConfigurationId) {}
 
     record Send(@NotNull UUID parentMessageId, @NotNull UUID clientRequestId,
-                @NotBlank @Size(max = 32000) String text, @Nullable UUID modelConfigurationId) {
+                @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
+                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds) {
     }
 
     record Accepted(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userMessageId,

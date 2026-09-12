@@ -17,7 +17,7 @@ PR #88 owns the historical review/CI receipts. Preserve its internal HTTP/provid
 
 ## Delivery contract
 
-The [design](design.md) owns architecture, research evidence and scope. The user has authorized repository implementation and then committing/pushing the MEM-77 changes to `anhnd`, with unrelated MEM-65/MEM-66 work retained outside that commit. Unchecked items may include implemented source with unverified acceptance clauses; the checkpoints below identify that distinction. Branch publication does not authorize a PR, main release, target deployment, Linear mutation or MEM-77 closure.
+The [design](design.md) owns architecture, research evidence and scope. The user authorized repository implementation and committing/pushing MEM-77 to `anhnd`, retaining unrelated MEM-65/MEM-66 work outside the commit. The 2026-09-12 authorization also includes integrating current main and posting the final receipt to MEM-77 through Linear MCP. Unchecked items may include implemented source with unverified acceptance clauses; the checkpoints distinguish them. This does not authorize a PR, a push/merge to main, deployment, other Linear mutations or MEM-77 closure.
 
 Target flow: provision and operate a private SmolLM2-135M-Instruct service on the approved target → model manager configures its provider/model through Models administration → validates the connection → sets an eligible Tenant/Persona default or supplies the model UUID → deployed Chat streams, stops and persists correctly under the accepted small-model workload. MEM-66 supplies feasibility evidence and the chosen model baseline; MEM-77 owns the operational runtime and its acceptance, not just a connection to the research stack. A larger model or stronger answer quality is not required for closure.
 
@@ -77,10 +77,11 @@ The initial provisioning and low-memory observations are historical preparation 
 
 The user authorized committing/pushing the MEM-77 continuation to `anhnd`, then fetching and merging current `origin/main`, resolving conflicts, verifying the integrated tree, pushing again and posting the exact receipts to MEM-77 through Linear MCP. This does not authorize a push/merge to `main`, deployment, unrelated-work publication or closing outstanding acceptance gates.
 
-- [ ] Publish the current MEM-77 continuation, keeping unrelated IAM/theme and research work outside the commit.
-- [ ] Integrate the fetched main commit without discarding either branch's implemented behavior or local uncommitted work.
-- [ ] Verify the isolated integrated tree, record the exact gates and publish the merge on `anhnd`.
-- [ ] Post commit links, integration evidence and unchanged remaining blockers to MEM-77 through Linear MCP.
+- [x] Publish the current MEM-77 continuation, keeping unrelated IAM/theme and research work outside the commit: `b26555a34ebf2564f56ab2b6f5b25d0f30aefc02` pushed to `origin/anhnd`.
+- [x] Resolve current-main integration in the isolated candidate without discarding either branch's implemented behavior or unrelated local work.
+  - Preserve fetched main `24db388`, including attachment/vision/title and current delivery behavior. Move only the branch tokenizer backfill to V41; do not restart the retained data-bearing local API against the new migration history.
+- [x] Verify the isolated integrated tree: full wrapper gate,153 web tests,87 browser scenarios,19 landing tests and29 POSIX deployment/serving tests pass. See the [publication receipt](verification.md#authorized-publication-and-main-refresh--2026-09-12).
+- Final publication handoff: commit this verified merge, advance and push `anhnd`, restore unrelated working files, then post exact commit/push links and unchanged blockers to MEM-77 through the connected Linear MCP. The external receipts belong to that issue; this source snapshot does not claim a main release or deployment.
 
 ### Fixed implementation decisions
 
@@ -101,7 +102,7 @@ Numeric host capacity, latency/startup/Stop thresholds, final context/body limit
 
 | Area | Existing integration targets; new work |
 | --- | --- |
-| Settings/persistence | `core/.../chat/catalog/ModelSettings.java`, `ModelCatalogService.java`, `ChatProviderAdapters.java`, `ChatProviderAdapter.java`, `chat/persistence/ModelCatalogRepository.java` and JPA lifecycle repositories; unshipped tokenizer migration V37 after main V36 |
+| Settings/persistence | `core/.../chat/catalog/ModelSettings.java`, `ModelCatalogService.java`, `ChatProviderAdapters.java`, `ChatProviderAdapter.java`, `chat/persistence/ModelCatalogRepository.java` and JPA lifecycle repositories; tokenizer migration V41 after unchanged main V1–V40 |
 | Native composition | `api/.../chat/OpenAiChatProviderAdapter.java`, `OpenAiChatProviderConfiguration.java`, `ChatModelCatalogConfiguration.java`; tokenizer/profile owner in API composition; `gradle/libs.versions.toml`, `api/build.gradle.kts`, `Dockerfile`/API assets as measured |
 | Budget/lifetime | `core/.../chat/execution/ChatModelBinding.java`, `ChatTurnSetup.java`, `ChatModelGuard.java`; `chat/application/ChatTurnPersistence.java`, `chat/ChatTurnService.java`, catalog resolver/client leases; no replacement executor |
 | API | `api/.../chat/ChatModelCatalogController.java`, `ChatModelValidation.java`, `api/.../OpenApiConfiguration.java`; profile metadata, Persona selector and truthful existing catalog schemas |

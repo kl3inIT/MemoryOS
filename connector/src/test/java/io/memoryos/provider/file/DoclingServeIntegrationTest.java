@@ -55,8 +55,7 @@ class DoclingServeIntegrationTest {
             zip.finish();
             input = out.toByteArray();
         }
-        try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(
-                URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200), new ObjectMapper())) {
+        try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200, null, null, false, System.getenv("DOCLING_TEST_API_KEY")), new ObjectMapper())) {
             var result = extractor.extract(new ByteArrayInputStream(input), input.length, "slide.pptx", SourceInputDescriptor.binary());
             assertTrue(result.normalizedText().contains("MemoryOS slide 127"));
         }
@@ -83,8 +82,7 @@ class DoclingServeIntegrationTest {
             pdf.save(output);
             input = output.toByteArray();
         }
-        try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(
-                URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200), new ObjectMapper())) {
+        try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200, null, null, false, System.getenv("DOCLING_TEST_API_KEY")), new ObjectMapper())) {
             var result = extractor.extract(new ByteArrayInputStream(input), input.length, "scan.pdf", SourceInputDescriptor.binary());
             assertTrue(result.normalizedText().contains("127"));
             assertTrue(result.structuredJson().contains("page_no"));
@@ -118,8 +116,7 @@ class DoclingServeIntegrationTest {
             zip.finish();
             input = output.toByteArray();
         }
-        try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(
-                URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200),
+        try (var extractor = new DoclingSourceContentExtractor(new DoclingProperties(URI.create(System.getenv("DOCLING_TEST_ENDPOINT")), null, Duration.ofMinutes(5), 200, null, null, false, System.getenv("DOCLING_TEST_API_KEY")),
                 new ObjectMapper())) {
             var result = extractor.extract(new ByteArrayInputStream(input), input.length, "hrod.docx", SourceInputDescriptor.binary());
             assertTrue(result.normalizedText().contains("Báo cáo nhân sự HROD"));

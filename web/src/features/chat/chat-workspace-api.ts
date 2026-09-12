@@ -17,12 +17,14 @@ export const personaSchema = z.object({
   instructions: z.string(),
   starterPrompts: z.array(z.string()),
   sourceIds: z.array(z.string().uuid()),
+  fileIds: z.array(z.string().uuid()).default([]),
   searchEnabled: z.boolean(),
   modelConfigurationId: z.string().uuid().nullish(),
   contextTokenLimit: z.number().nullish(),
   outputTokenLimit: z.number().nullish(),
 });
 export const projectSchema = z.object({
+  fileIds: z.array(z.string().uuid()).default([]),
   id: z.string().uuid(),
   name: z.string(),
   description: z.string(),

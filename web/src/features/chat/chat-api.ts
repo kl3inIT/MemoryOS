@@ -3,6 +3,7 @@ import { sourcesSchema, type ChatSource, type SearchProgress } from "./chat-evid
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
+import { fileReference } from "./chat-files";
 
 export type ChatUiMessage = UIMessage<{
   serverStatus?: ChatMessage["status"];
@@ -49,7 +50,7 @@ export async function newChatSession(
   projectId?: string,
 ) {
   const { data } = await createChatSession({
-    body: { title: text.trim().slice(0, 200) || "Hội thoại mới", personaId, projectId },
+    body: { title: initialChatTitle(text), personaId, projectId },
     headers: sameOriginMutationHeaders,
     signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
     throwOnError: true,
@@ -57,11 +58,34 @@ export async function newChatSession(
   return data;
 }
 
+export function initialChatTitle(text: string) {
+  const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
+    text.trim().replace(/\s+/g, " "),
+  );
+  let title = "";
+  let count = 0;
+  for (const { segment } of segments) {
+    // Keep whole visible characters and reserve room for the ellipsis inside the API's 200 UTF-16 limit.
+    if (count === 40 || title.length + segment.length > 199) return `${title.trimEnd()}…`;
+    title += segment;
+    count++;
+  }
+  return title || "Hội thoại mới";
+}
+
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
   return messages.map((message) => ({
     id: message.id,
     role: message.role === "USER" ? "user" : "assistant",
-    parts: [{ type: "text", text: message.content }],
+    parts: [
+      { type: "text", text: message.content },
+      ...(message.files ?? []).map((file) => ({
+        type: "file" as const,
+        filename: file.filename,
+        mediaType: file.mediaType ?? "application/octet-stream",
+        url: fileReference(file.id!),
+      })),
+    ],
     metadata: {
       serverStatus: message.status,
       createdAt: message.createdAt,

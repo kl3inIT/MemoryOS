@@ -41,7 +41,7 @@ class ChatModelBindingTest {
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 LocalDate.of(2025, 1, 1), List.of(), pricing);
         var binding = new ChatModelBinding(configured, prompt -> prompt, ChatRequestPolicy.hosted(
-                new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true);
+                new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);

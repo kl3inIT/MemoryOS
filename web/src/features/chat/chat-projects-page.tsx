@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { DropdownMenu } from "radix-ui";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Folder, MoreHorizontal, Pencil, Plus, Settings2, Trash2 } from "lucide-react";
+import { Folder, MoreHorizontal, Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,17 @@ import {
   updateChatProject,
   deleteChatProject,
   listProjectChatSessions,
+  getChatFile,
 } from "@/lib/hey-api/sdk.gen";
 import { chatSessionsKey } from "./chat-api";
 import { ChatDialog } from "./chat-dialog";
 import { chatField, chatActionError } from "./chat-action-utils";
 import { loadProjects, projectSchema, type Project } from "./chat-workspace-api";
 import { ChatSessionRow } from "./chat-session-row";
+import { ChatFilePicker } from "./chat-file-picker";
+import { chatFileSchema } from "./chat-files";
+import { ChatFilePart } from "./chat-attachments";
+import { fileReference } from "./chat-files";
 
 export function ChatProjectsPage() {
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -174,8 +179,110 @@ export function ProjectContextPanel({ project }: { project: Project }) {
           </span>
         </span>
       </button>
+      <ProjectFiles project={project} />
       {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
     </div>
+  );
+}
+
+function ProjectFiles({ project }: { project: Project }) {
+  const cache = useQueryClient();
+  const { actorId, authorizationVersion } = useApplicationSession();
+  const [busy, setBusy] = useState(false);
+  const updating = useRef(false);
+  const [error, setError] = useState<string>();
+  const ids = project.fileIds ?? [];
+  const files = useQuery({
+    queryKey: ["project-files", actorId, authorizationVersion, project.id, ids],
+    queryFn: ({ signal }) =>
+      Promise.all(
+        ids.map(async (fileId) => {
+          const result = await getChatFile({ path: { fileId }, signal });
+          if (result.response?.status === 404) return { fileId, file: null };
+          if (result.error) throw result.error;
+          return { fileId, file: chatFileSchema.parse(result.data) };
+        }),
+      ),
+  });
+  async function update(fileIds: string[]) {
+    if (updating.current) return;
+    updating.current = true;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await updateChatProject({
+        path: { projectId: project.id },
+        query: { revision: project.revision },
+        body: {
+          name: project.name,
+          description: project.description ?? "",
+          instructions: project.instructions,
+          fileIds,
+        },
+        headers: sameOriginMutationHeaders,
+        signal: AbortSignal.timeout(30000),
+        throwOnError: true,
+      });
+      await Promise.all([
+        cache.invalidateQueries({ queryKey: ["chat-project"] }),
+        cache.invalidateQueries({ queryKey: ["chat-projects"] }),
+      ]);
+    } catch (cause) {
+      setError(chatActionError(cause));
+    } finally {
+      updating.current = false;
+      setBusy(false);
+    }
+  }
+  return (
+    <section aria-label="Tệp dự án" className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-medium">Tệp</h2>
+        <ChatFilePicker
+          selected={ids}
+          disabled={busy}
+          onSelect={(next) => void update(next)}
+          trigger={
+            <Button type="button" size="sm" prominence="secondary" disabled={busy}>
+              <Plus className="size-4" />
+              Thêm tệp
+            </Button>
+          }
+        />
+      </div>
+      {ids.length === 0 && (
+        <p className="text-sm text-content-muted">
+          Thêm tài liệu dùng chung cho các hội thoại trong dự án.
+        </p>
+      )}
+      {(error || files.isError) && (
+        <p role="alert" className="text-sm">
+          {error ?? "Không tải được tệp dự án."}
+        </p>
+      )}
+      {files.data?.map(({ fileId, file }) => (
+        <div key={fileId} className="flex min-w-0 items-center justify-between gap-2">
+          {file ? (
+            <ChatFilePart
+              filename={file.filename}
+              mimeType={file.mediaType}
+              data={fileReference(file.id)}
+            />
+          ) : (
+            <span className="text-sm text-content-muted">Tệp không còn khả dụng</span>
+          )}
+          <IconButton
+            size="sm"
+            prominence="internal"
+            disabled={busy}
+            aria-label={`Gỡ ${file?.filename ?? "tệp không còn khả dụng"} khỏi dự án`}
+            onClick={() => void update(ids.filter((id) => id !== fileId))}
+          >
+            <X />
+          </IconButton>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -259,6 +366,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
   const navigate = useNavigate();
   const [name, setName] = useState(project?.name ?? "");
   const [instructions, setInstructions] = useState(project?.instructions ?? "");
+  const fileIds = project?.fileIds ?? [];
   return (
     <ChatDialog
       open
@@ -273,7 +381,12 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
       }
       submitLabel={project ? "Lưu" : "Tạo dự án"}
       onSubmit={async () => {
-        const body = { name: name.trim(), description: project?.description ?? "", instructions };
+        const body = {
+          name: name.trim(),
+          description: project?.description ?? "",
+          instructions,
+          fileIds,
+        };
         if (project)
           await updateChatProject({
             path: { projectId: project.id },

@@ -66,6 +66,28 @@ class OpenAiChatRequestPolicyTest {
     }
 
     @Test
+    void hostedVisionCountsNativeMediaAndRejectsItForTextOnlyBindings() {
+        var tokens = ChatTokenizerProfiles.hostedTokens();
+        var vision = OpenAiChatRequestPolicy.create(new ModelSettings(8192, 128,
+                new ModelSettings.Capabilities(true, false, true, false), Map.of(), null, ChatTokenizerProfiles.HOSTED), tokens);
+        var media = new org.springframework.ai.content.Media(org.springframework.util.MimeTypeUtils.IMAGE_PNG,
+                new org.springframework.core.io.ByteArrayResource(new byte[]{1, 2, 3}));
+        var message = org.springframework.ai.chat.messages.UserMessage.builder().text("Inspect").media(List.of(media)).build();
+        var options = OpenAiChatOptions.builder().model("vision").maxTokens(64).build();
+        var prompt = new Prompt(List.of(message), options);
+        int textBudget = vision.framing().applyAsInt(new Prompt("Inspect", options));
+        assertThrows(IllegalStateException.class, () -> vision.request(prompt, textBudget));
+        int imageBudget = textBudget + io.memoryos.chat.execution.ChatTurnSetup.IMAGE_INPUT_TOKENS;
+        assertThrows(IllegalStateException.class, () -> vision.request(prompt, imageBudget - 1));
+        var accepted = vision.request(prompt, imageBudget);
+        assertEquals(List.of(media), assertInstanceOf(org.springframework.ai.chat.messages.UserMessage.class,
+                accepted.getInstructions().getFirst()).getMedia());
+        var textOnly = OpenAiChatRequestPolicy.create(new ModelSettings(8192, 128,
+                new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, ChatTokenizerProfiles.HOSTED), tokens);
+        assertThrows(ChatException.class, () -> textOnly.request(prompt, imageBudget));
+    }
+
+    @Test
     void profileValidationRejectsUnknownAndContradictoryCapabilitiesLocally() {
         var meters = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         try (var adapter = new OpenAiChatProviderAdapter(io.micrometer.observation.ObservationRegistry.NOOP, meters)) {
