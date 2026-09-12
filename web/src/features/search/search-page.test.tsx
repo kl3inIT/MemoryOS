@@ -13,11 +13,20 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { SearchPage } from "./search-page";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
+import type * as ChatWorkspaceApi from "@/features/chat/chat-workspace-api";
 
 const searchDocumentsMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
+vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
+  ...(await importOriginal<typeof ChatSdk>()),
   searchDocuments: searchDocumentsMock,
+  listChatSessions: vi.fn().mockResolvedValue({ data: [] }),
+}));
+
+vi.mock("@/features/chat/chat-workspace-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof ChatWorkspaceApi>()),
+  loadProjects: vi.fn().mockResolvedValue([]),
 }));
 
 const OWNER_SESSION: ApplicationSession = {
@@ -28,7 +37,22 @@ const OWNER_SESSION: ApplicationSession = {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE"],
+  capabilities: [
+    "SYSTEM_ADMIN",
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+    "USERS_MANAGE",
+    "GROUPS_READ",
+    "GROUPS_MANAGE",
+    "SOURCES_READ",
+    "SOURCES_MANAGE",
+    "SOURCES_DELETE",
+    "MODELS_MANAGE",
+  ],
   scopedCapabilities: [],
 };
 
@@ -309,17 +333,48 @@ describe("SearchPage", () => {
     await renderNewSession({
       ...OWNER_SESSION,
       tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
-      capabilities: [],
+      capabilities: [
+        "SYSTEM_BASIC",
+        "SEARCH_READ",
+        "CHAT_READ",
+        "CHAT_WRITE",
+        "IMAGE_GENERATE",
+        "LLM_GATEWAY_USE",
+      ],
       scopedCapabilities: [],
     });
 
     expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
   });
+
+  it("denies Search without global SEARCH_READ and sends no Search or reader requests", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await renderNewSession({
+      ...OWNER_SESSION,
+      capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
+      scopedCapabilities: ["SEARCH_READ"],
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Search access denied");
+    expect(screen.queryByRole("textbox", { name: "Search documents" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Document passages" })).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(searchDocumentsMock).not.toHaveBeenCalled();
+  });
   it("routes user-only administrators to users", async () => {
     await renderNewSession({
       ...OWNER_SESSION,
-      capabilities: ["USERS_MANAGE"],
+      capabilities: [
+        "SYSTEM_BASIC",
+        "SEARCH_READ",
+        "CHAT_READ",
+        "CHAT_WRITE",
+        "IMAGE_GENERATE",
+        "LLM_GATEWAY_USE",
+        "USERS_MANAGE",
+      ],
     });
 
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
@@ -332,7 +387,14 @@ describe("SearchPage", () => {
     await renderNewSession({
       ...OWNER_SESSION,
       tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
-      capabilities: [],
+      capabilities: [
+        "SYSTEM_BASIC",
+        "SEARCH_READ",
+        "CHAT_READ",
+        "CHAT_WRITE",
+        "IMAGE_GENERATE",
+        "LLM_GATEWAY_USE",
+      ],
       scopedCapabilities: ["GROUPS_READ"],
     });
 

@@ -1,10 +1,11 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ShieldCheck, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listSourceGroupsOptions,
@@ -27,6 +28,7 @@ export function SourceGroupsSection({
 }: SourceGroupsSectionProps) {
   const ui = useAppTranslation();
 
+  const globalManage = useCapabilityAuthority("SOURCES_MANAGE") === "global";
   const groups = useQuery({
     ...listSourceGroupsOptions({ path: { sourceId } }),
     retry: false,
@@ -35,7 +37,10 @@ export function SourceGroupsSection({
   const [baselineIds, setBaselineIds] = useState<Set<string>>(() => new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<AppCopy | null>(null);
-  const currentGroups = useMemo(() => groups.data?.items ?? [], [groups.data?.items]);
+  const currentGroups = useMemo(
+    () => (groups.data?.items ?? []).filter((group) => group.systemKey === null),
+    [groups.data?.items],
+  );
   const incomingIds = useMemo(
     () => new Set(currentGroups.map((group) => group.id)),
     [currentGroups],
@@ -53,8 +58,19 @@ export function SourceGroupsSection({
     setSelectedIds(new Set(incomingIds));
   }, [dirty, groups.data, incomingIds, incomingKey]);
 
+  const [previousAuthority, setPreviousAuthority] = useState({ sourceId, editable });
+  if (previousAuthority.sourceId !== sourceId || previousAuthority.editable !== editable) {
+    setPreviousAuthority({ sourceId, editable });
+    if (previousAuthority.sourceId !== sourceId || !editable) {
+      setSelectedIds(new Set(incomingIds));
+      setBaselineIds(new Set(incomingIds));
+      setError(null);
+    }
+  }
+
   async function save() {
-    if (!dirty || selectedIds.size === 0 || updateGroups.isPending) return;
+    if (!editable || !dirty || (!globalManage && selectedIds.size === 0) || updateGroups.isPending)
+      return;
     setError(null);
     try {
       await updateGroups.mutateAsync({
@@ -75,13 +91,15 @@ export function SourceGroupsSection({
       className="mt-8 border-t border-border-subtle pt-6"
     >
       <div className="flex items-center gap-3">
-        <SourceSectionIcon icon={UsersRound} />
+        <SourceSectionIcon icon={OnyxUsersIcon} />
         <h2 id="source-groups-heading" className="font-heading-h3 text-content-primary">
           {ui("Group associations")}
         </h2>
       </div>
       <p className="mt-3 font-main-ui-body text-content-muted">
-        {ui("These groups define who can manage this Source within their authorized surface.")}
+        {ui(
+          "Groups scope Source management. For private File Sources, their members can also search and read documents. Drive document access is not granted here. Admin and other global Source managers do not need a group association to manage a Source.",
+        )}
       </p>
 
       {error ? (
@@ -119,8 +137,9 @@ export function SourceGroupsSection({
           <SourceGroupPicker
             className="[--control-height-sm:var(--control-height-md)] [&_[data-slot=input]:enabled]:bg-surface-raised [&_[data-slot=source-group-options]]:rounded-none [&_[data-slot=source-group-options]]:border-x-0 [&_[data-slot=source-group-options]]:bg-transparent"
             selected={selectedIds}
-            knownGroups={currentGroups}
-            required
+            knownGroups={groups.data?.items}
+            required={!globalManage}
+            disabled={updateGroups.isPending}
             onChange={setSelectedIds}
           />
           <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -136,7 +155,7 @@ export function SourceGroupsSection({
             </Button>
             <Button
               pending={updateGroups.isPending}
-              disabled={!dirty || selectedIds.size === 0}
+              disabled={!dirty || (!globalManage && selectedIds.size === 0)}
               onClick={() => void save()}
             >
               {updateGroups.isPending ? ui("Saving associations…") : ui("Save associations")}
@@ -155,11 +174,7 @@ export function SourceGroupsSection({
               variant="secondary"
               className="gap-1.5 border border-border-subtle bg-surface-subtle text-content-secondary"
             >
-              {group.systemKey ? (
-                <ShieldCheck className="size-3" aria-hidden="true" />
-              ) : (
-                <UsersRound className="size-3" aria-hidden="true" />
-              )}
+              <OnyxUsersIcon className="size-3" aria-hidden="true" />
               {group.name}
             </Badge>
           ))}

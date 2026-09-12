@@ -1,20 +1,11 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
-import {
-  ArrowLeft,
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plug,
-  Settings2,
-  ShieldCheck,
-  UsersRound,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Menu, PanelLeftClose, PanelLeftOpen, Plug, Settings2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/components/app-shell/account-menu";
 import { Brand } from "@/components/brand";
+import { OnyxUserIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
@@ -141,7 +132,7 @@ function SidebarContents({
             </Link>
             {mobile ? (
               <Dialog.Close asChild>
-                <IconButton prominence="internal" size="md" aria-label={ui("Đóng điều hướng")}>
+                <IconButton prominence="internal" size="md" aria-label={ui("Close navigation")}>
                   <X />
                 </IconButton>
               </Dialog.Close>
@@ -185,7 +176,7 @@ function SidebarContents({
                 {canManageUsers ? (
                   <SidebarTab
                     to="/admin/users"
-                    icon={<UsersRound className="size-4" />}
+                    icon={<OnyxUserIcon className="size-4" />}
                     selected={adminPage === "users"}
                     collapsed={collapsed}
                     onClick={onNavigate}
@@ -196,7 +187,7 @@ function SidebarContents({
                 {canReadGroups ? (
                   <SidebarTab
                     to="/admin/groups"
-                    icon={<ShieldCheck className="size-4" />}
+                    icon={<OnyxUsersIcon className="size-4" />}
                     selected={adminPage === "groups"}
                     collapsed={collapsed}
                     onClick={onNavigate}
@@ -325,7 +316,7 @@ export function AppShell({
               <IconButton
                 prominence="internal"
                 size="md"
-                aria-label={ui("Mở điều hướng")}
+                aria-label={ui("Open navigation")}
                 className="md:hidden"
               >
                 <Menu />

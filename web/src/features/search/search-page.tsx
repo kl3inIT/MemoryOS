@@ -27,6 +27,7 @@ import { DocumentPreviewDialog, type DocumentSelection } from "./document-previe
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
@@ -94,7 +95,26 @@ type VoiceStatus = "idle" | "listening" | "permission-denied" | "error";
 
 export function SearchPage() {
   const ui = useAppTranslation();
+  const canSearch = useGlobalCapability("SEARCH_READ");
+  if (!canSearch) {
+    return (
+      <AppShell pageTitle={ui("Search")}>
+        <section role="alert" className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
+          <h1 className="font-heading-h2 text-content-primary">{ui("Search access denied")}</h1>
+          <p className="mt-2 text-content-secondary">
+            {ui(
+              "Your account does not have permission to search or read documents. Ask an administrator for Basic access.",
+            )}
+          </p>
+        </section>
+      </AppShell>
+    );
+  }
+  return <AuthorizedSearchPage />;
+}
 
+function AuthorizedSearchPage() {
+  const ui = useAppTranslation();
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");

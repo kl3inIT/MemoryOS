@@ -10,6 +10,9 @@ describe("localized user problem descriptors", () => {
     expect(
       membershipActionError(new ApiError(403, { code: "IAM_CONFIGURED_OWNER_PROTECTED" })),
     ).toEqual({ key: "ownerProtected" });
+    expect(membershipActionError(new ApiError(409, { code: "IAM_LAST_GROUP_PROTECTED" }))).toEqual({
+      key: "lastGroup",
+    });
     expect(membershipActionError(new ApiError(403, { detail: "private" }))).toEqual({
       key: "forbidden",
     });

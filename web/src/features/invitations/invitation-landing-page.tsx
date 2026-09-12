@@ -1,7 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CircleAlert, Clock3, ShieldCheck, UserRoundCheck } from "lucide-react";
+import { ArrowRight, CircleAlert, Clock3, ShieldCheck } from "lucide-react";
+import { OnyxUserCheckIcon } from "@/components/icons/identity-icons";
 import { AuthFrame } from "@/components/states/auth-frame";
 import { Button } from "@/components/ui/button";
 import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
@@ -37,7 +38,7 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
   return (
     <AuthFrame>
       <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-surface-subtle text-content-secondary">
-        <UserRoundCheck className="size-5" aria-hidden="true" />
+        <OnyxUserCheckIcon className="size-5" aria-hidden="true" />
       </div>
       <p className="font-secondary-body text-content-muted">{ui("Tenant invitation")}</p>
       <h1 className="mt-3 max-w-xl font-heading-h2 text-content-primary">

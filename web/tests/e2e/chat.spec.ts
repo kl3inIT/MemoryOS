@@ -6,7 +6,14 @@ const identity = {
   authorizationVersion: 1,
   uiLanguage: "vi",
   tenant: { displayName: "Test tenant", role: "MEMBER" },
-  capabilities: [],
+  capabilities: [
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+  ],
   scopedCapabilities: [],
 };
 

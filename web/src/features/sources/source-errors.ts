@@ -10,6 +10,7 @@ type SourceMutation =
   | "google-drive"
   | "google-drive-discovery"
   | "google-drive-schedule"
+  | "metadata"
   | "associations";
 
 const statusMessages: Record<string, string> = {
@@ -149,7 +150,7 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
     if (error.status === 404) return unavailableMessage(mutation);
     if (error.status === 409) return conflictMessage(mutation);
     if (error.status === 400 && mutation === "associations")
-      return "Every Source must remain associated with at least one group.";
+      return "Select only ordinary groups you can manage. Scoped Source managers must keep at least one group association.";
     if (error.status === 400 || error.status === 413)
       return "Check the source name or uploaded file and try again.";
     if (code && isSafeCode(code))

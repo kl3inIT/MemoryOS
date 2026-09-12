@@ -17,7 +17,9 @@ async function sourcePage(
     lastSucceededAt: "2026-09-01T10:00:00Z",
     errorCode: null,
     actions: [
-      ...(provider === "FILE" ? ["upload"] : []),
+      ...(provider === "FILE"
+        ? ["upload"]
+        : ["manage_configuration", "synchronize", "manage_schedule", "pause_sync"]),
       "reindex",
       "remove_items",
       "delete",
@@ -69,7 +71,7 @@ async function sourcePage(
         authorizationVersion: 1,
         uiLanguage: "en",
         tenant: { displayName: "Team", role: "OWNER" },
-        capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+        capabilities: ["SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
         scopedCapabilities: [],
       },
     }),
@@ -83,7 +85,7 @@ async function sourcePage(
       await route.fulfill({
         json: {
           items: [
-            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+            { id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Knowledge team", systemKey: null },
           ],
           page: 0,
           size: 25,
@@ -97,7 +99,7 @@ async function sourcePage(
       await route.fulfill({
         json: {
           items: [
-            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+            { id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Knowledge team", systemKey: null },
           ],
         },
       });
@@ -194,6 +196,7 @@ async function sourcePage(
           oauthClientConfigured: true,
           revision: 1,
           scheduleRevision: 1,
+          syncPaused: false,
           syncIntervalMinutes: 5,
           scopeMode: "SPECIFIC",
           counts: { folders: 0, files: 1, linkedDocuments: 0, approvedLinkedDocuments: 0 },

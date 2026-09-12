@@ -17,7 +17,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { useGlobalCapability } from "@/features/identity/application-session-context";
+import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { findSourceProvider } from "./source-provider-catalog";
@@ -26,7 +26,7 @@ import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 export function SourcesPage() {
   const ui = useAppTranslation();
 
-  const canCreate = useGlobalCapability("SOURCES_MANAGE");
+  const canCreate = useCapabilityAuthority("SOURCES_MANAGE") !== "none";
   const sourcesQuery = useQuery({
     ...listSourcesOptions(),
     retry: false,
@@ -386,16 +386,18 @@ function SourceRow({ source }: { source: SourceSummary }) {
       </td>
       <td className="px-4 text-sm tabular-nums text-content-secondary">{source.documentCount}</td>
       <td className="px-4 text-center">
-        <IconButton
-          asChild
-          size="sm"
-          prominence="tertiary"
-          aria-label={ui("Manage {{v1}}", { v1: source.name })}
-        >
-          <Link to="/admin/sources/$sourceId" params={{ sourceId: source.id }}>
-            <Settings />
-          </Link>
-        </IconButton>
+        {source.actions.length > 0 ? (
+          <IconButton
+            asChild
+            size="sm"
+            prominence="tertiary"
+            aria-label={ui("Manage {{v1}}", { v1: source.name })}
+          >
+            <Link to="/admin/sources/$sourceId" params={{ sourceId: source.id }}>
+              <Settings />
+            </Link>
+          </IconButton>
+        ) : null}
       </td>
     </tr>
   );

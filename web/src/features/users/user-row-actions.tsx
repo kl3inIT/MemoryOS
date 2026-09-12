@@ -1,15 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import {
-  LoaderCircle,
-  MoreHorizontal,
-  RefreshCw,
-  UserRoundCheck,
-  UserRoundX,
-  UsersRound,
-  XCircle,
-} from "lucide-react";
+import { LoaderCircle, MoreHorizontal, RefreshCw, XCircle } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { Popover } from "radix-ui";
+import { OnyxUserCheckIcon, OnyxUserXIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { MenuItem } from "@/components/ui/menu-item";
@@ -54,7 +47,7 @@ export function UserRowActions({
   const label =
     entry.displayName?.trim() ||
     entry.email?.trim() ||
-    (entry.actorId ? `user ${entry.actorId}` : "this invitation");
+    (entry.actorId ? ui("user {{id}}", { id: entry.actorId }) : ui("this invitation"));
   const canChangeMembership =
     entry.role === "MEMBER" &&
     Boolean(entry.actorId) &&
@@ -135,7 +128,7 @@ export function UserRowActions({
             {canChangeGroups ? (
               <>
                 <MenuItem
-                  icon={<UsersRound className="size-4.5" />}
+                  icon={<OnyxUsersIcon className="size-4.5" />}
                   onClick={() => {
                     setMenuOpen(false);
                     onEditGroups(actionButtonRef.current);
@@ -152,7 +145,7 @@ export function UserRowActions({
               entry.status === "ACTIVE" ? (
                 <MenuItem
                   tone="danger"
-                  icon={<UserRoundX className="size-4.5" />}
+                  icon={<OnyxUserXIcon className="size-4.5" />}
                   onClick={() => {
                     setMenuOpen(false);
                     setConfirmation("deactivate");
@@ -162,7 +155,7 @@ export function UserRowActions({
                 </MenuItem>
               ) : (
                 <MenuItem
-                  icon={<UserRoundCheck className="size-4.5" />}
+                  icon={<OnyxUserCheckIcon className="size-4.5" />}
                   onClick={() => {
                     setMenuOpen(false);
                     setConfirmation("activate");

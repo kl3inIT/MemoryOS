@@ -14,7 +14,7 @@ const owner = {
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },
-  capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+  capabilities: ["SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
   scopedCapabilities: [],
 };
 const credential = {
@@ -27,6 +27,7 @@ const credential = {
   createdAt: "2026-09-01T00:00:00Z",
   updatedAt: "2026-09-01T00:00:00Z",
   sourceCount: 0,
+  actions: ["reauthorize", "replace_oauth_client", "revoke", "delete"],
 };
 const source: SourceSummary = {
   id: "46337ebd-a134-41de-b322-196cd9be22c4",
@@ -38,7 +39,17 @@ const source: SourceSummary = {
   documentCount: 0,
   lastSucceededAt: null,
   errorCode: null,
-  actions: ["reindex", "remove_items", "delete", "manage_groups"],
+  actions: [
+    "reindex",
+    "remove_items",
+    "delete",
+    "manage_groups",
+    "rename",
+    "manage_configuration",
+    "synchronize",
+    "manage_schedule",
+    "pause_sync",
+  ],
 };
 const secondSourceId = "7c6d85d0-ddd4-445c-9fd0-280f2b3e5b19";
 const fileLink = "https://docs.google.com/document/d/document-a/edit";
@@ -150,6 +161,7 @@ async function enterprisePage(page: Page, existing = false) {
         oauthClientConfigured: true,
         revision,
         scheduleRevision: prior?.configuration.scheduleRevision ?? 1,
+        syncPaused: prior?.configuration.syncPaused ?? false,
         syncIntervalMinutes: prior?.configuration.syncIntervalMinutes ?? 5,
         scopeMode: proposal.scopeMode,
         discoveryRevision: 2,
@@ -281,7 +293,7 @@ async function enterprisePage(page: Page, existing = false) {
       await route.fulfill({
         json: {
           items: [
-            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+            { id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Knowledge team", systemKey: null },
           ],
           page: 0,
           size: 25,
@@ -300,7 +312,7 @@ async function enterprisePage(page: Page, existing = false) {
       await route.fulfill({
         json: {
           items: [
-            { id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Admin", systemKey: "ADMIN" },
+            { id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Knowledge team", systemKey: null },
           ],
         },
       });
@@ -398,6 +410,20 @@ async function enterprisePage(page: Page, existing = false) {
           nextCursor: items.length > offset + pageSize ? String(offset + pageSize) : null,
         },
       });
+    } else if (path.endsWith("/pause")) {
+      const body = request.postDataJSON();
+      expect(body.expectedRevision).toBe(entry.configuration.scheduleRevision);
+      expect(request.headers()["x-memoryos-csrf"]).toBe("1");
+      entry.configuration = {
+        ...entry.configuration,
+        syncPaused: body.paused,
+        scheduleRevision: entry.configuration.scheduleRevision + 1,
+      };
+      entry.source.actions = entry.source.actions.filter(
+        (action) => action !== "pause_sync" && action !== "resume_sync",
+      );
+      entry.source.actions.push(body.paused ? "resume_sync" : "pause_sync");
+      await route.fulfill({ json: entry.configuration });
     } else if (path.endsWith("/schedule")) {
       expect(request.headers()["if-match"]).toBe(`"${entry.configuration.scheduleRevision}"`);
       entry.configuration = {
@@ -440,6 +466,36 @@ async function enterprisePage(page: Page, existing = false) {
     },
   };
 }
+
+test("Drive action refresh withdraws deep editors while retaining allowed scoped operations", async ({
+  page,
+}) => {
+  const server = await enterprisePage(page, true);
+  const entry = server.saved.get(source.id)!;
+  await page.goto(`/admin/sources/${source.id}`);
+  await page.getByText("File and folder links", { exact: true }).click();
+  await page.getByRole("button", { name: "Edit selection", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "File or folder links" })).toBeVisible();
+  entry.source.actions = [
+    "rename",
+    "manage_groups",
+    "synchronize",
+    "manage_schedule",
+    "pause_sync",
+  ];
+  await page.getByRole("button", { name: "Refresh status" }).click();
+  await expect(page.getByRole("textbox", { name: "File or folder links" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Discover linked docs" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Pause automatic sync" }).click();
+  await expect(page.getByRole("button", { name: "Resume automatic sync" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
+  await page.getByRole("button", { name: "Edit interval" }).click();
+  entry.source.actions = [];
+  await page.getByRole("button", { name: "Refresh status" }).click();
+  await expect(page.getByRole("spinbutton", { name: "Interval in minutes" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Resume automatic sync" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Google Drive configuration" })).toBeVisible();
+});
 
 test("creation recovers an accepted request after a lost response and reload before activation", async ({
   page,
