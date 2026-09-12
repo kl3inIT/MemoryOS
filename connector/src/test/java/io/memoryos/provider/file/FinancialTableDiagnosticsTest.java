@@ -360,6 +360,35 @@ class FinancialTableDiagnosticsTest {
                 incomeLabels(new String[]{"Net revenue", "Gross profit"}), mapper).size());
     }
 
+    @Test
+    void ignoresMalformedCodesUntilAnIncomeBandIsEstablished() {
+        var blocks = incomeLabels(new String[]{"Net revenue", "Metric"});
+        cells(blocks).add(cell(1, 0, "10", false).put("end_row_offset_idx", 1));
+
+        assertEquals(0, FinancialTableDiagnostics.assess(blocks, mapper).size());
+
+        cellAt(blocks, 2, 1).put("text", "Gross profit");
+        cells(blocks).add(cell(1, 0, "10", false));
+        cells(blocks).add(cell(1, 1, "20", false));
+        var original = blocks.deepCopy();
+
+        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+
+        assertEquals(1, checks.size());
+        assertEquals("NON_ROW_ORIENTED_INCOME_LABELS", checks.get(0).path("reason").asString());
+        assertEquals(original, blocks);
+    }
+
+    @Test
+    void doesNotInferAnIncomeBandFromInvalidTableDimensions() {
+        var blocks = incomeLabels(new String[]{"Net revenue", "Gross profit"});
+        cells(blocks).add(cell(1, 0, "10", false));
+        cells(blocks).add(cell(1, 1, "20", false));
+        ((ObjectNode) blocks.get(0).path("table")).put("num_rows", 0);
+
+        assertEquals(0, FinancialTableDiagnostics.assess(blocks, mapper).size());
+    }
+
     private ArrayNode incomeLabels(String[] labels) {
         var blocks = mapper.createArrayNode();
         var table = blocks.addObject().put("index", 17).put("kind", "TABLE")

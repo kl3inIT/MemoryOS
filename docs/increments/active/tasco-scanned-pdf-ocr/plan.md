@@ -241,3 +241,11 @@ Final `gradlew.bat clean check --no-daemon --no-parallel --max-workers=1 --no-co
 After publishing diagnostic commit `25fbd1d`, GitHub reported PR #101 was already merged. The new commit therefore does not belong to that merged PR. Current `origin/main` is `24db388` (PR #102); it was merged into this branch without conflicts, preserving its Chat, landing, deployment and V40 migration changes. The follow-up diff against main remains limited to the seven diagnostic/specification/evidence files. Integrated verification and a new PR are recorded separately from the pre-integration gate above.
 
 The integrated `clean check` passed in 15m18s with all 24 tasks executed: 661 cases, 653 passed, eight skipped, zero failures. The complete `web/pnpm check` also passed: generated API and routes stability, CI-image guard, lint, formatting, types, 136 unit tests in 22 files and production build. The existing large-chunk warning remains. No frontend implementation changes were added by this follow-up; browser CI and review must be evaluated on the new PR head, not reused from #101.
+
+#### PR #104 geometry-identification review fix
+
+The single captured [CodeRabbit review finding](https://github.com/kl3inIT/MemoryOS/pull/104#discussion_r3995464128) on `c3930d6` identified premature income classification: a malformed `10` cell could emit an income geometry diagnostic before establishing a supported code band. Invalid table dimensions had the same unsupported-classification path. Both regression reproductions failed before the fix. Code-band identification now skips malformed code cells and requires valid dimensions; a valid band still survives unrelated malformed code cells without changing source blocks. Label-geometry diagnostics remain available after establishing the valid band.
+
+The focused `FinancialTableDiagnosticsTest` run passed all 22 cases after the fix. This is a read-only diagnostic correction, not an OCR orientation or period-identity repair.
+
+The post-review repository `clean check` passed in 4m32s: 24 actionable tasks, 15 executed and nine restored from cache. The two new regression cases failed before the fix and the complete 22-case financial diagnostic suite passed afterward. Existing JVM native-access/deprecation and test OTLP-shutdown warnings remain; IDE inspection is still unavailable.

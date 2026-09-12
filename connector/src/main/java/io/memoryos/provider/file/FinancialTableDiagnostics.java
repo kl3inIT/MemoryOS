@@ -204,10 +204,7 @@ final class FinancialTableDiagnostics {
 
     private static boolean assessIncomeRows(JsonNode rawCells, int rows, int columns, int index,
             ArrayNode checks, ObjectMapper mapper) {
-        if (rows < 1 || columns < 1) {
-            return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "INVALID_CELL_GEOMETRY")
-                    .put("check", "INCOME_STATEMENT_ROW_IDENTITY"));
-        }
+        if (rows < 1 || columns < 1) return true;
         int[] codes = new int[columns];
         int codeRow = -1;
         int codeIdentities = 0;
@@ -225,8 +222,7 @@ final class FinancialTableDiagnostics {
             var cell = cell(raw);
             if (cell == null || cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
                     || cell.endColumn <= cell.column || cell.endRow > rows || cell.endColumn > columns) {
-                return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "INVALID_CELL_GEOMETRY")
-                        .put("check", "INCOME_STATEMENT_ROW_IDENTITY"));
+                continue;
             }
             if (!cell.single()) continue;
             if ((codeRow >= 0 && codeRow != cell.row) || codes[cell.column] != 0) return true;

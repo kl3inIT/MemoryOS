@@ -20,6 +20,8 @@ Unresolved row/header structure additionally reports bounded `structure_issues` 
 
 `INCOME_STATEMENT_ROW_IDENTITY` reports `INCOMPLETE` / `NON_ROW_ORIENTED_INCOME_LABELS` when at least two recognized income labels occupy distinct columns of one body row and match codes `10`, `20` or `50` in one unambiguous preceding code row. It identifies `label_row_index` and `code_row_index`, but does not transpose the table or infer periods. Vertical income rows, metric headers, labels without matching codes and ambiguous code bands do not establish this check.
 
+Income code bands require valid table dimensions and at least two distinct supported identities in valid single cells. Malformed code cells neither establish a band nor suppress one established by valid cells. Income-label geometry errors are reported only after a valid code band is established.
+
 The parser configuration records `financialChecks=cash-flow-income-v2` for these assessments; the canonical artifact schema and source blocks remain unchanged.
 
 These checks never rewrite source cells, normalized text or table geometry. An empty array means no supported check was identified, not a clean financial report; `CONSISTENT` certifies only that scoped arithmetic identity. Unsupported split labels and cross-table statements remain unassessed. Work/output is bounded to 128 checks, 20,000 blocks, 100,000 total cells, 4,096 cells/rows per table, 64 columns, 512-character labels and 80-character amounts; global assessment exhaustion emits `ASSESSMENT_LIMIT` rather than silently implying completion. Existing artifacts may omit this additive field; existing chunk readers continue consuming `blocks`, not diagnostic text.
