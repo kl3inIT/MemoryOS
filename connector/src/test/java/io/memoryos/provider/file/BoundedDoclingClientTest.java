@@ -49,7 +49,7 @@ class BoundedDoclingClientTest {
                 java.util.List.of("vie", "eng"), true, "test-private-key");
         var file = temporary.resolve("file.pdf"); java.nio.file.Files.writeString(file, "test file content");
         try (var client = BoundedDoclingClient.create(properties)) {
-            client.convertSource(ai.docling.serve.api.convert.request.ConvertDocumentRequest.builder()
+            client.convertDocument(ai.docling.serve.api.convert.request.ConvertDocumentRequest.builder()
                     .source(ai.docling.serve.api.convert.request.source.FileSource.builder().filename("document.pdf")
                             .base64String(java.util.Base64.getEncoder().encodeToString(java.nio.file.Files.readAllBytes(file))).build())
                     .options(properties.options()).target(ai.docling.serve.api.convert.request.target.InBodyTarget.builder().build()).build());

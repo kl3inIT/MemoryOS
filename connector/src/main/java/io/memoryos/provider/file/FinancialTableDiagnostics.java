@@ -71,14 +71,19 @@ final class FinancialTableDiagnostics {
             return add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"));
         }
         boolean cashBalanceLabel = false;
+        boolean incomeLabels = false;
         for (var raw : rawCells) {
-            int code = rowCode(normalize(raw.path("text").asString("")));
+            String label = normalize(raw.path("text").asString(""));
+            int code = rowCode(label);
+            incomeLabels = incomeLabels || incomeIdentity(label) != 0;
             if (code == 60 || code == 70 || code == AMBIGUOUS_CASH_BALANCE) {
                 cashBalanceLabel = true;
                 break;
             }
         }
-        if (!cashBalanceLabel) return true;
+        if (!cashBalanceLabel) {
+            return !incomeLabels || assessIncomeRows(rawCells, rows, columns, index, checks, mapper);
+        }
         var cells = new ArrayList<Cell>(rawCells.size());
         for (var raw : rawCells) {
             var cell = cell(raw);
@@ -195,6 +200,64 @@ final class FinancialTableDiagnostics {
             if (!add(checks, result)) return false;
         }
         return true;
+    }
+
+    private static boolean assessIncomeRows(JsonNode rawCells, int rows, int columns, int index,
+            ArrayNode checks, ObjectMapper mapper) {
+        if (rows < 1 || columns < 1) return true;
+        int[] codes = new int[columns];
+        int codeRow = -1;
+        int codeIdentities = 0;
+        for (var raw : rawCells) {
+            if (raw.path("column_header").asBoolean(false)) continue;
+            String text = raw.path("text").asString("");
+            if (text.length() > 80) continue;
+            int identity = switch (text.strip()) {
+                case "10" -> 1;
+                case "20" -> 2;
+                case "50" -> 4;
+                default -> 0;
+            };
+            if (identity == 0) continue;
+            var cell = cell(raw);
+            if (cell == null || cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
+                    || cell.endColumn <= cell.column || cell.endRow > rows || cell.endColumn > columns) {
+                continue;
+            }
+            if (!cell.single()) continue;
+            if ((codeRow >= 0 && codeRow != cell.row) || codes[cell.column] != 0) return true;
+            codeRow = cell.row;
+            codes[cell.column] = identity;
+            codeIdentities |= identity;
+        }
+        if (Integer.bitCount(codeIdentities) < 2) return true;
+        int[] identities = new int[rows];
+        for (var raw : rawCells) {
+            if (raw.path("column_header").asBoolean(false)) continue;
+            int identity = incomeIdentity(normalize(raw.path("text").asString("")));
+            if (identity == 0) continue;
+            var cell = cell(raw);
+            if (cell == null || cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
+                    || cell.endColumn <= cell.column || cell.endRow > rows || cell.endColumn > columns) {
+                return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "INVALID_CELL_GEOMETRY")
+                        .put("check", "INCOME_STATEMENT_ROW_IDENTITY"));
+            }
+            if (!cell.single() || cell.row <= codeRow || codes[cell.column] != identity) continue;
+            identities[cell.row] |= identity;
+            if (Integer.bitCount(identities[cell.row]) >= 2) {
+                return add(checks, diagnostic(mapper, index, "INCOMPLETE", "NON_ROW_ORIENTED_INCOME_LABELS")
+                        .put("check", "INCOME_STATEMENT_ROW_IDENTITY")
+                        .put("label_row_index", cell.row).put("code_row_index", codeRow));
+            }
+        }
+        return true;
+    }
+
+    private static int incomeIdentity(String label) {
+        if (label.contains("netrevenue") || label.contains("doanhthuthuan")) return 1;
+        if (label.contains("grossprofit") || label.contains("loinhuangop")) return 2;
+        if (label.contains("profitbeforetax") || label.contains("loinhuanketoantruocthue")) return 4;
+        return 0;
     }
 
     private static void rowIssue(ArrayNode issues, String reason, int code) {
@@ -370,6 +433,8 @@ final class FinancialTableDiagnostics {
             checks.set(MAX_CHECKS - 1, check);
             check.remove("structure_issues");
             check.remove("period_identity");
+            check.remove("label_row_index");
+            check.remove("code_row_index");
             return false;
         }
         checks.add(check);

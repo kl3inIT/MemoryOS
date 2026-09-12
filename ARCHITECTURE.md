@@ -138,6 +138,8 @@ sequenceDiagram
 
 FILE uploads use checksum-bound presigned PUT directly from the browser to object storage. Google Drive synchronization acquires provider content into tracked immutable raw snapshots before ingestion; ingestion never depends on a later provider read. Current Documents replace prior representations, while retained run/attempt records preserve observable processing history. Extraction success and Search readiness are separate states.
 
+The standalone OCR image owns a thin Serve composition and PDF backend/pipeline extensions for conservative pre-layout orientation. Worker retains its byte-only API boundary; its bounded adapter preserves raw document JSON and source-frame metadata rather than routing it through the SDK's closed document model. The [OCR recipe](infrastructure/deployment/ocr/README.md) and [Document contract](docs/specs/document.md) distinguish corrected coordinates, original provenance and unresolved financial periods. Image publication and deployment remain separate operational decisions.
+
 Search uses the current authorized Document generation. PostgreSQL holds bounded chunk text and provenance; OpenSearch holds BM25/vector projection data. Query filters narrow an already authorized scope and never create authority. Search results remain source passages; answer generation belongs to Chat.
 
 ## Chat execution and retrieval

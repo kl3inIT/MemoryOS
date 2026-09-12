@@ -3,25 +3,24 @@ package io.memoryos.provider.file;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import ai.docling.core.DoclingDocument;
-import ai.docling.serve.api.DoclingServeApi;
-import ai.docling.serve.api.convert.response.DocumentResponse;
-import ai.docling.serve.api.convert.response.InBodyConvertDocumentResponse;
+import ai.docling.serve.api.convert.response.ResponseType;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.connector.SourceInputDescriptor;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 class DoclingSourceContentExtractorTest {
     private final ObjectMapper mapper = new ObjectMapper();
-    private final DoclingServeApi client = mock(DoclingServeApi.class);
+    private final BoundedDoclingClient client = mock(BoundedDoclingClient.class);
 
     @Test
     void excludesEmbeddedImagesAndPreservesSemanticContentAndProvenance() throws Exception {
-        var document = mapper.readValue("""
+        var document = mapper.readTree("""
                 {"schema_name":"DoclingDocument","version":"1.10.0","name":"test",
                  "body":{"self_ref":"#/body","children":[{"$ref":"#/texts/0"},{"$ref":"#/pictures/0"},{"$ref":"#/tables/0"}]},
                  "texts":[{"self_ref":"#/texts/0","label":"section_header","level":1,
@@ -33,11 +32,8 @@ class DoclingSourceContentExtractorTest {
                    "column_header":true,"row_header":false,"row_section":false}]}}],
                  "pictures":[{"self_ref":"#/pictures/0","label":"picture","image":{"mimetype":"image/png",
                    "dpi":144,"size":{"width":1,"height":1},"uri":"data:image/png;base64,aW1hZ2U="}}],"pages":{}}
-                """, DoclingDocument.class);
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder().status("success")
-                .document(DocumentResponse.builder().jsonContent(document)
-                        .textContent("Báo cáo HROD\n![image](data:image/png;base64,aW1hZ2U=)\nDoanh thu").build())
-                .build());
+                """);
+        when(client.convertDocument(any())).thenReturn(response(document, "Báo cáo HROD\n![image](data:image/png;base64,aW1hZ2U=)\nDoanh thu", "success"));
         try (var extractor = extractor()) {
             var result = pdf(extractor);
             var json = mapper.readTree(result.structuredJson());
@@ -55,7 +51,7 @@ class DoclingSourceContentExtractorTest {
 
     @Test
     void rendersTableOnlyDocumentInRowAndColumnOrderWithoutTextExport() throws Exception {
-        var document = mapper.readValue("""
+        var document = mapper.readTree("""
                 {"schema_name":"DoclingDocument","version":"1.10.0","name":"test",
                  "body":{"self_ref":"#/body","children":[{"$ref":"#/tables/0"}]},
                  "tables":[{"self_ref":"#/tables/0","label":"table","data":{"num_rows":2,"num_cols":2,
@@ -69,9 +65,8 @@ class DoclingSourceContentExtractorTest {
                      {"text":"2024","row_span":1,"col_span":1,"start_row_offset_idx":0,"end_row_offset_idx":1,
                       "start_col_offset_idx":1,"end_col_offset_idx":2,"column_header":true,"row_header":false,"row_section":false}
                    ]}}],"pages":{}}
-                """, DoclingDocument.class);
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder().status("success")
-                .document(DocumentResponse.builder().jsonContent(document).build()).build());
+                """);
+        when(client.convertDocument(any())).thenReturn(response(document, null, "success"));
         try (var extractor = extractor()) {
             var result = pdf(extractor);
             assertEquals("Chỉ tiêu\t2024\nDoanh thu\t1.234", result.normalizedText());
@@ -81,7 +76,7 @@ class DoclingSourceContentExtractorTest {
 
     @Test
     void preservesMissingLeadingAndIntermediateTableColumns() throws Exception {
-        var document = mapper.readValue("""
+        var document = mapper.readTree("""
                 {"schema_name":"DoclingDocument","version":"1.10.0","name":"test",
                  "body":{"self_ref":"#/body","children":[{"$ref":"#/tables/0"}]},
                  "tables":[{"self_ref":"#/tables/0","label":"table","data":{"num_rows":3,"num_cols":3,
@@ -97,9 +92,8 @@ class DoclingSourceContentExtractorTest {
                      {"text":"3.456","row_span":1,"col_span":1,"start_row_offset_idx":2,"end_row_offset_idx":3,
                       "start_col_offset_idx":1,"end_col_offset_idx":2,"column_header":false,"row_header":false,"row_section":false}
                    ]}}],"pages":{}}
-                """, DoclingDocument.class);
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder().status("success")
-                .document(DocumentResponse.builder().jsonContent(document).build()).build());
+                """);
+        when(client.convertDocument(any())).thenReturn(response(document, null, "success"));
         try (var extractor = extractor()) {
             assertEquals("\t2025\t2024\nDoanh thu\t\t1.234\n\t3.456", pdf(extractor).normalizedText());
         }
@@ -107,7 +101,7 @@ class DoclingSourceContentExtractorTest {
 
     @Test
     void boundsSparseColumnPaddingBeforeAllocatingText() throws Exception {
-        var document = mapper.readValue("""
+        var document = mapper.readTree("""
                 {"schema_name":"DoclingDocument","version":"1.10.0","name":"test",
                  "body":{"self_ref":"#/body","children":[{"$ref":"#/tables/0"}]},
                  "tables":[{"self_ref":"#/tables/0","label":"table","data":{"num_rows":1,"num_cols":2147483647,
@@ -116,9 +110,8 @@ class DoclingSourceContentExtractorTest {
                       "start_col_offset_idx":2147483646,"end_col_offset_idx":2147483647,
                       "column_header":false,"row_header":false,"row_section":false}
                    ]}}],"pages":{}}
-                """, DoclingDocument.class);
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder().status("success")
-                .document(DocumentResponse.builder().jsonContent(document).build()).build());
+                """);
+        when(client.convertDocument(any())).thenReturn(response(document, null, "success"));
         try (var extractor = extractor()) {
             assertEquals(ExtractionFailure.WRITE_LIMIT,
                     assertThrows(ExtractionException.class, () -> pdf(extractor)).failure());
@@ -127,15 +120,13 @@ class DoclingSourceContentExtractorTest {
 
     @Test
     void rejectsImageOnlyDocumentEvenWhenTextExportContainsImageMarkup() throws Exception {
-        var document = mapper.readValue("""
+        var document = mapper.readTree("""
                 {"schema_name":"DoclingDocument","version":"1.10.0","name":"test",
                  "body":{"self_ref":"#/body","children":[{"$ref":"#/pictures/0"}]},
                  "pictures":[{"self_ref":"#/pictures/0","label":"picture","image":{"mimetype":"image/png",
                    "dpi":144,"size":{"width":1,"height":1},"uri":"data:image/png;base64,aW1hZ2U="}}],"pages":{}}
-                """, DoclingDocument.class);
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder().status("success")
-                .document(DocumentResponse.builder().jsonContent(document)
-                        .textContent("![image](data:image/png;base64,aW1hZ2U=)").build()).build());
+                """);
+        when(client.convertDocument(any())).thenReturn(response(document, "![image](data:image/png;base64,aW1hZ2U=)", "success"));
         try (var extractor = extractor()) {
             assertEquals(ExtractionFailure.MALFORMED,
                     assertThrows(ExtractionException.class, () -> pdf(extractor)).failure());
@@ -144,7 +135,7 @@ class DoclingSourceContentExtractorTest {
 
     @Test
     void rejectsTableWithoutSemanticCellText() throws Exception {
-        var document = mapper.readValue("""
+        var document = mapper.readTree("""
                 {"schema_name":"DoclingDocument","version":"1.10.0","name":"test",
                  "body":{"self_ref":"#/body","children":[{"$ref":"#/tables/0"}]},
                  "tables":[{"self_ref":"#/tables/0","label":"table","data":{"num_rows":1,"num_cols":2,
@@ -154,9 +145,8 @@ class DoclingSourceContentExtractorTest {
                      {"text":"","row_span":1,"col_span":1,"start_row_offset_idx":0,"end_row_offset_idx":1,
                       "start_col_offset_idx":1,"end_col_offset_idx":2,"column_header":true,"row_header":false,"row_section":false}
                    ]}}],"pages":{}}
-                """, DoclingDocument.class);
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder().status("success")
-                .document(DocumentResponse.builder().jsonContent(document).textContent("| | |").build()).build());
+                """);
+        when(client.convertDocument(any())).thenReturn(response(document, "| | |", "success"));
         try (var extractor = extractor()) {
             assertEquals(ExtractionFailure.MALFORMED,
                     assertThrows(ExtractionException.class, () -> pdf(extractor)).failure());
@@ -165,13 +155,12 @@ class DoclingSourceContentExtractorTest {
 
     @Test
     void rejectsSemanticTextOverCharacterLimitWithoutTextExport() throws Exception {
-        var document = mapper.readValue("""
+        var document = mapper.readTree("""
                 {"schema_name":"DoclingDocument","version":"1.10.0","name":"test",
                  "body":{"self_ref":"#/body","children":[{"$ref":"#/texts/0"}]},
                  "texts":[{"self_ref":"#/texts/0","label":"text","text":"%s","orig":""}],"pages":{}}
-                """.formatted("a".repeat(2_000_001)), DoclingDocument.class);
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder().status("success")
-                .document(DocumentResponse.builder().jsonContent(document).build()).build());
+                """.formatted("a".repeat(2_000_001)));
+        when(client.convertDocument(any())).thenReturn(response(document, null, "success"));
         try (var extractor = extractor()) {
             assertEquals(ExtractionFailure.WRITE_LIMIT,
                     assertThrows(ExtractionException.class, () -> pdf(extractor)).failure());
@@ -180,8 +169,7 @@ class DoclingSourceContentExtractorTest {
 
     @Test
     void rejectsPartialSuccessInsteadOfPublishingIncompleteDocument() {
-        when(client.convertSource(any())).thenReturn(InBodyConvertDocumentResponse.builder()
-                .status("partial_success").build());
+        when(client.convertDocument(any())).thenReturn(response(null, null, "partial_success"));
         try (var extractor = extractor()) {
             assertEquals(ExtractionFailure.MALFORMED,
                     assertThrows(ExtractionException.class, () -> pdf(extractor)).failure());
@@ -199,6 +187,12 @@ class DoclingSourceContentExtractorTest {
                     () -> extractor.extract(new ByteArrayInputStream(text), text.length + 1, "note.txt", SourceInputDescriptor.binary()));
             verifyNoInteractions(client);
         }
+    }
+
+    private BoundedDoclingClient.CanonicalResponse response(JsonNode document, String text, String status) {
+        return new BoundedDoclingClient.CanonicalResponse(
+                mapper.createObjectNode().put("text_content", text).set("json_content", document),
+                List.of(), status, ResponseType.IN_BODY);
     }
 
     private DoclingSourceContentExtractor extractor() {

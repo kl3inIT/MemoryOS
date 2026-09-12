@@ -170,10 +170,10 @@ The frontend gate passed 99 unit tests in 18 files; the two affected Chromium sc
 
 - [x] Investigate Windows Worker termination `1073807364` from process, host and runtime evidence before adding restart behavior; no automatic restart was added.
 - [ ] Correct evidence-backed row/period-column assignment, beginning with Q1 consolidated total liabilities and equity on physical page 8; preserve genuine ambiguity and source values.
-- [ ] Expand separately sealed original-page benchmarks with held-out reports, blanks, dashes, negatives, multiple periods, merged headers and continuation cases; retain the original 104-cell scorer unchanged.
-- [ ] Reevaluate bounded OCR recovery against those controls and document the evidence-based production/offline decision.
+- [x] Expand separately sealed original-page benchmarks with held-out reports, blanks, dashes, negatives, multiple periods, merged headers and continuation cases; retain the original 104-cell scorer unchanged.
+- [x] Reevaluate bounded OCR recovery against those controls and document the evidence-based production/offline decision.
 - [x] Improve bounded financial diagnostic coverage and explain missing/ambiguous structures without arithmetic repair.
-- [ ] Measure actual processing stages, then apply only demonstrated performance improvements without blindly increasing concurrency.
+- [x] Measure actual processing stages, then apply only demonstrated performance improvements without blindly increasing concurrency.
 - [ ] Verify the changed extraction/indexing runtime and actual Sources surface, consolidate durable evidence and commit in local functional groups.
 
 ### Publication priority — 2026-09-12
@@ -196,3 +196,115 @@ The two affected browser files passed all five selected Chromium scenarios local
 The first local `clean check` passed API, connector and all 395 core cases, but the Worker Source convergence test timed out. The command incorrectly supplied an empty `DOCLING_TEST_ENDPOINT`; that test selects the optional DOCX/Docling path whenever the variable exists, unlike the ordinary CI environment where it is absent. The corrected gate omits the variable rather than changing Worker behavior or its timeout. This initial local gate is not a passing result. JetBrains semantic inspection remains unavailable.
 
 The corrected terminating `clean check --no-daemon --no-parallel --max-workers=1 --no-configuration-cache --console=plain` passed in 1m27s on JDK 25 with `JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=2`, `CI=true`, dev services disabled, OpenAPI writes disabled and the optional Docling endpoint absent. Reports contain 655 cases: 647 passed, eight skipped, zero failures/errors. API/connector/core results were restored from the preceding successful module executions; Worker executed and passed its real TXT upload/index/remove/delete flow. Latest-head GitHub CI is checked separately after pushing the fix.
+
+### Resumed structural investigation — 2026-09-12
+
+PR #101 head `cb9f352` passed [CI run 34671317292](https://github.com/kl3inIT/MemoryOS/actions/runs/34671317292), including both browser shards and the aggregate gate. The user then resumed the previously paused structural/OCR work; the PR remains open and staging remains untouched.
+
+- [x] Execute the previously sealed held-out scorer against the mapped retained artifacts without changing truth, scorer or artifact bytes.
+- [x] Audit structural identity failures and separate them from wrong or missing recognized amounts.
+- [x] Trace Q1 page 8 raw geometry and evaluate bounded, source-backed correction candidates against existing controls.
+- [x] Measure only observable processing stages and promote changes only after no-regression and runtime verification.
+
+The first unchanged held-out evaluation covers six reports and sixteen scored pages: 30/121 numeric cells and 1/20 dash cells pass the full row/period-identity contract; three source cells are explicitly unscorable. This is not a claim that every remaining recognized amount is numerically wrong: row identity passes 37/60 and period-column order 28/60, with merged/continued-header controls still unassessed. Original-page/scorer validity and parser structure are being audited separately. Private output is `.tmp/tasco-2025/structure-followup/benchmark/baseline-score.private.json`; the original 104-cell baseline remains unchanged.
+
+#### Structural audit and promotion decision
+
+Fourteen missing-row and nine wrong-label outcomes originate in three sideways/transposed income pages, rather than proving that their recognized digits are wrong. Nine remaining missing-period-header outcomes contain genuinely damaged OCR header text; relaxing year/quarter matching would invent identity. Direct inspection of the original Q2 English separate balance-sheet image confirms both disputed code-150 cells contain printed dashes: keep their sealed annotations unchanged.
+
+Coverage remains bounded: selected rows contain no genuine blank amount cell and no ASCII-minus negative; blank controls are note-column blanks and sampled negatives use parentheses. Three continuation controls repeat source headers, so they do not establish headerless cross-page inheritance. The unchanged structural scorer passes 0/3 continuation-identity and 0/4 merged-parent-header controls. These are limitations, not accepted parser behavior.
+
+The Q1 consolidated page-8 current total is printed beneath a red stamp, not naturally blank. The recognized prior-period token belongs only to its prior lane. A shadow-only relocation preserves all recognized values and changes two of 180 grid slots, but does not recover the current amount. Recovery-v2 therefore remains offline and abstains here; no value is copied across periods.
+
+All four inspected income originals carry rotation metadata `270`. OSD identifies the corresponding `90` correction and leaves twelve upright controls at `0`, but confidence is too variable for a safe threshold. On the controlled Q2 English separate income page, correcting metadata changes the table from 6×17 to 20×7 and improves unchanged-scorer row identity from 0/3 to 3/3; period order remains 0/3 because merged quarter/YTD ancestry is still damaged. This is one source-preserving counterfactual, not a promoted rotation policy.
+
+Pinned Serve 1.32.0 has no pre-layout orientation request hook. Tesseract OSD runs after layout and rotates only OCR crops. Python SDK backend/pipeline injection requires service code; Worker-side PDFBox is available but no orientation detector exists, and the current 1 GiB Worker requires bounded memory and time accounting. The Java SDK also cannot emit Serve's gated custom-OCR configuration; `images_scale` does not control Tesseract OCR DPI. No new runtime dependency, custom service, shared setting or automatic preprocessing is introduced. Structural correction remains open pending an integration decision and passing period-identity controls.
+
+#### Measured performance and rejected FAST candidate
+
+Offline profiling used the retained local image `sha256:a7d3753fa80f66b8b79dfe451350f2d4a437f36c20a2836d10afb7cd3cb24055`, no network/model downloads, one CPU and 3 GiB memory. On Q1 page 8, warm ACCURATE conversion took 25.76 s versus FAST 16.64 s; table structure accounted for approximately 75% of the ACCURATE warm pipeline. These are measured local samples, not queue/publication timings or a production latency guarantee.
+
+The FAST candidate processed ten reports and 52 selected pages in 698.53 s, verifying each original PDF SHA and passing real parser output through the production canonicalization path. Held-out totals remain 30/121 numeric and 1/20 dash; twelve already-failing cells change failure classification. The original scorer remains 93/104 only because two annual Vietnamese separate gains offset two annual English separate regressions. A matched same-image, same-page control confirms both English code-140 periods are `exact_numeric` with ACCURATE and `missing_cell` with FAST. Reject global FAST despite its timing improvement; retain ACCURATE, OCR settings and concurrency.
+
+Private evidence remains under `.tmp/tasco-2025/structure-followup/`: `resumed-q1/`, `resumed-orientation/counterfactual-score.private.json`, `resumed-profile/`, `resumed-fast/` and `resumed-fast/guard-control/score.private.json`. Original truth/scorers and published artifacts are unchanged.
+
+#### Bounded diagnostic implementation
+
+`INCOME_STATEMENT_ROW_IDENTITY` reports `INCOMPLETE` / `NON_ROW_ORIENTED_INCOME_LABELS` only with at least two matching supported code/label pairs in an explicit transposed code band; ordinary side-by-side metrics without that band remain unassessed. A regression reproduction failed before tightening the guard and passes afterward. Vertical rows, headers, repeated identities and the existing cash-flow path remain protected. The diagnostic revision is `cash-flow-income-v2`; it does not repair amounts, transpose cells or claim period identity.
+
+The final compiled diagnostic was replayed on all six held-out canonical artifacts: every `blocksUnchanged` comparison passed, and the new income assessment appeared only on Q2 English consolidated, at code row 5 / label row 6. Observed mean diagnostic execution was 9.3–17.8 ms per artifact during the local verification run; this is not a service-level performance guarantee. No Source was reindexed and no staging deployment or published artifact was changed.
+
+Final `gradlew.bat clean check --no-daemon --no-parallel --max-workers=1 --no-configuration-cache --console=plain` passed after the diagnostic/provenance changes in 5m44s on JDK 25.0.3: 657 cases, 649 passed, eight skipped, zero failures. Existing compiler unchecked-operation, JVM native-access/deprecation and test OTLP-shutdown warnings remain. JetBrains MCP is unavailable and the LSP reference request reports no language server; this is not an IDE-clean claim. This verifies the diagnostic checkpoint, not a corrected extraction/indexing rollout or newly reindexed Sources surface.
+
+#### Follow-up publication after external merge
+
+After publishing diagnostic commit `25fbd1d`, GitHub reported PR #101 was already merged. The new commit therefore does not belong to that merged PR. Current `origin/main` is `24db388` (PR #102); it was merged into this branch without conflicts, preserving its Chat, landing, deployment and V40 migration changes. The follow-up diff against main remains limited to the seven diagnostic/specification/evidence files. Integrated verification and a new PR are recorded separately from the pre-integration gate above.
+
+The integrated `clean check` passed in 15m18s with all 24 tasks executed: 661 cases, 653 passed, eight skipped, zero failures. The complete `web/pnpm check` also passed: generated API and routes stability, CI-image guard, lint, formatting, types, 136 unit tests in 22 files and production build. The existing large-chunk warning remains. No frontend implementation changes were added by this follow-up; browser CI and review must be evaluated on the new PR head, not reused from #101.
+
+#### PR #104 geometry-identification review fix
+
+The single captured [CodeRabbit review finding](https://github.com/kl3inIT/MemoryOS/pull/104#discussion_r3995464128) on `c3930d6` identified premature income classification: a malformed `10` cell could emit an income geometry diagnostic before establishing a supported code band. Invalid table dimensions had the same unsupported-classification path. Both regression reproductions failed before the fix. Code-band identification now skips malformed code cells and requires valid dimensions; a valid band still survives unrelated malformed code cells without changing source blocks. Label-geometry diagnostics remain available after establishing the valid band.
+
+The focused `FinancialTableDiagnosticsTest` run passed all 22 cases after the fix. This is a read-only diagnostic correction, not an OCR orientation or period-identity repair.
+
+The post-review repository `clean check` passed in 4m32s: 24 actionable tasks, 15 executed and nine restored from cache. The two new regression cases failed before the fix and the complete 22-case financial diagnostic suite passed afterward. Existing JVM native-access/deprecation and test OTLP-shutdown warnings remain; IDE inspection is still unavailable.
+
+#### Approved Docling-service implementation
+
+- [x] Establish owned service composition at the pinned SDK boundary while preserving the existing Serve API and lifecycle.
+- [x] Implement bounded, evidence-gated pre-layout orientation without modifying original source bytes or shared settings.
+- [x] Resolve period ancestry only where source headers and geometry establish it; keep unsupported cases explicit.
+- [x] Exercise the real service path and unchanged sealed financial scorers, including upright/no-regression controls and resource limits.
+- [x] Record verified behavior and limitations in canonical documentation before publishing; do not deploy or reindex Sources.
+
+##### Implementation and local service evidence — 2026-09-12
+
+The standalone image starts owned `memoryos_docling` composition over Serve 1.32.0 rather than patching upstream objects or preprocessing in Worker. Only the standard PDF/OCR route is wrapped; requested backend/options, stock authentication/admission, local queue lifecycle and non-PDF routes remain in use. The service refuses non-local orchestration and UI mode. Original PDF bytes are retained; accepted corrections modify only the temporary PDF's rotation metadata before layout. Native-text pages, unresolved votes and expired preprocessing budgets remain unchanged.
+
+The Java SDK 0.6.5 roundtrip dropped supported custom `BaseMeta` fields, and its sealed response hierarchy cannot be extended. The existing bounded client now decodes a minimal owned response envelope with raw document JSON and the SDK's typed error records. The same canonical validation remains shared by Source and multipart extraction. Real Serve omits `response_type` for in-body responses: absence is accepted, an explicit non-inbody discriminator is rejected. The transport still submits once, observes the same task and does not retry result retrieval. No separate Chat implementation or publication path was added.
+
+Final local image: `sha256:e729024a63bb22aa7ab41c1633462592705f7bc17f2512830dbbc0512411d921`. The API controls used four CPUs, an 8 GiB configured container limit, a read-only filesystem, one local worker, shared models, offline models and a synthetic private API key. These settings belong only to the isolated probe; the deployment manifest, published image references, managed settings and retained runtimes were not changed. Container limits are not peak-RSS or sustained-capacity measurements.
+
+- The production detector exercised all sixteen sealed source rasters at four right-angle rotations: 64 controls, 59 accepted orientations, five abstentions and zero wrong accepted orientations. The isolated detector had one CPU/1 GiB and no network; maximum observed case time was 3.856 seconds.
+- Final-image real API requests sent each complete original PDF with a single-page range, verifying its original SHA-256 first. All sixteen conversions succeeded: the four sideways income pages received the correct 90-degree correction; twelve upright pages were not rotated. The consolidated income tables became 24×7 and the separate tables 20×7. Total observed conversion elapsed time was 599.23 seconds, with individual requests between 18.27 and 52.67 seconds; this is a page-window run, not whole-report throughput.
+- All sixteen raw responses passed the actual production decoder and canonicalizer, retaining exact orientation and page-map equality. Canonical `page_orientation` records revision, accepted clockwise correction or abstention reason, and original frame details when examined. Bboxes and page images remain in the corrected frame; retained Sources/artifacts were not rewritten.
+- The actual API returned readiness 200, missing/wrong-key 401 and over-maximum timeout 422. A native-text PDF succeeded with `NATIVE_TEXT` and zero correction. A 201-page PDF produced a structured `policy` failure at the configured 200-page limit even though its asynchronous task completed successfully; task success remains distinct from document success.
+
+The unchanged sealed scorer evaluated six report-shaped inputs assembled only from these page-window canonical blocks, with financial-check indices offset to match concatenation. This assembly is a private scoring input, not a full-document conversion or published artifact.
+
+| Sealed metric | Historical baseline | Final orientation image |
+| --- | ---: | ---: |
+| Exact numeric cells with row/period identity | 30/121 | 41/121 |
+| Row identity | 37/60 | 46/60 |
+| Period-column order | 28/60 | 31/60 |
+| Merged-parent headers | 0/4 | 1/4 |
+| Source period context | 12/16 | 13/16 |
+
+Remaining boundaries are explicit: dash identity is 1/20, note-column blanks 4/16, absence controls 1/3 and continuation identity 0/3; three source cells remain unscorable. Scope/unit/title remain 16/16. Most period/digit failures are not fixed. The red-stamped Q1 amount is not recovered, no number is moved into another period, and no damaged header is repaired by weakening identity matching. Existing OCR languages, full-page choice, ACCURATE tables and global concurrency are unchanged.
+
+One upright Vietnamese Q1 consolidated page loses a historical numeric match. A paired stock-entrypoint conversion using the same final image, resources, page and options produced exactly identical table data to the owned service. This isolates that witness from orientation preprocessing, not all OCR variability; it does not justify accepting the wrong cell or claim all upright output is byte-identical to stock.
+
+Local Python evidence: nine behavioral regressions passed inside the final image; Ruff lint/format passed for eight files; basedpyright 1.40.1 standard analysis against the actual installed SDK checked six source files with zero errors/warnings. A separate mypy dependency traversal timed out and is not a passing result. Focused Java decoder/extractor tests passed. JetBrains MCP and a configured Java language server are unavailable; compiler/runtime checks are fallback evidence, not IDE-clean inspection.
+
+Private evidence remains under `.tmp/tasco-2025/structure-followup/service-orientation/`: production controls, final-image API/raw/canonical/scorer results, paired stock comparison and admission summary. Original annotations/scorers, the separate 104-cell baseline and all published artifacts remain unchanged. This verifies the bounded service implementation, not financial-fidelity promotion, deployment, Source reindexing or a new Sources UI acceptance.
+
+The separate full-original English Q2 separate report probe submitted all 44 pages with the unchanged 300-second document budget. It returned `partial_success` after 332.51 seconds: 29 pages completed, 15 incomplete, and sixteen typed timeout records including the pipeline summary. All 44 page/orientation records were present, which does not establish complete extraction. The preprocessing budget explicitly left 28 pages unexamined (`BUDGET_EXHAUSTED`); examined pages recorded fourteen unchanged, one accepted rotation and one unresolved OSD vote. The production decoder/error classifier rejected this actual response as terminal `TIMEOUT`, and rejected the actual 201-page response as `WRITE_LIMIT`, without exposing parser causes. No canonical artifact was published. This failed full-report acceptance is retained, not rerun with a larger budget or represented as throughput success.
+
+The first uncached endpoint-enabled gate failed the three optional Docling cases because the isolated read-only container omitted EasyOCR's writable auxiliary directory; service logs identify `/opt/app-root/src/.EasyOCR` as the rejected write. Cached model files were already present. The local-only correction sets `EASYOCR_MODULE_PATH=/tmp/easyocr`, matching the existing deployment manifest, while retaining the same image, read-only root, offline models, options and assertions. The failed gate and its XML/log evidence remain private; neither product code nor the manifest was changed to hide this environment error.
+
+The corrected terminating `gradlew.bat clean check --rerun-tasks --no-daemon --no-parallel --max-workers=1 --console=plain` passed in 12m26s on JDK 25.0.3 with CI enabled, Arconia dev services disabled, OpenAPI writes disabled and the authenticated local Docling endpoint enabled. Gradle reports 24 actionable tasks: 23 executed and one up-to-date; every module's test task executed, with no restored test results. JUnit contains 663 cases: 658 passed, five skipped, zero failures/errors. Module totals are API 130, Connector 108, Core 398 and Worker 27. The skips are four optional Chat-provider cases and one optional Chat resource measurement, not Docling tests.
+
+All three real `DoclingServeIntegrationTest` cases passed: Vietnamese DOCX/table cells, scanned-PDF OCR/page provenance and PPTX text. `WorkerFileProcessingIntegrationTest` passed its endpoint-enabled DOCX indexing/redelivery/remove/delete flow against its own PostgreSQL/Redis/MinIO fixtures. No retained Source was involved. Existing unchecked-operation, JVM/dependency and OTLP fixture-shutdown warnings remain; this is not a warning-free gate.
+
+Final service health returned 200, Docker reported no OOM kill, and no `memoryos-orientation-*` scratch directory remained after consumed conversions. The owned service container then stopped successfully. Disposable launchers, synthetic PDFs, compiler arguments/classes and analysis caches were removed; private raw/canonical/scorer and failed/successful gate evidence remain. Unrelated JVM crash logs were preserved and excluded from publication.
+
+The separate original 104-cell financial baseline was not re-run on this final image; its historical score must not be attributed to the orientation service. The new service gate is limited to the sixteen-page sealed evaluation, synthetic format/admission checks, strict rejection of the timed-out full report and endpoint-enabled repository verification above.
+
+##### Main integration after orientation publication
+
+Orientation commit `bbace1ae0fb68c8c10264168eef4935b07ad8bbf` was pushed to the existing [PR #104](https://github.com/kl3inIT/MemoryOS/pull/104). Main had meanwhile received PR #105 at `3d633b4ffae8767f238c69e43609ad77b3587a36`; GitHub reported a merge conflict and no new-head CI run. The feature branch integrates that main commit without rebasing or merging PR #104. The sole conflict is architectural documentation: retain main's reorganized architecture and localization/Chat renderer additions, then place the owned Docling paragraph under durable ingestion. No incoming implementation is removed or reimplemented. The pinned frontend lockfile installed successfully before integrated verification.
+
+Integrated `clean check --rerun-tasks --no-daemon --no-parallel --max-workers=1 --console=plain` passed in 11m33s: all 24 actionable tasks executed, 682 cases, 677 passed, five optional Chat-related skips, zero failures/errors. Counts are API 134, Connector 108, Core 413 and Worker 27. Every JUnit report was newer than this gate's start. The same final orientation image served the authenticated three-format Docling tests and Worker DOCX publication/cleanup fixture again; all passed. No orientation scratch directory remained, and the owned container stopped successfully.
+
+The integrated frontend `pnpm check` passed generated API/routes stability, CI-image and i18n guards, lint, formatting, types, all 176 unit cases in 31 files and the production build. The existing large-chunk warning remains. These are integrated backend/frontend gates, not a new Sources browser acceptance or OCR corpus rerun; no implementation change was needed after the documentation-only conflict resolution. The integration launcher was removed after both gates completed, with their logs and exact totals retained privately.
