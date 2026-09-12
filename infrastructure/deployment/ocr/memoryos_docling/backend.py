@@ -43,6 +43,7 @@ class OrientationBackend(PdfDocumentBackend):
         path_or_stream: BytesIO | Path,
         options: OrientationBackendOptions,
     ) -> None:
+        """Open the source PDF and prepare bounded orientation state."""
         super().__init__(in_doc, path_or_stream, options)
         self._orientation_options = options
         self._input = in_doc
@@ -63,12 +64,15 @@ class OrientationBackend(PdfDocumentBackend):
             self._count = len(document)
 
     def page_count(self) -> int:
+        """Return the number of pages in the source PDF."""
         return self._count
 
     def is_valid(self) -> bool:
+        """Return whether the backend has pages and remains open."""
         return self._count > 0 and not self._closed.is_set()
 
     def get_document_outline(self) -> list:
+        """Extract the outline from the unchanged source PDF."""
         with pypdfium2_lock:
             document = pdfium.PdfDocument(self.path_or_stream, password=self._password)
         try:
@@ -78,6 +82,7 @@ class OrientationBackend(PdfDocumentBackend):
                 document.close()
 
     def _prepare_source(self) -> BytesIO | Path:
+        """Return the source or a temporary PDF with accepted page rotations."""
         source = self.path_or_stream
         if source is None:
             raise RuntimeError("PDF backend is closed")
@@ -166,6 +171,7 @@ class OrientationBackend(PdfDocumentBackend):
                 document.close()
 
     def _get_delegate(self) -> PdfDocumentBackend:
+        """Create or return the backend that parses the prepared PDF."""
         with self._lock:
             if self._closed.is_set():
                 raise RuntimeError("PDF backend is closed")
@@ -179,12 +185,15 @@ class OrientationBackend(PdfDocumentBackend):
             return self._delegate
 
     def load_page(self, page_no: int) -> PdfPageBackend:
+        """Load a page from the prepared delegate backend."""
         return self._get_delegate().load_page(page_no)
 
     def iter_pages(self) -> Iterator[PdfPageBackend]:
+        """Iterate over pages from the prepared delegate backend."""
         yield from self._get_delegate().iter_pages()
 
     def unload(self) -> None:
+        """Close the delegate and remove any normalized temporary PDF."""
         self._closed.set()
         with self._lock:
             try:

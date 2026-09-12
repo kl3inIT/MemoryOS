@@ -4,6 +4,7 @@ from docling_serve.settings import docling_serve_settings, uvicorn_settings
 
 
 def main() -> None:
+    """Start the MemoryOS Docling service with the configured logging."""
     settings = docling_serve_settings
     setup_logging(
         log_format=settings.log_format.value,

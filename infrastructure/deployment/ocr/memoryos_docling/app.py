@@ -29,15 +29,18 @@ class _WorkerContext(LocalOrchestrator):
     def __init__(
         self, owner: LocalOrchestrator, manager: OrientationConverterManager
     ) -> None:
+        """Bind a worker-local converter manager to the owning orchestrator."""
         self.owner = owner
         self.cm = manager
 
     def __getattr__(self, name: str) -> Any:
+        """Delegate unowned worker context attributes to the orchestrator."""
         return getattr(self.owner, name)
 
 
 class OrientationOrchestrator(LocalOrchestrator):
     async def process_queue(self) -> None:
+        """Run configured local workers with shared or worker-local managers."""
         async with asyncio.TaskGroup() as workers:
             for index in range(self.config.num_workers):
                 context: LocalOrchestrator = self
@@ -55,6 +58,7 @@ class OrientationOrchestrator(LocalOrchestrator):
 
 
 def create_app() -> FastAPI:
+    """Build the local API-only Docling application with orientation support."""
     settings = docling_serve_settings
     if settings.eng_kind != AsyncEngine.LOCAL or settings.enable_ui:
         raise ValueError(
@@ -72,12 +76,14 @@ def create_app() -> FastAPI:
     failed = asyncio.Event()
 
     def supervise(task: asyncio.Task) -> None:
+        """Mark the service unavailable when its queue processor fails."""
         if not task.cancelled() and task.exception() is not None:
             failed.set()
             _log.error("Docling queue processor failed", exc_info=task.exception())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        """Initialize the local worker lifecycle and release its scratch data."""
         languages = await asyncio.to_thread(
             subprocess.run,
             ["tesseract", "--list-langs"],
@@ -112,6 +118,7 @@ def create_app() -> FastAPI:
     @app.get("/ready", include_in_schema=False)
     @app.get("/readyz", include_in_schema=False)
     async def readiness() -> ReadinessResponse:
+        """Report readiness only while models and the queue processor are usable."""
         if not ready.is_set():
             raise HTTPException(status_code=503, detail="Models not yet loaded")
         if failed.is_set():
@@ -133,6 +140,7 @@ def create_app() -> FastAPI:
 
     @app.get("/livez", include_in_schema=False)
     async def liveness() -> HealthCheckResponse:
+        """Report whether the background queue processor remains alive."""
         if failed.is_set():
             raise HTTPException(
                 status_code=503, detail="Background queue processor is not running."

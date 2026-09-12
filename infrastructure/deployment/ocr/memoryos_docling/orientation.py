@@ -20,6 +20,7 @@ class OrientationDecision:
 
 
 def _detect(image: Image.Image, deadline: float) -> int | None:
+    """Return Tesseract's clockwise orientation within the shared deadline."""
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         return None
@@ -60,6 +61,7 @@ def _detect(image: Image.Image, deadline: float) -> int | None:
 
 
 def decide_orientation(image: Image.Image, deadline: float) -> OrientationDecision:
+    """Accept an orientation only when both rotated image halves agree."""
     if image.width > MAX_EDGE or image.height > MAX_EDGE:
         raise ValueError("Orientation raster exceeds the pixel bound")
     angle = _detect(image, deadline)

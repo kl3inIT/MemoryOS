@@ -17,6 +17,7 @@ from .backend import (
 
 class OrientationPipeline(StandardPdfPipeline):
     def _assemble_document(self, conv_res: ConversionResult) -> ConversionResult:
+        """Attach page-orientation provenance to the assembled document."""
         result = super()._assemble_document(conv_res)
         backend = result.input._backend
         if isinstance(backend, OrientationBackend) and backend.orientations:
@@ -30,6 +31,7 @@ class OrientationConverterManager(DoclingConverterManager):
     def get_pdf_pipeline_opts(
         self, request: ConvertDocumentsOptions
     ) -> PdfFormatOption:
+        """Wrap supported OCR PDF backends with bounded orientation handling."""
         option = super().get_pdf_pipeline_opts(request)
         if option.pipeline_cls is not StandardPdfPipeline or not request.do_ocr:
             return option
