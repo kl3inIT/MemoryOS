@@ -23,7 +23,7 @@ export function Sources({
       {...props}
     >
       <Files className="size-3.5" aria-hidden="true" />
-      <span>Sources</span>
+      <span>Nguồn</span>
       <span className={cn(mono, "text-content-muted tabular-nums")}>{count}</span>
     </button>
   );

@@ -26,6 +26,10 @@ public final class ChatEvidence {
         return register("file:" + id, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id), "file-reader");
     }
 
+    public synchronized @Nullable ChatSource file(UUID id, String title, ChatSource.FileLocation location) {
+        return register("file:" + id + ":" + location, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id, location), "file-reader");
+    }
+
     public synchronized @Nullable ChatSource register(String key, IntFunction<ChatSource> factory, String toolCallId) {
         var previous = sources.get(key);
         if (previous != null) return previous;

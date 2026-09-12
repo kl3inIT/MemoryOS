@@ -50,12 +50,27 @@ export async function newChatSession(
   projectId?: string,
 ) {
   const { data } = await createChatSession({
-    body: { title: text.trim().slice(0, 200) || "Hội thoại mới", personaId, projectId },
+    body: { title: initialChatTitle(text), personaId, projectId },
     headers: sameOriginMutationHeaders,
     signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
     throwOnError: true,
   });
   return data;
+}
+
+export function initialChatTitle(text: string) {
+  const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
+    text.trim().replace(/\s+/g, " "),
+  );
+  let title = "";
+  let count = 0;
+  for (const { segment } of segments) {
+    // Keep whole visible characters and reserve room for the ellipsis inside the API's 200 UTF-16 limit.
+    if (count === 40 || title.length + segment.length > 199) return `${title.trimEnd()}…`;
+    title += segment;
+    count++;
+  }
+  return title || "Hội thoại mới";
 }
 
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {

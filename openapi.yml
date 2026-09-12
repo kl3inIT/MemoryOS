@@ -155,6 +155,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: "Generate a short owned conversation title once, preserving manual\
+        \ renames"
+      operationId: generateChatTitle
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "Current title, including fallback when naming is unavailable"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/sharing:
     get:
       tags:
@@ -5657,6 +5714,74 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatFileTextResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/files/{fileId}/passages:
+    get:
+      tags:
+      - Chat
+      summary: Read current owner-private indexed file passages at a cited position
+      operationId: readChatFilePassages
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Authorized file passages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchDocument"
       security:
       - bearerAuth: []
       - browserSession: []

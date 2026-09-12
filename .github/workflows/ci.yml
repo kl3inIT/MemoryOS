@@ -49,6 +49,9 @@ jobs:
       - name: Verify Search administration and certificate renewal
         run: python3 -m unittest discover -s infrastructure/opensearch -p 'test_*.py'
 
+      - name: Verify staging deployment boundaries
+        run: python3 -m unittest discover -s infrastructure/deployment -p 'test_*.py'
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

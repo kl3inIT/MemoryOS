@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Invoked by Deploy staging. Workflow owns smoke and selects finish or rollback.
+# CD deploys and finalizes healthy images. Operators explicitly select rollback.
 set -Eeuo pipefail
 umask 077
 mode=${1:?deploy, rollback or finish}
@@ -123,7 +123,7 @@ if [[ "$mode" == deploy ]]; then
   available=$(df --output=avail --block-size=1 "$root" | tail -n 1)
   (( available > 2 * database_size + 2000000000 ))
 
-  # Keep this reservation through the workflow's authenticated smoke and finalization.
+  # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"
   target=previous; compose stop --timeout 45 worker api
   # The database user expands inside the existing PostgreSQL container.
@@ -134,7 +134,7 @@ if [[ "$mode" == deploy ]]; then
   [[ -s "$tx/backup.catalogue" ]]
   sha256sum "$tx/database.dump" > "$tx/backup.sha256"
   target=candidate; rollout; verify_runtime
-  echo 'Candidate ready; authenticated smoke is required before acceptance'
+  echo 'Candidate healthy; finish records deployment, not business acceptance'
 elif [[ "$mode" == rollback ]]; then
   if [[ ! -f "$state/pending" ]]; then echo 'No runtime mutation was reserved'; exit 2; fi
   [[ -f "$state/pending" && "$(cat "$state/pending")" == "$release" ]]
@@ -145,7 +145,7 @@ elif [[ "$mode" == rollback ]]; then
   }
   target=previous; rollout; verify_runtime
   touch "$tx/rolled-back"
-  echo 'Previous images restored; authenticated smoke is still required'
+  echo 'Previous images restored and healthy; finish records recovery'
 elif [[ "$mode" == finish ]]; then
   [[ -f "$state/pending" && "$(cat "$state/pending")" == "$release" ]]
   target=candidate

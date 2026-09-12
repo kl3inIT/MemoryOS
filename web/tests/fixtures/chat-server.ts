@@ -246,6 +246,11 @@ export async function handleChatFixture(
     return true;
   }
   if (segments[5] === "title") {
+    if (request.method === "POST") {
+      if (state.mode === "naming") state.session.title = "Tiêu đề tự động";
+      json(response, state.session);
+      return true;
+    }
     state.session.title = (await body(request)).title;
     json(response, state.session);
     return true;

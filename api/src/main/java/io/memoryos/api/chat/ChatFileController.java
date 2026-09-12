@@ -56,6 +56,14 @@ class ChatFileController {
                 .body(ChatFileTextResponse.from(files.read(identity.actorId(), fileId, offset, count)));
     }
 
+    @GetMapping("/{fileId}/passages")
+    @Operation(operationId="readChatFilePassages", summary="Read current owner-private indexed file passages at a cited position")
+    @ApiResponse(responseCode="200",description="Authorized file passages",useReturnTypeSchema=true)
+    ResponseEntity<io.memoryos.retrieval.SearchDocument> passages(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID fileId, @RequestParam UUID generation, @RequestParam(defaultValue="0") int from) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(search.read(identity.actorId(), fileId, generation, from));
+    }
+
     @GetMapping(value="/{fileId}/content", produces=MediaType.APPLICATION_OCTET_STREAM_VALUE)
     @Operation(operationId="downloadChatFile", summary="Download an owner-private original file without inline execution")
     @ApiResponse(responseCode="200",description="Original file bytes",content=@Content(mediaType=MediaType.APPLICATION_OCTET_STREAM_VALUE, schema=@Schema(type="string",format="binary")))

@@ -1065,6 +1065,55 @@ export type ReplaceGoogleDriveRootsResponses = {
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
 
+export type GenerateChatTitleData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/title';
+};
+
+export type GenerateChatTitleErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GenerateChatTitleError = GenerateChatTitleErrors[keyof GenerateChatTitleErrors];
+
+export type GenerateChatTitleResponses = {
+    /**
+     * Current title, including fallback when naming is unavailable
+     */
+    200: ChatSession;
+};
+
+export type GenerateChatTitleResponse = GenerateChatTitleResponses[keyof GenerateChatTitleResponses];
+
 export type RenameChatSessionData = {
     body: Title;
     headers: {
@@ -5293,6 +5342,56 @@ export type ReadChatFileTextResponses = {
 };
 
 export type ReadChatFileTextResponse = ReadChatFileTextResponses[keyof ReadChatFileTextResponses];
+
+export type ReadChatFilePassagesData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query: {
+        generation: string;
+        from?: number;
+    };
+    url: '/api/chat/files/{fileId}/passages';
+};
+
+export type ReadChatFilePassagesErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ReadChatFilePassagesError = ReadChatFilePassagesErrors[keyof ReadChatFilePassagesErrors];
+
+export type ReadChatFilePassagesResponses = {
+    /**
+     * Authorized file passages
+     */
+    200: SearchDocument;
+};
+
+export type ReadChatFilePassagesResponse = ReadChatFilePassagesResponses[keyof ReadChatFilePassagesResponses];
 
 export type DownloadChatFileData = {
     body?: never;

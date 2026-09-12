@@ -26,19 +26,19 @@ test("shows effective search queries, open time bounds and selected documents be
     .fill("Find the latest annual leave policy");
   await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Reading document context…" }),
+    page.getByRole("status").filter({ hasText: "Đang đọc ngữ cảnh tài liệu…" }),
   ).toBeVisible();
-  await page.getByText("Search details", { exact: true }).click();
+  await page.getByText("Chi tiết tìm kiếm", { exact: true }).click();
   await expect(page.getByText("annual leave policy", { exact: true })).toBeVisible();
   await expect(page.getByText("HR-2026", { exact: true })).toBeVisible();
-  await expect(page.getByText("Sources: Uploaded files", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Updated:.*UTC.*Unbounded/)).toBeVisible();
-  await expect(page.getByText("Reading documents", { exact: true })).toBeVisible();
+  await expect(page.getByText("Nguồn: Tệp tải lên", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Ngày cập nhật:.*UTC.*Không giới hạn/)).toBeVisible();
+  await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toBeVisible();
   await expect(page.getByText(fixtureSource.title, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /1 source/i })).toHaveCount(0);
   await page.screenshot({ path: "../.tmp/onyx-parity-search-progress.png", fullPage: true });
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
-  await expect(page.getByText("Reading documents", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toHaveCount(0);
 });
 
 test("keeps the new conversation mounted through server ID promotion and resets only when switching", async ({
@@ -91,7 +91,7 @@ for (const mode of ["waiting", "grounded-waiting"]) {
     await page.goto(`/chat/${session.id}`);
     await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Wait for evidence");
     await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-    const label = mode === "waiting" ? "Thinking…" : "Searching your documents…";
+    const label = mode === "waiting" ? "Đang suy nghĩ…" : "Đang tìm trong tài liệu…";
     await expect(page.getByRole("status").filter({ hasText: label })).toHaveCount(1);
     await expect(page.locator(".aui-md")).toHaveCount(0);
     await expect(
@@ -176,8 +176,8 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await page.goto(`/chat/${session.id}`);
   await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("How much annual leave?");
   await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-  await expect(page.getByText("Searching your documents…")).toBeVisible();
-  const citation = page.getByRole("button", { name: "Open source 1: Employee handbook" });
+  await expect(page.getByText("Đang tìm trong tài liệu…")).toBeVisible();
+  const citation = page.getByRole("button", { name: "Mở nguồn 1: Employee handbook" });
   await expect(citation).toHaveCount(1);
   await expect(page.locator("code").filter({ hasText: "[1]" })).toHaveCount(2);
   await citation.focus();
@@ -195,19 +195,19 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   ).toBeVisible();
   expect(documentReads).toHaveLength(1);
   await citation.press("Enter");
-  const panel = page.getByRole("complementary", { name: "Sources" });
+  const panel = page.getByRole("complementary", { name: "Nguồn" });
   await expect(panel).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
-  await expect(page.getByRole("article", { name: "Selected match" })).toHaveCount(2);
-  await panel.getByRole("button", { name: "Earlier context" }).click();
+  await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
+  await panel.getByRole("button", { name: "Phần trước" }).click();
   await expect(panel.getByRole("article").first()).toBeInViewport();
   await expect
     .poll(() => panel.locator("[aria-busy]").evaluate((element) => element.scrollTop))
     .toBe(0);
-  await panel.getByRole("button", { name: "Back to cited passage" }).click();
-  await expect(panel.getByRole("button", { name: "Back to cited passage" })).toBeHidden();
-  await expect(page.getByRole("article", { name: "Selected match" })).toHaveCount(2);
+  await panel.getByRole("button", { name: "Về đoạn trích dẫn" }).click();
+  await expect(panel.getByRole("button", { name: "Về đoạn trích dẫn" })).toBeHidden();
+  await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
   await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).focus();
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
@@ -215,21 +215,19 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
   await page.reload();
   await expect(citation).toHaveCount(1);
-  await page.getByRole("button", { name: "Sources 1" }).click();
-  await page.getByRole("button", { name: "Read source 1: Employee handbook" }).click();
+  await page.getByRole("button", { name: "Nguồn 1", exact: true }).click();
+  await page.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" }).click();
   await expect(panel).toContainText("Annual leave is 17 days.");
-  await page.getByRole("button", { name: "Back to sources" }).click();
-  await expect(
-    page.getByRole("button", { name: "Read source 1: Employee handbook" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Sources 1" }).click();
+  await page.getByRole("button", { name: "Về danh sách nguồn" }).click();
+  await expect(page.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" })).toBeVisible();
+  await page.getByRole("button", { name: "Nguồn 1", exact: true }).click();
   await expect(panel).toBeHidden();
   await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) =>
     route.fulfill({ status: 404, json: {} }),
   );
   await citation.click();
-  await expect(page.getByRole("alert")).toContainText("unavailable or has changed");
-  await page.getByRole("button", { name: "Close sources" }).click();
+  await expect(page.getByRole("alert")).toContainText("không còn khả dụng hoặc đã thay đổi");
+  await page.getByRole("button", { name: "Đóng nguồn" }).click();
   await expect(page.getByText("17 days", { exact: true })).toBeVisible();
   for (const url of documentReads) {
     expect(url.searchParams.get("generation")).toBe(fixtureSource.generation);
@@ -251,7 +249,7 @@ for (const mode of [
     await page.goto(`/chat/${session.id}`);
     await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Annual leave?");
     await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-    const citation = page.getByRole("button", { name: "Open source 1: Employee handbook" });
+    const citation = page.getByRole("button", { name: "Mở nguồn 1: Employee handbook" });
     await expect(citation).toBeVisible();
     if (mode === "grounded-slow") {
       await expect(page.getByRole("combobox", { name: "Chọn mô hình" })).toBeDisabled();
@@ -496,9 +494,7 @@ for (const mobile of [false, true]) {
       .getByRole("textbox", { name: "Câu hỏi", exact: true })
       .fill("Compare these policies");
     await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-    await expect(
-      page.getByRole("button", { name: "Open source 1: Employee handbook" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mở nguồn 1: Employee handbook" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
     const second = {
       ...fixtureSource,
@@ -543,30 +539,30 @@ for (const mobile of [false, true]) {
       });
     });
     await page.reload();
-    await expect(page.getByRole("button", { name: "Open source 1: Employee handbook" })).toHaveText(
+    await expect(page.getByRole("button", { name: "Mở nguồn 1: Employee handbook" })).toHaveText(
       "1. Employee handbook",
     );
-    await expect(page.getByRole("button", { name: "Open source 2: Employee handbook" })).toHaveText(
+    await expect(page.getByRole("button", { name: "Mở nguồn 2: Employee handbook" })).toHaveText(
       "2. Employee handbook",
     );
-    const trigger = page.getByRole("button", { name: "Sources 2" });
+    const trigger = page.getByRole("button", { name: "Nguồn 2", exact: true });
     await trigger.click();
     const panel = mobile
       ? page.getByRole("dialog")
-      : page.getByRole("complementary", { name: "Sources" });
+      : page.getByRole("complementary", { name: "Nguồn" });
     await expect(panel).toBeVisible();
-    await expect(panel.getByRole("button", { name: /^Read source/ })).toHaveCount(2);
+    await expect(panel.getByRole("button", { name: /^Đọc nguồn/ })).toHaveCount(2);
     await expect(panel).toContainText("Submit requests to your manager.");
-    await panel.getByRole("button", { name: "Read source 2: Employee handbook" }).click();
+    await panel.getByRole("button", { name: "Đọc nguồn 2: Employee handbook" }).click();
     await expect(
       panel.getByRole("heading", { name: "Employee handbook", exact: true }),
     ).toBeVisible();
-    await expect(panel.getByRole("article", { name: "Selected match" })).toContainText(
+    await expect(panel.getByRole("article", { name: "Đoạn được chọn" })).toContainText(
       "Submit requests to your manager.",
     );
-    await panel.getByRole("button", { name: "Back to sources" }).click();
-    await panel.getByRole("button", { name: "Read source 1: Employee handbook" }).click();
-    await expect(panel.getByRole("article", { name: "Selected match" })).toContainText(
+    await panel.getByRole("button", { name: "Về danh sách nguồn" }).click();
+    await panel.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" }).click();
+    await expect(panel.getByRole("article", { name: "Đoạn được chọn" })).toContainText(
       "Employees receive 17 days.",
     );
     const bounds = await panel.boundingBox();
