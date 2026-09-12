@@ -10,7 +10,7 @@ This increment establishes one resource-specific convention. It does not create 
 
 ## Reference boundary
 
-Refine is a contract reference for resource/action vocabulary, server-owned list operations, URL-addressable list state, cache identity, and access-control boundaries. The local Onyx checkout is a production reference for explicit administration resource naming, separate users/groups/service-account surfaces, Opal's TanStack Table v8 conventions, and browser/visual verification. MemoryOS keeps TanStack Router, TanStack Query, the generated Hey API client, semantic tokens, and Spring-owned authorization; it uses exact-pinned TanStack Table v9 for the invitation row/column model and Zod 4 for the untrusted URL boundary.
+Refine is a contract reference for resource/action vocabulary, server-owned list operations, URL-addressable list state, cache identity, and access-control boundaries. The local reference implementation checkout is a production reference for explicit administration resource naming, separate users/groups/service-account surfaces, Opal's TanStack Table v8 conventions, and browser/visual verification. MemoryOS keeps TanStack Router, TanStack Query, the generated Hey API client, semantic tokens, and Spring-owned authorization; it uses exact-pinned TanStack Table v9 for the invitation row/column model and Zod 4 for the untrusted URL boundary.
 
 Neither reference authorizes generic CRUD APIs, frontend-owned permissions, provider pyramids, or a second API abstraction.
 

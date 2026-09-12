@@ -15,7 +15,7 @@ The user subsequently authorized container-backed verification on this memory-co
 
 ## Design
 
-- [x] Inspect current Identity/Tenant/Invitation and Onyx Users patterns.
+- [x] Inspect current Identity/Tenant/Invitation and reference implementation Users patterns.
 - [x] Isolate work from the dirty MEM-61 checkout using an Orca-managed worktree.
 - [x] Record ownership, API shape, profile provenance, directory semantics and frontend direction in the design.
 

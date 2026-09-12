@@ -16,7 +16,7 @@ Evolve SourceContentExtractor into a provider-neutral structured result without 
 
 Versioned blocks carry type, stable index, text, heading hierarchy, tables with cell/header/row semantics, and provenance where the source provides it. Retain page/bounding-box coordinates for PDFs, sheet/ranges for tables and tab/element paths for native Docs. Missing provenance stays explicitly absent, never fabricated. Image references describe artifacts, not a promise of VLM image understanding.
 
-Store canonical JSON in private MinIO. PostgreSQL owns the stable Document's current metadata, source checksum, artifact reference and eligibility. Replace these fields in place, following Onyx's current-document model; do not retain extraction-version history or lock retry output to a processing profile. Track artifacts before publication and reclaim them once no current Document references them.
+Store canonical JSON in private MinIO. PostgreSQL owns the stable Document's current metadata, source checksum, artifact reference and eligibility. Replace these fields in place, following reference implementation's current-document model; do not retain extraction-version history or lock retry output to a processing profile. Track artifacts before publication and reclaim them once no current Document references them.
 
 Normalized text is transient parser output, not a PostgreSQL projection. Downstream chunking reads the canonical artifact. PostgreSQL owns current chunk text/provenance; MEM-46 stores embedding vectors only in OpenSearch. V12 copies current metadata/reference and discards old version history and text for dev/staging; missing legacy artifacts do not block migration. The normal FILE reindex route regenerates them when needed.
 

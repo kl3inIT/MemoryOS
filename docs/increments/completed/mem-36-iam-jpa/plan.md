@@ -20,7 +20,7 @@ The user subsequently authorized isolated container-backed tests despite host RA
 - [x] Preserve unrelated uncommitted roadmap/Google Drive/chunking planning and notify the concurrent checkout agent.
 - [x] Record approved IAM consolidation, JPA target, account classification, scope matrix and concurrency protocol in design.md.
 - [x] Fast-forward the existing Users branch to main, restore all MEM-55 changes and resolve overlap with main V10–V12; retain the original changes in a recovery stash.
-- [x] Inspect relevant Onyx Users/Groups components and carry their interaction hierarchy into the real implementation.
+- [x] Inspect relevant reference implementation Users/Groups components and carry their interaction hierarchy into the real implementation.
 
 ## Implementation ownership
 
@@ -32,7 +32,7 @@ The current checkout owner integrates backend, frontend, Source authorization an
 - [x] Apply authority locking to all IAM permission mutations and Source writes; ensure revoke cannot be bypassed by a concurrent write.
 - [x] Add Tenant-qualified Group/Source associations and classify every existing Source endpoint according to design.md.
 - [x] Simplify Users read contracts and integrate real group membership/account classification.
-- [x] Build Onyx-aligned Groups list/detail, membership/manager/grant editing and Source association UI with actual generated API consumers.
+- [x] Build reference implementation-aligned Groups list/detail, membership/manager/grant editing and Source association UI with actual generated API consumers.
 - [x] Update Users row group editor and sidebar/route gates; preserve invitation recovery and private-cache convergence.
 - [x] Regenerate OpenAPI/browser client after endpoint contracts converge.
 

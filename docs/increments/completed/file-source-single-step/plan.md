@@ -2,7 +2,7 @@
 
 > Completed — reconciled 2026-09-08. Integrated on main as `422ff1a` through the user-authorized direct-main path. The original browser evidence and its fixture boundary are retained below.
 
-- [x] Inspect current FILE flow and Onyx implementation.
+- [x] Inspect current FILE flow and reference implementation implementation.
 - [x] Implement single-step form and recovery.
 - [x] Verify validation, single-flight, retry and navigation (5 FILE browser scenarios passed).
 - [x] Inspect desktop light/dark and mobile screenshots; pnpm check passed, including 44 unit tests and production build.

@@ -1,8 +1,6 @@
 # Document capability contract
 
-MEM-81's in-flight UserFile consumer protects `chat_user_file.document_id` alongside Connector mappings in `removeUnreferenced`. UserFile publication stamps server-owned private origin/file/owner metadata; current chunk sets propagate `userFileId` to the index. Source cleanup cannot delete a still-referenced private Document. Private plaintext is owned by Chat, not a reintroduced Document history/full-text ledger.
-
-Integration boundary: this contract combines the implemented Google branch with main IAM/Search. The [isolated integration plan](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) tracks pending combined verification; linked prior tests/runtime observations remain pre-integration evidence.
+The implemented Chat UserFile consumer protects `chat_user_file.document_id` alongside Connector mappings in `removeUnreferenced`. UserFile publication stamps server-owned private origin/file/owner metadata; current chunk sets propagate `userFileId` to the index. Source cleanup cannot delete a still-referenced private Document. Private plaintext is owned by Chat, not a reintroduced Document history/full-text ledger.
 
 Document owns the current metadata, extracted-file reference and current chunk set independently of provider implementation. A Document is Tenant-scoped and either ELIGIBLE or INELIGIBLE. Its stable ID, title, detected media type, source-content SHA-256, metadata and extraction artifact reference are updated in place. PostgreSQL stores bounded current chunk text/provenance, not a duplicate full extracted-text column, immutable DocumentVersion history or embedding arrays.
 

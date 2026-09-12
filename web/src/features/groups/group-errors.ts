@@ -1,4 +1,5 @@
 import { ApiError, problemCode } from "@/lib/api";
+import { appText } from "@/i18n/app-text";
 
 type GroupMutation =
   | "create"
@@ -34,7 +35,9 @@ export function groupMutationError(error: unknown, mutation: GroupMutation) {
       return "The requested group change is not valid.";
     }
     if (code && /^[A-Z][A-Z0-9_]{2,80}$/.test(code)) {
-      return `The group change could not be completed. Error reference: ${code}.`;
+      return appText("The group change could not be completed. Error reference: {{code}}.", {
+        code,
+      });
     }
   }
   return "The group change could not be completed. Try again.";

@@ -96,6 +96,7 @@ class OpenApiContractTest {
             "/api/search",
             "/api/search/documents/{documentId}",
             "/api/identity/me",
+            "/api/identity/me/language",
             "/api/users",
             "/api/users/{actorId}/activate",
             "/api/users/{actorId}/deactivate",
@@ -268,6 +269,11 @@ class OpenApiContractTest {
         }
 
         Path contract = repositoryRoot().resolve("openapi.yml");
+        var fieldError = actual.path("components").path("schemas").path("ApiProblem")
+                .path("properties").path("errors").path("items");
+        assertEquals(4, fieldError.path("required").size());
+        assertEquals(6, fieldError.path("properties").path("code").path("enum").size());
+        assertFalse(fieldError.path("properties").path("params").path("additionalProperties").asBoolean());
         for (String property : Set.of("personaId", "projectId")) {
             JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
             assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());

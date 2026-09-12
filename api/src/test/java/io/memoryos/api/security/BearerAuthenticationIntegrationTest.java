@@ -252,7 +252,7 @@ class BearerAuthenticationIntegrationTest {
         assertEquals(200, response.statusCode());
         assertEquals(
                 "{\"actorId\":\"" + ACTOR_ID
-                        + "\",\"tenant\":null,\"capabilities\":[],\"scopedCapabilities\":[],\"authorizationVersion\":0}",
+                        + "\",\"tenant\":null,\"capabilities\":[],\"scopedCapabilities\":[],\"authorizationVersion\":0,\"uiLanguage\":\"vi\"}",
                 response.body()
         );
     }
@@ -335,6 +335,51 @@ class BearerAuthenticationIntegrationTest {
         if (token != null) {
             builder.header("Authorization", "Bearer " + token);
         }
+        return HTTP_CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    void accountLanguagePersistsAndNeverChangesAuthorizationRevisionOrAnotherActor() throws Exception {
+        String bearer = token(validClaims("startup-owner"), SIGNING_KEY);
+        var json = io.swagger.v3.core.util.Json.mapper();
+        var before = json.readTree(request(bearer).body());
+        try {
+            for (String language : List.of("en", "en", "vi")) {
+                var response = languageRequest(bearer, "{\"uiLanguage\":\"" + language + "\"}", true);
+                assertEquals(200, response.statusCode());
+                var identity = json.readTree(request(bearer).body());
+                assertEquals(language, identity.path("uiLanguage").asText());
+                assertEquals(before.path("authorizationVersion"), identity.path("authorizationVersion"));
+                assertEquals(before.path("capabilities"), identity.path("capabilities"));
+                assertEquals("vi", json.readTree(request(token(validClaims(BOUND_SUBJECT), SIGNING_KEY)).body()).path("uiLanguage").asText());
+            }
+        } finally {
+            languageRequest(bearer, "{\"uiLanguage\":\"" + before.path("uiLanguage").asText() + "\"}", true);
+        }
+    }
+
+    @Test
+    void languageWriteRequiresAuthenticationActiveMembershipGuardAndValidValue() throws Exception {
+        String bearer = token(validClaims("startup-owner"), SIGNING_KEY);
+        assertEquals(401, languageRequest(null, "{\"uiLanguage\":\"en\"}", true).statusCode());
+        assertEquals(403, languageRequest(token(validClaims(BOUND_SUBJECT), SIGNING_KEY), "{\"uiLanguage\":\"en\"}", true).statusCode());
+        assertEquals(403, languageRequest(bearer, "{\"uiLanguage\":\"en\"}", false).statusCode());
+        var response = languageRequest(bearer, "{\"uiLanguage\":\"fr\"}", true);
+        assertEquals(400, response.statusCode());
+        var body = io.swagger.v3.core.util.Json.mapper().readTree(response.body());
+        assertEquals("REQUEST_VALIDATION", body.path("code").asText());
+        assertEquals("uiLanguage", body.path("errors").get(0).path("field").asText());
+        assertEquals("INVALID", body.path("errors").get(0).path("code").asText());
+        var missing = io.swagger.v3.core.util.Json.mapper().readTree(languageRequest(bearer, "{}", true).body());
+        assertEquals("REQUIRED", missing.path("errors").get(0).path("code").asText());
+    }
+
+    private HttpResponse<String> languageRequest(String bearer, String body, boolean guard) throws Exception {
+        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/identity/me/language"))
+                .timeout(Duration.ofSeconds(5)).header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(body));
+        if (bearer != null) builder.header("Authorization", "Bearer " + bearer);
+        if (guard) builder.header(BrowserMutation.HEADER, BrowserMutation.VALUE);
         return HTTP_CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofString());
     }
 

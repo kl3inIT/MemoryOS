@@ -1,19 +1,26 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 import { Popover } from "radix-ui";
 import { IconButton } from "@/components/ui/icon-button";
 
 export function HelpPopover({ label, children }: { label: string; children: ReactNode }) {
+  const ui = useAppTranslation();
+
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <IconButton aria-label={`${label} help`} size="sm" className="text-content-muted">
+        <IconButton
+          aria-label={ui("{{v1}} help", { v1: label })}
+          size="sm"
+          className="text-content-muted"
+        >
           <CircleHelp aria-hidden="true" />
         </IconButton>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          aria-label={`${label} help`}
+          aria-label={ui("{{v1}} help", { v1: label })}
           side="bottom"
           align="start"
           sideOffset={8}

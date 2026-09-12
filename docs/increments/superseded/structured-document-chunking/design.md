@@ -1,6 +1,6 @@
 # Versioned structured document chunking
 
-> Superseded planning draft: this scope is now part of [MEM-46 Search](../../active/mem-46-search/design.md). The original draft below is retained for reference; its DocumentVersion/profile model and separate MEM-62 delivery are not current implementation instructions.
+> Superseded planning draft: this scope is now part of [MEM-46 Search](../../completed/mem-46-search/design.md). The original draft below is retained for reference; its DocumentVersion/profile model and separate MEM-62 delivery are not current implementation instructions.
 
 Status: planned; consumes Docling and Google-native canonical extraction artifacts.
 

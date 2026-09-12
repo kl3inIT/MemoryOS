@@ -4,7 +4,7 @@
 
 MemoryOS replaces feature-local interaction styling with one enforced component contract for actions and native form controls. Product code chooses semantic tone, prominence, and size; shared components own rest, hover, active, focus-visible, disabled, and pending presentation in both themes.
 
-This increment learns the contract discipline of Onyx/Opal at revision `ec08b5f94`. It keeps MemoryOS typography, role-based semantic tokens, Tailwind 4 stack, Radix composition, and existing behavior. It does not copy Opal source, numeric palettes, or product-specific states.
+This increment learns the contract discipline of reference implementation/Opal at revision `ec08b5f94`. It keeps MemoryOS typography, role-based semantic tokens, Tailwind 4 stack, Radix composition, and existing behavior. It does not copy Opal source, numeric palettes, or product-specific states.
 
 ## Existing defects
 
@@ -21,7 +21,7 @@ The result is not only visual drift. A consumer must understand container stylin
 
 ## Reference boundary
 
-The local Onyx/Opal checkout establishes these reusable contracts:
+The local reference implementation/Opal checkout establishes these reusable contracts:
 
 - `web/lib/opal/src/components/buttons/button`: tone is independent from prominence; secondary prominence owns its border; icon-only controls are square;
 - `web/lib/opal/src/components/buttons/text-button`: quiet actions have no background, border, padding, or rounding and change foreground only;
@@ -120,6 +120,6 @@ Focused component tests defend native button type, `asChild`, accessible icon bu
 - Sources information architecture or visual redesign; MEM-39 owns it after MEM-27 and MEM-38.
 - Shared destructive confirmation and mutation feedback; MEM-38 owns those semantics.
 - Multi-brand or tenant-custom themes.
-- Copying Onyx numeric token ramps.
+- Copying reference implementation numeric token ramps.
 - Generic data-table behavior, form frameworks, motion-system redesign, z-index redesign, or Storybook adoption.
 - New product actions, routes, backend fields, or authorization behavior.

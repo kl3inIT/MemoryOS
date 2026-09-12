@@ -1,237 +1,230 @@
 # MemoryOS architecture
 
-The in-flight [MEM-81 attachment implementation](docs/specs/chat.md#mem-81-in-flight-file-backend) adds Chat-owned UserFiles and durable file work. Ingestion calls Chat's public work port; Chat depends on public ObjectStorage/Document APIs, not Ingestion. Worker imports only the file work service and repository, leaving native Chat inference/catalog/SSE in API. Existing dispatch, artifact, Document and projection machinery are reused; general Search excludes private file chunks before ranking. Messages use one ordered `files JSONB` column. The browser connects the native assistant-ui attachment adapter to upload/finalize/status APIs and reuses Attachment/File components and their Zustand-backed preview selector. Owner text/original readers recheck current authority; sharing only exposes transcript descriptors. Real-model vision and isolated large-XLSX parser measurements passed locally; publication for review does not establish an integrated large-file release or full worker/API sizing. Remaining scope and evidence are in the [active increment](docs/increments/active/chat-attachments-production/plan.md).
+This document describes the architecture implemented by the current repository. Detailed behavior belongs in capability [specifications](docs/specs), verification evidence belongs in [test matrices](docs/tests), operating procedures belong in [runbooks](docs/runbooks), and future direction belongs in the [vision](docs/vision.md#target-architecture). Accepted rationale is recorded in [ADRs](docs/decisions).
 
-Integration status: the Google Drive and Source changes are verified and published against main `3f236d5` (Chat/JIT and Search PRs #83/#87). The user has authorized a PR into main and an exact-head merge commit only after green CI and resolved actionable review findings; current progress and evidence belong to the [publication record](docs/increments/active/google-drive-structured-ingestion/plan.md#pull-request-and-guarded-merge). Repository integration does not establish deployment or live-provider completion.
+## Runtime overview
 
-This document describes the system implemented in this repository. Product intent lives in [docs/vision.md](docs/vision.md); accepted rationale lives in [ADRs](docs/decisions).
+The web application's account-language and safe error boundary is documented in [localization](docs/specs/localization.md). Chat's lazy code/diagram renderers and bounded persisted read-only presentations reuse the existing native tool loop, authorized history and responsive reader panel; see [Chat renderers](docs/specs/chat.md#message-renderers-and-read-only-presentations).
 
-## System shape
+```mermaid
+flowchart LR
+    U[User browser] --> RP[Reverse proxy and TLS]
+    RP --> WEB[React web application]
+    RP --> API[Spring Boot API]
 
-MemoryOS is a controlled Spring Modulith monolith with four flat Gradle modules:
+    API --> KC[Keycloak]
+    API --> PG[(PostgreSQL)]
+    API --> S3[(Object storage)]
+    API --> OS[(OpenSearch)]
+    API --> LLM[Configured model providers]
 
-| Module | Runtime role | Dependency rule |
+    PG --> RELAY[Database scheduler relay]
+    RELAY --> RS[(Redis Streams)]
+    RS --> WORKER[Worker]
+    WORKER --> PG
+    WORKER --> S3
+    WORKER --> DOC[Docling Serve]
+    WORKER --> OS
+```
+
+The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx.
+
+## Why the system has these components
+
+| Choice | Reason | Operational consequence |
 | --- | --- | --- |
-| `core` | Seven closed capability implementations: public contracts, transactions, JPA IAM lifecycle, JDBC resource persistence, and the object-storage S3 adapter | Must not depend on `connector` or a deployable |
-| `connector` | Shared Google network integration and offline native/table/binary extraction bundle; `provider.file` routes PDF/DOCX/PPTX to Docling Serve and text to bounded Tika 4 | Depends only on public `core` APIs |
-| `api` | Spring Boot HTTP, validation, Google consent, Chat/JIT, migration, and security composition root | Depends on `core` and the shared `connector` bundle; extraction is worker-composed |
-| `worker` | PostgreSQL-authoritative Redis Stream execution and control-plane composition root | Depends on `core`, selects `connector` at runtime, and alone composes Redis/db-scheduler |
+| Controlled modular monolith | Current capabilities need shared transactions and explicit in-process contracts more than independent service scaling | Spring Modulith and ArchUnit enforce boundaries; split a service only after an accepted operational need |
+| PostgreSQL as business authority | Authorization, ownership, commands, claims, retries and final outcomes need transactional consistency | Redis and OpenSearch can be rebuilt without inventing business state |
+| Redis Streams for work delivery | Consumer groups, acknowledgement and pending-message recovery fit independent API and worker processes | Delivery is at least once; consumers must tolerate redelivery and acknowledge only after durable commit |
+| Object storage for bytes and artifacts | Large immutable inputs and extraction results do not belong in request bodies or relational rows | PostgreSQL retains metadata, ownership, checksums and lifecycle fences |
+| OpenSearch as a projection | Hybrid text/vector retrieval needs an index optimized for ranking | Index contents never grant access; reads remain Tenant and Source scoped |
+| Docling out of process | Parsing and OCR have a different dependency, resource and failure profile from the JVM | Calls are bounded and retryable; parser failure does not take down the API |
+| Keycloak for identity, MemoryOS for authorization | External identity and local Tenant/Group/capability policy change independently | Every protected operation resolves current MemoryOS authority |
 
-`api` and `worker` are separate deployables. API owns Flyway and durable source/upload/selection commands. Browser FILE bytes travel by checksum-bound presigned PUT directly to object storage, never through API request bodies. API transactions commit ingestion, source-sync and cleanup operations without contacting Redis. Worker db-scheduler relays eligible identifiers into workload-specific Redis Streams; consumers reload and token-claim authoritative PostgreSQL operations, renew leases, and finalize durably before acknowledgement. SOURCE_SYNC acquires Google content into tracked immutable raw snapshots; INGESTION reads stored input without Google network access. PostgreSQL is business authority, Redis is rebuildable delivery state, and MinIO owns raw inputs plus canonical extraction artifacts.
+Redis Streams is not an event-sourcing log and does not own operation status. PostgreSQL records eligible work before dispatch, the relay publishes stable identifiers, and workers reload and token-claim the authoritative row. Lost or duplicated delivery is recovered through durable rediscovery, leases and idempotent completion.
 
-`web/` is a separate production deployable built with Vite, React, TanStack Router, TanStack Query, Tailwind CSS, and generated Hey API clients. It is not a Gradle module or a reusable package. The Nginx runtime serves immutable assets and owns the browser origin; Spring remains the API, OAuth2, session, and authorization runtime.
+## Code and capability boundaries
 
-The pathless authenticated route owns `ApplicationSessionBoundary`, which resolves `/api/identity/me` for protected child routes and provides one application-session context. The persistent administration `AppShell` gates Users on global `USERS_MANAGE`, Groups on global or scoped `GROUPS_READ`, and Sources on global or scoped `SOURCES_READ`; denied deep links mount no protected query. `/admin/users` presents active/inactive memberships and eligible invitations with bounded search, status/role/Group filters, sorting, pagination, global status counts, real Group tags/overflow, persisted `STANDARD` account classification, and compact actions. `IAM_ADMIN` enables the ordinary-membership editor. `/admin/groups` provides bounded list/create/detail, member/candidate selection, protected manager/grant commands, and authorized Source associations.
+```mermaid
+flowchart TB
+    IAM[iam]
+    OBJ[objectstorage]
+    CON[connector]
+    DOC[document]
+    ING[ingestion]
+    RET[retrieval]
+    CHAT[chat]
 
-Source detail and FILE creation return a direct `SourceSummary`; Files use a separate bounded keyset page with required authorized `totalItems`. The UI renders only the current page, restores Previous/Next navigation, resets to the first page after upload/finalization and preserves exact reindex/removal observation across page changes. `JdbcSourceQueryRepository` bounds item candidates before version/latest-attempt projection and successful completion for the current version; a separate count uses the same current-version candidate scope without the cursor, including pending and failed items without Documents. `lastIndexedAt` is independent of original item creation; `latestAttempt` carries actual file-processing timestamps and outcome. Each `SourceItem` also carries main's separate `searchStatus`. Summary polling never materializes the item corpus. See the [Source read contract](docs/specs/connector.md#source-summaries-and-files-pages).
+    OBJ --> IAM
+    DOC --> IAM
+    DOC --> OBJ
+    CON --> IAM
+    CON --> DOC
+    CON --> OBJ
+    ING --> IAM
+    ING --> OBJ
+    ING --> CON
+    ING --> DOC
+    ING --> RET
+    RET --> IAM
+    RET --> CON
+    RET --> DOC
+    CHAT --> IAM
+    CHAT --> CON
+    CHAT --> RET
 
-Google setup at `/admin/sources/new/google-drive` presents Credential → Connector. An actor with global `SOURCES_MANAGE` selects a reusable credential or authorizes one with owner-supplied Web OAuth client JSON; callback selects a credential, not a Source. Connector submission returns a durable selection receipt and reserved Source ID without waiting for Google. The worker verifies and atomically activates Source/roots/initial sync; the UI waits for success before Source navigation and can recover a lost receipt. Detail separates active and pending selection. Lazy Source-scoped tree reads expose actual folder children and retained file-link provenance; filtered reads remain file-ID-unique. Select for sync loads the complete pinned draft without persisting approval; its Save/Cancel controls appear below the tree independently of the root editor. The File and folder links disclosure below the tree contains Edit selection and the editor, opened only by explicit Edit; switching to it preserves draft approvals. Technical paths and the persistent selection-count subtitle are absent. Drive **Indexing attempts** consumes actual Source runs in a compact table, while FILE has separately named **File indexing attempts** with filenames and processing timestamps. The old multi-card run dashboard remains absent. OAuth app/redirect instructions stay collapsed; reconnect/revoke and conflicts preserve current-authority guards. No account-wide browser or document-read grant is introduced; Google remains RESTRICTED.
+    API[api composition root] --> IAM
+    API --> OBJ
+    API --> CON
+    API --> DOC
+    API --> RET
+    API --> CHAT
+    WORKER[worker composition root] --> IAM
+    WORKER --> OBJ
+    WORKER --> CON
+    WORKER --> DOC
+    WORKER --> ING
+    WORKER --> RET
+```
 
-`SourceSummaryCard` shares the four existing summary fields between FILE and Google Drive; Google Drive adds Automatic interval/Edit as a fifth field while keeping schedule state in `GoogleDrivePanel`. Synchronization actions remain below the card. Files, FILE indexing attempts and Drive run history expose required Tenant/Source-scoped `totalItems`, independent of the cursor; run counts additionally respect status, trigger and time filters. `TablePagination` is shared with Users/Groups and renders `current / total`, Rows and text Previous/Next controls, keeping navigation together on narrow screens. Both histories default to 5 rows with 5/10/25/50 choices. Source/size changes and counts that invalidate the current page reset cursor navigation to the first page. Source detail uses shared icon-backed major headings; Credentials has its own key heading and native connection disclosure, while Group associations uses the same plain section surface. Only the top-level Drive provider mark is enlarged to 40px.
+Arrows show allowed use of public capability contracts. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided.
 
-`/admin` remains a semantic configured-Source table with provider summaries and only server-visible Sources. FILE setup at `/admin/sources/new/file` is one name/file/Group-selection form, not a wizard. One submit creates, uploads, and finalizes; retries retain the created Source and finalization retries do not resend bytes. `/admin/sources/{sourceId}` shows the Source's allowed actions, upload/indexing state, and Group associations without exposing extracted content. The persistent layout retains only pending finalization's Source/upload identifiers and filename across route navigation, never presigned URLs or bytes. Scoped managers receive upload/reindex controls but no creation, destructive, or association-edit controls.
+| Gradle module | Responsibility |
+| --- | --- |
+| `core` | Seven capability implementations and public contracts; no dependency on `connector` or a deployable |
+| `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
+| `api` | HTTP, security, migrations and interactive Chat composition |
+| `worker` | Redis/db-scheduler composition and durable background work |
 
-Application-owned links use TanStack Router and preserve the browser document; OAuth2, provider logout, invitation continuation, mail, and fragment navigation remain native. The QueryClient fingerprints Actor, Tenant role, global/scoped capabilities, and Tenant `authorizationVersion`. On changed authority it resets active query state before removing private queries, so existing observers stop rendering revoked data even when capability tokens remain unchanged; mutation cache state is cleared as well. Foreground identity refresh and private `401`/`403` convergence retain one canonical identity query. Unchanged authority retains private state. `ApplicationSessionProvider` remains keyed by `actorId` for cross-actor local-state isolation; revision changes do not blanket-remount one-time invitation result dialogs. Invitation creation/rotation is single-flight and recovery secrets remain dialog-local until close. Vite emits same-origin fonts and rejects inline font URLs for the production CSP.
+| Capability | Owns | Detailed contract |
+| --- | --- | --- |
+| `iam` | Actor identity, Tenant membership, invitations, Users, Groups and authorization | [Identity](docs/specs/identity.md), [Tenant](docs/specs/tenant.md), [Invitation](docs/specs/invitation.md) |
+| `objectstorage` | Upload reservations, stored objects, adoption, discard and cleanup | [Object storage](docs/specs/object-storage.md) |
+| `connector` | Sources, credentials, provider selection, items, synchronization and Source–Group associations | [Connector](docs/specs/connector.md) |
+| `document` | Current Document metadata, canonical extraction artifact and current chunk identity | [Document](docs/specs/document.md) |
+| `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
+| `retrieval` | Embedding/OpenSearch adapters, authorized Search and document passages | [Search](docs/specs/search.md) |
+| `chat` | Personas, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
 
-The web design system remains local to this application. `styles/tokens.css` owns stone/monochrome primitives and semantic roles, `styles/theme.css` maps them and Hanken Grotesk typography into Tailwind v4, and `styles/base.css` owns global behavior. Shared `SettingsLayout`/`PageHeader`, sidebar, menu, form and state primitives align existing Source, invitation, session and access screens across narrow layouts and light/dark themes. No reusable design-system package or parallel migration component tree is introduced.
+## Durable ingestion and Search projection
 
-## Capability boundaries
+```mermaid
+sequenceDiagram
+    actor User
+    participant API
+    participant PG as PostgreSQL
+    participant S3 as Object storage
+    participant Relay
+    participant Redis as Redis Streams
+    participant Worker
+    participant Parser as Docling or native reader
+    participant Search as OpenSearch
 
-`core` contains seven implemented closed Spring Modulith modules: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, and `chat`. IAM combines identity, Tenant membership, invitations, Users, Groups, and authorization. Capability roots expose identifiers and operation/projection contracts, never entities. Application services own authorization, validation, orchestration, and transaction boundaries; concrete `persistence` repositories own JPA lifecycle operations, SQL projections, row mapping, locks, claims, and bulk operations.
+    User->>API: Create Source or finalize upload
+    API->>PG: Commit Source, item and operation
+    API-->>User: Return durable operation ID
+    Relay->>PG: Find eligible operation
+    Relay->>Redis: Publish operation ID
+    Worker->>Redis: Read through consumer group
+    Worker->>PG: Reload and token-claim
+    Worker->>S3: Read immutable input
+    Worker->>Parser: Extract bounded content
+    Worker->>S3: Write canonical artifact
+    Worker->>PG: Publish current Document and Search work
+    Worker->>Search: Replace current authorized projection
+    Worker->>PG: Commit terminal outcome
+    Worker->>Redis: Acknowledge
+```
 
-`iam` does not depend on another capability. `objectstorage` depends on public `iam`, owns generic object/upload/server-write persistence, and contains its S3 adapter without exposing AWS SDK types. `document` depends on public `iam` and `objectstorage`. `connector` depends on public `iam`, `document`, and `objectstorage`; it owns Source/Connector/Credential/Pair/item state, Source–Group associations, provenance, upload receipts, Google selection and synchronization authority, raw-input adoption and cleanup. `ingestion` depends on public `connector`, `document`, `objectstorage`, `iam`, and `retrieval`. `retrieval` depends on public `document`, `connector`, and `iam`; it owns embedding/OpenSearch adapters and has no dependency on Ingestion. `chat` depends on public `iam`, `retrieval`, and `connector` source metadata/types; it owns private sessions/messages/Persona and concrete JDBC persistence. No cross-capability JPA relationships exist. Spring Modulith and ArchUnit reject cycles, cross-capability persistence imports, deployable dependencies, and provider imports of capability internals.
-Chat exposes private sessions/history, send/local Stop and SSE through `api.chat`. `ChatTurnService` owns admission and product lifecycle; Spring owns its virtual-thread executor, and Reactor cancellation reaches the native Embabel PromptRunner stream. `ChatTurnSetup` holds resolved native messages/model binding in RAM. Embabel owns inference/tools/accounting; a public LlmService delegate avoids capability probe calls, and a ChatModel decorator handles stream metadata. Provider composition owns clients, options conversion and final-request policy. PostgreSQL stores transcript/outcome/deadline; the API reconciles expired runs without polling active rows for Stop. `StreamBufferWriter` holds bounded RAM replay, and the MVC controller returns `Flux<ServerSentEvent>` through a reader independent of model lifetime. Terminal events follow committed DB outcomes. There is one API process, no Chat worker/Redis journal, and the browser uses native assistant-ui/AI SDK with a public ChatTransport adapter over the generated Java client. Chat at `/` and `/chat/{sessionId}` supports private history, Stop/partial and replay/history recovery; Search is `/search`. Authority changes remount the chat runtime and release its reader. `TenantAccessResolver.lockActiveMembership` revalidates under the shared IAM Tenant lock before Chat writes. See the [Chat contract](docs/specs/chat.md) and [verification matrix](docs/tests/chat.md).
-
-`api` scans `io.memoryos` and composes Arconia fixed Tenant resolution. Worker scans its own package plus Connector, Document, Ingestion, Object Storage, Retrieval's embedding/OpenSearch adapters, and IAM persistence; it explicitly imports only the IAM authorization and Group-scope services needed by Connector. Both roots scan IAM entities and expose a shared `EntityManager` for constructor-injected concrete repositories. They do not load one another's API/security composition. Durable worker records carry the explicit `TenantId` used by repository predicates. Redis and db-scheduler remain worker composition concerns.
-
-Audit is intentionally absent until a real evidence consumer defines attribution, transaction, retention, access, and export semantics. See [ADR 0003](docs/decisions/0003-defer-audit-until-evidence-consumer.md).
-
-## Persistence and startup
-
-Flyway owns thirty-nine migrations. Released main V1–V38 remain unchanged. V39 raises FILE/Google binary object and input admission to 100 MiB while retaining 32 MiB native snapshots and the separate 250 MiB Chat storage ceiling. The unpublished branch-only V33/V34 admission migrations are replaced by this forward migration to avoid collisions with main's released Chat migrations. Historical isolated review/OCR databases containing the former branch histories are not upgrade targets: do not start this layout against them, repair their checksums, or rewrite their history. Integrated verification uses fresh disposable databases; staging upgrades from the released main history.
-
-- `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
-- `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
-- `V3__create_organization_invitations.sql`: historical Invitation lifecycle initially scoped by Organization/default Workspace.
-- `V4__collapse_workspace_into_organization.sql`: removes the default-Workspace layer and makes Organization the direct historical owner.
-- `V5__create_file_source_and_document_schema.sql`: historical Organization-scoped Connector/Credential/Pair/item/attempt/Document/provenance/cleanup state.
-- `V6__cut_over_organization_to_tenant.sql`: renames the active schema to Tenant, preserves UUIDs and composite ownership, and enforces one `deployment_slot = 1` Tenant row.
-- `V7__create_scheduler_control_plane.sql`: db-scheduler's PostgreSQL control-plane table and execution/heartbeat indexes; it contains no Tenant or business-operation authority.
-- `V8__cut_over_operations_to_redis_streams.sql`: adds stable delivery identity, dispatch claims/evidence, rediscovery timing, transport diagnostics, and processing-attempt counters to index and cleanup operations; it removes direct-poller claim indexes.
-- `V9__cut_over_file_content_to_object_storage.sql`: creates generic stored-object/upload state and Connector-owned Source upload receipts, removes FILE `BYTEA`, and makes each item version own one restrictive `StoredObject` reference.
-- `V10__persist_operation_trace_origins.sql`: persists operation trace origins.
-- `V11__add_document_extraction_artifacts.sql`: stores structured extraction artifacts.
-- `V12__use_current_documents.sql`: publishes the current Document representation.
-- `V13__create_actor_profiles.sql`: stores the latest nullable display-name/email observation for an admitted Actor with exact binding provenance and no provider token state.
-- `V14__consolidate_iam_account_types.sql`: persists `STANDARD` Actor classification and Tenant authorization revision, and invalidates pre-cutover serialized Spring Sessions.
-- `V15__create_iam_groups.sql`: Tenant-qualified Groups, explicit memberships/manager flags and capability grants; seeds protected Admin/Basic Groups and enforces system-grant constraints.
-- `V16__create_source_group_grants.sql`: Tenant-qualified Source–Group associations, seeded to Admin for existing Sources.
-- `V17__add_document_chunks_and_search_work.sql`: current content/chunk/search generations, bounded chunk text/provenance, protected artifact readers and durable SEARCH projection operations; no PostgreSQL vectors.
-- `V18__create_chat.sql`: Persona and owner-scoped sessions, parent/latest-child message tree, command uniqueness and one active assistant reply.
-- `V19__chat_execution.sql`: durable Stop marker and answer model/token/cost metadata, plus bounded deadline reconciliation index.
-- `V20__chat_local_stop.sql`: removes the former Stop marker for the accepted one-process local cancellation path; transcript/outcome/deadline remain in PostgreSQL.
-- `V21__add_tracked_object_writes.sql`: server-side raw-write reservations, writer/cleanup fencing, and separate binary/native storage limits.
-- `V22__add_google_drive_credentials.sql`: encrypted Google grants with separate authority and refresh-payload revisions.
-- `V23__add_durable_google_drive_sync.sql`: selected roots, input provenance, durable sync/frontier/checkpoints, and reconciliation deferral accounting.
-- `V24__require_owner_google_oauth_client.sql`: removes legacy shared-app grants/continuations and fences obsolete work while preserving Sources, roots, items and stored content; requires owner-app reauthorization.
-- `V25__scope_google_sync_to_explicit_roots.sql`: removes account-wide Changes cursor/replay state and retains durable selected-root reconciliation.
-- `V26__reuse_google_drive_credentials.sql`: adds credential names, removes Google singleton constraints and indexes shared credential attachments; preserves existing identities, encrypted grants, roots and content while retaining the NO_AUTH singleton.
-- `V27__add_google_drive_sync_interval.sql`: adds each Google Source's positive minute interval and independent schedule revision, defaulting existing rows to 5 minutes/revision 1 without changing their already-scheduled due timestamps.
-- `V28__add_google_drive_scope_mode.sql`: persists GENERAL/SPECIFIC scope, defaulting existing Sources to SPECIFIC without changing roots, credentials, schedules, Items or Documents.
-- `V29__add_google_drive_linked_documents.sql`: adds independent discovery authority and separate candidate, provenance, approval and per-input error tables; existing scope, roots, credential and scheduling state are unchanged.
-- `V30__add_google_drive_selection_operations.sql`: durable proposed selection, request receipts, policy/authority snapshots, metadata/ancestor checkpoints and fenced verification claims before atomic activation.
-- `V31__add_source_run_history.sql`: nullable legacy history facts, exact owned-index attribution, durable counters/safe errors, run completion and indexed bounded history/retention reads.
-- `V32__add_source_item_pagination.sql`: Source item keyset and latest-attempt indexes for bounded Files reads; no existing Source or content state changes.
-- `V33__chat_model_catalog.sql`: Chat model catalog.
-- `V34__chat_sources.sql`: Chat Source associations.
-- `V35__source_search_metadata.sql`: Source Search metadata.
-- `V36__chat_editors_projects_and_sharing.sql`: Chat editing, Projects and sharing.
-- `V37__chat_user_file_uploads.sql`: Chat UserFile uploads and separate storage purpose.
-- `V38__chat_message_files.sql`: Chat message attachments.
-- `V39__support_one_hundred_mib_binary_inputs.sql`: raises FILE/Google binary stored-object and input-version bounds to 100 MiB; native snapshots remain capped at 32 MiB, Chat storage retains its separate ceiling, and provider provenance predicates remain unchanged.
-
-IAM lifecycle entities and relationships remain inside `io.memoryos.iam.persistence`. Both composition roots deliberately use JPA transaction management on the same DataSource as JDBC work, with Hibernate `validate`, open-in-view disabled, and ORM caches disabled. Flyway is the only DDL owner. IAM projections/locks and Source, Document, Object Storage, and Ingestion persistence remain JDBC-first. See [ADR 0007](docs/decisions/0007-unified-jpa-iam-and-group-authorization.md).
-
-API startup requires datasource, OIDC, confidential browser-client, object-storage, and initial Tenant configuration including `MEMORYOS_TENANT_ID`. Its transaction locks the singleton bootstrap row, resolves or creates the exact owner binding, inserts or verifies the Tenant UUID, grants Tenant `OWNER`, and idempotently provisions Admin/Basic membership. Concurrent replicas serialize; configuration, owner, authority, lifecycle, or descriptive drift fails startup. V14 requires a coordinated API/worker cutover and fresh browser login rather than old-package session aliases.
-
-The worker composes a two-thread db-scheduler control plane over PostgreSQL. Topology reconciliation maintains INGESTION, CLEANUP, SEARCH, SOURCE_SYNC and GOOGLE_DRIVE_SELECTION_VALIDATION Redis Streams/groups. Bounded tasks enqueue due Google Sources, relay each workload, cancel inactive-Tenant work, maintain run retention, and clean abandoned browser uploads, tracked raw writes and unreferenced extraction artifacts. `scheduled_tasks` owns control-task heartbeat/recovery, not business authority. Worker readiness requires Redis, datasource, scheduler and the private storage sentinel; API readiness remains independent of Redis.
-
-Both deployables run on Java 25 with Spring Boot virtual threads enabled and `spring.main.keep-alive=true`. Spring-managed request, asynchronous-task, and scheduling execution uses virtual threads. db-scheduler uses a named virtual thread per control-task execution while its configured `threads = 2` bounds concurrent control work. The worker owns one long-lived consumer loop per workload and a virtual thread per claimed delivery; workload batch sizes plus database and Redis connection pools bound downstream concurrency. Long-lived db-scheduler polling/housekeeping, Lettuce/Netty event loops, and datasource housekeeping remain library-managed platform threads.
-
-Arconia's bootstrap profile is `development` for both deployables. The development API owns PostgreSQL Dev Services on host port `55432`; the worker connects to that database and owns Redis Dev Services on `56379`. Redis-dependent worker integration fixtures own JUnit containers and mapped ports independently of Arconia/CI activation; exact migration and multi-instance tests retain isolated containers. No cross-application Testcontainers reuse contract exists. Fixed development ports bind through Testcontainers on Docker host interfaces rather than a configurable loopback address, requiring a host firewall on non-private networks. Production artifacts exclude Dev Services and Testcontainers.
-
-Execution has one cut-over path: PostgreSQL operation → db-scheduler relay → workload Redis Stream/group → identifier-scoped PostgreSQL claim and lease → durable terminal transition → XACK/XDEL. Dispatch evidence rediscoveries rebuild nonterminal work after Redis loss; a message is reclaimed only when Redis idle time and PostgreSQL lease state both permit it. No direct PostgreSQL business poller, alternate dispatcher, execution-mode switch, or compatibility path remains.
-
-### Google synchronization and publication
-
-Each Google credential pins its provider subject and may serve multiple Sources in the same Tenant. Sources retain separate Connector/Pair, scope, progress and item/Document identity. SPECIFIC accepts nonoverlapping explicit roots within the backend selection policy (default 1,000 roots/3 MiB request/500 linked approvals), not a fixed UI cap of 20. Those defaults are configured bounds, not Google capacity proof. GENERAL verifies and stores the actual My Drive root internally, never presenting it as a user-selected link. SOURCE_SYNC reconciles persisted roots/descendants through the same frontier, paging, snapshot and indexing path. It does not enumerate Shared with me, Shared Drives, other accounts or account-wide Changes; Specific supports explicit files/folders inside Shared Drives. Whole-drive links, shortcuts and overlapping Specific roots fail closed.
-
-Specific Sources support explicit bounded content-link discovery. The provider bundle reads native/binary content offline; application publication stores candidates and actual parent/location provenance separately from approvals under Source/credential/discovery authority. Discovery does not synchronize new targets. An accepted root/approved-ID proposal becomes active only after checkpointed worker verification and fenced atomic activation; approved exact-file IDs then seed the same SOURCE_SYNC frontier without folder authority. Duplicate origins share Source/file identity; retained approvals remain removable after provenance disappears. Paged selection pins scope/discovery/credential authority, while status polling returns summary counts and the pending operation instead of full trees. Complete bounded drafts prevent paging from dropping selections. Limits and HTTP contracts are canonical in the [Connector contract](docs/specs/connector.md).
-
-General revalidates the stored My Drive root against the current provider session before traversal and again before pruning. A missing, changed, trashed, shared-drive or otherwise unverifiable root fails the run rather than proving an empty scope. An incomplete generation releases successfully adopted, confirmed inputs for indexing but does not prune unseen items. Scope mode is immutable after creation: service validation rejects a mismatch before provider access, and root persistence guards the saved mode without updating it. Specific link replacement advances the scope revision and fences obsolete acquisition/publication; only complete reconciliation under the new authority can prune excluded content. Globally authorized Source administrators configure the per-Source interval with an independent schedule revision; changing the interval does not fence work or invalidate Documents, and changing links does not overwrite the interval. Minute-level due checks and manual sync remain unchanged.
-
-Tracked raw writes reserve ownership before external PUT, verify integrity outside SQL transactions, and adopt with input/version/attempt creation in one fenced transaction. Uncertain writes retain cleanup tombstones against late PUT. INGESTION routes native Sheets/Docs snapshots offline, XLSX/CSV through Java readers, PDF/DOCX/PPTX through Docling, and UTF-8 text through bounded Tika; Slides are acquired as PPTX. Numeric bounds and structural contracts live in the [Ingestion contract](docs/specs/ingestion.md).
-
-Docling conversion uses one asynchronous submission and bounded same-task observation on the processing thread, with strict document-result validation. Known external failures terminate the indexing attempt instead of blindly resubmitting parser work; only transient status reads retry within that observation. Task state is not durable across Worker restart, and remote cancellation is not guaranteed. The [Ingestion contract](docs/specs/ingestion.md#extraction-routing-and-bounds) owns exact limits and classifications.
+FILE uploads use checksum-bound presigned PUT directly from the browser to object storage. Google Drive synchronization acquires provider content into tracked immutable raw snapshots before ingestion; ingestion never depends on a later provider read. Current Documents replace prior representations, while retained run/attempt records preserve observable processing history. Extraction success and Search readiness are separate states.
 
 The standalone OCR image owns a thin Serve composition and PDF backend/pipeline extensions for conservative pre-layout orientation. Worker retains its byte-only API boundary; its bounded adapter preserves raw document JSON and source-frame metadata rather than routing it through the SDK's closed document model. The [OCR recipe](infrastructure/deployment/ocr/README.md) and [Document contract](docs/specs/document.md) distinguish corrected coordinates, original provenance and unresolved financial periods. Image publication and deployment remain separate operational decisions.
 
-Publication checks current input, source, selection, credential authority and claim. Normal refresh-token rotation changes only payload revision; revocation or reauthorization changes authority. Reconciliation can temporarily defer an otherwise-current in-flight index attempt until membership is confirmed without consuming its extraction retry budget. Removed, excluded, superseded or revoked input cannot use that deferral path to publish. Google remains excluded from the existing FILE PUBLIC resolver; this is ingestion correctness, not source-ACL implementation.
+Search uses the current authorized Document generation. PostgreSQL holds bounded chunk text and provenance; OpenSearch holds BM25/vector projection data. Query filters narrow an already authorized scope and never create authority. Search results remain source passages; answer generation belongs to Chat.
 
-Shared reconnect, revoke and accepted authentication failure fence pending selection intents, sync/index work and retrieval mappings. Authority-sensitive locks follow Tenant → credential → Source with deterministic attached-Source ordering. Selection verification checkpoints metadata/ancestor traversal outside provider transactions, serializes claims per credential and uses finite batch/operation budgets. Only activation rechecks initiating Actor global `SOURCES_MANAGE`/credential/Source/discovery authority and a live claim before persistence. Source cleanup retains the reusable credential; explicit credential deletion requires no attachments and the current authority revision, and invalidates pending creates.
+## Chat execution and retrieval
 
-### Durable synchronization history
+```mermaid
+flowchart LR
+    Q[User message] --> AUTH[Recheck Tenant authority]
+    AUTH --> ADMIT[Persist turn and resolve model]
+    ADMIT --> LOOP[Native model and tool loop]
+    LOOP --> RET[Authorized retrieval]
+    RET --> OS[(OpenSearch)]
+    RET --> PG[(PostgreSQL provenance)]
+    LOOP --> MODEL[Configured model provider]
+    LOOP --> SSE[Bounded in-memory replay and SSE]
+    SSE --> UI[assistant-ui runtime]
+    LOOP --> OUTCOME[Persist terminal or partial outcome]
+```
 
-`source_sync_attempts` is the run anchor; automatic `index_attempts.source_sync_attempt_id` is assigned at exact input adoption, not reconstructed from time or current item state. A later run seeing old pending work does not own its publication. Acquisition termination remains independent from end-to-end completion of owned indexing children. Durable per-file/child transitions settle counters once across retries, replay, cancellation, supersession and item cleanup; deferral does not settle a child. Legacy unrecorded facts remain Unknown. Later manual reindex cannot rewrite closed history.
+Chat inference runs in the API process and does not use the ingestion worker or Redis journal. PostgreSQL owns sessions, message branches, command identity, outcome, deadline and model metadata. A bounded in-memory buffer supports live SSE and short replay; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
 
-Global/scoped `SOURCES_READ`-authorized run list/detail/error queries return bounded keyset pages and separate Current activity, Last completed and Last successful summaries. Item-attempt history and generic operation polling remain different contracts. Safe provider/storage/extraction/publication errors are retained without exceptions, tokens or object paths. Default detail/summary retention is 14/90 days with bounded compaction, visible expiry and protection for live work, current references and unresolved failures; source deletion follows dependency order. Metrics are not history authority. Exact semantics and APIs are in the [Connector history contract](docs/specs/connector.md#synchronization-run-history). The [verification matrix](docs/tests/connector.md#measured-selection-and-history-capacity--2026-09-08) separates measured provider-port root/history capacity from actual isolated HTTP-fixture/MinIO/worker/browser evidence; neither proves live Google capacity; controlled 100,000-file no-change traversal is separate evidence. The [historical evidence](docs/increments/active/google-drive-structured-ingestion/plan.md#mem-76-verification--2026-09-08) retains the completed pre-integration backend/corpus results; verification of main `287ca9c` with this branch is recorded separately in the [current refresh record](docs/increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09).
+Private Chat files reuse Object Storage, Document extraction and passage readers while remaining Chat-owned and owner-authorized. General Search excludes private file chunks. Sharing exposes allowed transcript descriptors without granting access to underlying private bytes or passages.
 
-## Grounded Chat retrieval
+## Identity and authorization
 
-Chat registers a native Embabel SearchTool on tool-capable catalog bindings. Native typed helpers rewrite the current question using bounded history, select ranked sections and classify their actual neighboring context. All query groups use the same OpenSearch hybrid path; cross-query weighted RRF and bounded index windows supply the evidence. Answer continuation uses native streaming on the same process/binding, with citation and final-cycle reminders confined to inference requests. Actor/Tenant and source eligibility remain server-owned. Expansion reuses the authorized search result without a second ACL check; independent preview checks current access. PostgreSQL stores bounded source/citation metadata with the transcript outcome, and search progress/evidence events use the existing RAM SSE sequence. A bounded virtual-thread scheduler and local cancellation isolate blocking tool IO. The browser resolves citations through native message metadata and uses a right-side source/document panel (mobile drawer), sharing the generated document reader with Search. See the [Chat contract](docs/specs/chat.md#grounded-chat--phase-31) for limits and the remaining source ACL and real-corpus acceptance boundaries.
+```mermaid
+sequenceDiagram
+    actor Browser
+    participant Keycloak
+    participant API
+    participant IAM
+    participant Capability
 
-Chat retrieval uses per-search source scope, batched unique embeddings and concurrent hybrid IO, followed by fresh batched generation/eligibility checks. Adjacent authorized chunks merge before model selection; selected section boundaries control neighbor reads. Source dates have separate connector persistence and nested index metadata, repaired through normal projection reconciliation with vector reuse. Helper reasoning/deadlines and bounded concurrent budget admission remain on the selected native binding. Ordered SSE publishes actual queries/filters and reading candidates before final sources. [Chat](docs/specs/chat.md) and [Search](docs/specs/search.md) own the detailed contracts.
+    Browser->>Keycloak: Authorization Code and PKCE
+    Keycloak-->>API: Validated identity
+    API->>IAM: Resolve exact issuer and subject
+    IAM-->>API: Actor, Tenant and current grants
+    Browser->>API: Protected request with session
+    API->>IAM: Recheck membership and scope
+    API->>Capability: Execute authorized operation
+```
 
+Keycloak is the browser credential store and enterprise identity broker. MemoryOS binds the exact validated `(issuer, subject)` to an Actor and owns Tenant membership, Group grants, capability implications and resource scope. Email, provider role presentation and indexed metadata never substitute for authorization. IAM mutations advance the Tenant authorization revision so the browser can discard revoked private state.
 
-## Document Search
+Google authorization is a separate Connector credential flow. Its callback cannot replace the signed-in Actor or infer identity from email. Provider tokens are encrypted or transient and do not become application-session authority.
 
-Direct document Search is available at `/search`; Chat is the application home. The implemented `retrieval` capability owns Spring AI embeddings and a native OpenSearch adapter; its public index contract is consumed by Ingestion. A synchronous Document publication event records durable SEARCH work in the same PostgreSQL transaction. The worker creates a separate SEARCH Redis stream/group, dispatch relay and consumer, alongside existing ingestion and cleanup workloads. It prepares current chunks, reuses surviving same-input vectors, embeds missing input, verifies bulk output/completeness and commits token-fenced Search readiness. A bounded rotating reconciliation task repairs missing current output and removes obsolete generation IDs. Worker scans the embedding/OpenSearch adapter packages without loading the API's search application service.
+## Data ownership and consistency
 
-`POST /api/search` performs native BM25 plus filtered radial vector search with min-max normalization and weighted arithmetic mean (0.5/0.5 by default). Semantic candidates must meet a configurable raw cosine-space score floor before fusion; the candidate budget remains an exploration/response bound rather than result eligibility. Current PostgreSQL generations and existing Source eligibility are checked before merging adjacent retrieved chunks into sections. Sections keep best-hit ranking, ordinal ranges and per-chunk provenance; each document card contains up to three sections. Missing neighbors are not fetched. Result cards render bounded literal-highlighted snippets and friendly metadata; full current passages open in a responsive, focus-managed dialog through `GET /api/search/documents/{documentId}` for an explicitly selected generation and matching chunk. The API still exposes plain passages rather than structured block kinds, so the browser does not infer tables or heading hierarchy. Source items show extraction and Search status separately. Staging Dashboards saved objects for `memoryos-chunks*` are reconciled through its supported API by an operator; the human inspector stays read-only. This direct Search path does not use ChatModel, chat memory or Embabel orchestration and introduces no additional permission model; the separate Chat runtime is described above. See the [Search contract](docs/specs/search.md), [tests](docs/tests/search.md) and [ADR 0008](docs/decisions/0008-opensearch-search-projection-and-normalized-hybrid.md).
-
-## Authentication
-
-The API composes three ordered security chains:
-
-1. Exact Google acquisition callback `/login/oauth2/code/google-drive`: no session creation; the callback controller validates the existing Actor-bound consent continuation, state, PKCE, nonce and signed OIDC identity.
-2. Browser application API (`/api/**`): existing JDBC-backed browser sessions or bound bearer identities, never creating a session; the redacted current-invitation lookup is public but reads only an existing session. An interceptor rejects unsafe requests missing the same-origin mutation header.
-3. Browser routes: existing invitation intake/continuation and Keycloak OAuth2 Login Authorization Code + PKCE.
-
-Both authentication modes validate provider tokens and resolve exact `(issuer, subject)` to `ActorId`. Unbound bearer identities fail `401` and never create authority. Browser admission preserves active members; otherwise an explicitly allowed, strict String `memoryos_identity_provider` claim in the validated Keycloak ID token selects JIT, otherwise the existing invitation path applies. JIT atomically creates/reuses the exact STANDARD Actor and grants active MEMBER plus non-manager Basic for the configured Tenant, with Tenant-before-Actor locking and no invitation writes or email linking. It rejects inactive Tenant/membership and is repeat/concurrency-idempotent. Eligible invitation admission retains its verified-email contract and consumes its invitation atomically. Every protected operation resolves current membership and applicable IAM authority; deactivation denies the next request, while `/api/identity/me` returns the bound Actor with `tenant: null`. Its repeatable-read projection includes expanded global capabilities, eligible scoped capabilities, and the Tenant revision. Role presentation and Arconia context never substitute for authorization.
-
-Explicit Group grants form a union with one implication graph. `IAM_ADMIN` is reserved to Admin; Basic grants no administrative capabilities. Ordinary-Group managers have only eligible scoped operations, cannot mutate manager status by deleting a manager membership, and cannot exceed delegation limits. IAM mutations hold the Tenant row exclusively and increment its revision; protected Source writes hold a shared Tenant lock and reauthorize their concrete SQL scope before commit. Provider IO stays outside these locks. The [IAM contract](docs/specs/identity.md) and [Source contract](docs/specs/connector.md) own the detailed permission matrices.
-
-On successful browser login, Spring Security session-fixation protection rotates the session ID. After authority admission and before persisting the application session, the callback records the latest nullable display-name/email and verification observation against the admitted Actor's exact binding. It then replaces `OAuth2AuthenticationToken` with an `ActorAuthenticationToken` carrying no credentials, explicitly saves a security context whose serializable principal contains only `ActorId`, and uses a discarding authorized-client repository. Provider access, refresh, and raw ID-token state is not retained in Spring Session or profile persistence.
-
-Google acquisition is independent of Actor login. Its callback never replaces Actor identity or infers a binding from email. The owner app and refresh grant are encrypted with Tenant/credential/key-version context outside Spring Session; consent temporarily binds its encrypted app to the initiating Actor, Tenant, target and expected authority. Access tokens remain transient. Audience and authorized-party checks use that app, not a global client. Concurrent consent, stale callback, wrong-account reconnect and stale refresh failure remain fenced by Actor/session/state and credential/payload revisions. See the [Connector contract](docs/specs/connector.md).
-
-| Endpoint | Access | Result |
+| Store | Authoritative for | Rebuildable or derived |
 | --- | --- | --- |
-| `GET /actuator/health` | Public | Health status |
-| `GET /api/identity/me` | Valid bound bearer identity or browser session | Actor, nullable Tenant, global/scoped capabilities, and authorization revision |
-| `GET /` | Browser origin | Static application; session state is resolved through `/api/identity/me` |
-| `GET /access-not-provisioned` | Browser origin | Public accessible denial state |
-| `GET /invite/{secret}` | Public capability link | Digest lookup, redacted JDBC continuation, then invitation landing |
-| `GET /invite/activate` | Public Keycloak action return | Clear stale continuation, mark activation flow, and start browser OAuth2 login |
-| `/api/invitations/**` | Global `USERS_MANAGE`, except redacted current continuation | Issue/list/rotate/revoke and recipient landing context |
-| `GET /api/users` | Global `USERS_MANAGE` | Bounded membership/invitation directory with profiles, account classification, and Groups |
-| `POST /api/users/{actorId}/activate` | Global `USERS_MANAGE` | Idempotent existing-member activation; configured owner protected |
-| `POST /api/users/{actorId}/deactivate` | Global `USERS_MANAGE` | Idempotent deactivation preserving history; owner and final-active-admin guards |
-| `POST /api/users/{actorId}/groups` | `IAM_ADMIN` | Replace ordinary memberships, preserving system edges and retained manager flags |
-| `/api/groups/**` | Applicable global IAM capability or managed-Group scope | Authorized Group/member projections and explicit lifecycle/manager/grant commands |
-| `/api/sources/**` | Applicable global Source capability or associated managed-Group scope | Filtered reads and scoped upload/reindex; create, association, remove, and delete commands require global authority |
-| `/api/source-operations/**` | Global `SOURCES_READ` or associated managed-Group scope | Poll only authorized durable operations |
-| `/api/credentials/google-drive/**` | Global `SOURCES_MANAGE` | Independent reusable credential catalog, consent, reconnect, revoke and guarded unused-credential deletion |
+| PostgreSQL | Identity bindings, authorization, Sources, operations, current Documents, Chat state and lifecycle evidence | No |
+| Object storage | Immutable raw inputs, canonical extraction artifacts and private file bytes | Bytes are authoritative; associations and lifecycle remain in PostgreSQL |
+| Redis Streams | Background delivery and pending consumer-group state | Yes, from eligible PostgreSQL operations |
+| OpenSearch | Searchable text/vector projection | Yes, from current authorized Document generations |
+| Keycloak | External authentication and broker configuration | MemoryOS authorization is separate |
 
-## API error contract
+Flyway owns schema evolution and runs from the API composition root. Released migrations are append-only; local or historical review databases with divergent unpublished histories are not upgrade targets. Verification uses fresh disposable databases or an explicit data-preserving migration plan.
 
-Spring Boot MVC Problem Details is enabled for framework exceptions. Expected capability failures are carried by typed `BusinessException` subclasses and mapped to RFC 9457 by the narrow `ApiExceptionHandler`. The same advice handles only `MethodArgumentNotValidException` and `HandlerMethodValidationException` to publish safe stable field/parameter errors; it does not extend `ResponseEntityExceptionHandler` or catch `Exception`, `IllegalArgumentException`, or persistence exceptions. Diagnostic messages, rejected sensitive values, bytes, extracted text, claim tokens, and parser failures are never exposed.
+## Deployment and operations
 
-Browser redirect controllers continue to consume typed exceptions directly, `ACCESS_NOT_PROVISIONED` remains a browser SPA destination, and Spring Security filter-chain failures remain outside MVC advice. Unexpected exceptions are not caught by the global handler.
+```mermaid
+flowchart TB
+    INTERNET[Internet] --> NPM[Nginx Proxy Manager]
+    NPM --> WEB[Web Nginx]
+    NPM --> MINIO[MinIO object endpoint]
+    NPM --> INSPECT[Owner-only inspection surfaces]
+    WEB --> API
+    API --> PG[(PostgreSQL)]
+    API --> KC[Keycloak]
+    API --> MINIO
+    WORKER[Worker] --> PG
+    WORKER --> REDIS[(Redis)]
+    WORKER --> MINIO
+    WORKER --> DOCLING[Docling]
+    API --> OTEL[OTel collector]
+    WORKER --> OTEL
+```
 
-## Published API contract
+Base Compose owns PostgreSQL, MinIO, Keycloak, Redis-dependent application services, API, worker and web. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
 
-The committed root `openapi.yml` is a generated snapshot of the live `/api/**` Spring MVC surface and is the sole input to the committed Hey API client under `web/src/lib/hey-api`. Spring controller annotations and Spring-visible request/response types own operation IDs, status/media metadata, security requirements, and schema constraints; the YAML file is not edited as an independent contract.
+Structured logs, metrics and traces flow through OpenTelemetry to the independently operated LGTM stack. Telemetry carries correlation and operation-origin identifiers but never changes authorization, durable claims or acknowledgement semantics. See the [observability policy](docs/guidelines/observability.md).
 
-Springdoc's WebMVC API starter is present without Swagger UI. API-doc endpoints are disabled in normal runtime configuration and enabled only by `OpenApiContractTest`, which starts the real API context, retrieves the grouped browser document through MockMvc, verifies the exact public path set, and compares it semantically with `openapi.yml`. The Gradle gate rejects backend/snapshot drift; the frontend `check:api` gate rejects snapshot/client drift.
+The public `vadan.app` landing site is a separate static image and Compose project. It is released and operated independently from the MemoryOS application; see the [landing runbook](docs/runbooks/landing.md).
 
-## External identity provider
+## Current boundary and future direction
 
-Keycloak is the fixed browser credential store and enterprise OIDC/SAML broker. MemoryOS owns the lifecycle of the single Keycloak container shared with OrgMemory while each repository owns only its own realm configuration. MemoryOS reconciliation creates or reuses the named initial owner, retains public PKCE client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, `memoryos-redisinsight`, and `memoryos-minio-console`, and creates the realm-local confidential `memoryos-user-provisioner` service account. The three inspection clients expose only the realm-local `memoryos-inspector` role, which is assigned solely to the reconciled initial owner; the MinIO client maps that client-scoped role into the `policy` claim used by MinIO STS. They never expose the master realm or bootstrap administrator. `memoryos-web` retains only the exact Spring callback and exact `/invite/activate` return URI with mandatory S256 PKCE; wildcards remain forbidden. IAM-owned provider integration uses the provisioner to create or reuse invited local accounts and send bounded `VERIFY_EMAIL` execute-actions links; the service account has only realm-local `manage-users`.
+The implemented system has no multi-Tenant switcher, dynamic broker administration, audit evidence viewer, SCIM, Google document ACL enforcement, reader identity linking, MCP server, GraphRAG engine or durable memory-management surface. These are candidate capabilities rather than implied parts of the current runtime.
 
-The browser-only JIT allowlist `memoryos.identity.jit.allowed-provider-aliases` comes from optional `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES` with an empty default; `tasco` requires explicit deployment opt-in. Reconciliation upserts the `memoryos-web` User Session Note mapper from `identity_provider` to String ID-token claim `memoryos_identity_provider`, excluding access tokens, UserInfo, introspection, and token-response claims. Upstream provider configuration is untouched. The [MEM-59 increment](docs/increments/active/mem-59-tasco-jit/design.md) tracks pending broker-simulator and actual Tasco acceptance separately; provider revocation propagation remains out of scope.
-
-## Deployment
-
-The checked-in CI workflow verifies all required jobs through `CI Gate` and publishes the preserved main API/worker/web image bytes by digest. The staging workflow selects a successful main release, uses the existing Compose/Flyway path, and requires real authenticated Playwright smoke before acceptance. GitHub concurrency and a server lock/reservation serialize deployment and recovery. The first manual rollout and external environment setup are separate acceptance steps; automation is activated only after those pass. See the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery verification matrix](docs/tests/delivery.md).
-
-The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, API, worker, and web. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, TLS Redis, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
-
-The staging application origin is `https://memoryos.72-62-193-33.nip.io`, terminated by Nginx Proxy Manager and forwarded to `memoryos-web:8080`. The object-storage origin routes directly to `memoryos-minio:9000` and must exactly match the configured presigning endpoint, MinIO CORS origin, and web CSP `connect-src`. The separate owner-only Console origin routes to `memoryos-minio:9001`; native OIDC returns only to its exact `/oauth_callback`, and claim-based authorization grants the bucket-read-only `memoryos-inspector` policy only to the initial owner. The confidential `memoryos-web` client retains the matching HTTPS callback, `/invite/activate` action return, root, and web origin with S256 PKCE; staging's secure JDBC-session cookie is therefore exercised over HTTPS rather than a loopback development rewrite.
-
-The public company site `https://vadan.app` is the separate static [`landing/`](landing) package, not part of the application. Its nginx image serves a client-rendered page read-only as UID 101 with a strict same-origin CSP; `CI Gate` requires its checks and image smoke, and a separate `Publish landing` job records its digest. Operators run it as Compose project `memoryos-landing` from [`compose.landing.yaml`](infrastructure/deployment/compose.landing.yaml) behind Nginx Proxy Manager, outside the application release bundle and deployment script. See the [landing runbook](docs/runbooks/landing.md).
-
-## Extraction and deferred capabilities
-
-Structured extraction is documented in the [Document contract](docs/specs/document.md) and [Ingestion contract](docs/specs/ingestion.md). The base deployment includes a digest-pinned CPU Docling service on the private network, without host ports or object-storage credentials. Worker publishes checksum-verified canonical artifacts to MinIO and updates the current Document reference transactionally; a separate recurring sweep reclaims unreferenced artifacts. This is the extraction stage. The separate SEARCH workload consumes current artifacts for chunking, embedding and Search projection; extraction success alone is not Search readiness.
-
-No multi-Tenant switcher, dynamic broker configuration surface, audit history, non-`STANDARD` account-creation/credential flow, SCIM/Requests surface, OpenFGA client, Google document ACLs, reader identity linking, Google document viewer, MCP server, GraphRAG engine, account-linking endpoint, or durable memory screen exists. Add deferred components only through capability-owned vertical slices with verified production paths.
-
-## Staging observability
-
-API and worker package shared Logback and Micrometer/OpenTelemetry configuration from
-`core/src/main/resources`. Staging emits JSON stdout and OTLP HTTP logs, metrics and
-traces to an independently managed Collector/Loki/Tempo/Prometheus/Grafana Compose
-project. Backends and ingest are private; Grafana uses native Keycloak OIDC with
-a strict `memoryos-inspector` role gate and separate local break-glass credentials.
-Nullable operation-origin IDs persist across PostgreSQL dispatch and Redis delivery.
-Worker publication/processing spans are separate roots with causal links; telemetry
-never changes durable claim, fencing or authorization semantics.
-The ingestion coordinator records bounded processing outcomes independently of ACK;
-connector persistence supplies creation-to-first-claim wait from database timestamps.
-See the [processing telemetry contract](docs/specs/ingestion.md#processing-telemetry).
-
-See the [logging policy](docs/guidelines/observability.md),
-[verification matrix](docs/tests/observability.md), and
-[deployment runbook](infrastructure/observability/README.md). Repository configuration
-and local validation are distinct from staging rollout acceptance.
-
-## Chat model catalog
-
-New conversation naming is a separate best-effort owner-authorized request after the first completed exchange. It reuses the model catalog, native Embabel runner and bounded execution admission; a PostgreSQL one-time flag and conditional write preserve manual titles. File citations carry optional character windows or indexed passage locations. Private passage reads resolve UserFile ownership before sharing the existing Search reader implementation. See the [Chat contract](docs/specs/chat.md) and [UX follow-up](docs/increments/active/chat-ux-baseline-followup/design.md).
-
-Chat assistants, private projects, sharing and output feedback use capability-local Spring Data JPA repositories. Application services enforce owner/Tenant access, revisions and cross-repository transactions. `ChatWorkspaceService` atomically creates or configures an assistant/project conversation. V36 adds editor data and command receipts without replacing the existing message tree; JDBC retains branch traversal, admission locks and conditional terminal writes. See [ADR 0010](docs/decisions/0010-spring-data-jpa-lifecycle-repositories.md) and the [Chat contract](docs/specs/chat.md#conversation-editing-assistants-projects-and-collaboration).
-
-Edit/regenerate use the existing native execution and replay lifecycle. Conversation deletion hides all private/shared reads, cancels an active run and drops local replay. Project deletion only unlinks conversations. Effective Persona/Project instructions and source/tool/token restrictions are captured for each admitted turn. Custom Persona instructions take precedence over Project instructions. The shared viewer uses a distinct authenticated same-Tenant read path and never controls the owner's run or grants source access.
-
-Chat provider/model/default lifecycle uses capability-owned Spring Data JPA repositories and Hibernate revisions; authority projections, conflict-safe initialization and bulk reference mechanics remain JDBC. Access uses IAM `MODELS_MANAGE`, Group/Persona access and stable model configuration IDs. Each turn resolves a native Embabel/Spring AI binding once and acquires a bounded client lease. API composition registers `ChatProviderAdapter` implementations; the executor does not select providers or decode provider options. Organization BYOK is encrypted using a deployment-managed AES key. See the [catalog contract](docs/specs/chat-models.md) and [active backend increment](docs/increments/active/mem-77-provider-backend/design.md). No model configuration UI or web/image tool implementation accompanies this backend foundation.
+The [target architecture](docs/vision.md#target-architecture) describes the intended evolution and its decision gates. New capability or dependency edges require an accepted design, an ADR when implementation starts, boundary-test updates and a production runtime path.

@@ -120,6 +120,9 @@ public final class ChatModelExecutor {
                 if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
                 messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), remaining, fileActive);
             }
+            if (selected.toolCalling()) {
+                runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.ArtifactTool(setup.artifacts(), guard::checkActive)));
+            }
             if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
                         setup.fileIds(), fileActive, guard::availableContextTokens, selected.tokens(), fileSearch, setup.evidence(), fileWork, setup.deadline())));

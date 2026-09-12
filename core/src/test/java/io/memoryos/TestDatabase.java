@@ -17,6 +17,7 @@ import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.orm.jpa.vendor.HibernateJpaDialect;
 import org.springframework.dao.support.PersistenceExceptionTranslationInterceptor;
 import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
+import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -112,7 +113,11 @@ public final class TestDatabase {
     ) implements AutoCloseable {
         /** Real Spring Data queries; the test's application transaction owns the unit of work. */
         public <R> R repository(Class<R> contract) {
-            R target = new JpaRepositoryFactory(entityManager).getRepository(contract);
+            return repository(contract, RepositoryFragments.empty());
+        }
+
+        public <R> R repository(Class<R> contract, RepositoryFragments fragments) {
+            R target = new JpaRepositoryFactory(entityManager).getRepository(contract, fragments);
             var proxy = new ProxyFactory(target);
             proxy.addAdvice(new PersistenceExceptionTranslationInterceptor(new HibernateJpaDialect()));
             return contract.cast(proxy.getProxy());

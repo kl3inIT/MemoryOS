@@ -2,7 +2,7 @@
 
 Accepted scope: deliver the backend catalog and native adapter extension now. Đức Anh adds and verifies the local provider adapter on this foundation. No model selector or provider administration UI is included; regenerate the OpenAPI client only.
 
-The [provider/model architecture](../mem-11-production-chat/provider-model-architecture.md) remains the reference contract. Onyx separates provider connections, model configurations and tool configuration. OrgMemory contributes the protocol factory boundary; its workload routing and cache implementation are not copied. Spring AI owns provider calls and Embabel owns conversion, streaming, tool continuation and accounting.
+The [catalog spec](../../../specs/chat-models.md) remains the reference contract. MemoryOS separates provider connections, model configurations and tool configuration through its catalog and adapter boundaries. Spring AI owns provider calls and Embabel owns conversion, streaming, tool continuation and accounting.
 
 ## Implementation
 

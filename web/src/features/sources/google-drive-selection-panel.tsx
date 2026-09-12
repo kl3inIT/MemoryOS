@@ -1,3 +1,6 @@
+import { uiLocale } from "@/i18n/format";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderTree } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -57,6 +60,8 @@ export function GoogleDriveSelectionPanel({
   onBusyChange: (busy: boolean) => void;
   onActivated: () => Promise<void>;
 }) {
+  const ui = useAppTranslation();
+
   const session = useApplicationSession();
   const client = useQueryClient();
   const policy = useQuery({
@@ -73,7 +78,7 @@ export function GoogleDriveSelectionPanel({
   const cancelButton = useRef<HTMLButtonElement>(null);
   const selectionControl = useRef<HTMLElement | null>(null);
   const draftFocus = useRef<"roots" | "approval" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const [revisionConflict, setRevisionConflict] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -365,7 +370,7 @@ export function GoogleDriveSelectionPanel({
         }
         onClick={save}
       >
-        {tracking.uncertain ? "Retry Save selection" : "Save selection"}
+        {tracking.uncertain ? ui("Retry Save selection") : ui("Save selection")}
       </Button>
       <Button
         prominence="tertiary"
@@ -378,60 +383,66 @@ export function GoogleDriveSelectionPanel({
         }}
       >
         {" "}
-        {submitted ? "Close draft" : "Cancel"}
+        {submitted ? ui("Close draft") : ui("Cancel")}
       </Button>
       {!submitted && !tracking.uncertain ? (
         <Button prominence="secondary" disabled={busy || disabled} onClick={() => loadDraft()}>
-          Reload saved selection
+          {ui("Reload saved selection")}
         </Button>
       ) : null}
     </div>
   ) : null;
   return (
-    <section aria-label="Selected content" className="min-w-0 space-y-3">
+    <section aria-label={ui("Selected content")} className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <SourceSectionIcon icon={FolderTree} />
-          <h2 className="font-heading-h3 text-content-primary">Selected content</h2>
-          <HelpPopover label="Selected content">
+          <h2 className="font-heading-h3 text-content-primary">{ui("Selected content")}</h2>
+          <HelpPopover label={ui("Selected content")}>
             <p>
               {configuration.scopeMode === "GENERAL"
-                ? "General includes supported content in this account's My Drive, excluding Shared with me and Shared Drives."
-                : "Specific includes directly selected files, folder contents and approved linked documents. This is not an account-wide browser."}
+                ? ui(
+                    "General includes supported content in this account's My Drive, excluding Shared with me and Shared Drives.",
+                  )
+                : ui(
+                    "Specific includes directly selected files, folder contents and approved linked documents. This is not an account-wide browser.",
+                  )}
             </p>
             <p>
-              Expand folders to browse actual accessible files, then expand a file to see its
-              recorded linked documents. Folder and file counts describe directly selected roots,
-              not folder descendants. Search and type filters show unique results instead of the
-              tree.
+              {ui(
+                "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree.",
+              )}
             </p>
             <p>
-              References count unique locations within source documents. Opening a file's links
-              reads stored evidence; it does not scan content or approve it. A file with no recorded
-              links may not have been checked. Linked targets can appear in several branches; their
-              sync selection is shared.
+              {ui(
+                "References count unique locations within source documents. Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.",
+              )}
             </p>
             {configuration.scopeMode === "SPECIFIC" ? (
               <>
                 <p>
-                  Use Edit selection to paste file or folder links, one per line or separated by
-                  commas. Choose a folder or its descendants, not both. Links and Google access are
-                  checked when you save; OAuth permissions may be broader than this selection.{" "}
-                  Select for sync changes linked-document approvals in a draft without editing the
-                  root links. Save selection submits it for verification; Cancel discards unsaved
-                  changes.
+                  {ui(
+                    "Use Edit selection to paste file or folder links, one per line or separated by commas. Choose a folder or its descendants, not both. Links and Google access are checked when you save; OAuth permissions may be broader than this selection.",
+                  )}{" "}
+                  {ui(
+                    "Select for sync changes linked-document approvals in a draft without editing the root links. Save selection submits it for verification; Cancel discards unsaved changes.",
+                  )}
                 </p>
                 <p>
-                  Discovery checks up to 100 inputs and 500 candidates, not the entire corpus.
-                  Discovering a link does not approve its target.
+                  {ui(
+                    "Discovery checks up to 100 inputs and 500 candidates, not the entire corpus. Discovering a link does not approve its target.",
+                  )}
                 </p>
               </>
             ) : null}
             <p className="text-xs text-content-muted">
-              Active revision {configuration.revision} · Discovery {configuration.discoveryRevision}
-              {" · "}Credential {configuration.credentialRevision}. Selection pages are pinned to
-              these revisions. {configuration.counts.approvedLinkedDocuments.toLocaleString()}{" "}
-              approved linked documents.
+              {ui("Active revision")} {configuration.revision} {ui("· Discovery")}{" "}
+              {configuration.discoveryRevision}
+              {" · "}
+              {ui("Credential")} {configuration.credentialRevision}
+              {ui(". Selection pages are pinned to these revisions.")}{" "}
+              {configuration.counts.approvedLinkedDocuments.toLocaleString(uiLocale())}{" "}
+              {ui("approved linked documents.")}
             </p>
           </HelpPopover>
         </div>
@@ -445,34 +456,38 @@ export function GoogleDriveSelectionPanel({
             tone={pending ? "info" : operation.status === "SUCCEEDED" ? "success" : "warning"}
           >
             {pending
-              ? "Pending validation"
+              ? ui("Pending validation")
               : operation.status === "SUCCEEDED"
-                ? "Selection activated"
-                : "Proposal not activated"}
+                ? ui("Selection activated")
+                : ui("Proposal not activated")}
           </StatusBadge>
           <p>
             {pending
-              ? "The active selection remains in use until verification succeeds. Leaving this page does not cancel validation. A newer submitted proposal supersedes the pending proposal."
-              : "The saved selection is shown below. Revision details are available in Selected content help."}
+              ? ui(
+                  "The active selection remains in use until verification succeeds. Leaving this page does not cancel validation. A newer submitted proposal supersedes the pending proposal.",
+                )
+              : ui(
+                  "The saved selection is shown below. Revision details are available in Selected content help.",
+                )}
           </p>
           <p className="break-all text-xs text-content-muted">
-            Operation {operation.id} · {operation.status.toLowerCase().replaceAll("_", " ")}
+            {ui("Operation")} {operation.id} · {ui(statusLabel(operation.status))}
           </p>
         </div>
       ) : null}
       {tracking.recovering ? (
         <p role="status" className="text-sm text-content-muted">
-          Recovering submitted selection…
+          {ui("Recovering submitted selection…")}
         </p>
       ) : null}
       {surfaceError ? (
         <p role="alert" className="text-sm text-status-danger-content">
-          {surfaceError}
+          {ui(surfaceError)}
         </p>
       ) : null}
       {tracking.recoveryError ? (
         <Button prominence="secondary" onClick={() => void tracking.retryRecovery()}>
-          Retry selection recovery
+          {ui("Retry selection recovery")}
         </Button>
       ) : null}
       {tracking.recoveryMissing ? (
@@ -483,23 +498,24 @@ export function GoogleDriveSelectionPanel({
             setError(null);
           }}
         >
-          Discard unaccepted request
+          {ui("Discard unaccepted request")}
         </Button>
       ) : null}
       {tracking.statusUnavailable ? (
         <Button prominence="secondary" onClick={() => void tracking.retryStatus()}>
-          Retry validation status
+          {ui("Retry validation status")}
         </Button>
       ) : null}
       {tracking.uncertain && !busy ? (
         <p className="text-sm text-content-muted">
-          The response was not received. Retry Save selection with the same request ID; the server
-          will not apply it twice.
+          {ui(
+            "The response was not received. Retry Save selection with the same request ID; the server will not apply it twice.",
+          )}
         </p>
       ) : null}
       {policy.isError ? (
         <Button prominence="secondary" onClick={() => void policy.refetch()}>
-          Retry selection policy
+          {ui("Retry selection policy")}
         </Button>
       ) : null}
       {configuration.scopeMode === "SPECIFIC" ? (
@@ -507,8 +523,10 @@ export function GoogleDriveSelectionPanel({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-content-muted">
               {configuration.discoveredAt
-                ? `Last discovery · ${new Date(configuration.discoveredAt).toLocaleString()}`
-                : "No discovery yet."}
+                ? ui("Last discovery · {{v1}}", {
+                    v1: new Date(configuration.discoveredAt).toLocaleString(uiLocale()),
+                  })
+                : ui("No discovery yet.")}
             </p>
             <Button
               prominence="secondary"
@@ -530,23 +548,26 @@ export function GoogleDriveSelectionPanel({
                 })
               }
             >
-              Discover linked documents
+              {ui("Discover linked documents")}
             </Button>
           </div>
           {rootChanges ? (
             <p className="text-xs text-content-muted">
-              The list below shows the active selection, not the unverified links in your draft.
+              {ui(
+                "The list below shows the active selection, not the unverified links in your draft.",
+              )}
             </p>
           ) : null}
           {configuration.discoveryErrors.length ? (
             <details className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
               <summary className="min-h-11 cursor-pointer">
-                Discovery could not check {configuration.discoveryErrors.length} inputs
+                {ui("Discovery could not check")} {configuration.discoveryErrors.length}{" "}
+                {ui("inputs")}
               </summary>
               <ul>
                 {configuration.discoveryErrors.map((failure) => (
                   <li key={`${failure.fileId}:${failure.code}`} className="break-words">
-                    {failure.fileName}: {sourceStatusMessage(failure.code)}
+                    {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
                   </li>
                 ))}
               </ul>
@@ -563,15 +584,15 @@ export function GoogleDriveSelectionPanel({
         }}
       >
         <label className="min-w-0 flex-1 space-y-1 text-sm">
-          <span>Search selected content</span>
+          <span>{ui("Search selected content")}</span>
           <Input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Name"
+            placeholder={ui("Name")}
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span>Content type</span>
+          <span>{ui("Content type")}</span>
           <select
             className={inputVariants()}
             value={kind}
@@ -580,21 +601,22 @@ export function GoogleDriveSelectionPanel({
               setPaging({ authority, previous: [] });
             }}
           >
-            <option value="">All types</option>
-            <option value="FOLDER">Folders</option>
-            <option value="FILE">Files</option>
-            <option value="LINKED">Linked documents</option>
+            <option value="">{ui("All types")}</option>
+            <option value="FOLDER">{ui("Folders")}</option>
+            <option value="FILE">{ui("Files")}</option>
+            <option value="LINKED">{ui("Linked documents")}</option>
           </select>
         </label>
         <Button type="submit" prominence="secondary">
-          Search
+          {ui("Search")}
         </Button>
       </form>
       {filtered ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-content-muted">
-            Filtered results · Each matching selected root or linked target appears once, across the
-            full selection index. Folder descendants are browsed in the tree.
+            {ui(
+              "Filtered results · Each matching selected root or linked target appears once, across the full selection index. Folder descendants are browsed in the tree.",
+            )}
           </p>
           <Button
             prominence="tertiary"
@@ -605,7 +627,7 @@ export function GoogleDriveSelectionPanel({
               setPaging({ authority, previous: [] });
             }}
           >
-            Clear filters
+            {ui("Clear filters")}
           </Button>
         </div>
       ) : (
@@ -639,24 +661,24 @@ export function GoogleDriveSelectionPanel({
                 );
               }}
             >
-              Refresh selection page
+              {ui("Refresh selection page")}
             </Button>
           ) : selection.isPending ? (
             <p role="status" className="text-sm text-content-muted">
-              Loading selection page…
+              {ui("Loading selection page…")}
             </p>
           ) : null}
           {pageMatches ? (
             <>
               <p className="text-xs text-content-muted">
-                {page.counts.folders.toLocaleString()} folders ·{" "}
-                {page.counts.files.toLocaleString()} files
+                {page.counts.folders.toLocaleString(uiLocale())} {ui("folders ·")}{" "}
+                {page.counts.files.toLocaleString(uiLocale())} {ui("files")}
                 {" · "}
-                {page.counts.linkedDocuments.toLocaleString()} linked documents
+                {page.counts.linkedDocuments.toLocaleString(uiLocale())} {ui("linked documents")}
               </p>
               {rows.length ? (
                 <ul
-                  aria-label="Selection results"
+                  aria-label={ui("Selection results")}
                   className="divide-y divide-border-subtle border-y border-border-subtle text-sm"
                 >
                   {rows.map((item) => (
@@ -674,15 +696,18 @@ export function GoogleDriveSelectionPanel({
                 </ul>
               ) : (
                 <p className="text-sm text-content-muted">
-                  No matching selected roots or linked documents on this page. Browse folders in the
-                  tree to see their files.
+                  {ui(
+                    "No matching selected roots or linked documents on this page. Browse folders in the tree to see their files.",
+                  )}
                 </p>
               )}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-content-muted">{rows.length} items on this page</p>
+                <p className="text-xs text-content-muted">
+                  {rows.length} {ui("items on this page")}
+                </p>
                 <div className="flex gap-2">
                   <Button
-                    aria-label="Previous selection page"
+                    aria-label={ui("Previous selection page")}
                     prominence="secondary"
                     disabled={!previous.length || selection.isFetching}
                     onClick={() =>
@@ -693,10 +718,10 @@ export function GoogleDriveSelectionPanel({
                       })
                     }
                   >
-                    Previous
+                    {ui("Previous")}
                   </Button>
                   <Button
-                    aria-label="Next selection page"
+                    aria-label={ui("Next selection page")}
                     prominence="secondary"
                     disabled={!page.nextCursor || selection.isFetching}
                     onClick={() =>
@@ -707,7 +732,7 @@ export function GoogleDriveSelectionPanel({
                       })
                     }
                   >
-                    Next
+                    {ui("Next")}
                   </Button>
                 </div>
               </div>
@@ -719,7 +744,7 @@ export function GoogleDriveSelectionPanel({
       {configuration.scopeMode === "SPECIFIC" ? (
         <details className="text-sm">
           <summary className="min-h-11 cursor-pointer py-3 text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
-            File and folder links
+            {ui("File and folder links")}
           </summary>
           <div className="flex flex-wrap items-start gap-2">
             {!draft?.editingRoots ? (
@@ -735,7 +760,7 @@ export function GoogleDriveSelectionPanel({
                   } else loadDraft();
                 }}
               >
-                {pending ? "Edit replacement proposal" : "Edit selection"}
+                {pending ? ui("Edit replacement proposal") : ui("Edit selection")}
               </Button>
             ) : null}
             {draft?.editingRoots ? (
@@ -795,7 +820,7 @@ export function GoogleDriveSelectionPanel({
                       })
                     }
                   >
-                    Load saved links
+                    {ui("Load saved links")}
                   </Button>
                 )}
               </>
@@ -806,3 +831,4 @@ export function GoogleDriveSelectionPanel({
     </section>
   );
 }
+import { statusLabel } from "@/i18n/status-copy";

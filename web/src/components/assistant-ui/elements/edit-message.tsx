@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 // Adapted from assistant-ui EditMessage (MIT), revision 2c22f5d7.
 // Server-backed editing retains the previous branch; no discard warning applies.
 import { useEffect, useRef, type ReactNode } from "react";
@@ -24,6 +25,8 @@ export function EditMessage({
   children?: ReactNode;
   hasAttachments?: boolean;
 }) {
+  const ui = useAppTranslation();
+
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     input.current?.focus();
@@ -40,7 +43,7 @@ export function EditMessage({
     >
       <textarea
         ref={input}
-        aria-label="Nội dung câu hỏi"
+        aria-label={ui("Nội dung câu hỏi")}
         value={value}
         required={!hasAttachments}
         maxLength={32000}
@@ -66,7 +69,9 @@ export function EditMessage({
         className="max-h-80 min-h-24 w-full resize-y bg-transparent text-base leading-relaxed outline-none disabled:opacity-60"
       />
       {children}
-      <p className="text-xs text-content-muted">Câu hỏi và câu trả lời cũ vẫn có thể chọn lại.</p>
+      <p className="text-xs text-content-muted">
+        {ui("Câu hỏi và câu trả lời cũ vẫn có thể chọn lại.")}
+      </p>
       {error && (
         <p role="alert" className="text-sm">
           {error}
@@ -74,14 +79,14 @@ export function EditMessage({
       )}
       <div className="flex justify-end gap-2">
         <Button type="button" prominence="secondary" disabled={pending} onClick={onCancel}>
-          Hủy
+          {ui("Hủy")}
         </Button>
         <Button
           type="submit"
           pending={pending}
           disabled={saveDisabled || (!value.trim() && !hasAttachments)}
         >
-          Lưu và gửi
+          {ui("Lưu và gửi")}
         </Button>
       </div>
     </form>

@@ -2,7 +2,7 @@
 
 ## Foundation
 
-- [x] Align Linear issue MEM-27 with the Onyx/Opal reference boundary, accepted scope, and MEM-39 dependency.
+- [x] Align Linear issue MEM-27 with the reference implementation/Opal reference boundary, accepted scope, and MEM-39 dependency.
 - [x] Audit semantic tokens, shared controls, feature-local overrides, and every current Button consumer.
 - [x] Record the interaction model, size contract, migration boundary, accessibility requirements, and exclusions.
 - [x] Add MEM-27 to the active increment maps.

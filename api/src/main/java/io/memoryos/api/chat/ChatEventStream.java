@@ -27,7 +27,8 @@ final class ChatEventStream {
     record OutcomeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                         @Schema(requiredMode = REQUIRED) long sequence,
                         @Schema(requiredMode = REQUIRED, allowableValues = {"COMPLETED", "CANCELED", "FAILED"}) String status,
-                        @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String failureCode) {}
+                        @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String failureCode,
+                        @Schema(requiredMode = REQUIRED) boolean hasArtifacts) {}
 
     record ResetEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED, allowableValues = {"BUFFER_MISSING", "BUFFER_GAP", "BUFFER_EXPIRED"}) String reason) {}
@@ -70,7 +71,7 @@ final class ChatEventStream {
         return switch (event.type()) {
             case "text-delta" -> new TextDeltaEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()));
             case "outcome" -> new OutcomeEvent(event.assistantMessageId(), event.sequence(),
-                    Objects.requireNonNull(event.status()).name(), event.failureCode());
+                    Objects.requireNonNull(event.status()).name(), event.failureCode(), event.hasArtifacts());
             case "search" -> {
                 var search = Objects.requireNonNull(event.search());
                 yield new SearchEvent(event.assistantMessageId(), event.sequence(), search.toolCallId(), search.stage(),

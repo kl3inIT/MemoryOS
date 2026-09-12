@@ -2,6 +2,11 @@ package io.memoryos.api.identity;
 
 import io.memoryos.api.identity.contract.CurrentIdentityResponse;
 import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.ActorLanguageService;
+import io.memoryos.api.identity.contract.LanguagePreference;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.iam.TenantAccessResolver;
@@ -32,13 +37,16 @@ class IdentityController {
 
     private final TenantAccessResolver tenantAccessResolver;
     private final IamAuthorization authorization;
+    private final ActorLanguageService languages;
 
     IdentityController(
             TenantAccessResolver tenantAccessResolver,
-            IamAuthorization authorization
+            IamAuthorization authorization,
+            ActorLanguageService languages
     ) {
         this.tenantAccessResolver = tenantAccessResolver;
         this.authorization = authorization;
+        this.languages = languages;
     }
 
     @Operation(
@@ -76,7 +84,8 @@ class IdentityController {
                     null,
                     Set.of(),
                     Set.of(),
-                    0
+                    0,
+                    languages.read(identityContext.actorId())
             );
         }
         Set<IamCapability> capabilities = authorization.effectiveCapabilities(identityContext.actorId());
@@ -86,7 +95,18 @@ class IdentityController {
                 membership,
                 capabilities,
                 scopedCapabilities,
-                authorization.authorizationVersion(identityContext.actorId())
+                authorization.authorizationVersion(identityContext.actorId()),
+                languages.read(identityContext.actorId())
         );
+    }
+
+    @Operation(operationId = "setCurrentIdentityLanguage", summary = "Set the authenticated account's interface language",
+            security = {@SecurityRequirement(name = "browserSession"), @SecurityRequirement(name = "bearerAuth")})
+    @PutMapping("/me/language")
+    LanguagePreference setLanguage(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @Valid @RequestBody LanguagePreference request
+    ) {
+        return new LanguagePreference(languages.save(identityContext.actorId(), request.uiLanguage()));
     }
 }

@@ -9,6 +9,7 @@ import {
 import { createInvitation, rotateInvitation } from "@/lib/hey-api/sdk.gen";
 import type { IssuedInvitation, UserListItem } from "@/lib/hey-api/types.gen";
 import { invitationError, membershipActionError } from "./user-action-errors";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 
 export type UserPendingAction = "activate" | "deactivate" | "rotate" | "revoke";
 
@@ -52,7 +53,7 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
   const [pendingActions, setPendingActions] = useState<Partial<Record<string, UserPendingAction>>>(
     {},
   );
-  const [rowErrors, setRowErrors] = useState<Partial<Record<string, string>>>({});
+  const [rowErrors, setRowErrors] = useState<Partial<Record<string, ErrorMessage>>>({});
 
   async function runAction(
     entry: UserListItem,
@@ -78,7 +79,8 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
         action === "rotate" || action === "revoke"
           ? invitationError(error)
           : membershipActionError(error);
-      setRowErrors((current) => ({ ...current, [key]: message }));
+      // Confirmed actions keep their error in the still-open dialog; rotation has only a row surface.
+      if (action === "rotate") setRowErrors((current) => ({ ...current, [key]: message }));
       throw error;
     } finally {
       activeRows.current.delete(key);

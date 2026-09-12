@@ -1,3 +1,5 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { UserCounts } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
@@ -22,10 +24,12 @@ export function UsersSummary({
   loading = false,
   onStatusChange,
 }: UsersSummaryProps) {
+  const ui = useAppTranslation();
+
   return (
     <div
       role="group"
-      aria-label="Filter users by status"
+      aria-label={ui("Filter users by status")}
       className="grid grid-cols-3 overflow-hidden rounded-xl border border-border-subtle bg-surface-raised"
     >
       {summaryItems.map((item, index) => {
@@ -38,8 +42,13 @@ export function UsersSummary({
             aria-pressed={selected}
             aria-label={
               count === undefined
-                ? `Show ${item.label.toLowerCase()} users, count unavailable`
-                : `Show ${item.label.toLowerCase()} users, ${count.toLocaleString()}`
+                ? ui("Show {{v1}} users, count unavailable", {
+                    v1: ui(item.label).toLocaleLowerCase(),
+                  })
+                : ui("Show {{v1}} users, {{v2}}", {
+                    v1: ui(item.label).toLocaleLowerCase(),
+                    v2: count.toLocaleString(uiLocale()),
+                  })
             }
             onClick={() => onStatusChange(selected ? undefined : item.status)}
             className={cn(
@@ -58,7 +67,7 @@ export function UsersSummary({
               )
             ) : (
               <span className="block text-xl font-semibold leading-6 tabular-nums text-content-primary sm:text-2xl sm:leading-7">
-                {count.toLocaleString()}
+                {count.toLocaleString(uiLocale())}
               </span>
             )}
             <span
@@ -67,7 +76,7 @@ export function UsersSummary({
                 selected && "font-medium text-content-primary",
               )}
             >
-              {item.label}
+              {ui(item.label)}
             </span>
             <span
               aria-hidden="true"

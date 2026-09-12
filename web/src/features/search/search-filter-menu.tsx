@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Check, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { DropdownMenu } from "radix-ui";
@@ -17,6 +18,8 @@ type SearchFilterMenuProps = {
 };
 
 export function SearchFilterMenu({ label, value, options, icon, onChange }: SearchFilterMenuProps) {
+  const ui = useAppTranslation();
+
   const selected = options.find((option) => option.value === value) ?? options[0];
 
   return (
@@ -26,13 +29,13 @@ export function SearchFilterMenu({ label, value, options, icon, onChange }: Sear
           type="button"
           size="sm"
           prominence="tertiary"
-          aria-label={`${label}: ${selected.label}`}
+          aria-label={ui("{{v1}}: {{v2}}", { v1: label, v2: ui(selected.label) })}
           className="max-w-full gap-2 px-2.5 data-[state=open]:bg-surface-subtle"
         >
           <span className="grid size-4 shrink-0 place-items-center text-content-muted" aria-hidden>
             {icon}
           </span>
-          <span className="truncate">{selected.label}</span>
+          <span className="truncate">{ui(selected.label)}</span>
           <ChevronDown className="size-3.5 shrink-0 text-content-muted" aria-hidden="true" />
         </Button>
       </DropdownMenu.Trigger>
@@ -57,7 +60,7 @@ export function SearchFilterMenu({ label, value, options, icon, onChange }: Sear
                 <DropdownMenu.ItemIndicator className="absolute left-3 grid size-4 place-items-center text-content-primary">
                   <Check className="size-3.5" aria-hidden="true" />
                 </DropdownMenu.ItemIndicator>
-                {option.label}
+                {ui(option.label)}
               </DropdownMenu.RadioItem>
             ))}
           </DropdownMenu.RadioGroup>

@@ -56,7 +56,7 @@ For a trusted browser identity without active membership, the IAM application tr
 
 Email and `email_verified` are profile observations, not JIT eligibility or linking inputs. JIT never creates, consumes, or modifies an invitation. Existing active-member admission has precedence; when the provider does not qualify, the existing invitation path retains its own verified-email rules. Bearer authentication remains resolve-only even if a token contains this provider claim.
 
-Realm reconciliation maps the Keycloak User Session Note `identity_provider` into String ID-token claim `memoryos_identity_provider` on `memoryos-web` only. Access-token, UserInfo, introspection, and token-response emission are disabled. This mapper neither changes an upstream provider nor grants authority by itself. [MEM-59](../increments/active/mem-59-tasco-jit/design.md) separates pending simulator verification from actual Tasco acceptance.
+Realm reconciliation maps the Keycloak User Session Note `identity_provider` into String ID-token claim `memoryos_identity_provider` on `memoryos-web` only. Access-token, UserInfo, introspection, and token-response emission are disabled. This mapper neither changes an upstream provider nor grants authority by itself. [MEM-59](../increments/completed/mem-59-tasco-jit/design.md) separates pending simulator verification from actual Tasco acceptance.
 
 ## Account classification and Group authority
 
@@ -90,6 +90,19 @@ One persistent authenticated frontend layout owns the current-identity query acr
 The frontend QueryClient fingerprints Actor, Tenant role, both capability sets and `authorizationVersion` across boundary remounts. Changed authority resets each non-identity query before cache removal so mounted observers stop showing revoked data, then clears mutation state. `ApplicationSessionProvider` remains keyed by `actorId` for cross-Actor local-state isolation rather than blanket revision remounts that would destroy one-time invitation results. Identity `401` performs the same purge; private-query/mutation `401` resets identity. Private `403` invalidates the canonical identity query with active refetch. Revision-only changes purge private data even when capability tokens remain unchanged; an ordinary denied operation with unchanged identity retains private state.
 
 ## Persistence
+
+### Account interface language
+
+Account preference persistence uses Spring Data `JpaActorRepository`. A narrow `ActorRefresh` fragment reloads an already-managed Actor under a write lock before mutation; routine reads use `findById`. Authorization and transaction boundaries remain in `ActorLanguageService`.
+
+`actors.ui_language` is an account-owned preference (`vi`/`en`, default `vi`), not an IdP profile observation. GET `/api/identity/me` includes `uiLanguage`, including for authenticated actors without membership. PUT `/api/identity/me/language` accepts `{uiLanguage}` and returns the confirmed value; it requires current active membership and the existing unsafe-request guard. The principal selects the Actor; no actor identifier or administrative capability is accepted from the client. IAM locks membership before the Actor write. This preference never advances `authorizationVersion`.
+
+The web application exposes personal `/settings/general` through the account menu. Bundled i18next/react-i18next resources render Vietnamese/English with English fallback. The identity query remains authoritative, including focus refetch on other devices/tabs; i18next owns presentation only. The picker waits for persistence confirmation, reconciles lost responses through identity refetch, and rejects late results for another Actor. Locale is excluded from authorization fingerprints and never keys a React subtree. Transient background identity failure retains the mounted workspace with a retry notice; authentication/authorization failures remain fail-closed.
+
+Application localization is implemented in [MEM-74/MEM-22](../increments/active/mem-74-22-i18n-errors/plan.md). The canonical [localization contract](localization.md) defines covered surfaces, preserved user content and acceptance boundaries.
+
+User/invitation/group-edit failures consume the shared typed problem presenter and store safe message descriptors, translated at render time. Known capability codes keep specific messages; unknown codes use the common HTTP taxonomy without exposing server text. Invitation email errors link to the field; other validation failures remain a form summary. Confirmed actions keep failures in their dialog while recovery-link rotation uses its row, avoiding duplicate feedback. Users labels, dates and success notices follow the account locale.
+
 
 `JpaExternalIdentityRegistry` implements exact binding resolution and authorized registration through concrete IAM persistence. Registration atomically creates a `STANDARD` Actor and binding or returns the Actor already bound to that identity. Invitation acceptance uses the stable Actor lock to serialize competing membership grants. `JpaActorProfileRecorder` writes admitted profile observations. Lifecycle entities are not exported, and bounded projections/explicit authorization locks remain concrete JDBC repositories.
 

@@ -1,0 +1,35 @@
+/** Stable API codes remain untranslated on the wire. Presentation uses this closed vocabulary. */
+const statusCopy: Record<string, string> = {
+  PENDING: "Pending",
+  QUEUED: "Queued",
+  RUNNING: "Processing",
+  PROCESSING: "Processing",
+  IN_PROGRESS: "Processing",
+  SUCCEEDED: "Completed",
+  COMPLETED: "Completed",
+  FAILED: "Failed",
+  CANCELLED: "Cancelled",
+  CANCELED: "Cancelled",
+  SUPERSEDED: "Superseded",
+  RETRY_SCHEDULED: "Retry scheduled",
+  RECOVERY_PENDING: "Recovery pending",
+  INDEXING: "Indexing",
+  READY: "Ready",
+  AVAILABLE: "Ready",
+  WAITING: "Waiting",
+  DELETING: "Deleting",
+  DELETED: "Deleted",
+  ACTIVE: "Active",
+  DRAFT: "Draft",
+  EXPIRED: "Expired",
+  RESOLVING: "Processing",
+  VALIDATING: "Processing",
+  ACCEPTED: "Queued",
+  NOT_STARTED: "Queued",
+  COMPLETED_WITH_ERRORS: "Completed with errors",
+  RESOLVED: "Ready",
+  REJECTED: "Rejected",
+};
+export function statusLabel(code: string): string {
+  return statusCopy[code] ?? "Unknown";
+}

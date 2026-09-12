@@ -10,6 +10,7 @@ import {
 import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "./chat-api";
 import { fileIdFromReference } from "./chat-files";
+import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import {
   searchEventSchema,
   sourcesSchema,
@@ -22,7 +23,10 @@ const eventSchema = z.object({
   sequence: z.number().int().positive(),
 });
 const textSchema = eventSchema.extend({ text: z.string().max(1_000_000) });
-const outcomeSchema = eventSchema.extend({ status: z.enum(["COMPLETED", "CANCELED", "FAILED"]) });
+const outcomeSchema = eventSchema.extend({
+  status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
+  hasArtifacts: z.boolean().default(false),
+});
 export type ConnectionState = "ready" | "sending" | "streaming" | "recovering" | "uncertain";
 type Callbacks = {
   state: (state: ConnectionState) => void;
@@ -206,6 +210,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let sequence = 0;
     let text = "";
     let sources: ChatSource[] = [];
+    let artifacts: ChatArtifact[] = [];
+    let hasArtifacts = false;
     let searchProgress: SearchProgress = {};
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
@@ -259,7 +265,9 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               text += delta;
               yield { type: "text-delta", id: runId, delta };
             } else if (envelope.event === "outcome") {
-              outcome = outcomeSchema.parse(data).status;
+              const terminal = outcomeSchema.parse(data);
+              outcome = terminal.status;
+              hasArtifacts = terminal.hasArtifacts;
               break;
             } else if (envelope.event === "search") {
               const search = searchEventSchema.parse(data);
@@ -319,14 +327,30 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             if (delta) yield { type: "text-delta", id: runId, delta };
             outcome = message.status;
             sources = sourcesSchema.parse(message.sources);
+            artifacts = artifactsSchema.parse(message.artifacts);
           } else await pause(2000, signal);
         }
         if (!outcome)
           throw new Error("Reply status could not be confirmed; check the conversation again");
       }
+      // Terminal SSE carries only a flag so bounded replay buffers never contain large UI specs.
+      // Reuse the authorized history reader, scoped to the stable user parent, exactly once.
+      if (hasArtifacts && !artifacts.length) {
+        if (!this.runParentId) throw new Error("Reply parent is unavailable");
+        const { data: messages } = await getChatHistory({
+          path: { sessionId },
+          query: { after: this.runParentId, limit: 1 },
+          signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
+          throwOnError: true,
+        });
+        const message = messages.find((candidate) => candidate.id === runId);
+        if (!message || message.status === "RUNNING")
+          throw new Error("Presentation status unavailable");
+        artifacts = artifactsSchema.parse(message.artifacts);
+      }
       yield {
         type: "message-metadata",
-        messageMetadata: { serverStatus: outcome, sources, searchProgress: {} },
+        messageMetadata: { serverStatus: outcome, sources, artifacts, searchProgress: {} },
       };
       yield { type: "text-end", id: runId };
       this.runId = undefined;

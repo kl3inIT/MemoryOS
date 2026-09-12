@@ -3,7 +3,7 @@
 ## Foundation
 
 - [x] Align Linear issue MEM-38 with the accepted Sources boundary and MEM-39 dependency.
-- [x] Audit destructive mutations, async cleanup polling, error presentation, shared interaction contracts, tests, Radix guidance, and the local Onyx reference.
+- [x] Audit destructive mutations, async cleanup polling, error presentation, shared interaction contracts, tests, Radix guidance, and the local reference implementation reference.
 - [x] Record the confirmation state machine, ownership, accessibility requirements, error policy, and exclusions.
 - [x] Add MEM-38 to the active increment maps and reconcile merged MEM-27 lifecycle records.
 

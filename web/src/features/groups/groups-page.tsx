@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus, Search, SearchX, ShieldCheck, UsersRound, WifiOff } from "lucide-react";
@@ -14,6 +15,8 @@ import { GroupCard } from "./group-card";
 import type { GroupsSearch } from "./groups-search";
 
 export function GroupsPage() {
+  const ui = useAppTranslation();
+
   const queryClient = useQueryClient();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const search = useSearch({ from: "/_authenticated/admin/groups/" });
@@ -67,10 +70,10 @@ export function GroupsPage() {
           <ShieldCheck className="size-6 shrink-0 text-content-secondary" aria-hidden="true" />
           <div>
             <h1 ref={headingRef} tabIndex={-1} className="font-heading-h2 text-content-primary">
-              Groups
+              {ui("Groups")}
             </h1>
             <p className="mt-1 font-main-ui-body text-content-muted">
-              Memberships, delegated managers, and working capabilities.
+              {ui("Memberships, delegated managers, and working capabilities.")}
             </p>
           </div>
         </div>
@@ -78,7 +81,7 @@ export function GroupsPage() {
           <Button asChild size="sm">
             <Link to="/admin/groups/new">
               <Plus aria-hidden="true" />
-              New group
+              {ui("New group")}
             </Link>
           </Button>
         ) : null}
@@ -94,7 +97,7 @@ export function GroupsPage() {
         }}
       >
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search groups</span>
+          <span className="sr-only">{ui("Search groups")}</span>
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
             aria-hidden="true"
@@ -103,13 +106,13 @@ export function GroupsPage() {
             type="search"
             value={searchDraft}
             maxLength={200}
-            placeholder="Search groups…"
+            placeholder={ui("Search groups…")}
             className="bg-surface-sunken pl-9"
             onChange={(event) => setDraft({ applied: appliedSearch, value: event.target.value })}
           />
         </label>
         <Button type="submit" prominence="secondary">
-          Search
+          {ui("Search")}
         </Button>
         {search.search ? (
           <TextButton
@@ -118,20 +121,24 @@ export function GroupsPage() {
               updateView({ search: undefined }, true);
             }}
           >
-            Clear
+            {ui("Clear")}
           </TextButton>
         ) : null}
       </form>
 
       <div className="mt-6" aria-busy={groups.isFetching}>
         <span className="sr-only" aria-live="polite">
-          {groups.isFetching ? "Updating groups" : page ? `${page.totalItems} groups` : ""}
+          {groups.isFetching
+            ? ui("Updating groups")
+            : page
+              ? ui("{{v1}} groups", { v1: page.totalItems })
+              : ""}
         </span>
         {groups.isError && page ? (
           <div className="mb-4 flex flex-col gap-2 rounded-xl border border-status-warning-content/20 bg-status-warning-surface px-4 py-3 font-secondary-body text-status-warning-content sm:flex-row sm:items-center sm:justify-between">
-            <span>Could not refresh groups. Showing previous results.</span>
+            <span>{ui("Could not refresh groups. Showing previous results.")}</span>
             <TextButton size="sm" onClick={() => void groups.refetch()}>
-              Retry refresh
+              {ui("Retry refresh")}
             </TextButton>
           </div>
         ) : null}
@@ -166,7 +173,7 @@ export function GroupsPage() {
 
       {page && page.totalItems > 0 ? (
         <TablePagination
-          label="Group pages"
+          label={ui("Group pages")}
           className="mt-6 px-0 pt-4"
           page={search.page}
           totalPages={page.totalPages}
@@ -177,12 +184,12 @@ export function GroupsPage() {
           onNext={() => updateView({ page: search.page + 1 })}
         >
           <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-            Rows
+            {ui("Rows")}
             <Select
               size="sm"
               value={search.size}
               className="w-auto px-2"
-              aria-label="Groups per page"
+              aria-label={ui("Groups per page")}
               onChange={(event) =>
                 updateView({ size: Number(event.target.value) as GroupsSearch["size"] }, true)
               }
@@ -199,8 +206,10 @@ export function GroupsPage() {
 }
 
 function GroupsLoading() {
+  const ui = useAppTranslation();
+
   return (
-    <div role="status" aria-label="Loading groups" className="space-y-3">
+    <div role="status" aria-label={ui("Loading groups")} className="space-y-3">
       {Array.from({ length: 4 }, (_, index) => (
         <div
           key={index}
@@ -219,15 +228,17 @@ function GroupsLoading() {
 }
 
 function GroupsError({ onRetry }: { onRetry: () => void }) {
+  const ui = useAppTranslation();
+
   return (
     <div className="rounded-xl border border-border-subtle px-6 py-16 text-center">
       <WifiOff className="mx-auto size-5 text-content-muted" aria-hidden="true" />
-      <h2 className="mt-3 font-heading-h3 text-content-primary">Groups unavailable</h2>
+      <h2 className="mt-3 font-heading-h3 text-content-primary">{ui("Groups unavailable")}</h2>
       <p className="mt-2 font-main-ui-body text-content-muted">
-        The authorized group list could not be loaded.
+        {ui("The authorized group list could not be loaded.")}
       </p>
       <Button size="sm" prominence="secondary" className="mt-5" onClick={onRetry}>
-        Try again
+        {ui("Try again")}
       </Button>
     </div>
   );
@@ -242,6 +253,8 @@ function GroupsEmpty({
   canCreate: boolean;
   onClear: () => void;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <div className="rounded-xl border border-dashed border-border-default px-6 py-16 text-center">
       {filtered ? (
@@ -250,20 +263,20 @@ function GroupsEmpty({
         <UsersRound className="mx-auto size-5 text-content-muted" aria-hidden="true" />
       )}
       <h2 className="mt-3 font-heading-h3 text-content-primary">
-        {filtered ? "No groups found" : "No groups yet"}
+        {filtered ? ui("No groups found") : ui("No groups yet")}
       </h2>
       <p className="mt-2 font-main-ui-body text-content-muted">
         {filtered
-          ? "Try another name or clear the search."
-          : "Create an ordinary group to organize members and access."}
+          ? ui("Try another name or clear the search.")
+          : ui("Create an ordinary group to organize members and access.")}
       </p>
       {filtered ? (
         <Button size="sm" prominence="secondary" className="mt-5" onClick={onClear}>
-          Clear search
+          {ui("Clear search")}
         </Button>
       ) : canCreate ? (
         <Button asChild size="sm" className="mt-5">
-          <Link to="/admin/groups/new">New group</Link>
+          <Link to="/admin/groups/new">{ui("New group")}</Link>
         </Button>
       ) : null}
     </div>

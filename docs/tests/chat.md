@@ -1,12 +1,14 @@
 # Chat verification matrix
 
+Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/Mermaid, streaming fallback, whitespace, malformed/oversized diagrams and dialog focus. `chat-artifacts.test.tsx` validates the read-only allowlist and desktop/mobile panels. `chat-transport.test.ts` checks one authorized metadata read, no second inference and restored history. `ChatArtifactTest` checks native tool binding/bounds/sealing; `ChatTurnSetupTest` checks bounded follow-up context; persistence tests retain the terminal winner; `ChatSessionApiIntegrationTest.nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata` exercises actual native tool execution, saved HTTP history, denied foreign reads and the SSE flag. English/VI browser cases exercise runtime renderers, drafts and reload. Live provider quality is separate.
+
 | Contract | Test and boundary |
 | --- | --- |
 | One-time automatic naming uses native model; owner/CSRF denial, repeat requests, original answer and manual title preserved | `ChatSessionApiIntegrationTest.automaticTitleUsesNativeProviderOnceAndKeepsAnswerAndManualRename`: Spring API/native runner/real PostgreSQL, synthetic provider |
 | Naming only after completed answer, concurrent/manual rename wins even with the same text | `ChatPersistenceIntegrationTest`: real PostgreSQL title claim and conditional write |
 | Unicode-safe short fallback, compact picker, separate full management dialog and character citation highlighting | `chat-transport.test.ts`, `chat-file-reader.test.tsx`: UI/unit contracts |
 | File citation positions distinguish indexed passages; private reader rejects changed generations | `FileReaderToolTest`, `DocumentSearchServiceTest`: evidence/service boundary with controlled dependencies |
-| Live model reads image-only randomized code and geometric counts; native usage and persisted file/citation identity | Opt-in `ChatSessionApiIntegrationTest.realVisionReadsPixelsThroughAuthenticatedHttpAndPersistedHistory`: real authenticated HTTP/native adapter/OpenAI gpt-5-mini/DB, storage double and seeded READY. Two image cases passed 2026-09-12; not upload/worker/browser E2E. [Measured evidence](../increments/active/chat-attachments-production/verification.md#live-vision-và-đo-tài-nguyên--2026-09-12) |
+| Live model reads image-only randomized code and geometric counts; native usage and persisted file/citation identity | Opt-in `ChatSessionApiIntegrationTest.realVisionReadsPixelsThroughAuthenticatedHttpAndPersistedHistory`: real authenticated HTTP/native adapter/OpenAI gpt-5-mini/DB, storage double and seeded READY. Two image cases passed 2026-09-12; not upload/worker/browser E2E. [Measured evidence](../increments/completed/chat-attachments-production/verification.md#live-vision-và-đo-tài-nguyên--2026-09-12) |
 | Vision HTTP data URL, non-vision marker without storage reads, saved image citation and file identity | Parameterized `ChatSessionApiIntegrationTest.configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome`: authenticated HTTP API + native SDK + local HTTP provider, real DB; storage controlled and READY seeded, not live vision inference |
 | Non-vision history/workspace, ordered images, Stop after private IO and over-budget image-only send | `ChatTurnSetupTest`: native setup/materialization |
 | Search outage fallback preserves authorization/cancellation | `FileReaderToolTest`: per-turn scope/tool boundary, dependency doubles |
@@ -21,6 +23,8 @@
 | Ordered file IDs through attachment-only send, replay, regenerate, edit and sharing; foreign file rejection rolls back | `ChatPersistenceIntegrationTest.orderedMessageFilesSurviveReplayRegenerationEditingAndSharedHistoryWithoutNewUploads`: real PostgreSQL/message transactions; READY file metadata seeded |
 | Empty custom Persona overrides Project files; replay context can acquire required locks; revision updates preserve admitted snapshots | `ChatPersistenceIntegrationTest.customPersonaEmptyFileListOverridesProjectAndReloadContextDoesNotUseReadOnlyLocks`: real PostgreSQL/JPA/transaction boundary |
 | Upload preview/removal cleanup, asynchronous readiness and stable file ID, Gửi/Enter blocked until READY, file-only message editing | `chat-attachments.test.tsx`: real assistant-ui runtime/adapter and production composer wrappers, mocked upload APIs |
+| Message files use the source workspace's desktop panel/mobile modal; Escape restores the trigger, locale changes preserve the reader and composer draft, close releases private data | `chat-file-reader.test.tsx`: native assistant-ui runtime and real readers with API/layout doubles; Playwright CLI desktop/390px fixture inspection in MEM-74/22 verification |
+| Feedback failure retains stable reason IDs and note through locale changes without automatically replaying a mutation | `chat-dialog.test.tsx`; existing feedback persistence/retry browser case in `chat-workspace.spec.ts` |
 | Inert paged text, no cached private reader data after close, saved image URL cleanup, unavailable-file denial and selection preservation | `chat-file-reader.test.tsx`: real React Query/components, mocked APIs; deletion reuses the project confirmation dialog |
 | Stable server message IDs, UUID request identity, duplicate replay, EOF cursor resume and one send | `web/src/features/chat/chat-transport.test.ts`; production transport/generated client with HTTP response fixtures |
 | Reset/gap history fallback, partial FAILED, committed Stop and complete/cancel race | `chat-transport.test.ts`; no model re-execution on recovery |
@@ -34,7 +38,7 @@
 | Citation hover/focus/Escape, prose-only links, multi-source right panel, reader/back/close, mobile drawer bounds/focus and unavailable source retaining answer | `chat.spec.ts`; actual browser with synthetic document API; Search preview regression in `search.spec.ts` |
 | Repeat code copy, fallback notice surviving new-session navigation but clearing on reload, and earlier context staying in view | `chat.spec.ts`; real browser with synthetic responses |
 | Source range/provenance bounds before rendering history; nullable typed search-event source | `chat-transport.test.ts`; `OpenApiContractTest` exercises the generated runtime contract |
-| Real OIDC MEMBER login, live model send/save/reload, RUNNING reload/Stop with partial, cross-Actor denial | [Phase 2.4 verification](../increments/active/mem-11-production-chat/verification.md#phase-24--2026-09-09); isolated PostgreSQL, normal API configuration and managed dev services; temporary realm users removed |
+| Real OIDC MEMBER login, live model send/save/reload, RUNNING reload/Stop with partial, cross-Actor denial | [Phase 2.4 verification](../increments/completed/mem-11-production-chat/verification.md#phase-24--2026-09-09); isolated PostgreSQL, normal API configuration and managed dev services; temporary realm users removed |
 | Private session/root, default Persona identity, owner/Tenant filtering and inactive membership | `ChatPersistenceIntegrationTest.createsPrivateSessionWithOneRootAndSharedDefaultPersona` against production Flyway migrations/PostgreSQL |
 | Same-command identity, conflict for changed command, pagination, retained partial outcome | `reservesPairOnceAndPreservesHistoryCursorAndPartialOutcome` |
 | Concurrent duplicate send and one complete/cancel winner | `serializesConcurrentSendsAndTerminalWinners` with independent transactions |
@@ -66,7 +70,7 @@
 | Generated required/nullable contracts and API surface | `OpenApiContractTest`; frontend generated-client drift/type checks |
 | Closed capability and persistence ownership | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |
 
-API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx tests authenticate signed JWTs through the actual resource-server filter and binding/membership lookup. They do not certify live Keycloak browser login. The optional live-model check delegates to the product provider composition. Browser Chat acceptance remains Phase 2.4. Missing-buffer/expiry tests establish the reset/fallback contract, not process recovery or token durability. No two-replica deployment or load acceptance is claimed. Phase 1 probes are not substituted for product checks; see the [current plan](../increments/active/mem-11-production-chat/plan.md).
+API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx tests authenticate signed JWTs through the actual resource-server filter and binding/membership lookup. They do not certify live Keycloak browser login. The optional live-model check delegates to the product provider composition. Browser Chat acceptance remains Phase 2.4. Missing-buffer/expiry tests establish the reset/fallback contract, not process recovery or token durability. No two-replica deployment or load acceptance is claimed. Phase 1 probes are not substituted for product checks; see the [current plan](../increments/completed/mem-11-production-chat/plan.md).
 
 ## Editors, projects, assistants and sharing (V36)
 
@@ -89,7 +93,7 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 | Malformed Project creation response retains the dialog/draft and exposes the error; loading assistant choices are not labeled unavailable, while a missing loaded choice is | Creation-response and delayed-settings scenarios in `chat-workspace.spec.ts` |
 | Project-scoped session POST returns a created session, GET pagination remains distinct, and the saved session opens in Chat | Project-endpoint browser scenario in `chat-workspace.spec.ts`; synthetic fixture contract only |
 
-Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do not certify a live provider, source relevance or deployed IAM. [Editor verification](../increments/active/mem-11-production-chat/editor-verification.md) records current checks and remaining deployment/acceptance boundaries.
+Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do not certify a live provider, source relevance or deployed IAM. [Editor verification](../increments/completed/mem-11-production-chat/editor-verification.md) records current checks and remaining deployment/acceptance boundaries.
 
 ## Model catalog persistence
 
@@ -113,7 +117,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
 
 
-## Onyx Search parity and latency (Phase 3.3)
+## the retired reference implementation Search parity and latency (Phase 3.3)
 
 | Contract | Verification |
 | --- | --- |
@@ -131,7 +135,7 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 | Query/filter and reading-document progress precede evidence; duplicate replay retains state; Stop clears progress | `chat-transport.test.ts`; 23 Chromium Chat scenarios including the new progress case |
 | Actual worker starts and processes files with retrieval observations wired | `WorkerFileProcessingIntegrationTest` |
 
-The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse` uses an authorized local snapshot, real OpenSearch, live embeddings/provider, PostgreSQL transcript and HTTP SSE. It records each Search cycle, first text, total duration and nullable native usage, and checks revenue/travel facts plus the long Word document's cited role coverage. Model-selected tool counts are observations, not fixed assertions. The snapshot is the authority fixture; real SQL permissions and multi-source/date behavior are covered separately above. See [measured results and limits](../increments/active/mem-11-production-chat/latency-verification.md). No corpus or answer receipts are checked in.
+The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse` uses an authorized local snapshot, real OpenSearch, live embeddings/provider, PostgreSQL transcript and HTTP SSE. It records each Search cycle, first text, total duration and nullable native usage, and checks revenue/travel facts plus the long Word document's cited role coverage. Model-selected tool counts are observations, not fixed assertions. The snapshot is the authority fixture; real SQL permissions and multi-source/date behavior are covered separately above. See [measured results and limits](../increments/completed/mem-11-production-chat/latency-verification.md). No corpus or answer receipts are checked in.
 
 ## Grounded backend (Phase 3.1)
 

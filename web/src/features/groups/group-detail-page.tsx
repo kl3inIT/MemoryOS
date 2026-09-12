@@ -1,3 +1,6 @@
+import { uiLocale } from "@/i18n/format";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
@@ -29,6 +32,8 @@ import { GroupPermissionsSection } from "./group-permissions-section";
 import { GroupSourcesSection } from "./group-sources-section";
 
 export function GroupDetailPage() {
+  const ui = useAppTranslation();
+
   const { groupId } = useParams({ from: "/_authenticated/admin/groups/$groupId" });
   const queryClient = useQueryClient();
   const backRef = useRef<HTMLAnchorElement>(null);
@@ -55,7 +60,7 @@ export function GroupDetailPage() {
         className="inline-flex items-center gap-2 rounded-lg font-secondary-action text-content-secondary outline-none transition-colors hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Groups
+        {ui("Groups")}
       </Link>
 
       {group.isPending ? (
@@ -67,14 +72,14 @@ export function GroupDetailPage() {
             className="mx-auto mb-3 size-5 animate-spin motion-reduce:animate-none"
             aria-hidden="true"
           />
-          Loading group
+          {ui("Loading group")}
         </div>
       ) : group.isError || !group.data ? (
         <div className="mt-6 rounded-xl border border-border-subtle px-6 py-16 text-center">
           <WifiOff className="mx-auto size-5 text-content-muted" aria-hidden="true" />
-          <h1 className="mt-3 font-heading-h3 text-content-primary">Group unavailable</h1>
+          <h1 className="mt-3 font-heading-h3 text-content-primary">{ui("Group unavailable")}</h1>
           <p className="mt-2 font-main-ui-body text-content-muted">
-            It may have been removed, or your scoped access may have changed.
+            {ui("It may have been removed, or your scoped access may have changed.")}
           </p>
           <Button
             size="sm"
@@ -82,7 +87,7 @@ export function GroupDetailPage() {
             className="mt-5"
             onClick={() => void group.refetch()}
           >
-            Try again
+            {ui("Try again")}
           </Button>
         </div>
       ) : (
@@ -116,6 +121,8 @@ function GroupDetail({
   onRetryRegistry,
   onAuthorityChanged,
 }: GroupDetailProps) {
+  const ui = useAppTranslation();
+
   const navigate = useNavigate({ from: "/admin/groups/$groupId" });
   const queryClient = useQueryClient();
   const renameGroup = useMutation(renameGroupMutation());
@@ -129,7 +136,7 @@ function GroupDetail({
   const [selectedCapabilities, setSelectedCapabilities] = useState(
     () => new Set<GroupSummary["capabilities"][number]>(group.capabilities),
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const nameDirty = name.trim() !== baselineName;
   const baselineCapabilityKey = [...baselineCapabilities].sort().join("\u0000");
   const selectedCapabilityKey = [...selectedCapabilities].sort().join("\u0000");
@@ -221,22 +228,22 @@ function GroupDetail({
                 <h1 className="truncate font-heading-h2 text-content-primary">{baselineName}</h1>
                 {group.systemKey ? (
                   <Badge variant="outline" className="bg-surface-raised text-content-muted">
-                    System group
+                    {ui("System group")}
                   </Badge>
                 ) : null}
               </div>
               <p className="mt-1 font-main-ui-body text-content-muted">
-                {group.memberCount.toLocaleString()}{" "}
-                {group.memberCount === 1 ? "member" : "members"} ·{" "}
-                {group.managerCount.toLocaleString()}{" "}
-                {group.managerCount === 1 ? "manager" : "managers"}
+                {group.memberCount.toLocaleString(uiLocale())}{" "}
+                {group.memberCount === 1 ? ui("member") : ui("members")} ·{" "}
+                {group.managerCount.toLocaleString(uiLocale())}{" "}
+                {group.managerCount === 1 ? ui("manager") : ui("managers")}
               </p>
             </div>
           </div>
           {canRename || canManageGrants ? (
             <div className="flex shrink-0 gap-2">
               <Button prominence="secondary" disabled={!dirty || busy} onClick={cancelSettings}>
-                Cancel
+                {ui("Cancel")}
               </Button>
               <Button
                 pending={renameGroup.isPending || replaceCapabilities.isPending}
@@ -245,8 +252,8 @@ function GroupDetail({
               >
                 <Save aria-hidden="true" />
                 {renameGroup.isPending || replaceCapabilities.isPending
-                  ? "Saving…"
-                  : "Save changes"}
+                  ? ui("Saving…")
+                  : ui("Save changes")}
               </Button>
             </div>
           ) : null}
@@ -257,13 +264,17 @@ function GroupDetail({
         <div className="mt-6 rounded-xl border border-border-subtle bg-surface-subtle px-4 py-3">
           <p className="font-main-ui-action text-content-primary">
             {group.systemKey === "ADMIN"
-              ? "Protected administrator group"
-              : "Automatic basic membership"}
+              ? ui("Protected administrator group")
+              : ui("Automatic basic membership")}
           </p>
           <p className="mt-1 font-secondary-body text-content-muted">
             {group.systemKey === "ADMIN"
-              ? "Its name and lifecycle are fixed. Protected owner and final administrator safeguards remain enforced by the server."
-              : "Its name and lifecycle are fixed. New accepted members are added through the account lifecycle."}
+              ? ui(
+                  "Its name and lifecycle are fixed. Protected owner and final administrator safeguards remain enforced by the server.",
+                )
+              : ui(
+                  "Its name and lifecycle are fixed. New accepted members are added through the account lifecycle.",
+                )}
           </p>
         </div>
       ) : null}
@@ -273,13 +284,13 @@ function GroupDetail({
           role="alert"
           className="mt-5 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
         >
-          {error}
+          {ui(error)}
         </p>
       ) : null}
 
       <div className="mt-7">
         <label htmlFor="group-name" className="font-secondary-action text-content-primary">
-          Group name
+          {ui("Group name")}
         </label>
         <Input
           id="group-name"
@@ -315,24 +326,27 @@ function GroupDetail({
                 id="delete-group-heading"
                 className="font-main-ui-action text-status-danger-content"
               >
-                Delete this group
+                {ui("Delete this group")}
               </h2>
               <p className="mt-1 font-secondary-body text-status-danger-content">
-                Memberships, capability grants, and Source associations are removed. User and Source
-                data stay intact.
+                {ui(
+                  "Memberships, capability grants, and Source associations are removed. User and Source data stay intact.",
+                )}
               </p>
             </div>
             <ConfirmDialog
               trigger={
                 <Button tone="danger" prominence="secondary" disabled={busy}>
                   <Trash2 aria-hidden="true" />
-                  Delete group
+                  {ui("Delete group")}
                 </Button>
               }
-              title={`Delete ${baselineName}?`}
-              description="This ordinary group and its access edges will be permanently removed. Users, Sources, and documents are not deleted."
-              confirmLabel="Delete group"
-              pendingLabel="Deleting group…"
+              title={ui("Delete {{v1}}?", { v1: baselineName })}
+              description={ui(
+                "This ordinary group and its access edges will be permanently removed. Users, Sources, and documents are not deleted.",
+              )}
+              confirmLabel={ui("Delete group")}
+              pendingLabel={ui("Deleting group…")}
               onConfirm={deleteSelectedGroup}
               errorMessage={(cause) => groupMutationError(cause, "delete")}
             />
