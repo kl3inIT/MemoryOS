@@ -17,7 +17,22 @@ const OWNER_SESSION: CurrentIdentity = {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE"],
+  capabilities: [
+    "SYSTEM_ADMIN",
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+    "USERS_MANAGE",
+    "GROUPS_READ",
+    "GROUPS_MANAGE",
+    "SOURCES_READ",
+    "SOURCES_MANAGE",
+    "SOURCES_DELETE",
+    "MODELS_MANAGE",
+  ],
   scopedCapabilities: [],
 };
 
@@ -25,7 +40,14 @@ const MEMBER_SESSION: CurrentIdentity = {
   ...OWNER_SESSION,
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
   tenant: { ...OWNER_SESSION.tenant!, role: "MEMBER" },
-  capabilities: [],
+  capabilities: [
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+  ],
   scopedCapabilities: [],
 };
 
@@ -89,7 +111,12 @@ describe("ApplicationSessionBoundary", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        Response.json({ ...MEMBER_SESSION, tenant: null, authorizationVersion: 0 }),
+        Response.json({
+          ...MEMBER_SESSION,
+          tenant: null,
+          capabilities: [],
+          authorizationVersion: 0,
+        }),
       ),
     );
 

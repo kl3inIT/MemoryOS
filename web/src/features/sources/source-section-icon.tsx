@@ -1,6 +1,6 @@
-import type { LucideIcon } from "lucide-react";
+import type { ComponentProps, ComponentType } from "react";
 
-export function SourceSectionIcon({ icon: Icon }: { icon: LucideIcon }) {
+export function SourceSectionIcon({ icon: Icon }: { icon: ComponentType<ComponentProps<"svg">> }) {
   return (
     <span
       aria-hidden="true"

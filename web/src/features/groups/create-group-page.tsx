@@ -2,8 +2,9 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ShieldPlus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
+import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -66,7 +67,7 @@ export function CreateGroupPage() {
       <header className="mt-6 flex flex-col gap-4 border-b border-border-subtle pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
-            <ShieldPlus className="size-5" aria-hidden="true" />
+            <OnyxUsersIcon className="size-5" aria-hidden="true" />
           </span>
           <div>
             <h1 className="font-heading-h2 text-content-primary">{ui("Create group")}</h1>

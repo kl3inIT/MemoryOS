@@ -10,7 +10,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import {
+  useApplicationSession,
+  useCapabilityAuthority,
+} from "@/features/identity/application-session-context";
 import { isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
@@ -25,6 +28,7 @@ import {
   revokeGoogleDriveCredentialMutation,
   synchronizeGoogleDriveSourceMutation,
   updateGoogleDriveScheduleMutation,
+  updateGoogleDrivePauseMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type {
   GetGoogleDriveConfigurationResponse,
@@ -51,7 +55,13 @@ import { SourceSummaryCard } from "./source-summary-card";
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {
   minutes: string;
 };
-type DriveAction = "sync" | "authorize" | "disconnect" | "save-interval" | "reload-interval";
+type DriveAction =
+  | "sync"
+  | "authorize"
+  | "disconnect"
+  | "save-interval"
+  | "reload-interval"
+  | "pause";
 const MAX_SYNC_INTERVAL_MINUTES = 2_147_483_647;
 
 export function GoogleDrivePanel({
@@ -70,15 +80,18 @@ export function GoogleDrivePanel({
   const queryClient = useQueryClient();
   const notify = useActionNotifications();
   const session = useApplicationSession();
-  const canManage = session.capabilities.includes("SOURCES_MANAGE");
-  const capabilities = session.capabilities.join(",");
+  const authority = useCapabilityAuthority("SOURCES_MANAGE");
+  const canListCredentials = authority !== "none";
+  const canConfigure = authority === "global" && source.actions.includes("manage_configuration");
+  const canSchedule = source.actions.includes("manage_schedule");
+  const canSynchronize = source.actions.includes("synchronize");
+  const capabilities = `${session.capabilities.join(",")}:${session.scopedCapabilities.join(",")}:${source.actions.join(",")}`;
   const clientInput = useRef<GoogleDriveOAuthClientInputHandle>(null);
   const [clientReady, setClientReady] = useState(false);
   const [replaceClient, setReplaceClient] = useState(false);
   const configurationKey = getGoogleDriveConfigurationQueryKey({ path: { sourceId: source.id } });
   const configurationQuery = useQuery({
     ...getGoogleDriveConfigurationOptions({ path: { sourceId: source.id } }),
-    enabled: canManage,
     retry: false,
     structuralSharing: (current, incoming) =>
       replaceEqualDeep(
@@ -93,15 +106,26 @@ export function GoogleDrivePanel({
   });
   const credentials = useQuery({
     ...listGoogleDriveCredentialsOptions(),
-    enabled: canManage,
+    enabled: canListCredentials,
     retry: false,
   });
   const credential = credentials.data?.find(
     (entry) => entry.id === configurationQuery.data?.credentialId,
   );
+  const canReauthorize =
+    canListCredentials &&
+    !credentials.isError &&
+    (credential?.actions.includes("reauthorize") ?? false);
+  const canReplaceClient =
+    canReauthorize &&
+    authority === "global" &&
+    (credential?.actions.includes("replace_oauth_client") ?? false);
+  const canRevoke =
+    canListCredentials && !credentials.isError && (credential?.actions.includes("revoke") ?? false);
   const synchronize = useMutation(synchronizeGoogleDriveSourceMutation());
   const revoke = useMutation(revokeGoogleDriveCredentialMutation());
   const updateSchedule = useMutation({ ...updateGoogleDriveScheduleMutation(), retry: false });
+  const updatePause = useMutation({ ...updateGoogleDrivePauseMutation(), retry: false });
   const [intervalDraft, setIntervalDraft] = useState<IntervalDraft | null>(null);
   const [intervalRevisionConflict, setIntervalRevisionConflict] = useState(false);
   const [intervalError, setIntervalError] = useState<AppCopy | null>(null);
@@ -122,11 +146,17 @@ export function GoogleDrivePanel({
   const [observingSynchronization, setObservingSynchronization] = useState(false);
   const busy = activeAction !== null || leaving;
   const configuration = configurationQuery.data;
+  const canPause = source.actions.includes(
+    configuration?.syncPaused ? "resume_sync" : "pause_sync",
+  );
   const stale = sourceStale || configurationQuery.isError;
-  const controlsDisabled = disabled || !canManage || busy || stale;
+  const controlsDisabled = disabled || busy || stale;
   const connected =
     configuration?.credentialStatus === "ACTIVE" && configuration.oauthClientConfigured;
-  const needsClient = !configuration?.oauthClientConfigured || replaceClient;
+  const savedClientConfigured =
+    credential?.oauthClientConfigured ?? configuration?.oauthClientConfigured;
+  const needsClient = canReplaceClient && (!savedClientConfigured || replaceClient);
+  const missingClient = !savedClientConfigured && !canReplaceClient;
   const hasSelectionChanges = editingSelection;
 
   const editingInterval = intervalDraft !== null;
@@ -143,6 +173,65 @@ export function GoogleDrivePanel({
     intervalRevisionConflict ||
     Boolean(intervalDraft && configuration?.scheduleRevision !== intervalDraft.scheduleRevision);
 
+  const resourceKey = `${source.id}:${session.actorId}:${session.authorizationVersion}:${session.capabilities.join(",")}:${session.scopedCapabilities.join(",")}`;
+  const credentialKey = `${configuration?.credentialId}:${configuration?.credentialRevision}`;
+  const [previousAuthority, setPreviousAuthority] = useState({
+    resourceKey,
+    credentialKey,
+    canSchedule,
+    canConfigure,
+    canReauthorize,
+    canReplaceClient,
+  });
+  if (
+    previousAuthority.resourceKey !== resourceKey ||
+    previousAuthority.credentialKey !== credentialKey ||
+    previousAuthority.canSchedule !== canSchedule ||
+    previousAuthority.canConfigure !== canConfigure ||
+    previousAuthority.canReauthorize !== canReauthorize ||
+    previousAuthority.canReplaceClient !== canReplaceClient
+  ) {
+    const resourceChanged = previousAuthority.resourceKey !== resourceKey;
+    setPreviousAuthority({
+      resourceKey,
+      credentialKey,
+      canSchedule,
+      canConfigure,
+      canReauthorize,
+      canReplaceClient,
+    });
+    if (resourceChanged || !canSchedule) {
+      setIntervalDraft(null);
+      setIntervalError(null);
+      setIntervalRevisionConflict(false);
+    }
+    if (resourceChanged || !canConfigure) {
+      setEditingSelection(false);
+      setSelectionBusy(false);
+    }
+    if (
+      resourceChanged ||
+      previousAuthority.credentialKey !== credentialKey ||
+      !canReauthorize ||
+      !canReplaceClient
+    ) {
+      setReplaceClient(false);
+      setClientReady(false);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (!canReauthorize) {
+      clientInput.current?.clear();
+      authorizationController.current?.abort();
+    }
+  }, [canReauthorize]);
+  useLayoutEffect(() => {
+    if (!canReplaceClient) {
+      clientInput.current?.clear();
+      authorizationController.current?.abort();
+    }
+  }, [canReplaceClient]);
   useLayoutEffect(() => {
     if (busy) return;
     if (editingInterval) intervalInput.current?.focus();
@@ -181,9 +270,11 @@ export function GoogleDrivePanel({
       window.removeEventListener("pagehide", clear);
     };
   }, [
+    source.id,
     session.actorId,
     session.authorizationVersion,
     capabilities,
+    configuration?.credentialId,
     configuration?.credentialRevision,
   ]);
 
@@ -267,8 +358,18 @@ export function GoogleDrivePanel({
   }
 
   async function perform(action: DriveAction, task: (signal: AbortSignal) => Promise<void>) {
-    if (actionLock.current || disabled || !canManage || leaving)
-      throw new Error("A source action is already in progress");
+    const allowed =
+      action === "sync"
+        ? canSynchronize
+        : action === "authorize"
+          ? canReauthorize
+          : action === "disconnect"
+            ? canRevoke
+            : action === "pause"
+              ? canPause
+              : canSchedule;
+    if (actionLock.current || disabled || !allowed || leaving)
+      throw new Error("This source action is not currently available");
     actionLock.current = true;
     const controller = new AbortController();
     actionController.current = controller;
@@ -344,6 +445,26 @@ export function GoogleDrivePanel({
         v1: saved.syncIntervalMinutes,
         v2: appText(saved.syncIntervalMinutes === 1 ? "minute" : "minutes"),
       }),
+    });
+    await refresh();
+  }
+
+  async function togglePause(signal: AbortSignal) {
+    if (!configuration || stale) return;
+    const saved = await updatePause.mutateAsync({
+      path: { sourceId: source.id },
+      headers: sameOriginMutationHeaders,
+      body: { expectedRevision: configuration.scheduleRevision, paused: !configuration.syncPaused },
+      signal,
+    });
+    signal.throwIfAborted();
+    await incorporateConfiguration(saved);
+    notify({
+      tone: "success",
+      title: saved.syncPaused
+        ? "Automatic synchronization paused"
+        : "Automatic synchronization resumed",
+      description: appText("Current work and manual synchronization are unchanged."),
     });
     await refresh();
   }
@@ -459,6 +580,8 @@ export function GoogleDrivePanel({
       !credential ||
       credentials.isError ||
       stale ||
+      !canReauthorize ||
+      missingClient ||
       (needsClient && !clientReady)
     )
       return;
@@ -525,8 +648,6 @@ export function GoogleDrivePanel({
     ]);
   }
 
-  if (!canManage) return <SourceSummaryCard source={source} />;
-
   if (!configuration) {
     return (
       <>
@@ -573,7 +694,7 @@ export function GoogleDrivePanel({
                 {configuration.syncIntervalMinutes}{" "}
                 {configuration.syncIntervalMinutes === 1 ? ui("minute") : ui("minutes")}
               </span>
-              {!editingInterval ? (
+              {canSchedule && !editingInterval ? (
                 <Button
                   ref={intervalEditButton}
                   size="sm"
@@ -592,7 +713,7 @@ export function GoogleDrivePanel({
                 </Button>
               ) : null}
             </div>
-            {intervalDraft ? (
+            {canSchedule && intervalDraft ? (
               <form
                 className="space-y-3"
                 noValidate
@@ -636,7 +757,7 @@ export function GoogleDrivePanel({
                     role="alert"
                     className="text-status-danger-content"
                   >
-                    {intervalValidation}
+                    {ui(intervalValidation)}
                   </p>
                 ) : null}
                 {intervalConflicted ? (
@@ -660,7 +781,7 @@ export function GoogleDrivePanel({
                   {intervalConflicted ? (
                     <Button
                       prominence="secondary"
-                      disabled={disabled || busy || !canManage}
+                      disabled={disabled || busy || !canSchedule}
                       pending={activeAction === "reload-interval"}
                       onClick={() => runInterval("reload-interval", reloadInterval)}
                     >
@@ -675,6 +796,12 @@ export function GoogleDrivePanel({
                 {ui(intervalError)}
               </p>
             ) : null}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
+          <dd className="mt-2 text-content-primary">
+            {configuration.syncPaused ? ui("Paused") : ui("Enabled")}
           </dd>
         </div>
       </SourceSummaryCard>
@@ -699,7 +826,17 @@ export function GoogleDrivePanel({
           >
             <RefreshCw /> {ui("Refresh status")}
           </Button>
-          {connected ? (
+          {canPause ? (
+            <Button
+              prominence="secondary"
+              disabled={controlsDisabled}
+              pending={activeAction === "pause"}
+              onClick={() => run("pause", togglePause)}
+            >
+              {configuration.syncPaused ? ui("Resume automatic sync") : ui("Pause automatic sync")}
+            </Button>
+          ) : null}
+          {connected && canSynchronize ? (
             <Button
               disabled={
                 controlsDisabled ||
@@ -758,7 +895,9 @@ export function GoogleDrivePanel({
               {configuration.accountEmail}
             </span>
             <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
-              <span className="group-open:hidden">{ui("Manage connection")}</span>
+              <span className="group-open:hidden">
+                {canReauthorize || canRevoke ? ui("Manage connection") : ui("Connection details")}
+              </span>
               <span className="hidden group-open:inline">{ui("Close")}</span>
               <ChevronDown
                 className="size-4 group-open:rotate-180 motion-safe:transition-transform"
@@ -788,73 +927,82 @@ export function GoogleDrivePanel({
                 </Button>
               </div>
             ) : null}
-            <div className="space-y-3">
-              {!configuration.oauthClientConfigured ? (
-                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  {ui(
-                    "This connection has no owner-supplied OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.",
-                  )}
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm text-content-secondary">
-                    {ui(
-                      "Reconnect reuses the OAuth app saved with this shared credential unless you replace it.",
-                    )}
+            {canReauthorize ? (
+              <div className="space-y-3">
+                {!savedClientConfigured ? (
+                  <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                    {canReplaceClient
+                      ? ui(
+                          "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.",
+                        )
+                      : ui(
+                          "This connection has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect this credential.",
+                        )}
                   </p>
-                  <label className="flex items-center gap-2 text-sm text-content-primary">
-                    <input
-                      type="checkbox"
-                      checked={replaceClient}
-                      disabled={controlsDisabled || hasSelectionChanges}
-                      className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
-                      onChange={(event) => {
-                        clientInput.current?.clear();
-                        setClientReady(false);
-                        setReplaceClient(event.target.checked);
-                      }}
-                    />
-                    {ui("Replace OAuth app on reconnect")}
-                  </label>
-                </>
-              )}
-              {needsClient ? (
-                <GoogleDriveOAuthClientInput
-                  key={configuration.credentialRevision}
-                  ref={clientInput}
-                  disabled={controlsDisabled || hasSelectionChanges}
-                  onReadyChange={setClientReady}
+                ) : (
+                  <>
+                    <p className="text-sm text-content-secondary">
+                      {ui("Reconnect reuses the OAuth app saved with this shared credential.")}
+                    </p>
+                    {canReplaceClient ? (
+                      <label className="flex items-center gap-2 text-sm text-content-primary">
+                        <input
+                          type="checkbox"
+                          checked={replaceClient}
+                          disabled={controlsDisabled || hasSelectionChanges}
+                          className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
+                          onChange={(event) => {
+                            clientInput.current?.clear();
+                            setClientReady(false);
+                            setReplaceClient(event.target.checked);
+                          }}
+                        />
+                        {ui("Replace OAuth app on reconnect")}
+                      </label>
+                    ) : null}
+                  </>
+                )}
+                {needsClient ? (
+                  <GoogleDriveOAuthClientInput
+                    key={`${resourceKey}:${credentialKey}`}
+                    ref={clientInput}
+                    disabled={controlsDisabled || hasSelectionChanges}
+                    onReadyChange={setClientReady}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {canReauthorize ? (
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      prominence="secondary"
+                      disabled={
+                        controlsDisabled ||
+                        !credential ||
+                        credentials.isError ||
+                        hasSelectionChanges ||
+                        missingClient ||
+                        (needsClient && !clientReady)
+                      }
+                      pending={activeAction === "authorize" || leaving}
+                    >
+                      {ui("Reconnect Google Drive")}
+                    </Button>
+                  }
+                  title={ui("Reconnect shared Google credential?")}
+                  description={ui(
+                    "Reconnecting changes the authorization used by all {{v1}} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.",
+                    { v1: credential?.sourceCount ?? ui("attached") },
+                  )}
+                  confirmLabel={ui("Reconnect")}
+                  pendingLabel={ui("Reconnecting")}
+                  onConfirm={() => perform("authorize", reconnect)}
+                  errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
                 />
               ) : null}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <ConfirmDialog
-                trigger={
-                  <Button
-                    prominence="secondary"
-                    disabled={
-                      controlsDisabled ||
-                      !credential ||
-                      credentials.isError ||
-                      hasSelectionChanges ||
-                      (needsClient && !clientReady)
-                    }
-                    pending={activeAction === "authorize" || leaving}
-                  >
-                    {ui("Reconnect Google Drive")}
-                  </Button>
-                }
-                title={ui("Reconnect shared Google credential?")}
-                description={ui(
-                  "Reconnecting changes the authorization used by all {{v1}} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.",
-                  { v1: credential?.sourceCount ?? ui("attached") },
-                )}
-                confirmLabel={ui("Reconnect")}
-                pendingLabel={ui("Reconnecting")}
-                onConfirm={() => perform("authorize", reconnect)}
-                errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
-              />
-              {configuration.credentialStatus !== "REVOKED" ? (
+              {canRevoke && configuration.credentialStatus !== "REVOKED" ? (
                 <ConfirmDialog
                   trigger={
                     <Button tone="danger" prominence="tertiary" disabled={controlsDisabled}>
@@ -879,15 +1027,34 @@ export function GoogleDrivePanel({
           </div>
         </details>
       </section>
-      <GoogleDriveSelectionPanel
-        key={`${session.actorId}:${capabilities}:${source.id}`}
-        sourceId={source.id}
-        configuration={configuration}
-        disabled={controlsDisabled || !connected}
-        onEditingChange={setEditingSelection}
-        onBusyChange={setSelectionBusy}
-        onActivated={refresh}
-      />
+      {canConfigure ? (
+        <GoogleDriveSelectionPanel
+          key={`${session.actorId}:${session.authorizationVersion}:${capabilities}:${source.id}`}
+          sourceId={source.id}
+          configuration={configuration}
+          disabled={controlsDisabled || !connected}
+          onEditingChange={setEditingSelection}
+          onBusyChange={setSelectionBusy}
+          onActivated={refresh}
+        />
+      ) : (
+        <section aria-label={ui("Saved Drive selection")} className="space-y-3">
+          <h2 className="font-heading-h3">{ui("Saved selection")}</h2>
+          <p className="text-sm text-content-muted">
+            {configuration.scopeMode === "GENERAL"
+              ? ui("Whole Google account")
+              : ui("Specific files and folders")}
+            {ui(". Selection configuration is read-only.")}
+          </p>
+          <p className="text-sm text-content-primary">
+            {ui("{{v1}} folders · {{v2}} files · {{v3}} approved linked documents", {
+              v1: configuration.counts.folders,
+              v2: configuration.counts.files,
+              v3: configuration.counts.approvedLinkedDocuments,
+            })}
+          </p>
+        </section>
+      )}
     </section>
   );
 }

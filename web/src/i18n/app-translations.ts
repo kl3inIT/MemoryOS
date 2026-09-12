@@ -223,6 +223,136 @@ export const vietnameseUi: Record<string, string> = {
 };
 
 export const englishUi: Record<string, string> = {
+  Visibility: "Chế độ hiển thị",
+  "Private · only members of the selected groups can search and read these files.":
+    "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
+  "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
+  "Private · selected group members": "Riêng tư · thành viên các nhóm đã chọn",
+  "Required · select groups you manage": "Bắt buộc · chọn các nhóm bạn quản lý",
+  "Optional · associate ordinary groups": "Không bắt buộc · liên kết các nhóm thông thường",
+  Required: "Bắt buộc",
+  None: "Không có",
+  "Select at least one managed group. New Sources are private.":
+    "Chọn ít nhất một nhóm bạn quản lý. Nguồn mới ở chế độ riêng tư.",
+  "Leave the selection empty for no group associations. Global Source management does not require an association.":
+    "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
+  "Groups scope management and private File document access. Drive document access remains separate.":
+    "Nhóm xác định phạm vi quản lý và quyền truy cập tài liệu của Nguồn tệp riêng tư. Quyền truy cập tài liệu Drive được quản lý riêng.",
+  "Groups scope Source management. For private File Sources, their members can also search and read documents. Drive document access is not granted here. Admin and other global Source managers do not need a group association to manage a Source.":
+    "Nhóm xác định phạm vi quản lý Nguồn. Với Nguồn tệp riêng tư, thành viên nhóm còn có thể tìm kiếm và đọc tài liệu. Quyền truy cập tài liệu Drive không được cấp tại đây. Admin và người có quyền quản lý Nguồn toàn Tenant khác không cần liên kết nhóm để quản lý Nguồn.",
+  "Private Source. Group associations are optional for global Source managers.":
+    "Nguồn riêng tư. Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
+  "Private Source. Select at least one group you manage.":
+    "Nguồn riêng tư. Chọn ít nhất một nhóm bạn quản lý.",
+  "Drive document access is not granted by these groups.":
+    "Các nhóm này không cấp quyền truy cập tài liệu Drive.",
+  "Connection details": "Chi tiết kết nối",
+  "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
+    "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
+  "This connection has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect this credential.":
+    "Kết nối này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên Tenant có quyền quản lý Nguồn toàn Tenant thêm ứng dụng và kết nối lại thông tin xác thực này.",
+  "Reconnect reuses the OAuth app saved with this shared credential.":
+    "Kết nối lại sẽ sử dụng ứng dụng OAuth đã lưu cùng thông tin xác thực dùng chung này.",
+  "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.":
+    "Thông tin xác thực này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên Tenant có quyền quản lý Nguồn toàn Tenant thêm ứng dụng và kết nối lại, hoặc tạo thông tin xác thực mới bằng ứng dụng OAuth của bạn.",
+  "Saved Drive selection": "Lựa chọn Drive đã lưu",
+  "Saved selection": "Lựa chọn đã lưu",
+  "Whole Google account": "Toàn bộ tài khoản Google",
+  "Specific files and folders": "Các tệp và thư mục cụ thể",
+  ". Selection configuration is read-only.": ". Cấu hình lựa chọn ở chế độ chỉ đọc.",
+  "{{v1}} folders · {{v2}} files · {{v3}} approved linked documents":
+    "{{v1}} thư mục · {{v2}} tệp · {{v3}} tài liệu liên kết đã duyệt",
+  "Source settings": "Cài đặt Nguồn",
+  "Rename source": "Đổi tên nguồn",
+  "Change visibility": "Thay đổi chế độ hiển thị",
+  "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
+  "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.":
+    "Mọi người trong Tenant này có thể tìm kiếm và đọc tệp công khai. Tệp riêng tư yêu cầu tư cách thành viên của một nhóm liên kết.",
+  "Save name": "Lưu tên",
+  "Save visibility": "Lưu chế độ hiển thị",
+  "Automatic synchronization": "Đồng bộ tự động",
+  Paused: "Đã tạm dừng",
+  Enabled: "Đã bật",
+  "Resume automatic sync": "Tiếp tục đồng bộ tự động",
+  "Pause automatic sync": "Tạm dừng đồng bộ tự động",
+  "Automatic synchronization paused": "Đã tạm dừng đồng bộ tự động",
+  "Automatic synchronization resumed": "Đã tiếp tục đồng bộ tự động",
+  "Current work and manual synchronization are unchanged.":
+    "Công việc hiện tại và đồng bộ thủ công không thay đổi.",
+  "Select only ordinary groups you can manage. Scoped Source managers must keep at least one group association.":
+    "Chỉ chọn các nhóm thông thường mà bạn có thể quản lý. Người quản lý Nguồn theo phạm vi phải duy trì ít nhất một liên kết nhóm.",
+  "Built-in admin group with full access to manage all permissions.":
+    "Nhóm quản trị tích hợp có toàn quyền quản lý mọi quyền truy cập.",
+  "Default group for all users with basic permissions.":
+    "Nhóm mặc định dành cho mọi người dùng với các quyền cơ bản.",
+  "Custom group for member access and permissions.":
+    "Nhóm tùy chỉnh để quản lý quyền truy cập và quyền của thành viên.",
+  "Edit Group": "Chỉnh sửa nhóm",
+  "Save Changes": "Lưu thay đổi",
+  "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.":
+    "MemoryOS quản lý nhóm này. Tên và quyền của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
+  "Group Name": "Tên nhóm",
+  "Group Permissions": "Quyền của nhóm",
+  "Toggle group permissions": "Mở hoặc thu gọn quyền của nhóm",
+  "Group permission grants": "Các quyền được cấp cho nhóm",
+  "Group Members": "Thành viên nhóm",
+  "Account Type": "Loại tài khoản",
+  "member without email": "thành viên không có email",
+  "Showing {{first}}–{{last}} of {{total}}": "Hiển thị {{first}}–{{last}} trên {{total}}",
+  "Previous page": "Trang trước",
+  "Page {{v1}} of {{v2}}": "Trang {{v1}} trên {{v2}}",
+  "Next page": "Trang sau",
+  "Permissions have changed": "Quyền truy cập đã thay đổi",
+  "MemoryOS uses group-based permissions. Access is configured per group, so a user’s permissions are the combination of every group they belong to.":
+    "MemoryOS sử dụng quyền truy cập theo nhóm. Quyền truy cập được cấu hình cho từng nhóm, vì vậy quyền của người dùng là tổng hợp quyền của tất cả các nhóm mà họ tham gia.",
+  "Learn more": "Tìm hiểu thêm",
+  "New Group": "Nhóm mới",
+  "This change would leave a standard user without a group. Add them to another group first, then try again.":
+    "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
+  "Source associations must use ordinary groups. Scoped managers must retain at least one group and manage every associated group.":
+    "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
+  "Scoped managers must retain at least one managed group. Associate the Source with another group you manage from its detail page first.":
+    "Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm mình quản lý. Trước tiên, hãy liên kết nguồn với một nhóm khác mà bạn quản lý từ trang chi tiết của nguồn.",
+  "Associations constrain scoped group-manager authority. They do not narrow the Tenant-wide Source grants.":
+    "Các liên kết giới hạn quyền quản lý nhóm theo phạm vi. Chúng không thu hẹp quyền đối với nguồn trên toàn tổ chức.",
+  "Administrator access": "Quyền quản trị viên",
+  "All product capabilities, including search, identity, user, group, Source, and model administration.":
+    "Tất cả các quyền của sản phẩm, bao gồm tìm kiếm và quản trị danh tính, người dùng, nhóm, nguồn và mô hình.",
+  "Basic access": "Quyền truy cập cơ bản",
+  "Search and read eligible document passages, plus reserved granular Chat, image generation, and LLM gateway rights. Chat uses its existing membership and resource authorization; reserved rights do not indicate enforcement. Does not grant administrative capabilities.":
+    "Tìm kiếm và đọc các đoạn tài liệu được phép, cùng các quyền chi tiết dành trước cho trò chuyện, tạo ảnh và cổng LLM. Trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có; các quyền dành trước chưa được áp dụng để kiểm soát truy cập. Không cấp quyền quản trị.",
+  "Search and read eligible document passages, subject to Source visibility and document ACLs. Derived from Basic access; cannot be granted directly.":
+    "Tìm kiếm và đọc các đoạn tài liệu được phép, tuân theo phạm vi hiển thị của nguồn và danh sách kiểm soát truy cập tài liệu. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Read chats": "Đọc trò chuyện",
+  "Reserved granular Chat reading capability; Chat uses its existing membership and resource authorization rather than this token. Derived from Basic access; cannot be granted directly.":
+    "Quyền đọc trò chuyện chi tiết được dành trước; trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có thay vì quyền này. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Write chats": "Viết trò chuyện",
+  "Reserved granular Chat writing capability; Chat uses its existing membership and resource authorization rather than this token. Derived from Basic access; cannot be granted directly.":
+    "Quyền viết trò chuyện chi tiết được dành trước; trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có thay vì quyền này. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Generate images": "Tạo ảnh",
+  "Reserved for upcoming image generation; not an available or enforced feature permission. Derived from Basic access; cannot be granted directly.":
+    "Dành trước cho tính năng tạo ảnh sắp tới; chưa phải quyền tính năng khả dụng hoặc được áp dụng để kiểm soát truy cập. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Use LLM gateway": "Sử dụng cổng LLM",
+  "Reserved for upcoming LLM gateway use; not an available or enforced feature permission. Derived from Basic access; cannot be granted directly.":
+    "Dành trước cho tính năng sử dụng cổng LLM sắp tới; chưa phải quyền tính năng khả dụng hoặc được áp dụng để kiểm soát truy cập. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "View Groups and their memberships. Derived from Manage groups or Administrator access; cannot be granted directly. Scoped managers can view only the Groups they manage.":
+    "Xem các nhóm và thành viên của nhóm. Được suy ra từ quyền quản lý nhóm hoặc quyền quản trị viên; không thể cấp trực tiếp. Người quản lý theo phạm vi chỉ có thể xem các nhóm mình quản lý.",
+  "Create Groups and manage ordinary Groups. Scoped managers can rename their Groups, manage existing members, and delegate peer managers without global administration.":
+    "Tạo nhóm và quản lý các nhóm thông thường. Người quản lý theo phạm vi có thể đổi tên nhóm của mình, quản lý thành viên hiện có và ủy quyền cho người quản lý ngang cấp mà không cần quyền quản trị toàn cục.",
+  "Globally view Source configuration and operation history. Derived from Manage Sources or Administrator access; cannot be granted directly. Scoped managers can view public, member-associated, or own nonpublic groupless Sources.":
+    "Xem cấu hình và lịch sử hoạt động của nguồn trên toàn tổ chức. Được suy ra từ quyền quản lý nguồn hoặc quyền quản trị viên; không thể cấp trực tiếp. Người quản lý theo phạm vi có thể xem nguồn công khai, nguồn liên kết với nhóm mình tham gia hoặc nguồn không công khai do mình sở hữu và không liên kết nhóm nào.",
+  "Globally view and create Sources, edit Group associations, upload content, reindex, remove Source items, and delete Sources. Scoped managers can manage nonpublic Sources whose Groups they all manage, or their own nonpublic groupless Sources.":
+    "Xem và tạo nguồn, chỉnh sửa liên kết nhóm, tải nội dung lên, lập chỉ mục lại, xóa mục trong nguồn và xóa nguồn trên toàn tổ chức. Người quản lý theo phạm vi có thể quản lý nguồn không công khai mà họ quản lý tất cả các nhóm liên kết, hoặc nguồn không công khai do mình sở hữu và không liên kết nhóm nào.",
+  "Globally remove Source items or delete Sources. Derived from Manage Sources or Administrator access; cannot be granted directly or exercised by scoped managers.":
+    "Xóa mục trong nguồn hoặc xóa nguồn trên toàn tổ chức. Được suy ra từ quyền quản lý nguồn hoặc quyền quản trị viên; không thể cấp trực tiếp hoặc sử dụng bởi người quản lý theo phạm vi.",
+  "this user": "người dùng này",
+  "this invitation": "lời mời này",
+  "user {{id}}": "người dùng {{id}}",
+  "Open navigation": "Mở điều hướng",
+  "Close navigation": "Đóng điều hướng",
+  "Search access denied": "Không có quyền tìm kiếm",
+  "Your account does not have permission to search or read documents. Ask an administrator for Basic access.":
+    "Tài khoản của bạn không có quyền tìm kiếm hoặc đọc tài liệu. Hãy yêu cầu quản trị viên cấp quyền truy cập cơ bản.",
   "Connector setup progress": "Tiến trình thiết lập kết nối",
   Completed: "Hoàn tất",
   "Not started": "Chưa bắt đầu",

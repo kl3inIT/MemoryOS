@@ -26,10 +26,12 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
   const ui = useAppTranslation();
 
   const canOpenSources = useCapabilityAuthority("SOURCES_READ") !== "none";
-  const canManage = group.actions.includes("manage_sources");
+  const globalManage = useCapabilityAuthority("SOURCES_MANAGE") === "global";
+  const ordinaryGroup = group.systemKey === null;
+  const canManage = ordinaryGroup && group.actions.includes("manage_sources");
   const associated = useQuery({
     ...listGroupSourcesOptions({ path: { groupId: group.id } }),
-    enabled: canOpenSources || canManage,
+    enabled: ordinaryGroup && (canOpenSources || canManage),
     retry: false,
   });
   const allSources = useQuery({
@@ -57,21 +59,51 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
     setSelectedIds(new Set(incomingIds));
   }, [associated.data, dirty, incomingIds, incomingKey]);
 
+  const [previousAssociationState, setPreviousAssociationState] = useState(() => ({
+    canManage,
+    incomingKey,
+  }));
+  if (
+    previousAssociationState.canManage !== canManage ||
+    previousAssociationState.incomingKey !== incomingKey
+  ) {
+    setPreviousAssociationState({ canManage, incomingKey });
+    if (!canManage) {
+      setSelectedIds(new Set(incomingIds));
+      setBaselineIds(new Set(incomingIds));
+      setSearch("");
+      setError(null);
+    }
+  }
+
   const saveAssociations = useMutation({
     mutationFn: async () => {
+      if (!canManage) throw new Error("Source association access has changed");
       const additions = [...selectedIds].filter((sourceId) => !baselineIds.has(sourceId));
       const removals = [...baselineIds].filter((sourceId) => !selectedIds.has(sourceId));
       const changes = [
         ...additions.map((sourceId) => ({ sourceId, add: true })),
         ...removals.map((sourceId) => ({ sourceId, add: false })),
       ];
+      if (
+        changes.some(
+          (change) =>
+            !allSources.data?.some(
+              (source) => source.id === change.sourceId && source.actions.includes("manage_groups"),
+            ),
+        )
+      )
+        throw new Error("Source association access has changed");
       const currentGroups = await Promise.all(
         changes.map(async (change) => {
           const { data } = await listSourceGroups({
             path: { sourceId: change.sourceId },
             throwOnError: true,
           });
-          return { ...change, groupIds: data.items.map((item) => item.id) };
+          return {
+            ...change,
+            groupIds: data.items.filter((item) => item.systemKey === null).map((item) => item.id),
+          };
         }),
       );
       const replacements = currentGroups.map((change) => {
@@ -80,7 +112,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
         else ids.delete(group.id);
         return { sourceId: change.sourceId, groupIds: [...ids] };
       });
-      if (replacements.some((replacement) => replacement.groupIds.length === 0)) {
+      if (!globalManage && replacements.some((replacement) => replacement.groupIds.length === 0)) {
         throw new Error("SOURCE_REQUIRES_GROUP");
       }
       await Promise.all(
@@ -97,7 +129,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
   });
 
   async function save() {
-    if (!dirty || saveAssociations.isPending) return;
+    if (!canManage || !dirty || saveAssociations.isPending) return;
     setError(null);
     try {
       await saveAssociations.mutateAsync();
@@ -106,7 +138,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
     } catch (cause) {
       setError(
         cause instanceof Error && cause.message === "SOURCE_REQUIRES_GROUP"
-          ? "A Source cannot lose its final group. Associate it with another group from the Source detail first."
+          ? "Scoped managers must retain at least one managed group. Associate the Source with another group you manage from its detail page first."
           : groupMutationError(cause, "sources"),
       );
     }
@@ -115,10 +147,12 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
   const sources = associated.data?.items ?? [];
   const normalizedSearch = search.trim().toLocaleLowerCase();
   const candidates = (allSources.data ?? []).filter(
-    (source) => !normalizedSearch || source.name.toLocaleLowerCase().includes(normalizedSearch),
+    (source) =>
+      source.actions.includes("manage_groups") &&
+      (!normalizedSearch || source.name.toLocaleLowerCase().includes(normalizedSearch)),
   );
 
-  if (!canOpenSources && !canManage) return null;
+  if (!ordinaryGroup || (!canOpenSources && !canManage)) return null;
 
   return (
     <section aria-labelledby="group-sources-heading" className="border-t border-border-subtle pt-7">
@@ -132,7 +166,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
           </h2>
           <p className="mt-1 font-main-ui-body text-content-muted">
             {ui(
-              "Associations constrain scoped group-manager authority. They do not narrow the Tenant-wide Source grants above.",
+              "Associations constrain scoped group-manager authority. They do not narrow the Tenant-wide Source grants.",
             )}
           </p>
         </div>
@@ -226,6 +260,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
                     <input
                       type="checkbox"
                       checked={checked}
+                      disabled={saveAssociations.isPending}
                       className="size-4 shrink-0 accent-content-primary outline-none"
                       onChange={() => {
                         setSelectedIds((current) => {

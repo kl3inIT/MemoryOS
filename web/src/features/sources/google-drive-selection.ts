@@ -62,6 +62,7 @@ export function reconcileGoogleDriveConfiguration(
     discoveryErrors: discovery.discoveryErrors,
     counts: discovery.counts,
     syncIntervalMinutes: schedule.syncIntervalMinutes,
+    syncPaused: schedule.syncPaused,
     scheduleRevision: schedule.scheduleRevision,
   };
 }
