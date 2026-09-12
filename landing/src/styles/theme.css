@@ -29,10 +29,18 @@
  * (src/motion/track.ts). The attribute selector outweighs the list's own layout utilities. */
 @custom-variant track ([data-track] &);
 
-/* Landing-only display sizes. */
+/*
+ * The landing type scale. Each step grows linearly from a 390 px to a 1440 px viewport and is about
+ * one and a half times the step below it, so a section's title always outranks the entries in it:
+ *   display          44–72 px  the hero headline and the stage titles of how it works
+ *   heading-section  34–56 px  the title of each section
+ *   title            24–36 px  the title of an entry in a section; statement is its text weight
+ *   heading-item     18–22 px  a question or a label; lead is its text weight, for descriptions
+ * Body and interface text use the web app's presets below.
+ */
 @utility font-display {
   font-family: var(--font-sans);
-  font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4rem);
+  font-size: clamp(2.75rem, 2.1rem + 2.667vw, 4.5rem);
   font-weight: 620;
   line-height: 1.04;
   letter-spacing: -0.03em;
@@ -41,39 +49,44 @@
 
 @utility font-heading-section {
   font-family: var(--font-sans);
-  font-size: clamp(1.875rem, 1.5rem + 1.5vw, 2.5rem);
+  font-size: clamp(2.125rem, 1.614rem + 2.095vw, 3.5rem);
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+@utility font-title {
+  font-family: var(--font-sans);
+  font-size: clamp(1.5rem, 1.221rem + 1.143vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.15;
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
-/* The stage titles of how it works. Their letters are split to rise one by one
- * (src/motion/text.ts), so kerning stays off and the split letters keep the whole word's spacing. */
-@utility font-stage-title {
-  font-family: var(--font-sans);
-  font-size: clamp(3rem, 1.2rem + 5.6vw, 8.5rem);
-  font-weight: 600;
-  line-height: 1.05;
-  letter-spacing: -0.035em;
-  font-kerning: none;
-}
-
-/* A single sentence set large enough to read as a statement. */
 @utility font-statement {
   font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 0.95rem + 2vw, 3.25rem);
+  font-size: clamp(1.5rem, 1.221rem + 1.143vw, 2.25rem);
   font-weight: 450;
-  line-height: 1.2;
+  line-height: 1.3;
   letter-spacing: -0.015em;
   text-wrap: pretty;
 }
 
+@utility font-heading-item {
+  font-family: var(--font-sans);
+  font-size: clamp(1.125rem, 1.032rem + 0.381vw, 1.375rem);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
 @utility font-lead {
   font-family: var(--font-sans);
-  font-size: 1.125rem;
+  font-size: clamp(1.125rem, 1.032rem + 0.381vw, 1.375rem);
   font-weight: 450;
-  line-height: 1.75rem;
+  line-height: 1.5;
   text-wrap: pretty;
 }
 

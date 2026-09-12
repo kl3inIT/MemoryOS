@@ -8,7 +8,7 @@ function Faq() {
       <div className="divide-y divide-border-subtle border-y border-border-subtle">
         {faq.items.map((item) => (
           <details key={item.question} className="group">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-heading-h3 text-content-primary [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-6 font-heading-item text-content-primary [&::-webkit-details-marker]:hidden">
               {item.question}
               <ChevronDown
                 aria-hidden="true"
