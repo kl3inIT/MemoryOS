@@ -96,6 +96,16 @@ public class DocumentSearchService {
         return hits.stream().filter(hit -> hit.generation().equals(current.get(hit.documentId()))).limit(20).toList();
     }
 
+    /** Private reader: the caller supplies freshly owner-authorized file mappings. */
+    public SearchDocument fileDocument(ActorId actor, TenantId tenant, Map<UUID, UUID> files, UUID document, UUID generation, int from) {
+        if (from < 0 || from > 9999) throw new SearchRequestException();
+        if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()
+                || !generation.equals(fileGenerations(tenant, files).get(document))) throw new SearchDocumentUnavailableException();
+        var result = search.document(tenant, document, generation, from, 20);
+        if (!generation.equals(fileGenerations(tenant, files).get(document))) throw new SearchDocumentUnavailableException();
+        return result;
+    }
+
     private static List<SearchPage.Section> mergeSections(List<SearchHit> rankedHits) {
         // Callers have already filtered current generations and grouped hits by document.
         // Keep the best occurrence if an indexed chunk appears more than once.

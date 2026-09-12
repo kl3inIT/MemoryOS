@@ -53,7 +53,8 @@ public final class FileReaderTool {
             String text = json.writeValueAsString(hit) + "\n";
             if (tokens.estimate(output + text) + 256 > availableTokens.getAsInt()) break;
             checkActive.run();
-            var source = evidence.file(hit.fileId(), hit.passage().title());
+            var source = evidence.file(hit.fileId(), hit.passage().title(),
+                    new io.memoryos.chat.ChatSource.FileLocation(null, null, hit.passage().generation(), hit.passage().ordinal()));
             output.append(source == null ? "" : "[" + source.citationId() + "] ").append(text);
         }
         checkActive.run();
@@ -81,7 +82,8 @@ public final class FileReaderTool {
                 text = text.substring(0, text.offsetByCodePoints(0, text.codePointCount(0, text.length()) / 2));
             checkActive.run();
             if (text.isEmpty() && !window.text().isEmpty()) return "Insufficient remaining context to read file.";
-            var source = text.isEmpty() ? null : evidence.file(id, files.get(actor, id).filename());
+            var source = text.isEmpty() ? null : evidence.file(id, files.get(actor, id).filename(),
+                    new io.memoryos.chat.ChatSource.FileLocation(offset, text.codePointCount(0, text.length()), null, null));
             return (source == null ? "" : "[" + source.citationId() + "] ") + "File " + id + ", offset=" + offset + ", next_offset=" + (offset + text.codePointCount(0, text.length()))
                     + ", total_characters=" + window.totalCharacters() + "\n" + text;
         } catch (ChatException unavailable) { return "File unavailable or invalid character range."; }

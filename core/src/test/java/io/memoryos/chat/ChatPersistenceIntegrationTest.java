@@ -144,6 +144,29 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void automaticTitlesAreOnceOnlyAuthorizedAndManualRenameWinsEvenWithTheSameText() {
+        var session = sessions.create(owner, "Short initial title");
+        assertTrue(turns.claimTitle(owner, session.id()).isEmpty());
+        var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        assertTrue(turns.claimTitle(owner, session.id()).isEmpty());
+        turns.finish(session.id(), reply.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        assertThrows(ChatException.class, () -> turns.claimTitle(other, session.id()));
+        var input = turns.claimTitle(owner, session.id()).orElseThrow();
+        assertTrue(turns.claimTitle(owner, session.id()).isEmpty());
+        sessions.rename(owner, session.id(), "Short initial title");
+        turns.completeTitle(owner, input, "Generated title");
+        assertEquals("Short initial title", sessions.get(owner, session.id()).title());
+
+        var second = sessions.create(owner, "Fallback");
+        var secondReply = reserve(second, second.rootMessageId(), UUID.randomUUID(), "Question");
+        turns.finish(second.id(), secondReply.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        var pending = turns.claimTitle(owner, second.id()).orElseThrow();
+        turns.completeTitle(owner, pending, "Generated title");
+        assertEquals("Generated title", sessions.get(owner, second.id()).title());
+        assertTrue(turns.claimTitle(owner, second.id()).isEmpty());
+    }
+
+    @Test
     void editAndRegenerateKeepOldBranchesAndCommandIdentityWithoutDuplicatingUserMessages() {
         var session = sessions.create(owner, "Versions");
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "First question");

@@ -408,6 +408,33 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void automaticTitleUsesNativeProviderOnceAndKeepsAnswerAndManualRename() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Original answer", "stop", 12)));
+        var session = create();
+        var reply = send(session, UUID.randomUUID().toString());
+        awaitOutcome(reply.path("assistantMessageId").asText(), "COMPLETED");
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            var prompt = call.<Prompt>getArgument(0);
+            assertTrue(prompt.getContents().contains("Create a concise conversation title"));
+            assertTrue(prompt.getContents().contains("Original answer"));
+            return Flux.just(response("Phân tích tài liệu", "stop", 8));
+        });
+        var path = "/api/chat/sessions/" + session.path("id").asText() + "/title";
+        mockMvc.perform(post(path).with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(post(path).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Phân tích tài liệu"));
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+        verify(model, times(2)).stream(any(Prompt.class));
+        assertEquals("Original answer", history(session).get(1).path("content").asText());
+        mockMvc.perform(put(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Tên của tôi\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Tên của tôi"));
+        verify(model, times(2)).stream(any(Prompt.class));
+    }
+
+    @Test
     void stopInterruptsBlockingRetrievalOnVirtualThreadAndPreventsFurtherToolsAndInference() throws Exception {
         var entered = new CountDownLatch(1);
         var interrupted = new CountDownLatch(1);

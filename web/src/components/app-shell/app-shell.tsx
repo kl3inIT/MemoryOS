@@ -324,14 +324,17 @@ export function AppShell({
                 <Menu />
               </IconButton>
             </Dialog.Trigger>
-            <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
+            <span
+              title={pageTitle}
+              className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary md:max-w-xl"
+            >
               {sourceSetupStep === undefined && area === "app" && chatMode ? (
                 <ChatModeMenu mode={chatMode} />
               ) : (
                 pageTitle
               )}
             </span>
-            {headerActions}
+            <div className="ml-auto flex shrink-0 items-center">{headerActions}</div>
           </header>
 
           <Dialog.Portal>

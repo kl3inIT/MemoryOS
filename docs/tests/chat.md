@@ -2,6 +2,10 @@
 
 | Contract | Test and boundary |
 | --- | --- |
+| One-time automatic naming uses native model; owner/CSRF denial, repeat requests, original answer and manual title preserved | `ChatSessionApiIntegrationTest.automaticTitleUsesNativeProviderOnceAndKeepsAnswerAndManualRename`: Spring API/native runner/real PostgreSQL, synthetic provider |
+| Naming only after completed answer, concurrent/manual rename wins even with the same text | `ChatPersistenceIntegrationTest`: real PostgreSQL title claim and conditional write |
+| Unicode-safe short fallback, compact picker, separate full management dialog and character citation highlighting | `chat-transport.test.ts`, `chat-file-reader.test.tsx`: UI/unit contracts |
+| File citation positions distinguish indexed passages; private reader rejects changed generations | `FileReaderToolTest`, `DocumentSearchServiceTest`: evidence/service boundary with controlled dependencies |
 | Live model reads image-only randomized code and geometric counts; native usage and persisted file/citation identity | Opt-in `ChatSessionApiIntegrationTest.realVisionReadsPixelsThroughAuthenticatedHttpAndPersistedHistory`: real authenticated HTTP/native adapter/OpenAI gpt-5-mini/DB, storage double and seeded READY. Two image cases passed 2026-09-12; not upload/worker/browser E2E. [Measured evidence](../increments/active/chat-attachments-production/verification.md#live-vision-và-đo-tài-nguyên--2026-09-12) |
 | Vision HTTP data URL, non-vision marker without storage reads, saved image citation and file identity | Parameterized `ChatSessionApiIntegrationTest.configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome`: authenticated HTTP API + native SDK + local HTTP provider, real DB; storage controlled and READY seeded, not live vision inference |
 | Non-vision history/workspace, ordered images, Stop after private IO and over-budget image-only send | `ChatTurnSetupTest`: native setup/materialization |

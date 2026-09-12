@@ -50,12 +50,19 @@ export async function newChatSession(
   projectId?: string,
 ) {
   const { data } = await createChatSession({
-    body: { title: text.trim().slice(0, 200) || "Hội thoại mới", personaId, projectId },
+    body: { title: initialChatTitle(text), personaId, projectId },
     headers: sameOriginMutationHeaders,
     signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
     throwOnError: true,
   });
   return data;
+}
+
+export function initialChatTitle(text: string) {
+  const characters = Array.from(text.trim().replace(/\s+/g, " "));
+  return characters.length > 40
+    ? `${characters.slice(0, 40).join("").trim()}…`
+    : characters.join("") || "Hội thoại mới";
 }
 
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {

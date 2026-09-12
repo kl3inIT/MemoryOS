@@ -7,6 +7,7 @@ const documentSourceSchema = z
     documentId: z.string().uuid(),
     generation: z.string().uuid(),
     fileId: z.null().optional(),
+    fileLocation: z.null().optional(),
     title: z.string().max(1024),
     startOrdinal: z.number().int().min(0).max(9999),
     endOrdinal: z.number().int().min(0).max(9999),
@@ -30,6 +31,22 @@ export const sourceSchema = z.union([
   z.object({
     citationId: z.number().int().min(1).max(24),
     fileId: z.string().uuid(),
+    fileLocation: z
+      .union([
+        z.object({
+          offset: z.number().int().min(0).max(2000000),
+          count: z.number().int().min(1).max(16000),
+          generation: z.null(),
+          ordinal: z.null(),
+        }),
+        z.object({
+          offset: z.null(),
+          count: z.null(),
+          generation: z.string().uuid(),
+          ordinal: z.number().int().min(0).max(9999),
+        }),
+      ])
+      .nullish(),
     title: z.string().max(1024),
     documentId: z.null(),
     generation: z.null(),

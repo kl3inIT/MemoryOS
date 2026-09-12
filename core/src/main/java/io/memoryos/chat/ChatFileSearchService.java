@@ -42,4 +42,15 @@ public class ChatFileSearchService {
     private void authorize(ActorId actor, TenantId tenant) {
         if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()) throw ChatException.unavailable();
     }
+
+    public io.memoryos.retrieval.SearchDocument read(ActorId actor, UUID file, UUID generation, int from) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var scope = files.documents(tenant, actor, Set.of(file));
+        var document = scope.get(file);
+        if (document == null) throw ChatException.unavailable();
+        var result = search.fileDocument(actor, tenant, scope, document, generation, from);
+        authorize(actor, tenant);
+        if (!document.equals(files.documents(tenant, actor, Set.of(file)).get(file))) throw ChatException.unavailable();
+        return result;
+    }
 }

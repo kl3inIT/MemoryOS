@@ -1,27 +1,50 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getSearchDocumentOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { getSearchDocument, readChatFilePassages } from "@/lib/hey-api/sdk.gen";
+import { useApplicationSession } from "@/features/identity/application-session-context";
 import { stripGeneratedTitlePrefix } from "./search-presentation";
 import type { DocumentSelection } from "./document-preview-dialog";
 
 export function DocumentPreviewContent({
   selection,
   variant = "search",
+  fileId,
 }: {
   selection: DocumentSelection;
   variant?: "search" | "chat";
+  fileId?: string;
 }) {
+  const { actorId, authorizationVersion } = useApplicationSession();
   const [activeMatchIndex, setActiveMatchIndex] = useState(selection.activeMatchIndex);
   const activeMatch = selection.matches[activeMatchIndex] ?? selection.matches[0];
   const [from, setFrom] = useState(activeMatch?.from ?? 0);
   const contentRef = useRef<HTMLDivElement>(null);
   const matchingPassageRef = useRef<HTMLElement | null>(null);
   const detail = useQuery({
-    ...getSearchDocumentOptions({
-      path: { documentId: selection.documentId },
-      query: { generation: selection.generation, from },
-    }),
+    queryFn: async ({ signal }) =>
+      (fileId
+        ? await readChatFilePassages({
+            path: { fileId },
+            query: { generation: selection.generation, from },
+            signal,
+            throwOnError: true,
+          })
+        : await getSearchDocument({
+            path: { documentId: selection.documentId },
+            query: { generation: selection.generation, from },
+            signal,
+            throwOnError: true,
+          })
+      ).data,
+    queryKey: [
+      "document-preview",
+      actorId,
+      authorizationVersion,
+      fileId ?? selection.documentId,
+      selection.generation,
+      from,
+    ],
     retry: false,
     // Each opening reads the requested generation from the authorized reader.
     staleTime: 0,
@@ -45,7 +68,7 @@ export function DocumentPreviewContent({
       >
         {detail.isPending ? (
           <p role="status" className="py-12 text-center font-main-ui-body text-content-secondary">
-            Loading document context…
+            Đang tải nội dung tài liệu…
           </p>
         ) : detail.isError || !detail.data ? (
           <div
@@ -53,7 +76,7 @@ export function DocumentPreviewContent({
             className="rounded-xl bg-status-danger-surface p-4 text-status-danger-content"
           >
             <p className="font-main-ui-body">
-              This document is unavailable or has changed. Search again to find its current version.
+              Tài liệu không còn khả dụng hoặc đã thay đổi. Hãy tìm lại phiên bản hiện tại.
             </p>
           </div>
         ) : (
@@ -72,7 +95,7 @@ export function DocumentPreviewContent({
                       : undefined
                   }
                   aria-current={isMatch ? "true" : undefined}
-                  aria-label={isMatch ? "Selected match" : undefined}
+                  aria-label={isMatch ? "Đoạn được chọn" : undefined}
                   className={
                     isMatch
                       ? variant === "chat"
@@ -84,7 +107,7 @@ export function DocumentPreviewContent({
                   }
                 >
                   {isMatch && variant !== "chat" ? (
-                    <p className="mb-2 font-secondary-action text-content-muted">Selected match</p>
+                    <p className="mb-2 font-secondary-action text-content-muted">Đoạn được chọn</p>
                   ) : null}
                   <p
                     className={`whitespace-pre-wrap break-words text-content-primary ${variant === "chat" ? "text-sm leading-7" : "font-main-content-body"}`}
@@ -100,7 +123,7 @@ export function DocumentPreviewContent({
 
       {selection.matches.length > 1 ? (
         <nav
-          aria-label="Document matches"
+          aria-label="Các đoạn khớp"
           className="flex shrink-0 gap-2 overflow-x-auto border-t border-border-subtle px-5 py-3 sm:px-6"
         >
           {selection.matches.map((match, index) => (
@@ -114,7 +137,7 @@ export function DocumentPreviewContent({
                 setFrom(match.from);
               }}
             >
-              Match {index + 1}
+              Đoạn {index + 1}
             </Button>
           ))}
         </nav>
@@ -123,7 +146,7 @@ export function DocumentPreviewContent({
       {variant === "chat" && activeMatch && from !== activeMatch.from && (
         <div className="shrink-0 border-t border-border-subtle px-5 py-2">
           <Button size="sm" prominence="internal" onClick={() => setFrom(activeMatch.from)}>
-            Back to cited passage
+            Về đoạn trích dẫn
           </Button>
         </div>
       )}
@@ -135,14 +158,14 @@ export function DocumentPreviewContent({
             disabled={from === 0}
             onClick={() => setFrom(Math.max(0, from - 20))}
           >
-            Earlier context
+            Phần trước
           </Button>
           <Button
             prominence="secondary"
             disabled={!detail.data.hasMore}
             onClick={() => setFrom(from + 20)}
           >
-            More context
+            Phần tiếp
           </Button>
         </footer>
       ) : null}

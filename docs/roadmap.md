@@ -47,6 +47,8 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 ## Active
 
+The local [Chat UX baseline follow-up](increments/active/chat-ux-baseline-followup/design.md) corrects the composer/file picker, Project Files surface, header and reader labels, and adds automatic titles plus file citation locations. [Verification](increments/active/chat-ux-baseline-followup/verification.md) records local checks; publication and staging acceptance remain separate.
+
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
 | Tasco scanned-PDF OCR | FILE/Drive binary admission is 100 MiB; bounded asynchronous extraction and typed terminal failures are implemented. The sixty-minute remote run completed four reports/240 pages with 93/104 strict sampled cells correct. Full 100 MiB remote admission and financial fidelity remain unaccepted; offline recovery is not promoted. Search and Chat are excluded | [Design](increments/active/tasco-scanned-pdf-ocr/design.md) · [Corpus evidence](tests/ingestion.md#sixty-minute-tasco-corpus--2026-09-11) · [Plan](increments/active/tasco-scanned-pdf-ocr/plan.md) |

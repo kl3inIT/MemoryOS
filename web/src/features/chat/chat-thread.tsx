@@ -30,6 +30,7 @@ import {
   ChatMessageAttachment,
 } from "./chat-attachments";
 import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
+import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 
 export function ChatThread({
   modelPicker,
@@ -146,9 +147,20 @@ export function ChatThread({
                     maxLength={32000}
                     className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
                   />
-                  <ChatComposerFiles />
-                  <div className="flex items-center justify-between gap-3">
-                    {modelPicker}
+                  <ComposerAttachments />
+                  <AuiIf condition={(state) => state.composer.attachments.length > 20}>
+                    <p role="alert" className="text-sm">
+                      Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.
+                    </p>
+                  </AuiIf>
+                  <div
+                    data-testid="chat-composer-actions"
+                    className="flex flex-nowrap items-center justify-between gap-2"
+                  >
+                    <div className="flex min-w-0 items-center gap-1">
+                      <ChatComposerFiles />
+                      {modelPicker}
+                    </div>
                     <AuiIf condition={(state) => !state.thread.isRunning}>
                       <ChatComposerSend asChild>
                         <IconButton aria-label="Gửi câu hỏi" prominence="primary">
