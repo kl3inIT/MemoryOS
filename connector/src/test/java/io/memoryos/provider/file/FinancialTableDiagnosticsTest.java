@@ -316,6 +316,60 @@ class FinancialTableDiagnosticsTest {
         }
     }
 
+    @Test
+    void reportsNonRowOrientedIncomeLabelsWithoutTransposingSourceCells() {
+        for (var labels : new String[][]{
+                {"Net revenue from sales", "Gross profit from sales"},
+                {"Doanh thu thuần về bán hàng", "Lợi nhuận gộp về bán hàng"}}) {
+            var blocks = incomeLabels(labels);
+            cells(blocks).add(cell(1, 0, "10", false));
+            cells(blocks).add(cell(1, 1, "20", false));
+            var original = blocks.deepCopy();
+
+            var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+
+            assertEquals(1, checks.size());
+            assertEquals("INCOME_STATEMENT_ROW_IDENTITY", checks.get(0).path("check").asString());
+            assertEquals("INCOMPLETE", checks.get(0).path("status").asString());
+            assertEquals("NON_ROW_ORIENTED_INCOME_LABELS", checks.get(0).path("reason").asString());
+            assertEquals(2, checks.get(0).path("label_row_index").asInt());
+            assertEquals(1, checks.get(0).path("code_row_index").asInt());
+            assertEquals(original, blocks);
+        }
+    }
+
+    @Test
+    void doesNotConfuseVerticalIncomeRowsOrMetricHeadersWithHorizontalBodyLabels() {
+        var vertical = incomeLabels(new String[]{"Net revenue", "Gross profit"});
+        cellAt(vertical, 2, 0).put("start_row_offset_idx", 1).put("end_row_offset_idx", 2);
+        cellAt(vertical, 2, 1).put("start_col_offset_idx", 0).put("end_col_offset_idx", 1);
+        cells(vertical).add(cell(1, 1, "10", false));
+        cells(vertical).add(cell(2, 1, "20", false));
+        var headers = incomeLabels(new String[]{"Net revenue", "Gross profit"});
+        for (var cell : cells(headers)) ((ObjectNode) cell).put("column_header", true);
+        cells(headers).add(cell(1, 0, "10", false));
+        cells(headers).add(cell(1, 1, "20", false));
+        var repeated = incomeLabels(new String[]{"Gross profit", "Gross profit"});
+        cells(repeated).add(cell(1, 0, "10", false));
+        cells(repeated).add(cell(1, 1, "20", false));
+
+        assertEquals(0, FinancialTableDiagnostics.assess(vertical, mapper).size());
+        assertEquals(0, FinancialTableDiagnostics.assess(headers, mapper).size());
+        assertEquals(0, FinancialTableDiagnostics.assess(repeated, mapper).size());
+        assertEquals(0, FinancialTableDiagnostics.assess(
+                incomeLabels(new String[]{"Net revenue", "Gross profit"}), mapper).size());
+    }
+
+    private ArrayNode incomeLabels(String[] labels) {
+        var blocks = mapper.createArrayNode();
+        var table = blocks.addObject().put("index", 17).put("kind", "TABLE")
+                .putObject("table").put("num_rows", 3).put("num_cols", 2);
+        var cells = table.putArray("table_cells");
+        cells.add(cell(2, 0, labels[0], false));
+        cells.add(cell(2, 1, labels[1], false));
+        return blocks;
+    }
+
     private void shiftRows(ArrayNode blocks, int offset) {
         var table = (ObjectNode) blocks.get(0).path("table");
         table.put("num_rows", table.path("num_rows").asInt() + offset);

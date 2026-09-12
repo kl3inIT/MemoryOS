@@ -170,10 +170,10 @@ The frontend gate passed 99 unit tests in 18 files; the two affected Chromium sc
 
 - [x] Investigate Windows Worker termination `1073807364` from process, host and runtime evidence before adding restart behavior; no automatic restart was added.
 - [ ] Correct evidence-backed row/period-column assignment, beginning with Q1 consolidated total liabilities and equity on physical page 8; preserve genuine ambiguity and source values.
-- [ ] Expand separately sealed original-page benchmarks with held-out reports, blanks, dashes, negatives, multiple periods, merged headers and continuation cases; retain the original 104-cell scorer unchanged.
-- [ ] Reevaluate bounded OCR recovery against those controls and document the evidence-based production/offline decision.
+- [x] Expand separately sealed original-page benchmarks with held-out reports, blanks, dashes, negatives, multiple periods, merged headers and continuation cases; retain the original 104-cell scorer unchanged.
+- [x] Reevaluate bounded OCR recovery against those controls and document the evidence-based production/offline decision.
 - [x] Improve bounded financial diagnostic coverage and explain missing/ambiguous structures without arithmetic repair.
-- [ ] Measure actual processing stages, then apply only demonstrated performance improvements without blindly increasing concurrency.
+- [x] Measure actual processing stages, then apply only demonstrated performance improvements without blindly increasing concurrency.
 - [ ] Verify the changed extraction/indexing runtime and actual Sources surface, consolidate durable evidence and commit in local functional groups.
 
 ### Publication priority — 2026-09-12
@@ -196,3 +196,42 @@ The two affected browser files passed all five selected Chromium scenarios local
 The first local `clean check` passed API, connector and all 395 core cases, but the Worker Source convergence test timed out. The command incorrectly supplied an empty `DOCLING_TEST_ENDPOINT`; that test selects the optional DOCX/Docling path whenever the variable exists, unlike the ordinary CI environment where it is absent. The corrected gate omits the variable rather than changing Worker behavior or its timeout. This initial local gate is not a passing result. JetBrains semantic inspection remains unavailable.
 
 The corrected terminating `clean check --no-daemon --no-parallel --max-workers=1 --no-configuration-cache --console=plain` passed in 1m27s on JDK 25 with `JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=2`, `CI=true`, dev services disabled, OpenAPI writes disabled and the optional Docling endpoint absent. Reports contain 655 cases: 647 passed, eight skipped, zero failures/errors. API/connector/core results were restored from the preceding successful module executions; Worker executed and passed its real TXT upload/index/remove/delete flow. Latest-head GitHub CI is checked separately after pushing the fix.
+
+### Resumed structural investigation — 2026-09-12
+
+PR #101 head `cb9f352` passed [CI run 34671317292](https://github.com/kl3inIT/MemoryOS/actions/runs/34671317292), including both browser shards and the aggregate gate. The user then resumed the previously paused structural/OCR work; the PR remains open and staging remains untouched.
+
+- [x] Execute the previously sealed held-out scorer against the mapped retained artifacts without changing truth, scorer or artifact bytes.
+- [x] Audit structural identity failures and separate them from wrong or missing recognized amounts.
+- [x] Trace Q1 page 8 raw geometry and evaluate bounded, source-backed correction candidates against existing controls.
+- [x] Measure only observable processing stages and promote changes only after no-regression and runtime verification.
+
+The first unchanged held-out evaluation covers six reports and sixteen scored pages: 30/121 numeric cells and 1/20 dash cells pass the full row/period-identity contract; three source cells are explicitly unscorable. This is not a claim that every remaining recognized amount is numerically wrong: row identity passes 37/60 and period-column order 28/60, with merged/continued-header controls still unassessed. Original-page/scorer validity and parser structure are being audited separately. Private output is `.tmp/tasco-2025/structure-followup/benchmark/baseline-score.private.json`; the original 104-cell baseline remains unchanged.
+
+#### Structural audit and promotion decision
+
+Fourteen missing-row and nine wrong-label outcomes originate in three sideways/transposed income pages, rather than proving that their recognized digits are wrong. Nine remaining missing-period-header outcomes contain genuinely damaged OCR header text; relaxing year/quarter matching would invent identity. Direct inspection of the original Q2 English separate balance-sheet image confirms both disputed code-150 cells contain printed dashes: keep their sealed annotations unchanged.
+
+Coverage remains bounded: selected rows contain no genuine blank amount cell and no ASCII-minus negative; blank controls are note-column blanks and sampled negatives use parentheses. Three continuation controls repeat source headers, so they do not establish headerless cross-page inheritance. The unchanged structural scorer passes 0/3 continuation-identity and 0/4 merged-parent-header controls. These are limitations, not accepted parser behavior.
+
+The Q1 consolidated page-8 current total is printed beneath a red stamp, not naturally blank. The recognized prior-period token belongs only to its prior lane. A shadow-only relocation preserves all recognized values and changes two of 180 grid slots, but does not recover the current amount. Recovery-v2 therefore remains offline and abstains here; no value is copied across periods.
+
+All four inspected income originals carry rotation metadata `270`. OSD identifies the corresponding `90` correction and leaves twelve upright controls at `0`, but confidence is too variable for a safe threshold. On the controlled Q2 English separate income page, correcting metadata changes the table from 6×17 to 20×7 and improves unchanged-scorer row identity from 0/3 to 3/3; period order remains 0/3 because merged quarter/YTD ancestry is still damaged. This is one source-preserving counterfactual, not a promoted rotation policy.
+
+Pinned Serve 1.32.0 has no pre-layout orientation request hook. Tesseract OSD runs after layout and rotates only OCR crops. Python SDK backend/pipeline injection requires service code; Worker-side PDFBox is available but no orientation detector exists, and the current 1 GiB Worker requires bounded memory and time accounting. The Java SDK also cannot emit Serve's gated custom-OCR configuration; `images_scale` does not control Tesseract OCR DPI. No new runtime dependency, custom service, shared setting or automatic preprocessing is introduced. Structural correction remains open pending an integration decision and passing period-identity controls.
+
+#### Measured performance and rejected FAST candidate
+
+Offline profiling used the retained local image `sha256:a7d3753fa80f66b8b79dfe451350f2d4a437f36c20a2836d10afb7cd3cb24055`, no network/model downloads, one CPU and 3 GiB memory. On Q1 page 8, warm ACCURATE conversion took 25.76 s versus FAST 16.64 s; table structure accounted for approximately 75% of the ACCURATE warm pipeline. These are measured local samples, not queue/publication timings or a production latency guarantee.
+
+The FAST candidate processed ten reports and 52 selected pages in 698.53 s, verifying each original PDF SHA and passing real parser output through the production canonicalization path. Held-out totals remain 30/121 numeric and 1/20 dash; twelve already-failing cells change failure classification. The original scorer remains 93/104 only because two annual Vietnamese separate gains offset two annual English separate regressions. A matched same-image, same-page control confirms both English code-140 periods are `exact_numeric` with ACCURATE and `missing_cell` with FAST. Reject global FAST despite its timing improvement; retain ACCURATE, OCR settings and concurrency.
+
+Private evidence remains under `.tmp/tasco-2025/structure-followup/`: `resumed-q1/`, `resumed-orientation/counterfactual-score.private.json`, `resumed-profile/`, `resumed-fast/` and `resumed-fast/guard-control/score.private.json`. Original truth/scorers and published artifacts are unchanged.
+
+#### Bounded diagnostic implementation
+
+`INCOME_STATEMENT_ROW_IDENTITY` reports `INCOMPLETE` / `NON_ROW_ORIENTED_INCOME_LABELS` only with at least two matching supported code/label pairs in an explicit transposed code band; ordinary side-by-side metrics without that band remain unassessed. A regression reproduction failed before tightening the guard and passes afterward. Vertical rows, headers, repeated identities and the existing cash-flow path remain protected. The diagnostic revision is `cash-flow-income-v2`; it does not repair amounts, transpose cells or claim period identity.
+
+The final compiled diagnostic was replayed on all six held-out canonical artifacts: every `blocksUnchanged` comparison passed, and the new income assessment appeared only on Q2 English consolidated, at code row 5 / label row 6. Observed mean diagnostic execution was 9.3–17.8 ms per artifact during the local verification run; this is not a service-level performance guarantee. No Source was reindexed and no staging deployment or published artifact was changed.
+
+Final `gradlew.bat clean check --no-daemon --no-parallel --max-workers=1 --no-configuration-cache --console=plain` passed after the diagnostic/provenance changes in 5m44s on JDK 25.0.3: 657 cases, 649 passed, eight skipped, zero failures. Existing compiler unchecked-operation, JVM native-access/deprecation and test OTLP-shutdown warnings remain. JetBrains MCP is unavailable and the LSP reference request reports no language server; this is not an IDE-clean claim. This verifies the diagnostic checkpoint, not a corrected extraction/indexing rollout or newly reindexed Sources surface.
