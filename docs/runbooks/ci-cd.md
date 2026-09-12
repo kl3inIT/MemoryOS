@@ -8,6 +8,8 @@ The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.ym
 
 `CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, the landing page checks and image smoke, and a redacted Gitleaks history scan. Failed, canceled or skipped jobs fail the aggregate gate. Obsolete PR runs are canceled; main runs are not. PR runs have no package-write or staging authority and do not retain image archives.
 
+Frontend runs as two independent Playwright shards with one worker each and matrix fail-fast disabled. Shard 1 also runs the frontend static/unit/build gate. Both shards must succeed for the existing `frontend` dependency to pass; reports are retained separately as `frontend-tests-1` and `frontend-tests-2`. API and worker images stay on one runner to reuse their shared build layers. MinIO fixtures and the deployment default use the official Quay mirror with the existing immutable digest, avoiding the unavailable Docker Hub repository without upgrading the service.
+
 After successful main gates, publication loads the preserved API, worker and web images, checks their revision/source labels, and pushes those bytes to GHCR. It does not rebuild them. The release artifact is named `release-<source SHA>-<CI attempt>` and contains:
 
 - `images.env`: three digest references and the full source SHA;

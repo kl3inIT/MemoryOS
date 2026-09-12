@@ -1,5 +1,14 @@
 # MEM-81 — Kế hoạch attachments production
 
+## CI, merge và staging được duyệt — 2026-09-12
+
+Yêu cầu tiếp theo đã mở quyền sửa/tối ưu CI, merge PR #99 khi đủ gate và triển khai đúng release main lên staging. Quyền này thay thế giới hạn chỉ publication bên dưới; không bao gồm sửa OCR checkout hoặc cập nhật Linear.
+
+1. Sửa hai fixture MinIO bị Docker Hub từ chối pull: chuyển sang Quay chính thức với cùng release/digest; đồng bộ Compose default và env example, không nâng MinIO.
+2. Chia browser CI thành hai shard độc lập, mỗi shard một worker; frontend check chạy ở shard 1. Giữ `fail-fast: false`, artifacts riêng, toàn bộ tests và aggregate `CI Gate`; không song song hóa JUnit hoặc tách API/worker image build đang dùng chung cache.
+3. Kiểm IDE, workflow lint, focused integration và full gates; push fix rồi đo thời gian CI thực. CodeRabbit đã từ chối 135 files vượt quota 100, không có review/inline/thread finding trong một lần thu evidence; chỉ dùng fallback đã ghi khi latest-head CI xanh và base/head còn đúng.
+4. Merge với exact-head guard, chờ CI main đúng merge SHA, triển khai release đã xác minh qua đường delivery hiện có và kiểm có xác thực. Giữ OCR và bằng chứng parser/live vision đã ghi ở checkpoint trước.
+
 ## Publication được duyệt — 2026-09-12
 
 Người dùng đã duyệt chia commit và mở một PR review vào main. Dùng branch trong checkout hiện tại, không tạo worktree. Chỉ publish MEM-81 và quy tắc component/library reuse đã được yêu cầu; loại `infrastructure/deployment/ocr/` và `docs/increments/active/mem-79-rancher-ocr/`. Không merge, deploy hoặc cập nhật/đóng Linear trong phạm vi này.

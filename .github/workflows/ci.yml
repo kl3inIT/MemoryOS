@@ -65,6 +65,10 @@ jobs:
   frontend:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
@@ -88,16 +92,17 @@ jobs:
         run: pnpm --dir web install --frozen-lockfile
 
       - name: Verify frontend
+        if: matrix.shard == 1
         run: pnpm --dir web check
 
       - name: Exercise browser states
-        run: pnpm --dir web test:e2e
+        run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/2
 
       - name: Upload frontend test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: frontend-tests
+          name: frontend-tests-${{ matrix.shard }}
           path: |
             web/reports/
             web/playwright-report/
