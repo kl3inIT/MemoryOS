@@ -3,8 +3,9 @@ import type { RevealRange } from "@/motion/text";
 
 /*
  * A pinned horizontal track, after the one on gsap.com. Motion sets `data-track` on the stage, whose
- * `track:` styles (src/styles/theme.css) lay the list out in a row; the stage then pins while the
- * vertical scroll slides the row across, one to one, and `[data-track-current]` and
+ * `track:` styles (src/styles/theme.css) lay the list out in a row; once the stage reaches the middle
+ * of the viewport it pins there, keeping its own height and the space above it, while the vertical
+ * scroll slides the row across, one to one, and `[data-track-current]` and
  * `[data-track-progress]` follow along. `animateItem` receives each item with the scroll range in
  * which it arrives: the first while the stage comes up the viewport, the rest as they slide in from
  * the right. The returned cleanup restores the list's own layout; the `useMotion` context reverts
@@ -21,7 +22,7 @@ function runTrack(
   const slide = gsap.timeline({
     scrollTrigger: {
       trigger: stage,
-      start: "top top",
+      start: "center center",
       end: () => `+=${overflow()}`,
       pin: true,
       scrub: 0.5,
@@ -50,14 +51,15 @@ function runTrack(
     });
   });
 
-  // Where the row stops, the last item's left edge is still left of the middle at every lg width,
-  // so every item arrives in full.
+  // The second item waits right of 60% when the stage pins, and where the row stops the last item's
+  // left edge is left of the middle, at every lg width: every later item makes its entrance in view,
+  // after the visitor starts to slide the row.
   items.forEach((item, index) =>
     animateItem(
       item,
       index === 0
-        ? { trigger: stage, start: "top 75%", end: "top 15%" }
-        : { trigger: item, containerAnimation: slide, start: "left 90%", end: "left 50%" },
+        ? { trigger: stage, start: "top 40%" }
+        : { trigger: item, containerAnimation: slide, start: "left 60%" },
     ),
   );
 

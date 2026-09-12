@@ -25,32 +25,6 @@ type MotionConditions = Record<keyof typeof motionConditions, boolean>;
 
 type MotionSetup = (conditions: MotionConditions) => void | (() => void);
 
-type Point = {
-  x: number;
-  y: number;
-};
-
-// Centre of an element in `ancestor`'s coordinates from layout offsets, so transforms that motion
-// has already applied never skew a measurement. `ancestor` must be a positioned element.
-function layoutCentre(element: HTMLElement, ancestor: HTMLElement): Point {
-  let x = element.offsetWidth / 2;
-  let y = element.offsetHeight / 2;
-  let node: HTMLElement | null = element;
-  while (node && node !== ancestor) {
-    x += node.offsetLeft;
-    y += node.offsetTop;
-    node = node.offsetParent as HTMLElement | null;
-  }
-  return { x, y };
-}
-
-// The translation that moves `element` onto `target`.
-function offsetTo(element: HTMLElement, target: HTMLElement, ancestor: HTMLElement): Point {
-  const from = layoutCentre(element, ancestor);
-  const to = layoutCentre(target, ancestor);
-  return { x: to.x - from.x, y: to.y - from.y };
-}
-
 // Whether the visitor allows motion right now, for the rare start state that must be in place
 // before the first frame (see the hero).
 function allowsMotion() {
@@ -94,4 +68,4 @@ function useMotion(scope: RefObject<HTMLElement | null>, setup: MotionSetup) {
   );
 }
 
-export { allowsMotion, gsap, offsetTo, ScrollTrigger, SplitText, useMotion, type MotionConditions };
+export { allowsMotion, gsap, ScrollTrigger, SplitText, useMotion, type MotionConditions };
