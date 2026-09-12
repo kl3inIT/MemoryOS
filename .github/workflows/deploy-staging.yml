@@ -11,6 +11,11 @@ name: Deploy staging
         description: Successful main CI run containing the verified release
         required: true
         type: string
+      recovery_release:
+        description: Optional exact pending SHA-run-attempt to smoke and finish before deploying; never restores a database
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read # Check out trusted main deployment code.
@@ -123,6 +128,25 @@ jobs:
           pnpm --dir web install --frozen-lockfile
           pnpm --dir web exec playwright install --with-deps chromium
           pnpm --dir web test:staging --list
+          pnpm --dir web test:staging:preflight --list
+
+      - name: Check login, configured actor and Source permissions before runtime mutation
+        if: steps.release.outputs.ready == 'true'
+        env:
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: pnpm --dir web test:staging:preflight
+
+      - name: Validate explicitly selected recovery and smoke the current runtime
+        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
+        env:
+          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
+          MEMORYOS_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          MEMORYOS_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: |
+          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
+          git merge-base --is-ancestor "${RECOVERY_RELEASE:0:40}" origin/main
+          pnpm --dir web test:staging
 
       - name: Prepare dedicated SSH identity and verified host trust
         if: steps.release.outputs.ready == 'true'
@@ -148,6 +172,15 @@ jobs:
             ServerAliveInterval 15
             ServerAliveCountMax 4
           EOF
+
+      - name: Finish only the explicitly selected, smoke-verified recovery
+        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
+        env:
+          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
+        run: |
+          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
+          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
+            "sudo -n bash '/apps/memoryos/incoming/$RECOVERY_RELEASE/deploy-staging.sh' finish '$RECOVERY_RELEASE'"
 
       - name: Pull images, back up, migrate and wait for readiness
         id: rollout

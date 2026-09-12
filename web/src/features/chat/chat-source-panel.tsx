@@ -8,6 +8,7 @@ import { ArrowLeft, ChevronRight, FileText, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { DocumentPreviewContent } from "@/features/search/document-preview-content";
 import type { ChatSource } from "./chat-evidence";
+import { ChatFileReader } from "./chat-file-reader";
 
 const wideQuery = "(min-width: 1024px)";
 function subscribeWidth(notify: () => void) {
@@ -84,26 +85,34 @@ export function ChatSourcePanel({
             </p>
             <h3 className="break-words font-heading-h3">{selected.title}</h3>
             <p className="mt-2 text-xs leading-5 text-content-muted">
-              Cited passages are highlighted.
+              {selected.fileId
+                ? "Mở nội dung file được trích dẫn."
+                : "Cited passages are highlighted."}
             </p>
           </div>
-          <DocumentPreviewContent
-            key={`${selected.documentId}:${selected.generation}:${selected.citationId}`}
-            variant="chat"
-            selection={{
-              documentId: selected.documentId,
-              generation: selected.generation,
-              title: selected.title,
-              matches: [
-                {
-                  from: Math.max(0, selected.startOrdinal - 2),
-                  matchingOrdinal: selected.startOrdinal,
-                  matchingEndOrdinal: selected.endOrdinal,
-                },
-              ],
-              activeMatchIndex: 0,
-            }}
-          />
+          {selected.fileId != null ? (
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <ChatFileReader key={selected.fileId} fileId={selected.fileId} />
+            </div>
+          ) : (
+            <DocumentPreviewContent
+              key={`${selected.documentId}:${selected.generation}:${selected.citationId}`}
+              variant="chat"
+              selection={{
+                documentId: selected.documentId,
+                generation: selected.generation,
+                title: selected.title,
+                matches: [
+                  {
+                    from: Math.max(0, selected.startOrdinal - 2),
+                    matchingOrdinal: selected.startOrdinal,
+                    matchingEndOrdinal: selected.endOrdinal,
+                  },
+                ],
+                activeMatchIndex: 0,
+              }}
+            />
+          )}
         </>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
@@ -168,6 +177,16 @@ export function ChatSourcePanel({
 }
 
 export function SourceExcerpt({ source }: { source: ChatSource }) {
+  if (source.fileId != null)
+    return <p className="mt-2 text-sm text-content-muted">File đính kèm · Mở để đọc nội dung.</p>;
+  return <DocumentSourceExcerpt source={source} />;
+}
+
+function DocumentSourceExcerpt({
+  source,
+}: {
+  source: Extract<ChatSource, { documentId: string }>;
+}) {
   const { actorId, authorizationVersion } = useApplicationSession();
   const from = Math.max(0, source.startOrdinal - 2);
   const detail = useQuery({

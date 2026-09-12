@@ -177,7 +177,7 @@ class WorkerFileProcessingIntegrationTest {
     @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
             DockerImageName.parse(
-                    "minio/minio:RELEASE.2025-04-22T22-12-26Z"
+                    "quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z"
                             + "@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
             )
     )
@@ -213,6 +213,12 @@ class WorkerFileProcessingIntegrationTest {
 
     @Autowired
     private RedisExecutionTopology topology;
+
+    @Autowired private io.memoryos.iam.TenantAccessResolver tenants;
+    @Autowired private io.memoryos.objectstorage.ObjectUploadService objectUploads;
+    @Autowired private io.memoryos.objectstorage.ObjectUploadCleanupPort objectCleanup;
+    @Autowired private org.springframework.transaction.PlatformTransactionManager transactions;
+    @Autowired private RedisExecutionProperties redisProperties;
 
     @DynamicPropertySource
     static void serviceProperties(DynamicPropertyRegistry registry) {
@@ -434,6 +440,7 @@ class WorkerFileProcessingIntegrationTest {
             assertEquals(404, missing.statusCode());
         }
 
+        verifyPrivateImageWorkerRecovery();
         sources.deleteSource(OWNER, sourceId);
         jdbcClient.sql("""
                         UPDATE tenants SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
@@ -473,6 +480,62 @@ class WorkerFileProcessingIntegrationTest {
                 ).getTotalPendingMessages()
         );
     }
+    private void verifyPrivateImageWorkerRecovery() throws Exception {
+        worker.stop();
+        var files = new io.memoryos.chat.ChatFileService(tenants, new io.memoryos.chat.persistence.JdbcChatRepository(jdbcClient),
+                new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbcClient), objectUploads,
+                new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), transactions);
+        byte[] content;
+        try (var output = new java.io.ByteArrayOutputStream()) {
+            var image = new java.awt.image.BufferedImage(3000, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            assertTrue(javax.imageio.ImageIO.write(image, "png", output));
+            image.flush();
+            content = output.toByteArray();
+        }
+        var requestId = UUID.randomUUID();
+        var request = new io.memoryos.chat.ChatFileService.UploadInput(requestId, "private.png", "image/png", content.length,
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
+        var receipt = files.initiate(OWNER, request);
+        assertEquals(receipt.file().id(), files.initiate(OWNER, request).file().id());
+        var authorization = java.util.Objects.requireNonNull(receipt.upload());
+        var upload = HttpRequest.newBuilder(authorization.uri());
+        authorization.requiredHeaders().forEach(upload::header);
+        try (var http = HttpClient.newHttpClient()) {
+            assertEquals(200, http.send(upload.PUT(HttpRequest.BodyPublishers.ofByteArray(content)).build(), HttpResponse.BodyHandlers.discarding()).statusCode());
+        }
+        var id = receipt.file().id();
+        files.finalizeUpload(OWNER, id);
+        files.finalizeUpload(OWNER, id);
+        var stream = redisProperties.workload(io.memoryos.ingestion.OperationWorkload.USER_FILE).stream();
+        await(() -> redis.opsForStream().size(stream) > 0);
+        // This container is test-owned. Lose the delivery and recreate topology, then let durable rediscovery recover it.
+        redis.delete(stream);
+        topology.reconcileTopology();
+        await(() -> redis.opsForStream().size(stream) > 0);
+        worker.start();
+        await(() -> files.get(OWNER, id).status() == io.memoryos.chat.UserFile.Status.READY);
+        assertTrue(files.read(OWNER, new io.memoryos.iam.TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
+        assertEquals(1, jdbcClient.sql("SELECT processing_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
+                .param("id", id).query(Integer.class).single());
+        assertTrue(jdbcClient.sql("SELECT dispatch_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
+                .param("id", id).query(Integer.class).single() >= 2);
+        String rawKey = jdbcClient.sql("SELECT o.object_key FROM stored_objects o JOIN object_uploads u ON u.stored_object_id=o.id JOIN chat_user_file f ON f.upload_id=u.id WHERE f.id=:id")
+                .param("id", id).query(String.class).single();
+        String artifactKey = jdbcClient.sql("SELECT a.object_key FROM document_extraction_artifacts a JOIN documents d ON d.extraction_artifact_id=a.id JOIN chat_user_file f ON f.document_id=d.id WHERE f.id=:id")
+                .param("id", id).query(String.class).single();
+        try (var storage = s3Client()) {
+            String artifact = storage.getObjectAsBytes(software.amazon.awssdk.services.s3.model.GetObjectRequest.builder().bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
+            assertTrue(artifact.contains("3000x2"));
+        }
+        files.delete(OWNER, id);
+        await(() -> files.get(OWNER, id).status() == io.memoryos.chat.UserFile.Status.DELETED);
+        objectCleanup.cleanupAbandoned();
+        extractionArtifacts.cleanup();
+        try (var storage = s3Client()) {
+            assertEquals(404, assertThrows(S3Exception.class, () -> storage.headObject(HeadObjectRequest.builder().bucket(OBJECT_BUCKET).key(rawKey).build())).statusCode());
+        }
+    }
+
     private static String minioEndpoint() {
         return "http://" + MINIO.getHost() + ":" + MINIO.getMappedPort(9000);
     }

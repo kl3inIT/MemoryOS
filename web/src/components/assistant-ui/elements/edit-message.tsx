@@ -1,6 +1,6 @@
 // Adapted from assistant-ui EditMessage (MIT), revision 2c22f5d7.
 // Server-backed editing retains the previous branch; no discard warning applies.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
 export function EditMessage({
@@ -11,6 +11,8 @@ export function EditMessage({
   pending,
   saveDisabled,
   error,
+  children,
+  hasAttachments = false,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -19,6 +21,8 @@ export function EditMessage({
   pending: boolean;
   saveDisabled?: boolean;
   error?: string;
+  children?: ReactNode;
+  hasAttachments?: boolean;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -31,14 +35,14 @@ export function EditMessage({
       className="flex w-full flex-col gap-3 rounded-2xl border border-border-default bg-surface-raised p-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!pending && !saveDisabled && value.trim()) onSave();
+        if (!pending && !saveDisabled && (value.trim() || hasAttachments)) onSave();
       }}
     >
       <textarea
         ref={input}
         aria-label="Nội dung câu hỏi"
         value={value}
-        required
+        required={!hasAttachments}
         maxLength={32000}
         rows={3}
         disabled={pending}
@@ -53,7 +57,7 @@ export function EditMessage({
             (event.ctrlKey || event.metaKey) &&
             !pending &&
             !saveDisabled &&
-            value.trim()
+            (value.trim() || hasAttachments)
           ) {
             event.preventDefault();
             onSave();
@@ -61,6 +65,7 @@ export function EditMessage({
         }}
         className="max-h-80 min-h-24 w-full resize-y bg-transparent text-base leading-relaxed outline-none disabled:opacity-60"
       />
+      {children}
       <p className="text-xs text-content-muted">Câu hỏi và câu trả lời cũ vẫn có thể chọn lại.</p>
       {error && (
         <p role="alert" className="text-sm">
@@ -71,7 +76,11 @@ export function EditMessage({
         <Button type="button" prominence="secondary" disabled={pending} onClick={onCancel}>
           Hủy
         </Button>
-        <Button type="submit" pending={pending} disabled={saveDisabled || !value.trim()}>
+        <Button
+          type="submit"
+          pending={pending}
+          disabled={saveDisabled || (!value.trim() && !hasAttachments)}
+        >
           Lưu và gửi
         </Button>
       </div>

@@ -94,6 +94,8 @@ public class OpenSearchIndexService implements SearchIndex {
             throw new SearchUnavailableException();
         }
         // Additive mapping keeps the vector identity and all reusable embeddings intact.
+        if (!mapping.path("properties").has("user_file_id")) gateway.json("PUT", "/" + identity + "/_mapping", Map.of(),
+                Map.of("properties", Map.of("user_file_id", Map.of("type", "keyword"))));
         if (!mapping.path("properties").has("source_metadata")) gateway.json("PUT", "/" + identity + "/_mapping", Map.of(),
                 Map.of("properties", Map.of("metadata_hash", Map.of("type", "keyword"), "source_metadata", Map.of(
                         "type", "nested", "properties", Map.of("source_id", Map.of("type", "keyword"),
@@ -135,6 +137,7 @@ public class OpenSearchIndexService implements SearchIndex {
                 var source = new HashMap<String,Object>();
                 source.put("tenant_id", document.tenantId().value().toString());
                 source.put("document_id", document.documentId().value().toString());
+                if (document.userFileId() != null) source.put("user_file_id", document.userFileId().toString());
                 source.put("generation", document.generation().toString());
                 source.put("chunk_key", document.chunkId(chunk.ordinal()));
                 source.put("ordinal", chunk.ordinal());
@@ -221,9 +224,28 @@ public class OpenSearchIndexService implements SearchIndex {
 
     private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector,
             List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds) {
+        return searchPrepared(tenant, query, vector, mediaTypes, since, restrictions, sourceIds, List.of());
+    }
+
+    public List<SearchHit> searchFiles(TenantId tenant, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {
+        if (generations.isEmpty() || files.isEmpty() || !gateway.exists("/" + readAlias())) return List.of();
+        List<Object> allowed = new ArrayList<>();
+        files.forEach((file, document) -> {
+            var generation = generations.get(document);
+            if (generation != null) allowed.add(Map.of("bool", Map.of("filter", List.of(term("user_file_id", file.toString()),
+                    term("document_id", document.toString()), term("generation", generation.toString())))));
+        });
+        if (allowed.isEmpty()) return List.of();
+        return searchPrepared(tenant, query, embeddings.query(query), List.of(), null, SearchFilters.NONE, List.of(), allowed);
+    }
+
+    private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector,
+            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles) {
         List<Object> filters = new ArrayList<>();
         filters.add(term("tenant_id", tenant.value().toString()));
         filters.add(term("index_identity", identity));
+        filters.add(privateFiles.isEmpty() ? Map.of("bool", Map.of("must_not", List.of(Map.of("exists", Map.of("field", "user_file_id")))))
+                : Map.of("bool", Map.of("should", privateFiles, "minimum_should_match", 1)));
         if (!mediaTypes.isEmpty()) filters.add(Map.of("terms", Map.of("media_type", mediaTypes)));
         if (since != null) filters.add(Map.of("range", Map.of("updated_at", Map.of("gte", since.toString()))));
         if (!sourceIds.isEmpty()) {

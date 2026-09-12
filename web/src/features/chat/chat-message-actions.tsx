@@ -13,6 +13,8 @@ import { ChatEditingContext } from "./chat-editing-context";
 import { ChatDialog } from "./chat-dialog";
 import { chatActionError } from "./chat-action-utils";
 import type { Feedback } from "./chat-workspace-api";
+import { fileIdFromReference } from "./chat-files";
+import { ChatFilePicker } from "./chat-file-picker";
 
 export function ChatUserMessageContent({
   children,
@@ -25,6 +27,7 @@ export function ChatUserMessageContent({
   const message = useAuiState((state) => state.message);
   const [editor, setEditor] = useState(false);
   const [text, setText] = useState("");
+  const [fileIds, setFileIds] = useState<string[]>([]);
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const request = useRef(crypto.randomUUID());
@@ -41,6 +44,7 @@ export function ChatUserMessageContent({
           pending={saving}
           saveDisabled={editing.busy}
           error={error}
+          hasAttachments={fileIds.length > 0}
           onValueChange={(value) => {
             setText(value);
             request.current = crypto.randomUUID();
@@ -55,7 +59,7 @@ export function ChatUserMessageContent({
             setSaving(true);
             setError(undefined);
             void editing
-              .edit(message.id, text, request.current)
+              .edit(message.id, text, request.current, fileIds)
               .then(() => setEditor(false))
               .catch((cause: unknown) => setError(chatActionError(cause)))
               .finally(() => {
@@ -63,7 +67,16 @@ export function ChatUserMessageContent({
                 setSaving(false);
               });
           }}
-        />
+        >
+          <ChatFilePicker
+            selected={fileIds}
+            disabled={saving || editing.busy}
+            onSelect={(ids) => {
+              setFileIds(ids);
+              request.current = crypto.randomUUID();
+            }}
+          />
+        </EditMessage>
       ) : (
         <div className="max-w-[90%] rounded-2xl bg-surface-sunken px-4 py-3 whitespace-pre-wrap [overflow-wrap:anywhere]">
           {children}
@@ -78,6 +91,24 @@ export function ChatUserMessageContent({
             prominence="internal"
             disabled={editing.busy}
             onClick={() => {
+              setFileIds(
+                [
+                  ...message.parts,
+                  ...(message.attachments ?? []).flatMap((attachment) => attachment.content ?? []),
+                ]
+                  .map((part) => {
+                    const reference =
+                      part.type === "file"
+                        ? part.data
+                        : part.type === "image"
+                          ? part.image
+                          : undefined;
+                    return typeof reference === "string"
+                      ? fileIdFromReference(reference)
+                      : undefined;
+                  })
+                  .filter((id): id is string => !!id),
+              );
               setText(
                 message.parts
                   .filter((part) => part.type === "text")

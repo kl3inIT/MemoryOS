@@ -29,19 +29,26 @@ public class ChatPersonaService {
     private final PersonaProperties defaults;
     private final ModelCatalogService models;
     private final SourceSearchService sources;
+    private final ChatFileService files;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-            JpaPersonaRepository settings, PersonaProperties defaults, ModelCatalogService models, SourceSearchService sources) {
+            JpaPersonaRepository settings, PersonaProperties defaults, ModelCatalogService models, SourceSearchService sources, ChatFileService files) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats;
         this.settings = settings; this.defaults = defaults; this.models = models; this.sources = sources;
+        this.files = files;
     }
 
     public record PersonaInput(String name, String description, String instructions, List<String> starterPrompts,
                         List<UUID> sourceIds, boolean searchEnabled, @Nullable UUID modelConfigurationId,
-                        @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit) {}
+                        @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, @Nullable List<UUID> fileIds) {
+        public PersonaInput(String name, String description, String instructions, List<String> starterPrompts, List<UUID> sourceIds,
+                            boolean searchEnabled, @Nullable UUID modelConfigurationId, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit) {
+            this(name, description, instructions, starterPrompts, sourceIds, searchEnabled, modelConfigurationId, contextTokenLimit, outputTokenLimit, null);
+        }
+    }
     public record PersonaView(UUID id, boolean builtin, boolean editable, long revision, String name, String description,
                        String instructions, List<String> starterPrompts, List<UUID> sourceIds, boolean searchEnabled,
-                       @Nullable UUID modelConfigurationId, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit) {}
+                       @Nullable UUID modelConfigurationId, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, List<UUID> fileIds) {}
 
     @Transactional
     public List<PersonaView> list(ActorId actor, int offset, int limit) {
@@ -112,6 +119,11 @@ public class ChatPersonaService {
     }
     private boolean manager(ActorId actor) { return authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE); }
     private void apply(ActorId actor, PersonaEntity entity, PersonaInput input) {
+        if (input.fileIds() != null) {
+            if (entity.builtin() && !input.fileIds().isEmpty()) throw ChatException.invalid("Personal files cannot be attached to the shared default assistant.");
+            files.admit(new TenantId(entity.tenantId()), actor, input.fileIds());
+            entity.files(input.fileIds());
+        }
         text(input.name(), 200, true); text(input.description(), 2000, false); text(input.instructions(), 32000, false);
         if (input.starterPrompts() == null || input.starterPrompts().size() > 8 || input.sourceIds() == null || input.sourceIds().size() > 100)
             throw ChatException.invalid("Use at most 8 suggestions and 100 sources.");
@@ -139,7 +151,7 @@ public class ChatPersonaService {
     }
     private static PersonaView view(PersonaEntity p, boolean manager) {
         return new PersonaView(p.id(), p.builtin(), !p.builtin() || manager, p.revision(), p.name(), p.description(), p.instructions(),
-                p.starterPrompts(), p.sourceIds(), p.searchEnabled(), p.modelConfigurationId(), p.contextTokenLimit(), p.outputTokenLimit());
+                p.starterPrompts(), p.sourceIds(), p.searchEnabled(), p.modelConfigurationId(), p.contextTokenLimit(), p.outputTokenLimit(), p.fileIds());
     }
     static void text(@Nullable String text, int max, boolean required) {
         if (text == null || text.length() > max || required && text.isBlank()) throw ChatException.invalid("Invalid text length (maximum " + max + ").");

@@ -3811,6 +3811,195 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files/{fileId}/retry:
+    post:
+      tags:
+      - Chat
+      summary: Retry processing a failed owner-private file
+      operationId: retryChatFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "202":
+          description: Retry queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/files/{fileId}/finalize:
+    post:
+      tags:
+      - Chat
+      summary: Verify upload integrity and queue asynchronous extraction
+      operationId: finalizeChatFileUpload
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "202":
+          description: File accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/files/uploads:
+    post:
+      tags:
+      - Chat
+      summary: "Authorize or resume an owner-private, idempotent file upload"
+      operationId: initiateChatFileUpload
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatFileUploadRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Upload receipt and authorization when pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileUploadResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users:
     get:
       tags:
@@ -5220,6 +5409,361 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files:
+    get:
+      tags:
+      - Chat
+      summary: List recent owner-private files
+      operationId: listChatFiles
+      parameters:
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 30
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Recent files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/files/{fileId}:
+    get:
+      tags:
+      - Chat
+      summary: Read file metadata and processing status
+      operationId: getChatFile
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Make an owner-private file unavailable and queue cleanup
+      operationId: deleteChatFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "202":
+          description: File deletion accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/files/{fileId}/text:
+    get:
+      tags:
+      - Chat
+      summary: Read a bounded window of owner-private extracted text
+      operationId: readChatFileText
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 16000
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Extracted text window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileTextResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/files/{fileId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Download an owner-private original file without inline execution
+      operationId: downloadChatFile
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Original file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/files/policy:
+    get:
+      tags:
+      - Chat
+      summary: Get the active Chat file upload policy
+      operationId: getChatFilePolicy
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Active upload policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFilePolicyResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:
@@ -5672,6 +6216,11 @@ components:
           type: string
         instructions:
           type: string
+        fileIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     ProjectView:
       type: object
       properties:
@@ -5690,6 +6239,11 @@ components:
         updatedAt:
           type: string
           format: date-time
+        fileIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     PersonaInput:
       type: object
       properties:
@@ -5725,6 +6279,11 @@ components:
           - type: integer
             format: int32
           - type: "null"
+        fileIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     PersonaView:
       type: object
       properties:
@@ -5770,6 +6329,11 @@ components:
           - type: integer
             format: int32
           - type: "null"
+        fileIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     PersonaModel:
       type: object
       properties:
@@ -6508,6 +7072,13 @@ components:
         modelConfigurationId:
           type: string
           format: uuid
+        fileIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+          minItems: 0
       required:
       - clientRequestId
       - parentMessageId
@@ -6553,6 +7124,13 @@ components:
         modelConfigurationId:
           type: string
           format: uuid
+        fileIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+          minItems: 0
       required:
       - clientRequestId
       - text
@@ -6588,6 +7166,86 @@ components:
           type: boolean
         failureCode:
           type: string
+    ChatFileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - UPLOADING
+          - PROCESSING
+          - READY
+          - FAILED
+          - DELETING
+          - DELETED
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        errorCode:
+          type: string
+        searchReady:
+          type: boolean
+    ChatFileUploadRequest:
+      type: object
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        filename:
+          type: string
+          maxLength: 255
+          minLength: 0
+        mediaType:
+          type: string
+          maxLength: 160
+          minLength: 0
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        sha256:
+          type: string
+          pattern: "[0-9a-f]{64}"
+      required:
+      - filename
+      - mediaType
+      - requestId
+      - sha256
+    ChatFileUploadResponse:
+      type: object
+      properties:
+        file:
+          $ref: "#/components/schemas/ChatFileResponse"
+        upload:
+          $ref: "#/components/schemas/UploadAuthorization"
+    UploadAuthorization:
+      type: object
+      properties:
+        method:
+          type: string
+        uri:
+          type: string
+          format: uri
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
     AccountType:
       type: string
       enum:
@@ -7703,6 +8361,19 @@ components:
         rootMessageId:
           type: string
           format: uuid
+    ChatFileDescriptor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
     ChatMessage:
       type: object
       properties:
@@ -7748,9 +8419,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChatSource"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatFileDescriptor"
       required:
       - content
       - createdAt
+      - files
       - finishedAt
       - id
       - latestChildMessageId
@@ -7783,11 +8459,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Provenance"
+        fileId:
+          type: string
+          format: uuid
       required:
       - citationId
-      - documentId
       - endOrdinal
-      - generation
       - provenance
       - startOrdinal
       - title
@@ -8015,6 +8692,29 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
+    ChatFileTextResponse:
+      type: object
+      properties:
+        text:
+          type: string
+        offset:
+          type: integer
+          format: int32
+        nextOffset:
+          type: integer
+          format: int32
+        totalCharacters:
+          type: integer
+          format: int32
+    ChatFilePolicyResponse:
+      type: object
+      properties:
+        maxSizeBytes:
+          type: integer
+          format: int64
+        deploymentCeilingBytes:
+          type: integer
+          format: int64
     ApiProblem:
       type: object
       additionalProperties: false

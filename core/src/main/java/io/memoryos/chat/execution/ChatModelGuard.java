@@ -156,6 +156,8 @@ public final class ChatModelGuard implements ChatModel {
         int count = 64;
         for (var message : prompt.getInstructions()) {
             count += 32 + estimator.estimate(message.getText() == null ? "" : message.getText());
+            if (message instanceof org.springframework.ai.chat.messages.UserMessage user)
+                count += user.getMedia().size() * ChatTurnSetup.IMAGE_INPUT_TOKENS;
             if (message instanceof ToolResponseMessage tool) {
                 for (var response : tool.getResponses()) count += estimator.estimate(response.responseData()) + 32;
             }

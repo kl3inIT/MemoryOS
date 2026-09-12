@@ -1,11 +1,12 @@
 import { z } from "zod";
 import type { Root, RootContent } from "mdast";
 
-export const sourceSchema = z
+const documentSourceSchema = z
   .object({
     citationId: z.number().int().min(1).max(24),
     documentId: z.string().uuid(),
     generation: z.string().uuid(),
+    fileId: z.null().optional(),
     title: z.string().max(1024),
     startOrdinal: z.number().int().min(0).max(9999),
     endOrdinal: z.number().int().min(0).max(9999),
@@ -24,6 +25,19 @@ export const sourceSchema = z
       ),
     "Source provenance must stay within its ordered passage range",
   );
+export const sourceSchema = z.union([
+  documentSourceSchema,
+  z.object({
+    citationId: z.number().int().min(1).max(24),
+    fileId: z.string().uuid(),
+    title: z.string().max(1024),
+    documentId: z.null(),
+    generation: z.null(),
+    startOrdinal: z.literal(0),
+    endOrdinal: z.literal(0),
+    provenance: z.array(z.never()).max(0),
+  }),
+]);
 export type ChatSource = z.infer<typeof sourceSchema>;
 export const sourcesSchema = z.array(sourceSchema).max(24);
 const intervalSchema = z.object({

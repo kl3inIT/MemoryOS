@@ -10,7 +10,6 @@ import io.memoryos.chat.tools.SearchTool;
 import io.memoryos.chat.tools.ChatSearchProperties;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchTimings;
-import java.util.ArrayList;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Consumer;
@@ -31,9 +30,13 @@ public final class ChatModelExecutor {
     private final ChatSearchProperties searchLimits;
     private final Scheduler scheduler;
     private final SearchTimings timings;
+    private final io.memoryos.chat.ChatFileService files;
+    private final io.memoryos.chat.ChatFileSearchService fileSearch;
+    private final io.memoryos.chat.ChatFileContentService fileContent;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
-            ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings) {
+            ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
+            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent) {
         this.contexts = contexts;
         this.processes = processes;
         this.limits = limits;
@@ -41,6 +44,9 @@ public final class ChatModelExecutor {
         this.searchLimits = searchLimits;
         this.scheduler = scheduler;
         this.timings = timings;
+        this.files = files;
+        this.fileSearch = fileSearch;
+        this.fileContent = fileContent;
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
@@ -64,20 +70,33 @@ public final class ChatModelExecutor {
         guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
         SearchTool searchTool = null;
+        var fileWork = new io.memoryos.retrieval.SearchTasks.Scope(searchLimits.cleanupTimeout());
+        var fileCancellation = cancellation.subscribe(ignored -> fileWork.cancel());
+        Runnable fileActive = () -> { fileWork.checkActive(); guard.checkActive(); };
         try {
+            setup.evidence().publishTo(event -> { fileActive.run(); events.accept(event); });
+            guard.evidenceAvailable(setup.evidence()::hasEvidence);
             var nativeService = selected.withModel(guard);
             var service = new StreamingLlmService(nativeService);
             var runner = context.ai().withLlmService(service);
             runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withMaxTokens(maxOutput))
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
-            var messages = new ArrayList<>(setup.messages());
-            if (selected.toolCalling()) {
+            java.util.List<com.embabel.chat.Message> messages;
+            try (var ignored = fileWork.enter()) {
+                var remaining = Duration.between(Instant.now(), setup.deadline());
+                if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
+                messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), remaining, fileActive);
+            }
+            if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
+                runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
+                        setup.fileIds(), fileActive, guard::availableContextTokens, selected.tokens(), fileSearch, setup.evidence(), fileWork, setup.deadline())));
+            }
+            if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds());
-                guard.evidenceAvailable(searchTool::hasEvidence);
+                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence());
                 runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);
             }
             Duration remaining = Duration.between(Instant.now(), setup.deadline());
@@ -86,7 +105,9 @@ public final class ChatModelExecutor {
                     .takeUntilOther(cancellation).doOnNext(text -> { guard.checkActive(); output.accept(text); }).blockLast(remaining);
         } finally {
             if (searchTool != null) searchTool.close();
-            var drained = searchTool == null ? CompletableFuture.<Void>completedFuture(null) : searchTool.whenDrained();
+            fileCancellation.dispose();
+            fileWork.close();
+            var drained = CompletableFuture.allOf(fileWork.drained(), searchTool == null ? CompletableFuture.<Void>completedFuture(null) : searchTool.whenDrained());
             try {
                 // A timed-out provider can still record usage. Never persist an incomplete total as known.
                 if (!drained.isDone()) accounting.accept(new Accounting(null, null, null));

@@ -6,6 +6,8 @@ These are behavior-evidence pointers, not a live Google E2E or IDE-clean claim. 
 
 | Contract | Evidence |
 | --- | --- |
+| Private file identity is the same on first chunk publication, reload and convention rebuild; artifact readers are released and raw extraction is not invoked | `DocumentChunkServiceTest.firstPublicationReturnsTheSamePrivateMetadataAsReload`; PostgreSQL `ExtractionArtifactLifecycleTest.privateChunksKeepIdentityOnFirstPublicationReloadAndConventionRebuild` |
+| Both native cells/nested Docs blocks and Docling table cells produce bounded searchable chunks | `StructuredDocumentChunkerTest`, extractor-to-chunker assertions in `SpreadsheetSourceContentExtractorTest` and `GoogleNativeExtractionTest` |
 | Successful extraction publishes the current Document/artifact/provenance; FILE lifecycle remains authorized and cleanup removes owned content | `SourceApiIntegrationTest.indexesAndCleansUpOneFileThroughTheAuthorizedApi` and `WorkerFileProcessingIntegrationTest.redisStreamsIndexRemoveAndDeleteOneRealFile` |
 | Failed/stale claims cannot publish current content | `PostgresSourceLifecycleTest.staleWorkerTokenCannotCompleteAfterLeaseReclaim` |
 | Google indexing reads adopted bytes offline; changed credential authority rolls back replacement, retaining the same Document ID, prior metadata and artifact; restricted mappings do not enter FILE PUBLIC access | `PostgresGoogleDriveSyncTest.indexesAdoptedBytesOfflineAndRollsBackPublicationAfterCredentialRevisionChanges` |

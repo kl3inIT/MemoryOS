@@ -14,6 +14,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Operating rules
 
 - Keep this file a map, not an encyclopedia. Put each fact in one canonical document and link to it.
+- Before building a component, follow [component and library reuse](docs/conventions.md#component-and-library-reuse): always inspect and reuse suitable library components, hooks and behavior before writing custom equivalents.
 - Classify knowledge before writing: current implementation in `ARCHITECTURE.md` or `docs/specs/`; product intent in `docs/vision.md`; cross-cutting engineering policy in `docs/conventions.md` or `docs/guidelines/`; change-local reasoning in the active increment.
 - Treat `core` as capability implementation, not a framework-free domain layer. Capability code may use Spring, `JdbcClient`, transactions, or JPA when they reduce real complexity; forbid dependency inversion violations and speculative layers, not framework use.
 - Keep SQL, row mapping, locks, claims, and bulk persistence mechanics in concrete capability `persistence` repositories. Application services own authorization, validation, orchestration, and cross-repository transaction boundaries; do not add single-implementation repository interfaces. See [persistence policy](docs/guidelines/persistence.md).

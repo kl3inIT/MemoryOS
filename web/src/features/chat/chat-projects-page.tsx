@@ -22,6 +22,7 @@ import { ChatDialog } from "./chat-dialog";
 import { chatField, chatActionError } from "./chat-action-utils";
 import { loadProjects, projectSchema, type Project } from "./chat-workspace-api";
 import { ChatSessionRow } from "./chat-session-row";
+import { ChatFilePicker } from "./chat-file-picker";
 
 export function ChatProjectsPage() {
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -259,6 +260,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
   const navigate = useNavigate();
   const [name, setName] = useState(project?.name ?? "");
   const [instructions, setInstructions] = useState(project?.instructions ?? "");
+  const [fileIds, setFileIds] = useState(project?.fileIds ?? []);
   return (
     <ChatDialog
       open
@@ -273,7 +275,12 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
       }
       submitLabel={project ? "Lưu" : "Tạo dự án"}
       onSubmit={async () => {
-        const body = { name: name.trim(), description: project?.description ?? "", instructions };
+        const body = {
+          name: name.trim(),
+          description: project?.description ?? "",
+          instructions,
+          fileIds,
+        };
         if (project)
           await updateChatProject({
             path: { projectId: project.id },
@@ -315,6 +322,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
           onChange={(event) => setName(event.target.value)}
         />
       </label>
+      <ChatFilePicker selected={fileIds} onSelect={setFileIds} />
       {project && (
         <label className="block space-y-1">
           <span>Hướng dẫn dự án</span>

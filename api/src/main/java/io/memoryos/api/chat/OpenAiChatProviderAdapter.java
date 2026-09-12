@@ -106,7 +106,7 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         var service = new SpringAiLlmService(name, "OpenAI", model, converter, null, List.of(),
                 price == null ? null : PricingModel.usdPer1MTokens(price.inputPerMillion(), price.outputPerMillion()), settings.capabilities().reasoning());
         return new ChatModelBinding(service, OpenAiChatProviderConfiguration::withoutTools,
-                TOKENS, settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling());
+                TOKENS, settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision());
     }
 
     private static void number(Map<String, Object> options, String key, double min, double max) {

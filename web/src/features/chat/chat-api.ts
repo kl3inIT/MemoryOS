@@ -3,6 +3,7 @@ import { sourcesSchema, type ChatSource, type SearchProgress } from "./chat-evid
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
+import { fileReference } from "./chat-files";
 
 export type ChatUiMessage = UIMessage<{
   serverStatus?: ChatMessage["status"];
@@ -61,7 +62,15 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
   return messages.map((message) => ({
     id: message.id,
     role: message.role === "USER" ? "user" : "assistant",
-    parts: [{ type: "text", text: message.content }],
+    parts: [
+      { type: "text", text: message.content },
+      ...(message.files ?? []).map((file) => ({
+        type: "file" as const,
+        filename: file.filename,
+        mediaType: file.mediaType ?? "application/octet-stream",
+        url: fileReference(file.id!),
+      })),
+    ],
     metadata: {
       serverStatus: message.status,
       createdAt: message.createdAt,

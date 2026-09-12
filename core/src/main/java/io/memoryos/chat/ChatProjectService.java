@@ -20,11 +20,15 @@ public class ChatProjectService {
     private final JdbcChatRepository chats;
     private final JpaProjectRepository settings;
     private final ChatSessionService sessions;
-    public ChatProjectService(TenantAccessResolver tenants, JdbcChatRepository chats, JpaProjectRepository settings, ChatSessionService sessions) {
+    private final ChatFileService files;
+    public ChatProjectService(TenantAccessResolver tenants, JdbcChatRepository chats, JpaProjectRepository settings, ChatSessionService sessions, ChatFileService files) {
         this.tenants = tenants; this.chats = chats; this.settings = settings; this.sessions = sessions;
+        this.files = files;
     }
-    public record ProjectInput(String name, String description, String instructions) {}
-    public record ProjectView(UUID id, String name, String description, String instructions, long revision, Instant updatedAt) {}
+    public record ProjectInput(String name, String description, String instructions, @Nullable List<UUID> fileIds) {
+        public ProjectInput(String name, String description, String instructions) { this(name, description, instructions, null); }
+    }
+    public record ProjectView(UUID id, String name, String description, String instructions, long revision, Instant updatedAt, List<UUID> fileIds) {}
 
     @Transactional(readOnly = true)
     public List<ProjectView> list(ActorId actor, int offset, int limit) {
@@ -36,6 +40,7 @@ public class ChatProjectService {
     public ProjectView create(ActorId actor, ProjectInput input) {
         var tenant = write(actor); validate(input);
         var entity = new ProjectEntity(UUID.randomUUID(), tenant.value(), actor.value(), input.name().strip(), input.description(), input.instructions());
+        if (input.fileIds() != null) { files.admit(tenant, actor, input.fileIds()); entity.files(input.fileIds()); }
         return view(settings.saveAndFlush(entity));
     }
 
@@ -43,8 +48,10 @@ public class ChatProjectService {
     public ProjectView get(ActorId actor, UUID id) { return view(owned(tenant(actor), actor, id, false)); }
     @Transactional
     public ProjectView update(ActorId actor, UUID id, long revision, ProjectInput input) {
-        var entity = owned(write(actor), actor, id, true); validate(input);
+        var tenant = write(actor);
+        var entity = owned(tenant, actor, id, true); validate(input);
         if (entity.revision() != revision) throw ChatException.conflict();
+        if (input.fileIds() != null) { files.admit(tenant, actor, input.fileIds()); entity.files(input.fileIds()); }
         entity.update(input.name().strip(), input.description(), input.instructions()); settings.flush(); return view(entity);
     }
     @Transactional
@@ -87,5 +94,5 @@ public class ChatProjectService {
         ChatPersonaService.text(input.name(), 200, true); ChatPersonaService.text(input.description(), 2000, false);
         ChatPersonaService.text(input.instructions(), 32000, false);
     }
-    private static ProjectView view(ProjectEntity p) { return new ProjectView(p.id(), p.name(), p.description(), p.instructions(), p.revision(), p.updatedAt()); }
+    private static ProjectView view(ProjectEntity p) { return new ProjectView(p.id(), p.name(), p.description(), p.instructions(), p.revision(), p.updatedAt(), p.fileIds()); }
 }

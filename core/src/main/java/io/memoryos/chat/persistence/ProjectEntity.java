@@ -19,6 +19,9 @@ public class ProjectEntity {
     @Column(nullable = false, length = 2000) private String description;
     @Column(nullable = false, columnDefinition = "text") private String instructions;
     @Version private @Nullable Long revision;
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "file_ids", nullable = false, columnDefinition = "jsonb")
+    private java.util.List<UUID> fileIds = new java.util.ArrayList<>();
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
@@ -31,6 +34,8 @@ public class ProjectEntity {
         this.name = name; this.description = description; this.instructions = instructions; updatedAt = Instant.now();
     }
     public UUID id() { return id; }
+    public java.util.List<UUID> fileIds() { return java.util.List.copyOf(fileIds); }
+    public void files(java.util.List<UUID> ids) { fileIds = new java.util.ArrayList<>(ids); }
     public UUID tenantId() { return tenantId; }
     public String name() { return name; }
     public String description() { return description; }

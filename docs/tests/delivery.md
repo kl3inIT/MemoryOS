@@ -18,6 +18,8 @@
 | Concurrent or interrupted mutation is contained | GitHub concurrency, server flock and persistent reservation | A pending transaction blocks a newer release until accepted/recovered |
 | Cancellation attempts recovery without releasing an uncertain runtime | Rollback condition includes failure and cancellation only after rollout starts; the server lock and smoke-before-finalization remain mandatory | Runner termination can interrupt cleanup; operator recovery retains the reservation |
 | Smoke credentials stay out of dependency installation | Step-scoped secrets; staging test collection succeeds without username/password | Configuration preflight still rejects missing credentials before server mutation |
+| Invalid smoke identity stops before rollout | `test:staging:preflight`: real login, exact configured Actor, active Tenant and Source management/deletion grants; safe phase-only failures | No new app images or recovery finalization before this passes; does not silently provision or elevate an account |
+| Recovery cannot silently discard a reservation | Optional exact `recovery_release`, main ancestry check, full authenticated smoke, existing transaction `finish` image/health/ownership guard | Manual selection only; never deletes pending directly, restores a database or accepts a mixed runtime |
 | Real accepted Search flow | `web/tests/staging/search.spec.ts`, normal identity and FILE/Search UI | Dedicated account, real Keycloak/MinIO/worker/OpenSearch; prints only its own cleanup source ID |
 | Rollback is explicit and compatible | Prior image IDs/configuration, schema comparison, database backup, repeated live smoke | Backup catalogue is not restore proof; changed schema needs operator recovery |
 

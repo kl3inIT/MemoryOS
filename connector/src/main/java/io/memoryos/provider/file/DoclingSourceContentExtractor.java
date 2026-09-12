@@ -2,11 +2,6 @@ package io.memoryos.provider.file;
 
 import ai.docling.serve.api.DoclingServeApi;
 import ai.docling.serve.api.convert.request.ConvertDocumentRequest;
-import ai.docling.serve.api.convert.request.options.ConvertDocumentOptions;
-import ai.docling.serve.api.convert.request.options.ImageRefMode;
-import ai.docling.serve.api.convert.request.options.OcrEngine;
-import ai.docling.serve.api.convert.request.options.OutputFormat;
-import ai.docling.serve.api.convert.request.options.TableFormerMode;
 import ai.docling.serve.api.convert.request.source.FileSource;
 import ai.docling.serve.api.convert.request.target.InBodyTarget;
 import ai.docling.serve.api.convert.response.InBodyConvertDocumentResponse;
@@ -16,7 +11,6 @@ import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.Map;
@@ -82,11 +76,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         var request = ConvertDocumentRequest.builder()
                 .source(FileSource.builder().filename("document" + FORMATS.get(mediaType))
                         .base64String(Base64.getEncoder().encodeToString(bytes)).build())
-                .options(ConvertDocumentOptions.builder().toFormat(OutputFormat.JSON).toFormat(OutputFormat.TEXT)
-                        .doOcr(true).forceOcr(false).ocrEngine(OcrEngine.EASYOCR).ocrLang("vi").ocrLang("en")
-                        .doTableStructure(true).tableMode(TableFormerMode.ACCURATE)
-                        .includeImages(true).imageExportMode(ImageRefMode.EMBEDDED)
-                        .documentTimeout(properties.timeout()).abortOnError(true).build())
+                .options(properties.options())
                 .target(InBodyTarget.builder().build()).build();
         try {
             var response = client.convertSource(request);
@@ -95,6 +85,34 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                     || result.getDocument() == null || result.getDocument().getJsonContent() == null) {
                 throw failure(ExtractionFailure.MALFORMED);
             }
+            return canonical(result, filename, mediaType, 10_485_760);
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof java.net.http.HttpTimeoutException) throw failure(ExtractionFailure.TIMEOUT);
+            // Do not propagate SDK exception messages: they can contain response bodies.
+            throw new IllegalStateException("Docling request failed");
+        }
+    }
+
+    /** Disk-backed multipart prevents a 250 MiB file becoming several base64/JSON heap copies. */
+    public DocumentContent extractChatFile(java.nio.file.Path file, String filename, String mediaType) throws ExtractionException {
+        if (!(client instanceof BoundedDoclingClient bounded) || !usesDocling(mediaType)) throw failure(ExtractionFailure.UNSUPPORTED);
+        try {
+            if (java.nio.file.Files.size(file) > 262144000) throw failure(ExtractionFailure.WRITE_LIMIT);
+            if ("application/pdf".equals(mediaType)) {
+                try (var pdf = org.apache.pdfbox.Loader.loadPDF(file.toFile())) {
+                    if (pdf.isEncrypted()) throw failure(ExtractionFailure.ENCRYPTED);
+                    if (pdf.getNumberOfPages() > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
+                }
+            }
+            var result = bounded.convertFile(file, FORMATS.get(mediaType), properties);
+            if (!"success".equals(result.getStatus()) || !result.getErrors().isEmpty() || result.getDocument() == null
+                    || result.getDocument().getJsonContent() == null) throw failure(ExtractionFailure.MALFORMED);
+            return canonical(result, filename, mediaType, 262_144_000);
+        } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException encrypted) { throw failure(ExtractionFailure.ENCRYPTED); }
+        catch (IOException invalid) { throw failure(ExtractionFailure.MALFORMED); }
+    }
+
+    private DocumentContent canonical(InBodyConvertDocumentResponse result, String filename, String mediaType, long maxInput) throws ExtractionException {
             JsonNode document = mapper.valueToTree(result.getDocument().getJsonContent());
             if (document.path("pages").size() > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
             ObjectNode canonical = mapper.createObjectNode();
@@ -110,13 +128,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                 throw failure(ExtractionFailure.WRITE_LIMIT);
             }
             return new DocumentContent(mediaType, filename, text,
-                    Map.of("parser", "docling", "parser_configuration", properties.parserConfiguration()), json, null);
-        } catch (ExtractionException e) { throw e; }
-        catch (RuntimeException e) {
-            if (e.getCause() instanceof java.net.http.HttpTimeoutException) throw failure(ExtractionFailure.TIMEOUT);
-            // Do not propagate SDK exception messages: they can contain response bodies.
-            throw new IllegalStateException("Docling request failed");
-        }
+                    Map.of("parser", "docling", "parser_configuration", properties.parserConfiguration(maxInput)), json, null);
     }
 
     private void visit(JsonNode document, JsonNode node, ArrayNode blocks, Set<String> visited, int depth)

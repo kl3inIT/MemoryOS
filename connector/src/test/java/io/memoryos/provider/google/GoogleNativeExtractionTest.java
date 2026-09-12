@@ -47,6 +47,9 @@ class GoogleNativeExtractionTest {
         assertEquals("vi_VN", canonical.path("spreadsheetProperties").path("locale").asString());
         assertEquals("Asia/Ho_Chi_Minh", canonical.path("spreadsheetProperties").path("timeZone").asString());
         assertEquals("Revenue\nA1: 0\nB1: false\nB2: 42.00\nNotes", result.normalizedText());
+        var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
+        assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[B2] 42.00")));
+        assertTrue(chunks.stream().noneMatch(chunk -> chunk.content().contains("IMPORTXML")));
     }
 
     @Test
@@ -80,10 +83,14 @@ class GoogleNativeExtractionTest {
         assertEquals("footnotes/note1", blocks.get(3).path("provenance").path("section").asString());
         assertEquals("child", blocks.get(4).path("provenance").path("tabId").asString());
         assertEquals("Heading\nEntry\nLeft\nRight\nFootnote\nNested", result.normalizedText());
+        var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
+        assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[B1] Right")));
+        assertTrue(chunks.stream().filter(chunk -> chunk.content().contains("[B1] Right"))
+                .allMatch(chunk -> chunk.provenanceJson().contains("first")));
     }
 
     @Test
-    void rejectsIncompleteSheetWindowsAndOversizedRepresentedGrid() throws Exception {
+    void rejectsIncompleteSheetWindowsAndOversizedRepresentedGrid() {
         ObjectNode sheet = (ObjectNode) mapper.readTree("""
                 {"spreadsheetId":"sheet1","sheets":[{"properties":{"title":"Sheet","gridProperties":{"rowCount":501,"columnCount":1}},
                   "pages":[{"startRow":0,"endRow":500,"data":[]}]}]}
@@ -96,7 +103,7 @@ class GoogleNativeExtractionTest {
     }
 
     @Test
-    void rejectsWrongSnapshotVersionAndNormalizedOutputOverflow() throws Exception {
+    void rejectsWrongSnapshotVersionAndNormalizedOutputOverflow() {
         ObjectNode document = mapper.createObjectNode();
         document.put("documentId", "sheet1");
         document.put("revisionId", "revision");

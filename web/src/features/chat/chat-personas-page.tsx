@@ -19,6 +19,7 @@ import { ChatDialog } from "./chat-dialog";
 import { chatField, chatActionError } from "./chat-action-utils";
 import { loadPersonas, loadPersonaSources, type Persona } from "./chat-workspace-api";
 import { chatSessionsKey, newChatSession } from "./chat-api";
+import { ChatFilePicker } from "./chat-file-picker";
 
 export function ChatPersonasPage() {
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -131,6 +132,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
   const [instructions, setInstructions] = useState(persona?.instructions ?? "");
   const [starters, setStarters] = useState(persona?.starterPrompts.join("\n") ?? "");
   const [sourceIds, setSources] = useState(persona?.sourceIds ?? []);
+  const [fileIds, setFileIds] = useState(persona?.fileIds ?? []);
   const [searchEnabled, setSearch] = useState(persona?.searchEnabled ?? true);
   const [model, setModel] = useState(persona?.modelConfigurationId ?? "");
   const [context, setContext] = useState(persona?.contextTokenLimit?.toString() ?? "");
@@ -180,6 +182,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
                 instructions,
                 starterPrompts,
                 sourceIds,
+                fileIds,
                 searchEnabled,
                 modelConfigurationId: model || null,
                 contextTokenLimit: context ? Number(context) : null,
@@ -209,6 +212,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
     >
       {starterError && <p role="alert">{starterError}</p>}
       <fieldset disabled={!editable} className="space-y-4">
+        {!persona?.builtin && <ChatFilePicker selected={fileIds} onSelect={setFileIds} />}
         <label className="block space-y-1">
           <span>Tên trợ lý</span>
           <Input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />

@@ -18,6 +18,7 @@ const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
 const userId = "9a1b5318-f15b-4e37-899a-0809354cda6f";
 const requestId = "e7a05ee5-cfd5-470b-9641-f4c322a3b4bb";
 const row: ChatMessage = {
+  files: [],
   sources: [],
   id: runId,
   sessionId: session.id,

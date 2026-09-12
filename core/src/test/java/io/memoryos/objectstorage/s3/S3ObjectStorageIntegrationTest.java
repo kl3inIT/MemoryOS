@@ -51,7 +51,7 @@ class S3ObjectStorageIntegrationTest {
     @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
             DockerImageName.parse(
-                    "minio/minio:RELEASE.2025-04-22T22-12-26Z"
+                    "quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z"
                             + "@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
             )
     )

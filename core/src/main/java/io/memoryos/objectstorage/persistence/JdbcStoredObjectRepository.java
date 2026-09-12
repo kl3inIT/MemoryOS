@@ -34,7 +34,7 @@ public class JdbcStoredObjectRepository {
     ) {
         create(tenantId, id, key, specification.filename(),
                 new ObjectMetadata(specification.sizeBytes(), specification.mediaType(), specification.checksum()),
-                false, expiresAt);
+                specification.purpose().name(), expiresAt);
     }
 
     public void create(
@@ -46,6 +46,11 @@ public class JdbcStoredObjectRepository {
             boolean nativeSnapshot,
             Instant expiresAt
     ) {
+        create(tenantId, id, key, filename, metadata, nativeSnapshot ? "NATIVE_SNAPSHOT" : "BINARY", expiresAt);
+    }
+
+    private void create(TenantId tenantId, StoredObjectId id, ObjectKey key, String filename,
+            ObjectMetadata metadata, String inputKind, Instant expiresAt) {
         jdbcClient.sql("""
                         INSERT INTO stored_objects (
                             id, tenant_id, object_key, filename, declared_media_type,
@@ -62,7 +67,7 @@ public class JdbcStoredObjectRepository {
                 .param("mediaType", metadata.mediaType())
                 .param("sizeBytes", metadata.sizeBytes())
                 .param("sha256", metadata.checksum().value())
-                .param("inputKind", nativeSnapshot ? "NATIVE_SNAPSHOT" : "BINARY")
+                .param("inputKind", inputKind)
                 .param("expiresAt", Timestamp.from(expiresAt))
                 .update();
     }

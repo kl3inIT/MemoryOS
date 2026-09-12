@@ -5,6 +5,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatFileService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.ChatModelBinding;
@@ -18,6 +19,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -31,11 +34,13 @@ public class ChatTurnPersistence {
     private final TenantAccessResolver tenants;
     private final JdbcChatRepository chats;
     private final PersonaProperties persona;
+    private final ChatFileService files;
 
-    public ChatTurnPersistence(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona) {
+    public ChatTurnPersistence(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona, ChatFileService files) {
         this.tenants = tenants;
         this.chats = chats;
         this.persona = persona;
+        this.files = files;
     }
 
     @Transactional
@@ -93,16 +98,17 @@ public class ChatTurnPersistence {
         if (selection == null) ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext);
         else ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext, selection.binding().forOptions(settings.options()));
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
+        var attachments = command.operation() == ChatCommand.Operation.REGENERATE ? target.files()
+                : files.admit(tenant, actor, command.fileIds());
         UUID assistant = UUID.randomUUID();
         if (command.operation() == ChatCommand.Operation.REGENERATE) chats.insertAssistant(sessionId, user, assistant, timeout);
-        else chats.insertPair(sessionId, parentId, command.requestId(), user, assistant, text, timeout);
+        else chats.insertPair(sessionId, parentId, command.requestId(), user, assistant, text, timeout, attachments);
         if (selection != null) chats.saveModelSelection(sessionId,
                 command.operation() == ChatCommand.Operation.REGENERATE ? assistant : user,
                 assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());
         chats.saveCommand(sessionId, command, user, assistant, selection == null ? null : selection.selectedId(),
                 selection == null ? null : selection.fallbackReason());
-        var context = new TurnContext(actor, tenant, settings.model(), settings.instructions(), chats.context(sessionId, user, 200),
-                chats.control(assistant).deadline(), settings.options());
+        var context = context(actor, tenant, sessionId, user, assistant, settings);
         return new Reservation(user, assistant, true, selection == null ? null : selection.selectedId(), selection == null ? null : selection.fallbackReason(), context);
     }
 
@@ -146,22 +152,41 @@ public class ChatTurnPersistence {
 
     private static void match(JdbcChatRepository.ReservedRequest previous, ChatCommand command) {
         if (previous.operation() != command.operation() || !previous.parentMessageId().equals(command.targetMessageId())
-                || !previous.content().equals(command.text()) || !Objects.equals(previous.requestedModelId(), command.modelConfigurationId()))
+                || !previous.content().equals(command.text()) || !previous.fileIds().equals(command.fileIds())
+                || !Objects.equals(previous.requestedModelId(), command.modelConfigurationId()))
             throw ChatException.conflict();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public TurnContext loadContext(ActorId actor, UUID sessionId, Reservation reservation) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
         if (reservation.context() != null) return reservation.context();
         var persona = chats.persona(sessionId, false);
-        return new TurnContext(actor, tenant, persona.model(), persona.instructions(), chats.context(sessionId, reservation.userMessageId(), 200),
-                chats.control(reservation.assistantMessageId()).deadline(), persona.options());
+        return context(actor, tenant, sessionId, reservation.userMessageId(), reservation.assistantMessageId(), persona);
+    }
+
+    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, UUID assistant, JdbcChatRepository.Persona settings) {
+        var history = chats.context(session, user, 200);
+        var workspaceFiles = files.admit(tenant, actor, settings.fileIds());
+        var plaintext = new LinkedHashMap<UUID, ChatFileService.FileText>();
+        java.util.stream.Stream.concat(history.stream().flatMap(message -> message.files().stream()), workspaceFiles.stream())
+                .map(io.memoryos.chat.ChatFileDescriptor::id)
+                .distinct().limit(20).forEach(id -> {
+                    try { plaintext.put(id, files.read(actor, tenant, id, 0, 16000)); }
+                    catch (ChatException unavailable) { /* Old descriptors survive deletion, not authority. */ }
+                });
+        return new TurnContext(actor, tenant, settings.model(), settings.instructions(), history,
+                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles);
     }
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
-                              List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options) {
+                              List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+                              Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
+        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); }
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options) {
+            this(actor, tenant, model, instructions, newestFirst, deadline, options, Map.of(), List.of());
+        }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline) {
             this(actor, tenant, model, instructions, newestFirst, deadline, ChatTurnOptions.DEFAULT);
         }

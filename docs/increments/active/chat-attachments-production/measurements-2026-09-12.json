@@ -1,0 +1,160 @@
+{
+  "recordedAt": "2026-09-12T08:58:04.5014987+07:00",
+  "head": "00a42f78b575b0bae8b0990e416a1d828ade2fca",
+  "boundary": "Dirty local checkout. Real OpenAI inference; API/auth/DB real, storage and READY controlled. Resource numbers are fresh parser JVMs, not complete API/worker or production sizing.",
+  "os": "Windows 11 Pro",
+  "cpu": "AMD Ryzen 7 6800HS Creator Edition",
+  "logicalProcessors": 16,
+  "physicalMemoryKiB": 14357448,
+  "resourceRuns": [
+    {
+      "scenario": "100m-1caller",
+      "parser": {
+        "heapLimitBytes": 536870912,
+        "fileBytes": 103224428,
+        "peakActiveInputCopies": 1,
+        "tasks": [
+          {
+            "spoolParseChunkMs": 2392,
+            "chunks": 1,
+            "waitMs": 38,
+            "totalMs": 2430
+          }
+        ],
+        "elapsedMs": 2447,
+        "sampledPeakHeapBytes": 127454824,
+        "callers": 1,
+        "completed": 1,
+        "heapBaselineBytes": 47337128
+      },
+      "operatingSystem": {
+        "samples": 51,
+        "samplingTargetMs": 50,
+        "processId": 13024,
+        "peakWorkingSetBytes": 252170240,
+        "peakPrivateCommitBytes": 407060480,
+        "peakTempBytes": 206448856,
+        "peakTempFiles": 2,
+        "peakTempFileNames": [
+          "apache-tika-6572637840978967908.xlsx",
+          "memoryos-chat-file-1103035927114947142.bin"
+        ],
+        "remainingEntries": [],
+        "processElapsedMs": 3374,
+        "exitCode": 0
+      }
+    },
+    {
+      "scenario": "250m-1caller",
+      "parser": {
+        "heapBaselineBytes": 47337128,
+        "completed": 1,
+        "callers": 1,
+        "sampledPeakHeapBytes": 126278472,
+        "elapsedMs": 3278,
+        "tasks": [
+          {
+            "chunks": 1,
+            "spoolParseChunkMs": 3221,
+            "totalMs": 3262,
+            "waitMs": 41
+          }
+        ],
+        "peakActiveInputCopies": 1,
+        "fileBytes": 260811997,
+        "heapLimitBytes": 536870912
+      },
+      "operatingSystem": {
+        "samples": 62,
+        "samplingTargetMs": 50,
+        "processId": 18676,
+        "peakWorkingSetBytes": 284381184,
+        "peakPrivateCommitBytes": 471777280,
+        "peakTempBytes": 521623994,
+        "peakTempFiles": 2,
+        "peakTempFileNames": [
+          "apache-tika-8596509532662891570.xlsx",
+          "memoryos-chat-file-1733687216302075696.bin"
+        ],
+        "remainingEntries": [],
+        "processElapsedMs": 4258,
+        "exitCode": 0
+      }
+    },
+    {
+      "scenario": "250m-3caller",
+      "parser": {
+        "fileBytes": 260811997,
+        "heapLimitBytes": 536870912,
+        "heapBaselineBytes": 47337128,
+        "completed": 3,
+        "callers": 3,
+        "sampledPeakHeapBytes": 117941440,
+        "elapsedMs": 6374,
+        "tasks": [
+          {
+            "spoolParseChunkMs": 1680,
+            "totalMs": 6360,
+            "waitMs": 4679,
+            "chunks": 1
+          },
+          {
+            "spoolParseChunkMs": 3146,
+            "totalMs": 3188,
+            "waitMs": 41,
+            "chunks": 1
+          },
+          {
+            "spoolParseChunkMs": 1788,
+            "totalMs": 4809,
+            "waitMs": 3020,
+            "chunks": 1
+          }
+        ],
+        "peakActiveInputCopies": 1
+      },
+      "operatingSystem": {
+        "samples": 99,
+        "samplingTargetMs": 50,
+        "processId": 17416,
+        "peakWorkingSetBytes": 281100288,
+        "peakPrivateCommitBytes": 458588160,
+        "peakTempBytes": 521623994,
+        "peakTempFiles": 2,
+        "peakTempFileNames": [
+          "apache-tika-10456894442041368686.xlsx",
+          "memoryos-chat-file-4196975225650836865.bin"
+        ],
+        "remainingEntries": [],
+        "processElapsedMs": 7218,
+        "exitCode": 0
+      }
+    }
+  ],
+  "liveVision": [
+    {
+      "elapsedMs": 6057,
+      "model": "gpt-5-mini",
+      "answer": {
+        "code": "86B46D11",
+        "red_circles": 3,
+        "blue_squares": 1
+      },
+      "redCircles": 3,
+      "inputTokens": 1563,
+      "imageBytes": 6975
+    },
+    {
+      "elapsedMs": 5559,
+      "model": "gpt-5-mini",
+      "answer": {
+        "code": "8F39FFD8",
+        "red_circles": 5,
+        "blue_squares": 1
+      },
+      "redCircles": 5,
+      "inputTokens": 3211,
+      "imageBytes": 7828
+    }
+  ]
+}

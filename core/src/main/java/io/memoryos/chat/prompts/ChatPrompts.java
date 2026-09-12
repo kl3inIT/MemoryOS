@@ -29,8 +29,8 @@ public final class ChatPrompts {
             """;
 
     private static final String CITATION_GUIDANCE = """
-            CRITICAL: If referencing knowledge from searches, cite relevant statements INLINE using
-            the format [1], [2], [3], etc. to reference the numbered document passages returned by the tool.
+            CRITICAL: If referencing supplied files or knowledge from searches, cite relevant statements INLINE using
+            the format [1], [2], [3], etc. to reference the numbered evidence supplied in context or returned by tools.
             DO NOT provide any links following the citations. Cite inline as opposed to leaving all
             citations until the very end of the response. Use only numbers returned in this turn.
             """;

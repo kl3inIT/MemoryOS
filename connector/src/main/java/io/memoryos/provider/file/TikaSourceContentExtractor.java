@@ -46,6 +46,18 @@ public final class TikaSourceContentExtractor implements SourceContentExtractor,
             SourceInputDescriptor input) throws ExtractionException {
         Objects.requireNonNull(content, "content must not be null");
         Objects.requireNonNull(filename, "filename must not be null");
+        return execute(request -> TikaExtractionProcess.writeRequest(request, content, sizeBytes, filename));
+    }
+
+    /** Chat already owns a bounded spool; pass its path instead of copying large files into the worker heap. */
+    DocumentContent extractChatFile(Path file, String filename, String mediaType) throws ExtractionException {
+        return execute(request -> TikaExtractionProcess.writeChatRequest(request, file, filename, mediaType));
+    }
+
+    @FunctionalInterface
+    private interface RequestWriter { void write(Path request) throws IOException; }
+
+    private DocumentContent execute(RequestWriter writer) throws ExtractionException {
         if (closed.get()) {
             throw new IllegalStateException("extractor is closed");
         }
@@ -60,7 +72,7 @@ public final class TikaSourceContentExtractor implements SourceContentExtractor,
             Path arguments = directory.resolve("java.args");
             Path request = directory.resolve("request.bin");
             Path response = directory.resolve("response.bin");
-            TikaExtractionProcess.writeRequest(request, content, sizeBytes, filename);
+            writer.write(request);
             writeArgumentFile(arguments, request, response);
             process = startProcess(arguments);
             processes.add(process);
