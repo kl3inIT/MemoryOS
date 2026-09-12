@@ -76,9 +76,18 @@
   /* What the hero's load sequence brings in stays hidden from the first frame until the sequence is
    * set up a frame later (src/sections/hero.tsx). */
   @media (prefers-reduced-motion: no-preference) {
-    [data-intro="pending"] :is([data-hero-description], [data-hero-actions], [data-hero-preview]) {
+    [data-intro="pending"]
+      :is([data-hero-title], [data-hero-description], [data-hero-actions], [data-hero-preview]) {
       opacity: 0;
     }
+  }
+
+  /* The masks SplitText puts around the headline's words while its letters rise
+   * (src/sections/hero.tsx). The display type's tight leading would clip descenders, so each mask
+   * reaches past its line box without changing the layout. */
+  .hero-word-mask {
+    padding-block: 0.15em;
+    margin-block: -0.15em;
   }
 
   /*

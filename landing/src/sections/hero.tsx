@@ -3,6 +3,7 @@ import { ActionLink } from "@/components/action-link";
 import { ParticleField } from "@/components/particle-field";
 import { contact, hero } from "@/content";
 import { allowsMotion, gsap, useMotion } from "@/motion/motion";
+import { splitText } from "@/motion/text";
 import { ProductPreview } from "@/sections/product-preview";
 
 function Hero() {
@@ -21,18 +22,42 @@ function Hero() {
     };
   }, []);
 
-  // The page's one load sequence. The h1 stays still so it paints as the largest contentful
-  // element immediately; the description, the actions and the preview arrive beneath it.
+  // The page's one load sequence: the headline sets itself letter by letter, each rising out of its
+  // word from the baseline in reading order, the description's words follow, then the actions and
+  // the preview rise into place. The split is undone once the headline has landed.
   useMotion(scope, () => {
-    // Inline start states take over from the CSS that hid these parts; both apply within this
-    // task, so nothing flashes.
-    delete scope.current?.dataset.intro;
+    const root = scope.current;
+    const title = root?.querySelector<HTMLElement>("[data-hero-title]");
+    const description = root?.querySelector<HTMLElement>("[data-hero-description]");
+    if (!root || !title || !description) {
+      return;
+    }
+    const headline = splitText(title, {
+      type: "words,chars",
+      mask: "words",
+      wordsClass: "hero-word",
+    });
+    const { words } = splitText(description, { type: "words", mask: "words" });
     gsap
-      .timeline({ delay: 0.3, defaults: { ease: "power3.out" } })
-      .from("[data-hero-description]", { opacity: 0, y: 12, duration: 0.7 }, 0)
-      .from("[data-hero-actions]", { opacity: 0, y: 12, duration: 0.6 }, 0.25)
-      .from("[data-hero-preview]", { opacity: 0, y: 24, duration: 0.8 }, 0.45)
-      .from("[data-preview-part]", { opacity: 0, y: 8, duration: 0.5, stagger: 0.14 }, 0.85);
+      .timeline({ delay: 0.15 })
+      .from(headline.chars, {
+        yPercent: 110,
+        duration: 1,
+        stagger: 0.02,
+        ease: "expo.out",
+        onComplete: () => headline.revert(),
+      })
+      .from(words, { yPercent: 110, duration: 0.8, stagger: 0.012, ease: "power4.out" }, 0.5)
+      .from(
+        "[data-hero-actions] > *",
+        { opacity: 0, y: 16, duration: 0.8, stagger: 0.08, ease: "expo.out" },
+        0.8,
+      )
+      .from("[data-hero-preview]", { opacity: 0, y: 48, duration: 1.4, ease: "expo.out" }, 0.6)
+      .from("[data-preview-part]", { opacity: 0, y: 8, duration: 0.5, stagger: 0.14 }, 1);
+    // The start states above take over from the CSS that hid these parts; both apply within this
+    // task, so nothing flashes.
+    delete root.dataset.intro;
 
     // The light drifts away as the visitor scrolls past the hero.
     gsap.to(".hero-glow", {
@@ -48,13 +73,13 @@ function Hero() {
     <section
       ref={scope}
       aria-labelledby="hero-heading"
-      className="relative isolate overflow-hidden px-[var(--page-gutter)] pt-14 pb-20 sm:pt-20 sm:pb-24 lg:pt-24"
+      className="relative isolate flex flex-1 flex-col justify-center overflow-hidden px-[var(--page-gutter)] py-14 sm:py-20"
     >
       <div aria-hidden="true" className="hero-glow pointer-events-none absolute inset-0 -z-10" />
       <ParticleField className="[--field-x:0.5] [--field-y:0.8] lg:[--field-x:0.76] lg:[--field-y:0.55]" />
-      <div className="mx-auto grid max-w-[var(--page-width-wide)] items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)] lg:gap-20">
+      <div className="mx-auto grid w-full max-w-[var(--page-width-wide)] items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)] lg:gap-20">
         <div className="max-w-2xl">
-          <h1 id="hero-heading" className="font-display text-content-primary">
+          <h1 id="hero-heading" data-hero-title="" className="font-display text-content-primary">
             {hero.title}
           </h1>
           <p data-hero-description="" className="mt-6 max-w-xl font-lead text-content-secondary">
