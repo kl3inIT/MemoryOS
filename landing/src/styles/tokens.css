@@ -45,8 +45,9 @@
   --accent: #2450e6;
   --accent-surface: #2450e6;
   --accent-content: #ffffff;
-  --glow-core: #3d6bff47;
-  --glow-halo: #7d9bff2e;
+  /* On the light ground the glow keeps the brand hue at a strength that still reads as blue. */
+  --glow-core: #2f5bff66;
+  --glow-halo: #2450e63d;
 
   /* The particle fields behind the hero and the closing call to action. */
   --particle: #2450e6;
