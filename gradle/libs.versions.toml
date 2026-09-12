@@ -7,6 +7,7 @@ archunit = "1.5.0"
 springdoc = "3.1.0"
 keycloak-admin-client = "26.0.12"
 tika = "4.0.0"
+imageio = "3.15.0"
 arconia = "0.30.0"
 db-scheduler = "16.12.0"
 aws-sdk = "2.54.11"
@@ -81,9 +82,13 @@ commons-pool2 = { module = "org.apache.commons:commons-pool2" }
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 keycloak-admin-client = { module = "org.keycloak:keycloak-admin-client", version.ref = "keycloak-admin-client" }
 tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }
+imageio-webp = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "imageio" }
 tika-parser-pdf = { module = "org.apache.tika:tika-parser-pdf-module", version.ref = "tika" }
 tika-parser-microsoft = { module = "org.apache.tika:tika-parser-microsoft-module", version.ref = "tika" }
 tika-parser-text = { module = "org.apache.tika:tika-parser-text-module", version.ref = "tika" }
+tika-parser-html = { module = "org.apache.tika:tika-parser-html-module", version.ref = "tika" }
+tika-parser-mail = { module = "org.apache.tika:tika-parser-mail-module", version.ref = "tika" }
+tika-parser-miscoffice = { module = "org.apache.tika:tika-parser-miscoffice-module", version.ref = "tika" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }
 commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
 commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }

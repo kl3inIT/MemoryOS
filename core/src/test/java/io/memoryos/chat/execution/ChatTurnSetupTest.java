@@ -23,6 +23,54 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ChatTurnSetupTest {
+    @Test
+    void switchingToNonVisionKeepsHistoryAndWorkspaceMarkersWithoutImageBudget() {
+        var file = new io.memoryos.chat.ChatFileDescriptor(UUID.randomUUID(), "picture.png", "image/png", 100);
+        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
+                "Continue", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
+        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
+                "Answer", List.of(question), Instant.now().plusSeconds(60), io.memoryos.chat.ChatTurnOptions.DEFAULT,
+                java.util.Map.of(), List.of(file));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, binding());
+        assertEquals(java.util.Map.of(), setup.images());
+        org.junit.jupiter.api.Assertions.assertTrue(setup.messages().get(1).getContent().contains("this model cannot view images"));
+        org.junit.jupiter.api.Assertions.assertTrue(setup.messages().getLast().getContent().contains("this model cannot view images"));
+        var content = mock(io.memoryos.chat.ChatFileContentService.class);
+        assertEquals(setup.messages(), ChatFileInputs.materialize(setup, content, () -> {}));
+        org.mockito.Mockito.verifyNoInteractions(content);
+    }
+
+    @Test
+    void visionPreservesImageAttachmentOrderAndChecksStopBeforeAndAfterPrivateIo() {
+        var first = new io.memoryos.chat.ChatFileDescriptor(UUID.randomUUID(), "first.png", "image/png", 3);
+        var second = new io.memoryos.chat.ChatFileDescriptor(UUID.randomUUID(), "second.png", "image/png", 3);
+        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
+                "Compare", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(first, second));
+        var base = binding();
+        var vision = new ChatModelBinding(base.service(), base.finalRequest(), base.tokens(), base.contextWindow(), base.maxOutputTokens(), false, true);
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(question)), 32000, vision);
+        assertEquals(List.of(first, second), setup.images().get(1));
+        var content = mock(io.memoryos.chat.ChatFileContentService.class);
+        var checks = new java.util.concurrent.atomic.AtomicInteger();
+        org.mockito.Mockito.when(content.image(setup.actor(), setup.tenant(), first.id())).thenReturn(new byte[]{1, 2, 3});
+        assertThrows(java.util.concurrent.CancellationException.class, () -> ChatFileInputs.materialize(setup, content, () -> {
+            if (checks.incrementAndGet() == 2) throw new java.util.concurrent.CancellationException();
+        }));
+        org.mockito.Mockito.verify(content).image(setup.actor(), setup.tenant(), first.id());
+        org.mockito.Mockito.verifyNoMoreInteractions(content);
+        org.junit.jupiter.api.Assertions.assertTrue(setup.evidence().snapshot().isEmpty());
+    }
+
+    @Test
+    void visionRejectsCurrentImagesThatCannotFitInsteadOfSilentlyRemovingThem() {
+        var file = new io.memoryos.chat.ChatFileDescriptor(UUID.randomUUID(), "picture.png", "image/png", 100);
+        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
+                "", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
+        var base = binding();
+        var vision = new ChatModelBinding(base.service(), base.finalRequest(), base.tokens(), base.contextWindow(), base.maxOutputTokens(), false, true);
+        assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(question)), 2000, vision));
+    }
+
     private static ChatModelBinding binding() {
         var binding = new ChatModelBinding(new SpringAiLlmService("binding-model", "fixture", mock(ChatModel.class)), p -> p);
         return new ChatModelBinding(binding.service(), binding.finalRequest(), binding.tokens(), binding.contextWindow(), binding.maxOutputTokens(), false);
@@ -64,5 +112,22 @@ class ChatTurnSetupTest {
     private ChatMessage message(ChatMessage.Role role, String content) {
         return new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, role, content,
                 ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
+    }
+
+    @Test
+    void unicodeFileContentIsPlacedBeforeItsQuestionAndWorkspaceContent() {
+        var id = UUID.randomUUID();
+        var file = new io.memoryos.chat.ChatFileDescriptor(id, "ghi-chu.txt", "text/plain", 20);
+        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
+                "Tóm tắt", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
+        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
+                "Answer", List.of(question), Instant.now().plusSeconds(60), io.memoryos.chat.ChatTurnOptions.DEFAULT,
+                java.util.Map.of(id, new io.memoryos.chat.ChatFileService.FileText("A😀Việt", 0, 6)), List.of(file));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding());
+        assertEquals(4, setup.messages().size());
+        org.junit.jupiter.api.Assertions.assertTrue(setup.messages().get(1).getContent().contains("A😀Việt"));
+        org.junit.jupiter.api.Assertions.assertTrue(setup.messages().get(2).getContent().contains("A😀Việt"));
+        org.junit.jupiter.api.Assertions.assertTrue(setup.messages().getLast().getContent().startsWith("Tóm tắt"));
+        assertEquals(java.util.Set.of(id), setup.fileIds());
     }
 }

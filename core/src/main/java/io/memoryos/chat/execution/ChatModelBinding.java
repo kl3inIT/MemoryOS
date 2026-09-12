@@ -11,11 +11,15 @@ import com.knuddels.jtokkit.api.EncodingType;
 
 /** A configured native model and its provider-specific final-request policy. No run state or client cache. */
 public record ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                               TokenCountEstimator tokens, int contextWindow, int maxOutputTokens, boolean toolCalling) {
+                               TokenCountEstimator tokens, int contextWindow, int maxOutputTokens, boolean toolCalling, boolean vision) {
+    public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
+                            TokenCountEstimator tokens, int contextWindow, int maxOutputTokens, boolean toolCalling) {
+        this(service, finalRequest, tokens, contextWindow, maxOutputTokens, toolCalling, false);
+    }
     public ChatModelBinding forOptions(io.memoryos.chat.ChatTurnOptions options) {
         return new ChatModelBinding(service, finalRequest, tokens, contextWindow,
                 options.outputTokenLimit() == null ? maxOutputTokens : Math.min(maxOutputTokens, options.outputTokenLimit()),
-                toolCalling && options.searchEnabled());
+                toolCalling, vision);
     }
     private static final TokenCountEstimator DEFAULT_TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
     public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest) {

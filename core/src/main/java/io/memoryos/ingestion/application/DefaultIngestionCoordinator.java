@@ -88,7 +88,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
 
     private Outcome processDelivery(OperationDelivery delivery) {
         return switch (delivery.workload()) {
-            case SEARCH -> throw new IllegalArgumentException("Search work must use the search coordinator");
+            case SEARCH, USER_FILE -> throw new IllegalArgumentException("Work must use its dedicated coordinator");
             case INGESTION -> indexingPort.claim(
                             delivery.tenantId(),
                             delivery.operationId(),

@@ -31,6 +31,46 @@ import org.junit.jupiter.api.Test;
 class TikaSourceContentExtractorTest {
 
     @Test
+    void chatDecodesPngJpegAndWebpInChildAndRejectsHeaderOnlyImage(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        try (var extractor = new TikaSourceContentExtractor()) {
+            for (var format : java.util.List.of("png", "jpeg")) {
+                var file = directory.resolve("wide." + format);
+                var image = new java.awt.image.BufferedImage(3000, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                assertTrue(javax.imageio.ImageIO.write(image, format, file.toFile()));
+                image.flush();
+                var result = extractor.extractChatFile(file, file.getFileName().toString(), "image/" + format);
+                assertTrue(result.normalizedText().contains("3000x2"));
+                assertEquals("chat-imageio", result.metadata().get("parser"));
+            }
+            var webp = directory.resolve("pixel.webp");
+            java.nio.file.Files.write(webp, java.util.Base64.getDecoder().decode("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA"));
+            assertTrue(extractor.extractChatFile(webp, "pixel.webp", "image/webp").normalizedText().contains("1x1"));
+            var truncated = directory.resolve("truncated.png");
+            java.nio.file.Files.write(truncated, java.util.Arrays.copyOf(java.nio.file.Files.readAllBytes(directory.resolve("wide.png")), 33));
+            assertEquals(ExtractionFailure.MALFORMED, assertThrows(ExtractionException.class,
+                    () -> extractor.extractChatFile(truncated, "truncated.png", "image/png")).failure());
+        }
+    }
+
+    @Test
+    void chatMarkupReusesIsolatedProcessAndCanonicalResponse(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        var file = directory.resolve("mail.html");
+        java.nio.file.Files.writeString(file, "<html><body><h1>Private note</h1><script>secretScript()</script><p>Body text</p></body></html>");
+        try (var extractor = new TikaSourceContentExtractor()) {
+            var result = extractor.extractChatFile(file, "mail.html", "text/html");
+            assertTrue(result.normalizedText().contains("Private note"));
+            assertTrue(result.normalizedText().contains("Body text"));
+            org.junit.jupiter.api.Assertions.assertFalse(result.normalizedText().contains("secretScript"));
+            assertTrue(result.structuredJson().contains("memoryos-extraction-v1"));
+        }
+        try (var extractor = new TikaSourceContentExtractor(Duration.ofMillis(1))) {
+            assertEquals(ExtractionFailure.TIMEOUT, assertThrows(ExtractionException.class,
+                    () -> extractor.extractChatFile(file, "mail.html", "text/html")).failure());
+        }
+        assertTrue(java.nio.file.Files.exists(file), "The caller, not the child process, owns the Chat spool");
+    }
+
+    @Test
     void extractsUtf8TextAndMarkdownWithoutTrustingTheExtension() throws Exception {
         try (var extractor = new TikaSourceContentExtractor()) {
             var text = extract(extractor, "MemoryOS plain text".getBytes(StandardCharsets.UTF_8), "wrong.pdf");

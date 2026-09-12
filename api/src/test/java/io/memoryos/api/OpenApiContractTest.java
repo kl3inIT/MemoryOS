@@ -50,6 +50,14 @@ class OpenApiContractTest {
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
+            "/api/chat/files",
+            "/api/chat/files/policy",
+            "/api/chat/files/uploads",
+            "/api/chat/files/{fileId}",
+            "/api/chat/files/{fileId}/text",
+            "/api/chat/files/{fileId}/content",
+            "/api/chat/files/{fileId}/finalize",
+            "/api/chat/files/{fileId}/retry",
             "/api/chat/model-default",
             "/api/chat/models",
             "/api/chat/models/{modelId}",

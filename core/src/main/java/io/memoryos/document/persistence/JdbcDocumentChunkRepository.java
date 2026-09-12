@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcDocumentChunkRepository {
     private static final int INSERT_BATCH_SIZE = 128;
     private final JdbcClient jdbc;
@@ -95,13 +96,13 @@ public class JdbcDocumentChunkRepository {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Optional<DocumentChunkSet> load(TenantId tenant, DocumentId document, UUID generation) {
         var header = jdbc.sql("""
-                SELECT title,media_type,updated_at,chunk_count FROM documents
+                SELECT title,media_type,updated_at,chunk_count,metadata_json::jsonb ->> 'user_file_id' AS user_file_id FROM documents
                 WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
                     AND chunk_generation=:generation AND chunk_count>0 AND status='ELIGIBLE' AND chunk_convention=:convention
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("convention", DocumentChunk.CONVENTION)
                 .query((rs, _) -> new Header(rs.getString("title"), rs.getString("media_type"),
-                        rs.getTimestamp("updated_at").toInstant(), rs.getInt("chunk_count"))).optional();
+                        rs.getTimestamp("updated_at").toInstant(), rs.getInt("chunk_count"), rs.getString("user_file_id"))).optional();
         if (header.isEmpty()) return Optional.empty();
         List<DocumentChunk> chunks = jdbc.sql("""
                 SELECT * FROM document_chunks WHERE tenant_id=:tenant AND document_id=:document AND generation=:generation
@@ -113,7 +114,8 @@ public class JdbcDocumentChunkRepository {
                         rs.getString("content_sha256"), rs.getInt("token_count"))).list();
         var h = header.orElseThrow();
         if (h.count() != chunks.size()) throw new IllegalStateException("incomplete current chunks");
-        return Optional.of(new DocumentChunkSet(tenant, document, generation, h.title(), h.mediaType(), h.updatedAt(), chunks));
+        return Optional.of(new DocumentChunkSet(tenant, document, generation, h.title(), h.mediaType(), h.updatedAt(), chunks,
+                h.userFileId() == null ? null : UUID.fromString(h.userFileId())));
     }
 
     public boolean markReady(TenantId tenant, DocumentId document, UUID generation, String identity) {
@@ -169,5 +171,5 @@ public class JdbcDocumentChunkRepository {
 
     public record ArtifactReader(TenantId tenantId, DocumentId documentId, UUID generation, UUID readerId,
             UUID artifactId, String objectKey, String hash, long size, String title, String mediaType, Instant updatedAt) { }
-    private record Header(String title, String mediaType, Instant updatedAt, int count) { }
+    private record Header(String title, String mediaType, Instant updatedAt, int count, @org.jspecify.annotations.Nullable String userFileId) { }
 }

@@ -65,10 +65,9 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     private final Runnable checkActive;
     private final IntSupplier availableTokens;
     private final Consumer<ChatSearchEvent> events;
-    private final LinkedHashMap<String, ChatSource> sources = new LinkedHashMap<>();
+    private final io.memoryos.chat.ChatEvidence evidence;
     private String toolCallId = "";
     private int calls;
-    private int sourceBytes;
     private boolean failed;
     private final SearchTasks.Scope work;
     private final Disposable cancellation;
@@ -96,6 +95,16 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
                       Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds) {
+        this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation,
+                messages, deadline, timings, allowedSourceIds, new io.memoryos.chat.ChatEvidence());
+        evidence.publishTo(events);
+    }
+
+    public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
+                      TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
+                      IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
+                      Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence) {
+        this.evidence = evidence;
         this.allowedSourceIds = Set.copyOf(allowedSourceIds);
         this.search = search; this.actor = actor; this.selectionRunner = selectionRunner; this.tokens = tokens;
         this.limits = limits;
@@ -114,8 +123,6 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                 .reduce((ignored, current) -> current).orElseThrow(() -> new IllegalArgumentException("Missing user question"));
         this.cancellation = cancellation.subscribe(ignored -> work.cancel());
     }
-
-    public boolean hasEvidence() { return !sources.isEmpty(); }
 
     @Override public void beforeToolCall(@NonNull BeforeToolCallContext context) {
         checkActive.run();
@@ -477,29 +484,18 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         var included = new ArrayList<>(passages);
         int anchor = Math.clamp(hit.ordinal(), included.getFirst().ordinal(), included.getLast().ordinal());
         while (included.size() > 1 && (included.size() > 60
-                || tokens.estimate(output + evidenceText(sources.size() + 1, hit.title(), included)) > budget)) {
+                || tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included)) > budget)) {
             checkActive.run();
             if (anchor - included.getFirst().ordinal() > included.getLast().ordinal() - anchor) included.removeFirst();
             else included.removeLast();
         }
         String key = hit.documentId() + ":" + hit.generation() + ":" + included.getFirst().ordinal() + ":" + included.getLast().ordinal();
-        var previous = sources.get(key);
-        if (previous == null && sources.size() >= 24) return;
-        int id = previous == null ? sources.size() + 1 : previous.citationId();
-        String text = evidenceText(id, hit.title(), included);
-        if (tokens.estimate(output + text) > budget) return;
-        var source = previous == null ? new ChatSource(id, hit.documentId(), hit.generation(), hit.title(),
-                included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()
-                .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList()) : previous;
-        int bytes = 512 + source.title().length() * 6 + source.provenance().stream().mapToInt(p -> 64 + p.provenanceJson().length() * 6).sum();
-        if (previous == null && sourceBytes + bytes > 131072) return;
+        if (tokens.estimate(output + evidenceText(24, hit.title(), included)) > budget) return;
         checkActive.run();
-        if (previous == null) {
-            sources.put(key, source);
-            sourceBytes += bytes;
-            events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.SOURCE, source));
-        }
-        output.append(text);
+        var source = evidence.register(key, id -> new ChatSource(id, hit.documentId(), hit.generation(), hit.title(),
+                included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()
+                .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList()), toolCallId);
+        if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included));
     }
 
     private static String evidenceText(int id, String title, List<SearchPage.Passage> passages) {

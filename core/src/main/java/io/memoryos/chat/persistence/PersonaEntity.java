@@ -34,6 +34,9 @@ public class PersonaEntity {
     @ElementCollection @CollectionTable(name = "persona_source", joinColumns = @JoinColumn(name = "persona_id"))
     @Column(name = "source_id", nullable = false)
     private List<UUID> sourceIds = new ArrayList<>();
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "file_ids", nullable = false, columnDefinition = "jsonb")
+    private List<UUID> fileIds = new ArrayList<>();
     @Column(name = "search_enabled", nullable = false) private boolean searchEnabled = true;
     @Column(name = "context_token_limit") private @Nullable Integer contextTokenLimit;
     @Column(name = "output_token_limit") private @Nullable Integer outputTokenLimit;
@@ -63,6 +66,8 @@ public class PersonaEntity {
     public String instructions() { return instructions; }
     public List<String> starterPrompts() { return List.copyOf(starterPrompts); }
     public List<UUID> sourceIds() { return List.copyOf(sourceIds); }
+    public List<UUID> fileIds() { return List.copyOf(fileIds); }
+    public void files(List<UUID> ids) { fileIds = new ArrayList<>(ids); }
     public boolean searchEnabled() { return searchEnabled; }
     public @Nullable UUID modelConfigurationId() { return modelConfigurationId; }
     public @Nullable Integer contextTokenLimit() { return contextTokenLimit; }

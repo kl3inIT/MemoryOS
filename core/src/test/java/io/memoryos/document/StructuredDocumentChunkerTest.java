@@ -15,6 +15,34 @@ class StructuredDocumentChunkerTest {
     private final StructuredDocumentChunker chunker = new StructuredDocumentChunker(mapper);
 
     @Test
+    void nativeTableIndexesValuesCoordinatesAndSheetWithoutExecutingFormulas() {
+        var chunks = chunker.chunk("Báo cáo", """
+                {"schema":"memoryos-extraction-v1","blocks":[{"kind":"TABLE","text":"Doanh thu",
+                  "provenance":{"sheetIndex":1,"sheetName":"Doanh thu"},"table":{"cells":[
+                  {"row":0,"column":0,"text":"Chỉ tiêu"},
+                  {"row":1,"column":0,"text":"Việt Nam"},
+                  {"row":1,"column":1,"text":"90,5","type":"NUMERIC","formula":"SECRET_FORMULA()"}
+                ]}}]}
+                """);
+        assertEquals(2, chunks.size());
+        assertTrue(chunks.get(1).content().contains("[A2] Việt Nam"));
+        assertTrue(chunks.get(1).content().contains("[B2] 90,5"));
+        assertTrue(chunks.get(1).content().contains("Doanh thu"));
+        assertTrue(chunks.stream().noneMatch(chunk -> chunk.content().contains("SECRET_FORMULA")));
+        assertEquals(1, mapper.readTree(chunks.get(1).provenanceJson()).path("source").path("sheetIndex").asInt());
+    }
+
+    @Test
+    void nativeDocumentTableReadsNestedCellBlocks() {
+        var chunks = chunker.chunk("Tài liệu", """
+                {"schema":"memoryos-extraction-v1","blocks":[{"kind":"TABLE","table":{"cells":[
+                  {"row":0,"column":0,"blocks":[{"kind":"PARAGRAPH","text":"Nội dung trong ô"}]}
+                ]}}]}
+                """);
+        assertTrue(chunks.getFirst().content().contains("[A1] Nội dung trong ô"));
+    }
+
+    @Test
     void preservesVietnameseSectionAndRealPageLocation() {
         var chunks = chunker.chunk("Chính sách công tác", """
                 {"schema":"memoryos-extraction-v1","blocks":[
@@ -72,7 +100,7 @@ class StructuredDocumentChunkerTest {
                 """);
 
         assertEquals(2, chunks.size());
-        assertTrue(chunks.get(0).content().contains("Row: Miền Bắc"));
+        assertTrue(chunks.getFirst().content().contains("Row: Miền Bắc"));
         assertTrue(chunks.get(0).content().contains("Kết quả / Doanh thu: 120 tỷ"));
         assertTrue(chunks.get(0).content().contains("Kết quả / Chi phí: 80 tỷ"));
         assertTrue(chunks.get(1).content().contains("Row: Miền Bắc"));

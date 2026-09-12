@@ -102,6 +102,12 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
+    RecurringTask<Void> expiredChatUploadTask(io.memoryos.chat.persistence.JdbcUserFileWorkRepository files) {
+        return Tasks.recurring("memoryos-expired-chat-upload-v1", FixedDelay.of(Duration.ofMinutes(1)))
+                .execute((_, _) -> files.expireUploads(100));
+    }
+
+    @Bean
     RecurringTask<Void> sourceRunHistoryRetentionTask(io.memoryos.connector.SourceRunHistoryMaintenance history) {
         return Tasks.recurring("memoryos-source-run-history-retention-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> history.pruneHistory(100));
@@ -123,6 +129,12 @@ class ControlPlaneConfiguration {
     RecurringTask<Void> searchRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
         return Tasks.recurring("memoryos-redis-search-relay-v1", FixedDelay.of(properties.relayInterval()))
                 .execute((_, _) -> relay.relay(OperationWorkload.SEARCH));
+    }
+
+    @Bean
+    RecurringTask<Void> userFileRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
+        return Tasks.recurring("memoryos-redis-user-file-relay-v1", FixedDelay.of(properties.relayInterval()))
+                .execute((_, _) -> relay.relay(OperationWorkload.USER_FILE));
     }
 
     @Bean

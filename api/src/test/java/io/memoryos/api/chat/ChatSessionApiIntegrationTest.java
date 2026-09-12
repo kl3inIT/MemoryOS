@@ -165,6 +165,7 @@ class ChatSessionApiIntegrationTest {
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
     @MockitoBean private io.memoryos.connector.SourceSearchService sourceSearch;
+    @MockitoBean private io.memoryos.objectstorage.ObjectStorage fileStorage;
     private final UUID searchSource = UUID.randomUUID();
     private ActorAuthenticationToken actor;
     private ActorAuthenticationToken other;
@@ -224,6 +225,81 @@ class ChatSessionApiIntegrationTest {
         // Existing global membership filter rejects the request before the Chat controller.
         mockMvc.perform(get("/api/chat/sessions/" + id).with(authentication(actor)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void fileUploadFinalizeAndDeletionRespectOwnerAndCsrf() throws Exception {
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+                "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
+                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ghi-chu.txt",
+                "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
+        mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isForbidden());
+        var response = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.file.status").value("UPLOADING")).andReturn();
+        String id = Json.mapper().readTree(response.getResponse().getContentAsString()).path("file").path("id").asText();
+        mockMvc.perform(get("/api/chat/files/"+id).with(authentication(other)))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
+        mockMvc.perform(post("/api/chat/files/"+id+"/finalize").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNotFound());
+        for (int attempt=0;attempt<2;attempt++) {
+            mockMvc.perform(post("/api/chat/files/"+id+"/finalize").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                    .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("PROCESSING"));
+        }
+        assertEquals(1,jdbc.sql("SELECT count(*) FROM chat_file_work WHERE file_id=:id").param("id",UUID.fromString(id)).query(Integer.class).single());
+        mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)))
+                .andExpect(status().isNotFound());
+        // Extraction itself is covered through real claims in ChatFileLifecycleIntegrationTest.
+        jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext=:text,detected_media_type='text/plain' WHERE id=:id")
+                .param("text", "A😀Việt").param("id", UUID.fromString(id)).update();
+        mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("offset","1").param("count","2"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.text").value("😀V"))
+                .andExpect(jsonPath("$.nextOffset").value(3)).andExpect(jsonPath("$.totalCharacters").value(6))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"));
+        mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("count","16001"))
+                .andExpect(status().isBadRequest());
+        for (var suffix : List.of("/text", "/content")) {
+            mockMvc.perform(get("/api/chat/files/"+id+suffix)).andExpect(status().isUnauthorized());
+            mockMvc.perform(get("/api/chat/files/"+id+suffix).with(authentication(other))).andExpect(status().isNotFound());
+        }
+        var original = mock(io.memoryos.objectstorage.ObjectContent.class);
+        when(original.metadata()).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
+                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        when(original.inputStream()).thenReturn(new java.io.ByteArrayInputStream("test".getBytes(UTF_8)));
+        when(fileStorage.open(any())).thenReturn(original);
+        var download = mockMvc.perform(get("/api/chat/files/"+id+"/content").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Content-Type-Options","nosniff"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string("test")).andReturn();
+        var dispositionHeader = download.getResponse().getHeader("Content-Disposition");
+        assertNotNull(dispositionHeader);
+        var disposition = org.springframework.http.ContentDisposition.parse(dispositionHeader);
+        assertEquals("attachment", disposition.getType());
+        assertEquals("ghi-chu.txt", disposition.getFilename());
+        verify(original).close();
+        mockMvc.perform(delete("/api/chat/files/"+id).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("DELETING"));
+        for (var suffix : List.of("/text", "/content"))
+            mockMvc.perform(get("/api/chat/files/"+id+suffix).with(authentication(actor))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void filePolicyAndAdmissionRejectOverLimitAndMalformedChecksum() throws Exception {
+        mockMvc.perform(get("/api/chat/files/policy").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.maxSizeBytes").value(104857600));
+        for (var payload : List.of(Map.of("requestId",UUID.randomUUID(),"filename","large.pdf","mediaType","application/pdf",
+                        "sizeBytes",104857601,"sha256","a".repeat(64)),
+                Map.of("requestId",UUID.randomUUID(),"filename","a.txt","mediaType","text/plain","sizeBytes",4,"sha256","bad"))) {
+            mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                            .contentType(MediaType.APPLICATION_JSON).content(Json.mapper().writeValueAsString(payload)))
+                    .andExpect(status().isBadRequest());
+        }
+        verify(fileStorage,never()).authorizeUpload(any(),any());
     }
 
     @Test
@@ -629,7 +705,8 @@ class ChatSessionApiIntegrationTest {
                 .map(line -> line.split(" ")[1]).findFirst().orElseThrow();
         String nginx = Files.readString(web.resolve("nginx.conf"))
                 .replace("proxy_pass $memoryos_api;", "proxy_pass http://host.testcontainers.internal:" + port + ";")
-                .replace("${MEMORYOS_OBJECT_STORAGE_CONNECT_SRC}", "");
+                .replace("${MEMORYOS_OBJECT_STORAGE_CONNECT_SRC}", "")
+                .replace("${MEMORYOS_SENTRY_CONNECT_SRC}", "");
         try (var proxy = new GenericContainer<>(image);
              var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
             proxy.withExposedPorts(8080).withCopyToContainer(Transferable.of(nginx), "/etc/nginx/nginx.conf");
@@ -938,9 +1015,10 @@ class ChatSessionApiIntegrationTest {
         awaitOutcome(first.path("assistantMessageId").asText(), "COMPLETED");
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @SuppressWarnings("resource") // The spy call installs behavior; the runtime owns clients created during the request.
-    void configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome() throws Exception {
+    void configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome(boolean vision) throws Exception {
         grantModelManagement();
         var requests = new AtomicInteger();
         var captured = new AtomicReference<JsonNode>();
@@ -965,10 +1043,19 @@ class ChatSessionApiIntegrationTest {
             doCallRealMethod().when(providerAdapter).create(any(), any(), any(), any());
             String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
             var configured = createConfiguredModel(createProvider(endpoint, true), "wire-model", 0.6);
+            var settings = modelBody("wire-model", 0.6);
+            ((ObjectNode) settings.path("settings")).put("contextWindow", 32768);
+            ((ObjectNode) settings.path("settings").path("capabilities")).put("vision", vision);
+            mockMvc.perform(put("/api/chat/models/" + configured.path("id").asText()).param("revision", "1")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(settings.toString())).andExpect(status().isOk());
+            byte[] image = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jJ1sAAAAASUVORK5CYII=");
+            String file = readyImage(image);
             var session = create();
             String token = token(actor);
             var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
                     .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Question").put("modelConfigurationId", configured.path("id").asText());
+            body.putArray("fileIds").add(file);
             var response = http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port
                             + "/api/chat/sessions/" + session.path("id").asText() + "/messages"))
                     .header("Authorization", "Bearer " + token).header("Content-Type", "application/json").header("X-MemoryOS-CSRF", "1")
@@ -983,9 +1070,47 @@ class ChatSessionApiIntegrationTest {
             assertEquals(0.6, captured.get().path("temperature").asDouble());
             assertEquals(512, captured.get().path("max_tokens").asInt());
             assertFalse(captured.get().has("max_completion_tokens"));
+            var imageUrls = captured.get().path("messages").findValues("image_url");
+            assertEquals(vision ? 1 : 0, imageUrls.size(), captured.get().toString());
+            if (vision) {
+                assertEquals("data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(image), imageUrls.getFirst().path("url").asText());
+                assertEquals(file, history(session).get(1).path("sources").get(0).path("fileId").asText());
+                verify(fileStorage).open(any());
+            } else {
+                assertTrue(captured.get().toString().contains("this model cannot view images"));
+                verify(fileStorage, never()).open(any());
+            }
+            assertEquals(file, history(session).get(0).path("files").get(0).path("id").asText());
             assertEquals(10L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id")
                     .param("id", UUID.fromString(sent.path("assistantMessageId").asText())).query(Long.class).single());
         } finally { server.stop(0); }
+    }
+
+    private String readyImage(byte[] bytes) throws Exception {
+        var checksum = new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of().formatHex(
+                java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));
+        var metadata = new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "image/png", checksum);
+        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+                "PUT", URI.create("https://storage.invalid/upload"), Map.of("Content-Type", "image/png"), Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(metadata);
+        String request = Json.mapper().writeValueAsString(Map.of("requestId", UUID.randomUUID(), "filename", "pixel.png",
+                "mediaType", "image/png", "sizeBytes", bytes.length, "sha256", checksum.value()));
+        var upload = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk()).andReturn();
+        String id = Json.mapper().readTree(upload.getResponse().getContentAsString()).path("file").path("id").asText();
+        mockMvc.perform(post("/api/chat/files/" + id + "/finalize").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isAccepted());
+        // Real upload/adoption and native HTTP; extraction has a separate worker-boundary test.
+        jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext='',detected_media_type='image/png' WHERE id=:id")
+                .param("id", UUID.fromString(id)).update();
+        when(fileStorage.open(any())).thenAnswer(_ -> new io.memoryos.objectstorage.ObjectContent() {
+            private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
+            @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return metadata; }
+            @Override public java.io.InputStream inputStream() { return input; }
+            @Override public void close() { try { input.close(); } catch (IOException failed) { throw new java.io.UncheckedIOException(failed); } }
+        });
+        return id;
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -1142,6 +1267,83 @@ class ChatSessionApiIntegrationTest {
             sync.close();
             meters.close();
         }
+    }
+
+    @Test
+    @EnabledIfEnvironmentVariable(named = "MEMORYOS_CHAT_VISION_LIVE_TEST", matches = "true")
+    @SuppressWarnings("resource") // Runtime client cache owns native clients created by the adapter.
+    void realVisionReadsPixelsThroughAuthenticatedHttpAndPersistedHistory() throws Exception {
+        String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
+        assertTrue(key != null && !key.isBlank(), "Explicit live vision requires the managed provider key");
+        grantModelManagement();
+        doCallRealMethod().when(providerAdapter).create(any(), any(), any(), any());
+        var providerRequest = providerBody("https://api.openai.com/v1", true);
+        ((ObjectNode) providerRequest.path("credential")).put("value", key);
+        var provider = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(providerRequest.toString()))
+                .andReturn().getResponse().getContentAsString());
+        assertTrue(provider.hasNonNull("id"), "Live provider catalog setup failed");
+        var body = modelBody("gpt-5-mini", 0);
+        var settings = (ObjectNode) body.path("settings");
+        settings.put("contextWindow", 32768).put("maxOutputTokens", 1024);
+        ((ObjectNode) settings.path("capabilities")).put("vision", true).put("reasoning", true);
+        settings.putObject("options").put("maxCompletionTokens", true).put("reasoningEffort", "minimal");
+        var configured = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers/" + provider.path("id").asText() + "/models")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        var receipts = new ArrayList<Map<String, Object>>();
+        try (var http = HttpClient.newHttpClient()) {
+            for (int circles : new int[] {3, 5}) {
+                String code = UUID.randomUUID().toString().substring(0, 8).toUpperCase(java.util.Locale.ROOT);
+                var bitmap = new java.awt.image.BufferedImage(900, 420, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                var graphics = bitmap.createGraphics();
+                byte[] bytes;
+                try {
+                    graphics.setColor(java.awt.Color.WHITE); graphics.fillRect(0, 0, 900, 420);
+                    graphics.setColor(java.awt.Color.BLACK); graphics.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 80));
+                    graphics.drawString(code, 60, 120);
+                    graphics.setColor(java.awt.Color.RED);
+                    for (int i = 0; i < circles; i++) graphics.fillOval(40 + i * 150, 200, 90, 90);
+                    graphics.setColor(java.awt.Color.BLUE); graphics.fillRect(770, 310, 65, 65);
+                    try (var output = new java.io.ByteArrayOutputStream()) {
+                        assertTrue(javax.imageio.ImageIO.write(bitmap, "png", output)); bytes = output.toByteArray();
+                    }
+                } finally { graphics.dispose(); bitmap.flush(); }
+                String file = readyImage(bytes); // Storage and READY are controlled; inference and HTTP are real.
+                var session = create();
+                var question = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                        .put("clientRequestId", UUID.randomUUID().toString()).put("modelConfigurationId", configured.path("id").asText())
+                        .put("text", "Read the attached image, not its filename. Return only JSON with code (printed text), red_circles (count), blue_squares (count). Do not use tools.");
+                question.putArray("fileIds").add(file);
+                long started = System.nanoTime();
+                var accepted = http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/chat/sessions/" + session.path("id").asText() + "/messages"))
+                        .timeout(Duration.ofSeconds(30)).header("Authorization", "Bearer " + token(actor))
+                        .header("Content-Type", "application/json").header("X-MemoryOS-CSRF", "1")
+                        .POST(HttpRequest.BodyPublishers.ofString(question.toString())).build(), HttpResponse.BodyHandlers.ofString());
+                assertEquals(202, accepted.statusCode());
+                String reply = Json.mapper().readTree(accepted.body()).path("assistantMessageId").asText();
+                await().atMost(Duration.ofSeconds(120)).untilAsserted(() -> assertEquals("COMPLETED",
+                        jdbc.sql("SELECT status FROM chat_message WHERE id=:id").param("id", UUID.fromString(reply)).query(String.class).single()));
+                String answer = history(session).get(1).path("content").asText();
+                int first = answer.indexOf('{'); int last = answer.lastIndexOf('}');
+                assertTrue(first >= 0 && last > first, "Vision reply must contain JSON: " + answer);
+                var actual = Json.mapper().readTree(answer.substring(first, last + 1));
+                assertEquals(code, actual.path("code").asText(), answer);
+                assertEquals(circles, actual.path("red_circles").asInt(), answer);
+                assertEquals(1, actual.path("blue_squares").asInt(), answer);
+                assertEquals(file, history(session).get(0).path("files").get(0).path("id").asText());
+                assertEquals(file, history(session).get(1).path("sources").get(0).path("fileId").asText());
+                long inputTokens = jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id")
+                        .param("id", UUID.fromString(reply)).query(Long.class).single();
+                assertTrue(inputTokens > 0);
+                receipts.add(Map.of("model", "gpt-5-mini", "imageBytes", bytes.length, "redCircles", circles,
+                        "answer", actual, "inputTokens", inputTokens, "elapsedMs", (System.nanoTime() - started) / 1_000_000));
+            }
+        }
+        java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/reports"));
+        Json.mapper().writeValue(java.nio.file.Path.of("build/reports/mem81-live-vision.json").toFile(), receipts);
     }
 
     @Test

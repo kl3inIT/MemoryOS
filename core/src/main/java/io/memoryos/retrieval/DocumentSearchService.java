@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +68,32 @@ public class DocumentSearchService {
             metrics.timer("memoryos.search.query.duration", "outcome", outcome)
                     .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
         }
+    }
+
+    /** Caller supplies an owner-authorized file-to-document scope; never widens to organization Search. */
+    public Set<UUID> readyFiles(ActorId actor, TenantId expectedTenant, Map<UUID, UUID> files) {
+        if (tenants.findActiveTenant(actor).filter(expectedTenant::equals).isEmpty()) throw new SearchDocumentUnavailableException();
+        return fileGenerations(expectedTenant, files).keySet();
+    }
+
+    private Map<UUID, UUID> fileGenerations(TenantId tenant, Map<UUID, UUID> files) {
+        if (files.size() > 4020) throw new SearchRequestException();
+        var ids = files.values().stream().distinct().toList();
+        var result = new HashMap<UUID, UUID>();
+        for (int offset = 0; offset < ids.size(); offset += 1000)
+            result.putAll(documents.currentGenerations(tenant, ids.subList(offset, Math.min(offset + 1000, ids.size())), search.identity()));
+        return Map.copyOf(result);
+    }
+
+    public List<SearchHit> searchFiles(ActorId actor, TenantId expectedTenant, Map<UUID, UUID> files, String query) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        if (!tenant.equals(expectedTenant)) throw new SearchDocumentUnavailableException();
+        if (query == null || query.isBlank() || query.length() > 2000 || files.size() > 4020) throw new SearchRequestException();
+        if (files.isEmpty()) return List.of();
+        var generations = fileGenerations(tenant, files);
+        var hits = search.searchFiles(tenant, query, generations, files);
+        var current = fileGenerations(tenant, files);
+        return hits.stream().filter(hit -> hit.generation().equals(current.get(hit.documentId()))).limit(20).toList();
     }
 
     private static List<SearchPage.Section> mergeSections(List<SearchHit> rankedHits) {

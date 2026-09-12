@@ -55,6 +55,40 @@ class ExtractionArtifactLifecycleTest {
     }
 
     @Test
+    void privateChunksKeepIdentityOnFirstPublicationReloadAndConventionRebuild() {
+        var mapper = new ObjectMapper();
+        var chunker = new io.memoryos.document.application.StructuredDocumentChunker(mapper);
+        var storage = org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectStorage.class);
+        var chunks = new io.memoryos.document.application.DocumentChunkService(
+                new io.memoryos.document.persistence.JdbcDocumentChunkRepository(jdbc, mapper), storage, chunker);
+        String json = "{\"schema\":\"memoryos-extraction-v1\",\"blocks\":[{\"kind\":\"TABLE\",\"table\":{\"cells\":[{\"row\":0,\"column\":0,\"text\":\"Private value\"}]}}]}";
+        byte[] bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        UUID artifact = UUID.randomUUID(), file = UUID.randomUUID();
+        artifacts.stage(tenant, artifact, "extracted/" + tenant.value() + "/" + artifact,
+                io.memoryos.document.application.StructuredDocumentChunker.sha256(json), bytes.length);
+        artifacts.finishWrite(tenant, artifact);
+        var id = transaction.execute(_ -> documents.publish(tenant, null, new DocumentContent("text/csv", "private.csv", "Private value",
+                Map.of("origin", "USER_FILE", "user_file_id", file.toString()), json, artifact), "a".repeat(64)));
+        var generation = jdbc.sql("SELECT content_generation FROM documents").query(UUID.class).single();
+        org.mockito.Mockito.when(storage.open(org.mockito.ArgumentMatchers.any())).thenAnswer(_ -> {
+            var content = org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectContent.class);
+            org.mockito.Mockito.when(content.inputStream()).thenReturn(new java.io.ByteArrayInputStream(bytes));
+            return content;
+        });
+        var first = transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow());
+        assertEquals(file, java.util.Objects.requireNonNull(first).userFileId());
+        assertEquals(first, transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow()));
+        org.mockito.Mockito.verify(storage).open(org.mockito.ArgumentMatchers.any());
+        jdbc.sql("UPDATE documents SET chunk_convention='previous-convention' WHERE id=:id")
+                .param("id", java.util.Objects.requireNonNull(id).value()).update();
+        assertEquals(first, transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow()));
+        org.mockito.Mockito.verify(storage, org.mockito.Mockito.times(2)).open(org.mockito.ArgumentMatchers.any());
+        assertEquals(DocumentChunk.CONVENTION, jdbc.sql("SELECT chunk_convention FROM documents").query(String.class).single());
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM document_artifact_readers").query(Integer.class).single());
+        assertEquals(artifact, jdbc.sql("SELECT extraction_artifact_id FROM documents").query(UUID.class).single());
+    }
+
+    @Test
     void reprocessingReplacesCurrentArtifactWithoutCreatingVersionHistory() {
         UUID first = stage(true);
         DocumentId id = transaction.execute(_ -> documents.publish(tenant, null, content(first, "v1"), "a".repeat(64)));
