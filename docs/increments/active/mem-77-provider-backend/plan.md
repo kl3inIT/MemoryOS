@@ -81,7 +81,8 @@ The user authorized committing/pushing the MEM-77 continuation to `anhnd`, then 
 - [x] Resolve current-main integration in the isolated candidate without discarding either branch's implemented behavior or unrelated local work.
   - Preserve fetched main `24db388`, including attachment/vision/title and current delivery behavior. Move only the branch tokenizer backfill to V41; do not restart the retained data-bearing local API against the new migration history.
 - [x] Verify the isolated integrated tree: full wrapper gate,153 web tests,87 browser scenarios,19 landing tests and29 POSIX deployment/serving tests pass. See the [publication receipt](verification.md#authorized-publication-and-main-refresh--2026-09-12).
-- Final publication handoff: commit this verified merge, advance and push `anhnd`, restore unrelated working files, then post exact commit/push links and unchanged blockers to MEM-77 through the connected Linear MCP. The external receipts belong to that issue; this source snapshot does not claim a main release or deployment.
+- [x] Advance and publish the verified merge `aa25eab7fc269d4567297fc9d1d08ae6d506ecf1` on `anhnd`; restore the12 unrelated tracked and24 untracked working files without publishing them.
+- Linear handoff: post the final commit/push links, verification and unchanged acceptance blockers through the connected MCP. Include the post-push environment observation: the prior API and Docker engine are unavailable, and no database restart or migration has been attempted. External receipts belong to MEM-77; this source snapshot does not claim a main release or deployment.
 
 ### Fixed implementation decisions
 
