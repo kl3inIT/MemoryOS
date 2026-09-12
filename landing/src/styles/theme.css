@@ -91,14 +91,6 @@
 }
 
 /* The following presets match web/src/styles/theme.css. */
-@utility font-heading-h2 {
-  font-family: var(--font-sans);
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 2.25rem;
-  letter-spacing: -0.01em;
-}
-
 @utility font-heading-h3 {
   font-family: var(--font-sans);
   font-size: 1.125rem;

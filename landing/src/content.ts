@@ -22,10 +22,6 @@ type Entry = {
   description: string;
 };
 
-type Highlight = Entry & {
-  points: readonly string[];
-};
-
 type GatePassage = {
   title: string;
   allowed: boolean;
@@ -98,26 +94,16 @@ const trustSignals: readonly TrustSignal[] = [
 const product = {
   title: "Knowledge people can trust, and AI your company can govern",
   description:
-    "MemoryOS is the governed context layer for your AI agents and one trusted place for your people to search and ask. Both work from approved company data, see only what they may access, and can check every source.",
+    "The governed context layer for your AI agents, and one trusted place for your people to search and ask.",
   search: {
     title: "Ask once instead of searching ten systems",
     description:
-      "Policies live in SharePoint, specifications in Drive, decisions in Slack and numbers in business systems. MemoryOS connects them all, understands every document, and gives everyone one place to search and ask. Every answer cites the passages it used.",
-    points: [
-      "Keyword and semantic search across every connected source",
-      "Answers that cite the original document and passage",
-      "Calculations, tables, charts and reports from company data",
-    ],
+      "MemoryOS connects SharePoint, Drive, Slack and your business systems into one place to search and ask. Every answer cites its sources.",
   },
   identity: {
     title: "Enterprise identity and access, built in",
     description:
-      "People sign in with the identity providers your company already runs, and users and groups stay in sync on their own. MemoryOS checks access before it retrieves anything, so search, agents and MCP clients only ever see what that person may read.",
-    points: [
-      "Multiple SSO providers over SAML 2.0 and OpenID Connect",
-      "SCIM provisioning for users and groups",
-      "Roles, groups and source permissions enforced on every request",
-    ],
+      "Sign in over SAML 2.0 or OpenID Connect with the provider you already run, and SCIM keeps users and groups in sync. Access is checked before anything is retrieved.",
   },
 } as const;
 
@@ -176,16 +162,16 @@ const capabilities: SectionIntro & { items: readonly Entry[] } = {
 const assets = {
   title: "Organizational AI Memory",
   description:
-    "MemoryOS is the system of record for reusable AI capability inside your company. It brings the knowledge, instructions, prompts, packages, ownership and permissions behind successful AI-assisted work into one governed lifecycle, so people and agents can discover, use and improve what the organization already knows.",
+    "The system of record for reusable AI work: the knowledge, prompts and instructions behind it, with owners and permissions, in one governed lifecycle.",
   problem: {
     title: "The problem",
     description:
-      "AI is moving from individual assistance to repeatable human-agent workflows. Yet the parts that make those workflows reliable, from source knowledge and instructions to prompts, quality standards and approvals, stay scattered across personal tools and team silos. When they are not owned and versioned together, teams duplicate work, proven methods drift, handovers lose context, and agents act without a record of what was approved or why.",
+      "The knowledge, prompts and approvals that make AI work reliable stay scattered across personal tools. Teams duplicate work, proven methods drift, and agents act without a record of what was approved.",
   },
   solution: {
     title: "The solution",
     description:
-      "MemoryOS treats reusable AI-assisted work as governed assets. Each exact release keeps its accountable owner, permissions, provenance, dependencies and usage history, and authorized employees and agents receive the same approved capability wherever they work.",
+      "MemoryOS turns proven AI work into governed assets. Each release keeps its owner, permissions and history, so people and agents reuse the same approved version.",
   },
   pillars: [
     {
@@ -380,5 +366,4 @@ export {
   trustSignals,
   type Entry,
   type GatePassage,
-  type Highlight,
 };
