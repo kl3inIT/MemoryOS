@@ -40,11 +40,10 @@ Reduced motion could not be emulated: `orca set media --reduced-motion reduce` l
 
 Still to run for 6.0:
 
-- A visual pass over the capabilities while scrolling up.
+- A phone-width pass over the sections set as type (see [type across the page](#type-across-the-page)).
 - A keyboard pass over the new sections.
 - The Docker image and its smoke script.
 - CI on a pull request.
-- Lighthouse again after the merge below.
 
 ### Merge of the positioning revision
 
@@ -56,6 +55,32 @@ Recorded 2026-09-12 after merging `origin/main` into the 6.0 branch, with the pr
 - The first load after the merge was blank. The Vite dev server still resolved `@/sections/product-highlights` to the deleted `product-highlights.tsx`. Touching `App.tsx` made it resolve the folder again. The production build was not affected.
 - How it works as type on a horizontal track (plan Step 14), 2026-09-12: `pnpm --dir landing check` passed (Vitest 4 files, 19 tests; build and `tsc -b`). The first run failed on `tsc -b`: an imported `ScrollTrigger` was unused, because `ScrollTrigger.Vars` resolves to GSAP's global namespace. In Orca at 1881 × 1019 the stage pins from 6643 to 10803, which is the row's overflow. The counter reads 01, 02, 04 and 06, and the progress hairline scales 1/6, 1/3, 2/3 and 1. Each stage's letters rise and its words go from 0.15 to full opacity as it slides in, and they reverse on the way back up. The last stage completes where the row stops, at 773 px from the left. Titles are 125 px and sentences 52 px, with no horizontal overflow. Under Orca's iPhone 12 emulation (390 × 844) the list stays stacked with no `data-track` and no overflow; titles are 48 px and sentences 24 px, and the stages reveal in order and reverse when scrolling up. With a containerAnimation, ScrollTrigger reports `start` and `end` in seconds of the row's timeline, not in pixels, so those triggers read 0 when rounded.
 - After a reload, the first deep scroll runs ScrollTrigger's refresh. A trace showed it scroll to 0 to measure and then restore the position (5023 → 0 → 5023). Once, with Orca's window unfocused, the position stayed at 0; two traced attempts did not reproduce it.
+
+### Type across the page
+
+Recorded 2026-09-12 for plan Step 15.
+
+`pnpm --dir landing check`: oxlint and oxfmt clean; Vitest 4 files, 19 tests passed; build, WOFF2 assertion and `tsc -b` passed. The first lint run failed on an unused constant left from the rejected scattered hero intro.
+
+Lighthouse 12.8.2 CLI, mobile, performance only, against `vite preview`, two runs each:
+
+| Build | Score | TBT |
+| --- | --- | --- |
+| Type across the page, before the fix | 0.74, 0.83 | 1040 ms, 520 ms |
+| `splitText` reads the pieces' transforms in one pass | 0.94, 0.96 | 190 ms, 130 ms |
+
+The trace of the slow build showed 608 forced layouts inside GSAP's transform parsing (`_parseTransform`) as tweens started on fresh SplitText pieces; the split page has 1544 DOM elements. With the fix, forced layout fell from 261 ms to 118 ms. CLS is 0.002, from the web font swap, against the design's target of 0.
+
+Orca, desktop 1881 × 1019:
+
+- Computed sizes: the hero headline and the stage titles 72 px; section headings 56 px; entry titles (Product, capabilities, deployment) and stage sentences 36 px; descriptions 22 px; FAQ questions 22 px and answers 16 px.
+- The trust strip's bottom edge is at 1019.9 px, the bottom of the first screen.
+- How it works: 64 px between the section heading and the track, and the pinned stage spans 306–714 px of the 1019 px viewport.
+- The headline's letters settle by about 1.9 s. The split is then reverted, leaving no masks and no `aria-label` on the `h1`.
+- The Vadan logo renders at 54 × 14 px in the muted text colour in the header and the footer.
+- Light theme: the glow behind the hero and the footer reads as blue.
+
+Not yet run after Step 15: the phone-width pass (Orca's runtime closed while creating a tab and setting a device, so the check was stopped rather than risk crashing it again), the keyboard pass, the Docker smoke and CI.
 
 ## Landing 5.x
 
