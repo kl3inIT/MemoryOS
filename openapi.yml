@@ -92,6 +92,37 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/identity/me/language:
+    put:
+      tags:
+      - Identity
+      summary: Set the authenticated account's interface language
+      operationId: setCurrentIdentityLanguage
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LanguagePreference"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LanguagePreference"
+      security:
+      - browserSession: []
+      - bearerAuth: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -6144,6 +6175,18 @@ components:
       required:
       - operation
       - sourceId
+    LanguagePreference:
+      type: object
+      additionalProperties: false
+      properties:
+        uiLanguage:
+          type: string
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+      required:
+      - uiLanguage
     Title:
       type: object
       properties:
@@ -8258,12 +8301,19 @@ components:
           description: Monotonic Tenant IAM revision used only to invalidate private
             client data.
           minimum: 0
+        uiLanguage:
+          type: string
+          description: Account interface language.
+          enum:
+          - vi
+          - en
       required:
       - actorId
       - authorizationVersion
       - capabilities
       - scopedCapabilities
       - tenant
+      - uiLanguage
     CurrentTenant:
       type: object
       additionalProperties: false
@@ -8486,6 +8536,16 @@ components:
         rootMessageId:
           type: string
           format: uuid
+    ChatArtifact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        spec:
+          type: string
     ChatFileDescriptor:
       type: object
       properties:
@@ -8548,7 +8608,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChatFileDescriptor"
+        artifacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatArtifact"
       required:
+      - artifacts
       - content
       - createdAt
       - files
@@ -8638,9 +8703,12 @@ components:
           type:
           - string
           - "null"
+        hasArtifacts:
+          type: boolean
       required:
       - assistantMessageId
       - failureCode
+      - hasArtifacts
       - sequence
       - status
     ResetEvent:
@@ -8868,6 +8936,41 @@ components:
           description: Stable capability-prefixed code; present only for expected
             capability failures.
           pattern: "^[A-Z][A-Z0-9_]*$"
+        errors:
+          type: array
+          description: Field validation failures with safe allowlisted parameters;
+            no rejected values.
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+                description: Compatible fallback message; clients localize by code.
+              code:
+                type: string
+                enum:
+                - REQUIRED
+                - INVALID
+                - EMAIL
+                - SIZE
+                - MIN
+                - MAX
+              params:
+                type: object
+                additionalProperties: false
+                properties:
+                  min:
+                    type: number
+                  max:
+                    type: number
+            required:
+            - code
+            - field
+            - message
+            - params
       required:
       - detail
       - instance

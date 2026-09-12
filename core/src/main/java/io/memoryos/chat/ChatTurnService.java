@@ -247,8 +247,8 @@ public final class ChatTurnService implements AutoCloseable {
                 if (!run.persisted) {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                            run.accounting.output(), run.accounting.cost(), outcome.sources());
-                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
+                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts());
+                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode(), saved.hasArtifacts());
                     run.persisted = true;
                 }
                 releaseIfFinished(run);
@@ -280,7 +280,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     private enum StopReason { USER, INTERRUPTED }
-    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources) {}
+    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources, List<ChatArtifact> artifacts) {}
 
     private static final class Active {
         final ChatTurnSetup setup;
@@ -319,10 +319,11 @@ public final class ChatTurnService implements AutoCloseable {
         }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
-                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources));
+                var artifacts = setup.artifacts().seal();
+                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), Instant.now().isBefore(setup.deadline()) ? "CHAT_INTERRUPTED" : "CHAT_DEADLINE", List.copyOf(sources));
-                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources));
+                        content.toString(), Instant.now().isBefore(setup.deadline()) ? "CHAT_INTERRUPTED" : "CHAT_DEADLINE", List.copyOf(sources), artifacts);
+                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), artifacts);
             }
         }
         void check() {

@@ -4,6 +4,11 @@ import io.memoryos.FailureCategory;
 import io.memoryos.FailureReason;
 
 public enum IamFailureReason implements FailureReason {
+    LANGUAGE_INVALID(
+            "IAM_LANGUAGE_INVALID",
+            FailureCategory.VALIDATION,
+            "Choose a supported interface language."
+    ),
     ACCESS_DENIED(
             "IAM_ACCESS_DENIED",
             FailureCategory.NOT_PERMITTED,

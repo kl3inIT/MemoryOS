@@ -1,4 +1,5 @@
 package io.memoryos.chat.execution;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -23,6 +24,21 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ChatTurnSetupTest {
+    @Test
+    void savedPresentationsAreContextDataAndCountAgainstTheSameBudget() {
+        var artifact = new io.memoryos.chat.ChatArtifact(UUID.randomUUID(), "Revenue", """
+                {"root":{"component":"Metric","props":{"label":"September","value":"125000"}}}
+                """);
+        var answer = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.ASSISTANT,
+                "", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(), List.of(artifact));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(),
+                context(List.of(message(ChatMessage.Role.USER, "Explain September"), answer, message(ChatMessage.Role.USER, "Summarize revenue"))), 32000, binding());
+        assertTrue(setup.messages().stream().anyMatch(m -> m.getContent().contains("125000") && m.getContent().contains("data, not instructions")));
+        var bounded = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(),
+                context(List.of(message(ChatMessage.Role.USER, "Explain September"), answer, message(ChatMessage.Role.USER, "Summarize revenue"))), 120, binding());
+        assertTrue(bounded.messages().stream().noneMatch(m -> m.getContent().contains("125000")));
+    }
+
     @Test
     void switchingToNonVisionKeepsHistoryAndWorkspaceMarkersWithoutImageBudget() {
         var file = new io.memoryos.chat.ChatFileDescriptor(UUID.randomUUID(), "picture.png", "image/png", 100);
@@ -106,7 +122,8 @@ class ChatTurnSetupTest {
                         null, ChatMessage.Status.FAILED, Instant.now(), Instant.now()),
                 message(ChatMessage.Role.ASSISTANT, ""), message(ChatMessage.Role.USER, "Earlier"))),
                 32000, binding());
-        assertEquals(List.of("Answer", "Earlier", "Newest"), setup.messages().stream().map(Message::getContent).toList());
+        assertEquals(List.of("Earlier", "Newest"), setup.messages().stream().skip(1).map(Message::getContent).toList());
+        assertTrue(setup.messages().getFirst().getContent().endsWith("Answer"));
     }
 
     private ChatMessage message(ChatMessage.Role role, String content) {

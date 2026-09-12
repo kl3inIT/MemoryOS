@@ -23,6 +23,9 @@ import java.util.Map;
 import java.util.Set;
 import static org.mockito.Mockito.*;
 import io.memoryos.iam.ActorId;
+import io.memoryos.iam.ActorLanguageService;
+import io.memoryos.iam.persistence.ActorRefreshImpl;
+import io.memoryos.iam.persistence.JpaActorRepository;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.persistence.IamLockRepository;
 import io.memoryos.iam.persistence.JpaTenantAccessResolver;
@@ -40,6 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -78,7 +82,9 @@ class ChatPersistenceIntegrationTest {
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
                 mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
-        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, repository, new PersonaProperties(), fileService));
+        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, repository, new PersonaProperties(), fileService,
+                new ActorLanguageService(jpa.repository(JpaActorRepository.class,
+                        RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
@@ -167,6 +173,20 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void accountLanguageIsCapturedAtAdmissionAndChangesOnlyForTheNextTurn() {
+        var session = sessions.create(owner, "Language snapshot");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        assertNotNull(first.context());
+        assertEquals("vi", first.context().uiLanguage());
+        jdbc.sql("UPDATE actors SET ui_language = 'en' WHERE id = :actor").param("actor", owner.value()).update();
+        assertEquals("vi", turns.loadContext(owner, session.id(), first).uiLanguage());
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        var next = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Next question");
+        assertNotNull(next.context());
+        assertEquals("en", next.context().uiLanguage());
+    }
+
+    @Test
     void editAndRegenerateKeepOldBranchesAndCommandIdentityWithoutDuplicatingUserMessages() {
         var session = sessions.create(owner, "Versions");
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "First question");
@@ -248,14 +268,16 @@ class ChatPersistenceIntegrationTest {
         var pair = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Leave policy?", Duration.ofMinutes(2), 32000);
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
+        var artifact = new ChatArtifact(UUID.randomUUID(), "Allowance", "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"Days\",\"value\":\"12\"}}}");
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
-                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source));
+                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), List.of(artifact));
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "Late answer", null, "model", 20L, 5L, null, List.of());
         var saved = sessions.history(owner, session.id(), null, 100).getLast();
         assertEquals(ChatMessage.Status.CANCELED, saved.status());
         assertEquals("Twelve days [1]", saved.content());
         assertEquals(List.of(source), saved.sources());
+        assertEquals(List.of(artifact), saved.artifacts());
         // Source IDs intentionally need no live document FK: reindex/delete does not rewrite old answers.
         assertThrows(ChatException.class, () -> sessions.history(other, session.id(), null, 100));
     }

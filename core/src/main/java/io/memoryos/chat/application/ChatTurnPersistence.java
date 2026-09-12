@@ -10,6 +10,7 @@ import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.iam.ActorId;
+import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.TenantId;
 
@@ -35,12 +36,14 @@ public class ChatTurnPersistence {
     private final JdbcChatRepository chats;
     private final PersonaProperties persona;
     private final ChatFileService files;
+    private final ActorLanguageService languages;
 
-    public ChatTurnPersistence(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona, ChatFileService files) {
+    public ChatTurnPersistence(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona, ChatFileService files, ActorLanguageService languages) {
         this.tenants = tenants;
         this.chats = chats;
         this.persona = persona;
         this.files = files;
+        this.languages = languages;
     }
 
     public record TitleInput(io.memoryos.chat.ChatSession session, List<ChatMessage> messages) {}
@@ -198,13 +201,18 @@ public class ChatTurnPersistence {
                     catch (ChatException unavailable) { /* Old descriptors survive deletion, not authority. */ }
                 });
         return new TurnContext(actor, tenant, settings.model(), settings.instructions(), history,
-                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles);
+                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles, languages.read(actor));
     }
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
                               List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
-                              Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
+                              Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles,
+                              @Nullable String uiLanguage) {
         public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); }
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+                           Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
+            this(actor, tenant, model, instructions, newestFirst, deadline, options, fileTexts, workspaceFiles, null);
+        }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options) {
             this(actor, tenant, model, instructions, newestFirst, deadline, options, Map.of(), List.of());
         }
@@ -236,17 +244,27 @@ public class ChatTurnPersistence {
         return chats.finish(session, assistant, status, partial, failure, model, input, output, cost);
     }
 
-    public record TerminalOutcome(ChatMessage.Status status, @Nullable String failureCode) {}
+    public record TerminalOutcome(ChatMessage.Status status, @Nullable String failureCode, boolean hasArtifacts) {
+        public TerminalOutcome(ChatMessage.Status status, @Nullable String failureCode) { this(status, failureCode, false); }
+    }
 
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources) {
+        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, List.of());
+    }
+
+    @Transactional
+    public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts) {
         if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000 || sources.size() > 24)
             throw ChatException.invalid("Invalid terminal outcome.");
-        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources);
+        if (artifacts.size() > 3) throw ChatException.invalid("Invalid artifact count.");
+        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts);
         var saved = chats.control(assistant);
-        return new TerminalOutcome(saved.status(), saved.failureCode());
+        return new TerminalOutcome(saved.status(), saved.failureCode(), chats.message(session, assistant).map(message -> !message.artifacts().isEmpty()).orElse(false));
     }
 
     @Transactional

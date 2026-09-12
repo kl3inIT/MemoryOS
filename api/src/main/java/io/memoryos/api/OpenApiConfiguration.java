@@ -10,6 +10,8 @@ import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.NumberSchema;
 import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
@@ -165,6 +167,21 @@ class OpenApiConfiguration {
                         .pattern("^[A-Z][A-Z0-9_]*$")
                         .description("Stable capability-prefixed code; present only for expected capability failures.")
         );
+        var parameters = new ObjectSchema();
+        parameters.setAdditionalProperties(false);
+        parameters.addProperty("min", new NumberSchema());
+        parameters.addProperty("max", new NumberSchema());
+        var fieldError = new ObjectSchema();
+        fieldError.setAdditionalProperties(false);
+        fieldError.setRequired(List.of("field", "message", "code", "params"));
+        fieldError.addProperty("field", new StringSchema());
+        fieldError.addProperty("message", new StringSchema().description("Compatible fallback message; clients localize by code."));
+        var validationCode = new StringSchema();
+        validationCode.setEnum(List.of("REQUIRED", "INVALID", "EMAIL", "SIZE", "MIN", "MAX"));
+        fieldError.addProperty("code", validationCode);
+        fieldError.addProperty("params", parameters);
+        schema.addProperty("errors", new ArraySchema().items(fieldError)
+                .description("Field validation failures with safe allowlisted parameters; no rejected values."));
         return schema;
     }
 }
