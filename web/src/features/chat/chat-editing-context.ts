@@ -5,7 +5,7 @@ export const ChatEditingContext = createContext<{
   busy: boolean;
   branches: Branch[];
   feedback: Feedback[];
-  edit: (id: string, text: string, requestId: string) => Promise<void>;
+  edit: (id: string, text: string, requestId: string, fileIds?: string[]) => Promise<void>;
   regenerate: (userId: string, requestId: string) => Promise<void>;
   branch: (targetId: string, expectedChildId: string) => Promise<void>;
 } | null>(null);

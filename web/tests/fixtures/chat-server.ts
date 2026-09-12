@@ -350,6 +350,7 @@ export async function handleChatFixture(
       {
         id: userId,
         sources: [],
+        files: [],
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -362,6 +363,7 @@ export async function handleChatFixture(
       {
         id: assistantId,
         sources: [],
+        files: [],
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",

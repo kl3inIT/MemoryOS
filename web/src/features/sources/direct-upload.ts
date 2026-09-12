@@ -1,4 +1,5 @@
 import type { SourceUploadAuthorization } from "@/lib/hey-api/types.gen";
+import { sha256 as incrementalSha256 } from "@noble/hashes/sha2.js";
 
 export class DirectUploadError extends Error {
   readonly status: number;
@@ -11,15 +12,23 @@ export class DirectUploadError extends Error {
 }
 
 export async function sha256(file: File, signal: AbortSignal): Promise<string> {
-  const bytes = await file.arrayBuffer();
-  signal.throwIfAborted();
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  signal.throwIfAborted();
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const hash = incrementalSha256.create();
+  try {
+    for (let offset = 0; offset < file.size; offset += 1024 * 1024) {
+      signal.throwIfAborted();
+      const bytes = await file.slice(offset, offset + 1024 * 1024).arrayBuffer();
+      signal.throwIfAborted();
+      hash.update(new Uint8Array(bytes));
+    }
+    signal.throwIfAborted();
+    return Array.from(hash.digest(), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  } finally {
+    hash.destroy();
+  }
 }
 
 export function putAuthorizedObject(
-  authorization: SourceUploadAuthorization,
+  authorization: Pick<SourceUploadAuthorization, "method" | "uploadUrl" | "requiredHeaders">,
   file: File,
   signal: AbortSignal,
   onProgress: (percent: number) => void,

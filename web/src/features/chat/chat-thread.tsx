@@ -23,6 +23,13 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
+import {
+  ChatComposerFiles,
+  ChatFilePart,
+  ChatSharedFilePart,
+  ChatMessageAttachment,
+} from "./chat-attachments";
+import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 
 export function ChatThread({
   modelPicker,
@@ -130,35 +137,38 @@ export function ChatThread({
                   </Button>
                 </div>
               ) : null}
-              <ComposerPrimitive.Root className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
-                <ComposerPrimitive.Input
-                  aria-label="Câu hỏi"
-                  placeholder="Nhập câu hỏi…"
-                  rows={1}
-                  maxLength={32000}
-                  className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
-                />
-                <div className="flex items-center justify-between gap-3">
-                  {modelPicker}
-                  <AuiIf condition={(state) => !state.thread.isRunning}>
-                    <ComposerPrimitive.Send asChild>
-                      <IconButton aria-label="Gửi câu hỏi" prominence="primary">
-                        <ArrowUp />
+              <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
+                <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
+                  <ComposerPrimitive.Input
+                    aria-label="Câu hỏi"
+                    placeholder="Nhập câu hỏi…"
+                    rows={1}
+                    maxLength={32000}
+                    className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
+                  />
+                  <ChatComposerFiles />
+                  <div className="flex items-center justify-between gap-3">
+                    {modelPicker}
+                    <AuiIf condition={(state) => !state.thread.isRunning}>
+                      <ChatComposerSend asChild>
+                        <IconButton aria-label="Gửi câu hỏi" prominence="primary">
+                          <ArrowUp />
+                        </IconButton>
+                      </ChatComposerSend>
+                    </AuiIf>
+                    <AuiIf condition={(state) => state.thread.isRunning}>
+                      <IconButton
+                        aria-label={stopping ? "Đang yêu cầu dừng" : "Dừng trả lời"}
+                        prominence="secondary"
+                        disabled={stopping}
+                        onClick={onStop}
+                      >
+                        <Square />
                       </IconButton>
-                    </ComposerPrimitive.Send>
-                  </AuiIf>
-                  <AuiIf condition={(state) => state.thread.isRunning}>
-                    <IconButton
-                      aria-label={stopping ? "Đang yêu cầu dừng" : "Dừng trả lời"}
-                      prominence="secondary"
-                      disabled={stopping}
-                      onClick={onStop}
-                    >
-                      <Square />
-                    </IconButton>
-                  </AuiIf>
-                </div>
-              </ComposerPrimitive.Root>
+                    </AuiIf>
+                  </div>
+                </ChatComposerRoot>
+              </ComposerPrimitive.AttachmentDropzone>
             </ThreadPrimitive.ViewportFooter>
           )}
           {isEmpty && afterComposer && (
@@ -174,7 +184,12 @@ function UserMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root className="flex flex-col items-end">
       <ChatUserMessageContent readOnly={readOnly}>
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Attachments>
+          {() => <ChatMessageAttachment readOnly={readOnly} />}
+        </MessagePrimitive.Attachments>
+        <MessagePrimitive.Parts
+          components={{ File: readOnly ? ChatSharedFilePart : ChatFilePart }}
+        />
       </ChatUserMessageContent>
     </MessagePrimitive.Root>
   );
