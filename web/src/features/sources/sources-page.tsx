@@ -1,3 +1,5 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -22,6 +24,8 @@ import { findSourceProvider } from "./source-provider-catalog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 
 export function SourcesPage() {
+  const ui = useAppTranslation();
+
   const canCreate = useGlobalCapability("SOURCES_MANAGE");
   const sourcesQuery = useQuery({
     ...listSourcesOptions(),
@@ -35,12 +39,12 @@ export function SourcesPage() {
     <SettingsLayout wide>
       <PageHeader
         icon={<BookOpen />}
-        title="Existing sources"
-        description="Manage connected content and monitor indexing."
+        title={ui("Existing sources")}
+        description={ui("Manage connected content and monitor indexing.")}
         actions={
           canCreate ? (
             <Button asChild>
-              <Link to="/admin/sources/new">Add source</Link>
+              <Link to="/admin/sources/new">{ui("Add source")}</Link>
             </Button>
           ) : null
         }
@@ -53,19 +57,19 @@ export function SourcesPage() {
               className="size-4 animate-spin motion-reduce:animate-none"
               aria-hidden="true"
             />
-            Loading sources
+            {ui("Loading sources")}
           </span>
         </div>
       ) : sourcesQuery.isError ? (
         <div className="py-14 text-center">
-          <h2 className="font-heading-h3 text-content-primary">Sources unavailable</h2>
+          <h2 className="font-heading-h3 text-content-primary">{ui("Sources unavailable")}</h2>
           <Button
             prominence="secondary"
             size="sm"
             className="mt-4"
             onClick={() => void sourcesQuery.refetch()}
           >
-            Try again
+            {ui("Try again")}
           </Button>
         </div>
       ) : sources.length === 0 ? (
@@ -73,10 +77,10 @@ export function SourcesPage() {
           <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
             <Files className="size-5" aria-hidden="true" />
           </span>
-          <h2 className="mt-4 font-heading-h3 text-content-primary">No sources yet</h2>
+          <h2 className="mt-4 font-heading-h3 text-content-primary">{ui("No sources yet")}</h2>
           {canCreate ? (
             <Button asChild size="sm" className="mt-4">
-              <Link to="/admin/sources/new">Add source</Link>
+              <Link to="/admin/sources/new">{ui("Add source")}</Link>
             </Button>
           ) : null}
         </div>
@@ -88,6 +92,8 @@ export function SourcesPage() {
 }
 
 function SourceList({ sources }: { sources: SourceSummary[] }) {
+  const ui = useAppTranslation();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [providerFilter, setProviderFilter] = useState("");
@@ -97,7 +103,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
   const filteredSources = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return sources.filter((source) => {
-      const providerName = findSourceProvider(source.type)?.name ?? source.type;
+      const providerName = ui(findSourceProvider(source.type)?.name ?? source.type);
       return (
         (!query ||
           source.name.toLowerCase().includes(query) ||
@@ -107,7 +113,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         (!accessFilter || source.access === accessFilter)
       );
     });
-  }, [accessFilter, providerFilter, searchQuery, sources, statusFilter]);
+  }, [accessFilter, providerFilter, searchQuery, sources, statusFilter, ui]);
   const groups = useMemo(() => groupSources(filteredSources), [filteredSources]);
   const hasExpandedGroups = groups.some((group) => !collapsedTypes.has(group.type));
   const hasActiveFilters = Boolean(statusFilter || providerFilter || accessFilter);
@@ -132,18 +138,18 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           type="search"
           size="sm"
           value={searchQuery}
-          placeholder="Search sources"
-          aria-label="Search sources"
+          placeholder={ui("Search sources")}
+          aria-label={ui("Search sources")}
           className="min-w-40 flex-1 bg-surface-sunken"
           onChange={(event) => setSearchQuery(event.target.value)}
         />
         <Button size="sm" prominence="tertiary" onClick={toggleAll}>
-          {hasExpandedGroups ? "Collapse all" : "Expand all"}
+          {hasExpandedGroups ? ui("Collapse all") : ui("Expand all")}
         </Button>
         <IconButton
           size="sm"
           prominence={filtersOpen || hasActiveFilters ? "secondary" : "tertiary"}
-          aria-label="Filter sources"
+          aria-label={ui("Filter sources")}
           aria-expanded={filtersOpen}
           aria-controls="source-filters"
           onClick={() => setFiltersOpen((open) => !open)}
@@ -158,42 +164,42 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           className="mt-2 grid gap-3 border border-border-subtle bg-surface-raised p-4 sm:grid-cols-2 sm:items-end lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]"
         >
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-            Status
+            {ui("Status")}
             <Select
               size="sm"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              <option value="">All statuses</option>
-              <option value="NOT_STARTED">Scheduled</option>
-              <option value="INDEXING">Indexing</option>
-              <option value="ACTIVE">Active</option>
-              <option value="FAILED">Failed</option>
-              <option value="DELETING">Deleting</option>
+              <option value="">{ui("All statuses")}</option>
+              <option value="NOT_STARTED">{ui("Scheduled")}</option>
+              <option value="INDEXING">{ui("Indexing")}</option>
+              <option value="ACTIVE">{ui("Active")}</option>
+              <option value="FAILED">{ui("Failed")}</option>
+              <option value="DELETING">{ui("Deleting")}</option>
             </Select>
           </label>
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-            Provider
+            {ui("Provider")}
             <Select
               size="sm"
               value={providerFilter}
               onChange={(event) => setProviderFilter(event.target.value)}
             >
-              <option value="">All providers</option>
-              <option value="FILE">File</option>
-              <option value="GOOGLE_DRIVE">Google Drive</option>
+              <option value="">{ui("All providers")}</option>
+              <option value="FILE">{ui("File")}</option>
+              <option value="GOOGLE_DRIVE">{ui("Google Drive")}</option>
             </Select>
           </label>
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-            Access
+            {ui("Access")}
             <Select
               size="sm"
               value={accessFilter}
               onChange={(event) => setAccessFilter(event.target.value)}
             >
-              <option value="">All access</option>
-              <option value="PUBLIC">Workspace members</option>
-              <option value="RESTRICTED">Restricted</option>
+              <option value="">{ui("All access")}</option>
+              <option value="PUBLIC">{ui("Workspace members")}</option>
+              <option value="RESTRICTED">{ui("Restricted")}</option>
             </Select>
           </label>
           <Button
@@ -206,7 +212,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
               setAccessFilter("");
             }}
           >
-            Clear filters
+            {ui("Clear filters")}
           </Button>
         </div>
       ) : null}
@@ -215,10 +221,10 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         className="relative overflow-x-auto rounded-lg"
         tabIndex={0}
         role="region"
-        aria-label="Connected sources table"
+        aria-label={ui("Connected sources table")}
       >
         <table className="w-full min-w-[64rem] table-fixed border-collapse">
-          <caption className="sr-only">Connected sources</caption>
+          <caption className="sr-only">{ui("Connected sources")}</caption>
           <colgroup>
             <col />
             <col className="w-40" />
@@ -239,7 +245,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
             <tbody>
               <tr className="border border-border-subtle">
                 <td colSpan={6} className="px-4 py-12 text-center text-sm text-content-muted">
-                  No sources match your search and filters.
+                  {ui("No sources match your search and filters.")}
                 </td>
               </tr>
             </tbody>
@@ -264,6 +270,8 @@ function SourceGroupBody({
   collapsed: boolean;
   onToggle: () => void;
 }) {
+  const ui = useAppTranslation();
+
   const provider = findSourceProvider(group.type);
   const ProviderIcon = provider?.icon ?? Files;
   const documentCount = group.sources.reduce((total, source) => total + source.documentCount, 0);
@@ -280,7 +288,11 @@ function SourceGroupBody({
           <button
             type="button"
             aria-expanded={!collapsed}
-            aria-label={`${provider?.name ?? group.type} group, ${group.sources.length} sources, ${documentCount} documents`}
+            aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
+              v1: ui(provider?.name ?? group.type),
+              v2: group.sources.length,
+              v3: documentCount,
+            })}
             onClick={onToggle}
             className="flex h-full w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
@@ -291,29 +303,32 @@ function SourceGroupBody({
             )}
             <ProviderIcon className="size-5 text-content-secondary" aria-hidden="true" />
             <span className="text-xl font-semibold text-content-primary">
-              {provider?.name ?? group.type}
+              {ui(provider?.name ?? group.type)}
             </span>
           </button>
         </th>
-        <SummaryMetric label="Total sources" value={group.sources.length} />
-        <SummaryMetric label="Active sources" value={`${activeCount}/${group.sources.length}`} />
+        <SummaryMetric label={ui("Total sources")} value={group.sources.length} />
         <SummaryMetric
-          label="Workspace-visible sources"
+          label={ui("Active sources")}
+          value={`${activeCount}/${group.sources.length}`}
+        />
+        <SummaryMetric
+          label={ui("Workspace-visible sources")}
           value={`${workspaceAccessCount}/${group.sources.length}`}
         />
-        <SummaryMetric label="Total docs indexed" value={documentCount} />
+        <SummaryMetric label={ui("Total docs indexed")} value={documentCount} />
         <td className="border-y border-r border-border-subtle" />
       </tr>
       {!collapsed ? (
         <>
           <tr className="h-[42px] border-x border-b border-border-subtle text-left">
-            <SourceColumnHeader>Name</SourceColumnHeader>
-            <SourceColumnHeader>Last indexed</SourceColumnHeader>
-            <SourceColumnHeader>Status</SourceColumnHeader>
-            <SourceColumnHeader>Access</SourceColumnHeader>
-            <SourceColumnHeader>Total docs</SourceColumnHeader>
+            <SourceColumnHeader>{ui("Name")}</SourceColumnHeader>
+            <SourceColumnHeader>{ui("Last indexed")}</SourceColumnHeader>
+            <SourceColumnHeader>{ui("Status")}</SourceColumnHeader>
+            <SourceColumnHeader>{ui("Access")}</SourceColumnHeader>
+            <SourceColumnHeader>{ui("Total docs")}</SourceColumnHeader>
             <SourceColumnHeader>
-              <span className="sr-only">Manage</span>
+              <span className="sr-only">{ui("Manage")}</span>
             </SourceColumnHeader>
           </tr>
           {group.sources.map((source) => (
@@ -344,6 +359,8 @@ function SourceColumnHeader({ children }: { children: ReactNode }) {
   );
 }
 function SourceRow({ source }: { source: SourceSummary }) {
+  const ui = useAppTranslation();
+
   return (
     <tr
       id={`source-${source.id}`}
@@ -369,7 +386,12 @@ function SourceRow({ source }: { source: SourceSummary }) {
       </td>
       <td className="px-4 text-sm tabular-nums text-content-secondary">{source.documentCount}</td>
       <td className="px-4 text-center">
-        <IconButton asChild size="sm" prominence="tertiary" aria-label={`Manage ${source.name}`}>
+        <IconButton
+          asChild
+          size="sm"
+          prominence="tertiary"
+          aria-label={ui("Manage {{v1}}", { v1: source.name })}
+        >
           <Link to="/admin/sources/$sourceId" params={{ sourceId: source.id }}>
             <Settings />
           </Link>
@@ -389,14 +411,12 @@ function groupSources(sources: SourceSummary[]) {
   return Array.from(groups, ([type, groupedSources]) => ({ type, sources: groupedSources }));
 }
 
-const sourceDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
-
 function LastIndexed({ value }: { value: string | null }) {
   if (!value) return <>-</>;
   const date = new Date(value);
   return (
-    <time dateTime={value} title={date.toLocaleString()}>
-      {sourceDateFormatter.format(date)}
+    <time dateTime={value} title={date.toLocaleString(uiLocale())}>
+      {new Intl.DateTimeFormat(uiLocale(), { dateStyle: "medium" }).format(date)}
     </time>
   );
 }

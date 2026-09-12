@@ -6,6 +6,7 @@ test.beforeEach(async ({ page }) => {
       json: {
         actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
         authorizationVersion: 1,
+        uiLanguage: "vi",
         tenant: { displayName: "Test tenant", role: "MEMBER" },
         capabilities: [],
         scopedCapabilities: [],
@@ -26,9 +27,9 @@ for (const title of ["Chat", "Search"]) {
     await expect(header.getByText(title, { exact: true })).toBeVisible();
     await expect(header.getByRole("button", { name: /switch mode/ })).toHaveCount(0);
     await page.goto("/");
-    await expect(header.getByRole("button", { name: "Chat, switch mode" })).toBeVisible();
+    await expect(header.getByRole("button", { name: "Trò chuyện, chuyển chế độ" })).toBeVisible();
     await page.goto("/search");
-    await expect(header.getByRole("button", { name: "Search, switch mode" })).toBeVisible();
+    await expect(header.getByRole("button", { name: "Tìm kiếm, chuyển chế độ" })).toBeVisible();
   });
 }
 
@@ -675,8 +676,8 @@ test("keeps feedback drafts on failure, reloads the saved reaction and removes i
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
   await page.screenshot({ path: "../.tmp/mem11-ui-new-chat-desktop.png", fullPage: true });
-  await page.getByRole("button", { name: "Tenant member", exact: true }).click();
-  await page.getByRole("button", { name: "Use dark theme" }).click();
+  await page.getByRole("button", { name: "Thành viên", exact: true }).click();
+  await page.getByRole("button", { name: "Dùng giao diện tối" }).click();
   await page.keyboard.press("Escape");
   const session = await (
     await page.request.post("/api/chat/test-fixture", { data: { title: "Review the policy" } })

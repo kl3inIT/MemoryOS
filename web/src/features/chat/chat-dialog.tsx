@@ -1,7 +1,11 @@
 import { Dialog } from "radix-ui";
 import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { chatActionError } from "./chat-action-utils";
+import { chatActionProblem } from "./chat-action-utils";
+import { useTranslation } from "react-i18next";
+import type { ErrorMessage } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
+import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 
 export function ChatDialog({
   title,
@@ -9,7 +13,7 @@ export function ChatDialog({
   trigger,
   children,
   onSubmit,
-  submitLabel = "Lưu",
+  submitLabel,
   open,
   onOpenChange,
   closeOnSuccess = true,
@@ -26,10 +30,13 @@ export function ChatDialog({
   closeOnSuccess?: boolean;
   submitDisabled?: boolean;
 }) {
+  const { t } = useTranslation("common");
+  const { t: statusText } = useTranslation("chatStatus");
+  const message = useProblemMessage();
   const [internalOpen, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ErrorMessage>();
   function change(next: boolean) {
     if (busy.current) return;
     setError(undefined);
@@ -62,7 +69,7 @@ export function ChatDialog({
                   busy.current = false;
                   if (closeOnSuccess) change(false);
                 })
-                .catch((cause: unknown) => setError(chatActionError(cause)))
+                .catch((cause: unknown) => setError(chatActionProblem(cause)))
                 .finally(() => {
                   busy.current = false;
                   setPending(false);
@@ -77,9 +84,11 @@ export function ChatDialog({
               {children}
             </fieldset>
             {error && (
-              <p role="alert" className="mt-4 text-sm">
-                {error}
-              </p>
+              <ErrorState
+                className="mt-4"
+                title={statusText("actionFailed")}
+                detail={message(error)}
+              />
             )}
             <div className="mt-6 flex justify-end gap-2">
               <Button
@@ -88,11 +97,11 @@ export function ChatDialog({
                 disabled={pending}
                 onClick={() => change(false)}
               >
-                Đóng
+                {t("close")}
               </Button>
               {onSubmit && (
                 <Button type="submit" pending={pending} disabled={submitDisabled}>
-                  {submitLabel}
+                  {submitLabel ?? t("save")}
                 </Button>
               )}
             </div>

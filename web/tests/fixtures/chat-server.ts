@@ -72,6 +72,7 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
   message.finishedAt = new Date().toISOString();
   emit(run, "outcome", {
     status,
+    hasArtifacts: message.artifacts.length > 0,
     failureCode: status === "FAILED" ? "CHAT_PROVIDER_FAILED" : null,
   });
   for (const listener of run.listeners) listener.end();
@@ -354,6 +355,7 @@ export async function handleChatFixture(
     state.messages.push(
       {
         id: userId,
+        artifacts: [],
         sources: [],
         files: [],
         sessionId: state.session.id,
@@ -367,6 +369,7 @@ export async function handleChatFixture(
       },
       {
         id: assistantId,
+        artifacts: [],
         sources: [],
         files: [],
         sessionId: state.session.id,
@@ -449,7 +452,44 @@ export async function handleChatFixture(
               ).join("\n\n")
             : grounded
               ? "## Annual leave\n\nEmployees receive **17 days** of annual leave [1].\n\nUnverified [99] remains plain text. Inline code `[1]` is not a citation.\n\n```text\n[1] in a code block\n```"
-              : answer;
+              : state.mode === "renderers"
+                ? answer + "\n\n```mermaid\ngraph TD\n  Upload --> Parse\n  Parse --> Answer\n```"
+                : answer;
+        if (state.mode === "renderers")
+          state.messages.at(-1)!.artifacts = [
+            {
+              id: randomUUID(),
+              title: "Revenue report — September / Báo cáo doanh thu tháng 9",
+              spec: JSON.stringify({
+                root: {
+                  component: "Card",
+                  props: { title: "Revenue / Doanh thu" },
+                  children: [
+                    {
+                      component: "Metric",
+                      props: { label: "September / Tháng 9", value: "125,000" },
+                    },
+                    {
+                      component: "Text",
+                      props: { text: "<script>alert('never execute')</script>" },
+                    },
+                    {
+                      component: "Table",
+                      children: [
+                        {
+                          component: "Row",
+                          children: [
+                            { component: "Cell", props: { text: "ORION" } },
+                            { component: "Cell", props: { text: "125,000" } },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              }),
+            },
+          ];
         if (grounded) {
           state.messages.at(-1)!.sources = [fixtureSource];
           emit(run, "search", { toolCallId: "search-1", stage: "SOURCE", source: fixtureSource });

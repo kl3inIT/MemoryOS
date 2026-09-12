@@ -1,5 +1,6 @@
 import { LogOut, Moon, Settings2, Sun } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Popover } from "radix-ui";
 import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
@@ -19,11 +20,12 @@ export function AccountMenu({
   collapsed: boolean;
   onNavigate?: () => void;
 }) {
+  const { t } = useTranslation("common");
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const { tenant } = useApplicationSession();
   const { canAccessAdmin, adminEntryPath } = useAdminAccess();
-  const membershipLabel = tenant.role === "OWNER" ? "Tenant owner" : "Tenant member";
+  const membershipLabel = t(tenant.role === "OWNER" ? "owner" : "member");
   const initials = tenant.displayName
     .trim()
     .split(/\s+/)
@@ -86,7 +88,17 @@ export function AccountMenu({
               icon={isDark ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
               onClick={() => setTheme(isDark ? "light" : "dark")}
             >
-              {isDark ? "Use light theme" : "Use dark theme"}
+              {t(isDark ? "lightTheme" : "darkTheme")}
+            </MenuItem>
+            <MenuItem
+              to="/settings/general"
+              icon={<Settings2 className="size-4.5" />}
+              onClick={() => {
+                setMenuOpen(false);
+                onNavigate?.();
+              }}
+            >
+              {t("settings")}
             </MenuItem>
             {canAccessAdmin ? (
               <MenuItem
@@ -97,7 +109,7 @@ export function AccountMenu({
                   onNavigate?.();
                 }}
               >
-                Admin Panel
+                {t("admin")}
               </MenuItem>
             ) : null}
           </div>
@@ -108,14 +120,14 @@ export function AccountMenu({
               disabled={signingOut}
               onClick={() => void requestSignOut()}
             >
-              {signingOut ? "Signing out…" : "Sign out"}
+              {t(signingOut ? "signingOut" : "signOut")}
             </MenuItem>
             {signOutState === "error" ? (
               <p
                 className="px-3 pb-2 pt-1 font-secondary-body text-status-danger-content"
                 role="alert"
               >
-                We couldn't sign you out. Try again.
+                {t("signOutFailed")}
               </p>
             ) : null}
           </div>

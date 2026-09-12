@@ -35,6 +35,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
+- [MEM-74/MEM-22 — Localization and problem presentation](docs/increments/active/mem-74-22-i18n-errors/design.md) is local in-flight work; Linear remains Todo/Backlog until separately updated.
 - [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
 - [MEM-84 — Architecture documentation sync](docs/increments/active/architecture-documentation-sync/design.md) owns the current Linear and repository documentation audit.
 

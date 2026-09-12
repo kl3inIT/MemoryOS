@@ -1,3 +1,6 @@
+import { uiLocale } from "@/i18n/format";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Pencil, ShieldCheck, UsersRound } from "lucide-react";
@@ -16,10 +19,12 @@ type GroupCardProps = {
   onAuthorityChanged: () => Promise<void>;
 };
 export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
+  const ui = useAppTranslation();
+
   const renameGroup = useMutation(renameGroupMutation());
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(group.name);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const canRename = group.actions.includes("rename");
@@ -77,7 +82,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                 ref={inputRef}
                 value={name}
                 maxLength={120}
-                aria-label={`Name for ${group.name}`}
+                aria-label={ui("Name for {{v1}}", { v1: group.name })}
                 disabled={renameGroup.isPending}
                 onChange={(event) => setName(event.target.value)}
                 onKeyDown={(event) => {
@@ -94,7 +99,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                   pending={renameGroup.isPending}
                   disabled={!name.trim() || name.trim() === group.name}
                 >
-                  {renameGroup.isPending ? "Saving…" : "Save"}
+                  {renameGroup.isPending ? ui("Saving…") : ui("Save")}
                 </Button>
                 <Button
                   size="sm"
@@ -102,7 +107,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                   disabled={renameGroup.isPending}
                   onClick={cancelEdit}
                 >
-                  Cancel
+                  {ui("Cancel")}
                 </Button>
               </div>
             </form>
@@ -114,7 +119,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                   variant="outline"
                   className="shrink-0 bg-surface-raised text-content-secondary"
                 >
-                  System
+                  {ui("System")}
                 </Badge>
               ) : null}
               {canRename ? (
@@ -122,7 +127,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                   ref={editButtonRef}
                   size="sm"
                   prominence="tertiary"
-                  aria-label={`Rename ${group.name}`}
+                  aria-label={ui("Rename {{v1}}", { v1: group.name })}
                   onClick={() => {
                     setName(group.name);
                     setEditing(true);
@@ -134,15 +139,19 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
             </div>
           )}
           <p className="mt-1 font-main-ui-body text-content-muted">
-            {group.memberCount.toLocaleString()} {group.memberCount === 1 ? "member" : "members"}
+            {group.memberCount.toLocaleString(uiLocale())}{" "}
+            {group.memberCount === 1 ? ui("member") : ui("members")}
             {group.managerCount > 0
-              ? ` · ${group.managerCount.toLocaleString()} ${group.managerCount === 1 ? "manager" : "managers"}`
+              ? ui(" · {{v1}} {{v2}}", {
+                  v1: group.managerCount.toLocaleString(uiLocale()),
+                  v2: ui(group.managerCount === 1 ? "manager" : "managers"),
+                })
               : ""}
           </p>
           {group.capabilities.length > 0 ? (
             <div
               className="mt-3 flex flex-wrap gap-1"
-              aria-label={`Capabilities for ${group.name}`}
+              aria-label={ui("Capabilities for {{v1}}", { v1: group.name })}
             >
               {group.capabilities.slice(0, 3).map((capability) => (
                 <Badge
@@ -150,7 +159,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                   variant="secondary"
                   className="bg-surface-subtle text-content-secondary"
                 >
-                  {capability.replaceAll("_", " ").toLocaleLowerCase()}
+                  {ui(capabilityCopy[capability]?.label ?? "Unknown")}
                 </Badge>
               ))}
               {group.capabilities.length > 3 ? (
@@ -161,16 +170,21 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
             </div>
           ) : (
             <p className="mt-3 font-secondary-body text-content-muted">
-              No administrative capabilities
+              {ui("No administrative capabilities")}
             </p>
           )}
           {error ? (
             <p role="alert" className="mt-3 font-secondary-body text-status-danger-content">
-              {error}
+              {ui(error)}
             </p>
           ) : null}
         </div>
-        <IconButton asChild size="sm" prominence="tertiary" aria-label={`Open ${group.name}`}>
+        <IconButton
+          asChild
+          size="sm"
+          prominence="tertiary"
+          aria-label={ui("Open {{v1}}", { v1: group.name })}
+        >
           <Link to="/admin/groups/$groupId" params={{ groupId: group.id }}>
             <ChevronRight />
           </Link>
@@ -179,3 +193,4 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
     </article>
   );
 }
+import { capabilityCopy } from "./group-capability-copy";

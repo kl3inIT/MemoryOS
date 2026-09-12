@@ -1,4 +1,23 @@
 import { ApiError } from "@/lib/api";
+import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
+
+export function chatActionProblem(error: unknown): ErrorMessage {
+  const problem = presentProblem(error, "mutation");
+  switch (problem.kind) {
+    case "conflict":
+      return { key: "chatConflict" };
+    case "unauthenticated":
+    case "forbidden":
+    case "notFound":
+      return { key: "chatUnavailable" };
+    case "validation":
+      return { key: "chatInvalid" };
+    case "throttled":
+      return problem.message;
+    default:
+      return { key: "chatUncertain" };
+  }
+}
 
 export const chatField =
   "w-full rounded-lg border border-border-default bg-surface-raised p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";

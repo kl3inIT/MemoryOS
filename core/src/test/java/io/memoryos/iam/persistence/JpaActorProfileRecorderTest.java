@@ -3,6 +3,7 @@ package io.memoryos.iam.persistence;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,6 +12,7 @@ import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.ExternalIdentity;
+import jakarta.persistence.LockModeType;
 
 import java.sql.SQLException;
 import java.time.Clock;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -71,6 +74,11 @@ class JpaActorProfileRecorderTest {
     @Test
     void recordsLatestTruthfulProfileWithExactBindingProvenance() {
         ActorId actorId = transaction.execute(_ -> identities.resolveOrCreate(IDENTITY_A));
+        var actors = actorRepository();
+        assertEquals("vi", transaction.execute(_ -> actors.findById(actorId.value()).orElseThrow().getUiLanguage()));
+        transaction.executeWithoutResult(_ -> actors.refreshForUpdate(actorId.value()).setUiLanguage("en"));
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () ->
+                jdbcClient.sql("UPDATE actors SET ui_language = 'fr' WHERE id = :id").param("id", actorId.value()).update());
         transaction.executeWithoutResult(_ -> {
             ActorEntity actor = jpa.entityManager().find(ActorEntity.class, actorId.value());
             jpa.entityManager().persist(new ExternalIdentityBindingEntity(
@@ -103,6 +111,7 @@ class JpaActorProfileRecorderTest {
                 Clock.fixed(SECOND_OBSERVATION, ZoneOffset.UTC)
         );
         transaction.executeWithoutResult(_ -> secondRecorder.record(actorId, IDENTITY_B, " ", null, false));
+        assertEquals("en", transaction.execute(_ -> actors.findById(actorId.value()).orElseThrow().getUiLanguage()), "IdP observations must not overwrite account language");
         Profile latest = profile(actorId);
         assertEquals(IDENTITY_B.issuer(), latest.issuer());
         assertEquals(IDENTITY_B.subject(), latest.subject());
@@ -135,6 +144,28 @@ class JpaActorProfileRecorderTest {
                 true
         )));
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM actor_profiles").query(Long.class).single());
+    }
+
+    @Test
+    void refreshFragmentReloadsAnAlreadyManagedActorUnderWriteLock() {
+        ActorId actorId = transaction.execute(_ -> identities.resolveOrCreate(IDENTITY_A));
+        var actors = actorRepository();
+        transaction.executeWithoutResult(_ -> {
+            var managed = actors.findById(actorId.value()).orElseThrow();
+            jdbcClient.sql("UPDATE actors SET ui_language = 'en' WHERE id = :id")
+                    .param("id", actorId.value()).update();
+            assertEquals("vi", managed.getUiLanguage(), "Persistence context still has the earlier snapshot");
+            var refreshed = actors.refreshForUpdate(actorId.value());
+            assertSame(managed, refreshed);
+            assertEquals("en", refreshed.getUiLanguage());
+            assertEquals(LockModeType.PESSIMISTIC_WRITE, jpa.entityManager().getLockMode(refreshed));
+            refreshed.setUiLanguage("vi");
+        });
+        assertEquals("vi", transaction.execute(_ -> actors.findById(actorId.value()).orElseThrow().getUiLanguage()));
+    }
+
+    private JpaActorRepository actorRepository() {
+        return jpa.repository(JpaActorRepository.class, RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager())));
     }
 
     private Profile profile(ActorId actorId) {

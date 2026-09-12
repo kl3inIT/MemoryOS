@@ -1,5 +1,9 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle, UserRound } from "lucide-react";
 import { Fragment, useRef, useState, type RefObject } from "react";
+import { useProblemMessage } from "@/lib/use-problem-message";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
@@ -21,7 +25,7 @@ type UsersTableProps = {
   totalItems: number;
   totalPages: number;
   pendingActions: Readonly<Partial<Record<string, UserPendingAction>>>;
-  rowErrors: Readonly<Partial<Record<string, string>>>;
+  rowErrors: Readonly<Partial<Record<string, ErrorMessage>>>;
   invitationPending: boolean;
   canEditGroups: boolean;
   fallbackActionFocusRef?: RefObject<HTMLElement | null>;
@@ -63,6 +67,9 @@ export function UsersTable({
   onRotate,
   onRevoke,
 }: UsersTableProps) {
+  const ui = useAppTranslation();
+
+  const errorMessage = useProblemMessage();
   const firstItem = totalItems === 0 ? 0 : page * size + 1;
   const lastItem = Math.min((page + 1) * size, totalItems);
   const [groupEditorEntry, setGroupEditorEntry] = useState<UserListItem | null>(null);
@@ -85,12 +92,12 @@ export function UsersTable({
     <>
       <div
         role="region"
-        aria-label="Scrollable users table"
+        aria-label={ui("Scrollable users table")}
         tabIndex={0}
         className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-focus-ring/40"
       >
         <table className="w-full min-w-[56rem] table-fixed border-collapse">
-          <caption className="sr-only">Tenant users</caption>
+          <caption className="sr-only">{ui("Tenant users")}</caption>
           <colgroup>
             <col />
             <col className="w-[28%]" />
@@ -108,7 +115,7 @@ export function UsersTable({
                 <span className="inline-flex items-center gap-0.5">
                   <UsersSortButton
                     field="NAME"
-                    label="Name"
+                    label={ui("Name")}
                     sort={sort}
                     onSortChange={onSortChange}
                   />
@@ -117,18 +124,18 @@ export function UsersTable({
                   </span>
                   <UsersSortButton
                     field="EMAIL"
-                    label="Email"
+                    label={ui("Email")}
                     sort={sort}
                     onSortChange={onSortChange}
                   />
                 </span>
               </th>
-              <StaticColumnHeader>Groups</StaticColumnHeader>
-              <StaticColumnHeader>Account type</StaticColumnHeader>
+              <StaticColumnHeader>{ui("Groups")}</StaticColumnHeader>
+              <StaticColumnHeader>{ui("Account type")}</StaticColumnHeader>
               <th scope="col" aria-sort={columnAriaSort(sort, "STATUS")} className="h-11 px-4">
                 <UsersSortButton
                   field="STATUS"
-                  label="Status"
+                  label={ui("Status")}
                   sort={sort}
                   onSortChange={onSortChange}
                 />
@@ -137,7 +144,7 @@ export function UsersTable({
                 scope="col"
                 className="sticky right-0 z-10 h-11 w-16 bg-surface-subtle px-2 text-center"
               >
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{ui("Actions")}</span>
               </th>
             </tr>
           </thead>
@@ -168,11 +175,11 @@ export function UsersTable({
                       {entry.accountType === "STANDARD" ? (
                         <span className="inline-flex items-center gap-1.5 font-main-ui-body text-content-secondary">
                           <UserRound className="size-4 text-content-muted" aria-hidden="true" />
-                          Standard
+                          {ui("Standard")}
                         </span>
                       ) : (
                         <span
-                          aria-label="Account type assigned after invitation acceptance"
+                          aria-label={ui("Account type assigned after invitation acceptance")}
                           className="text-content-muted"
                         >
                           —
@@ -204,7 +211,7 @@ export function UsersTable({
                         colSpan={5}
                         className="border-l-2 border-status-danger-content px-4 py-2 font-secondary-body text-status-danger-content"
                       >
-                        <p role="alert">{error}</p>
+                        <p role="alert">{errorMessage(error)}</p>
                       </td>
                     </tr>
                   ) : null}
@@ -216,7 +223,7 @@ export function UsersTable({
       </div>
 
       <TablePagination
-        label="User pages"
+        label={ui("User pages")}
         page={page}
         totalPages={totalPages}
         summary={`Showing ${firstItem}–${lastItem} of ${totalItems}`}
@@ -226,9 +233,9 @@ export function UsersTable({
         onNext={() => onPageChange(page + 1)}
       >
         <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-          Rows
+          {ui("Rows")}
           <Select
-            aria-label="Rows per page"
+            aria-label={ui("Rows per page")}
             value={size}
             size="sm"
             className="w-auto px-2"
@@ -280,13 +287,15 @@ function UsersSortButton({
   sort: UsersSort;
   onSortChange: (sort: UsersSort) => void;
 }) {
+  const ui = useAppTranslation();
+
   const ascending = `${field}_ASC` as UsersSort;
   const descending = `${field}_DESC` as UsersSort;
   const direction = sort === ascending ? "asc" : sort === descending ? "desc" : undefined;
   return (
     <button
       type="button"
-      aria-label={`Sort by ${label.toLowerCase()}`}
+      aria-label={ui("Sort by {{v1}}", { v1: label.toLowerCase() })}
       onClick={() => onSortChange(sort === ascending ? descending : ascending)}
       className="inline-flex h-8 items-center gap-1 rounded-md px-1 font-secondary-action text-content-secondary outline-none transition-colors hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
     >
@@ -311,16 +320,18 @@ function userLabel(entry: UserListItem) {
 }
 
 function UserIdentity({ entry }: { entry: UserListItem }) {
+  const ui = useAppTranslation();
+
   const displayName = entry.displayName?.trim();
   const email = entry.email?.trim();
-  const primary = displayName || email || "Name unavailable";
+  const primary = displayName || email || ui("Name unavailable");
   const secondary = displayName
-    ? email || "Email unavailable"
+    ? email || ui("Email unavailable")
     : email
       ? entry.status === "INVITED"
-        ? "Invited by email"
-        : "Name unavailable"
-      : "Email unavailable";
+        ? ui("Invited by email")
+        : ui("Name unavailable")
+      : ui("Email unavailable");
   return (
     <div className="min-w-0">
       <span className="flex min-w-0 items-center gap-2">
@@ -329,7 +340,7 @@ function UserIdentity({ entry }: { entry: UserListItem }) {
         </span>
         {entry.role === "OWNER" ? (
           <Badge variant="outline" className="shrink-0 bg-surface-raised text-content-secondary">
-            Owner
+            {ui("Owner")}
           </Badge>
         ) : null}
       </span>
@@ -338,7 +349,9 @@ function UserIdentity({ entry }: { entry: UserListItem }) {
         title={secondary}
       >
         {secondary}
-        {entry.emailVerified === true ? <span className="sr-only">, verified email</span> : null}
+        {entry.emailVerified === true ? (
+          <span className="sr-only">{ui(", verified email")}</span>
+        ) : null}
       </span>
     </div>
   );
@@ -351,14 +364,16 @@ function UserStatus({
   entry: UserListItem;
   pendingAction?: UserPendingAction;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <div className="flex min-w-0 flex-col items-start gap-1">
       <StatusBadge tone={statusTone[entry.status]}>
         {entry.status === "ACTIVE"
-          ? "Active"
+          ? ui("Active")
           : entry.status === "INACTIVE"
-            ? "Inactive"
-            : "Invited"}
+            ? ui("Inactive")
+            : ui("Invited")}
       </StatusBadge>
       {pendingAction ? (
         <span className="inline-flex items-center gap-1 font-secondary-body text-content-muted">
@@ -366,15 +381,15 @@ function UserStatus({
             className="size-3 animate-spin motion-reduce:animate-none"
             aria-hidden="true"
           />
-          {userActionPendingLabel(pendingAction)}
+          {ui(userActionPendingLabel(pendingAction))}
         </span>
       ) : entry.status === "INVITED" && entry.invitationExpiresAt ? (
         <time
           dateTime={entry.invitationExpiresAt}
-          title={new Date(entry.invitationExpiresAt).toLocaleString()}
+          title={new Date(entry.invitationExpiresAt).toLocaleString(uiLocale())}
           className="max-w-full font-secondary-body text-content-muted"
         >
-          Expires {formatInvitationDate(entry.invitationExpiresAt)}
+          {ui("Expires")} {formatInvitationDate(entry.invitationExpiresAt)}
         </time>
       ) : null}
     </div>

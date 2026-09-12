@@ -4,6 +4,7 @@ import { initialChatTitle, loadChatHistory, toUiMessages } from "./chat-api";
 import { fixtureSource } from "../../../tests/fixtures/chat-data";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import type { UIMessageChunk } from "ai";
+import { i18n } from "@/i18n";
 
 const session: ChatSession = {
   id: "5230ab53-dab0-4441-acbf-840636b52953",
@@ -17,7 +18,7 @@ const session: ChatSession = {
 const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
 it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => {
   expect(initialChatTitle("  Phân tích\n  tài liệu  ")).toBe("Phân tích tài liệu");
-  expect(initialChatTitle(" ")).toBe("Hội thoại mới");
+  expect(initialChatTitle(" ")).toBe(i18n.t("app:Hội thoại mới", { keySeparator: false }));
   expect(initialChatTitle("😀".repeat(45))).toBe("😀".repeat(40) + "…");
 });
 it("keeps family emoji and combining marks intact at the title boundary", () => {
@@ -35,6 +36,7 @@ it("keeps grapheme titles inside the API length limit", () => {
 const userId = "9a1b5318-f15b-4e37-899a-0809354cda6f";
 const requestId = "e7a05ee5-cfd5-470b-9641-f4c322a3b4bb";
 const row: ChatMessage = {
+  artifacts: [],
   files: [],
   sources: [],
   id: runId,
@@ -59,6 +61,7 @@ function fixture(
   stream: (request: Request) => Response | Promise<Response>,
   status: ChatMessage["status"] = "COMPLETED",
   sources: ChatMessage["sources"] = [],
+  artifacts: ChatMessage["artifacts"] = [],
 ) {
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input.clone() : new Request(input, init);
@@ -72,7 +75,7 @@ function fixture(
       return json(
         new URL(request.url).searchParams.get("after") === runId
           ? []
-          : [{ ...row, status, sources }],
+          : [{ ...row, status, sources, artifacts }],
       );
     return json(session);
   });
@@ -101,6 +104,38 @@ async function collect(stream: ReadableStream<UIMessageChunk>) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
+  it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
+    const artifacts = [
+      {
+        id: crypto.randomUUID(),
+        title: "Revenue",
+        spec: JSON.stringify({
+          root: { component: "Metric", props: { label: "September", value: "125000" } },
+        }),
+      },
+    ];
+    const fetch = fixture(
+      () => sse(delta + packet(2, "outcome", { status: "COMPLETED", hasArtifacts: true })),
+      "COMPLETED",
+      [],
+      artifacts,
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.find((c) => c.type === "message-metadata")).toMatchObject({
+      messageMetadata: { artifacts, serverStatus: "COMPLETED" },
+    });
+    expect(
+      fetch.mock.calls.filter(([input]) => input instanceof Request && input.method === "POST"),
+    ).toHaveLength(1);
+    const reads = fetch.mock.calls
+      .map(([input]) => input as Request)
+      .filter((r) => r.method === "GET" && new URL(r.url).pathname.endsWith("/messages"));
+    expect(reads).toHaveLength(1);
+    expect(new URL(reads[0]!.url).searchParams.get("after")).toBe(userId);
+    expect(new URL(reads[0]!.url).searchParams.get("limit")).toBe("1");
+    expect(toUiMessages([{ ...row, artifacts }])[0]?.metadata?.artifacts).toEqual(artifacts);
+  });
+
   it("replays search plans once and retains them while selected documents are being read", async () => {
     const search = {
       queries: ["HR-2026"],
@@ -182,7 +217,12 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       },
       {
         type: "message-metadata",
-        messageMetadata: { sources: [fixtureSource], searchProgress: {}, serverStatus: "CANCELED" },
+        messageMetadata: {
+          sources: [fixtureSource],
+          artifacts: [],
+          searchProgress: {},
+          serverStatus: "CANCELED",
+        },
       },
     ]);
   });

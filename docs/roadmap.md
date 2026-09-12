@@ -51,6 +51,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 ## Active
 
+MEM-74/MEM-22 localization and problem presentation is implemented locally across the scoped application, including account language, safe errors/notifications, Chat language hints and the approved read-only renderer follow-up. Repository, frontend and browser gates passed; PR review and release acceptance remain separate. [Design](increments/active/mem-74-22-i18n-errors/design.md) · [Verification](increments/active/mem-74-22-i18n-errors/verification.md).
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
@@ -58,6 +59,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Docling environment configuration | External service settings retain their defaults; the later Tasco correction supersedes the original fifteen-minute Worker ceiling with an explicit ceiling of sixty minutes. Managed configuration is not proof of actual server rollout or HUT completion | [Design](increments/active/docling-timeout-configuration/design.md) · [Current contract](specs/ingestion.md#docling-deployment-environment) |
 | Google Drive structured ingestion — active MEM-9/MEM-10/MEM-60/MEM-63 | Reusable OAuth credentials, explicit linked approvals, asynchronous selection, native readers, paginated Source views and owned-index history are merged. Live-provider and customer-data acceptance remains active; MEM-76 is Done | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Verification](increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09) |
 | MEM-58 frontend observability | Optional Sentry Cloud browser error monitoring and trace correlation; rollout configuration and Linear reconciliation remain active | [Design](increments/active/mem-58-frontend-observability/design.md) |
+| MEM-74/MEM-22 localization and problem presentation | Scoped Vietnamese/English UI/errors and Chat renderers implemented and locally verified; awaiting PR review/release acceptance | [Design](increments/active/mem-74-22-i18n-errors/design.md) · [Plan](increments/active/mem-74-22-i18n-errors/plan.md) |
 | MEM-77 provider/model administration | Backend foundation is merged; catalog administration UI and local OpenAI-compatible provider integration remain active | [Design](increments/active/mem-77-provider-backend/design.md) |
 | [MEM-79 standalone OCR](https://linear.app/memory-os/issue/MEM-79) | Vietnamese/English OCR is deployed in the Jmix team namespace; server access, Worker integration and full indexing acceptance remain open | [Deployment runbook](../infrastructure/deployment/ocr/README.md) · [Design](increments/active/mem-79-rancher-ocr/design.md) · [Plan](increments/active/mem-79-rancher-ocr/plan.md) |
 | Staging deployment simplification | CD deploys and verifies runtime health while authenticated business acceptance remains an explicit owner step | [Design](increments/active/staging-deploy-simplification/design.md) |
@@ -90,6 +92,7 @@ MEM-36 and MEM-68 are Done. MEM-55, MEM-25 and MEM-69 are In Progress with Nhat 
 - [MEM-77](https://linear.app/memory-os/issue/MEM-77) is Todo: the [backend foundation](increments/active/mem-77-provider-backend/design.md) is merged through PR #88; the issue continues catalog administration UI and local OpenAI-compatible provider integration.
 - [MEM-83](https://linear.app/memory-os/issue/MEM-83) is In Review for the latest `vadan.app` presentation work; MEM-82 is Done.
 
+- MEM-74/MEM-22 are now implemented incrementally under the combined entry in Active above; Linear remains unchanged by this local implementation request.
 - [MEM-75](https://linear.app/memory-os/issue/MEM-75) remains In Progress for the dependency proposals outside the delivered selected batch; it does not keep that completed increment active.
 
 ## Superseded planning

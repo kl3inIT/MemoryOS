@@ -8,6 +8,11 @@ import java.net.URI;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import jakarta.validation.ConstraintViolation;
+import org.springframework.context.MessageSourceResolvable;
+import org.springframework.validation.ObjectError;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -60,7 +65,8 @@ final class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleRequestValidation(MethodArgumentNotValidException exception) {
         List<ValidationError> errors = exception.getBindingResult().getFieldErrors().stream()
-                .map(error -> new ValidationError(error.getField(), safeMessage(error.getDefaultMessage())))
+                .map(error -> validationError(error.getField(), error,
+                        error.contains(ConstraintViolation.class) ? error.unwrap(ConstraintViolation.class) : null))
                 .sorted(ValidationError.ORDER)
                 .toList();
         return validationProblem(errors);
@@ -70,13 +76,48 @@ final class ApiExceptionHandler {
     ProblemDetail handleMethodValidation(HandlerMethodValidationException exception) {
         List<ValidationError> errors = exception.getParameterValidationResults().stream()
                 .flatMap(result -> result.getResolvableErrors().stream()
-                        .map(error -> new ValidationError(
+                        .map(error -> validationError(
                                 result.getMethodParameter().getParameterName(),
-                                safeMessage(error.getDefaultMessage())
+                                error,
+                                violation(result, error)
                         )))
                 .sorted(ValidationError.ORDER)
                 .toList();
         return validationProblem(errors);
+    }
+
+    private static ConstraintViolation<?> violation(org.springframework.validation.method.ParameterValidationResult result,
+                                                     MessageSourceResolvable error) {
+        if (error instanceof ObjectError objectError && objectError.contains(ConstraintViolation.class)) {
+            return objectError.unwrap(ConstraintViolation.class);
+        }
+        try { return result.unwrap(error, ConstraintViolation.class); }
+        catch (IllegalArgumentException ignored) { return null; }
+    }
+
+    private static ValidationError validationError(String field, MessageSourceResolvable error, ConstraintViolation<?> violation) {
+        String constraint = violation != null ? violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName()
+                : error instanceof ObjectError objectError ? objectError.getCode() : null;
+        String code = switch (constraint == null ? "" : constraint) {
+            case "NotNull", "NotBlank", "NotEmpty" -> "REQUIRED";
+            case "Email" -> "EMAIL";
+            case "Size" -> "SIZE";
+            case "Min", "DecimalMin", "PositiveOrZero" -> "MIN";
+            case "Max", "DecimalMax" -> "MAX";
+            default -> "INVALID";
+        };
+        Map<String, Number> params = new LinkedHashMap<>();
+        if (violation != null) {
+            var attributes = violation.getConstraintDescriptor().getAttributes();
+            if (code.equals("SIZE")) {
+                for (String name : List.of("min", "max")) {
+                    if (attributes.get(name) instanceof Number number) params.put(name, number);
+                }
+            } else if (code.equals("MIN") || code.equals("MAX")) {
+                if (attributes.get("value") instanceof Number number) params.put(code.toLowerCase(Locale.ROOT), number);
+            }
+        }
+        return new ValidationError(field, safeMessage(error.getDefaultMessage()), code, Map.copyOf(params));
     }
 
     private static ProblemDetail validationProblem(List<ValidationError> errors) {
@@ -123,7 +164,7 @@ final class ApiExceptionHandler {
         );
     }
 
-    private record ValidationError(String field, String message) {
+    private record ValidationError(String field, String message, String code, Map<String, Number> params) {
         private static final Comparator<ValidationError> ORDER =
                 Comparator.comparing(ValidationError::field).thenComparing(ValidationError::message);
 

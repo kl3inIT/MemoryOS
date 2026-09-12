@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { AssistantRuntimeProvider, useAui } from "@assistant-ui/react";
 import { useAISDKChat, useChatRuntime } from "@assistant-ui/ai-sdk";
 import { createChatAttachmentAdapter } from "./chat-files";
@@ -34,7 +35,10 @@ import {
   type Feedback,
 } from "./chat-workspace-api";
 import { ProjectContextPanel, ProjectConversationList } from "./chat-projects-page";
-import { chatActionError } from "./chat-action-utils";
+import { chatActionProblem } from "./chat-action-utils";
+import { useTranslation } from "react-i18next";
+import type { ErrorMessage } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
 
 export function ChatPage() {
   const { sessionId, projectId } = useParams({ strict: false });
@@ -77,6 +81,8 @@ function ChatSessionView({
   projectId?: string;
   onSessionCreated: (id: string) => void;
 }) {
+  const ui = useAppTranslation();
+
   // History initializes this runtime once. URL promotion keeps the live stream.
   const [initialSessionId] = useState(sessionId);
   const [initialProjectId] = useState(projectId);
@@ -107,33 +113,34 @@ function ChatSessionView({
   });
   if (initialSessionId && query.isPending)
     return (
-      <AppShell pageTitle="Chat" chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
         <p role="status" className="p-6 text-content-secondary">
-          Đang tải hội thoại…
+          {ui("Đang tải hội thoại…")}
         </p>
       </AppShell>
     );
   if (initialSessionId && query.isError)
     return (
-      <AppShell pageTitle="Chat" chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
         <div role="alert" className="space-y-3 p-6">
-          <p>Không tải được hội thoại.</p>
+          <p>{ui("Không tải được hội thoại.")}</p>
           <Button prominence="secondary" onClick={() => void query.refetch()}>
-            Thử lại
+            {ui("Thử lại")}
           </Button>
         </div>
       </AppShell>
     );
   if (initialProjectId && !project.data)
     return (
-      <AppShell pageTitle="Dự án">
+      <AppShell pageTitle={ui("Dự án")}>
         <div className="p-6" role={project.isError ? "alert" : "status"}>
           {project.isError ? (
             <>
-              Dự án không khả dụng. <Button onClick={() => void project.refetch()}>Tải lại</Button>
+              {ui("Dự án không khả dụng.")}{" "}
+              <Button onClick={() => void project.refetch()}>{ui("Tải lại")}</Button>
             </>
           ) : (
-            "Đang tải dự án…"
+            ui("Đang tải dự án…")
           )}
         </div>
       </AppShell>
@@ -156,9 +163,13 @@ function ChatConversation({
   project?: Project;
   onSessionCreated: (id: string) => void;
 }) {
+  const ui = useAppTranslation();
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const running = initial?.messages.find((message) => message.status === "RUNNING");
+  const { t } = useTranslation("chatStatus");
+  const problemMessage = useProblemMessage();
   const [transport] = useState(
     () => new MemoryOsChatTransport(initial?.session, running, project?.id),
   );
@@ -180,7 +191,7 @@ function ChatConversation({
   }, [initial?.session, queryClient]);
   const model = useChatModelChoice(transport);
   const [connection, setConnection] = useState<ConnectionState>(running ? "recovering" : "ready");
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ErrorMessage | "unfinished" | "disconnected">();
   const [unavailable, setUnavailable] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -220,7 +231,7 @@ function ChatConversation({
       return values;
     },
   });
-  const [attachmentError, setAttachmentError] = useState<string>();
+  const [attachmentError, setAttachmentError] = useState<ErrorMessage>();
   const [attachmentAdapter] = useState(() => createChatAttachmentAdapter(setAttachmentError));
   useEffect(() => () => attachmentAdapter.cancelPending(), [attachmentAdapter]);
   const runtime = useChatRuntime({
@@ -235,8 +246,7 @@ function ChatConversation({
     isSendDisabled: connection !== "ready" || unavailable || checking,
     throttle: 50,
     onError: () => {
-      if (active.current)
-        setError("Câu trả lời chưa hoàn tất. Kiểm tra hội thoại đã lưu trước khi gửi tiếp.");
+      if (active.current) setError("unfinished");
     },
   });
   useEffect(() => {
@@ -253,7 +263,7 @@ function ChatConversation({
       setUnavailable(true);
       transport.disconnect();
       void queryClient.invalidateQueries({ queryKey: getCurrentIdentityQueryKey() });
-    } else setError("Kết nối bị gián đoạn. Kiểm tra hội thoại đã lưu trước khi gửi tiếp.");
+    } else setError("disconnected");
   }
 
   async function stop() {
@@ -286,7 +296,7 @@ function ChatConversation({
       await refresh();
     } catch (cause) {
       if (active.current) {
-        setError(chatActionError(cause));
+        setError(chatActionProblem(cause));
         setConnection("uncertain");
       }
       throw cause;
@@ -298,15 +308,15 @@ function ChatConversation({
 
   if (unavailable)
     return (
-      <AppShell pageTitle="Chat" chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
         <p role="alert" className="p-6">
-          Hội thoại không còn khả dụng.
+          {ui("Hội thoại không còn khả dụng.")}
         </p>
       </AppShell>
     );
   return (
     <AppShell
-      pageTitle={headerSession?.title ?? (project ? "Dự án" : "Chat")}
+      pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
       chatMode={!headerSession && !project ? "Chat" : undefined}
       headerActions={
         <ChatSessionSettings
@@ -425,7 +435,7 @@ function ChatConversation({
             />
             {(branches.isError || feedback.isError) && (
               <p role="alert" className="px-4 text-sm">
-                Không tải được phiên bản hoặc đánh giá.{" "}
+                {ui("Không tải được phiên bản hoặc đánh giá.")}{" "}
                 <Button
                   prominence="internal"
                   size="sm"
@@ -434,20 +444,20 @@ function ChatConversation({
                     void feedback.refetch();
                   }}
                 >
-                  Tải lại
+                  {ui("Tải lại")}
                 </Button>
               </p>
             )}
             {attachmentError && (
               <p role="alert" className="text-sm">
-                {attachmentError}
+                {problemMessage(attachmentError)}
                 <Button
                   type="button"
                   size="sm"
                   prominence="internal"
                   onClick={() => setAttachmentError(undefined)}
                 >
-                  Đóng
+                  {ui("Đóng")}
                 </Button>
               </p>
             )}
@@ -472,13 +482,17 @@ function ChatConversation({
               }
               modelNotice={
                 model.choice.fallback
-                  ? "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng."
+                  ? ui(
+                      "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng.",
+                    )
                   : undefined
               }
               connection={connection}
               stopping={stopping}
               onStop={() => void stop()}
-              error={error}
+              error={
+                error ? (typeof error === "string" ? t(error) : problemMessage(error)) : undefined
+              }
               onCheck={async () => {
                 setChecking(true);
                 setError(undefined);

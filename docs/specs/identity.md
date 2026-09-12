@@ -91,6 +91,19 @@ The frontend QueryClient fingerprints Actor, Tenant role, both capability sets a
 
 ## Persistence
 
+### Account interface language
+
+Account preference persistence uses Spring Data `JpaActorRepository`. A narrow `ActorRefresh` fragment reloads an already-managed Actor under a write lock before mutation; routine reads use `findById`. Authorization and transaction boundaries remain in `ActorLanguageService`.
+
+`actors.ui_language` is an account-owned preference (`vi`/`en`, default `vi`), not an IdP profile observation. GET `/api/identity/me` includes `uiLanguage`, including for authenticated actors without membership. PUT `/api/identity/me/language` accepts `{uiLanguage}` and returns the confirmed value; it requires current active membership and the existing unsafe-request guard. The principal selects the Actor; no actor identifier or administrative capability is accepted from the client. IAM locks membership before the Actor write. This preference never advances `authorizationVersion`.
+
+The web application exposes personal `/settings/general` through the account menu. Bundled i18next/react-i18next resources render Vietnamese/English with English fallback. The identity query remains authoritative, including focus refetch on other devices/tabs; i18next owns presentation only. The picker waits for persistence confirmation, reconciles lost responses through identity refetch, and rejects late results for another Actor. Locale is excluded from authorization fingerprints and never keys a React subtree. Transient background identity failure retains the mounted workspace with a retry notice; authentication/authorization failures remain fail-closed.
+
+Application localization is implemented in [MEM-74/MEM-22](../increments/active/mem-74-22-i18n-errors/plan.md). The canonical [localization contract](localization.md) defines covered surfaces, preserved user content and acceptance boundaries.
+
+User/invitation/group-edit failures consume the shared typed problem presenter and store safe message descriptors, translated at render time. Known capability codes keep specific messages; unknown codes use the common HTTP taxonomy without exposing server text. Invitation email errors link to the field; other validation failures remain a form summary. Confirmed actions keep failures in their dialog while recovery-link rotation uses its row, avoiding duplicate feedback. Users labels, dates and success notices follow the account locale.
+
+
 `JpaExternalIdentityRegistry` implements exact binding resolution and authorized registration through concrete IAM persistence. Registration atomically creates a `STANDARD` Actor and binding or returns the Actor already bound to that identity. Invitation acceptance uses the stable Actor lock to serialize competing membership grants. `JpaActorProfileRecorder` writes admitted profile observations. Lifecycle entities are not exported, and bounded projections/explicit authorization locks remain concrete JDBC repositories.
 
 V13 adds one optional latest-observation row per Actor in `actor_profiles`. `display_name` and `email` are nullable; `email_verified`, `observed_at` and exact `issuer`/`subject` provenance are required. A composite foreign key requires provenance to name an existing binding for the same Actor. Profile recording creates no Actor, membership or provider credential state. V14 adds Account Type and authorization revision and invalidates existing serialized Spring Sessions for the `ActorId` namespace cutover. V15 adds the protected Group/grant model and seeds existing memberships.

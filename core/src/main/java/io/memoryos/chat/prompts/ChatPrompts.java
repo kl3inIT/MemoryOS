@@ -2,6 +2,7 @@ package io.memoryos.chat.prompts;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 
@@ -61,6 +62,17 @@ public final class ChatPrompts {
     public static String resolve(String instructions, boolean searchEnabled, Instant now) {
         return instructions.replace("{{CURRENT_DATETIME}}", now.toString())
                 + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
+    }
+
+    /** Account hint, not a translated system prompt. Custom Persona instructions keep their precedence. */
+    public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage) {
+        String language = "vi".equals(uiLanguage)
+                ? "Prefer replying in Vietnamese. If the user explicitly requests another language, use that language."
+                : "Reply in the language the user writes in, unless they explicitly request another language.";
+        String base = instructions.startsWith(DEFAULT_SYSTEM)
+                ? instructions.replace("Reply in the language the user writes in, unless they explicitly request another language.", language)
+                : "# Account language preference\n" + language + "\n\n" + instructions;
+        return resolve(base, searchEnabled, now);
     }
 
     /** Per-inference reminders stay in the model request, not in the saved user transcript. */

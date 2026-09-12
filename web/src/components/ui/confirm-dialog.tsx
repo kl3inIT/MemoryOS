@@ -1,10 +1,13 @@
 import * as React from "react";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { useTranslation } from "react-i18next";
+import { useProblemMessage } from "@/lib/use-problem-message";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 import { AlertDialog } from "radix-ui";
 
 import { Button } from "@/components/ui/button";
 import type { ActionTone } from "@/components/ui/action-styles";
-
-const fallbackErrorMessage = "The action could not be completed. Try again.";
 
 type ConfirmDialogProps = {
   trigger?: React.ReactElement;
@@ -19,7 +22,7 @@ type ConfirmDialogProps = {
   pendingLabel: string;
   confirmTone?: ActionTone;
   onConfirm: () => Promise<void>;
-  errorMessage?: (error: unknown) => string;
+  errorMessage?: (error: unknown) => AppCopy | ErrorMessage;
 };
 
 function ConfirmDialog({
@@ -37,9 +40,12 @@ function ConfirmDialog({
   onConfirm,
   errorMessage,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation("common");
+  const ui = useAppTranslation();
+  const translateError = useProblemMessage();
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ message: AppCopy | ErrorMessage } | null>(null);
   const pendingRef = React.useRef(false);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const confirmedRef = React.useRef(false);
@@ -71,7 +77,7 @@ function ConfirmDialog({
       confirmedFocusTargetRef.current = successFocusRef?.current ?? null;
       publishOpen(false);
     } catch (cause) {
-      setError(errorMessage?.(cause) ?? fallbackErrorMessage);
+      setError({ message: errorMessage?.(cause) ?? { key: "actionFailed" } });
     } finally {
       pendingRef.current = false;
       setPending(false);
@@ -121,14 +127,16 @@ function ConfirmDialog({
               role="alert"
               className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
             >
-              {error}
+              {typeof error.message === "object" && "key" in error.message
+                ? translateError(error.message)
+                : ui(error.message)}
             </p>
           ) : null}
 
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <AlertDialog.Cancel asChild>
               <Button ref={cancelRef} prominence="secondary" disabled={pending}>
-                Cancel
+                {t("cancel")}
               </Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action asChild>

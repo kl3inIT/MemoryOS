@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -22,6 +23,8 @@ import { chatSessionsKey, newChatSession } from "./chat-api";
 import { ChatFilePicker } from "./chat-file-picker";
 
 export function ChatPersonasPage() {
+  const ui = useAppTranslation();
+
   const { actorId, authorizationVersion } = useApplicationSession();
   const cache = useQueryClient();
   const navigate = useNavigate();
@@ -47,53 +50,55 @@ export function ChatPersonasPage() {
     }
   }
   return (
-    <AppShell pageTitle="Trợ lý">
+    <AppShell pageTitle={ui("Trợ lý")}>
       <div className="mx-auto w-full max-w-5xl overflow-y-auto p-6">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Trợ lý</h1>
+            <h1 className="text-2xl font-semibold">{ui("Trợ lý")}</h1>
             <p className="mt-2 text-content-secondary">
-              Lưu hướng dẫn, câu hỏi gợi ý và nguồn tài liệu cho từng công việc.
+              {ui("Lưu hướng dẫn, câu hỏi gợi ý và nguồn tài liệu cho từng công việc.")}
             </p>
           </div>
-          <Button onClick={() => setEditor("new")}>Tạo trợ lý</Button>
+          <Button onClick={() => setEditor("new")}>{ui("Tạo trợ lý")}</Button>
         </div>
         {(error || list.isError) && (
           <p role="alert" className="mb-4">
-            {error ?? "Không tải được danh sách trợ lý."}{" "}
+            {ui(error ?? "Không tải được danh sách trợ lý.")}{" "}
             <Button prominence="internal" onClick={() => void list.refetch()}>
-              Tải lại
+              {ui("Tải lại")}
             </Button>
           </p>
         )}
-        {list.isPending && <p role="status">Đang tải trợ lý…</p>}
+        {list.isPending && <p role="status">{ui("Đang tải trợ lý…")}</p>}
         <div className="grid gap-4 sm:grid-cols-2">
           {list.data?.map((persona) => (
             <article key={persona.id} className="rounded-2xl border border-border-default p-5">
               <h2 className="text-lg font-medium">{persona.name}</h2>
               <p className="mt-1 text-xs text-content-muted">
-                {persona.builtin ? "Trợ lý mặc định" : "Chỉ mình tôi"}
+                {persona.builtin ? ui("Trợ lý mặc định") : ui("Chỉ mình tôi")}
               </p>
               <p className="mt-3 whitespace-pre-wrap text-sm text-content-secondary">
-                {persona.description || "Chưa có mô tả."}
+                {persona.description || ui("Chưa có mô tả.")}
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button size="sm" disabled={pending} onClick={() => void start(persona)}>
-                  Bắt đầu hội thoại
+                  {ui("Bắt đầu hội thoại")}
                 </Button>
                 <Button size="sm" prominence="secondary" onClick={() => setEditor(persona)}>
-                  {persona.editable ? "Chỉnh sửa" : "Xem cấu hình"}
+                  {persona.editable ? ui("Chỉnh sửa") : ui("Xem cấu hình")}
                 </Button>
                 {!persona.builtin && (
                   <ConfirmDialog
-                    pendingLabel="Đang lưu…"
-                    title="Xóa trợ lý?"
-                    description="Các hội thoại cũ vẫn được giữ. Hãy chọn trợ lý khác để tiếp tục trả lời."
-                    confirmLabel="Xóa trợ lý"
+                    pendingLabel={ui("Đang lưu…")}
+                    title={ui("Xóa trợ lý?")}
+                    description={ui(
+                      "Các hội thoại cũ vẫn được giữ. Hãy chọn trợ lý khác để tiếp tục trả lời.",
+                    )}
+                    confirmLabel={ui("Xóa trợ lý")}
                     errorMessage={chatActionError}
                     trigger={
                       <Button size="sm" prominence="internal">
-                        Xóa
+                        {ui("Xóa")}
                       </Button>
                     }
                     onConfirm={async () => {
@@ -125,6 +130,8 @@ export function ChatPersonasPage() {
 }
 
 function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () => void }) {
+  const ui = useAppTranslation();
+
   const cache = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [name, setName] = useState(persona?.name ?? "");
@@ -171,8 +178,10 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      title={persona ? persona.name : "Tạo trợ lý"}
-      description="Trợ lý riêng chỉ bạn sử dụng. Hướng dẫn của trợ lý riêng được ưu tiên hơn hướng dẫn dự án."
+      title={persona ? persona.name : ui("Tạo trợ lý")}
+      description={ui(
+        "Trợ lý riêng chỉ bạn sử dụng. Hướng dẫn của trợ lý riêng được ưu tiên hơn hướng dẫn dự án.",
+      )}
       onSubmit={
         editable && !starterError
           ? async () => {
@@ -210,15 +219,15 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
           : undefined
       }
     >
-      {starterError && <p role="alert">{starterError}</p>}
+      {starterError && <p role="alert">{ui(starterError)}</p>}
       <fieldset disabled={!editable} className="space-y-4">
         {!persona?.builtin && <ChatFilePicker selected={fileIds} onSelect={setFileIds} />}
         <label className="block space-y-1">
-          <span>Tên trợ lý</span>
+          <span>{ui("Tên trợ lý")}</span>
           <Input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="block space-y-1">
-          <span>Mô tả</span>
+          <span>{ui("Mô tả")}</span>
           <textarea
             className={chatField}
             maxLength={2000}
@@ -228,7 +237,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
           />
         </label>
         <label className="block space-y-1">
-          <span>Hướng dẫn</span>
+          <span>{ui("Hướng dẫn")}</span>
           <textarea
             className={chatField}
             maxLength={32000}
@@ -238,7 +247,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
           />
         </label>
         <label className="block space-y-1">
-          <span>Câu hỏi gợi ý</span>
+          <span>{ui("Câu hỏi gợi ý")}</span>
           <textarea
             className={chatField}
             rows={3}
@@ -246,7 +255,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
             onChange={(e) => setStarters(e.target.value)}
           />
           <span className="text-xs text-content-muted">
-            Mỗi dòng một câu. Tối đa 8 câu, mỗi câu 1.000 ký tự.
+            {ui("Mỗi dòng một câu. Tối đa 8 câu, mỗi câu 1.000 ký tự.")}
           </span>
         </label>
         <label className="flex items-center gap-2">
@@ -255,22 +264,22 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
             checked={searchEnabled}
             onChange={(e) => setSearch(e.target.checked)}
           />
-          Tìm kiếm tài liệu
+          {ui("Tìm kiếm tài liệu")}
         </label>
         <fieldset className="space-y-2">
-          <legend>Nguồn tài liệu</legend>
+          <legend>{ui("Nguồn tài liệu")}</legend>
           <p className="text-xs text-content-muted">
-            Không chọn nguồn: tìm trong tất cả nguồn bạn được phép đọc.
+            {ui("Không chọn nguồn: tìm trong tất cả nguồn bạn được phép đọc.")}
           </p>
           {sources.isError && (
             <p role="alert">
-              Không tải được nguồn.{" "}
+              {ui("Không tải được nguồn.")}{" "}
               <Button type="button" prominence="internal" onClick={() => void sources.refetch()}>
-                Tải lại
+                {ui("Tải lại")}
               </Button>
             </p>
           )}
-          {sources.isPending && <p role="status">Đang tải nguồn…</p>}
+          {sources.isPending && <p role="status">{ui("Đang tải nguồn…")}</p>}
           <div className="max-h-40 space-y-2 overflow-y-auto">
             {sources.data?.map((source) => (
               <label key={source.id} className="flex items-center gap-2">
@@ -299,14 +308,14 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
                     checked
                     onChange={() => setSources(sourceIds.filter((source) => source !== id))}
                   />
-                  Nguồn không còn khả dụng (đang giữ lựa chọn)
+                  {ui("Nguồn không còn khả dụng (đang giữ lựa chọn)")}
                 </label>
               ))}
         </fieldset>
         <label className="block space-y-1">
-          <span>Model mặc định</span>
+          <span>{ui("Model mặc định")}</span>
           <Select value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="">Tự động</option>
+            <option value="">{ui("Tự động")}</option>
             {models.data
               ?.filter((m) => m.id)
               .map((m) => (
@@ -315,24 +324,26 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
                 </option>
               ))}
             {model && !models.data?.some((m) => m.id === model) && (
-              <option value={model}>Model không còn khả dụng</option>
+              <option value={model}>{ui("Model không còn khả dụng")}</option>
             )}
           </Select>
         </label>
         {models.isError && (
           <p role="alert">
-            Không tải được model.{" "}
+            {ui("Không tải được model.")}{" "}
             <Button type="button" prominence="internal" onClick={() => void models.refetch()}>
-              Tải lại
+              {ui("Tải lại")}
             </Button>
           </p>
         )}
         <details>
-          <summary className="cursor-pointer">Giới hạn nâng cao</summary>
-          <p className="my-2 text-xs text-content-muted">Để trống để dùng giới hạn của model.</p>
+          <summary className="cursor-pointer">{ui("Giới hạn nâng cao")}</summary>
+          <p className="my-2 text-xs text-content-muted">
+            {ui("Để trống để dùng giới hạn của model.")}
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label>
-              Ngữ cảnh (token)
+              {ui("Ngữ cảnh (token)")}
               <Input
                 type="number"
                 min={256}
@@ -342,7 +353,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
               />
             </label>
             <label>
-              Câu trả lời (token)
+              {ui("Câu trả lời (token)")}
               <Input
                 type="number"
                 min={1}

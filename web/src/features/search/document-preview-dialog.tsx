@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { X } from "lucide-react";
 import type { RefObject } from "react";
 import { Dialog } from "radix-ui";
@@ -25,6 +26,8 @@ export function DocumentPreviewDialog({
   fallbackFocusRef,
   onClose,
 }: DocumentPreviewDialogProps) {
+  const ui = useAppTranslation();
+
   return (
     <Dialog.Root
       open
@@ -53,11 +56,11 @@ export function DocumentPreviewDialog({
                 {selection.title}
               </Dialog.Title>
               <Dialog.Description className="mt-1 font-secondary-body text-content-muted">
-                Extracted document text with the selected match highlighted.
+                {ui("Extracted document text with the selected match highlighted.")}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <Button prominence="secondary" size="sm" aria-label="Close document preview">
+              <Button prominence="secondary" size="sm" aria-label={ui("Close document preview")}>
                 <X className="size-4" aria-hidden="true" />
               </Button>
             </Dialog.Close>

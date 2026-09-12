@@ -94,7 +94,7 @@ describe("Source execution and current-file history", () => {
     expect(
       within(table).queryByRole("columnheader", { name: /New Docs|Total Docs/ }),
     ).not.toBeInTheDocument();
-    expect(cells[5]).toHaveTextContent("30s");
+    expect(cells[5]).toHaveTextContent("30 sec");
   });
 
   it("does not turn missing legacy counters into zero or infer a no-change success", () => {
@@ -158,7 +158,7 @@ describe("Source execution and current-file history", () => {
     expect(time).toHaveAttribute("dateTime", run.startedAt);
     expect(historyDuration(null, run.completedAt)).toBeNull();
     expect(historyDuration(run.completedAt, run.startedAt)).toBeNull();
-    expect(historyDuration(run.startedAt, run.completedAt)).toBe("30s");
+    expect(historyDuration(run.startedAt, run.completedAt)).toBe("30 sec");
   });
 });
 

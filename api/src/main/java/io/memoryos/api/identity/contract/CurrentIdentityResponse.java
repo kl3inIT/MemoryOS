@@ -40,7 +40,10 @@ public record CurrentIdentityResponse(
                 minimum = "0",
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
-        long authorizationVersion
+        long authorizationVersion,
+        @Schema(description = "Account interface language.", allowableValues = {"vi", "en"},
+                requiredMode = Schema.RequiredMode.REQUIRED)
+        String uiLanguage
 ) {
 
     public static CurrentIdentityResponse from(
@@ -48,14 +51,16 @@ public record CurrentIdentityResponse(
             @Nullable TenantMembership membership,
             Set<IamCapability> capabilities,
             Set<IamCapability> scopedCapabilities,
-            long authorizationVersion
+            long authorizationVersion,
+            String uiLanguage
     ) {
         return new CurrentIdentityResponse(
                 actorId,
                 membership == null ? null : CurrentTenantResponse.from(membership),
                 sorted(capabilities),
                 sorted(scopedCapabilities),
-                membership == null ? 0 : authorizationVersion
+                membership == null ? 0 : authorizationVersion,
+                uiLanguage
         );
     }
 

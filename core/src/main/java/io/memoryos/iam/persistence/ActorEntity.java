@@ -24,6 +24,20 @@ public class ActorEntity {
     @Column(name = "account_type", nullable = false, length = 16)
     private AccountType accountType;
 
+    @Column(name = "ui_language", nullable = false, length = 2)
+    private String uiLanguage = "vi";
+
+    public String getUiLanguage() {
+        return uiLanguage;
+    }
+
+    public void setUiLanguage(String uiLanguage) {
+        if (!"vi".equals(uiLanguage) && !"en".equals(uiLanguage)) {
+            throw new IllegalArgumentException("Unsupported UI language");
+        }
+        this.uiLanguage = uiLanguage;
+    }
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 

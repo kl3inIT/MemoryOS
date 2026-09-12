@@ -1,3 +1,7 @@
+import { uiLocale } from "@/i18n/format";
+import { appText } from "@/i18n/app-text";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Ellipsis, KeyRound, X } from "lucide-react";
@@ -49,6 +53,8 @@ export function CreateGoogleDriveSourcePage() {
 }
 
 function GoogleDriveSourceSetup() {
+  const ui = useAppTranslation();
+
   const { googleDrive, credentialId, step } = useSearch({
     from: "/_authenticated/admin/sources/new/google-drive",
   });
@@ -88,7 +94,7 @@ function GoogleDriveSourceSetup() {
   const [linksText, setLinksText] = useState("");
   const [scopeMode, setScopeMode] =
     useState<GetGoogleDriveConfigurationResponse["scopeMode"]>("SPECIFIC");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const [leaving, setLeaving] = useState(false);
   const submitting = useRef(false);
   const submittedProposal = useRef<CreateGoogleDriveSourceData["body"] | null>(null);
@@ -124,7 +130,9 @@ function GoogleDriveSourceSetup() {
       reportedCallback.current = callbackKey;
       notify({
         title: "Credential connection failed",
-        description: "Google authorization was not completed. You can try connecting again.",
+        description: appText(
+          "Google authorization was not completed. You can try connecting again.",
+        ),
         tone: "error",
       });
     } else if (
@@ -137,7 +145,9 @@ function GoogleDriveSourceSetup() {
       reportedCallback.current = callbackKey;
       notify({
         title: "Credential connected",
-        description: `${selected.name} is connected and ready to use with a Source.`,
+        description: appText("{{v1}} is connected and ready to use with a Source.", {
+          v1: selected.name,
+        }),
         tone: "success",
       });
     }
@@ -373,25 +383,25 @@ function GoogleDriveSourceSetup() {
 
   return (
     <SettingsLayout className="max-w-3xl">
-      <PageHeader icon={<GoogleDriveIcon />} title="Google Drive" />
+      <PageHeader icon={<GoogleDriveIcon />} title={ui("Google Drive")} />
       {googleDrive === "authorization-failed" ? (
         <p
           role="alert"
           className="rounded-lg bg-status-warning-surface px-4 py-3 text-sm text-status-warning-content"
         >
-          Google authorization was not completed. You can try connecting again.
+          {ui("Google authorization was not completed. You can try connecting again.")}
         </p>
       ) : googleDrive === "connected" && connected && !unavailable && step !== "connector" ? (
         <p role="status" className="text-sm text-content-secondary">
-          Authorization completed. Select the credential and continue to create a Source.
+          {ui("Authorization completed. Select the credential and continue to create a Source.")}
         </p>
       ) : null}
       {!canManage ? (
-        <p role="alert">You do not have permission to manage credentials and Sources.</p>
+        <p role="alert">{ui("You do not have permission to manage credentials and Sources.")}</p>
       ) : null}
       {error && !modalOpen ? (
         <p role="alert" className="text-sm text-status-danger-content">
-          {error}
+          {ui(error)}
         </p>
       ) : null}
       {tracking.operation && !createdSourceId ? (
@@ -400,28 +410,29 @@ function GoogleDriveSourceSetup() {
           className="space-y-2 rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm"
         >
           <StatusBadge tone={pendingValidation ? "info" : "warning"}>
-            {pendingValidation ? "Pending validation" : "Proposal not activated"}
+            {pendingValidation ? ui("Pending validation") : ui("Proposal not activated")}
           </StatusBadge>
           <p>
             {pendingValidation
-              ? "Google access and roots are being verified. Your Source is not active yet. Leaving this page does not cancel validation; return here to recover its status."
-              : "Review the error and edit the proposal before submitting again."}
+              ? ui(
+                  "Google access and roots are being verified. Your Source is not active yet. Leaving this page does not cancel validation; return here to recover its status.",
+                )
+              : ui("Review the error and edit the proposal before submitting again.")}
           </p>
           <p className="break-all text-xs text-content-muted">
-            Operation {tracking.operation.id} ·{" "}
-            {tracking.operation.status.toLowerCase().replaceAll("_", " ")}
+            {ui("Operation")} {tracking.operation.id} · {ui(statusLabel(tracking.operation.status))}
           </p>
         </div>
       ) : null}
-      {tracking.recovering ? <p role="status">Recovering your submitted Source…</p> : null}
+      {tracking.recovering ? <p role="status">{ui("Recovering your submitted Source…")}</p> : null}
       {!error && (tracking.recoveryError || tracking.statusUnavailable) ? (
         <p role="alert" className="text-sm text-status-danger-content">
-          Validation status is unavailable. This does not mean creation failed.
+          {ui("Validation status is unavailable. This does not mean creation failed.")}
         </p>
       ) : null}
       {tracking.recoveryError ? (
         <Button prominence="secondary" onClick={() => void tracking.retryRecovery()}>
-          Recover submitted Source
+          {ui("Recover submitted Source")}
         </Button>
       ) : null}
       {tracking.recoveryMissing ? (
@@ -432,29 +443,30 @@ function GoogleDriveSourceSetup() {
             setError(null);
           }}
         >
-          Discard unaccepted request and start again
+          {ui("Discard unaccepted request and start again")}
         </Button>
       ) : null}
       {tracking.statusUnavailable ? (
         <Button prominence="secondary" onClick={() => void tracking.retryStatus()}>
-          Retry validation status
+          {ui("Retry validation status")}
         </Button>
       ) : null}
       {tracking.uncertain && !busy ? (
         <p className="text-sm text-content-muted">
-          No receipt was received. Retry this unchanged proposal with the same request ID to avoid
-          duplicate Sources.
+          {ui(
+            "No receipt was received. Retry this unchanged proposal with the same request ID to avoid duplicate Sources.",
+          )}
         </p>
       ) : null}
       {policy.isError ? (
         <div className="space-y-2">
           {!error && !tracking.recoveryError && !tracking.statusUnavailable ? (
             <p role="alert" className="text-sm text-status-danger-content">
-              Selection limits could not be loaded. Creation is disabled.
+              {ui("Selection limits could not be loaded. Creation is disabled.")}
             </p>
           ) : null}
           <Button prominence="secondary" onClick={() => void policy.refetch()}>
-            Retry selection policy
+            {ui("Retry selection policy")}
           </Button>
         </div>
       ) : null}
@@ -466,21 +478,24 @@ function GoogleDriveSourceSetup() {
             void create();
           }}
         >
-          <h2 className="font-heading-h3">Configure connector</h2>
+          <h2 className="font-heading-h3">{ui("Configure connector")}</h2>
           <p className="break-words text-sm text-content-secondary">
-            Credential: {selected?.name ?? "Not selected"}
-            {selected ? ` (${selected.accountEmail})` : ""}. This creates a separate Source; other
-            Sources using this credential are unchanged.
+            {ui("Credential:")} {selected?.name ?? ui("Not selected")}
+            {selected ? ui(" ({{v1}})", { v1: selected.accountEmail }) : ""}
+            {ui(
+              ". This creates a separate Source; other Sources using this credential are unchanged.",
+            )}
           </p>
           {unavailable || !connected ? (
             <p role="alert" className="text-sm text-status-warning-content">
-              Select a connected credential before creating a Source. Return to credentials to
-              refresh or reconnect.
+              {ui(
+                "Select a connected credential before creating a Source. Return to credentials to refresh or reconnect.",
+              )}
             </p>
           ) : null}
           <div>
             <label htmlFor="google-drive-source-name" className="font-secondary-action">
-              Source name
+              {ui("Source name")}
             </label>
             <Input
               id="google-drive-source-name"
@@ -493,7 +508,7 @@ function GoogleDriveSourceSetup() {
                 setSourceName(event.target.value);
                 setError(null);
               }}
-              placeholder="e.g. Team documentation"
+              placeholder={ui("e.g. Team documentation")}
               autoComplete="off"
               className="mt-2"
             />
@@ -510,6 +525,8 @@ function GoogleDriveSourceSetup() {
               error || tracking.recoveryError || tracking.statusUnavailable || policy.isError
                 ? ""
                 : selectionError
+                  ? ui(selectionError)
+                  : null
             }
             value={linksText}
             disabled={
@@ -527,7 +544,7 @@ function GoogleDriveSourceSetup() {
               disabled={busy || frozenProposal}
               onClick={() => void navigate({ search: { credentialId } })}
             >
-              <ArrowLeft /> Credentials
+              <ArrowLeft /> {ui("Credentials")}
             </Button>
             <Button
               type="submit"
@@ -543,10 +560,10 @@ function GoogleDriveSourceSetup() {
               }
             >
               {createdSourceId
-                ? "Open created Source"
+                ? ui("Open created Source")
                 : tracking.uncertain
-                  ? "Retry Create Source"
-                  : "Create Source"}{" "}
+                  ? ui("Retry Create Source")
+                  : ui("Create Source")}{" "}
               <ArrowRight />
             </Button>
           </footer>
@@ -558,28 +575,28 @@ function GoogleDriveSourceSetup() {
             className="rounded-2xl border border-border-default bg-surface-base p-6"
           >
             <h2 id="credential-heading" className="pb-2 font-heading-h3 text-content-primary">
-              Select a credential
+              {ui("Select a credential")}
             </h2>
-            <p className="mb-4 text-sm text-content-secondary">Choose an account.</p>
+            <p className="mb-4 text-sm text-content-secondary">{ui("Choose an account.")}</p>
             <div>
               <table className="w-full table-fixed text-sm">
-                <caption className="sr-only">Google Drive credentials</caption>
+                <caption className="sr-only">{ui("Google Drive credentials")}</caption>
                 <thead className="hidden bg-surface-raised text-xs text-content-secondary sm:table-header-group">
                   <tr>
                     <th scope="col" className="w-12 py-3">
-                      <span className="sr-only">Select</span>
+                      <span className="sr-only">{ui("Select")}</span>
                     </th>
                     <th scope="col" className="w-[14%] px-2 py-3 text-left font-medium">
-                      ID
+                      {ui("ID")}
                     </th>
                     <th scope="col" className="px-2 py-3 text-left font-medium">
-                      Name
+                      {ui("Name")}
                     </th>
                     <th scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
-                      Created
+                      {ui("Created")}
                     </th>
                     <th scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
-                      Last Updated
+                      {ui("Last Updated")}
                     </th>
                   </tr>
                 </thead>
@@ -600,7 +617,7 @@ function GoogleDriveSourceSetup() {
                             <input
                               type="radio"
                               name="google-credential"
-                              aria-label={`Select ${credential.name}`}
+                              aria-label={ui("Select {{v1}}", { v1: credential.name })}
                               checked={credential.id === credentialId && ready}
                               disabled={!ready || unavailable || busy || frozenProposal}
                               onChange={() => {
@@ -612,7 +629,9 @@ function GoogleDriveSourceSetup() {
                           </label>
                         </td>
                         <td className="col-span-3 px-2 py-2 align-middle">
-                          <span className="mr-2 text-xs text-content-secondary sm:hidden">ID</span>
+                          <span className="mr-2 text-xs text-content-secondary sm:hidden">
+                            {ui("ID")}
+                          </span>
                           <span title={credential.id} className="font-mono text-xs">
                             {credential.id.slice(0, 8)}
                           </span>
@@ -633,18 +652,18 @@ function GoogleDriveSourceSetup() {
                                   <span className="mt-1 block">
                                     <StatusBadge tone="warning">
                                       {credential.status === "REVOKED"
-                                        ? "Revoked"
-                                        : "Needs reconnect"}
+                                        ? ui("Revoked")
+                                        : ui("Needs reconnect")}
                                     </StatusBadge>
                                   </span>
                                 ) : null}
                               </span>
                             </div>
                             <IconButton
-                              aria-label={`Manage ${credential.name}`}
+                              aria-label={ui("Manage {{v1}}", { v1: credential.name })}
                               aria-expanded={managedCredentialId === credential.id}
                               aria-controls={`credential-actions-${credential.id}`}
-                              title="Manage credential"
+                              title={ui("Manage credential")}
                               className="size-11"
                               onClick={() =>
                                 setManagedCredentialId(
@@ -657,15 +676,15 @@ function GoogleDriveSourceSetup() {
                           </div>
                         </td>
                         <td className="col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
-                          <span className="mb-1 block sm:hidden">Created</span>
+                          <span className="mb-1 block sm:hidden">{ui("Created")}</span>
                           <time dateTime={credential.createdAt}>
-                            {new Date(credential.createdAt).toLocaleDateString()}
+                            {new Date(credential.createdAt).toLocaleDateString(uiLocale())}
                           </time>
                         </td>
                         <td className="px-2 py-2 align-middle text-xs text-content-secondary">
-                          <span className="mb-1 block sm:hidden">Last Updated</span>
+                          <span className="mb-1 block sm:hidden">{ui("Last Updated")}</span>
                           <time dateTime={credential.updatedAt}>
-                            {new Date(credential.updatedAt).toLocaleDateString()}
+                            {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
                           </time>
                         </td>
                       </tr>
@@ -676,8 +695,8 @@ function GoogleDriveSourceSetup() {
                         >
                           <td colSpan={5} className="block px-2 py-3 sm:table-cell">
                             <p className="mb-2 text-sm text-content-secondary">
-                              Used by {credential.sourceCount}{" "}
-                              {credential.sourceCount === 1 ? "Source" : "Sources"}.
+                              {ui("Used by")} {credential.sourceCount}{" "}
+                              {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}.
                             </p>
                             <div className="flex flex-wrap gap-2">
                               <Button
@@ -688,7 +707,7 @@ function GoogleDriveSourceSetup() {
                                   editCredential(credential);
                                 }}
                               >
-                                Reconnect
+                                {ui("Reconnect")}
                               </Button>
                               {credential.status !== "REVOKED" ? (
                                 <ConfirmDialog
@@ -698,13 +717,16 @@ function GoogleDriveSourceSetup() {
                                       prominence="tertiary"
                                       disabled={unavailable || busy || frozenProposal}
                                     >
-                                      Revoke
+                                      {ui("Revoke")}
                                     </Button>
                                   }
-                                  title={`Revoke ${credential.name}?`}
-                                  description={`This stops synchronization for all ${credential.sourceCount} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.`}
-                                  confirmLabel="Revoke"
-                                  pendingLabel="Revoking"
+                                  title={ui("Revoke {{v1}}?", { v1: credential.name })}
+                                  description={ui(
+                                    "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
+                                    { v1: credential.sourceCount },
+                                  )}
+                                  confirmLabel={ui("Revoke")}
+                                  pendingLabel={ui("Revoking")}
                                   onConfirm={() => changeCredential(credential, "revoke")}
                                   errorMessage={(cause) =>
                                     sourceMutationError(cause, "google-drive")
@@ -724,17 +746,21 @@ function GoogleDriveSourceSetup() {
                                     }
                                     title={
                                       credential.sourceCount
-                                        ? "Delete all attached Sources before deleting this credential"
+                                        ? ui(
+                                            "Delete all attached Sources before deleting this credential",
+                                          )
                                         : undefined
                                     }
                                   >
-                                    Delete
+                                    {ui("Delete")}
                                   </Button>
                                 }
-                                title={`Delete ${credential.name}?`}
-                                description="Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted."
-                                confirmLabel="Delete credential"
-                                pendingLabel="Deleting"
+                                title={ui("Delete {{v1}}?", { v1: credential.name })}
+                                description={ui(
+                                  "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
+                                )}
+                                confirmLabel={ui("Delete credential")}
+                                pendingLabel={ui("Deleting")}
                                 onConfirm={() => changeCredential(credential, "delete")}
                                 errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
                               />
@@ -748,30 +774,31 @@ function GoogleDriveSourceSetup() {
               </table>
               {canManage && credentials.isPending ? (
                 <p role="status" className="mt-4 text-sm text-content-secondary">
-                  Loading credentials…
+                  {ui("Loading credentials…")}
                 </p>
               ) : credentials.isError ? (
                 <div className="mt-4 space-y-3">
                   <p role="alert" className="text-sm text-status-danger-content">
-                    Credentials could not be loaded. Refresh before making changes.
+                    {ui("Credentials could not be loaded. Refresh before making changes.")}
                   </p>
                   <Button
                     prominence="secondary"
                     pending={credentials.isFetching}
                     onClick={() => void credentials.refetch()}
                   >
-                    Try again
+                    {ui("Try again")}
                   </Button>
                 </div>
               ) : canManage && !credentials.data?.length ? (
                 <p className="mt-4 text-sm text-content-primary">
-                  No credentials exist for this connector!
+                  {ui("No credentials exist for this connector!")}
                 </p>
               ) : null}
               {credentialId && !selected && !unavailable ? (
                 <p role="alert" className="mt-4 text-sm text-status-warning-content">
-                  The selected credential is no longer available. Select another credential or
-                  create a new one.
+                  {ui(
+                    "The selected credential is no longer available. Select another credential or create a new one.",
+                  )}
                 </p>
               ) : null}
             </div>
@@ -783,7 +810,7 @@ function GoogleDriveSourceSetup() {
                 changeModal(true);
               }}
             >
-              Create New
+              {ui("Create New")}
             </Button>
           </section>
           <footer className="flex justify-end">
@@ -791,7 +818,7 @@ function GoogleDriveSourceSetup() {
               disabled={unavailable || busy || !connected}
               onClick={() => void navigate({ search: { credentialId, step: "connector" } })}
             >
-              Continue <ArrowRight />
+              {ui("Continue")} <ArrowRight />
             </Button>
           </footer>
         </>
@@ -817,13 +844,13 @@ function GoogleDriveSourceSetup() {
               <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
               <Dialog.Title className="min-w-0 flex-1 font-heading-h3">
                 {reconnecting
-                  ? "Reconnect a Google Drive credential"
-                  : "Create a Google Drive credential"}
+                  ? ui("Reconnect a Google Drive credential")
+                  : ui("Create a Google Drive credential")}
               </Dialog.Title>
               <Dialog.Close asChild>
                 <IconButton
                   prominence="tertiary"
-                  aria-label="Close credential dialog"
+                  aria-label={ui("Close credential dialog")}
                   disabled={busy}
                 >
                   <X />
@@ -838,12 +865,12 @@ function GoogleDriveSourceSetup() {
               }}
             >
               <div>
-                <h2 className="font-heading-h2">Google Drive Authentication</h2>
+                <h2 className="font-heading-h2">{ui("Google Drive Authentication")}</h2>
                 <Dialog.Description
                   id="credential-modal-description"
                   className="mt-2 text-sm text-content-secondary"
                 >
-                  Authenticate with OAuth to access your Google Drive documents.
+                  {ui("Authenticate with OAuth to access your Google Drive documents.")}
                 </Dialog.Description>
               </div>
               <div>
@@ -851,7 +878,7 @@ function GoogleDriveSourceSetup() {
                   htmlFor="google-drive-credential-name"
                   className="font-secondary-action text-content-primary"
                 >
-                  Credential name
+                  {ui("Credential name")}
                 </label>
                 <Input
                   id="google-drive-credential-name"
@@ -861,16 +888,17 @@ function GoogleDriveSourceSetup() {
                   disabled={busy}
                   readOnly={Boolean(reconnecting)}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="e.g. Team Google account"
+                  placeholder={ui("e.g. Team Google account")}
                   autoComplete="off"
                   className="mt-2"
                 />
               </div>
               {reconnecting ? (
                 <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  Reconnecting affects all {reconnecting.sourceCount} Sources using this credential,
-                  not just one Source. Use the same Google account. Saved links and indexed
-                  documents are retained.
+                  {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
+                  {ui(
+                    "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
+                  )}
                 </p>
               ) : null}
               {reconnecting?.oauthClientConfigured ? (
@@ -885,7 +913,7 @@ function GoogleDriveSourceSetup() {
                       setReplaceClient(event.target.checked);
                     }}
                   />
-                  Replace OAuth app on reconnect
+                  {ui("Replace OAuth app on reconnect")}
                 </label>
               ) : null}
               {needsClient ? (
@@ -896,24 +924,25 @@ function GoogleDriveSourceSetup() {
                 />
               ) : (
                 <p className="text-sm text-content-secondary">
-                  Reconnect reuses the OAuth app saved with this credential.
+                  {ui("Reconnect reuses the OAuth app saved with this credential.")}
                 </p>
               )}
               <p className="text-sm text-content-secondary">
-                Authorization saves a reusable credential, not a Source. Continue afterward to name
-                a Source and select its file and folder links.
+                {ui(
+                  "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
+                )}
               </p>
               {error ? (
                 <p
                   role="alert"
                   className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
                 >
-                  {error}
+                  {ui(error)}
                 </p>
               ) : null}
               {leaving ? (
                 <p role="status" className="text-sm text-content-secondary">
-                  Continuing to Google…
+                  {ui("Continuing to Google…")}
                 </p>
               ) : null}
               <Button
@@ -921,7 +950,7 @@ function GoogleDriveSourceSetup() {
                 pending={authorizing || leaving}
                 disabled={busy || unavailable || !name.trim() || (needsClient && !clientReady)}
               >
-                Authenticate
+                {ui("Authenticate")}
               </Button>
             </form>
           </Dialog.Content>
@@ -930,3 +959,4 @@ function GoogleDriveSourceSetup() {
     </SettingsLayout>
   );
 }
+import { statusLabel } from "@/i18n/status-copy";

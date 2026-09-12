@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   Check,
   Clock3,
@@ -32,6 +33,7 @@ const sourceStatusPresentation: Record<string, SourceStatusPresentation> = {
 };
 
 export function SourceStatusBadge({ status }: { status?: string }) {
+  const ui = useAppTranslation();
   const presentation = status
     ? (sourceStatusPresentation[status] ?? defaultStatusPresentation)
     : defaultStatusPresentation;
@@ -46,12 +48,14 @@ export function SourceStatusBadge({ status }: { status?: string }) {
         className={`size-3 ${status === "INDEXING" ? "animate-spin motion-reduce:animate-none" : ""}`}
         aria-hidden="true"
       />
-      {presentation.label}
+      {ui(presentation.label)}
     </StatusBadge>
   );
 }
 
 export function SourceAccessBadge({ access }: { access: SourceSummary["access"] }) {
+  const ui = useAppTranslation();
+
   const workspaceAccess = access === "PUBLIC";
   const AccessIcon = workspaceAccess ? UsersRound : Lock;
 
@@ -61,12 +65,12 @@ export function SourceAccessBadge({ access }: { access: SourceSummary["access"] 
       className="gap-1.5"
       title={
         workspaceAccess
-          ? "Available to workspace members, not the public Internet."
-          : "Restricted source access."
+          ? ui("Available to workspace members, not the public Internet.")
+          : ui("Restricted source access.")
       }
     >
       <AccessIcon className="size-3 shrink-0" aria-hidden="true" />
-      {workspaceAccess ? "Workspace members" : "Restricted"}
+      {workspaceAccess ? ui("Workspace members") : ui("Restricted")}
     </StatusBadge>
   );
 }

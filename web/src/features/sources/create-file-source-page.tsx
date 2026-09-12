@@ -1,3 +1,6 @@
+import { appText } from "@/i18n/app-text";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, FileText, Upload, X } from "lucide-react";
@@ -21,6 +24,8 @@ import { SourceSetupSteps } from "./source-setup-steps";
 import { SourceGroupPicker } from "./source-group-picker";
 
 export function CreateFileSourcePage() {
+  const ui = useAppTranslation();
+
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: "/admin/sources/new/file" });
   const notify = useActionNotifications();
@@ -34,7 +39,7 @@ export function CreateFileSourcePage() {
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [uploadAccepted, setUploadAccepted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const [phase, setPhase] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -135,7 +140,10 @@ export function CreateFileSourcePage() {
       controller.signal.throwIfAborted();
       notify({
         title: "Source created; upload accepted",
-        description: `${sourceName.trim()} was created. ${receipt.filename} was accepted for indexing; indexing is not complete yet.`,
+        description: appText(
+          "{{v1}} was created. {{v2}} was accepted for indexing; indexing is not complete yet.",
+          { v1: sourceName.trim(), v2: receipt.filename },
+        ),
         tone: "info",
         surviveNavigation: true,
       });
@@ -159,7 +167,7 @@ export function CreateFileSourcePage() {
             : targetId
               ? "Source created; upload needs attention"
               : "Source creation failed",
-          description: `${sourceName.trim()}: ${message}`,
+          description: appText("{{v1}}: {{v2}}", { v1: sourceName.trim(), v2: appText(message) }),
           tone: "error",
         });
       }
@@ -174,13 +182,13 @@ export function CreateFileSourcePage() {
       <Button asChild prominence="tertiary" disabled={busy}>
         <Link to="/admin/sources/new">
           <ArrowLeft />
-          Exit setup
+          {ui("Exit setup")}
         </Link>
       </Button>
       <PageHeader
         icon={<FileText />}
-        title="Add file source"
-        description="Upload a document to start indexing."
+        title={ui("Add file source")}
+        description={ui("Upload a document to start indexing.")}
       />
       <div className="flex min-w-0 flex-col gap-8 md:flex-row">
         <SourceSetupSteps current={0} steps={[{ label: "Upload file" }]} />
@@ -196,7 +204,7 @@ export function CreateFileSourcePage() {
               htmlFor="file-source-name"
               className="font-secondary-action text-content-primary"
             >
-              Source name
+              {ui("Source name")}
             </label>
             <Input
               id="file-source-name"
@@ -204,7 +212,7 @@ export function CreateFileSourcePage() {
               maxLength={120}
               disabled={busy || Boolean(sourceId)}
               onChange={(event) => setSourceName(event.target.value)}
-              placeholder="e.g. Product documentation"
+              placeholder={ui("e.g. Product documentation")}
               className="mt-2"
             />
           </div>
@@ -217,14 +225,14 @@ export function CreateFileSourcePage() {
               <span className="flex items-center justify-between gap-3">
                 <span>
                   <span className="block font-secondary-action text-content-primary">
-                    Access groups
+                    {ui("Access groups")}
                   </span>
                   <span className="mt-0.5 block font-secondary-body text-content-muted">
-                    Optional · defaults to the protected Admin group
+                    {ui("Optional · defaults to the protected Admin group")}
                   </span>
                 </span>
                 <span className="font-secondary-body tabular-nums text-content-muted">
-                  {groupIds.size > 0 ? `${groupIds.size} selected` : "Default"}
+                  {groupIds.size > 0 ? ui("{{v1}} selected", { v1: groupIds.size }) : ui("Default")}
                 </span>
               </span>
             </summary>
@@ -236,14 +244,15 @@ export function CreateFileSourcePage() {
                   onChange={setGroupIds}
                 />
                 <p className="mt-3 font-secondary-body text-content-muted">
-                  Leave the selection empty to associate the new Source with the protected Admin
-                  group.
+                  {ui(
+                    "Leave the selection empty to associate the new Source with the protected Admin group.",
+                  )}
                 </p>
               </div>
             ) : null}
           </details>
           <div>
-            <span className="font-secondary-action text-content-primary">File</span>
+            <span className="font-secondary-action text-content-primary">{ui("File")}</span>
             <div
               className={`relative mt-2 rounded-lg border border-dashed px-4 py-10 text-center transition-colors ${dragging ? "border-content-primary bg-surface-subtle" : "border-border-default bg-surface-sunken"}`}
               onDragOver={(event) => {
@@ -258,7 +267,9 @@ export function CreateFileSourcePage() {
               }}
             >
               <Upload className="mx-auto mb-3 size-6 text-content-muted" aria-hidden="true" />
-              <p className="font-main-ui-body text-content-primary">Drag and drop your file here</p>
+              <p className="font-main-ui-body text-content-primary">
+                {ui("Drag and drop your file here")}
+              </p>
               <Button
                 type="button"
                 prominence="secondary"
@@ -266,14 +277,14 @@ export function CreateFileSourcePage() {
                 disabled={busy || Boolean(pendingFinalize) || uploadAccepted}
                 onClick={() => picker.current?.click()}
               >
-                Choose file
+                {ui("Choose file")}
               </Button>
               <input
                 ref={picker}
                 type="file"
                 className="sr-only"
                 tabIndex={-1}
-                aria-label="Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file"
+                aria-label={ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file")}
                 accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md"
                 disabled={busy || Boolean(pendingFinalize) || uploadAccepted}
                 onChange={(event) => {
@@ -282,7 +293,7 @@ export function CreateFileSourcePage() {
                 }}
               />
               <p className="mt-3 font-secondary-body text-content-muted">
-                PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB
+                {ui("PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB")}
               </p>
             </div>
             {file ? (
@@ -293,14 +304,16 @@ export function CreateFileSourcePage() {
                     {file.name}
                   </p>
                   <p className="font-secondary-body text-content-muted">
-                    {file.size < 1024 ? `${file.size} B` : `${(file.size / 1024).toFixed(1)} KiB`}
+                    {file.size < 1024
+                      ? ui("{{v1}} B", { v1: file.size })
+                      : ui("{{v1}} KiB", { v1: (file.size / 1024).toFixed(1) })}
                   </p>
                 </div>
                 <Button
                   type="button"
                   prominence="tertiary"
                   size="sm"
-                  aria-label="Remove selected file"
+                  aria-label={ui("Remove selected file")}
                   disabled={busy || Boolean(pendingFinalize) || uploadAccepted}
                   onClick={() => {
                     setFile(null);
@@ -313,30 +326,32 @@ export function CreateFileSourcePage() {
             ) : null}
           </div>
           <p className="font-secondary-body text-content-muted">
-            Source management visibility follows the selected group associations.
+            {ui("Source management visibility follows the selected group associations.")}
           </p>
           {error ? (
             <p
               role="alert"
               className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
             >
-              {error}
+              {ui(error)}
             </p>
           ) : null}
           {ownPending && !busy ? (
             <p role="status" className="font-secondary-body text-content-secondary">
-              The file reached object storage; retry finalization without uploading it again.
+              {ui(
+                "The file reached object storage; retry finalization without uploading it again.",
+              )}
             </p>
           ) : null}
           {blocked && pendingFinalize ? (
             <p className="font-secondary-body text-content-secondary">
-              Finish your pending upload first.{" "}
+              {ui("Finish your pending upload first.")}{" "}
               <Link
                 to="/admin/sources/$sourceId"
                 params={{ sourceId: pendingFinalize.sourceId }}
                 className="underline"
               >
-                Return to pending upload
+                {ui("Return to pending upload")}
               </Link>
             </p>
           ) : null}
@@ -346,15 +361,15 @@ export function CreateFileSourcePage() {
               aria-live="polite"
               className="font-secondary-body text-content-secondary"
             >
-              {phase}
-              {phase === "Uploading file…" ? ` ${progress}%` : ""}
+              {phase ? ui(phase) : null}
+              {phase === "Uploading file…" ? ui(" {{v1}}%", { v1: progress }) : ""}
             </div>
           ) : null}
           <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-5">
             {sourceId ? (
               <Button asChild prominence="secondary" disabled={busy}>
                 <Link to="/admin/sources/$sourceId" params={{ sourceId }}>
-                  View source
+                  {ui("View source")}
                 </Link>
               </Button>
             ) : null}
@@ -365,12 +380,12 @@ export function CreateFileSourcePage() {
             >
               <Upload />
               {uploadAccepted
-                ? "Open created Source"
+                ? ui("Open created Source")
                 : ownPending
-                  ? "Retry finalization"
+                  ? ui("Retry finalization")
                   : sourceId
-                    ? "Retry upload"
-                    : "Upload and create"}
+                    ? ui("Retry upload")
+                    : ui("Upload and create")}
             </Button>
           </footer>
         </form>

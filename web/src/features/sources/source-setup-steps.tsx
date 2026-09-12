@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -8,8 +9,10 @@ export function SourceSetupSteps({
   steps: readonly { label: string; complete?: boolean }[];
   current: number;
 }) {
+  const ui = useAppTranslation();
+
   return (
-    <nav aria-label="Source setup" className="shrink-0 md:w-44">
+    <nav aria-label={ui("Source setup")} className="shrink-0 md:w-44">
       <ol className="flex gap-2 md:flex-col md:gap-0">
         {steps.map((step, index) => (
           <li
@@ -39,7 +42,7 @@ export function SourceSetupSteps({
               >
                 {step.complete ? <Check className="size-3" aria-hidden="true" /> : index + 1}
               </span>
-              <span>{step.label}</span>
+              <span>{ui(step.label)}</span>
             </div>
           </li>
         ))}

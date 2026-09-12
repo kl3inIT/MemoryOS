@@ -333,6 +333,12 @@ public class JdbcChatRepository {
     public boolean finish(UUID session, UUID assistant, Status status, String content,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources) {
+        return finish(session, assistant, status, content, failure, model, input, output, cost, sources, List.of());
+    }
+
+    public boolean finish(UUID session, UUID assistant, Status status, String content,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts) {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
                 .query(UUID.class).optional().isEmpty()) return false;
@@ -341,13 +347,13 @@ public class JdbcChatRepository {
                             status = CASE WHEN deadline_at <= clock_timestamp() THEN 'FAILED' ELSE :status END,
                             failure_code = CASE WHEN deadline_at <= clock_timestamp() THEN 'CHAT_DEADLINE' ELSE :failure END,
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
-                            cost_usd = :cost, sources = CAST(:sources AS jsonb), finished_at = clock_timestamp()
+                            cost_usd = :cost, sources = CAST(:sources AS jsonb), artifacts = CAST(:artifacts AS jsonb), finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
                         """).param("session", session).param("id", assistant).param("status", status.name())
                 .param("content", content).param("failure", failure, Types.VARCHAR)
                 .param("model", model, Types.VARCHAR).param("input", input, Types.BIGINT)
                 .param("output", output, Types.BIGINT).param("cost", cost, Types.DOUBLE)
-                .param("sources", JSON.writeValueAsString(sources)).update();
+                .param("sources", JSON.writeValueAsString(sources)).param("artifacts", JSON.writeValueAsString(artifacts)).update();
         if (changed == 1) touch(session);
         return changed == 1;
     }
@@ -377,6 +383,7 @@ public class JdbcChatRepository {
                 Role.valueOf(row.getString("role")), row.getString("content"), Status.valueOf(row.getString("status")),
                 row.getTimestamp("created_at").toInstant(), finished == null ? null : finished.toInstant(),
                 List.of(JSON.readValue(row.getString("sources"), ChatSource[].class)),
-                List.of(JSON.readValue(row.getString("files"), ChatFileDescriptor[].class)));
+                List.of(JSON.readValue(row.getString("files"), ChatFileDescriptor[].class)),
+                List.of(JSON.readValue(row.getString("artifacts"), io.memoryos.chat.ChatArtifact[].class)));
     }
 }

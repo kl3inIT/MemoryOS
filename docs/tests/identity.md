@@ -1,5 +1,20 @@
 # Identity verification matrix
 
+## Account language (MEM-74 / MEM-22 foundation)
+
+- `BearerAuthenticationIntegrationTest.accountLanguagePersistsAndNeverChangesAuthorizationRevisionOrAnotherActor`: real HTTP + isolated PostgreSQL, idempotent language saves, authoritative reads, unchanged capabilities/revision and separate Actor isolation.
+- `languageWriteRequiresAuthenticationActiveMembershipGuardAndValidValue`: anonymous/inactive denial, same-origin guard and stable invalid/required field codes.
+- `ActorLanguageServiceTest`: current membership lock precedes preference writes; no admin permission dependency; invalid values never reach persistence.
+- `JpaActorProfileRecorderTest.recordsLatestTruthfulProfileWithExactBindingProvenance`: default Vietnamese, DB rejects unsupported values, subsequent IdP observations preserve the saved preference.
+- `JpaActorProfileRecorderTest.refreshFragmentReloadsAnAlreadyManagedActorUnderWriteLock`: the real Spring Data proxy composes the refresh fragment, reloads stale managed state under `PESSIMISTIC_WRITE`, and commits the subsequent preference change.
+- `general-settings-page.test.tsx`: member settings, confirmation-before-display, guarded request, lost-response reconciliation and late-response Actor isolation.
+- `application-session-boundary.test.tsx`: locale change preserves the same input node/draft/private cache; transient background failure preserves mounted data; existing authorization-revocation cases remain.
+- `catalog.test.ts` and `problem-presentation.test.ts`: key/placeholder parity, both languages, status/placement/recovery classification, safe validation metadata and no raw diagnostic rendering.
+- `user-action-errors.test.ts`, `users-table.test.tsx`, `confirm-dialog.test.tsx`: feature code mapping, email validation versus unknown-field summary, existing error retranslation without replacing the row/dialog, and no implicit mutation retry.
+
+These identity checks do not establish live model-language behavior. Full-app catalog/browser coverage is documented in [localization verification](localization.md) and the active increment's verification record.
+
+
 | Requirement | Durable verification |
 | --- | --- |
 | Unified `io.memoryos.iam` lifecycle writes use JPA and one transaction; bootstrap and invitation acceptance roll back Actor, binding, Tenant membership, Group membership, and grant changes together | `DefaultInitialTenantBootstrapperTest.createsTheExactInitialIamAggregateAndReplaysTheSameConfiguration`, `rollsBackMixedJpaWritesWhenGroupProvisioningFails`; `DefaultInvitationServiceTest.acceptsVerifiedIdentityAtomicallyAndAddsOnlyBasicMembership`, `rollsBackActorBindingMembershipAndGroupEdgeWhenBasicProvisioningFails` |

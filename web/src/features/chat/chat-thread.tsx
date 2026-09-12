@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   ActionBarPrimitive,
   AuiIf,
@@ -9,6 +10,9 @@ import {
 } from "@assistant-ui/react";
 import { ArrowDown, ArrowUp, Copy, Square } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { ErrorState } from "@/components/assistant-ui/elements/error-state";
+import { ConnectionState as ConnectionNotice } from "@/components/assistant-ui/elements/connection-state";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import {
   ChatMarkdownLink,
@@ -19,7 +23,6 @@ import {
 } from "./chat-sources";
 import { remarkCitations } from "./chat-evidence";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
@@ -31,6 +34,7 @@ import {
 } from "./chat-attachments";
 import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
+import { ChatArtifactCards } from "./chat-artifact-view";
 
 export function ChatThread({
   modelPicker,
@@ -59,6 +63,9 @@ export function ChatThread({
   afterComposer?: ReactNode;
   readOnly?: boolean;
 }) {
+  const ui = useAppTranslation();
+
+  const { t } = useTranslation("chatStatus");
   const isEmpty = useAuiState((state) => state.thread.isEmpty);
   return (
     <ChatSourcesWorkspace>
@@ -77,7 +84,7 @@ export function ChatThread({
             <div className="mx-auto mb-8 w-full max-w-(--thread-max-width) text-center">
               {welcome ?? (
                 <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-                  Bạn muốn tìm hiểu điều gì?
+                  {ui("Bạn muốn tìm hiểu điều gì?")}
                 </h1>
               )}
               {!welcome && starters}
@@ -104,7 +111,7 @@ export function ChatThread({
               <div className="absolute -top-11 left-1/2 -translate-x-1/2">
                 <ThreadPrimitive.ScrollToBottom asChild>
                   <IconButton
-                    aria-label="Đến tin nhắn mới nhất"
+                    aria-label={ui("Đến tin nhắn mới nhất")}
                     prominence="secondary"
                     className="disabled:hidden"
                   >
@@ -117,40 +124,30 @@ export function ChatThread({
                   {modelNotice}
                 </p>
               )}
-              {connection === "recovering" && (
-                <p role="status" className="mb-2 font-secondary-body text-content-secondary">
-                  Đang kết nối lại câu trả lời…
-                </p>
+              {connection === "recovering" && !error && (
+                <ConnectionNotice className="mb-2" label={t("reconnecting")} />
               )}
               {connection === "uncertain" || error ? (
-                <div
-                  role="alert"
-                  className="mb-3 flex flex-wrap items-center gap-2 font-secondary-body text-content-secondary"
-                >
-                  <span>{error ?? "Chưa xác nhận được trạng thái câu trả lời."}</span>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    pending={checking}
-                    onClick={() => void onCheck()}
-                  >
-                    Kiểm tra hội thoại
-                  </Button>
-                </div>
+                <ErrorState
+                  className="mb-3"
+                  title={t("unconfirmed")}
+                  detail={error ?? t("checkBeforeSending")}
+                  action={{ label: t("check"), pending: checking, onClick: () => void onCheck() }}
+                />
               ) : null}
               <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
                 <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
+                  <ComposerAttachments />
                   <ComposerPrimitive.Input
-                    aria-label="Câu hỏi"
-                    placeholder="Nhập câu hỏi…"
+                    aria-label={ui("Câu hỏi")}
+                    placeholder={ui("Nhập câu hỏi…")}
                     rows={1}
                     maxLength={32000}
                     className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
                   />
-                  <ComposerAttachments />
                   <AuiIf condition={(state) => state.composer.attachments.length > 20}>
                     <p role="alert" className="text-sm">
-                      Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.
+                      {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
                     </p>
                   </AuiIf>
                   <div
@@ -163,14 +160,14 @@ export function ChatThread({
                     </div>
                     <AuiIf condition={(state) => !state.thread.isRunning}>
                       <ChatComposerSend asChild>
-                        <IconButton aria-label="Gửi câu hỏi" prominence="primary">
+                        <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
                           <ArrowUp />
                         </IconButton>
                       </ChatComposerSend>
                     </AuiIf>
                     <AuiIf condition={(state) => state.thread.isRunning}>
                       <IconButton
-                        aria-label={stopping ? "Đang yêu cầu dừng" : "Dừng trả lời"}
+                        aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
                         prominence="secondary"
                         disabled={stopping}
                         onClick={onStop}
@@ -208,6 +205,8 @@ function UserMessage({ readOnly }: { readOnly: boolean }) {
 }
 
 function AssistantMessage({ readOnly }: { readOnly: boolean }) {
+  const ui = useAppTranslation();
+
   const serverStatus = useAuiState((state) => state.message.metadata.custom.serverStatus);
   const canceled = useAuiState(
     (state) =>
@@ -218,12 +217,13 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
       <ChatSourcesProvider>
         <ChatSearchStatus />
         <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
+        <ChatArtifactCards />
         {(serverStatus === "CANCELED" || canceled) && (
-          <p className="mt-2 font-secondary-body text-content-muted">Đã dừng</p>
+          <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
         )}
         {serverStatus === "FAILED" && (
           <p role="status" className="mt-2 font-secondary-body text-content-secondary">
-            Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.
+            {ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")}
           </p>
         )}
         <ActionBarPrimitive.Root className="mt-3 flex flex-wrap items-center gap-1">
@@ -236,8 +236,8 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
           >
             <ActionBarPrimitive.Copy asChild>
               <IconButton
-                aria-label="Sao chép câu trả lời"
-                title="Sao chép câu trả lời"
+                aria-label={ui("Sao chép câu trả lời")}
+                title={ui("Sao chép câu trả lời")}
                 prominence="internal"
                 size="sm"
               >

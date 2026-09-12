@@ -1,5 +1,8 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Copy, Link2 } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
+import { useProblemMessage } from "@/lib/use-problem-message";
+import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +29,12 @@ export function InvitationDialog({
   onOpenChange,
   onCreate,
 }: InvitationDialogProps) {
+  const ui = useAppTranslation();
+
+  const errorMessage = useProblemMessage();
   const [inviteeEmail, setInviteeEmail] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<ErrorMessage | null>(null);
+  const [emailInvalid, setEmailInvalid] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const creationInFlight = useRef(false);
 
@@ -51,6 +58,7 @@ export function InvitationDialog({
       await onCreate(email);
       setInviteeEmail("");
     } catch (error) {
+      setEmailInvalid(Boolean(presentProblem(error, "mutation").fields.email));
       setFormError(invitationError(error));
     } finally {
       creationInFlight.current = false;
@@ -67,7 +75,7 @@ export function InvitationDialog({
       setFormError(null);
     } catch {
       setLinkCopied(false);
-      setFormError("The invitation link could not be copied. Select and copy it from the field.");
+      setFormError({ key: "copyInvitation" });
     }
   }
 
@@ -99,28 +107,30 @@ export function InvitationDialog({
             }}
           >
             <Dialog.Title className="font-heading-h3 text-content-primary">
-              {issuedInvitation ? issuedTitle(issuedInvitation) : "Invite a member"}
+              {issuedInvitation ? ui(issuedTitle(issuedInvitation)) : ui("Invite a member")}
             </Dialog.Title>
             <Dialog.Description className="mt-2 max-w-md font-main-ui-body text-content-secondary">
               {issuedInvitation
-                ? issuedDescription(issuedInvitation)
-                : "Invite someone to join this Tenant as a member."}
+                ? ui(issuedDescription(issuedInvitation))
+                : ui("Invite someone to join this Tenant as a member.")}
             </Dialog.Description>
 
             {issuedInvitation ? (
               <div className="mt-6">
                 <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
                   <p className="font-secondary-action text-content-primary">
-                    One-time recovery link
+                    {ui("One-time recovery link")}
                   </p>
                   <p className="mt-1 font-secondary-body text-content-muted">
-                    Copy this link now. MemoryOS cannot show it again after this dialog closes.
+                    {ui(
+                      "Copy this link now. MemoryOS cannot show it again after this dialog closes.",
+                    )}
                   </p>
                   <label
                     htmlFor="issued-invitation-link"
                     className="mt-4 block font-secondary-action text-content-secondary"
                   >
-                    Secure invitation link
+                    {ui("Secure invitation link")}
                   </label>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Input
@@ -135,25 +145,27 @@ export function InvitationDialog({
                     />
                     <Button type="button" onClick={() => void copyInvitationLink()}>
                       {linkCopied ? <Link2 /> : <Copy />}
-                      {linkCopied ? "Copied" : "Copy"}
+                      {linkCopied ? ui("Copied") : ui("Copy")}
                     </Button>
                   </div>
                 </div>
                 <p className="mt-3 font-secondary-body text-content-muted">
-                  Expires {formatInvitationDate(issuedInvitation.invitation.expiresAt)}.
+                  {ui("Expires")} {formatInvitationDate(issuedInvitation.invitation.expiresAt)}.
                 </p>
               </div>
             ) : (
               <label className="mt-6 grid gap-2 font-secondary-action text-content-secondary">
-                Email address
+                {ui("Email address")}
                 <Input
                   type="email"
                   autoComplete="email"
                   required
                   maxLength={254}
                   value={inviteeEmail}
+                  aria-invalid={emailInvalid && formError !== null}
+                  aria-describedby={emailInvalid && formError ? "invitation-form-error" : undefined}
                   onChange={(event) => setInviteeEmail(event.target.value)}
-                  placeholder="name@company.com"
+                  placeholder={ui("name@company.com")}
                   size="lg"
                 />
               </label>
@@ -161,14 +173,15 @@ export function InvitationDialog({
 
             {formError ? (
               <p
+                id="invitation-form-error"
                 role="alert"
                 className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
               >
-                {formError}
+                {errorMessage(formError)}
               </p>
             ) : linkCopied ? (
               <p role="status" className="mt-4 font-secondary-body text-status-success-content">
-                Recovery link copied.
+                {ui("Recovery link copied.")}
               </p>
             ) : null}
 
@@ -179,11 +192,11 @@ export function InvitationDialog({
                 onClick={() => changeOpen(false)}
                 disabled={pending}
               >
-                {issuedInvitation ? "Done" : "Cancel"}
+                {issuedInvitation ? ui("Done") : ui("Cancel")}
               </Button>
               {!issuedInvitation ? (
                 <Button type="submit" pending={pending} disabled={!inviteeEmail.trim() || pending}>
-                  {pending ? "Sending invitation…" : "Send invitation"}
+                  {pending ? ui("Sending invitation…") : ui("Send invitation")}
                 </Button>
               ) : null}
             </div>
