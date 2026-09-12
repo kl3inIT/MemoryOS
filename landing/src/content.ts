@@ -1,5 +1,6 @@
 import genaiFundLogo from "@/assets/logos/genai-fund.png";
 import tascoLogo from "@/assets/logos/tasco.png";
+import vadanLogo from "@/assets/logos/vadan.png";
 
 /*
  * Every string a reader or a screen reader meets on the page. Illustrations hidden from assistive
@@ -340,15 +341,14 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
   ],
 };
 
-const footer: SectionIntro & {
-  action: string;
-  organization: string;
-} = {
+// The company behind MemoryOS, named beside the product in the header and in the footer.
+const organization = { name: "Vadan", logo: vadanLogo } as const;
+
+const footer: SectionIntro & { action: string } = {
   title: "Bring MemoryOS to your company",
   description:
     "Tell us about your systems, identity provider and first use cases, and we will scope a deployment together.",
   action: "Email info@vadan.app",
-  organization: "Vadan",
 };
 
 export {
@@ -361,6 +361,7 @@ export {
   hero,
   howItWorks,
   navigation,
+  organization,
   product,
   productPreview,
   trustSignals,
