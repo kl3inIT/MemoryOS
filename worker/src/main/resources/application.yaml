@@ -119,6 +119,10 @@ memoryos:
       stream: memoryos:execution:selection-validation:operations:v1
       group: memoryos:execution:selection-validation:workers:v1
       batch-size: ${MEMORYOS_WORKER_SELECTION_VALIDATION_BATCH_SIZE:2}
+    user-file:
+      stream: memoryos:execution:user-file:operations:v1
+      group: memoryos:execution:user-file:workers:v1
+      batch-size: ${MEMORYOS_WORKER_USER_FILE_BATCH_SIZE:1}
     search:
       stream: memoryos:execution:search:operations:v1
       group: memoryos:execution:search:workers:v1

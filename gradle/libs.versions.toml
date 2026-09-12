@@ -7,6 +7,7 @@ archunit = "1.5.0"
 springdoc = "3.1.0"
 keycloak-admin-client = "26.0.12"
 tika = "4.0.0"
+imageio = "3.15.0"
 arconia = "0.30.0"
 db-scheduler = "16.12.0"
 aws-sdk = "2.54.11"
@@ -31,6 +32,7 @@ docling-client = { module = "ai.docling:docling-serve-client", version.ref = "do
 otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.31.1-alpha" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 micrometer-core = { module = "io.micrometer:micrometer-core" }
+micrometer-context = { module = "io.micrometer:context-propagation" }
 micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
 otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.31.1-alpha" }
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
@@ -59,12 +61,15 @@ spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boo
 spring-boot-starter-oauth2-client = { module = "org.springframework.boot:spring-boot-starter-oauth2-client" }
 spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-data-jpa = { module = "org.springframework.data:spring-data-jpa" }
+hibernate-core = { module = "org.hibernate.orm:hibernate-core" }
 jakarta-persistence-api = { module = "jakarta.persistence:jakarta.persistence-api" }
 spring-boot-starter-session-jdbc = { module = "org.springframework.boot:spring-boot-starter-session-jdbc" }
 spring-boot-starter-flyway = { module = "org.springframework.boot:spring-boot-starter-flyway" }
 spring-boot-starter-actuator-test = { module = "org.springframework.boot:spring-boot-starter-actuator-test" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
 spring-security-test = { module = "org.springframework.security:spring-security-test" }
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
@@ -77,9 +82,13 @@ commons-pool2 = { module = "org.apache.commons:commons-pool2" }
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 keycloak-admin-client = { module = "org.keycloak:keycloak-admin-client", version.ref = "keycloak-admin-client" }
 tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }
+imageio-webp = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "imageio" }
 tika-parser-pdf = { module = "org.apache.tika:tika-parser-pdf-module", version.ref = "tika" }
 tika-parser-microsoft = { module = "org.apache.tika:tika-parser-microsoft-module", version.ref = "tika" }
 tika-parser-text = { module = "org.apache.tika:tika-parser-text-module", version.ref = "tika" }
+tika-parser-html = { module = "org.apache.tika:tika-parser-html-module", version.ref = "tika" }
+tika-parser-mail = { module = "org.apache.tika:tika-parser-mail-module", version.ref = "tika" }
+tika-parser-miscoffice = { module = "org.apache.tika:tika-parser-miscoffice-module", version.ref = "tika" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }
 commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
 commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }

@@ -3,6 +3,8 @@ package io.memoryos.api.chat;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.memoryos.chat.streaming.StreamBufferWriter;
+import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.api.chat.contract.ChatSourceResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.jspecify.annotations.Nullable;
 import java.time.Duration;
@@ -29,6 +31,14 @@ final class ChatEventStream {
 
     record ResetEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED, allowableValues = {"BUFFER_MISSING", "BUFFER_GAP", "BUFFER_EXPIRED"}) String reason) {}
+
+    record SearchEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                       @Schema(requiredMode = REQUIRED) long sequence,
+                       @Schema(requiredMode = REQUIRED) String toolCallId,
+                       @Schema(requiredMode = REQUIRED) ChatSearchEvent.Stage stage,
+                       @Schema(requiredMode = REQUIRED, types = {"object", "null"}) @Nullable ChatSourceResponse source,
+                       @Schema(requiredMode = REQUIRED, types = {"object", "null"}) ChatSearchEvent.@Nullable QueryPlan search,
+                       @Schema(requiredMode = REQUIRED) List<ChatSearchEvent.ReadingDocument> documents) {}
 
     static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {
@@ -61,6 +71,11 @@ final class ChatEventStream {
             case "text-delta" -> new TextDeltaEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()));
             case "outcome" -> new OutcomeEvent(event.assistantMessageId(), event.sequence(),
                     Objects.requireNonNull(event.status()).name(), event.failureCode());
+            case "search" -> {
+                var search = Objects.requireNonNull(event.search());
+                yield new SearchEvent(event.assistantMessageId(), event.sequence(), search.toolCallId(), search.stage(),
+                        search.source() == null ? null : ChatSourceResponse.from(search.source()), search.search(), search.documents());
+            }
             default -> throw new IllegalArgumentException("Unknown Chat event type");
         };
     }

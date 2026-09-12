@@ -24,3 +24,10 @@
 | Existing identity/navigation/Source browser behavior with Chat home and Search at `/search` | `identity-shell.spec.ts`, Search page unit tests |
 
 The following acceptance evidence remains distinct: approved OpenAI embeddings over representative Vietnamese/identifier/table corpora; provider cost and latency/concurrency; complete deployed FILE→MinIO→worker→OpenSearch→API→browser; native Google input where its provider exists; configured snapshot restore/catch-up and production RPO/RTO. Test fixtures do not stand in for those measurements. Current runs and blockers are recorded in the [active verification log](../increments/active/mem-46-search/verification.md).
+
+
+## Shared grounded retrieval (MEM-11 Phase 3.1)
+
+- `DocumentSearchServiceTest`: denied/stale candidates are removed before RRF; ranks deduplicate chunks and honor query weights; expansion accepts only members of a backend-created result set, uses its Tenant/generation, and never calls ACL again. Independent preview checks current permission and avoids PostgreSQL content reads.
+- `OpenSearchRetrievalIntegrationTest`: real OpenSearch 3.8.0 receives 25 indexed chunks; verifies bounded middle/tail/past-end windows, title/count/provenance and Tenant/generation isolation without embedding calls for reads. A short keyword query calls embeddings and retains both lexical-only and semantic-only hits through the shared hybrid pipeline. Existing indexing/reuse/repair tests remain in the same runtime fixture.
+- Principal ACL-aware top-k is not established by these tests. PUBLIC FILE eligibility remains the current production policy.

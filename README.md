@@ -27,7 +27,7 @@ On Windows, enable Developer Mode or use an elevated terminal, and clone with
 
 - JDK 25.
 - Checked-in Gradle wrapper; no system Gradle installation.
-- Node.js 24 with Corepack; `web/package.json` pins pnpm.
+- Node.js 24 with Corepack; `web/package.json` and `landing/package.json` pin pnpm.
 - Docker with the Compose plugin for the hardened PostgreSQL, private MinIO, shared Keycloak, API, indexing worker, and web deployment stack.
 
 ## Modules and capabilities
@@ -69,6 +69,13 @@ pnpm test:e2e
 
 The Gradle gate compiles all server modules, runs capability and HTTP integration tests, verifies Spring Modulith and ArchUnit boundaries, and starts both composition roots in tests. The frontend gate regenerates the OpenAPI client, rejects generated drift, lints without product-source warnings, checks formatting and TypeScript, runs focused tests, and creates the production bundle; Playwright exercises the observable browser states.
 
+Public landing page (`https://vadan.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
+
+```powershell
+pnpm --dir landing install --frozen-lockfile
+pnpm --dir landing check
+```
+
 ## Refresh the generated API contract
 
 Spring controllers and Spring-visible request/response metadata own the browser API contract. The committed `openapi.yml` is generated from a full API test context and the web client is generated from that snapshot.
@@ -91,7 +98,7 @@ The staging application is available at `https://memoryos.72-62-193-33.nip.io`; 
 
 ## Current runtime behavior
 
-API startup runs Flyway through V34, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
+API startup runs Flyway through V39, transactionally bootstraps or verifies the configured Tenant UUID and owner, provisions the protected Admin/Basic Groups, and binds Arconia Web fixed Tenant context around HTTP requests. IAM lifecycle uses JPA; bounded projections, authorization locks, and Source/Document/Ingestion/Object Storage mechanics remain concrete JDBC persistence. Group grants and managed-Group scope authorize each request. Source upload initiation returns a checksum-bound presigned PUT; finalization reauthorizes after provider inspection before adoption. Worker starts after migrated API health, carries each work record's explicit `TenantId` through fenced indexing/cleanup, and uses FILE/Docling or bounded Tika extraction.
 
 V14 invalidates existing Spring Sessions for the `io.memoryos.iam.ActorId` package cutover. Deploy API and worker as one coordinated version transition; existing browser users sign in again.
 

@@ -1,14 +1,25 @@
 package io.memoryos.retrieval.opensearch;
 
 import io.memoryos.document.DocumentChunk;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.iam.TenantId;
 import io.memoryos.retrieval.SearchHit;
+import io.memoryos.retrieval.SearchDocument;
+import io.memoryos.retrieval.SearchDocumentUnavailableException;
+import io.memoryos.retrieval.SearchPage;
+import io.memoryos.retrieval.SearchRequestException;
 import io.memoryos.retrieval.SearchIndex;
 import io.memoryos.retrieval.SearchUnavailableException;
+import io.memoryos.retrieval.SearchFilters;
+import io.memoryos.retrieval.SearchQuery;
+import io.memoryos.retrieval.SearchTasks;
+import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,6 +29,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.concurrent.Callable;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -32,12 +45,16 @@ public class OpenSearchIndexService implements SearchIndex {
     private final ObjectMapper mapper;
     private final String identity;
     private final DocumentChunkPort documents;
+    private final SourceSearchService sourceSearch;
+    private final SearchTimings timings;
     private String sweepCursor = "";
 
     public OpenSearchIndexService(OpenSearchGateway gateway, ValidatedEmbeddingService embeddings,
-            SearchProperties properties, ObjectMapper mapper, DocumentChunkPort documents) {
+            SearchProperties properties, ObjectMapper mapper, DocumentChunkPort documents, SourceSearchService sourceSearch, SearchTimings timings) {
         this.gateway = gateway; this.embeddings = embeddings; this.properties = properties; this.mapper = mapper;
         this.documents = documents;
+        this.sourceSearch = sourceSearch;
+        this.timings = timings;
         try {
             String profile = properties.embeddingEndpoint() + ":" + properties.model() + ":" + properties.dimensions() + ":" + DocumentChunk.CONVENTION;
             this.identity = properties.indexPrefix() + "-" + HexFormat.of().formatHex(
@@ -76,6 +93,15 @@ public class OpenSearchIndexService implements SearchIndex {
                 || mapping.path("properties").path("vector").path("dimension").asInt() != properties.dimensions()) {
             throw new SearchUnavailableException();
         }
+        // Additive mapping keeps the vector identity and all reusable embeddings intact.
+        if (!mapping.path("properties").has("user_file_id")) gateway.json("PUT", "/" + identity + "/_mapping", Map.of(),
+                Map.of("properties", Map.of("user_file_id", Map.of("type", "keyword"))));
+        if (!mapping.path("properties").has("source_metadata")) gateway.json("PUT", "/" + identity + "/_mapping", Map.of(),
+                Map.of("properties", Map.of("metadata_hash", Map.of("type", "keyword"), "source_metadata", Map.of(
+                        "type", "nested", "properties", Map.of("source_id", Map.of("type", "keyword"),
+                                "item_id", Map.of("type", "keyword"), "type", Map.of("type", "keyword"),
+                                "created_at", Map.of("type", "date"), "updated_at", Map.of("type", "date"),
+                                "authors", Map.of("type", "text", "index", false))))));
         if (!gateway.exists("/" + readAlias())) {
             gateway.json("PUT", "/" + identity + "/_alias/" + readAlias(), Map.of(), Map.of());
         }
@@ -94,6 +120,9 @@ public class OpenSearchIndexService implements SearchIndex {
     @Override
     public void index(DocumentChunkSet document) {
         ensureIndex();
+        var origins = sourceSearch.indexMetadata(document.tenantId(), document.documentId(), document.generation());
+        var sourceMetadata = metadata(origins);
+        String metadataHash = metadataHash(origins);
         for (int offset = 0; offset < document.chunks().size(); offset += embeddings.batchSize()) {
             var batch = document.chunks().subList(offset, Math.min(offset + embeddings.batchSize(), document.chunks().size()));
             var found = existing(document, batch);
@@ -108,6 +137,7 @@ public class OpenSearchIndexService implements SearchIndex {
                 var source = new HashMap<String,Object>();
                 source.put("tenant_id", document.tenantId().value().toString());
                 source.put("document_id", document.documentId().value().toString());
+                if (document.userFileId() != null) source.put("user_file_id", document.userFileId().toString());
                 source.put("generation", document.generation().toString());
                 source.put("chunk_key", document.chunkId(chunk.ordinal()));
                 source.put("ordinal", chunk.ordinal());
@@ -116,6 +146,8 @@ public class OpenSearchIndexService implements SearchIndex {
                 source.put("content", chunk.content());
                 source.put("provenance", chunk.provenanceJson());
                 source.put("updated_at", document.updatedAt().toString());
+                source.put("source_metadata", sourceMetadata);
+                source.put("metadata_hash", metadataHash);
                 source.put("content_hash", chunk.contentSha256());
                 source.put("index_identity", identity);
                 source.put("vector", found.get(chunk.contentSha256()));
@@ -165,23 +197,69 @@ public class OpenSearchIndexService implements SearchIndex {
 
     public List<SearchHit> search(TenantId tenant, String query, List<String> mediaTypes, Instant since) {
         if (!gateway.exists("/" + readAlias())) return List.of();
-        float[] vector = embeddings.query(query);
+        return searchPrepared(tenant, query, embeddings.query(query), mediaTypes, since, SearchFilters.NONE, List.of());
+    }
+
+    /** Resolve the alias and embed each distinct text once for this Search call. */
+    public List<List<SearchHit>> batch(SourceSearchScope scope, List<SearchQuery> queries, SearchFilters filters, Runnable checkActive) {
+        if (queries.isEmpty() || queries.size() > 8) throw new SearchRequestException();
+        checkActive.run();
+        if (!gateway.exists("/" + readAlias())) return queries.stream().map(_ -> List.<SearchHit>of()).toList();
+        var texts = queries.stream().map(SearchQuery::text).distinct().toList();
+        var vectors = new LinkedHashMap<String, float[]>();
+        for (int offset = 0; offset < texts.size(); offset += embeddings.batchSize()) {
+            checkActive.run();
+            var inputs = texts.subList(offset, Math.min(offset + embeddings.batchSize(), texts.size()));
+            var output = timings.measure(SearchTimings.Stage.EMBEDDING, () -> embeddings.batch(inputs));
+            for (int i = 0; i < inputs.size(); i++) vectors.put(inputs.get(i), output.get(i));
+        }
+        List<Callable<List<SearchHit>>> tasks = texts.stream().<Callable<List<SearchHit>>>map(text ->
+                () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(scope.tenant(), text, vectors.get(text), List.of(), null, filters,
+                        scope.sources().keySet().stream().map(UUID::toString).toList()))).toList();
+        var results = SearchTasks.run(tasks, checkActive);
+        // The adapter uses the same hybrid request for both groups. Reuse identical IO but retain
+        // each group's rank list and weight for fusion.
+        return queries.stream().map(query -> results.get(texts.indexOf(query.text()))).toList();
+    }
+
+    private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector,
+            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds) {
+        return searchPrepared(tenant, query, vector, mediaTypes, since, restrictions, sourceIds, List.of());
+    }
+
+    public List<SearchHit> searchFiles(TenantId tenant, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {
+        if (generations.isEmpty() || files.isEmpty() || !gateway.exists("/" + readAlias())) return List.of();
+        List<Object> allowed = new ArrayList<>();
+        files.forEach((file, document) -> {
+            var generation = generations.get(document);
+            if (generation != null) allowed.add(Map.of("bool", Map.of("filter", List.of(term("user_file_id", file.toString()),
+                    term("document_id", document.toString()), term("generation", generation.toString())))));
+        });
+        if (allowed.isEmpty()) return List.of();
+        return searchPrepared(tenant, query, embeddings.query(query), List.of(), null, SearchFilters.NONE, List.of(), allowed);
+    }
+
+    private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector,
+            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles) {
         List<Object> filters = new ArrayList<>();
         filters.add(term("tenant_id", tenant.value().toString()));
         filters.add(term("index_identity", identity));
+        filters.add(privateFiles.isEmpty() ? Map.of("bool", Map.of("must_not", List.of(Map.of("exists", Map.of("field", "user_file_id")))))
+                : Map.of("bool", Map.of("should", privateFiles, "minimum_should_match", 1)));
         if (!mediaTypes.isEmpty()) filters.add(Map.of("terms", Map.of("media_type", mediaTypes)));
         if (since != null) filters.add(Map.of("range", Map.of("updated_at", Map.of("gte", since.toString()))));
-        Object filter = Map.of("bool", Map.of("filter", filters));
-        Object keyword = Map.of("bool", Map.of("filter", filters, "must", List.of(Map.of("multi_match", Map.of(
-                "query", query, "fields", List.of("title^2", "title.folded^2", "content", "content.folded"))))));
-        Object semantic = Map.of("knn", Map.of("vector", Map.of(
-                "vector", vector,
-                "min_score", properties.minimumSemanticScore(),
-                "method_parameters", Map.of("ef_search", properties.candidateLimit()),
-                "filter", filter)));
+        if (!sourceIds.isEmpty()) {
+            List<Object> origins = new ArrayList<>();
+            origins.add(Map.of("terms", Map.of("source_metadata.source_id", sourceIds)));
+            if (!restrictions.sources().isEmpty()) origins.add(Map.of("terms", Map.of("source_metadata.type",
+                    restrictions.sources().stream().map(Enum::name).sorted().toList())));
+            if (restrictions.created() != null) origins.add(range("source_metadata.created_at", restrictions.created()));
+            if (restrictions.updated() != null) origins.add(range("source_metadata.updated_at", restrictions.updated()));
+            filters.add(Map.of("nested", Map.of("path", "source_metadata", "query", Map.of("bool", Map.of("filter", origins)))));
+        }
         var response = gateway.json("POST", "/" + readAlias() + "/_search", Map.of("search_pipeline", pipeline()), Map.of(
                 "size", properties.candidateLimit(), "_source", Map.of("excludes", List.of("vector")),
-                "query", Map.of("hybrid", Map.of("pagination_depth", properties.candidateLimit(), "queries", List.of(keyword, semantic)))));
+                "query", hybridQuery(query, vector, filters)));
         var hits = new ArrayList<SearchHit>();
         for (var hit : response.path("hits").path("hits")) {
             var source = hit.path("_source");
@@ -193,12 +271,56 @@ public class OpenSearchIndexService implements SearchIndex {
         return List.copyOf(hits);
     }
 
+    private Object hybridQuery(String query, float[] vector, List<Object> filters) {
+        Object filter = Map.of("bool", Map.of("filter", filters));
+        Object keyword = Map.of("bool", Map.of("filter", filters, "must", List.of(Map.of("multi_match", Map.of(
+                "query", query, "fields", List.of("title^2", "title.folded^2", "content", "content.folded"))))));
+        Object semantic = Map.of("knn", Map.of("vector", Map.of(
+                "vector", vector, "min_score", properties.minimumSemanticScore(),
+                "method_parameters", Map.of("ef_search", properties.candidateLimit()), "filter", filter)));
+        return Map.of("hybrid", Map.of("pagination_depth", properties.candidateLimit(), "queries", List.of(keyword, semantic)));
+    }
+
+    /** Bounded metadata and ordinal-window query; no embedding or PostgreSQL content load. */
+    public SearchDocument document(TenantId tenant, UUID id, UUID generation, int from, int limit) {
+        if (from < 0 || from > 9999 || limit < 1 || limit > 20) throw new SearchRequestException();
+        if (!gateway.exists("/" + readAlias())) throw new SearchDocumentUnavailableException();
+        var response = gateway.json("POST", "/" + readAlias() + "/_search", Map.of(), Map.of(
+                "size", 0, "track_total_hits", true,
+                "query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", tenant.value().toString()),
+                        term("document_id", id.toString()), term("generation", generation.toString()), term("index_identity", identity)))),
+                "aggs", Map.of(
+                        "header", Map.of("top_hits", Map.of("size", 1, "_source", List.of("title"))),
+                        "last", Map.of("max", Map.of("field", "ordinal")),
+                        "window", Map.of("filter", Map.of("range", Map.of("ordinal", Map.of("gte", from, "lt", from + limit))),
+                                "aggs", Map.of("chunks", Map.of("top_hits", Map.of("size", limit,
+                                        "sort", List.of(Map.of("ordinal", "asc")), "_source", List.of("ordinal", "content", "provenance"))))))));
+        int total = response.path("hits").path("total").path("value").asInt();
+        if (total == 0) throw new SearchDocumentUnavailableException();
+        var aggregations = response.path("aggregations");
+        if (total > 10000 || aggregations.path("last").path("value").asInt(-1) != total - 1) throw new SearchUnavailableException();
+        var passages = new ArrayList<SearchPage.Passage>();
+        int expected = from;
+        for (var hit : aggregations.path("window").path("chunks").path("hits").path("hits")) {
+            var source = hit.path("_source");
+            int ordinal = source.path("ordinal").asInt(-1);
+            if (ordinal != expected++) throw new SearchUnavailableException();
+            passages.add(new SearchPage.Passage(ordinal, source.path("content").asString(), source.path("provenance").asString()));
+        }
+        int start = Math.min(from, total);
+        if (passages.size() != Math.min(limit, total - start)) throw new SearchUnavailableException();
+        String title = aggregations.path("header").path("hits").path("hits").path(0).path("_source").path("title").asString();
+        return new SearchDocument(id, generation, title, List.copyOf(passages), start, total, start + passages.size() < total);
+    }
+
     @Override
     public boolean contains(DocumentIndexState document) {
         if (!gateway.exists("/" + readAlias())) return false;
+        String expectedMetadata = metadataHash(sourceSearch.indexMetadata(document.tenantId(), document.documentId(), document.generation()));
         var count = gateway.json("POST", "/" + readAlias() + "/_count", Map.of(), Map.of("query", Map.of("bool", Map.of(
                 "filter", List.of(term("tenant_id", document.tenantId().value().toString()),
-                        term("document_id", document.documentId().value().toString()), term("generation", document.generation().toString()))))));
+                        term("document_id", document.documentId().value().toString()), term("generation", document.generation().toString()),
+                        term("metadata_hash", expectedMetadata))))));
         return document.chunkCount() > 0 && count.path("count").asInt(-1) == document.chunkCount();
     }
 
@@ -245,4 +367,31 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     private static Map<String,Object> term(String field, String value) { return Map.of("term", Map.of(field, value)); }
+
+    private static Map<String, Object> range(String field, SearchFilters.Interval interval) {
+        var bounds = new LinkedHashMap<String, String>();
+        if (interval.from() != null) bounds.put("gte", interval.from().toString());
+        if (interval.to() != null) bounds.put("lte", interval.to().toString());
+        return Map.of("range", Map.of(field, bounds));
+    }
+
+    private static List<Map<String, Object>> metadata(List<DocumentSourceMetadata> origins) {
+        return origins.stream().map(origin -> {
+            Map<String, Object> value = new LinkedHashMap<>();
+            value.put("source_id", origin.sourceId().toString());
+            value.put("item_id", origin.itemId().toString());
+            value.put("type", origin.type().name());
+            if (origin.createdAt() != null) value.put("created_at", origin.createdAt().toString());
+            if (origin.updatedAt() != null) value.put("updated_at", origin.updatedAt().toString());
+            value.put("authors", origin.authors());
+            return value;
+        }).toList();
+    }
+
+    private String metadataHash(List<DocumentSourceMetadata> origins) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(("v1:" + mapper.writeValueAsString(metadata(origins))).getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException failure) { throw new IllegalStateException(failure); }
+    }
 }

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcDocumentRepository implements DocumentCommandPort {
     private final JdbcClient jdbcClient;
     private final ObjectMapper objectMapper;
@@ -78,6 +79,8 @@ public class JdbcDocumentRepository implements DocumentCommandPort {
                 DELETE FROM documents WHERE tenant_id=:tenant AND id IN (:ids)
                 AND NOT EXISTS (SELECT 1 FROM documents_by_connector_credential_pair mapping
                     WHERE mapping.tenant_id=:tenant AND mapping.document_id=documents.id)
+                AND NOT EXISTS (SELECT 1 FROM chat_user_file file
+                    WHERE file.tenant_id=:tenant AND file.document_id=documents.id)
                 RETURNING id
                 """).param("tenant", tenantId.value())
                 .param("ids", documentIds.stream().map(DocumentId::value).toList()).query(UUID.class).list();

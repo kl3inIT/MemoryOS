@@ -13,7 +13,8 @@ public enum IamCapability {
     GROUPS_MANAGE,
     SOURCES_READ,
     SOURCES_MANAGE,
-    SOURCES_DELETE;
+    SOURCES_DELETE,
+    MODELS_MANAGE;
     private static final IamCapability[] VALUES = values();
     private static final Set<IamCapability> IAM_ADMIN_IMPLICATIONS = Set.of(
             USERS_MANAGE,
@@ -21,7 +22,8 @@ public enum IamCapability {
             GROUPS_MANAGE,
             SOURCES_READ,
             SOURCES_MANAGE,
-            SOURCES_DELETE
+            SOURCES_DELETE,
+            MODELS_MANAGE
     );
     private static final Set<IamCapability> GROUPS_MANAGE_IMPLICATIONS = Set.of(GROUPS_READ);
     private static final Set<IamCapability> SOURCES_MANAGE_IMPLICATIONS = Set.of(SOURCES_READ);

@@ -1,0 +1,3 @@
+#!/bin/sh
+export OMP_THREAD_LIMIT=1
+exec /usr/bin/tesseract "$@"

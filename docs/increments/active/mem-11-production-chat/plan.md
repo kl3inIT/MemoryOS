@@ -1,10 +1,27 @@
 # MEM-11 — Sáu phase triển khai
 
-[Design](design.md#baseline-da-chot) sở hữu quyết định kiến trúc; [parity](onyx-parity.md) sở hữu phạm vi. [Product verification](verification.md) ghi phần đã triển khai và kiểm: 2.1 persistence, 2.2 execution và 2.3 provider binding/local Stop/HTTP replay. Browser Chat thuộc 2.4. Web search/deep research nằm ngoài lần giao đầu.
+[Design](design.md#baseline-da-chot) sở hữu quyết định kiến trúc; [parity](onyx-parity.md) sở hữu phạm vi. [Product verification](verification.md) ghi bằng chứng Phases 2.1–2.4, backend grounded Chat 3.1 và UI 3.2 đã kiểm local. Nghiệm thu corpus/model rộng vẫn cần thực hiện. Web search/deep research nằm ngoài lần giao đầu.
 
-## Phân chia PR
+## Bổ sung nền provider/model
 
-`feat/mem-11-production-chat` là nhánh tích hợp tạm, bắt đầu cùng revision với `main`. PR `feat/mem-11-phase-2-backend` gộp 2.1–2.3 vì persistence, execution và streaming tạo thành một backend contract đã kiểm chung. Phase 2.4 UI sẽ là PR riêng target nhánh tích hợp sau khi backend được review và merge vào nhánh đó. Các phần sau được nhóm theo contract có thể review độc lập, giữ mỗi PR dưới 100 file; số file không thay thế việc kiểm CI và nội dung review. Cuối increment mới đưa nhánh tích hợp vào `main`; chưa đóng MEM-11 chỉ vì backend đã xong.
+Phases 2.1–2.4 đã merge qua PR #86; backend catalog/selection/BYOK và public adapter đã merge qua PR #88 theo [plan backend](../mem-77-provider-backend/plan.md). Đức Anh nhận catalog admin UI và tích hợp provider local trong MEM-77; dropdown model ở Chat vẫn thuộc MEM-11.
+
+## Phạm vi PR đang triển khai — chốt ngày 2026-09-10
+
+Ngày 2026-09-11 người dùng yêu cầu tách attachments thành [MEM-81](https://linear.app/memory-os/issue/MEM-81), Backlog, để xử lý các phần khác trước. Toàn bộ phần còn lại của MEM-11 sau khi tách được giao trong **một PR duy nhất**, làm trong checkout hiện tại, **không tách worktree**. Quyết định này thay thế yêu cầu gộp attachments vào PR trước đó; không tự tách thêm các nhóm bên dưới. Giới hạn dưới 100 file của các lần chia PR trước không được dùng để bỏ chức năng khỏi phạm vi đã điều chỉnh. Giữ nguyên yêu cầu review, migration cần thiết và verification phù hợp với thay đổi.
+
+- [x] Hội thoại: đổi tên/xóa; edit tạo nhánh, regenerate dưới user message được chọn, chọn/tiếp tục nhánh; feedback gắn message/run và Actor. Giao cả API, persistence/reservation, UI và quyền thao tác.
+- [x] Persona: tạo/sửa/chọn trợ lý, instructions, starter prompts, nguồn/tools và model settings được phép; chuyển rõ quyền sở hữu settings khỏi builtin configuration trước khi editor ghi DB.
+- [x] Projects: quản lý hội thoại và instructions theo Project; giữ đúng precedence với Persona và không lẫn context khi chuyển Project hoặc nhánh. File của Project/Persona được giao cùng attachments trong MEM-81.
+- [x] Sharing: chia sẻ có xác thực trong Tenant, reader chỉ đọc, thu hồi quyền; quyền conversation và quyền mở nguồn độc lập. Áp dụng owner bật/tắt link cho thành viên cùng Tenant; không thêm Group grants.
+
+[Kế hoạch chi tiết bốn nhóm](editor-project-sharing-plan.md) giữ UX/backend/UI, source reference, quyền đã chọn và handoff persistence và tình huống nghiệm thu. Regenerate chỉ tạo ASSISTANT dưới USER cũ; xóa Project giữ hội thoại; Persona editor phải thay đường upsert mặc định hiện tại trước khi lưu settings từ UI.
+
+Mỗi nhóm đối chiếu source Onyx theo [baseline phần còn lại](design.md#baseline-cho-phần-còn-lại--chốt-ngày-2026-09-10), triển khai và kiểm thử ngay trong cùng thay đổi. Tái sử dụng bằng chứng Phase 2–3 cho các mục Phase 4 đã đáp ứng; chỉ bổ sung tình huống thiếu bằng chứng hoặc bị thay đổi bởi tính năng mới. Nghiệm thu cuối giữ các yêu cầu còn lại ở Phase 6, không tính lại toàn bộ coverage cũ thành công việc mới. Phần tối ưu latency thêm và sửa đăng nhập CI đang tạm gác theo chỉ đạo; không đưa vào phạm vi PR này. Catalog admin UI và tích hợp provider local thuộc MEM-77.
+
+Attachments đã chuyển toàn bộ sang [design MEM-81](../chat-attachments-production/design.md) và [plan MEM-81](../chat-attachments-production/plan.md): upload, giới hạn 100/250 MiB, readiness, file message/Persona/Project, read_file/vision/tables, private retrieval và cleanup. Không thêm placeholder upload controls, schema hoặc API file trong PR đi trước. MEM-81 là related issue, không chặn giao MEM-11 theo phạm vi điều chỉnh.
+
+MEM-11 giữ In Progress tới khi phạm vi còn lại sau khi tách được giao và nghiệm thu. Việc tạo MEM-81 không làm MEM-11 hay attachments thành Done. Bằng chứng merge/deployment sau merge ghi trong Linear; không mở PR chỉ để cập nhật trạng thái.
 
 ## Phase 1 — Kiểm chứng framework và contract
 
@@ -93,16 +110,77 @@ Exit Phase 2: send/stream/save/reload/Stop/reconnect hoạt động xuyên sản
 
 ## Phase 3 — Search tools và context có nguồn
 
-- [ ] Thêm dependency Chat → public Retrieval khi có tool consumer; cập nhật Modulith/ArchUnit. Mỗi blocking tool có timeout/cancellation boundary; nghiệm thu Stop khi tool chậm, không chạy tool tiếp theo sau cancel/deadline/budget hết.
-- [ ] Public Retrieval ranked-chunk/context-read contracts trên index hiện có; current source ACL và identity.
-- [ ] `searchKnowledge`/`readDocumentSection` qua native framework tool APIs với server-side identity.
-- [ ] Query rewrite/typed selection/answer dùng cùng accounting scope của lượt; sync/typed native accounting không bị record trùng bởi stream adapter. Kiểm native budget tại inference/tool boundary và current ACL trước read; không gộp context capacity với spend budget.
-- [ ] Rewrite/multi-query, weighted RRF, section selection/neighbor/merge và token limits theo Onyx.
-- [ ] Validate allowlisted candidate IDs/ranges/dedup; xử lý no evidence, partial/error và citations/source reader.
+### 3.1 — Backend grounded Chat (implemented and verified locally, 2026-09-10)
 
-Exit: chạy corpus thật và negative authorization cases; không tạo index thứ hai. Truy vấn mới dùng nguồn hiện tại, không ẩn answer cũ khi reindex.
+- Refactor shared ranked retrieval and bounded range reads on the existing OpenSearch index. Direct Search keeps its hybrid query behavior.
+- Unify single/batch source eligibility. PUBLIC FILE remains the production authorization implementation; restricted/provider ACL integration belongs to IAM/connector work. No allow-all stub.
+- Native Embabel SearchTool: bounded multiple queries, weighted RRF, typed section selection and neighbor expansion of server-owned authorized results. Expansion does not reauthorize source ACL; independent document preview does.
+- Share native model/process accounting for selection and answers; enforce cancellation, deadline, context and spend bounds.
+- One migration for bounded sources/citation metadata in the assistant outcome; expose SSE progress/sources and history. Keep the change below 100 files including tests, generated code and docs.
+- Verify real OpenSearch reads, ranking/eligibility, native tools, partial/Stop/budget behavior, persistence and HTTP contracts.
+
+### 3.2 — Chat UI, model selection and source acceptance (UI implemented and verified locally)
+
+- Acceptance fix: keep the new-chat runtime mounted when its server ID updates the URL; load history only when entering a different conversation or reloading. Show one waiting/search indicator and no Copy action for an empty answer. Verify composer/reader continuity, real conversation switches, Stop, model choice and reload through the native browser runtime.
+
+- Use the assistant-ui Base example's organization: centered welcome/composer before the first message, footer composer during conversation, model picker inside the composer, and one existing app sidebar. Retain MemoryOS typography, tokens and controls; reuse styled assistant-ui elements with minimal custom CSS. OrgMemory is a reference for catalog grouping and source interactions.
+- Connect the authorized, session-aware model catalog to the picker and send the configuration ID for each turn. Show the backend's actual selection/fallback. Provider administration remains MEM-77; no new Thinking override or unsupported attachment/voice controls.
+- Render bounded search progress and source metadata through native message state; resolve citations against each answer's server-owned sources. Follow Onyx with citation hover cards and a Sources toolbar action opening the right panel; mobile uses a drawer. Reuse the shared document reader inside the panel, keeping Chat visible on desktop. History/replay restore final sources; source failures leave the historical answer readable.
+- Verify desktop/mobile layout, keyboard model selection, send/Stop/reload/reconnect, citations and document preview. Keep combined 3.1/3.2 below 100 changed paths, with no additional migration. Record fixture browser checks separately from real-corpus/model acceptance.
+
+Reference: `.tmp/onyx` refreshed to `bd89d269bbae9c3931faaa2076f5ccb6917cbd2a` on 2026-09-10; the relevant prompts/retrieval files are unchanged from the initial `f9e3de3` read. Trace the current OpenSearch adapter and normalization pipeline, not just the Search tool's alpha constant. Both query groups use the shared hybrid pipeline (50/50 default); query-group RRF weights remain separate.
+
+The delivered Onyx prompt flow includes configurable base instructions, history-aware semantic and keyword rewriting, relevance selection followed by classification after reading neighbors, and citation/final-cycle reminders. This functional coverage does not establish parity for helper reasoning options, grouping before selection or concurrent execution; those gaps are explicit remaining work in 3.3. Native Embabel owns typed operations/accounting; no new inference engine or additional migration is needed. Onyx's FULL_DOCUMENT execution is bounded to five neighboring chunks per side. The repository gate passes 534 tests with five optional skips; the opt-in real-model corpus check separately passes neighbor facts, follow-up references, insufficient evidence, citations and document injection. These controlled retrieval results do not replace the broader corpus/browser acceptance in 3.2.
+
+The transport renders search/source events through native message metadata and restores sources from history after replay gaps. The UI/model picker passes 105 unit and 22 Chat/Search browser checks, including existing Search preview contracts. Actual corpus/model quality across the full browser/runtime remains a separate acceptance boundary. Current evidence is in [verification](verification.md) and [Chat tests](../../../tests/chat.md).
+
+### 3.3 — Khắc phục latency theo baseline Onyx (đã triển khai, đang kiểm chứng)
+
+Thêm và mở rộng ngày 2026-09-10 theo [thiết kế SearchTool](design.md#khắc-phục-latency-searchtool-trong-phase-3). Người dùng đã yêu cầu làm theo Onyx cho đủ tám điểm audit; source/time filters và query/document progress thuộc lần sửa này. Giao toàn bộ trong **một PR**, gồm code, migration/backfill, UI, tests/generated và tài liệu. A → B → C bên dưới là các nhóm công việc trong cùng PR; hoàn tất và nghiệm thu cả ba trước khi coi 3.3 đã giao. Đây là phần còn thiếu của baseline Phase 3, không chờ Phase 5/6. Migration cho thay đổi schema cần thiết và backfill dữ liệu là phần triển khai bình thường, không phải lý do giảm phạm vi hoặc tách PR.
+
+#### 3.3A — Query, ranking, context và thời gian thực thi
+
+- [x] **Trọng số và thứ hạng:** cộng các role weights khi query trùng trong cùng nhóm, kể cả keyword duplicates; sửa validation tổng weight, k=50 và tie-break theo Onyx. Kiểm ví dụ semantic/tool/original cùng text có weight 2.5, query khác hoa thường, nhiều role/keyword trùng và các thứ hạng bằng điểm. Không thay hybrid keyword group thành BM25-only.
+- [x] **Lần tìm tiếp cùng nguồn:** chỉ rewrite ở lần Search đầu; lần sau không tự đem semantic/keyword expansion cũ đi tìm lại. Giữ original và tool queries mới theo reference, cùng search-cycle state trong RAM. Kiểm câu hỏi đầu có hai Search calls với query thứ hai mới: không thêm LLM rewrite và không chạy lại bộ expansion cũ. Ngoại lệ đổi source scope nối vào dữ liệu/filter thật tại 3.3B; không thêm global query/result cache.
+- [x] **Helper options và timeout:** OFF intent cho rewrite/selection/classification, verify provider/model support và precedence sau converter bằng capture request qua adapter thật. Selection/classification mặc định timeout 60 s, không vượt remaining deadline; kiểm fallback khi helper timeout nhưng lượt còn thời gian, phân biệt với Stop/deadline/budget. Answer và các lượt khác không bị thay options. Timeout bao phủ native attempts và thật sự hủy request.
+- [x] **Section trước selection:** gộp authorized hits theo Tenant/document/generation và ordinal liền nhau, giữ anchor/rank. Dùng tối đa ba chunk đại diện quanh anchor rồi mới áp tổng budget; giữ section/range đầy đủ cho expansion. Áp candidate bounds sau gộp; nghiệm thu ngưỡng hiện tại thay vì giữ cap 30 hits trước gộp mà không kiểm recall. Đưa metadata đang có và có semantics đúng vào selection; nguồn/ngày/tác giả bổ sung ở 3.3B.
+- [x] **Lookup và embedding dùng chung:** kiểm alias/config một lần mỗi Search call, batch embeddings cho text duy nhất; chạy hybrid queries đồng thời. Hợp IDs và batch current-generation/eligibility với giới hạn repository trước RRF/model/progress có nội dung. Kiểm kết quả và quyền tương đương với lookup riêng, stale generation, permission revoke, một query lỗi và batch lớn; đo số lượt lookup thực tế. Không giữ transaction khi chờ model/network.
+- [x] **Concurrency và expansion:** hai rewrite và các expansion/classification độc lập chạy đồng thời có giới hạn. Mỗi section phân loại một lần, đọc neighbor quanh biên section, giữ FULL_DOCUMENT ±5, gộp overlap/citations ổn định; không đọc rộng hơn khi không có neighbor. Kiểm Actor/Tenant context, budget admission, accounting đúng một lần, queued/running Stop, timeout và không có kết quả muộn sau terminal.
+- [x] **Quan sát stage và kiểm runtime:** nối observation của các stage vào tool/lượt, ghi duration/count/usage an toàn; không log query/prompt/document. Kiểm request options thực, stage overlap, số query của từng chu kỳ và latency trên provider/index thật với bộ câu hỏi ban đầu, trước khi kết luận hiệu quả.
+
+Kiểm chứng nhóm A: query/RRF/window/options/timeout đúng và giữ các bảo đảm lifecycle/quyền; tiếp tục hoàn thiện metadata/filter và progress trong cùng PR.
+
+#### 3.3B — Metadata, filter nguồn/thời gian và đổi scope
+
+- [x] **Metadata có nguồn gốc:** nối Document/connector/chunk/index/hit/selection, xác định loại nguồn, ngày tạo/cập nhật và authors khi có. Phân biệt ngày tài liệu với timestamp vận hành; nullable khi thiếu. Kiểm một Document có nhiều mappings: không lộ metadata trái quyền hoặc ghép ngày/loại nguồn sai. Triển khai persistence fields và migration additive cần thiết, cùng docs về semantics của FILE/provider thực sự hỗ trợ.
+- [x] **Index và dữ liệu đang có:** update strict mapping, backfill bằng worker/reconciliation hiện có, giữ vectors cho content/model không đổi. Readiness phát hiện metadata cũ/thiếu kể cả document đã READY; kiểm retry/idempotency, restart, concurrent generation/delete, metadata-only update và Direct Search regression. Không dùng endpoint/profile một lần để hoàn tất backfill.
+- [x] **Source/time helper theo Onyx:** auto detection bật mặc định và cấu hình được; source candidates bị giới hạn bởi nguồn thật được phép tìm. Có dưới hai loại nguồn thì không gọi source helper. Time suy luận một lần/lượt; source dùng tối đa năm user turns gần nhất và cycles, latch off khi không có chỉ dẫn nguồn. Các helper này cùng OFF intent, chạy đồng thời với rewrite khi cần; cập nhật native helper-call accounting/budget cho số call mới.
+- [x] **Filter thật trong query:** khoảng ngày tạo/cập nhật có cận đầu/cuối và cận mở, apply lên cả lexical/vector branches; giao với explicit filters như design/Onyx. Kiểm giao không rỗng, xung đột giữ explicit range, parse/provider error giữ explicit scope, nguồn không được phép, thời gian tương đối với clock cố định, metadata thiếu và nguồn chưa hỗ trợ. Không báo đã lọc nếu không có filter thực áp.
+- [x] **Tìm tiếp đổi scope:** dùng search cycles và source scope để chỉ lấy lại cached semantic/keyword expansion khi chuyển sang loại nguồn chưa tìm. Kiểm first call, same-source second call, new-source second call, quay lại nguồn cũ, detection không có scope và lượt mới không thừa hưởng state. Fixture multi-source phải có quyền thật ở boundary được kiểm; hiện staging FILE-only chỉ chứng nhận đường một loại nguồn.
+
+Kiểm chứng nhóm B: metadata/backfill và filter hoạt động xuyên qua index thật; không chỉ pass typed helper hoặc query builder. Loại nguồn không có quyền tìm vẫn bị loại; tiếp tục nghiệm thu toàn bộ qua UI trong cùng PR.
+
+#### 3.3C — Query/document progress và nghiệm thu toàn bộ
+
+- [x] **Event/transport/UI:** thêm query thực chạy và effective filter trước retrieval; selected document metadata trước expansion. Validate bounds và authorization trước emit; hiển thị trong tiến trình Search hiện có bằng ngôn ngữ dễ hiểu. Phân biệt tài liệu đang đọc với final evidence, giữ citation identity từ evidence thực; không stream raw payload/reasoning.
+- [x] **Replay/history/Stop:** các progress events dùng cùng sequence/buffer; kiểm duplicate/gap/reconnect/reload/Stop và native UI state. Buffer mất thì khôi phục final sources từ history, không bịa lại intermediate progress. Không phát source/document/query sau terminal; source preview độc lập vẫn kiểm quyền hiện tại.
+- [ ] **Benchmark trước/sau:** cùng corpus/provider/model/options của answer, nhiều lần chạy có ghi số mẫu và mức đồng thời. Tách rewrite/source/time, embedding, OpenSearch, lookup quyền/generation, selection/classification, tool duration, thời gian tới token trả lời đầu tiên và toàn lượt; báo median/min/max, errors và usage khi có, không suy p95 từ mẫu nhỏ. Đo cả một Search call và nhiều Search calls trong lượt; báo riêng chi phí helper filter mới.
+- [ ] **Corpus/browser acceptance:** doanh thu Orion, công tác, follow-up, tìm tiếp đổi query, exact names, Word `OrgMemory_POC_Guide.docx` 138 chunk, nhiều nguồn, câu hỏi theo ngày và không có bằng chứng. Kiểm chất lượng/ranking/recall, citations/preview/reload, filter hiển thị đúng, Stop, provider lỗi, timeout và budget. Tách fixture multi-source/date cases với kết quả thật trên nguồn đang được phép tìm.
+- [ ] **Hoàn tất PR duy nhất:** IDE/static checks theo skill, wrapper `clean check`, OpenAPI/frontend/browser và runtime gates phù hợp. Cập nhật Chat/Search/metadata specs, test matrix và verification cùng code/migrations/UI; evidence triển khai/issue closure theo lifecycle hiện có. Chỉ đánh dấu từng hàng baseline sau khi có test/receipt tương ứng; cả tám mục và các tối ưu đã chốt phải hoàn thành trong PR này.
+
+Review PR #91: bổ sung giới hạn cleanup và giữ native process/client lease/admission tới actual drain; kiểm provider cố tình bỏ qua interrupt, chống late evidence/retry/accounting. Sửa harness input/cache/corpus cleanup, metadata tác giả lỗi và title progress dài trong cùng PR; giữ default helper `minimal` và explicit options của model đã chọn. Kết quả kiểm tra cuối được ghi trong latency-verification.
+
+Receipt hiện tại: [latency và kiểm chứng](latency-verification.md), [ma trận test](../../../tests/chat.md). A/B và event/replay đã có contract/integration/browser evidence. `clean check` toàn repository đã qua; tie-break bổ sung cũng qua focused test. Benchmark mới là mẫu local trên bản sao corpus thật, chưa phải paired same-host trước/sau: phiên đăng nhập staging hiện trả 401. Vì vậy giữ benchmark/acceptance tổng và PR lifecycle ở trạng thái chưa hoàn tất; không đánh dấu giao xong chỉ từ số giây local.
+
+Coverage của tám điểm audit: trọng số và lần tìm tiếp ở A/B; cửa sổ selection và timeout ở A; metadata ở A/B; source/time filters ở B; progress ở C; lookup dùng chung ở A. Các mục reasoning, concurrency, batch embedding và merge trước/sau expansion đã nêu trước đó vẫn là phần bắt buộc, không bị thay thế bởi tám mục mới.
+
+Baseline chẩn đoán: SearchTool 24.725 s trong một lượt SSE 39.659 s; bốn helper chiếm 18.409 s, tám embedding tuần tự chiếm 5.569 s. Không quy toàn bộ helper time cho reasoning khi chưa đo usage/options thực. Chỉ hoàn thành 3.3 khi A/B/C đều có bằng chứng: query/RRF/section/options đúng, các stage độc lập overlap, metadata/backfill/filter thật, progress đúng thời điểm và báo cáo latency trước/sau có cải thiện với chất lượng/quyền/Stop/budget vẫn đạt. Nếu thêm filter calls làm một nhóm câu hỏi chậm hơn, báo rõ số liệu và nguyên nhân; không dùng trung bình chung che regression hoặc bỏ filter đã được yêu cầu. Không hứa trước một số giây cố định khi chưa benchmark provider thật.
+
+Phase 3 exit includes 3.3 latency remediation with before/after evidence, corpus/model quality and browser sources/citations/reload acceptance. The current PUBLIC FILE policy is tested; advanced source ACL and permission-aware top-k are not claimed complete. Updating a source does not hide old answers.
 
 ## Phase 4 — Nghiệm thu agent với tools và context đầy đủ
+
+Các mục dưới đây là điều kiện tích hợp cần đối chiếu, không mặc định là phần code hoặc test chưa làm. Dùng [ma trận Chat](../../../tests/chat.md) và các receipt Phase 2–3 để xác định coverage đã có trước khi bổ sung công việc.
 
 - [ ] Kiểm native loop/last-cycle policy đã triển khai ở Phase 2 trên real Retrieval tools của Phase 3; không xây thêm loop hoặc dời hardening nền tảng tới phase này.
 - [ ] Nghiệm thu phối hợp native token/cost accounting/policy, context cap, cycles/deadline/cancel và bounded tools. Kiểm budget hết giữa inference và tool, known partial usage, pricing unknown, provider errors và không lặp side effect.
@@ -113,18 +191,31 @@ Exit: multi-turn tools, stop/timeout/process death có behavior đã kiểm; kh�
 
 ## Phase 5 — Trải nghiệm và cấu hình
 
-- [ ] Migration và reservation cho regenerate assistant-only, command identity riêng, edit từ parent không phải tip và selected-child command. V18/2.2 hiện chỉ nhận send tại tip; không tái dùng mù điều kiện đó cho regenerate.
-- [ ] Persona settings dùng native binding của một provider hiện có; resolve options rồi bọc guard theo lượt. Builtin Persona hiện configuration-backed; editor cần chuyển quyền sở hữu settings rõ ràng trước khi ghi DB. Catalog/model selector nhiều provider, admin config và BYOK tổ chức thuộc [MEM-77](https://linear.app/memory-os/issue/MEM-77), assign `phamnhatanh811`, bị chặn bởi MEM-11; không nằm trong exit gate MEM-11.
-- [ ] Trước triển khai sharing, chốt grant model cho authenticated readers trong Tenant và tách read authorization khỏi owner mutations. Onyx PUBLIC/PRIVATE cho phép anonymous link; phạm vi đã chọn loại anonymous. Lợi ích: giữ identity/Tenant boundary; tradeoff: không tương đương public-link UX. Không mặc định thêm Group grants khi chưa có yêu cầu.
-- [ ] assistant-ui list/composer, edit/regenerate/branch, source/progress, feedback, stop/retry/reload và Search handoff.
-- [ ] Persona settings/editor (assistant trên UI), starter prompts, source/tool selection và settings của binding hiện có, validation và quyền quản lý. Multi-provider model selection thuộc MEM-77.
-- [ ] Private attachments/readiness/retention, Projects và chia sẻ có xác thực theo parity.
-- [ ] Kiểm E2E branch A→B, edit/regenerate, đổi Persona/Project và sharing: history/assets/identity của context cũ không lọt vào lượt mới. Nếu action/tool của feature tiêu thụ native Conversation/AssetView, thêm adapter/factory với consumer đó theo design; không dựng store thứ hai hay kích hoạt long-lived Chatbot chỉ để lưu history.
-- [ ] Browser scenarios: route changes, concurrent tabs, mạng chập chờn; conversation revoke khác source revoke, update và delete.
+Đã triển khai trong nhánh `feat/mem-11-chat-editors-projects-sharing`, cùng một PR. [Contract hiện hành](../../../specs/chat.md#conversation-editing-assistants-projects-and-collaboration), [ma trận test](../../../tests/chat.md#editors-projects-assistants-and-sharing-v36) và [receipt](editor-verification.md) phân biệt code/kiểm chứng local với merge và nghiệm thu triển khai.
 
-Exit: phạm vi giao đầu chạy xuyên backend; history giữ semantics đã chốt, source reader kiểm quyền hiện tại.
+- [x] V36: command identity, edit tạo USER sibling, regenerate chỉ tạo ASSISTANT, selected-child với expected child; rename/delete và ngăn late completion.
+- [x] Persona CRUD/selection, instructions/starters, nguồn/Search, model và caps; builtin seed chỉ insert, quyền owner hoặc MODELS_MANAGE cho builtin.
+- [x] Projects riêng của actor: instructions, CRUD, tạo/chuyển/gỡ hội thoại, xóa Project giữ history. Custom Persona thắng Project kể cả prompt rỗng; snapshot theo admission.
+- [x] Sharing authenticated same-Tenant link, read-only viewer, revoke; reader không có quyền owner hoặc quyền đọc nguồn phát sinh.
+- [x] Feedback theo Actor và output, cập nhật/xóa/reload; các phiên bản regenerate có đánh giá riêng.
+- [x] UI assistant-ui nối command server và tải lại đúng nhánh; kiểm browser edit/regenerate/branch/reload/sharing, Persona/Project CRUD và mobile. Kiểm HTTP thật qua Java/PostgreSQL, revision/ownership/rollback qua integration tests.
+- [x] Theo chỉ đạo bổ sung: Spring Data JPA cho CRUD Chat và provider/model/default lifecycle. Giữ JDBC cho cây/claims/bulk/projections; note Users/Groups cho Nhật tại MEM-55/MEM-36. Xem [review](persistence-review.md) và ADR 0010.
+
+Attachments, file Persona/Project thuộc MEM-81. Catalog admin UI/local-provider thuộc MEM-77. PR/CI/review và deployment acceptance vẫn theo Phase 6; không coi các checkbox implementation là issue Done.
 
 ## Phase 6 — Nghiệm thu và vận hành
+
+### UI theo Onyx — kế hoạch sửa sau phản hồi ngày 2026-09-11
+
+Chi tiết phạm vi, reference, component mapping, thứ tự và điều kiện đạt: [kế hoạch UI theo Onyx](ui-onyx-alignment-plan.md). Đã triển khai trên `feat/mem-11-onyx-ui` trong một PR code; [kiểm chứng UI](ui-verification.md) ghi kết quả và giới hạn. Custom agent tạm gác và attachments thuộc MEM-81.
+
+- [x] Project draft/composer và tạo session ở lần gửi đầu, giữ runtime/SSE khi đổi URL.
+- [x] Một header; sidebar Projects/hội thoại và menu rename/move/share/delete; Project workspace có instructions/composer/history.
+- [x] Inline edit, regenerate, chọn nhánh và feedback dùng component assistant-ui cài qua CLI nối đúng command server.
+- [x] Sharing tạo/sao chép link trong cùng dialog, giữ revision guards và authenticated read-only viewer.
+- [x] Browser scenarios, desktop/mobile visual checks và regression theo ma trận của kế hoạch: 79 browser tests, 106 unit tests, frontend checks và Gradle gate qua; giao một PR vào main theo quy trình CI/review.
+
+### Nghiệm thu runtime và vận hành còn lại
 
 - [ ] Corpus/scenarios đối chiếu Onyx; groundedness/citation support, latency, token/cost và concurrency.
 - [ ] Đối chiếu [ma trận end-to-end](design.md#end-to-end-framework-integration), ghi rõ native/gap/product receipts và giới hạn provider/pricing. Web search/deep research có điểm tích hợp xác định nhưng vẫn ngoài giao đầu; không báo workflow/checkpoints đã sẵn sàng chỉ vì factory compile.

@@ -19,7 +19,8 @@ public record RedisExecutionProperties(
         Workload cleanup,
         Workload search,
         Workload sourceSync,
-        Workload selectionValidation
+        Workload selectionValidation,
+        Workload userFile
 ) {
 
     public RedisExecutionProperties {
@@ -38,6 +39,7 @@ public record RedisExecutionProperties(
         Objects.requireNonNull(sourceSync, "sourceSync must not be null");
         Objects.requireNonNull(selectionValidation, "selectionValidation must not be null");
         Objects.requireNonNull(search, "search must not be null");
+        if (userFile == null) userFile = new Workload("memoryos:execution:user-file:operations:v1", "memoryos:execution:user-file:workers:v1", 1);
     }
 
     Workload workload(OperationWorkload workload) {
@@ -47,6 +49,7 @@ public record RedisExecutionProperties(
             case SOURCE_SYNC -> sourceSync;
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> selectionValidation;
             case SEARCH -> search;
+            case USER_FILE -> userFile;
         };
     }
 

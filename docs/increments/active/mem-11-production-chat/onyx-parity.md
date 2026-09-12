@@ -2,6 +2,8 @@
 
 Baseline đọc từ `.tmp/onyx`, commit `06aa2b09cc4aa5135fa2627e5235814e996f1514`. Đây là bảng phạm vi mục tiêu, không phải checklist tính năng MemoryOS đã hoàn thành. Xem [design](design.md) và [plan sáu phase](plan.md).
 
+Điều chỉnh ngày 2026-09-11 theo người dùng: toàn bộ attachments và file của Persona/Project chuyển sang [MEM-81](https://linear.app/memory-os/issue/MEM-81), làm sau. MEM-11 tiếp tục các chức năng khác trong một PR; việc tách issue không giảm baseline file, được giữ tại [design MEM-81](../chat-attachments-production/design.md).
+
 ## Lần giao đầu
 
 | Nhóm chức năng | Bằng chứng trong Onyx checkout | MemoryOS phải giao | Phase |
@@ -13,7 +15,8 @@ Baseline đọc từ `.tmp/onyx`, commit `06aa2b09cc4aa5135fa2627e5235814e996f15
 | Retrieval và nguồn | `backend/onyx/tools/tool_implementations/search/`; `streaming_models.py` citation packets | Authorized Search/context tools, multi-query/weighted RRF, validated section selection/expansion, evidence và source reader | 3, 4, 5 |
 | Assistant cấu hình được | `backend/onyx/server/features/persona/models.py`: PersonaUpsertRequest, instructions, document sets, tools, model, access fields | Profile có instructions/starter prompts, sources/tools/model, validation và editor | 2, 5 |
 | Model settings | Persona model overrides và chat request options | MEM-11 dùng một provider binding native, settings được validate; catalog/model selector nhiều provider, admin config và BYOK tổ chức chuyển sang MEM-77 | 1, 2, 5; catalog riêng |
-| Attachments và Projects | `backend/onyx/server/features/projects/api.py`, `models.py`; chat file references | Private upload/readiness/retention, project instructions/files, scope và quyền thật | 5 |
+| Projects | `backend/onyx/server/features/projects/api.py`, `models.py` | Project instructions và quản lý hội thoại, scope/quyền/precedence với Persona; phần files chuyển MEM-81 | 5 |
+| Attachments và file Persona/Project | Chat file references; reference cập nhật trong design MEM-81 | Private upload/readiness/retention, direct context/read_file/vision/tables, private retrieval và liên kết file; giữ cap 100/250 MiB | MEM-81, làm sau |
 | Chia sẻ hội thoại | `chat_backend.py`: sharing update/read paths | Chia sẻ có xác thực, quyền conversation và quyền nguồn được kiểm độc lập | 2, 5 |
 | Feedback | `chat_backend.py`: feedback handler | Feedback gắn message/run và Actor, write path và UI trong trải nghiệm Chat | 5 |
 

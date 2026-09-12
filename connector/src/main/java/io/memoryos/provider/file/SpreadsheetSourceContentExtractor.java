@@ -10,6 +10,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Path;
+import java.nio.file.Files;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -28,6 +30,8 @@ import org.apache.poi.ss.usermodel.FormulaError;
 import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.openxml4j.opc.PackageAccess;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -37,6 +41,26 @@ public final class SpreadsheetSourceContentExtractor {
     private static final long MAX_EXPANDED_BYTES = 64L * 1024 * 1024;
     private final ObjectMapper mapper;
     public SpreadsheetSourceContentExtractor(ObjectMapper mapper) { this.mapper = mapper; }
+
+    /** Same canonical workbook contract, with disk-backed ZIP parts for large Chat attachments. */
+    public DocumentContent extractFile(Path file, String filename, String mediaType) throws ExtractionException {
+        var output = new StructuredContent(mapper, SourceInputDescriptor.binary());
+        try {
+            if (Files.size(file) < 1 || Files.size(file) > 262_144_000) limit();
+            if ("text/csv".equals(mediaType) || "text/tab-separated-values".equals(mediaType)) {
+                try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+                    return delimited(reader, filename, output, mediaType);
+                }
+            }
+            if (!XLSX.equals(mediaType) && !"application/vnd.ms-excel.sheet.macroEnabled.12".equals(mediaType))
+                throw StructuredContent.failure(ExtractionFailure.UNSUPPORTED);
+            try (var zip = ZipFile.builder().setPath(file).get()) { zipAdmission(zip, output, 512L * 1024 * 1024); }
+            try (var archive = OPCPackage.open(file.toFile(), PackageAccess.READ)) {
+                return workbook(archive, filename, output, mediaType);
+            }
+        } catch (ExtractionException exception) { throw exception; }
+        catch (Exception exception) { throw StructuredContent.failure(ExtractionFailure.MALFORMED); }
+    }
 
     public DocumentContent extract(byte[] bytes, String filename, String mediaType,
                                    SourceInputDescriptor input) throws ExtractionException {
@@ -56,17 +80,25 @@ public final class SpreadsheetSourceContentExtractor {
         int offset = bytes.length >= 3 && bytes[0] == (byte) 0xef && bytes[1] == (byte) 0xbb && bytes[2] == (byte) 0xbf ? 3 : 0;
         var decoder = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT);
+        try (var reader = new InputStreamReader(new ByteArrayInputStream(bytes, offset, bytes.length - offset), decoder)) {
+            return delimited(reader, filename, output, "text/csv");
+        } catch (IOException exception) { throw StructuredContent.failure(ExtractionFailure.MALFORMED); }
+    }
+
+    private DocumentContent delimited(java.io.Reader input, String filename, StructuredContent output, String mediaType) throws ExtractionException {
         ObjectNode table = output.block("TABLE").putObject("table");
         table.put("coordinateBase", 0);
         table.put("missingCellValue", "EMPTY");
         ArrayNode cells = table.putArray("cells");
         int rows = 0;
         int columns = 0;
-        try (var reader = new InputStreamReader(new ByteArrayInputStream(bytes, offset, bytes.length - offset), decoder);
-             var parser = CSVFormat.RFC4180.parse(reader)) {
+        try (var reader = new RecordBoundedReader(input, output);
+             var parser = ("text/tab-separated-values".equals(mediaType) ? CSVFormat.TDF : CSVFormat.RFC4180).parse(reader)) {
             for (CSVRecord record : parser) {
+                reader.nextRecord();
                 output.checkTime();
                 columns = Math.max(columns, record.size());
+                if (columns > 16384) limit();
                 if ((long) (rows + 1) * columns > StructuredContent.MAX_CELLS) limit();
                 for (int column = 0; column < record.size(); column++) {
                     output.cell();
@@ -83,18 +115,29 @@ public final class SpreadsheetSourceContentExtractor {
                 output.append("\n");
                 rows++;
             }
-        } catch (IOException | java.io.UncheckedIOException | IllegalArgumentException exception) {
+        } catch (IOException | RuntimeException exception) {
+            for (Throwable cause = exception; cause != null; cause = cause.getCause())
+                if (cause instanceof ExtractionException extraction) throw extraction;
             throw StructuredContent.failure(ExtractionFailure.MALFORMED);
         }
         table.put("rowCount", rows);
         table.put("columnCount", columns);
         table.putArray("merges");
-        return output.finish("text/csv", filename, "commons-csv");
+        return output.finish(mediaType, filename, "commons-csv");
     }
 
     private DocumentContent xlsx(byte[] bytes, String filename, StructuredContent output) throws ExtractionException {
         zipAdmission(bytes, output);
-        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+        try (var archive = OPCPackage.open(new ByteArrayInputStream(bytes))) {
+            return workbook(archive, filename, output, XLSX);
+        } catch (Exception exception) {
+            if (exception instanceof ExtractionException extraction) throw extraction;
+            throw StructuredContent.failure(ExtractionFailure.MALFORMED);
+        }
+    }
+
+    private DocumentContent workbook(OPCPackage archive, String filename, StructuredContent output, String mediaType) throws ExtractionException {
+        try (var workbook = new XSSFWorkbook(archive)) {
             if (workbook.getNumberOfSheets() < 1 || workbook.getNumberOfSheets() > StructuredContent.MAX_TABS) limit();
             output.canonical().put("dateSystem", workbook.isDate1904() ? "1904" : "1900");
             DataFormatter formatter = new DataFormatter(Locale.ROOT);
@@ -154,7 +197,7 @@ public final class SpreadsheetSourceContentExtractor {
                     if (!text.isEmpty()) output.append(address + ": " + text + "\n");
                 }
             }
-            return output.finish(XLSX, filename, "apache-poi-xlsx");
+            return output.finish(mediaType, filename, "apache-poi-xlsx");
         } catch (EncryptedDocumentException exception) {
             throw StructuredContent.failure(ExtractionFailure.ENCRYPTED);
         } catch (IOException | RuntimeException exception) {
@@ -196,13 +239,19 @@ public final class SpreadsheetSourceContentExtractor {
     }
 
     private static void zipAdmission(byte[] bytes, StructuredContent output) throws ExtractionException {
+        try (var channel = new SeekableInMemoryByteChannel(bytes);
+             var zip = ZipFile.builder().setSeekableByteChannel(channel).get()) {
+            zipAdmission(zip, output, MAX_EXPANDED_BYTES);
+        } catch (IOException exception) { throw StructuredContent.failure(ExtractionFailure.MALFORMED); }
+    }
+
+    private static void zipAdmission(ZipFile zip, StructuredContent output, long maxExpandedBytes) throws ExtractionException {
         int entries = 0;
         Set<String> names = new HashSet<>();
         boolean contentTypes = false;
         boolean workbook = false;
-        XmlAdmission admission = new XmlAdmission(output);
-        try (var channel = new SeekableInMemoryByteChannel(bytes);
-             var zip = ZipFile.builder().setSeekableByteChannel(channel).get()) {
+        XmlAdmission admission = new XmlAdmission(output, maxExpandedBytes);
+        try {
             var factory = javax.xml.parsers.SAXParserFactory.newInstance();
             factory.setNamespaceAware(true);
             factory.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -229,7 +278,7 @@ public final class SpreadsheetSourceContentExtractor {
                     if (name.endsWith(".xml") || name.endsWith(".rels")) {
                         parser.parse(bounded, admission);
                     } else {
-                        while (bounded.read(buffer) != -1) { /* Count all ZIP members, including images. */ }
+                        while (bounded.read(buffer) != -1) { output.checkTime(); }
                     }
                 }
                 if (admission.expanded != entry.getSize() || checksum.getValue() != entry.getCrc())
@@ -248,6 +297,7 @@ public final class SpreadsheetSourceContentExtractor {
 
     private static final class XmlAdmission extends org.xml.sax.helpers.DefaultHandler {
         private final StructuredContent output;
+        private final long maxExpandedBytes;
         private long total;
         private long expanded;
         private long text;
@@ -257,7 +307,7 @@ public final class SpreadsheetSourceContentExtractor {
         private int rows;
         private int depth;
 
-        XmlAdmission(StructuredContent output) { this.output = output; }
+        XmlAdmission(StructuredContent output, long maxExpandedBytes) { this.output = output; this.maxExpandedBytes = maxExpandedBytes; }
 
         InputStream wrap(InputStream input) {
             return new java.io.FilterInputStream(input) {
@@ -266,7 +316,7 @@ public final class SpreadsheetSourceContentExtractor {
                     count(value < 0 ? 0 : 1);
                     return value;
                 }
-                @Override public int read(byte[] buffer, int offset, int length) throws IOException {
+                @Override public int read(byte @org.jspecify.annotations.NonNull [] buffer, int offset, int length) throws IOException {
                     int value = in.read(buffer, offset, length);
                     count(Math.max(0, value));
                     return value;
@@ -280,7 +330,7 @@ public final class SpreadsheetSourceContentExtractor {
             total += bytes;
             try {
                 output.checkTime();
-                if (total > MAX_EXPANDED_BYTES) limit();
+                if (total > maxExpandedBytes) limit();
             } catch (ExtractionException exception) { throw new IOException(exception); }
         }
 
@@ -303,7 +353,29 @@ public final class SpreadsheetSourceContentExtractor {
         }
 
         @Override public void error(org.xml.sax.SAXParseException exception) throws org.xml.sax.SAXException { throw exception; }
-        @Override public void fatalError(org.xml.sax.SAXParseException exception) throws org.xml.sax.SAXException { throw exception; }
+    }
+
+    /** Stops pathological records before Commons CSV allocates an unbounded field or column list. */
+    private static final class RecordBoundedReader extends java.io.FilterReader {
+        private final StructuredContent output;
+        private int consumed;
+        RecordBoundedReader(java.io.Reader reader, StructuredContent output) throws IOException {
+            super(new java.io.PushbackReader(reader, 1)); this.output = output;
+            int first = in.read();
+            if (first >= 0 && first != '\uFEFF') ((java.io.PushbackReader) in).unread(first);
+        }
+        void nextRecord() { consumed = 0; }
+        private void check(int count) throws IOException {
+            try {
+                output.checkTime();
+                consumed += Math.max(0, count);
+                if (consumed > 2 * StructuredContent.MAX_TEXT + 65536) limit();
+            } catch (ExtractionException failure) { throw new IOException(failure); }
+        }
+        @Override public int read() throws IOException { int value = super.read(); check(value < 0 ? 0 : 1); return value; }
+        @Override public int read(char @org.jspecify.annotations.NonNull [] buffer, int offset, int length) throws IOException {
+            int read = super.read(buffer, offset, Math.min(length, 8192)); check(read); return read;
+        }
     }
 
     private static void limit() throws ExtractionException { throw StructuredContent.failure(ExtractionFailure.WRITE_LIMIT); }

@@ -46,7 +46,7 @@ public class DocumentChunkService implements DocumentChunkPort {
             if (bytes.length != reader.size() || !hash.equals(reader.hash())) throw new IllegalStateException("artifact integrity mismatch");
             var chunks = chunker.chunk(reader.title(), new String(bytes, StandardCharsets.UTF_8));
             return repository.publish(reader, chunks)
-                    ? Optional.of(new DocumentChunkSet(tenant, document, generation, reader.title(), reader.mediaType(), reader.updatedAt(), chunks))
+                    ? repository.load(tenant, document, generation)
                     : Optional.empty();
         } catch (IOException | NoSuchAlgorithmException failure) {
             throw new IllegalStateException("cannot read extraction artifact");

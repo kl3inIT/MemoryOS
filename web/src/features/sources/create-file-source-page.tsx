@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { sameOriginMutationHeaders } from "@/lib/api";
+import { captureWorkflowFailure } from "@/lib/sentry";
 import {
   createFileSourceMutation,
   finalizeSourceUploadMutation,
@@ -141,6 +142,11 @@ export function CreateFileSourcePage() {
       await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: receipt.sourceId } });
     } catch (cause) {
       if (!controller.signal.aborted) {
+        captureWorkflowFailure(cause, {
+          workflow: "file-source-upload",
+          stage,
+          failureKind: cause instanceof DirectUploadError ? "direct-upload" : "api-or-network",
+        });
         const message = accepted
           ? "Your upload was accepted, but the Source page could not be opened. Open the Source again; do not upload the file again."
           : cause instanceof DirectUploadError

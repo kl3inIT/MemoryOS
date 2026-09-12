@@ -130,6 +130,14 @@ Domain Story and Consumer
 - Normal and production runtime configuration must keep springdoc API-doc endpoints disabled. Contract generation belongs to the full-context test boundary, not a temporary runtime profile or production startup task.
 - Every API change refreshes `openapi.yml` and the committed Hey API client in the same change. Backend tests reject contract drift; frontend checks reject generated-client drift.
 
+## Component and library reuse
+
+- Before building or extending a component, always check the existing project components and the relevant library's shipped components, hooks, adapters, and runtime behavior. Reuse them whenever they meet the actual requirement; this applies to behavior and state, not just visual markup.
+- Prefer a suitable ready-made component, then its documented props, slots and composition, then lower-level primitives. Write custom logic only for a concrete gap; record the gap and the reused entry point briefly in the active increment. Do not recreate selection, upload state, preview, keyboard/focus behavior, or cleanup that the library already provides for the selected runtime.
+- Keep registry-installed components close to their upstream implementation. Adapt them for the existing design tokens, language, accessibility and security contracts; preserve attribution and document meaningful deviations. Check the installed version and current documentation before integrating.
+- A necessary, maintained dependency is acceptable when it enables real reuse and its compatibility, license, bundle and maintenance costs are reasonable. Do not replace library logic merely to avoid adding a package. Pin the dependency and verify its actual consumer; avoid unrelated upgrades.
+- Reuse does not transfer application authority to the library. MemoryOS still owns backend authorization, persistence and business lifecycle. A component dependency does not by itself justify a new global store or duplication of state already owned by the runtime or query cache.
+
 ## Frontend interaction contracts
 
 - Product code chooses action `tone` (`default` or `danger`), `prominence` (`primary`, `secondary`, `tertiary`, or `internal`), and control `size` (`sm`, `md`, or `lg`). Shared UI components own rest, hover, active, focus-visible, disabled, and pending presentation in both themes.

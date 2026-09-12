@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.chat.ChatTurnService;
+import io.memoryos.chat.ChatCommand;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,12 +11,13 @@ import org.springframework.http.MediaType;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
+import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -55,8 +57,9 @@ class ChatTurnController {
     @ApiResponse(responseCode = "202", description = "Reserved reply", useReturnTypeSchema = true)
     Accepted send(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                   @PathVariable UUID sessionId, @Valid @RequestBody Send request) {
-        var accepted = turns.send(identity.actorId(), sessionId, request.parentMessageId(), request.clientRequestId(), request.text());
-        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId());
+        var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
+                request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds()));
+        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
     @PostMapping("/{assistantMessageId}/cancel")
@@ -69,12 +72,40 @@ class ChatTurnController {
         return new Cancellation(result.assistantMessageId(), result.status().name());
     }
 
+    @PostMapping("/{userMessageId}/edit")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(operationId = "editChatMessage", summary = "Create a new question branch and execute its reply")
+    @ApiResponse(responseCode = "202", description = "Reserved edited branch", useReturnTypeSchema = true)
+    Accepted edit(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+            @PathVariable UUID userMessageId, @Valid @RequestBody Edit request) {
+        var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
+                userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds()));
+        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
+    }
+
+    @PostMapping("/{userMessageId}/regenerate")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(operationId = "regenerateChatMessage", summary = "Generate a new answer under the existing question")
+    @ApiResponse(responseCode = "202", description = "Reserved regenerated reply", useReturnTypeSchema = true)
+    Accepted regenerate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+            @PathVariable UUID userMessageId, @Valid @RequestBody Regenerate request) {
+        var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
+                userMessageId, request.clientRequestId(), "", request.modelConfigurationId()));
+        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
+    }
+
+    record Edit(@NotNull UUID clientRequestId, @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
+                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds) {}
+    record Regenerate(@NotNull UUID clientRequestId, @Nullable UUID modelConfigurationId) {}
+
     record Send(@NotNull UUID parentMessageId, @NotNull UUID clientRequestId,
-                @NotBlank @Size(max = 32000) String text) {
+                @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
+                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds) {
     }
 
     record Accepted(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userMessageId,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId) {
+                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId,
+                    @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {
     }
 
     record Cancellation(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId,

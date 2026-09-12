@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import type {
   CurrentIdentity,
   SourceSummary,
@@ -48,25 +48,53 @@ async function api<T>(request: APIRequestContext, path: string, data?: object): 
   }
 }
 
+async function login(page: Page, request: APIRequestContext, phase: (value: string) => void) {
+  const username = required("USERNAME");
+  const password = required("PASSWORD");
+  phase("OIDC redirect");
+  await page.goto(new URL("/oauth2/authorization/memoryos", app).href);
+  expect(new URL(page.url()).origin).toBe(issuer.origin);
+  phase("login form");
+  await page.locator('#kc-form-login input[name="username"]').fill(username);
+  await page.locator('#kc-form-login input[name="password"]').fill(password);
+  phase("OIDC callback");
+  await page.locator('#kc-form-login [type="submit"]').click();
+  await page.waitForURL((url) => url.origin === app.origin);
+  phase("authenticated identity API");
+  const identity = await api<CurrentIdentity>(request, "/api/identity/me");
+  phase("configured actor identity");
+  expect(identity.actorId === actorId).toBe(true);
+  phase("active Tenant membership");
+  expect(identity.tenant !== null).toBe(true);
+  phase("Source management and deletion permissions");
+  expect(identity.capabilities.includes("SOURCES_MANAGE")).toBe(true);
+  expect(identity.capabilities.includes("SOURCES_DELETE")).toBe(true);
+}
+
+test("staging identity and permissions @preflight", async ({ page, context }) => {
+  let phase = "credential configuration";
+  try {
+    await login(page, context.request, (value) => {
+      phase = value;
+    });
+  } catch {
+    // Deliberately omit raw browser errors, login values and callback URLs.
+    throw new Error(`Staging preflight failed during ${phase}; runtime was not changed`);
+  }
+});
+
 test("real login, upload, indexing, Search, reader and denied anonymous access", async ({
   page,
   context,
   request,
 }) => {
-  const username = required("USERNAME");
-  const password = required("PASSWORD");
   let source: string | undefined;
   let phase = "login";
   let failure: string | undefined;
   try {
-    await page.goto(new URL("/oauth2/authorization/memoryos", app).href);
-    expect(new URL(page.url()).origin).toBe(issuer.origin);
-    await page.locator('#kc-form-login input[name="username"]').fill(username);
-    await page.locator('#kc-form-login input[name="password"]').fill(password);
-    await page.locator('#kc-form-login [type="submit"]').click();
-    await page.waitForURL((url) => url.origin === app.origin);
-    const identity = await api<CurrentIdentity>(context.request, "/api/identity/me");
-    expect(identity.actorId === actorId && identity.tenant !== null).toBe(true);
+    await login(page, context.request, (value) => {
+      phase = value;
+    });
 
     phase = "upload";
     const marker = `MEMORYOS-SMOKE-${randomUUID()}`;

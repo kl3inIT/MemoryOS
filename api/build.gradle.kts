@@ -43,6 +43,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.opensearch.java)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -55,6 +56,15 @@ tasks.named<Test>("test") {
         "memoryosOpenApiWrite",
         providers.environmentVariable("MEMORYOS_OPENAPI_WRITE").orElse("false"),
     )
+    inputs.property("memoryosChatLive", providers.environmentVariable("MEMORYOS_CHAT_LIVE_TEST").orElse("false"))
+    inputs.property("memoryosChatGroundingLive", providers.environmentVariable("MEMORYOS_CHAT_GROUNDING_LIVE_TEST").orElse("false"))
+    inputs.property("memoryosChatCorpusLive", providers.environmentVariable("MEMORYOS_CHAT_CORPUS_TEST").orElse("false"))
+    val corpus = providers.environmentVariable("MEMORYOS_CHAT_CORPUS_FILE")
+    inputs.property("memoryosChatCorpusFile", corpus.orElse(""))
+    inputs.files(corpus).withPropertyName("memoryosChatCorpusContents").withPathSensitivity(PathSensitivity.NONE).optional()
+    val liveCorpus = providers.environmentVariable("MEMORYOS_CHAT_CORPUS_TEST").map { it == "true" }.orElse(false)
+    outputs.upToDateWhen { !liveCorpus.get() }
+    outputs.doNotCacheIf("Live corpus measurements require real provider calls") { liveCorpus.get() }
 }
 
 springBoot {

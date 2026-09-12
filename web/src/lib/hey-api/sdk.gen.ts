@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CancelChatMessageData, CancelChatMessageErrors, CancelChatMessageResponses, CreateChatSessionData, CreateChatSessionErrors, CreateChatSessionResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetChatHistoryData, GetChatHistoryErrors, GetChatHistoryResponses, GetChatSessionData, GetChatSessionErrors, GetChatSessionResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponses, GetGroupData, GetGroupResponses, GetSearchDocumentData, GetSearchDocumentResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, GetSourceRunData, GetSourceRunResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListChatSessionsData, ListChatSessionsErrors, ListChatSessionsResponses, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourceRunErrorsData, ListSourceRunErrorsResponses, ListSourceRunsData, ListSourceRunsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameGroupData, RenameGroupResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, SearchDocumentsData, SearchDocumentsResponses, SendChatMessageData, SendChatMessageErrors, SendChatMessageResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StreamChatMessageData, StreamChatMessageErrors, StreamChatMessageResponse, StreamChatMessageResponses, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses } from './types.gen';
+import type { ActivateUserData, ActivateUserErrors, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AssignGroupManagerData, AssignGroupManagerResponses, CancelChatMessageData, CancelChatMessageErrors, CancelChatMessageResponses, ConfigureChatSessionData, ConfigureChatSessionErrors, ConfigureChatSessionResponses, CreateChatModelData, CreateChatModelErrors, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaErrors, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectErrors, CreateChatProjectResponses, CreateChatProviderData, CreateChatProviderErrors, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionErrors, CreateChatSessionResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, CreateProjectChatSessionData, CreateProjectChatSessionErrors, CreateProjectChatSessionResponses, DeactivateUserData, DeactivateUserErrors, DeactivateUserResponses, DeleteChatFileData, DeleteChatFileErrors, DeleteChatFileResponses, DeleteChatModelData, DeleteChatModelErrors, DeleteChatModelResponses, DeleteChatPersonaData, DeleteChatPersonaErrors, DeleteChatPersonaResponses, DeleteChatProjectData, DeleteChatProjectErrors, DeleteChatProjectResponses, DeleteChatProviderData, DeleteChatProviderErrors, DeleteChatProviderResponses, DeleteChatSessionData, DeleteChatSessionErrors, DeleteChatSessionResponses, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponses, DeleteGroupData, DeleteGroupResponses, DeleteSourceData, DeleteSourceResponses, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponses, DownloadChatFileData, DownloadChatFileErrors, DownloadChatFileResponses, EditChatMessageData, EditChatMessageErrors, EditChatMessageResponses, FinalizeChatFileUploadData, FinalizeChatFileUploadErrors, FinalizeChatFileUploadResponses, FinalizeSourceUploadData, FinalizeSourceUploadResponses, GetChatBranchesData, GetChatBranchesErrors, GetChatBranchesResponses, GetChatFeedbackData, GetChatFeedbackErrors, GetChatFeedbackResponses, GetChatFileData, GetChatFileErrors, GetChatFilePolicyData, GetChatFilePolicyErrors, GetChatFilePolicyResponses, GetChatFileResponses, GetChatHistoryData, GetChatHistoryErrors, GetChatHistoryResponses, GetChatModelDefaultData, GetChatModelDefaultErrors, GetChatModelDefaultResponses, GetChatPersonaData, GetChatPersonaErrors, GetChatPersonaResponses, GetChatProjectData, GetChatProjectErrors, GetChatProjectResponses, GetChatSessionData, GetChatSessionErrors, GetChatSessionResponses, GetChatSharingData, GetChatSharingErrors, GetChatSharingResponses, GetCurrentIdentityData, GetCurrentIdentityErrors, GetCurrentIdentityResponses, GetCurrentInvitationData, GetCurrentInvitationErrors, GetCurrentInvitationResponses, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponses, GetGroupData, GetGroupResponses, GetPersonaModelData, GetPersonaModelErrors, GetPersonaModelResponses, GetSearchDocumentData, GetSearchDocumentResponses, GetSharedChatHistoryData, GetSharedChatHistoryErrors, GetSharedChatHistoryResponses, GetSharedChatSessionData, GetSharedChatSessionErrors, GetSharedChatSessionResponses, GetSourceData, GetSourceOperationData, GetSourceOperationResponses, GetSourceResponses, GetSourceRunData, GetSourceRunResponses, InitiateChatFileUploadData, InitiateChatFileUploadErrors, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, ListAvailableChatModelsData, ListAvailableChatModelsErrors, ListAvailableChatModelsResponses, ListChatFilesData, ListChatFilesErrors, ListChatFilesResponses, ListChatPersonaModelsData, ListChatPersonaModelsErrors, ListChatPersonaModelsResponses, ListChatPersonasData, ListChatPersonasErrors, ListChatPersonaSourcesData, ListChatPersonaSourcesErrors, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsData, ListChatProjectsErrors, ListChatProjectsResponses, ListChatProviderAdaptersData, ListChatProviderAdaptersErrors, ListChatProviderAdaptersResponses, ListChatProvidersData, ListChatProvidersErrors, ListChatProvidersResponses, ListChatSessionsData, ListChatSessionsErrors, ListChatSessionsResponses, ListConfiguredChatModelsData, ListConfiguredChatModelsErrors, ListConfiguredChatModelsResponses, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponses, ListGroupCandidatesData, ListGroupCandidatesResponses, ListGroupCapabilitiesData, ListGroupCapabilitiesResponses, ListGroupMembersData, ListGroupMembersResponses, ListGroupsData, ListGroupsErrors, ListGroupSourcesData, ListGroupSourcesResponses, ListGroupsResponses, ListInvitationsData, ListInvitationsErrors, ListInvitationsResponses, ListProjectChatSessionsData, ListProjectChatSessionsErrors, ListProjectChatSessionsResponses, ListSourceGroupOptionsData, ListSourceGroupOptionsResponses, ListSourceGroupsData, ListSourceGroupsResponses, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponses, ListSourceItemsData, ListSourceItemsResponses, ListSourceRunErrorsData, ListSourceRunErrorsResponses, ListSourceRunsData, ListSourceRunsResponses, ListSourcesData, ListSourcesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, MoveChatProjectData, MoveChatProjectErrors, MoveChatProjectResponses, ReadChatFileTextData, ReadChatFileTextErrors, ReadChatFileTextResponses, RegenerateChatMessageData, RegenerateChatMessageErrors, RegenerateChatMessageResponses, ReindexSourceItemData, ReindexSourceItemResponses, RemoveChatFeedbackData, RemoveChatFeedbackErrors, RemoveChatFeedbackResponses, RemoveGroupManagerData, RemoveGroupManagerResponses, RemoveGroupMemberData, RemoveGroupMemberResponses, RemoveSourceItemData, RemoveSourceItemResponses, RenameChatSessionData, RenameChatSessionErrors, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceUserGroupsData, ReplaceUserGroupsErrors, ReplaceUserGroupsResponses, RetryChatFileData, RetryChatFileErrors, RetryChatFileResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RotateInvitationData, RotateInvitationErrors, RotateInvitationResponses, SearchDocumentsData, SearchDocumentsResponses, SelectChatBranchData, SelectChatBranchErrors, SelectChatBranchResponses, SelectChatPersonaData, SelectChatPersonaErrors, SelectChatPersonaResponses, SendChatMessageData, SendChatMessageErrors, SendChatMessageResponses, SetChatFeedbackData, SetChatFeedbackErrors, SetChatFeedbackResponses, SetChatModelDefaultData, SetChatModelDefaultErrors, SetChatModelDefaultResponses, SetChatSharingData, SetChatSharingErrors, SetChatSharingResponses, SetPersonaModelData, SetPersonaModelErrors, SetPersonaModelResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StreamChatMessageData, StreamChatMessageErrors, StreamChatMessageResponse, StreamChatMessageResponses, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponses, UpdateChatModelData, UpdateChatModelErrors, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaErrors, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectErrors, UpdateChatProjectResponses, UpdateChatProviderData, UpdateChatProviderErrors, UpdateChatProviderResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelData, ValidateChatModelErrors, ValidateChatModelResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -50,6 +50,349 @@ export const replaceGoogleDriveRoots = <ThrowOnError extends boolean = false>(op
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Rename an owned conversation
+ */
+export const renameChatSession = <ThrowOnError extends boolean = false>(options: Options<RenameChatSessionData, ThrowOnError>): RequestResult<RenameChatSessionResponses, RenameChatSessionErrors, ThrowOnError> => (options.client ?? client).put<RenameChatSessionResponses, RenameChatSessionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/title',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read the owner's sharing settings
+ */
+export const getChatSharing = <ThrowOnError extends boolean = false>(options: Options<GetChatSharingData, ThrowOnError>): RequestResult<GetChatSharingResponses, GetChatSharingErrors, ThrowOnError> => (options.client ?? client).get<GetChatSharingResponses, GetChatSharingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/sharing',
+    ...options
+});
+
+/**
+ * Enable or revoke read access for Tenant members with the link
+ */
+export const setChatSharing = <ThrowOnError extends boolean = false>(options: Options<SetChatSharingData, ThrowOnError>): RequestResult<SetChatSharingResponses, SetChatSharingErrors, ThrowOnError> => (options.client ?? client).put<SetChatSharingResponses, SetChatSharingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/sharing',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Atomically change assistant and project for subsequent turns
+ */
+export const configureChatSession = <ThrowOnError extends boolean = false>(options: Options<ConfigureChatSessionData, ThrowOnError>): RequestResult<ConfigureChatSessionResponses, ConfigureChatSessionErrors, ThrowOnError> => (options.client ?? client).put<ConfigureChatSessionResponses, ConfigureChatSessionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Move an owned conversation into or out of an owned project
+ */
+export const moveChatProject = <ThrowOnError extends boolean = false>(options: Options<MoveChatProjectData, ThrowOnError>): RequestResult<MoveChatProjectResponses, MoveChatProjectErrors, ThrowOnError> => (options.client ?? client).put<MoveChatProjectResponses, MoveChatProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/project',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Choose an authorized assistant for subsequent turns
+ */
+export const selectChatPersona = <ThrowOnError extends boolean = false>(options: Options<SelectChatPersonaData, ThrowOnError>): RequestResult<SelectChatPersonaResponses, SelectChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<SelectChatPersonaResponses, SelectChatPersonaErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/persona',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove the actor's rating from an owned assistant output
+ */
+export const removeChatFeedback = <ThrowOnError extends boolean = false>(options: Options<RemoveChatFeedbackData, ThrowOnError>): RequestResult<RemoveChatFeedbackResponses, RemoveChatFeedbackErrors, ThrowOnError> => (options.client ?? client).delete<RemoveChatFeedbackResponses, RemoveChatFeedbackErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/feedback',
+    ...options
+});
+
+/**
+ * Add or change a rating on an owned assistant output
+ */
+export const setChatFeedback = <ThrowOnError extends boolean = false>(options: Options<SetChatFeedbackData, ThrowOnError>): RequestResult<SetChatFeedbackResponses, SetChatFeedbackErrors, ThrowOnError> => (options.client ?? client).put<SetChatFeedbackResponses, SetChatFeedbackErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/feedback',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Select a message version without generating a reply
+ */
+export const selectChatBranch = <ThrowOnError extends boolean = false>(options: Options<SelectChatBranchData, ThrowOnError>): RequestResult<SelectChatBranchResponses, SelectChatBranchErrors, ThrowOnError> => (options.client ?? client).put<SelectChatBranchResponses, SelectChatBranchErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/branch',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a provider that is not the Chat default; transcript is preserved
+ */
+export const deleteChatProvider = <ThrowOnError extends boolean = false>(options: Options<DeleteChatProviderData, ThrowOnError>): RequestResult<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}',
+    ...options
+});
+
+/**
+ * Replace provider settings at the expected revision; credential action is explicit
+ */
+export const updateChatProvider = <ThrowOnError extends boolean = false>(options: Options<UpdateChatProviderData, ThrowOnError>): RequestResult<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a project and retain its conversations
+ */
+export const deleteChatProject = <ThrowOnError extends boolean = false>(options: Options<DeleteChatProjectData, ThrowOnError>): RequestResult<DeleteChatProjectResponses, DeleteChatProjectErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatProjectResponses, DeleteChatProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/projects/{projectId}',
+    ...options
+});
+
+/**
+ * Read an owned project
+ */
+export const getChatProject = <ThrowOnError extends boolean = false>(options: Options<GetChatProjectData, ThrowOnError>): RequestResult<GetChatProjectResponses, GetChatProjectErrors, ThrowOnError> => (options.client ?? client).get<GetChatProjectResponses, GetChatProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/projects/{projectId}',
+    ...options
+});
+
+/**
+ * Update project instructions with an expected revision
+ */
+export const updateChatProject = <ThrowOnError extends boolean = false>(options: Options<UpdateChatProjectData, ThrowOnError>): RequestResult<UpdateChatProjectResponses, UpdateChatProjectErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatProjectResponses, UpdateChatProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/projects/{projectId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a private assistant while retaining conversation history
+ */
+export const deleteChatPersona = <ThrowOnError extends boolean = false>(options: Options<DeleteChatPersonaData, ThrowOnError>): RequestResult<DeleteChatPersonaResponses, DeleteChatPersonaErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatPersonaResponses, DeleteChatPersonaErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}',
+    ...options
+});
+
+/**
+ * Read an authorized assistant
+ */
+export const getChatPersona = <ThrowOnError extends boolean = false>(options: Options<GetChatPersonaData, ThrowOnError>): RequestResult<GetChatPersonaResponses, GetChatPersonaErrors, ThrowOnError> => (options.client ?? client).get<GetChatPersonaResponses, GetChatPersonaErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}',
+    ...options
+});
+
+/**
+ * Update assistant settings with an expected revision
+ */
+export const updateChatPersona = <ThrowOnError extends boolean = false>(options: Options<UpdateChatPersonaData, ThrowOnError>): RequestResult<UpdateChatPersonaResponses, UpdateChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatPersonaResponses, UpdateChatPersonaErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read the Persona model selection and revision; requires model management
+ */
+export const getPersonaModel = <ThrowOnError extends boolean = false>(options: Options<GetPersonaModelData, ThrowOnError>): RequestResult<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError> => (options.client ?? client).get<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}/model',
+    ...options
+});
+
+/**
+ * Set a Persona model or omit the model ID to inherit the Chat default
+ */
+export const setPersonaModel = <ThrowOnError extends boolean = false>(options: Options<SetPersonaModelData, ThrowOnError>): RequestResult<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError> => (options.client ?? client).put<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}/model',
+    ...options
+});
+
+/**
+ * Delete a non-default model and clear its Persona defaults; transcript is preserved
+ */
+export const deleteChatModel = <ThrowOnError extends boolean = false>(options: Options<DeleteChatModelData, ThrowOnError>): RequestResult<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models/{modelId}',
+    ...options
+});
+
+/**
+ * Replace a model configuration at the expected revision
+ */
+export const updateChatModel = <ThrowOnError extends boolean = false>(options: Options<UpdateChatModelData, ThrowOnError>): RequestResult<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models/{modelId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read the Tenant Chat default and its revision; requires model management
+ */
+export const getChatModelDefault = <ThrowOnError extends boolean = false>(options?: Options<GetChatModelDefaultData, ThrowOnError>): RequestResult<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError> => (options?.client ?? client).get<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/model-default',
+    ...options
+});
+
+/**
+ * Set a visible, publicly available Tenant Chat default
+ */
+export const setChatModelDefault = <ThrowOnError extends boolean = false>(options: Options<SetChatModelDefaultData, ThrowOnError>): RequestResult<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError> => (options.client ?? client).put<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/model-default',
+    ...options
 });
 
 /**
@@ -568,6 +911,40 @@ export const sendChatMessage = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * Generate a new answer under the existing question
+ */
+export const regenerateChatMessage = <ThrowOnError extends boolean = false>(options: Options<RegenerateChatMessageData, ThrowOnError>): RequestResult<RegenerateChatMessageResponses, RegenerateChatMessageErrors, ThrowOnError> => (options.client ?? client).post<RegenerateChatMessageResponses, RegenerateChatMessageErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/messages/{userMessageId}/regenerate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Create a new question branch and execute its reply
+ */
+export const editChatMessage = <ThrowOnError extends boolean = false>(options: Options<EditChatMessageData, ThrowOnError>): RequestResult<EditChatMessageResponses, EditChatMessageErrors, ThrowOnError> => (options.client ?? client).post<EditChatMessageResponses, EditChatMessageErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/messages/{userMessageId}/edit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Request Stop; read history for the committed terminal outcome
  */
 export const cancelChatMessage = <ThrowOnError extends boolean = false>(options: Options<CancelChatMessageData, ThrowOnError>): RequestResult<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError> => (options.client ?? client).post<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError>({
@@ -578,6 +955,212 @@ export const cancelChatMessage = <ThrowOnError extends boolean = false>(options:
         }],
     url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel',
     ...options
+});
+
+/**
+ * List Tenant provider configuration with credentials redacted
+ */
+export const listChatProviders = <ThrowOnError extends boolean = false>(options?: Options<ListChatProvidersData, ThrowOnError>): RequestResult<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers',
+    ...options
+});
+
+/**
+ * Create a Tenant provider; requires MODELS_MANAGE
+ */
+export const createChatProvider = <ThrowOnError extends boolean = false>(options: Options<CreateChatProviderData, ThrowOnError>): RequestResult<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List all configured models on a provider; requires model management
+ */
+export const listConfiguredChatModels = <ThrowOnError extends boolean = false>(options: Options<ListConfiguredChatModelsData, ThrowOnError>): RequestResult<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError> => (options.client ?? client).get<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}/models',
+    ...options
+});
+
+/**
+ * Add a concrete model configuration to a Tenant provider
+ */
+export const createChatModel = <ThrowOnError extends boolean = false>(options: Options<CreateChatModelData, ThrowOnError>): RequestResult<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError> => (options.client ?? client).post<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/{providerId}/models',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List actor-owned projects
+ */
+export const listChatProjects = <ThrowOnError extends boolean = false>(options?: Options<ListChatProjectsData, ThrowOnError>): RequestResult<ListChatProjectsResponses, ListChatProjectsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProjectsResponses, ListChatProjectsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/projects',
+    ...options
+});
+
+/**
+ * Create a private project
+ */
+export const createChatProject = <ThrowOnError extends boolean = false>(options: Options<CreateChatProjectData, ThrowOnError>): RequestResult<CreateChatProjectResponses, CreateChatProjectErrors, ThrowOnError> => (options.client ?? client).post<CreateChatProjectResponses, CreateChatProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/projects',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List owned conversations in an owned project
+ */
+export const listProjectChatSessions = <ThrowOnError extends boolean = false>(options: Options<ListProjectChatSessionsData, ThrowOnError>): RequestResult<ListProjectChatSessionsResponses, ListProjectChatSessionsErrors, ThrowOnError> => (options.client ?? client).get<ListProjectChatSessionsResponses, ListProjectChatSessionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/projects/{projectId}/sessions',
+    ...options
+});
+
+/**
+ * Create a conversation inside an owned project
+ */
+export const createProjectChatSession = <ThrowOnError extends boolean = false>(options: Options<CreateProjectChatSessionData, ThrowOnError>): RequestResult<CreateProjectChatSessionResponses, CreateProjectChatSessionErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectChatSessionResponses, CreateProjectChatSessionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/projects/{projectId}/sessions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List the default and actor-owned assistants
+ */
+export const listChatPersonas = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonasData, ThrowOnError>): RequestResult<ListChatPersonasResponses, ListChatPersonasErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonasResponses, ListChatPersonasErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas',
+    ...options
+});
+
+/**
+ * Create a private assistant
+ */
+export const createChatPersona = <ThrowOnError extends boolean = false>(options: Options<CreateChatPersonaData, ThrowOnError>): RequestResult<CreateChatPersonaResponses, CreateChatPersonaErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPersonaResponses, CreateChatPersonaErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Explicit bounded provider connectivity check; does not certify model capabilities
+ */
+export const validateChatModel = <ThrowOnError extends boolean = false>(options: Options<ValidateChatModelData, ThrowOnError>): RequestResult<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError> => (options.client ?? client).post<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models/{modelId}/validate',
+    ...options
+});
+
+/**
+ * Retry processing a failed owner-private file
+ */
+export const retryChatFile = <ThrowOnError extends boolean = false>(options: Options<RetryChatFileData, ThrowOnError>): RequestResult<RetryChatFileResponses, RetryChatFileErrors, ThrowOnError> => (options.client ?? client).post<RetryChatFileResponses, RetryChatFileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/{fileId}/retry',
+    ...options
+});
+
+/**
+ * Verify upload integrity and queue asynchronous extraction
+ */
+export const finalizeChatFileUpload = <ThrowOnError extends boolean = false>(options: Options<FinalizeChatFileUploadData, ThrowOnError>): RequestResult<FinalizeChatFileUploadResponses, FinalizeChatFileUploadErrors, ThrowOnError> => (options.client ?? client).post<FinalizeChatFileUploadResponses, FinalizeChatFileUploadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/{fileId}/finalize',
+    ...options
+});
+
+/**
+ * Authorize or resume an owner-private, idempotent file upload
+ */
+export const initiateChatFileUpload = <ThrowOnError extends boolean = false>(options: Options<InitiateChatFileUploadData, ThrowOnError>): RequestResult<InitiateChatFileUploadResponses, InitiateChatFileUploadErrors, ThrowOnError> => (options.client ?? client).post<InitiateChatFileUploadResponses, InitiateChatFileUploadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/uploads',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -887,6 +1470,45 @@ export const listGoogleDriveCredentials = <ThrowOnError extends boolean = false>
 });
 
 /**
+ * Read a shared conversation after authenticating in its Tenant
+ */
+export const getSharedChatSession = <ThrowOnError extends boolean = false>(options: Options<GetSharedChatSessionData, ThrowOnError>): RequestResult<GetSharedChatSessionResponses, GetSharedChatSessionErrors, ThrowOnError> => (options.client ?? client).get<GetSharedChatSessionResponses, GetSharedChatSessionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/shared/{sessionId}',
+    ...options
+});
+
+/**
+ * Read saved messages on the currently shared branch
+ */
+export const getSharedChatHistory = <ThrowOnError extends boolean = false>(options: Options<GetSharedChatHistoryData, ThrowOnError>): RequestResult<GetSharedChatHistoryResponses, GetSharedChatHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetSharedChatHistoryResponses, GetSharedChatHistoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/shared/{sessionId}/messages',
+    ...options
+});
+
+/**
+ * Delete an owned conversation and stop its active reply
+ */
+export const deleteChatSession = <ThrowOnError extends boolean = false>(options: Options<DeleteChatSessionData, ThrowOnError>): RequestResult<DeleteChatSessionResponses, DeleteChatSessionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatSessionResponses, DeleteChatSessionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}',
+    ...options
+});
+
+/**
  * Read an owned chat session
  */
 export const getChatSession = <ThrowOnError extends boolean = false>(options: Options<GetChatSessionData, ThrowOnError>): RequestResult<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError> => (options.client ?? client).get<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError>({
@@ -902,7 +1524,7 @@ export const getChatSession = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Read or resume reply events; reset requires persisted history
  *
- * Events: text-delta, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.
+ * Events: text-delta, search, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.
  */
 export const streamChatMessage = <ThrowOnError extends boolean = false>(options: Options<StreamChatMessageData, ThrowOnError, StreamChatMessageResponse>): Promise<ServerSentEventsResult<StreamChatMessageResponses>> => (options.client ?? client).sse.get<StreamChatMessageResponses, StreamChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -911,6 +1533,162 @@ export const streamChatMessage = <ThrowOnError extends boolean = false>(options:
             type: 'apiKey'
         }],
     url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events',
+    ...options
+});
+
+/**
+ * Read the actor's ratings for saved outputs
+ */
+export const getChatFeedback = <ThrowOnError extends boolean = false>(options: Options<GetChatFeedbackData, ThrowOnError>): RequestResult<GetChatFeedbackResponses, GetChatFeedbackErrors, ThrowOnError> => (options.client ?? client).get<GetChatFeedbackResponses, GetChatFeedbackErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/feedback',
+    ...options
+});
+
+/**
+ * Read version relationships in an owned conversation
+ */
+export const getChatBranches = <ThrowOnError extends boolean = false>(options: Options<GetChatBranchesData, ThrowOnError>): RequestResult<GetChatBranchesResponses, GetChatBranchesErrors, ThrowOnError> => (options.client ?? client).get<GetChatBranchesResponses, GetChatBranchesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sessions/{sessionId}/branches',
+    ...options
+});
+
+/**
+ * List installed adapter types and credential requirements; requires model management
+ */
+export const listChatProviderAdapters = <ThrowOnError extends boolean = false>(options?: Options<ListChatProviderAdaptersData, ThrowOnError>): RequestResult<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/provider-adapters',
+    ...options
+});
+
+/**
+ * List models available to this actor and assistant
+ */
+export const listChatPersonaModels = <ThrowOnError extends boolean = false>(options: Options<ListChatPersonaModelsData, ThrowOnError>): RequestResult<ListChatPersonaModelsResponses, ListChatPersonaModelsErrors, ThrowOnError> => (options.client ?? client).get<ListChatPersonaModelsResponses, ListChatPersonaModelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/{personaId}/models',
+    ...options
+});
+
+/**
+ * List sources eligible for assistant search
+ */
+export const listChatPersonaSources = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonaSourcesData, ThrowOnError>): RequestResult<ListChatPersonaSourcesResponses, ListChatPersonaSourcesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaSourcesResponses, ListChatPersonaSourcesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/personas/sources',
+    ...options
+});
+
+/**
+ * List visible models authorized for this session or the builtin Persona
+ */
+export const listAvailableChatModels = <ThrowOnError extends boolean = false>(options?: Options<ListAvailableChatModelsData, ThrowOnError>): RequestResult<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError> => (options?.client ?? client).get<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/models',
+    ...options
+});
+
+/**
+ * List recent owner-private files
+ */
+export const listChatFiles = <ThrowOnError extends boolean = false>(options?: Options<ListChatFilesData, ThrowOnError>): RequestResult<ListChatFilesResponses, ListChatFilesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatFilesResponses, ListChatFilesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files',
+    ...options
+});
+
+/**
+ * Make an owner-private file unavailable and queue cleanup
+ */
+export const deleteChatFile = <ThrowOnError extends boolean = false>(options: Options<DeleteChatFileData, ThrowOnError>): RequestResult<DeleteChatFileResponses, DeleteChatFileErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatFileResponses, DeleteChatFileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/{fileId}',
+    ...options
+});
+
+/**
+ * Read file metadata and processing status
+ */
+export const getChatFile = <ThrowOnError extends boolean = false>(options: Options<GetChatFileData, ThrowOnError>): RequestResult<GetChatFileResponses, GetChatFileErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileResponses, GetChatFileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/{fileId}',
+    ...options
+});
+
+/**
+ * Read a bounded window of owner-private extracted text
+ */
+export const readChatFileText = <ThrowOnError extends boolean = false>(options: Options<ReadChatFileTextData, ThrowOnError>): RequestResult<ReadChatFileTextResponses, ReadChatFileTextErrors, ThrowOnError> => (options.client ?? client).get<ReadChatFileTextResponses, ReadChatFileTextErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/{fileId}/text',
+    ...options
+});
+
+/**
+ * Download an owner-private original file without inline execution
+ */
+export const downloadChatFile = <ThrowOnError extends boolean = false>(options: Options<DownloadChatFileData, ThrowOnError>): RequestResult<DownloadChatFileResponses, DownloadChatFileErrors, ThrowOnError> => (options.client ?? client).get<DownloadChatFileResponses, DownloadChatFileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/{fileId}/content',
+    ...options
+});
+
+/**
+ * Get the active Chat file upload policy
+ */
+export const getChatFilePolicy = <ThrowOnError extends boolean = false>(options?: Options<GetChatFilePolicyData, ThrowOnError>): RequestResult<GetChatFilePolicyResponses, GetChatFilePolicyErrors, ThrowOnError> => (options?.client ?? client).get<GetChatFilePolicyResponses, GetChatFilePolicyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/files/policy',
     ...options
 });
 

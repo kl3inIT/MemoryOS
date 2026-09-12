@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
@@ -26,6 +27,9 @@ import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @Configuration(proxyBeanMethods = false)
 @OpenAPIDefinition(
@@ -63,6 +67,22 @@ class OpenApiConfiguration {
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
                     Components components = openApi.getComponents();
+                    for (String schema : List.of("PersonaInput", "PersonaView")) {
+                        configureNullableProperty(components, schema, "modelConfigurationId", new StringSchema().format("uuid"));
+                        configureNullableProperty(components, schema, "contextTokenLimit", new IntegerSchema());
+                        configureNullableProperty(components, schema, "outputTokenLimit", new IntegerSchema());
+                    }
+                    configureNullableProperty(components, "ProjectSelection", "projectId", new StringSchema().format("uuid"));
+                    for (String property : List.of("personaId", "projectId"))
+                        configureNullableProperty(components, "CreateChatSession", property, new StringSchema().format("uuid"));
+                    configureNullableProperty(components, "ChatSessionSettings", "projectId", new StringSchema().format("uuid"));
+                    configureNullableProperty(components, "BranchSelection", "expectedChildId", new StringSchema().format("uuid"));
+                    for (String property : List.of("parentMessageId", "latestChildMessageId"))
+                        configureNullableProperty(components, "ChatBranch", property, new StringSchema().format("uuid"));
+                    for (String schema : List.of("Feedback", "FeedbackInput"))
+                        configureNullableProperty(components, schema, "positive", new BooleanSchema());
+                    configureNullableProperty(components, "SearchEvent", "source",
+                            new Schema<>().$ref("#/components/schemas/ChatSource"));
                     configureNullableProperty(components, "CurrentIdentity", "tenant",
                             new Schema<>().$ref("#/components/schemas/CurrentTenant"));
                     configureNullableProperty(components, "GoogleDriveConfigurationResponse", "pendingSelectionOperation",
@@ -91,7 +111,10 @@ class OpenApiConfiguration {
     /** Documents the header the mutation interceptor enforces on every unsafe API operation. */
     private static OperationCustomizer browserMutationHeader() {
         return (operation, handlerMethod) -> {
-            if (handlerMethod.hasMethodAnnotation(PostMapping.class)) {
+            if (handlerMethod.hasMethodAnnotation(PostMapping.class)
+                    || handlerMethod.hasMethodAnnotation(PutMapping.class)
+                    || handlerMethod.hasMethodAnnotation(PatchMapping.class)
+                    || handlerMethod.hasMethodAnnotation(DeleteMapping.class)) {
                 List<io.swagger.v3.oas.models.parameters.Parameter> parameters =
                         operation.getParameters() == null ? new ArrayList<>() : operation.getParameters();
                 parameters.addFirst(new HeaderParameter()

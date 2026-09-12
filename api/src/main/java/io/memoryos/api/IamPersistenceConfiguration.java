@@ -7,9 +7,11 @@ import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @Configuration(proxyBeanMethods = false)
-@EntityScan("io.memoryos.iam.persistence")
+@EntityScan({"io.memoryos.iam.persistence", "io.memoryos.chat.persistence"})
+@EnableJpaRepositories(basePackages = "io.memoryos.chat.persistence")
 class IamPersistenceConfiguration {
 
     @Bean

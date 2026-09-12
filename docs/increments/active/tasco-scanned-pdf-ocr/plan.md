@@ -178,9 +178,9 @@ The frontend gate passed 99 unit tests in 18 files; the two affected Chromium sc
 
 ### Publication priority — 2026-09-12
 
-The user requested committing and publishing the current code for a PR into `main` before further research, with staging deployment performed by the user. Unfinished structural correction, expanded corpus scoring, recovery promotion and performance optimization above are paused, not accepted. The diagnostic-only coverage change is included subject to its focused and integration gates.
+The user requested committing and publishing the current code for a PR into `main` before further research, with staging deployment performed by the user. The latest instruction explicitly prioritizes resolving the main merge and opening the PR before integrated gates or further fixes. Unfinished structural correction, expanded corpus scoring, recovery promotion and performance optimization above are paused, not accepted. The diagnostic-only change passed its pre-merge focused checks; integrated verification remains pending and must be reported as such.
 
 - [x] Verify and commit the current diagnostic change and reconcile its contract/evidence.
 - [ ] Integrate current `origin/main` without replacing its features or applied migrations.
-- [ ] Run the integrated backend/frontend gates and account for every published path.
-- [ ] Push the verified branch and open a PR targeting `main`; report its exact head and checks.
+- [ ] Push the merged branch and open a PR targeting `main`; report its exact head and pending checks.
+- [ ] After PR creation, run the integrated backend/frontend gates and address integration findings.

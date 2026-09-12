@@ -6,7 +6,9 @@ The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.ym
 
 ## Required verification and release identity
 
-`CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, and a redacted Gitleaks history scan. Failed, canceled or skipped jobs fail the aggregate gate. Obsolete PR runs are canceled; main runs are not. PR runs have no package-write or staging authority and do not retain image archives.
+`CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, the landing page checks and image smoke, and a redacted Gitleaks history scan. Failed, canceled or skipped jobs fail the aggregate gate. Obsolete PR runs are canceled; main runs are not. PR runs have no package-write or staging authority and do not retain image archives.
+
+Frontend runs as two independent Playwright shards with one worker each and matrix fail-fast disabled. Shard 1 also runs the frontend static/unit/build gate. Both shards must succeed for the existing `frontend` dependency to pass; reports are retained separately as `frontend-tests-1` and `frontend-tests-2`. API and worker images stay on one runner to reuse their shared build layers. MinIO fixtures and the deployment default use the official Quay mirror with the existing immutable digest, avoiding the unavailable Docker Hub repository without upgrading the service.
 
 After successful main gates, publication loads the preserved API, worker and web images, checks their revision/source labels, and pushes those bytes to GHCR. It does not rebuild them. The release artifact is named `release-<source SHA>-<CI attempt>` and contains:
 
@@ -16,6 +18,8 @@ After successful main gates, publication loads the preserved API, worker and web
 - `manifest.json`: repository, source SHA, CI run ID and attempt.
 
 Test reports and main candidate image archives are retained seven days; release bundles are retained 90 days. There are no mutable deployment tags. A partially published image set without a successful publication job and complete artifact is not deployable. A manual rerun must produce a complete successful CI attempt containing both `CI Gate` and `Publish verified release`.
+
+The public landing page is released separately: `Publish landing` pushes its preserved image after the same gate and records the digest in its own `landing-release-<sha>-<attempt>` artifact. It is never part of `images.env`; operators deploy it with the [landing runbook](landing.md).
 
 ## First-use configuration
 
@@ -48,6 +52,8 @@ gh run watch <deployment-run-id> --exit-status
 
 The workflow verifies same-repository main-push provenance, successful CI and publication jobs, ancestry, checksums and the selected attempt. Automatic promotion skips a source SHA superseded on main. Manual selection permits an older verified release, subject to schema compatibility checks. Neither path accepts a PR build or arbitrary image tag.
 
+Before SSH or changing containers, `test:staging:preflight` verifies real OIDC login, the configured exact Actor, active Tenant membership and global Source management/deletion capabilities. An invalid smoke account stops before rollout. Errors distinguish redirect, login form, callback, identity API, actor mismatch, membership and permissions without printing credentials or callback URLs. The Actor variable must belong to the account in the smoke secrets; do not replace it with an unrelated admin Actor or bypass IAM admission.
+
 GitHub concurrency preserves a running deployment. A server `flock` excludes simultaneous mutations; `/apps/memoryos/deployments/pending` reserves the environment until authenticated smoke and finalization complete. Failure or cancellation after rollout starts triggers a compatible rollback attempt. If cancellation, a timeout or disconnection interrupts recovery, the reservation remains for operator recovery instead of allowing another release to overwrite an uncertain state.
 
 The server validates the existing healthy three-image set, retains its actual image IDs and Compose paths, validates candidate configuration and image revisions, and rejects candidates missing an applied migration. After pulling images, free disk must exceed twice the database size plus 2 GB. It stops worker and API writers, creates a PostgreSQL custom-format backup, checks its restore catalogue and checksum, then starts API through normal Flyway. API readiness must succeed before worker/web rollout. This single-instance topology has a maintenance interruption; it does not provide zero-downtime migration.
@@ -73,6 +79,8 @@ On deployment or smoke failure, or cancellation after rollout starts, the workfl
 Cancellation cleanup is best effort: [GitHub can forcibly terminate canceled work after five minutes](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation), and job timeout, forced cancellation or runner loss can interrupt recovery. The rollback command must acquire the same nonblocking server lock; it fails without mutation if the original SSH operation still owns that lock. No timeout or cancellation path removes `pending` without successful recovery smoke and finalization.
 
 Changed schema, failed rollback, failed recovery smoke, lost SSH, or interrupted cancellation recovery requires an operator. Subsequent deployments remain blocked by `pending`. Do not delete that file merely to unblock CI.
+
+When the pending transaction's candidate or already-restored previous runtime is healthy and ready for acceptance, an operator can dispatch the same workflow with `-f recovery_release=<exact-pending-SHA-run-attempt>` in addition to `ci_run_id`. The workflow requires that revision on main, runs the full authenticated smoke against the current runtime, then invokes that transaction's existing `finish` guard before starting the new deployment. A mismatch, unhealthy runtime or failed smoke leaves the reservation intact. This path neither runs rollback nor restores data; schema recovery or a mixed runtime still requires the operator procedure below. Leave this optional input empty for normal deployments.
 
 1. Read the pending release identifier and its private `deployments/<release>/` directory. Inspect `schema.before`, any failure snapshot, the backup catalogue/checksum, candidate/previous image references, and container health. Inspect bounded server logs locally; do not upload environments, tokens, presigned URLs or raw login traces.
 2. If the schema is unchanged, rerun the same transaction's `rollback` command under sudo. The script acquires the server lock and checks that the reservation still belongs to this transaction.

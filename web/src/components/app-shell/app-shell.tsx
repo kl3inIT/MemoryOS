@@ -29,6 +29,8 @@ type AppShellProps = {
   adminPage?: AdminPage;
   sourceSetupStep?: 0 | 1;
   pageTitle: string;
+  chatMode?: "Chat" | "Search";
+  headerActions?: ReactNode;
   children: ReactNode;
 };
 
@@ -134,7 +136,7 @@ function SidebarContents({
             </Link>
             {mobile ? (
               <Dialog.Close asChild>
-                <IconButton prominence="internal" size="md" aria-label="Close navigation">
+                <IconButton prominence="internal" size="md" aria-label="Đóng điều hướng">
                   <X />
                 </IconButton>
               </Dialog.Close>
@@ -264,6 +266,8 @@ export function AppShell({
   adminPage = "sources",
   sourceSetupStep,
   pageTitle,
+  chatMode,
+  headerActions,
   children,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -304,6 +308,7 @@ export function AppShell({
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-base">
         <Dialog.Root open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
           <header
+            role="banner"
             className={cn(
               "flex shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3",
               sourceSetupStep === undefined && area === "app" ? "h-14" : "h-13 md:hidden",
@@ -313,19 +318,20 @@ export function AppShell({
               <IconButton
                 prominence="internal"
                 size="md"
-                aria-label="Open navigation"
+                aria-label="Mở điều hướng"
                 className="md:hidden"
               >
                 <Menu />
               </IconButton>
             </Dialog.Trigger>
             <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
-              {sourceSetupStep === undefined && area === "app" ? (
-                <ChatModeMenu mode={pageTitle === "Search" ? "Search" : "Chat"} />
+              {sourceSetupStep === undefined && area === "app" && chatMode ? (
+                <ChatModeMenu mode={chatMode} />
               ) : (
                 pageTitle
               )}
             </span>
+            {headerActions}
           </header>
 
           <Dialog.Portal>

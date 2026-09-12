@@ -8,7 +8,15 @@
   },
   "overrides": [
     {
-      "files": ["src/components/ui/**/*.tsx"],
+      "files": ["src/components/assistant-ui/elements/markdown-text.tsx"],
+      "rules": { "react/refs": "off" }
+    },
+    {
+      "files": ["src/components/assistant-ui/elements/surfaces.tsx"],
+      "rules": { "react-hooks/exhaustive-deps": "off" }
+    },
+    {
+      "files": ["src/components/ui/**/*.tsx", "src/components/assistant-ui/elements/**/*.tsx"],
       "rules": {
         "react/only-export-components": "off"
       }

@@ -1,5 +1,11 @@
 # Object storage capability contract
 
+## MEM-81 consumer-specific upload extension (in flight)
+
+`ObjectUploadPurpose.BINARY` preserves the Source FILE 10 MiB limit. `CHAT_FILE` is a separate stored-object/upload kind with a 250 MiB database ceiling; Chat additionally applies its configured 100 MiB default and deployment ceiling. The legacy `verify(tenant, upload)` only accepts BINARY, including when a Chat upload happens to be smaller than 10 MiB. Native snapshot constraints are unchanged.
+
+Chat can reauthorize a still-pending upload. Before returning any new signed authorization, ObjectStorage retains its durable reservation at least until that authorization expires; an expired reservation cannot be revived. `retireAdopted` transitions an adopted upload to discarded/delete-pending for the existing reaper, preserving the upload receipt. Existing Connector `releaseAdopted` semantics are unchanged. Storage admission bounds do not establish large-file extraction support; see the active MEM-81 verification matrix.
+
 Integration boundary: this contract combines the implemented Google branch with main IAM/Search. The [isolated integration plan](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) tracks pending combined verification; linked prior tests/runtime observations remain pre-integration evidence.
 
 ## Ownership and provider boundary

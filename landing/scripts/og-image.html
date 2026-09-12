@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  Source of public/og-image.png (1200 × 630). After `pnpm install`, from landing/:
+  chrome --headless=new --allow-file-access-from-files --hide-scrollbars
+    --window-size=1200,630 --screenshot=public/og-image.png scripts/og-image.html
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MemoryOS by Vanda</title>
+    <style>
+      @font-face {
+        font-family: "Hanken Grotesk";
+        src: url("../node_modules/@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-normal.woff2")
+          format("woff2");
+        font-weight: 100 900;
+      }
+
+      html,
+      body {
+        margin: 0;
+      }
+
+      body {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 1200px;
+        height: 630px;
+        padding: 72px 80px;
+        /* The landing's dark theme: navy ground and the hero's blue glow (src/styles/tokens.css). */
+        background:
+          radial-gradient(60% 75% at 82% 100%, #3563ffc2, transparent 70%),
+          radial-gradient(110% 60% at 50% 125%, #1d44d98c, transparent 72%), #070a13;
+        color: #fffffff2;
+        font-family: "Hanken Grotesk", sans-serif;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 34px;
+        font-weight: 600;
+      }
+
+      .brand span {
+        color: #ffffff99;
+        font-weight: 450;
+      }
+
+      h1 {
+        max-width: 940px;
+        margin: 0;
+        font-size: 78px;
+        font-weight: 620;
+        line-height: 1.04;
+        letter-spacing: -0.03em;
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        color: #ffffffd9;
+        font-size: 28px;
+        font-weight: 500;
+      }
+
+      .footer p {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="brand">
+      <svg width="52" height="52" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#f4f2eb" />
+        <path d="M8 9h3.2l4.8 7 4.8-7H24v14h-3.3v-8.7L16 21l-4.7-6.7V23H8V9Z" fill="#0a0a0a" />
+      </svg>
+      MemoryOS <span>by Vanda</span>
+    </div>
+    <h1>One governed memory for your people and AI agents</h1>
+    <div class="footer">
+      <p>Trusted by Tasco. Backed by GenAI Fund.</p>
+      <p>vadan.app</p>
+    </div>
+  </body>
+</html>

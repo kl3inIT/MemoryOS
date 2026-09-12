@@ -1,5 +1,19 @@
+import java.time.Duration
+
 plugins {
     `java-library`
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    // Native Embabel method tools use reflected parameter names for their JSON schema and binding.
+    options.compilerArgs.add("-parameters")
+}
+
+tasks.withType<Test>().configureEach {
+    // The full PostgreSQL/migration corpus and real OpenSearch startup exceed ten minutes on a cold host.
+    timeout = Duration.ofMinutes(15)
+    // Modulith/ArchUnit metadata and the full persistence corpus exceed Gradle's 512 MiB test default.
+    maxHeapSize = "1g"
 }
 
 dependencies {
@@ -15,9 +29,13 @@ dependencies {
     implementation(libs.opensearch.java)
     implementation(libs.httpclient5)
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.security.crypto)
     implementation(libs.jakarta.persistence.api)
+    implementation(libs.spring.data.jpa)
+    implementation(libs.hibernate.core)
     compileOnly(libs.spring.boot.starter.actuator)
     implementation(libs.micrometer.core)
+    implementation(libs.micrometer.context)
     implementation(libs.jackson.databind)
     implementation(libs.keycloak.admin.client)
     implementation(libs.aws.sdk.s3)

@@ -119,17 +119,6 @@ export function AccountMenu({
               </p>
             ) : null}
           </div>
-          <div className="mt-1 border-t border-border-subtle px-2 py-2">
-            <a
-              href="/THIRD_PARTY_NOTICES.txt"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-sm font-secondary-body text-content-muted underline-offset-4 outline-none hover:text-content-primary hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring"
-            >
-              Third-party notices
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>
-          </div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

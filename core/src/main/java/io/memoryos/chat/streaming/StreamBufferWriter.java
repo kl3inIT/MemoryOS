@@ -1,6 +1,8 @@
 package io.memoryos.chat.streaming;
 
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatSearchEvent;
+import tools.jackson.databind.ObjectMapper;
 import io.memoryos.chat.ChatMessage.Status;
 
 import java.nio.charset.StandardCharsets;
@@ -24,6 +26,7 @@ public final class StreamBufferWriter {
     private final LongSupplier millis;
     private final LinkedHashMap<UUID, Stream> streams = new LinkedHashMap<>();
     private int readers;
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     public StreamBufferWriter(ChatStreamProperties limits) {
         this(limits, System::currentTimeMillis);
@@ -35,7 +38,11 @@ public final class StreamBufferWriter {
     }
 
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                        @Nullable Status status, @Nullable String failureCode) {
+                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatSearchEvent search) {
+        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
+                     @Nullable Status status, @Nullable String failureCode) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, null);
+        }
         public String id() {
             return assistantMessageId + ":" + sequence;
         }
@@ -83,6 +90,13 @@ public final class StreamBufferWriter {
         notifyAll();
     }
 
+    public synchronized void search(UUID id, ChatSearchEvent event) {
+        var stream = require(id);
+        if (stream.done) return;
+        flush(stream);
+        publish(stream, new Event(id, ++stream.sequence, "search", null, null, null, event));
+    }
+
     public synchronized void flush() {
         for (var stream : new ArrayList<>(streams.values())) {
             flush(stream);
@@ -118,6 +132,12 @@ public final class StreamBufferWriter {
         return readers;
     }
 
+    public synchronized void discard(UUID id) {
+        var stream = streams.get(id);
+        if (stream != null) remove(stream);
+        notifyAll();
+    }
+
     private Stream require(UUID id) {
         var stream = streams.get(id);
         if (stream == null) throw new IllegalStateException("Chat stream was not registered");
@@ -134,7 +154,8 @@ public final class StreamBufferWriter {
     }
 
     private void publish(Stream stream, Event event) {
-        int bytes = 256 + (event.text() == null ? 0 : event.text().getBytes(StandardCharsets.UTF_8).length);
+        int bytes = 256 + (event.text() == null ? 0 : event.text().getBytes(StandardCharsets.UTF_8).length)
+                + (event.search() == null ? 0 : JSON.writeValueAsBytes(event.search()).length);
         stream.chunks.addLast(new Chunk(event, bytes, millis.getAsLong()));
         stream.bytes += bytes;
         for (var reader : new ArrayList<>(stream.readers)) {

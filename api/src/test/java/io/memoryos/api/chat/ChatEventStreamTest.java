@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.chat.ChatMessage.Status;
+import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatSource;
+import java.util.List;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.time.Duration;
@@ -28,6 +31,26 @@ class ChatEventStreamTest {
     private final StreamBufferWriter streams = new StreamBufferWriter(new ChatStreamProperties(
             4096, 16384, Duration.ofMinutes(1), 512, Duration.ofMillis(25), 2048,
             4, 8, 2048, 16, Duration.ofSeconds(15), Duration.ofMinutes(1)));
+
+    @Test
+    void searchEvidenceReplaysBeforeTextAndTerminalWithStableWireIdentity() {
+        var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
+                List.of(new ChatSource.Provenance(2, "[]")));
+        streams.open(assistant);
+        streams.search(assistant, new ChatSearchEvent("tool-1", ChatSearchEvent.Stage.SOURCE, source));
+        streams.append(assistant, "Twelve days [1]");
+        streams.finish(assistant, Status.CANCELED, null);
+        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
+                .collectList().block(Duration.ofSeconds(2));
+        assertNotNull(events);
+        assertEquals(List.of("search", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
+        var payload = assertInstanceOf(ChatEventStream.SearchEvent.class, events.getFirst().data());
+        assertEquals("tool-1", payload.toolCallId());
+        assertNotNull(payload.source());
+        assertEquals(source.documentId(), payload.source().documentId());
+        assertEquals(assistant + ":1", events.getFirst().id());
+        assertEquals(0, streams.readerCount());
+    }
 
     @Test
     void replayKeepsSequenceAndTerminalAndReleasesReader() {

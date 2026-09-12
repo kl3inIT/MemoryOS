@@ -2,6 +2,7 @@ package io.memoryos.api;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,11 +50,48 @@ class OpenApiContractTest {
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
+            "/api/chat/files",
+            "/api/chat/files/policy",
+            "/api/chat/files/uploads",
+            "/api/chat/files/{fileId}",
+            "/api/chat/files/{fileId}/text",
+            "/api/chat/files/{fileId}/content",
+            "/api/chat/files/{fileId}/finalize",
+            "/api/chat/files/{fileId}/retry",
+            "/api/chat/model-default",
+            "/api/chat/models",
+            "/api/chat/models/{modelId}",
+            "/api/chat/models/{modelId}/validate",
+            "/api/chat/personas/{personaId}/model",
+            "/api/chat/personas",
+            "/api/chat/personas/{personaId}",
+            "/api/chat/personas/{personaId}/models",
+            "/api/chat/personas/sources",
+            "/api/chat/projects",
+            "/api/chat/projects/{projectId}",
+            "/api/chat/projects/{projectId}/sessions",
+            "/api/chat/provider-adapters",
+            "/api/chat/providers",
+            "/api/chat/providers/{providerId}",
+            "/api/chat/providers/{providerId}/models",
             "/api/chat/sessions",
             "/api/chat/sessions/{sessionId}",
+            "/api/chat/sessions/{sessionId}/title",
+            "/api/chat/sessions/{sessionId}/branches",
+            "/api/chat/sessions/{sessionId}/branch",
+            "/api/chat/sessions/{sessionId}/persona",
+            "/api/chat/sessions/{sessionId}/project",
+            "/api/chat/sessions/{sessionId}/sharing",
+            "/api/chat/sessions/{sessionId}/settings",
+            "/api/chat/sessions/{sessionId}/feedback",
+            "/api/chat/shared/{sessionId}",
+            "/api/chat/shared/{sessionId}/messages",
             "/api/chat/sessions/{sessionId}/messages",
             "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel",
             "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events",
+            "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/feedback",
+            "/api/chat/sessions/{sessionId}/messages/{userMessageId}/edit",
+            "/api/chat/sessions/{sessionId}/messages/{userMessageId}/regenerate",
             "/api/search",
             "/api/search/documents/{documentId}",
             "/api/identity/me",
@@ -142,6 +180,37 @@ class OpenApiContractTest {
         TreeSet<String> actualPaths = new TreeSet<>();
         actual.path("paths").fieldNames().forEachRemaining(actualPaths::add);
         assertEquals(BROWSER_API_PATHS, actualPaths);
+        for (var path : BROWSER_API_PATHS) {
+            for (var method : Set.of("post", "put", "patch", "delete")) {
+                var operation = actual.path("paths").path(path).path(method);
+                if (operation.isMissingNode()) continue;
+                boolean csrf = false;
+                for (var parameter : operation.path("parameters")) {
+                    if (parameter.path("name").asText().equals("X-MemoryOS-CSRF")) {
+                        csrf = parameter.path("required").asBoolean()
+                                && parameter.path("in").asText().equals("header");
+                    }
+                }
+                assertTrue(csrf, method + " " + path + " must document the mutation header");
+            }
+        }
+        assertEquals("#/components/schemas/ChatModelValidationResult", actual.path("paths")
+                .path("/api/chat/models/{modelId}/validate").path("post").path("responses").path("200")
+                .path("content").path("application/json").path("schema").path("$ref").asText());
+        var validationFields = actual.path("components").path("schemas").path("ChatModelValidationResult").path("properties");
+        assertTrue(validationFields.has("reachable"));
+        assertTrue(validationFields.has("failureCode"));
+        assertEquals(2, validationFields.size());
+        var searchSource = actual.path("components").path("schemas").path("SearchEvent")
+                .path("properties").path("source");
+        assertFalse(searchSource.has("$ref"), "A sibling object reference would reject null progress sources");
+        assertEquals(2, searchSource.path("oneOf").size());
+        assertEquals("#/components/schemas/ChatSource", searchSource.path("oneOf").get(0).path("$ref").asText());
+        assertEquals("null", searchSource.path("oneOf").get(1).path("type").asText());
+        for (var path : Set.of("/api/chat/models", "/api/chat/providers", "/api/chat/provider-adapters", "/api/chat/model-default")) {
+            assertTrue(actual.path("paths").path(path).path("get").path("responses").path("200")
+                    .path("content").path("application/json").path("schema").isObject(), path + " must generate a typed success response");
+        }
         for (var path : BROWSER_API_PATHS.stream().filter(value -> value.startsWith("/api/chat/")).toList()) {
             for (var operation : actual.path("paths").path(path)) {
                 for (var code : Set.of("400", "403", "404")) {
@@ -198,6 +267,11 @@ class OpenApiContractTest {
         }
 
         Path contract = repositoryRoot().resolve("openapi.yml");
+        for (String property : Set.of("personaId", "projectId")) {
+            JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
+            assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());
+            assertEquals("null", schema.path("oneOf").path(1).path("type").textValue());
+        }
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
             Files.writeString(contract, Yaml.pretty(actual));
             return;

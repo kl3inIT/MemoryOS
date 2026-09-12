@@ -45,6 +45,12 @@ The physical index name hashes endpoint/model/dimensions/chunk convention under 
 
 ## Read path
 
+Search preview and Chat expansion share `OpenSearchIndexService.document`: one Tenant/document/generation/index-scoped query returns a bounded ordinal window and title/total metadata. It does not call embeddings or load the full PostgreSQL chunk set. Missing documents return 404; incomplete indexed windows return 503. An offset past the end returns an empty page with the real title/count. PostgreSQL still owns canonical chunks for ingestion/reindexing and current-generation readiness.
+
+`DocumentSearchService.ranked` accepts a per-call authorized `SourceSearchScope`, up to eight backend-owned queries, effective `SearchFilters` and cancellation checks. Each call resolves Tenant/source scope and the index alias once, batches embeddings for unique text and runs distinct hybrid queries concurrently (at most four). Identical semantic/keyword text shares IO while retaining separate RRF contributions. Union document IDs receive fresh eligibility/metadata and current-generation checks in batches of at most 1000 before fusion or model/events. RRF is `sum(weight / (50 + rank))`, with first source rank then first query position resolving ties. Duplicate role weights add within each query group. All authorized hits remain available for adjacent-section merging; Chat applies candidate limits after merging. Both groups retain the configured hybrid pipeline (default 50% lexical, 50% vector). Direct Search retains its single-query pagination contract.
+
+`SearchResults` is created only by Retrieval and binds authorized hits to their Tenant. It merges contiguous document/generation chunks, retaining the best-ranked anchor and complete range/provenance. Chat selects using at most three chunks around that anchor under a total token budget. Expansion accepts a section belonging to that result, checks current generation, and reads 0–5 neighbors around its boundaries without another source ACL lookup. Independent previews still check current membership, source permission and generation. PUBLIC ACTIVE FILE with an active connector remains the only searchable policy; this change does not implement restricted/Drive ACLs.
+
 ```mermaid
 flowchart LR
     UI[Search page] --> API[POST /api/search]
@@ -58,7 +64,7 @@ flowchart LR
     S --> G[Best-hit ranking; up to 3 sections per document]
     G --> UI
     UI --> D[GET /api/search/documents/id]
-    D --> C[Current PostgreSQL passages]
+    D --> C[Current OpenSearch ordinal window]
 ```
 
 `DocumentSearchService` resolves the Actor's active Tenant and executes one native hybrid query. The BM25 clause can independently retain lexical matches. The semantic clause uses Faiss radial k-NN and admits only vectors at or above `memoryos.search.minimum-semantic-score` before min-max fusion; the default `0.70` equals cosine similarity `0.40` because this index's `cosinesimil` score is `(1 + cosine similarity) / 2`. `candidate-limit` remains the HNSW `ef_search`, hybrid pagination depth and response-size budget. This avoids treating every nearest neighbor as relevant and avoids an absolute threshold on query-relative combined min-max scores. Changing the embedding model or representative corpus requires evaluation and possible threshold retuning.
@@ -88,3 +94,14 @@ Readable vectors can be reused. A missing index is recreated through the normal 
 `memoryos.search.index.duration` and `memoryos.search.query.duration` record bounded outcome tags; Redis execution metrics include the `search` workload. Live model relevance, capacity/cost, snapshot restore and complete deployed FILE-to-browser acceptance must be measured separately. Synthetic embeddings in tests establish wiring and fusion mechanics, not semantic quality.
 
 See [ADR 0008](../decisions/0008-opensearch-search-projection-and-normalized-hybrid.md), [verification matrix](../tests/search.md) and [runtime/recovery runbook](../runbooks/search-runtime.md).
+
+
+## Source metadata and Chat filters
+
+V35 adds nullable source creation/update timestamps to connector items. FILE dates describe upload events: existing creation comes from the item and update from its current version, not extraction/sync/index timestamps. New uploads populate both fields. Remote provider ingestion does not yet capture source dates, so these remain null. Authors come from available document extraction metadata and are absent when missing.
+
+Each index chunk carries nested `source_metadata` entries keyed by source/item, preserving date/type pairing across multiple mappings. Lexical and vector branches apply allowed source IDs, optional source types, and inclusive created/updated intervals to the same nested entry. Either bound may be open. Current SQL authorization prunes origins before helpers/events; index metadata never grants access. Explicit and inferred filters intersect; an empty intersection preserves the explicit restriction. Parse/provider failure retains explicit scope. Time inference runs once per turn; source inference skips fewer than two eligible types, uses at most five recent user turns plus search cycles, and stops when there is no source directive.
+
+Rewrite expansion is generated once per turn. Later calls search original/tool queries without replaying expansion, except when entering a source type not previously searched. This is turn-local state, not a result or ACL cache.
+
+Index initialization adds the nested mapping without changing the vector identity. A metadata hash participates in `contains` readiness alongside generation/chunk count, so legacy READY projections are repaired through the existing bounded worker reconciliation path. The write path reuses vectors when content/model hashes match. Migration and reconciliation are idempotent and generation fenced; no repair endpoint or temporary profile is required. Existing direct Search `updatedSince` retains its operational update semantics; Chat source date filters use the new origin dates.

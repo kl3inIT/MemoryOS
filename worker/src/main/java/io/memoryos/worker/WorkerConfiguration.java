@@ -8,10 +8,11 @@ import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.IngestionCoordinator;
-import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 import io.memoryos.ingestion.application.SearchIngestionCoordinator;
+import io.memoryos.ingestion.application.UserFileIngestionCoordinator;
+import io.memoryos.chat.UserFileWorkPort;
 import io.memoryos.ingestion.application.SelectionValidationProcessor;
 import io.memoryos.ingestion.application.SourceSyncProcessor;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
@@ -51,7 +52,9 @@ class WorkerConfiguration {
             GoogleDriveSelectionProcessor selections,
             JdbcSearchWorkRepository searchWork,
             DocumentChunkPort chunks,
-            SearchIndex searchIndex
+            SearchIndex searchIndex,
+            UserFileWorkPort userFiles,
+            io.memoryos.ingestion.ChatFileExtractor chatFileExtractor
     ) {
         var ingestion = new DefaultIngestionCoordinator(
                 indexingPort,
@@ -69,7 +72,11 @@ class WorkerConfiguration {
         );
         var search = new SearchIngestionCoordinator(searchWork, chunks, searchIndex,
                 new TransactionTemplate(transactionManager), claimLeaseScheduler, registry);
-        return delivery -> delivery.workload() == OperationWorkload.SEARCH
-                ? search.process(delivery) : ingestion.process(delivery);
+        var files = new UserFileIngestionCoordinator(userFiles, chatFileExtractor, storage, artifacts, claimLeaseScheduler);
+        return delivery -> switch (delivery.workload()) {
+            case SEARCH -> search.process(delivery);
+            case USER_FILE -> files.process(delivery);
+            default -> ingestion.process(delivery);
+        };
     }
 }

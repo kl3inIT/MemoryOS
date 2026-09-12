@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docling
+  namespace: jmix-ocr
+  labels:
+    app.kubernetes.io/name: docling
+    app.kubernetes.io/part-of: memoryos
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "30m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "930"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "930"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ocr.10.123.123.194.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: docling
+                port:
+                  number: 5001

@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docling
+  namespace: jmix-ocr
+  labels:
+    app.kubernetes.io/name: docling
+    app.kubernetes.io/part-of: memoryos
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: docling
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: docling
+        app.kubernetes.io/part-of: memoryos
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 930
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: docling
+          image: ghcr.io/kl3init/memoryos-docling-vie@sha256:65b6b57695c60168bfa7dd36f7af32e6c47b34902b101b91f3a279b1ed288449
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 5001
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: DOCLING_SERVE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: docling-api-key
+                  key: api-key
+            - name: UVICORN_WORKERS
+              value: "1"
+            - name: UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN
+              value: "920"
+            - name: DOCLING_SERVE_ENG_LOC_NUM_WORKERS
+              value: "1"
+            - name: DOCLING_SERVE_MAX_NUM_PAGES
+              value: "200"
+            - name: DOCLING_SERVE_MAX_FILE_SIZE
+              value: "20971520"
+            - name: DOCLING_SERVE_MAX_SOURCES_PER_REQUEST
+              value: "1"
+            - name: DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT
+              value: "900"
+            - name: DOCLING_SERVE_MAX_SYNC_WAIT
+              value: "910"
+            - name: DOCLING_SERVE_ALLOWED_SOURCE_TYPES
+              value: file
+            - name: DOCLING_SERVE_ALLOWED_TARGET_TYPES
+              value: inbody
+            - name: DOCLING_SERVE_ENABLE_UI
+              value: "false"
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: EASYOCR_MODULE_PATH
+              value: /tmp/easyocr
+            - name: OMP_NUM_THREADS
+              value: "4"
+          resources:
+            requests:
+              cpu: "8"
+              memory: 16Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi
+          volumeMounts:
+            - name: scratch
+              mountPath: /tmp
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: scratch
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docling
+  namespace: jmix-ocr
+  labels:
+    app.kubernetes.io/name: docling
+    app.kubernetes.io/part-of: memoryos
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: docling
+  ports:
+    - name: http
+      port: 5001
+      targetPort: http
+      nodePort: 31079

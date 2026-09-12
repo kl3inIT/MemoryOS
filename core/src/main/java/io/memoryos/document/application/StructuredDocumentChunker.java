@@ -48,12 +48,61 @@ public final class StructuredDocumentChunker {
             String provenance = mapper.writeValueAsString(block.path("provenance"));
             if ("TABLE".equals(kind) && block.path("table").path("table_cells").isArray()) {
                 appendTable(result, block.path("table"), prefix, headings, blockIndex, provenance);
+            } else if ("TABLE".equals(kind) && block.path("table").path("cells").isArray()) {
+                String sheet = block.path("sheetName").asString(block.path("provenance").path("sheetName").asString(text));
+                appendNativeTable(result, block.path("table"), prefix(title, sheet.isBlank() ? headings : List.of(sheet)),
+                        headings, blockIndex, provenance, 0);
             } else if (!"IMAGE".equals(kind) && !text.isEmpty()) {
                 append(result, text, prefix, headings, blockIndex, provenance, 0);
             }
         }
         if (result.isEmpty()) throw new IllegalArgumentException("artifact has no searchable text");
         return List.copyOf(result);
+    }
+
+    /** Native cells retain explicit coordinates. Never guess that the first row is a header. */
+    private void appendNativeTable(List<DocumentChunk> result, JsonNode table, String prefix,
+            List<String> headings, int blockIndex, String provenance, int depth) {
+        if (depth > 100 || table.path("cells").size() > 200000) throw new IllegalArgumentException("table exceeds bounds");
+        var rows = new TreeMap<Integer, TreeMap<Integer, JsonNode>>();
+        for (var cell : table.path("cells")) {
+            int row = cell.path("row").asInt(-1), column = cell.path("column").asInt(-1);
+            if (row < 0 || row >= 1048576 || column < 0 || column >= 16384)
+                throw new IllegalArgumentException("invalid cell coordinates");
+            if (rows.computeIfAbsent(row, ignored -> new TreeMap<>()).put(column, cell) != null)
+                throw new IllegalArgumentException("duplicate cell coordinates");
+        }
+        int part = 0;
+        for (var row : rows.entrySet()) {
+            var text = new StringBuilder();
+            for (var entry : row.getValue().entrySet()) {
+                var cell = entry.getValue();
+                String address = columnName(entry.getKey()) + (row.getKey() + 1);
+                var value = new StringBuilder(cell.path("text").asString(""));
+                // Google Docs table cells contain nested canonical blocks, not spreadsheet values.
+                for (var block : cell.path("blocks")) {
+                    if (block.path("table").path("cells").isArray()) {
+                        appendNativeTable(result, block.path("table"), prefix, headings, blockIndex,
+                                mapper.writeValueAsString(block.path("provenance")), depth + 1);
+                    } else {
+                        if (!value.isEmpty()) value.append('\n');
+                        value.append(block.path("text").asString(""));
+                    }
+                }
+                if (value.toString().isBlank()) continue;
+                String located = "[" + address + "] " + value;
+                part = appendCell(result, text, located, prefix, headings, blockIndex, tableLocation(provenance, row.getKey()), part);
+            }
+            if (!text.isEmpty()) part = append(result, text.toString(), prefix, headings, blockIndex,
+                    tableLocation(provenance, row.getKey()), part);
+        }
+    }
+
+    private static String columnName(int column) {
+        var value = new StringBuilder();
+        for (int position = column + 1; position > 0; position = (position - 1) / 26)
+            value.append((char) ('A' + (position - 1) % 26));
+        return value.reverse().toString();
     }
 
     private String prefix(String title, List<String> headings) {
@@ -105,17 +154,22 @@ public final class StructuredDocumentChunker {
                 int column = cell.path("start_col_offset_idx").asInt();
                 String label = String.join(" / ", headers.getOrDefault(column, List.of("Column " + (column + 1))));
                 String value = label + ": " + cell.path("text").asString("");
-                if (!row.isEmpty() && tokens.estimate(rowPrefix + row + "\n" + value) > MAX_TOKENS) {
-                    part = append(result, row.toString(), rowPrefix, headings, blockIndex,
-                            tableLocation(provenance, entry.getKey()), part);
-                    row.setLength(0);
-                }
-                if (!row.isEmpty()) row.append('\n');
-                row.append(value);
+                part = appendCell(result, row, value, rowPrefix, headings, blockIndex, tableLocation(provenance, entry.getKey()), part);
             }
             if (!row.isEmpty()) part = append(result, row.toString(), rowPrefix,
                     headings, blockIndex, tableLocation(provenance, entry.getKey()), part);
         }
+    }
+
+    private int appendCell(List<DocumentChunk> result, StringBuilder row, String value, String prefix,
+            List<String> headings, int blockIndex, String provenance, int part) {
+        if (!row.isEmpty() && tokens.estimate(prefix + row + "\n" + value) > MAX_TOKENS) {
+            part = append(result, row.toString(), prefix, headings, blockIndex, provenance, part);
+            row.setLength(0);
+        }
+        if (!row.isEmpty()) row.append('\n');
+        row.append(value);
+        return part;
     }
 
     private String tableLocation(String provenance, int row) {

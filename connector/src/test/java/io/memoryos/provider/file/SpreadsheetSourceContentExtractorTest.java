@@ -24,6 +24,67 @@ import tools.jackson.databind.ObjectMapper;
 class SpreadsheetSourceContentExtractorTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private final SpreadsheetSourceContentExtractor reader = new SpreadsheetSourceContentExtractor(mapper);
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path temporary;
+
+    @Test
+    void sourceAndChatShareWorkbookContractIncludingDatesAndSearchableCells() throws Exception {
+        byte[] bytes;
+        try (var workbook = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
+            workbook.getCTWorkbook().getWorkbookPr().setDate1904(true);
+            var sheet = workbook.createSheet("Doanh thu");
+            var row = sheet.createRow(0);
+            row.createCell(0).setCellValue(0);
+            row.createCell(1).setCellValue(false);
+            var date = row.createCell(2);
+            date.setCellValue(1);
+            var style = workbook.createCellStyle();
+            style.setDataFormat(workbook.createDataFormat().getFormat("yyyy-mm-dd"));
+            date.setCellStyle(style);
+            var formula = row.createCell(3);
+            formula.setCellFormula("100+20"); formula.setCellValue(127);
+            sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 1));
+            workbook.createSheet("Hidden"); workbook.setSheetHidden(1, true);
+            workbook.write(out); bytes = out.toByteArray();
+        }
+        var source = reader.extract(bytes, "book.xlsx", SpreadsheetSourceContentExtractor.XLSX, SourceInputDescriptor.binary());
+        var chat = new BoundedChatFileExtractor(mock(DoclingSourceContentExtractor.class), mapper)
+                .extract(new ByteArrayInputStream(bytes), bytes.length, "book.xlsx");
+        assertEquals(source.structuredJson(), chat.structuredJson());
+        assertEquals(source.normalizedText(), chat.normalizedText());
+        assertTrue(chat.normalizedText().contains("1904-01-02"));
+        var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(chat.title(), chat.structuredJson());
+        assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[D1] 127")));
+        assertTrue(chunks.stream().noneMatch(chunk -> chunk.content().contains("100+20")));
+        assertTrue(chunks.stream().anyMatch(chunk -> chunk.provenanceJson().contains("Doanh thu")));
+    }
+
+    @Test
+    void sourceAndChatShareDelimitedContractAndProduceSearchableValues() throws Exception {
+        byte[] bytes = "\uFEFF\"name\",value\r\n\"multi\nline\",\"a,\"\"b\"\"\"\r\nformula,=1+1\r\n".getBytes(StandardCharsets.UTF_8);
+        var source = reader.extract(bytes, "data.csv", "text/csv", SourceInputDescriptor.binary());
+        var chat = new BoundedChatFileExtractor(mock(DoclingSourceContentExtractor.class), mapper)
+                .extract(new ByteArrayInputStream(bytes), bytes.length, "data.csv");
+        assertEquals(source.structuredJson(), chat.structuredJson());
+        assertEquals(source.normalizedText(), chat.normalizedText());
+        assertTrue(new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(chat.title(), chat.structuredJson())
+                .stream().anyMatch(chunk -> chunk.content().contains("[B3] =1+1")));
+    }
+
+    @Test
+    void diskReaderPreservesArchiveIntegrityChecksAndBoundsMalformedRecords() throws Exception {
+        var archive = temporary.resolve("corrupt.xlsx");
+        byte[] bytes = zip64Workbook();
+        var zip = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        int checksum = zip.getInt(bytes.length - 6) + 16;
+        zip.putInt(checksum, zip.getInt(checksum) ^ 1);
+        java.nio.file.Files.write(archive, bytes);
+        assertEquals(ExtractionFailure.MALFORMED, assertThrows(ExtractionException.class,
+                () -> reader.extractFile(archive, "corrupt.xlsx", SpreadsheetSourceContentExtractor.XLSX)).failure());
+        var csv = temporary.resolve("large.csv");
+        java.nio.file.Files.writeString(csv, "\"" + "x".repeat(4_100_000));
+        assertEquals(ExtractionFailure.WRITE_LIMIT, assertThrows(ExtractionException.class,
+                () -> reader.extractFile(csv, "large.csv", "text/csv")).failure());
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {16, 24})

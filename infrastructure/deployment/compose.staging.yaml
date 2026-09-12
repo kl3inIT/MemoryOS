@@ -14,6 +14,14 @@ x-staging-service-defaults: &staging-service-defaults
       max-file: "5"
 
 services:
+  web:
+    environment:
+      MEMORYOS_SENTRY_DSN: ${MEMORYOS_SENTRY_DSN:-}
+      MEMORYOS_SENTRY_CONNECT_SRC: ${MEMORYOS_SENTRY_CONNECT_SRC:-}
+      MEMORYOS_SENTRY_ENVIRONMENT: ${MEMORYOS_SENTRY_ENVIRONMENT:-staging}
+      MEMORYOS_SENTRY_REPLAY_ENABLED: ${MEMORYOS_SENTRY_REPLAY_ENABLED:-true}
+      MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
+
   postgres:
     networks:
       postgres-inspection:

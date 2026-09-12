@@ -2,8 +2,13 @@ package io.memoryos.chat.application;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
+import io.memoryos.chat.ChatCommand;
+import io.memoryos.chat.ChatTurnOptions;
+import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatFileService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.TenantId;
@@ -14,6 +19,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -27,41 +34,82 @@ public class ChatTurnPersistence {
     private final TenantAccessResolver tenants;
     private final JdbcChatRepository chats;
     private final PersonaProperties persona;
+    private final ChatFileService files;
 
-    public ChatTurnPersistence(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona) {
+    public ChatTurnPersistence(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona, ChatFileService files) {
         this.tenants = tenants;
         this.chats = chats;
         this.persona = persona;
+        this.files = files;
     }
 
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
                                String text, Duration timeout, int contextTokenLimit) {
-        if (parentId == null || requestId == null || text == null || text.isBlank() || text.length() > 32000
-                || timeout == null || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(30)) > 0) {
+        return reserve(actor, sessionId, parentId, requestId, text, timeout, contextTokenLimit, null);
+    }
+
+    public record ModelSelection(@Nullable UUID requestedId, UUID selectedId, @Nullable String fallbackReason,
+                                 ChatModelBinding binding, @Nullable String contextRevision) {}
+
+    @Transactional
+    public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
+                               String text, Duration timeout, int contextTokenLimit, @Nullable ModelSelection selection) {
+        return reserve(actor, sessionId, new ChatCommand(ChatCommand.Operation.SEND, parentId, requestId, text,
+                selection == null ? null : selection.requestedId()), timeout, contextTokenLimit, selection);
+    }
+
+    @Transactional
+    public Reservation reserve(ActorId actor, UUID sessionId, ChatCommand command,
+                               Duration timeout, int contextTokenLimit, @Nullable ModelSelection selection) {
+        if (timeout == null || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(30)) > 0) {
             throw ChatException.invalid("Invalid chat message or deadline.");
         }
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
         var session = chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);
-        var previous = chats.previousRequest(sessionId, requestId);
+        var previous = chats.previousRequest(sessionId, command.requestId());
         if (previous.isPresent()) {
             var user = previous.orElseThrow();
-            if (!Objects.equals(user.parentMessageId(), parentId) || !user.content().equals(text))
-                throw ChatException.conflict();
-            return new Reservation(user.userMessageId(), user.assistantMessageId(), false);
+            match(user, command);
+            return new Reservation(user.userMessageId(), user.assistantMessageId(), false, user.selectedModelId(), user.fallbackReason());
         }
         if (chats.hasActiveReply(sessionId)) throw ChatException.conflict();
-        var parent = chats.message(sessionId, parentId).orElseThrow(ChatException::unavailable);
-        if (parent.role() == ChatMessage.Role.USER || parent.latestChildMessageId() != null
-                || !chats.onSelectedBranch(session, parentId)) throw ChatException.conflict();
+        var target = chats.message(sessionId, command.targetMessageId()).orElseThrow(ChatException::unavailable);
+        if (!chats.onSelectedBranch(session, target.id())) throw ChatException.conflict();
+        UUID parentId;
+        String text;
+        if (command.operation() == ChatCommand.Operation.SEND) {
+            if (target.role() == ChatMessage.Role.USER || target.latestChildMessageId() != null) throw ChatException.conflict();
+            parentId = target.id(); text = command.text();
+        } else {
+            if (target.role() != ChatMessage.Role.USER) throw ChatException.invalid("Select a user message.");
+            parentId = Objects.requireNonNull(target.parentMessageId());
+            text = command.operation() == ChatCommand.Operation.REGENERATE ? Objects.requireNonNull(target.content()) : command.text();
+        }
         if (chats.messageCount(sessionId) > 9998) throw ChatException.invalid("Chat session message limit reached.");
-        // Builtin Persona is configuration-backed until the editor consumer is implemented.
+        // Initialization is insert-only: editor-owned settings must survive every send.
         chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
-        ChatTurnSetup.validateQuestion(chats.persona(sessionId).instructions(), text, contextTokenLimit);
-        UUID user = UUID.randomUUID();
+        var settings = chats.persona(sessionId, true);
+        if (selection != null && selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
+            throw ChatException.conflict();
+        int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
+                : Math.min(contextTokenLimit, settings.options().contextTokenLimit());
+        if (selection == null) ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext);
+        else ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext, selection.binding().forOptions(settings.options()));
+        UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
+        var attachments = command.operation() == ChatCommand.Operation.REGENERATE ? target.files()
+                : files.admit(tenant, actor, command.fileIds());
         UUID assistant = UUID.randomUUID();
-        chats.insertPair(sessionId, parentId, requestId, user, assistant, text, timeout);
-        return new Reservation(user, assistant, true);
+        if (command.operation() == ChatCommand.Operation.REGENERATE) chats.insertAssistant(sessionId, user, assistant, timeout);
+        else chats.insertPair(sessionId, parentId, command.requestId(), user, assistant, text, timeout, attachments);
+        if (selection != null) chats.saveModelSelection(sessionId,
+                command.operation() == ChatCommand.Operation.REGENERATE ? assistant : user,
+                assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());
+        chats.saveCommand(sessionId, command, user, assistant, selection == null ? null : selection.selectedId(),
+                selection == null ? null : selection.fallbackReason());
+        var context = context(actor, tenant, sessionId, user, assistant, settings);
+        return new Reservation(user, assistant, true, selection == null ? null : selection.selectedId(), selection == null ? null : selection.fallbackReason(), context);
     }
 
     @Transactional
@@ -72,31 +120,76 @@ public class ChatTurnPersistence {
         return finish(sessionId, assistantId, status, partialContent, null, null, null, null, null);
     }
 
-    public record Reservation(UUID userMessageId, UUID assistantMessageId, boolean created) {
+    public record Reservation(UUID userMessageId, UUID assistantMessageId, boolean created,
+                              @Nullable UUID modelConfigurationId, @Nullable String fallbackReason, @Nullable TurnContext context) {
+        public Reservation(UUID userMessageId, UUID assistantMessageId, boolean created, @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {
+            this(userMessageId, assistantMessageId, created, modelConfigurationId, fallbackReason, null);
+        }
+        public Reservation(UUID userMessageId, UUID assistantMessageId, boolean created) {
+            this(userMessageId, assistantMessageId, created, null, null);
+        }
     }
 
     @Transactional(readOnly = true)
     public Optional<Reservation> existing(ActorId actor, UUID session, UUID parent, UUID request, String text) {
-        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
-        return chats.previousRequest(session, request).map(previous -> {
-            if (!Objects.equals(previous.parentMessageId(), parent) || !previous.content().equals(text))
-                throw ChatException.conflict();
-            return new Reservation(previous.userMessageId(), previous.assistantMessageId(), false);
-        });
+        return existing(actor, session, parent, request, text, null);
     }
 
     @Transactional(readOnly = true)
+    public Optional<Reservation> existing(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID requestedModelId) {
+        return existing(actor, session, new ChatCommand(ChatCommand.Operation.SEND, parent, request, text, requestedModelId));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Reservation> existing(ActorId actor, UUID session, ChatCommand command) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
+        return chats.previousRequest(session, command.requestId()).map(previous -> {
+            match(previous, command);
+            return new Reservation(previous.userMessageId(), previous.assistantMessageId(), false, previous.selectedModelId(), previous.fallbackReason());
+        });
+    }
+
+    private static void match(JdbcChatRepository.ReservedRequest previous, ChatCommand command) {
+        if (previous.operation() != command.operation() || !previous.parentMessageId().equals(command.targetMessageId())
+                || !previous.content().equals(command.text()) || !previous.fileIds().equals(command.fileIds())
+                || !Objects.equals(previous.requestedModelId(), command.modelConfigurationId()))
+            throw ChatException.conflict();
+    }
+
+    @Transactional
     public TurnContext loadContext(ActorId actor, UUID sessionId, Reservation reservation) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
-        var persona = chats.persona(sessionId);
-        return new TurnContext(actor, tenant, persona.model(), persona.instructions(), chats.context(sessionId, reservation.userMessageId(), 200),
-                chats.control(reservation.assistantMessageId()).deadline());
+        if (reservation.context() != null) return reservation.context();
+        var persona = chats.persona(sessionId, false);
+        return context(actor, tenant, sessionId, reservation.userMessageId(), reservation.assistantMessageId(), persona);
+    }
+
+    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, UUID assistant, JdbcChatRepository.Persona settings) {
+        var history = chats.context(session, user, 200);
+        var workspaceFiles = files.admit(tenant, actor, settings.fileIds());
+        var plaintext = new LinkedHashMap<UUID, ChatFileService.FileText>();
+        java.util.stream.Stream.concat(history.stream().flatMap(message -> message.files().stream()), workspaceFiles.stream())
+                .map(io.memoryos.chat.ChatFileDescriptor::id)
+                .distinct().limit(20).forEach(id -> {
+                    try { plaintext.put(id, files.read(actor, tenant, id, 0, 16000)); }
+                    catch (ChatException unavailable) { /* Old descriptors survive deletion, not authority. */ }
+                });
+        return new TurnContext(actor, tenant, settings.model(), settings.instructions(), history,
+                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles);
     }
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
-                              List<ChatMessage> newestFirst, Instant deadline) {
+                              List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+                              Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
+        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); }
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options) {
+            this(actor, tenant, model, instructions, newestFirst, deadline, options, Map.of(), List.of());
+        }
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline) {
+            this(actor, tenant, model, instructions, newestFirst, deadline, ChatTurnOptions.DEFAULT);
+        }
     }
 
     @Transactional
@@ -126,8 +219,11 @@ public class ChatTurnPersistence {
 
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
-                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output, @Nullable Double cost) {
-        finish(session, assistant, status, partial, failure, model, input, output, cost);
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources) {
+        if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000 || sources.size() > 24)
+            throw ChatException.invalid("Invalid terminal outcome.");
+        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources);
         var saved = chats.control(assistant);
         return new TerminalOutcome(saved.status(), saved.failureCode());
     }
@@ -135,5 +231,14 @@ public class ChatTurnPersistence {
     @Transactional
     public int expireRuns() {
         return chats.expireRuns();
+    }
+
+    @Transactional
+    public List<UUID> delete(ActorId actor, UUID session) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
+        chats.findOwned(tenant, actor, session, true).orElseThrow(ChatException::unavailable);
+        chats.delete(session);
+        return chats.branches(session).stream().map(io.memoryos.chat.ChatBranch::id).toList();
     }
 }
