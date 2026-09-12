@@ -14,6 +14,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -177,6 +178,43 @@ class RestGoogleDriveProviderTest {
     }
 
     @Test
+    void binaryAcquisitionPreservesAllBytesAtOneHundredMiB() throws Exception {
+        byte[] block = new byte[8192];
+        for (int i = 0; i < block.length; i++) block[i] = (byte) (i * 31 + 17);
+        var expected = MessageDigest.getInstance("SHA-256");
+        for (int size = 0; size < 104_857_600; size += block.length) expected.update(block);
+        try (var fixture = new Fixture(exchange -> decodedQuery(exchange).contains("alt=media")
+                ? new Response(200, block, 104_857_600) : ok(metadata("application/pdf", "1")));
+             var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+            byte[] acquired = session.acquire(session.metadata("file1")).bytes();
+            assertEquals(104_857_600, acquired.length);
+            assertArrayEquals(expected.digest(), MessageDigest.getInstance("SHA-256").digest(acquired));
+        }
+    }
+
+    @Test
+    void binaryAcquisitionRejectsOneByteBeyondOneHundredMiBWithoutPartialContent() throws Exception {
+        byte[] block = new byte[8192];
+        try (var fixture = new Fixture(exchange -> decodedQuery(exchange).contains("alt=media")
+                ? new Response(200, block, 104_857_601) : ok(metadata("application/pdf", "1")));
+             var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+            var file = session.metadata("file1");
+            assertEquals(Failure.LIMIT_EXCEEDED,
+                    assertThrows(GoogleDriveProviderException.class, () -> session.acquire(file)).failure());
+        }
+    }
+
+    @Test
+    void configuredBinaryLimitCannotExceedOneHundredMiB() throws Exception {
+        try (var fixture = new Fixture(exchange -> ok("{}"));
+             var provider = provider(fixture, 104_857_601, 0); var credential = credential()) {
+            assertEquals(Failure.UNAVAILABLE,
+                    assertThrows(GoogleDriveProviderException.class, () -> provider.open(credential)).failure());
+            assertTrue(fixture.requests.isEmpty());
+        }
+    }
+
+    @Test
     void emptyPagesCompleteAndShortcutsAreNeverFollowed() throws Exception {
         try (var fixture = new Fixture(exchange -> ok("{}"));
              var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
@@ -270,7 +308,9 @@ class RestGoogleDriveProviderTest {
     }
 
     private static Response ok(String body) { return new Response(200, body.getBytes(StandardCharsets.UTF_8)); }
-    private record Response(int status, byte[] body) {}
+    private record Response(int status, byte[] body, int sizeBytes) {
+        Response(int status, byte[] body) { this(status, body, body.length); }
+    }
 
     private static final class Fixture implements AutoCloseable {
         final HttpServer server;
@@ -288,8 +328,14 @@ class RestGoogleDriveProviderTest {
                     tokenForms.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
                 }
                 Response response = exchange.getRequestURI().getPath().equals("/token") ? tokenResponse : responder.apply(exchange);
-                exchange.sendResponseHeaders(response.status(), response.body().length);
-                try (var output = exchange.getResponseBody()) { output.write(response.body()); }
+                exchange.sendResponseHeaders(response.status(), response.sizeBytes());
+                try (var output = exchange.getResponseBody()) {
+                    for (int written = 0; written < response.sizeBytes();) {
+                        int count = Math.min(response.body().length, response.sizeBytes() - written);
+                        output.write(response.body(), 0, count);
+                        written += count;
+                    }
+                }
                 exchange.close();
             });
             server.start();

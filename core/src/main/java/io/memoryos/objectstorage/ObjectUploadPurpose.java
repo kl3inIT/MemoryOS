@@ -2,7 +2,7 @@ package io.memoryos.objectstorage;
 
 /** Server-selected consumer; never inferred from client content type or filename. */
 public enum ObjectUploadPurpose {
-    BINARY(10L * 1024 * 1024),
+    BINARY(ObjectUploadSpecification.MAX_SIZE_BYTES),
     CHAT_FILE(250L * 1024 * 1024);
 
     private final long maximumBytes;

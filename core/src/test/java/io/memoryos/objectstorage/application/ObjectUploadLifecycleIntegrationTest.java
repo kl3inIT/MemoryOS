@@ -15,6 +15,7 @@ import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.ObjectUploadException;
+import io.memoryos.objectstorage.ObjectUploadPurpose;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
@@ -133,6 +134,37 @@ class ObjectUploadLifecycleIntegrationTest {
         clock.advance(Duration.ofHours(1));
         assertEquals(0, uploads.cleanupAbandoned());
         assertEquals("ADOPTED", uploadStatus(authorization.uploadId().value()));
+    }
+
+    @Test
+    void oneHundredMiBUploadCanBeVerifiedAndAdoptedButOneMoreByteIsRejected() {
+        var specification = new ObjectUploadSpecification("scanned.pdf", "application/pdf", 104857600L, CHECKSUM);
+        var authorization = uploads.initiate(tenantId, specification);
+        var verified = uploads.verify(tenantId, authorization.uploadId());
+        uploads.adopt(tenantId, authorization.uploadId(), verified.token());
+        assertEquals("ADOPTED", uploadStatus(authorization.uploadId().value()));
+        assertEquals(104857600L, jdbcClient.sql("""
+                SELECT o.size_bytes FROM stored_objects o
+                JOIN object_uploads u ON u.tenant_id = o.tenant_id AND u.stored_object_id = o.id
+                WHERE u.id = :id
+                """).param("id", authorization.uploadId().value()).query(Long.class).single());
+        assertThrows(IllegalArgumentException.class,
+                () -> new ObjectUploadSpecification("scanned.pdf", "application/pdf", 104857601L, CHECKSUM));
+    }
+
+    @Test
+    void chatUploadRetainsItsOwnCeilingAndCannotBeVerifiedAsASourceUpload() {
+        var specification = new ObjectUploadSpecification(
+                "chat.pdf", "application/pdf", 262144000L, CHECKSUM, ObjectUploadPurpose.CHAT_FILE);
+        var authorization = uploads.initiate(tenantId, specification);
+        var wrongPurpose = assertThrows(ObjectUploadException.class,
+                () -> uploads.verify(tenantId, authorization.uploadId()));
+        assertEquals("OBJECT_UPLOAD_NOT_FOUND", wrongPurpose.code());
+        var verified = uploads.verify(tenantId, authorization.uploadId(), ObjectUploadPurpose.CHAT_FILE);
+        uploads.adopt(tenantId, authorization.uploadId(), verified.token());
+        assertEquals("ADOPTED", uploadStatus(authorization.uploadId().value()));
+        assertThrows(IllegalArgumentException.class, () -> new ObjectUploadSpecification(
+                "chat.pdf", "application/pdf", 262144001L, CHECKSUM, ObjectUploadPurpose.CHAT_FILE));
     }
 
     @Test

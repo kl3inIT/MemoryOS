@@ -15,7 +15,6 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
-import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.ObjectWriteService.Specification;
 import io.memoryos.objectstorage.ObjectWriteService.StagedObject;
 import io.memoryos.objectstorage.StoredObjectReference;
@@ -226,22 +225,66 @@ class ObjectWriteLifecycleIntegrationTest {
     }
 
     @Test
-    void nativeStorageDoesNotWidenBinaryOrBrowserAdmission() {
-        byte[] content = new byte[(int) ObjectUploadSpecification.MAX_SIZE_BYTES + 1];
-        assertThrows(IllegalArgumentException.class, () -> writes.stage(tenant, BINARY, content));
-        assertThrows(IllegalArgumentException.class, () -> new ObjectUploadSpecification(
-                "test.bin", "application/octet-stream", content.length, hash(CONTENT)));
-        StagedObject nativeObject = writes.stage(tenant,
-                new Specification("sheet.json", "application/json", true), content);
+    void binaryInputsAdmitOneHundredMiBWithoutChangingNativeSnapshotBounds() {
+        StagedObject staged = writes.stage(tenant, BINARY, CONTENT);
+        reference(staged);
+        UUID objectId = staged.object().id().value();
+        assertEquals(1, jdbc.sql("""
+                UPDATE stored_objects SET size_bytes = 104857600 WHERE id = :id
+                """).param("id", objectId).update());
+        assertEquals(1, jdbc.sql("""
+                UPDATE connector_item_versions SET size_bytes = 104857600 WHERE stored_object_id = :id
+                """).param("id", objectId).update());
+        assertEquals(104857600L, jdbc.sql("""
+                SELECT size_bytes FROM stored_objects WHERE id = :id
+                """).param("id", objectId).query(Long.class).single());
+        assertEquals(104857600L, jdbc.sql("""
+                SELECT size_bytes FROM connector_item_versions WHERE stored_object_id = :id
+                """).param("id", objectId).query(Long.class).single());
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
-                UPDATE stored_objects SET input_kind = 'BINARY' WHERE id = :id
-                """).param("id", nativeObject.object().id().value()).update());
+                UPDATE stored_objects SET size_bytes = 104857601 WHERE id = :id
+                """).param("id", objectId).update());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                UPDATE connector_item_versions SET size_bytes = 104857601 WHERE stored_object_id = :id
+                """).param("id", objectId).update());
+
+        assertEquals(1, jdbc.sql("""
+                UPDATE stored_objects SET input_kind = 'NATIVE_SNAPSHOT', size_bytes = 33554432 WHERE id = :id
+                """).param("id", objectId).update());
+        assertEquals(1, jdbc.sql("""
+                UPDATE connector_item_versions
+                SET input_format = 'GOOGLE_SHEETS', provider_file_id = 'sheet',
+                    scope_revision = 1, credential_revision = 1, size_bytes = 33554432
+                WHERE stored_object_id = :id
+                """).param("id", objectId).update());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                UPDATE stored_objects SET size_bytes = 33554433 WHERE id = :id
+                """).param("id", objectId).update());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                UPDATE connector_item_versions SET size_bytes = 33554433 WHERE stored_object_id = :id
+                """).param("id", objectId).update());
+    }
+
+    @Test
+    void binaryWritesRejectOneByteBeyondOneHundredMiB() {
+        byte[] content = new byte[104857601];
+        assertThrows(IllegalArgumentException.class, () -> writes.stage(tenant, BINARY, content));
+        assertEquals(0, trackedWrites());
+        assertTrue(storage.objects.isEmpty());
+    }
+
+    @Test
+    void nativeStorageRetainsItsOwnBoundsAndCannotAuthorizeBrowserUploads() {
+        var nativeSpecification = new Specification("sheet.json", "application/json", true);
+        assertThrows(IllegalArgumentException.class,
+                () -> writes.stage(tenant, nativeSpecification, new byte[33554433]));
+        StagedObject nativeObject = writes.stage(tenant, nativeSpecification, CONTENT);
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
                 INSERT INTO object_uploads (id, tenant_id, stored_object_id, status)
                 VALUES (:id, :tenant, :object, 'PENDING')
                 """).param("id", UUID.randomUUID()).param("tenant", tenant.value())
                 .param("object", nativeObject.object().id().value()).update());
-        assertEquals(content.length, storage.inspect(nativeObject.object().key()).sizeBytes());
+        assertEquals(CONTENT.length, storage.inspect(nativeObject.object().key()).sizeBytes());
         writes.discard(tenant, nativeObject);
         assertEquals(1, writes.cleanup(20));
         assertEquals(0, trackedWrites());

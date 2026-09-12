@@ -4,6 +4,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.provider.StructuredContent;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -63,7 +64,7 @@ public final class SpreadsheetSourceContentExtractor {
 
     public DocumentContent extract(byte[] bytes, String filename, String mediaType,
                                    SourceInputDescriptor input) throws ExtractionException {
-        if (bytes.length < 1 || bytes.length > 10_485_760) throw StructuredContent.failure(ExtractionFailure.WRITE_LIMIT);
+        if (bytes.length < 1 || bytes.length > ObjectUploadSpecification.MAX_SIZE_BYTES) throw StructuredContent.failure(ExtractionFailure.WRITE_LIMIT);
         StructuredContent output = new StructuredContent(mapper, input);
         if (XLSX.equals(mediaType)) return xlsx(bytes, filename, output);
         if ("text/csv".equals(mediaType)) return csv(bytes, filename, output);
@@ -72,7 +73,7 @@ public final class SpreadsheetSourceContentExtractor {
 
     public DocumentContent extract(InputStream stream, long size, String filename, String mediaType,
                                    SourceInputDescriptor input) throws ExtractionException {
-        return extract(StructuredContent.read(stream, size, 10_485_760), filename, mediaType, input);
+        return extract(StructuredContent.read(stream, size, Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES)), filename, mediaType, input);
     }
 
     private DocumentContent csv(byte[] bytes, String filename, StructuredContent output) throws ExtractionException {

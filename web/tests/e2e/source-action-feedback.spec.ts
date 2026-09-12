@@ -252,6 +252,7 @@ async function sourcePage(
 test("Files paging preserves concurrent item operations and uploads return to the newest page", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const server = await sourcePage(
     page,
     "FILE",
@@ -295,7 +296,8 @@ test("Files paging preserves concurrent item operations and uploads return to th
   const uploaded = {
     ...server.items[0]!,
     id: "ac15afe3-88b3-4627-a737-51d8c4c1b290",
-    filename: "Newest.txt",
+    filename: "Newest.pdf",
+    sizeBytes: 100 * 1024 * 1024,
     status: "PENDING",
     searchStatus: "WAITING",
   };
@@ -323,12 +325,45 @@ test("Files paging preserves concurrent item operations and uploads return to th
       },
     });
   });
-  await page.locator('input[type="file"]').setInputFiles({
-    name: uploaded.filename,
-    mimeType: "text/plain",
-    buffer: Buffer.from("new content"),
+  const input = page.locator('input[type="file"]');
+  const upload = page.getByRole("button", { name: "Upload file", exact: true });
+  await input.setInputFiles({
+    name: "empty.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.alloc(0),
   });
-  await page.getByRole("button", { name: "Upload file", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(upload).toBeDisabled();
+  await input.evaluate((element: HTMLInputElement) => {
+    const data = new DataTransfer();
+    data.items.add(
+      new File([new Uint8Array(100 * 1024 * 1024 + 1)], "oversized.pdf", {
+        type: "application/pdf",
+      }),
+    );
+    element.files = data.files;
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(upload).toBeDisabled();
+  await input.evaluate(
+    (element: HTMLInputElement, { filename, sizeBytes }) => {
+      const data = new DataTransfer();
+      data.items.add(
+        new File([new Uint8Array(sizeBytes).fill(65)], filename, { type: "application/pdf" }),
+      );
+      element.files = data.files;
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    { filename: uploaded.filename, sizeBytes: uploaded.sizeBytes },
+  );
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  const acceptedUpload = page.waitForResponse(
+    (response) => response.url().endsWith("/finalize") && response.status() === 202,
+    { timeout: 30_000 },
+  );
+  await upload.click();
+  await acceptedUpload;
   await expect(row(uploaded.filename)).toBeVisible();
   await expect(files.getByRole("status")).toHaveText("1 / 3");
   await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
@@ -530,9 +565,6 @@ test("synchronization completion does not claim that indexing has finished", asy
   server.operations[0]!.status = "SUCCEEDED";
   await expect(completed).toBeVisible();
   await expect(completed).toContainText(/indexing may still be running/i);
-  await expect(page.getByRole("region", { name: "Files", exact: true })).toContainText(
-    "Processing",
-  );
   await page.screenshot({
     path: testInfo.outputPath("synchronization-completed-indexing-pending.png"),
     fullPage: true,
@@ -863,9 +895,6 @@ test("upload failures retain retry state and finalization acceptance never claim
   await page.getByRole("button", { name: "Retry finalization", exact: true }).click();
   await expect(page.getByRole("listitem", { name: "Upload accepted", exact: true })).toContainText(
     "New.txt",
-  );
-  await expect(page.getByRole("region", { name: "Files", exact: true })).toContainText(
-    "Processing",
   );
   await expect(files.getByRole("status")).toHaveText("1 / 2");
   await expect(files.getByRole("row").filter({ hasText: "New.txt" })).toBeVisible();

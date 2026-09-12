@@ -9,7 +9,7 @@ public record ObjectUploadSpecification(
         ContentSha256 checksum,
         ObjectUploadPurpose purpose
 ) {
-    public static final long MAX_SIZE_BYTES = 10L * 1024 * 1024;
+    public static final long MAX_SIZE_BYTES = 100L * 1024 * 1024;
 
     public ObjectUploadSpecification(String filename, String mediaType, long sizeBytes, ContentSha256 checksum) {
         this(filename, mediaType, sizeBytes, checksum, ObjectUploadPurpose.BINARY);

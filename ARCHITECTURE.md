@@ -48,7 +48,7 @@ Audit is intentionally absent until a real evidence consumer defines attribution
 
 ## Persistence and startup
 
-Flyway owns thirty-two migrations. Main `287ca9c` V1–V20 remain byte-for-byte unchanged; branch-only Drive V18–V29 shift to V21–V32 (+3), retaining their SQL bodies byte-for-byte and their descriptive suffixes. Existing `memoryos_main_review` and `memoryos_drive_review` databases retain their old histories: do not start this layout against either database, repair their checksums, or rewrite their history. Refresh verification uses isolated database/output state as recorded in the [publication and main-refresh record](docs/increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09).
+Flyway owns thirty-nine migrations. Released main V1–V38 remain unchanged. V39 raises FILE/Google binary object and input admission to 100 MiB while retaining 32 MiB native snapshots and the separate 250 MiB Chat storage ceiling. The unpublished branch-only V33/V34 admission migrations are replaced by this forward migration to avoid collisions with main's released Chat migrations. Historical isolated review/OCR databases containing the former branch histories are not upgrade targets: do not start this layout against them, repair their checksums, or rewrite their history. Integrated verification uses fresh disposable databases; staging upgrades from the released main history.
 
 - `V1__create_identity_tables.sql`: stable `actors` and exact `(issuer, subject)` bindings.
 - `V2__create_initial_organization_and_sessions.sql`: historical Organization/default-Workspace schema and Spring Session JDBC tables.
@@ -82,6 +82,13 @@ Flyway owns thirty-two migrations. Main `287ca9c` V1–V20 remain byte-for-byte 
 - `V30__add_google_drive_selection_operations.sql`: durable proposed selection, request receipts, policy/authority snapshots, metadata/ancestor checkpoints and fenced verification claims before atomic activation.
 - `V31__add_source_run_history.sql`: nullable legacy history facts, exact owned-index attribution, durable counters/safe errors, run completion and indexed bounded history/retention reads.
 - `V32__add_source_item_pagination.sql`: Source item keyset and latest-attempt indexes for bounded Files reads; no existing Source or content state changes.
+- `V33__chat_model_catalog.sql`: Chat model catalog.
+- `V34__chat_sources.sql`: Chat Source associations.
+- `V35__source_search_metadata.sql`: Source Search metadata.
+- `V36__chat_editors_projects_and_sharing.sql`: Chat editing, Projects and sharing.
+- `V37__chat_user_file_uploads.sql`: Chat UserFile uploads and separate storage purpose.
+- `V38__chat_message_files.sql`: Chat message attachments.
+- `V39__support_one_hundred_mib_binary_inputs.sql`: raises FILE/Google binary stored-object and input-version bounds to 100 MiB; native snapshots remain capped at 32 MiB, Chat storage retains its separate ceiling, and provider provenance predicates remain unchanged.
 
 IAM lifecycle entities and relationships remain inside `io.memoryos.iam.persistence`. Both composition roots deliberately use JPA transaction management on the same DataSource as JDBC work, with Hibernate `validate`, open-in-view disabled, and ORM caches disabled. Flyway is the only DDL owner. IAM projections/locks and Source, Document, Object Storage, and Ingestion persistence remain JDBC-first. See [ADR 0007](docs/decisions/0007-unified-jpa-iam-and-group-authorization.md).
 
@@ -104,6 +111,8 @@ Specific Sources support explicit bounded content-link discovery. The provider b
 General revalidates the stored My Drive root against the current provider session before traversal and again before pruning. A missing, changed, trashed, shared-drive or otherwise unverifiable root fails the run rather than proving an empty scope. An incomplete generation releases successfully adopted, confirmed inputs for indexing but does not prune unseen items. Scope mode is immutable after creation: service validation rejects a mismatch before provider access, and root persistence guards the saved mode without updating it. Specific link replacement advances the scope revision and fences obsolete acquisition/publication; only complete reconciliation under the new authority can prune excluded content. Globally authorized Source administrators configure the per-Source interval with an independent schedule revision; changing the interval does not fence work or invalidate Documents, and changing links does not overwrite the interval. Minute-level due checks and manual sync remain unchanged.
 
 Tracked raw writes reserve ownership before external PUT, verify integrity outside SQL transactions, and adopt with input/version/attempt creation in one fenced transaction. Uncertain writes retain cleanup tombstones against late PUT. INGESTION routes native Sheets/Docs snapshots offline, XLSX/CSV through Java readers, PDF/DOCX/PPTX through Docling, and UTF-8 text through bounded Tika; Slides are acquired as PPTX. Numeric bounds and structural contracts live in the [Ingestion contract](docs/specs/ingestion.md).
+
+Docling conversion uses one asynchronous submission and bounded same-task observation on the processing thread, with strict document-result validation. Known external failures terminate the indexing attempt instead of blindly resubmitting parser work; only transient status reads retry within that observation. Task state is not durable across Worker restart, and remote cancellation is not guaranteed. The [Ingestion contract](docs/specs/ingestion.md#extraction-routing-and-bounds) owns exact limits and classifications.
 
 Publication checks current input, source, selection, credential authority and claim. Normal refresh-token rotation changes only payload revision; revocation or reauthorization changes authority. Reconciliation can temporarily defer an otherwise-current in-flight index attempt until membership is confirmed without consuming its extraction retry budget. Removed, excluded, superseded or revoked input cannot use that deferral path to publish. Google remains excluded from the existing FILE PUBLIC resolver; this is ingestion correctness, not source-ACL implementation.
 

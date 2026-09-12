@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SourceRun } from "@/lib/hey-api/types.gen";
+import type { SourceIndexAttempt, SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { historyDuration, runHasNoChanges } from "./source-history";
-import { HistoryTime, RunOutcome } from "./source-history-presentation";
+import { HistoryTime, ItemStatus, RunOutcome } from "./source-history-presentation";
 import { SourceRunHistory } from "./source-run-history";
 
 const run: SourceRun = {
@@ -159,5 +159,112 @@ describe("Source execution and current-file history", () => {
     expect(historyDuration(null, run.completedAt)).toBeNull();
     expect(historyDuration(run.completedAt, run.startedAt)).toBeNull();
     expect(historyDuration(run.startedAt, run.completedAt)).toBe("30s");
+  });
+});
+
+describe("Current file processing status", () => {
+  const attempt: SourceIndexAttempt = {
+    id: "attempt-a",
+    filename: "report.pdf",
+    status: "NOT_STARTED",
+    createdAt: "2026-09-09T09:00:00Z",
+    startedAt: null,
+    completedAt: null,
+    errorCode: null,
+  };
+
+  it("distinguishes queued retries from active processing without using the retained first start", () => {
+    const item = {
+      status: "PENDING",
+      searchStatus: "READY" as const,
+      latestAttempt: {
+        ...attempt,
+        startedAt: "2026-09-09T09:01:00Z",
+        errorCode: "EXTRACTION_FAILED",
+      },
+    };
+    const { rerender } = render(<ItemStatus item={item} />);
+    expect(screen.getByText("Queued", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Search index: Ready")).toBeInTheDocument();
+    expect(screen.queryByText("Processing", { exact: true })).not.toBeInTheDocument();
+
+    rerender(
+      <ItemStatus
+        item={{ ...item, latestAttempt: { ...item.latestAttempt, status: "IN_PROGRESS" } }}
+      />,
+    );
+    expect(screen.getByText("Processing", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Queued", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("does not invent queued work when a pending file has no retained attempt", () => {
+    render(
+      <ItemStatus item={{ status: "PENDING", searchStatus: "WAITING", latestAttempt: null }} />,
+    );
+    expect(screen.getByText("Pending", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText(/Queued|Processing|Indexed/)).not.toBeInTheDocument();
+  });
+
+  it("does not promote a pending current version from a successful older attempt", () => {
+    render(
+      <ItemStatus
+        item={{
+          status: "PENDING",
+          searchStatus: "READY",
+          latestAttempt: { ...attempt, status: "SUCCEEDED" },
+        }}
+      />,
+    );
+    expect(screen.getByText("Pending", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Latest attempt: Indexed")).toBeInTheDocument();
+    expect(screen.queryByText("Indexed", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("keeps retained indexed content separate from a failed reprocessing attempt", () => {
+    render(
+      <ItemStatus
+        item={{
+          status: "INDEXED",
+          searchStatus: "READY",
+          latestAttempt: { ...attempt, status: "FAILED" },
+        }}
+      />,
+    );
+    expect(screen.getByText("Indexed", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Latest attempt: Failed")).toBeInTheDocument();
+    expect(screen.getByText("Search index: Ready")).toBeInTheDocument();
+  });
+
+  it("keeps deletion authoritative while exposing the latest processing fact separately", () => {
+    render(
+      <ItemStatus
+        item={{
+          status: "DELETING",
+          searchStatus: "WAITING",
+          latestAttempt: { ...attempt, status: "IN_PROGRESS" },
+        }}
+      />,
+    );
+    expect(screen.getByText("Deleting", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Latest attempt: Processing")).toBeInTheDocument();
+    expect(screen.queryByText("Processing", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("preserves unknown states and does not claim a failed downstream index has a scheduled retry", () => {
+    const item = {
+      status: "UNKNOWN",
+      searchStatus: "FAILED" as const,
+      latestAttempt: { ...attempt, status: "UNKNOWN" },
+    };
+    const { rerender } = render(<ItemStatus item={item} />);
+    expect(screen.getByText("Unknown", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Search index: Failed")).toBeInTheDocument();
+    expect(screen.queryByText(/Queued|Processing|Indexed|scheduled/i)).not.toBeInTheDocument();
+
+    rerender(
+      <ItemStatus item={{ ...item, searchStatus: "UNKNOWN" as SourceItem["searchStatus"] }} />,
+    );
+    expect(screen.getByText("Search index: Unknown")).toBeInTheDocument();
+    expect(screen.queryByText(/Ready|Waiting|scheduled/i)).not.toBeInTheDocument();
   });
 });

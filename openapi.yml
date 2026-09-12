@@ -6454,7 +6454,7 @@ components:
         sizeBytes:
           type: integer
           format: int64
-          maximum: 10485760
+          maximum: 104857600
           minimum: 1
         sha256:
           type: string

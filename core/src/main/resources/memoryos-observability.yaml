@@ -3,7 +3,8 @@ logging:
     root: INFO
     io.memoryos: ${MEMORYOS_LOG_LEVEL:INFO}
   pattern:
-    correlation: "[${spring.application.name:} trace=%X{traceId:-} span=%X{spanId:-}] "
+    level: "%5p %kvp"
+    correlation: "[${spring.application.name:} trace=%X{traceId:-} span=%X{spanId:-} operation_id=%X{operation_id:-} delivery_id=%X{delivery_id:-} workload=%X{workload:-}] "
 management:
   otlp:
     metrics:

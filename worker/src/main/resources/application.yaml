@@ -71,6 +71,11 @@ management:
           include: readinessState,db,redis,dbScheduler,objectStorage
 
 memoryos:
+  extraction:
+    docling:
+      endpoint: ${MEMORYOS_EXTRACTION_DOCLING_ENDPOINT:http://localhost:5001}
+      engine-revision: ${MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION:sha256:576fc2074ac77bcfbf3fe27633aa0dd89b452a170b2cd31689c8751e94d60f7a}
+      api-key: ${MEMORYOS_EXTRACTION_DOCLING_API_KEY:}
   google-drive:
     credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}
@@ -85,7 +90,7 @@ memoryos:
     max-requests: 256
     max-tabs: 100
     max-cells: 200000
-    max-binary-bytes: 10485760
+    max-binary-bytes: 104857600
     max-snapshot-bytes: 33554432
   worker:
     enabled: true

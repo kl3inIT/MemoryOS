@@ -304,7 +304,7 @@ class BearerAuthenticationIntegrationTest {
                 {
                   "filename": "oversized.txt",
                   "mediaType": "text/plain",
-                  "sizeBytes": 10485761,
+                  "sizeBytes": 104857601,
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 }
                 """;
