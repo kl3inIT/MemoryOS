@@ -13,9 +13,15 @@ import {
 } from "@assistant-ui/react";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { EditMessage } from "@/components/assistant-ui/elements/edit-message";
-import { createChatAttachmentAdapter, fileReference, uploadChatFile } from "./chat-files";
+import {
+  createChatAttachmentAdapter,
+  fileReference,
+  uploadChatFile,
+  chatAttachmentProblem,
+} from "./chat-files";
 import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ChatMessageAttachment } from "./chat-attachments";
+import { i18n } from "@/i18n";
 
 const backend = vi.hoisted(() => ({
   policy: vi.fn(),
@@ -66,6 +72,7 @@ function Harness({ adapter }: { adapter: AttachmentAdapter }) {
 
 describe("Chat attachments with assistant-ui runtime", () => {
   beforeEach(() => {
+    void i18n.changeLanguage("vi");
     class PreviewURL extends URL {
       static override createObjectURL = vi.fn(() => "blob:attachment-preview");
       static override revokeObjectURL = vi.fn();
@@ -109,8 +116,18 @@ describe("Chat attachments with assistant-ui runtime", () => {
     fireEvent.change(input!, {
       target: { files: [new File(["png"], ready.filename, { type: "image/png" })] },
     });
-    await screen.findByText("Sẵn sàng");
-    await user.click(screen.getByRole("button", { name: "Ảnh đính kèm" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Gửi" })).toBeEnabled());
+    expect(screen.queryByText("Sẵn sàng")).not.toBeInTheDocument();
+    const tile = screen.getByRole("button", { name: `Tệp đính kèm: ${ready.filename}` });
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+    expect(screen.getByRole("button", { name: `Attachment: ${ready.filename}` })).toBe(tile);
+    expect(screen.getByRole("button", { name: "Remove file" })).toBeInTheDocument();
+    await act(async () => {
+      await i18n.changeLanguage("vi");
+    });
+    await user.click(screen.getByRole("button", { name: `Tệp đính kèm: ${ready.filename}` }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Xem trước ảnh" })).toHaveAttribute(
       "src",
@@ -118,7 +135,11 @@ describe("Chat attachments with assistant-ui runtime", () => {
     );
     await user.click(screen.getByRole("button", { name: "Đóng xem trước" }));
     await user.click(screen.getByRole("button", { name: "Gỡ tệp" }));
-    await waitFor(() => expect(screen.queryByText("Sẵn sàng")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: `Tệp đính kèm: ${ready.filename}` }),
+      ).not.toBeInTheDocument(),
+    );
     unmount();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:attachment-preview");
     expect(error).not.toHaveBeenCalled();
@@ -142,8 +163,7 @@ describe("Chat attachments with assistant-ui runtime", () => {
     expect(screen.getByRole("textbox", { name: "Câu hỏi" })).toHaveValue("Đọc ảnh");
     expect(screen.getByText("Đang xử lý…")).toBeInTheDocument();
     await act(async () => poll.resolve({ data: ready }));
-    await screen.findByText("Sẵn sàng");
-    expect(screen.getByRole("button", { name: "Gửi" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Gửi" })).toBeEnabled());
     await userEvent.click(screen.getByRole("button", { name: "Gửi" }));
     expect(await screen.findByRole("button", { name: ready.filename })).toBeInTheDocument();
   });
@@ -234,5 +254,23 @@ describe("Chat attachments with assistant-ui runtime", () => {
       ),
     ).rejects.toThrow("Aborted fetch");
     expect(backend.initiate).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares safe deferred upload errors between native composer and recent-file picker", async () => {
+    expect(chatAttachmentProblem(new Error("private storage diagnostic"))).toEqual({
+      key: "attachmentUpload",
+    });
+    const adapter = createChatAttachmentAdapter(vi.fn());
+    backend.initiate.mockRejectedValueOnce(new Error("private storage diagnostic"));
+    const onError = vi.fn();
+    const failed = createChatAttachmentAdapter(onError).add({ file: new File(["x"], "test.txt") });
+    await expect(
+      (async () => {
+        if (Symbol.asyncIterator in failed) for await (const item of failed) void item;
+      })(),
+    ).rejects.toThrow("private storage diagnostic");
+    expect(onError).toHaveBeenCalledWith({ key: "attachmentUpload" });
+    expect(backend.initiate).toHaveBeenCalledTimes(1);
+    adapter.cancelPending();
   });
 });

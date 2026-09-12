@@ -1,6 +1,7 @@
 // Adapted from assistant-ui File (MIT), registry retrieved 2026-09-12.
 "use client";
 
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { memo, type FC } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
@@ -123,13 +124,15 @@ function FileIconDisplay({ mimeType, className, children, ...props }: FileIconDi
 }
 
 function FileName({ className, children, ...props }: React.ComponentProps<"span">) {
+  const ui = useAppTranslation();
+
   return (
     <span
       data-slot="file-name"
       className={cn("min-w-0 flex-1 truncate font-medium", className)}
       {...props}
     >
-      {children || "Unnamed file"}
+      {children || ui("Unnamed file")}
     </span>
   );
 }

@@ -12,6 +12,7 @@ import { ApplicationSessionBoundary } from "./application-session-boundary";
 const OWNER_SESSION: CurrentIdentity = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
   authorizationVersion: 1,
+  uiLanguage: "en",
   tenant: {
     displayName: "Tasco",
     role: "OWNER",
@@ -34,6 +35,45 @@ afterEach(() => {
 });
 
 describe("ApplicationSessionBoundary", () => {
+  it("changes account locale without remounting the draft or purging private data", async () => {
+    let current = OWNER_SESSION;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(current)),
+    );
+    const client = createMemoryOsQueryClient();
+    renderBoundary(client, <ActorDraft />);
+    const input = await screen.findByLabelText("Private draft");
+    fireEvent.change(input, { target: { value: "Keep this draft" } });
+    client.setQueryData(["private-data"], { retained: true });
+    current = { ...OWNER_SESSION, uiLanguage: "vi" };
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: getCurrentIdentityQueryKey() });
+    });
+    await waitFor(() => expect(document.documentElement.lang).toBe("vi"));
+    expect(screen.getByLabelText("Private draft")).toBe(input);
+    expect(input).toHaveValue("Keep this draft");
+    expect(client.getQueryData(["private-data"])).toEqual({ retained: true });
+  });
+
+  it("preserves mounted data and draft on transient background identity failure", async () => {
+    let fail = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => (fail ? Response.json({}, { status: 503 }) : Response.json(OWNER_SESSION))),
+    );
+    const client = createMemoryOsQueryClient();
+    renderBoundary(client, <ActorDraft />);
+    const input = await screen.findByLabelText("Private draft");
+    fireEvent.change(input, { target: { value: "Keep this draft" } });
+    fail = true;
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: getCurrentIdentityQueryKey() });
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("Couldn’t refresh your session");
+    expect(input).toHaveValue("Keep this draft");
+    expect(screen.getByLabelText("Private draft")).toBe(input);
+  });
   it("provides the authenticated session to its child layout", async () => {
     vi.stubGlobal(
       "fetch",

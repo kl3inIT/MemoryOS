@@ -3,6 +3,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import "@/i18n";
 import { ApplicationErrorBoundary } from "@/components/states/application-error-boundary";
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import "@/lib/api";

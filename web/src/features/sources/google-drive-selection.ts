@@ -2,6 +2,7 @@ import type {
   GetGoogleDriveConfigurationResponse,
   GoogleDriveSelectionPolicyResponse,
 } from "@/lib/hey-api/types.gen";
+import { appText } from "@/i18n/app-text";
 
 export const MAX_GOOGLE_DRIVE_LINK_LENGTH = 2048;
 
@@ -20,13 +21,21 @@ export function googleDriveSelectionError(
   if (body.scopeMode === "SPECIFIC" && body.links.length === 0)
     return "Supply at least one file or folder link.";
   if (body.links.length > policy.maxExplicitRootsPerSource)
-    return `Use at most ${policy.maxExplicitRootsPerSource.toLocaleString()} explicit file or folder roots. Folder descendants do not consume this quota.`;
+    return appText(
+      "Use at most {{count}} explicit file or folder roots. Folder descendants do not consume this quota.",
+      { count: policy.maxExplicitRootsPerSource },
+    );
   if (body.links.some((link) => link.length > MAX_GOOGLE_DRIVE_LINK_LENGTH))
     return "Each link must be no longer than 2,048 characters.";
   if ((body.linkedDocumentIds?.length ?? 0) > policy.maxLinkedDocuments)
-    return `Approve at most ${policy.maxLinkedDocuments.toLocaleString()} linked documents.`;
+    return appText("Approve at most {{count}} linked documents.", {
+      count: policy.maxLinkedDocuments,
+    });
   if (new TextEncoder().encode(JSON.stringify(body)).byteLength > policy.maxRequestBytes)
-    return `The selection request exceeds the server's ${policy.maxRequestBytes.toLocaleString()}-byte limit. Reduce the submitted links.`;
+    return appText(
+      "The selection request exceeds the server's {{count}}-byte limit. Reduce the submitted links.",
+      { count: policy.maxRequestBytes },
+    );
   return null;
 }
 

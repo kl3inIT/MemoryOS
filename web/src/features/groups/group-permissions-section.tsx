@@ -1,7 +1,9 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { GroupCapability } from "@/lib/hey-api/types.gen";
+import { capabilityCopy } from "./group-capability-copy";
 
 type CapabilityId = GroupCapability["id"];
 
@@ -24,6 +26,8 @@ export function GroupPermissionsSection({
   onRetry,
   onChange,
 }: GroupPermissionsSectionProps) {
+  const ui = useAppTranslation();
+
   return (
     <section
       aria-labelledby="group-permissions-heading"
@@ -35,10 +39,10 @@ export function GroupPermissionsSection({
         </span>
         <div>
           <h2 id="group-permissions-heading" className="font-heading-h3 text-content-primary">
-            Capabilities
+            {ui("Capabilities")}
           </h2>
           <p className="mt-1 font-main-ui-body text-content-muted">
-            The registry lists only capabilities with working product enforcement.
+            {ui("The registry lists only capabilities with working product enforcement.")}
           </p>
         </div>
       </div>
@@ -48,24 +52,27 @@ export function GroupPermissionsSection({
           role="status"
           className="mt-4 rounded-xl border border-border-subtle px-4 py-6 font-main-ui-body text-content-muted"
         >
-          Loading capability registry
+          {ui("Loading capability registry")}
         </div>
       ) : error ? (
         <div className="mt-4 rounded-xl border border-border-subtle p-4">
           <p role="alert" className="font-main-ui-body text-content-secondary">
-            The capability registry could not be loaded. Existing grants have not been changed.
+            {ui(
+              "The capability registry could not be loaded. Existing grants have not been changed.",
+            )}
           </p>
           <Button size="sm" prominence="secondary" className="mt-3" onClick={onRetry}>
-            Try again
+            {ui("Try again")}
           </Button>
         </div>
       ) : registry.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center font-main-ui-body text-content-muted">
-          No capabilities are available.
+          {ui("No capabilities are available.")}
         </div>
       ) : (
         <div className="mt-4 divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
           {registry.map((capability) => {
+            const copy = capabilityCopy[capability.id];
             const checked = selected.has(capability.id);
             const mutable = editable && capability.editable;
             return (
@@ -83,33 +90,34 @@ export function GroupPermissionsSection({
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-main-ui-action text-content-primary">
-                      {capability.label}
+                      {ui(copy?.label ?? "Unknown")}
                     </span>
                     {!capability.editable ? (
                       <Badge variant="outline" className="bg-surface-raised text-content-muted">
-                        Protected
+                        {ui("Protected")}
                       </Badge>
                     ) : null}
                   </span>
                   <span className="mt-1 block font-secondary-body text-content-muted">
-                    {capability.description}
+                    {copy ? ui(copy.description) : null}
                   </span>
                   {capability.id.startsWith("SOURCES_") ? (
                     <span className="mt-2 block font-secondary-action text-content-secondary">
-                      Tenant-wide grant. Source associations below constrain only scoped
-                      group-manager authority.
+                      {ui(
+                        "Tenant-wide grant. Source associations below constrain only scoped group-manager authority.",
+                      )}
                     </span>
                   ) : null}
                   {capability.implies.length > 0 ? (
                     <span className="mt-2 flex flex-wrap items-center gap-1 font-secondary-body text-content-muted">
-                      Includes
+                      {ui("Includes")}
                       {capability.implies.map((implied) => (
                         <Badge
                           key={implied}
                           variant="secondary"
                           className="bg-surface-subtle text-content-secondary"
                         >
-                          {implied.replaceAll("_", " ").toLocaleLowerCase()}
+                          {ui(capabilityCopy[implied]?.label ?? "Unknown")}
                         </Badge>
                       ))}
                     </span>
@@ -119,7 +127,9 @@ export function GroupPermissionsSection({
                   type="checkbox"
                   checked={checked}
                   disabled={!mutable}
-                  aria-label={`${checked ? "Remove" : "Grant"} ${capability.label}`}
+                  aria-label={ui(checked ? "Remove {{capability}}" : "Grant {{capability}}", {
+                    capability: ui(copy?.label ?? "Unknown"),
+                  })}
                   className="mt-2 size-4 shrink-0 accent-content-primary outline-none disabled:cursor-not-allowed"
                   onChange={() => {
                     const next = new Set(selected);

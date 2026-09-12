@@ -1,3 +1,5 @@
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import {
   LoaderCircle,
@@ -34,6 +36,8 @@ type GroupMembersSectionProps = {
 };
 
 export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersSectionProps) {
+  const ui = useAppTranslation();
+
   const currentActorId = useApplicationSession().actorId;
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
@@ -43,7 +47,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
   const [candidateSearchDraft, setCandidateSearchDraft] = useState("");
   const [candidatePage, setCandidatePage] = useState(0);
   const [selectedCandidates, setSelectedCandidates] = useState<Set<string>>(() => new Set());
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<AppCopy | null>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const members = useQuery({
     ...listGroupMembersOptions({
@@ -143,10 +147,12 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
           </span>
           <div>
             <h2 id="group-members-heading" className="font-heading-h3 text-content-primary">
-              Members
+              {ui("Members")}
             </h2>
             <p className="mt-1 font-main-ui-body text-content-muted">
-              Group managers can maintain ordinary membership without changing manager status.
+              {ui(
+                "Group managers can maintain ordinary membership without changing manager status.",
+              )}
             </p>
           </div>
         </div>
@@ -163,7 +169,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
             }}
           >
             <Plus aria-hidden="true" />
-            {adding ? "Done adding" : "Add members"}
+            {adding ? ui("Done adding") : ui("Add members")}
           </Button>
         ) : null}
       </div>
@@ -173,7 +179,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
           role="alert"
           className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
         >
-          {actionError}
+          {ui(actionError)}
         </p>
       ) : null}
 
@@ -196,14 +202,14 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
               <Input
                 type="search"
                 value={candidateSearchDraft}
-                aria-label="Search member candidates"
+                aria-label={ui("Search member candidates")}
                 maxLength={200}
-                placeholder="Search users…"
+                placeholder={ui("Search users…")}
                 className="bg-surface-raised pl-9"
                 onChange={(event) => setCandidateSearchDraft(event.target.value)}
               />
               <button type="submit" className="sr-only">
-                Search candidates
+                {ui("Search candidates")}
               </button>
             </form>
             <Button
@@ -211,23 +217,23 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
               pending={addMembers.isPending}
               onClick={() => void addSelectedMembers()}
             >
-              Add {selectedCandidates.size > 0 ? selectedCandidates.size : "selected"}
+              {ui("Add")} {selectedCandidates.size > 0 ? selectedCandidates.size : ui("selected")}
             </Button>
           </div>
 
           {candidates.isPending ? (
-            <LoadingRows label="Loading eligible users" />
+            <LoadingRows label={ui("Loading eligible users")} />
           ) : candidates.isError ? (
             <InlineError
-              label="Eligible users could not be loaded."
+              label={ui("Eligible users could not be loaded.")}
               onRetry={() => void candidates.refetch()}
             />
           ) : candidateRows.length === 0 ? (
             <EmptyRows
               title={
                 candidateSearch
-                  ? "No eligible users found"
-                  : "Everyone eligible is already a member"
+                  ? ui("No eligible users found")
+                  : ui("Everyone eligible is already a member")
               }
               detail={
                 candidateSearch
@@ -266,7 +272,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
           )}
           {candidatesPage && candidatesPage.totalPages > 1 ? (
             <Pagination
-              label="Candidate pages"
+              label={ui("Candidate pages")}
               page={candidatePage}
               totalPages={candidatesPage.totalPages}
               onPageChange={setCandidatePage}
@@ -291,24 +297,27 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
         <Input
           type="search"
           value={searchDraft}
-          aria-label="Search group members"
+          aria-label={ui("Search group members")}
           maxLength={200}
-          placeholder="Search members…"
+          placeholder={ui("Search members…")}
           className="bg-surface-sunken pl-9"
           onChange={(event) => setSearchDraft(event.target.value)}
         />
         <button type="submit" className="sr-only">
-          Search members
+          {ui("Search members")}
         </button>
       </form>
 
       {members.isPending ? (
-        <LoadingRows label="Loading members" />
+        <LoadingRows label={ui("Loading members")} />
       ) : members.isError ? (
-        <InlineError label="Members could not be loaded." onRetry={() => void members.refetch()} />
+        <InlineError
+          label={ui("Members could not be loaded.")}
+          onRetry={() => void members.refetch()}
+        />
       ) : rows.length === 0 ? (
         <EmptyRows
-          title={search ? "No members found" : "No members"}
+          title={search ? ui("No members found") : ui("No members")}
           detail={
             search ? "Try another name or email." : "Add an eligible Tenant user to this group."
           }
@@ -316,7 +325,9 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
       ) : (
         <div className="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
           <table className="w-full min-w-[42rem] table-fixed border-collapse">
-            <caption className="sr-only">Members of {group.name}</caption>
+            <caption className="sr-only">
+              {ui("Members of")} {group.name}
+            </caption>
             <colgroup>
               <col />
               <col className="w-32" />
@@ -325,13 +336,17 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
             </colgroup>
             <thead className="border-b border-border-subtle bg-surface-subtle text-left">
               <tr>
-                <th className="h-10 px-4 font-secondary-action text-content-secondary">Name</th>
                 <th className="h-10 px-4 font-secondary-action text-content-secondary">
-                  Account type
+                  {ui("Name")}
                 </th>
-                <th className="h-10 px-4 font-secondary-action text-content-secondary">Status</th>
+                <th className="h-10 px-4 font-secondary-action text-content-secondary">
+                  {ui("Account type")}
+                </th>
+                <th className="h-10 px-4 font-secondary-action text-content-secondary">
+                  {ui("Status")}
+                </th>
                 <th className="h-10 px-4 text-center font-secondary-action text-content-secondary">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{ui("Actions")}</span>
                 </th>
               </tr>
             </thead>
@@ -365,7 +380,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                             : "bg-surface-subtle text-content-muted"
                         }
                       >
-                        {member.status === "ACTIVE" ? "Active" : "Inactive"}
+                        {member.status === "ACTIVE" ? ui("Active") : ui("Inactive")}
                       </Badge>
                     </td>
                     <td className="px-3 py-3">
@@ -375,7 +390,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                             variant="outline"
                             className="mr-1 bg-surface-raised text-content-muted"
                           >
-                            Protected
+                            {ui("Protected")}
                           </Badge>
                         ) : null}
                         {canManageManagers ? (
@@ -385,19 +400,33 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                                 size="sm"
                                 disabled={busy || member.protectedOwner || ownManager}
                                 pending={managerPending}
-                                aria-label={`${member.isManager ? "Remove manager" : "Make manager"} for ${name}`}
+                                aria-label={ui("{{v1}} for {{v2}}", {
+                                  v1: ui(member.isManager ? "Remove manager" : "Make manager"),
+                                  v2: name,
+                                })}
                               >
                                 {member.isManager ? <ShieldMinus /> : <ShieldPlus />}
                               </IconButton>
                             }
-                            title={`${member.isManager ? "Remove manager access from" : "Make"} ${name}${member.isManager ? "" : " a manager"}?`}
+                            title={ui(
+                              member.isManager
+                                ? "Remove manager access from {{name}}?"
+                                : "Make {{name}} a manager?",
+                              { name },
+                            )}
                             description={
                               member.isManager
-                                ? "Their group-scoped management access ends on the next authorized request."
-                                : "They will be able to maintain this group’s ordinary membership and access associated Sources within their granted scope."
+                                ? ui(
+                                    "Their group-scoped management access ends on the next authorized request.",
+                                  )
+                                : ui(
+                                    "They will be able to maintain this group’s ordinary membership and access associated Sources within their granted scope.",
+                                  )
                             }
-                            confirmLabel={member.isManager ? "Remove manager" : "Make manager"}
-                            pendingLabel="Updating manager…"
+                            confirmLabel={
+                              member.isManager ? ui("Remove manager") : ui("Make manager")
+                            }
+                            pendingLabel={ui("Updating manager…")}
                             confirmTone={member.isManager ? "danger" : "default"}
                             onConfirm={() => changeManager(member)}
                             errorMessage={(cause) => groupMutationError(cause, "manager")}
@@ -407,7 +436,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                             variant="secondary"
                             className="bg-surface-subtle text-content-secondary"
                           >
-                            Manager
+                            {ui("Manager")}
                           </Badge>
                         ) : null}
                         {canManageMembers && (!member.isManager || canManageManagers) ? (
@@ -418,17 +447,23 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                                 tone="danger"
                                 prominence="tertiary"
                                 disabled={busy || member.protectedOwner || ownManager}
-                                aria-label={`Remove ${name} from ${group.name}`}
+                                aria-label={ui("Remove {{v1}} from {{v2}}", {
+                                  v1: name,
+                                  v2: group.name,
+                                })}
                               >
                                 <Trash2 />
                               </IconButton>
                             }
                             successFocusRef={addButtonRef}
                             fallbackFocusRef={addButtonRef}
-                            title={`Remove ${name}?`}
-                            description={`They will leave “${group.name}”. Other group memberships and their Tenant account stay unchanged.`}
-                            confirmLabel="Remove member"
-                            pendingLabel="Removing member…"
+                            title={ui("Remove {{v1}}?", { v1: name })}
+                            description={ui(
+                              "They will leave “{{v1}}”. Other group memberships and their Tenant account stay unchanged.",
+                              { v1: group.name },
+                            )}
+                            confirmLabel={ui("Remove member")}
+                            pendingLabel={ui("Removing member…")}
                             onConfirm={() => removeSelectedMember(member)}
                             errorMessage={(cause) => groupMutationError(cause, "members")}
                           />
@@ -445,7 +480,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
 
       {pageData && pageData.totalPages > 1 ? (
         <Pagination
-          label="Member pages"
+          label={ui("Member pages")}
           page={page}
           totalPages={pageData.totalPages}
           onPageChange={setPage}
@@ -456,6 +491,8 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
 }
 
 function MemberIdentity({ member }: { member: GroupMember }) {
+  const ui = useAppTranslation();
+
   const name = member.displayName?.trim() || member.email?.trim() || `user ${member.actorId}`;
   return (
     <span className="flex min-w-0 flex-1 items-center gap-3">
@@ -470,7 +507,7 @@ function MemberIdentity({ member }: { member: GroupMember }) {
               variant="secondary"
               className="shrink-0 bg-surface-subtle text-content-secondary"
             >
-              Manager
+              {ui("Manager")}
             </Badge>
           ) : null}
         </span>
@@ -484,10 +521,12 @@ function MemberIdentity({ member }: { member: GroupMember }) {
   );
 }
 function MemberAccount({ member }: { member: GroupMember }) {
+  const ui = useAppTranslation();
+
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 font-main-ui-body text-content-secondary">
       <UserRound className="size-4 text-content-muted" aria-hidden="true" />
-      {member.accountType === "STANDARD" ? "Standard" : member.accountType}
+      {member.accountType === "STANDARD" ? ui("Standard") : member.accountType}
     </span>
   );
 }
@@ -505,13 +544,15 @@ function LoadingRows({ label }: { label: string }) {
 }
 
 function InlineError({ label, onRetry }: { label: string; onRetry: () => void }) {
+  const ui = useAppTranslation();
+
   return (
     <div className="mt-4 rounded-xl border border-border-subtle px-4 py-5">
       <p role="alert" className="font-main-ui-body text-content-secondary">
         {label}
       </p>
       <Button size="sm" prominence="secondary" className="mt-3" onClick={onRetry}>
-        Try again
+        {ui("Try again")}
       </Button>
     </div>
   );
@@ -538,6 +579,8 @@ function Pagination({
   totalPages: number;
   onPageChange: (page: number) => void;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <nav aria-label={label} className="mt-4 flex items-center justify-end gap-2">
       <Button
@@ -546,10 +589,10 @@ function Pagination({
         disabled={page === 0}
         onClick={() => onPageChange(page - 1)}
       >
-        Previous
+        {ui("Previous")}
       </Button>
       <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-muted">
-        Page {page + 1} of {Math.max(totalPages, 1)}
+        {ui("Page")} {page + 1} {ui("of")} {Math.max(totalPages, 1)}
       </span>
       <Button
         size="sm"
@@ -557,7 +600,7 @@ function Pagination({
         disabled={page + 1 >= totalPages}
         onClick={() => onPageChange(page + 1)}
       >
-        Next
+        {ui("Next")}
       </Button>
     </nav>
   );

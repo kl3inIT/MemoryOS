@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   LoaderCircle,
   MoreHorizontal,
@@ -45,6 +46,8 @@ export function UserRowActions({
   onRotate,
   onRevoke,
 }: UserRowActionsProps) {
+  const ui = useAppTranslation();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationAction | null>(null);
   const actionButtonRef = useRef<HTMLButtonElement>(null);
@@ -63,7 +66,7 @@ export function UserRowActions({
   if (!actionable) {
     return (
       <span
-        aria-label={`No actions available for ${label}`}
+        aria-label={ui("No actions available for {{v1}}", { v1: label })}
         className="font-main-ui-body text-content-muted"
       >
         —
@@ -73,10 +76,10 @@ export function UserRowActions({
 
   const confirmationTitle =
     confirmation === "activate"
-      ? `Activate ${label}?`
+      ? ui("Activate {{name}}?", { name: label })
       : confirmation === "deactivate"
-        ? `Deactivate ${label}?`
-        : `Revoke the invitation for ${label}?`;
+        ? ui("Deactivate {{name}}?", { name: label })
+        : ui("Revoke the invitation for {{name}}?", { name: label });
   const confirmationDescription =
     confirmation === "activate"
       ? "They will regain access to this Tenant. Their existing identity and membership history stay intact."
@@ -111,8 +114,8 @@ export function UserRowActions({
             prominence="tertiary"
             aria-label={
               pendingAction
-                ? `${userActionPendingLabel(pendingAction)} for ${label}`
-                : `Actions for ${label}`
+                ? ui("{{v1}} for {{v2}}", { v1: userActionPendingLabel(pendingAction), v2: label })
+                : ui("Actions for {{v1}}", { v1: label })
             }
             pending={Boolean(pendingAction)}
           >
@@ -138,7 +141,7 @@ export function UserRowActions({
                     onEditGroups(actionButtonRef.current);
                   }}
                 >
-                  Edit groups
+                  {ui("Edit groups")}
                 </MenuItem>
                 {canChangeMembership ? (
                   <div className="my-1 border-t border-border-subtle" />
@@ -155,7 +158,7 @@ export function UserRowActions({
                     setConfirmation("deactivate");
                   }}
                 >
-                  Deactivate member
+                  {ui("Deactivate member")}
                 </MenuItem>
               ) : (
                 <MenuItem
@@ -165,7 +168,7 @@ export function UserRowActions({
                     setConfirmation("activate");
                   }}
                 >
-                  Activate member
+                  {ui("Activate member")}
                 </MenuItem>
               )
             ) : canManageInvitation ? (
@@ -178,7 +181,7 @@ export function UserRowActions({
                     void onRotate(entry, actionButtonRef.current).catch(() => undefined);
                   }}
                 >
-                  Rotate recovery link
+                  {ui("Rotate recovery link")}
                 </MenuItem>
                 <div className="my-1 border-t border-border-subtle" />
                 <MenuItem
@@ -189,7 +192,7 @@ export function UserRowActions({
                     setConfirmation("revoke");
                   }}
                 >
-                  Revoke invitation
+                  {ui("Revoke invitation")}
                 </MenuItem>
               </>
             ) : null}
@@ -208,9 +211,9 @@ export function UserRowActions({
         }
         fallbackFocusRef={fallbackFocusRef}
         title={confirmationTitle}
-        description={confirmationDescription}
-        confirmLabel={confirmLabel}
-        pendingLabel={confirmPendingLabel}
+        description={ui(confirmationDescription)}
+        confirmLabel={ui(confirmLabel)}
+        pendingLabel={ui(confirmPendingLabel)}
         confirmTone={confirmation === "activate" ? "default" : "danger"}
         onConfirm={() => {
           if (confirmation === "activate") return onActivate(entry);

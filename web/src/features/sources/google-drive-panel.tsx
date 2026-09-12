@@ -1,3 +1,6 @@
+import { appText } from "@/i18n/app-text";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, KeyRound, RefreshCw, Unplug } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -62,6 +65,8 @@ export function GoogleDrivePanel({
   disabled?: boolean;
   onBusyChange: (busy: boolean) => void;
 }) {
+  const ui = useAppTranslation();
+
   const queryClient = useQueryClient();
   const notify = useActionNotifications();
   const session = useApplicationSession();
@@ -99,7 +104,7 @@ export function GoogleDrivePanel({
   const updateSchedule = useMutation({ ...updateGoogleDriveScheduleMutation(), retry: false });
   const [intervalDraft, setIntervalDraft] = useState<IntervalDraft | null>(null);
   const [intervalRevisionConflict, setIntervalRevisionConflict] = useState(false);
-  const [intervalError, setIntervalError] = useState<string | null>(null);
+  const [intervalError, setIntervalError] = useState<AppCopy | null>(null);
   const intervalInput = useRef<HTMLInputElement>(null);
   const intervalEditButton = useRef<HTMLButtonElement>(null);
   const wasEditingInterval = useRef(false);
@@ -107,7 +112,7 @@ export function GoogleDrivePanel({
   const [selectionBusy, setSelectionBusy] = useState(false);
   const [activeAction, setActiveAction] = useState<DriveAction | null>(null);
   const [leaving, setLeaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const actionLock = useRef(false);
   const authorizationController = useRef<AbortController | null>(null);
   const synchronizationController = useRef<AbortController | null>(null);
@@ -226,7 +231,10 @@ export function GoogleDrivePanel({
         notify({
           tone: "error",
           title: "Drive status refresh failed",
-          description: `${source.name}: displayed values may be out of date. Try refreshing again.`,
+          description: appText(
+            "{{v1}}: displayed values may be out of date. Try refreshing again.",
+            { v1: source.name },
+          ),
         });
     } finally {
       if (refreshController.current === controller) refreshController.current = null;
@@ -250,7 +258,7 @@ export function GoogleDrivePanel({
         notify({
           tone: "error",
           title: "Credential refresh failed",
-          description: sourceMutationError(cause, "google-drive"),
+          description: appText(sourceMutationError(cause, "google-drive")),
         });
     } finally {
       if (credentialRefreshController.current === controller)
@@ -332,7 +340,10 @@ export function GoogleDrivePanel({
     notify({
       tone: "success",
       title: "Automatic interval saved",
-      description: `Synchronizes every ${saved.syncIntervalMinutes} ${saved.syncIntervalMinutes === 1 ? "minute" : "minutes"}. Current work is unchanged.`,
+      description: appText("Synchronizes every {{v1}} {{v2}}. Current work is unchanged.", {
+        v1: saved.syncIntervalMinutes,
+        v2: appText(saved.syncIntervalMinutes === 1 ? "minute" : "minutes"),
+      }),
     });
     await refresh();
   }
@@ -349,7 +360,7 @@ export function GoogleDrivePanel({
     notify({
       tone: "info",
       title: "Saved interval loaded",
-      description: "Local interval changes were discarded.",
+      description: appText("Local interval changes were discarded."),
     });
     intervalInput.current?.focus();
   }
@@ -392,13 +403,18 @@ export function GoogleDrivePanel({
         notify({
           tone: "success",
           title: "Synchronization complete",
-          description: `${source.name}: selected content is synchronized. Indexing may still be running.`,
+          description: appText(
+            "{{v1}}: selected content is synchronized. Indexing may still be running.",
+            { v1: source.name },
+          ),
         });
       } else if (completed.status === "SUPERSEDED") {
         notify({
           tone: "info",
           title: "Synchronization superseded",
-          description: `${source.name}: this request was replaced by newer work.`,
+          description: appText("{{v1}}: this request was replaced by newer work.", {
+            v1: source.name,
+          }),
         });
       } else {
         const failureKind = completed.errorCode ?? "SOURCE_SYNC_FAILED";
@@ -411,7 +427,7 @@ export function GoogleDrivePanel({
         notify({
           tone: "error",
           title: "Synchronization failed",
-          description: sourceStatusMessage(completed.errorCode ?? "SOURCE_SYNC_FAILED"),
+          description: appText(sourceStatusMessage(completed.errorCode ?? "SOURCE_SYNC_FAILED")),
         });
       }
       await refresh();
@@ -425,8 +441,9 @@ export function GoogleDrivePanel({
         notify({
           tone: "error",
           title: "Synchronization status unavailable",
-          description:
+          description: appText(
             "Synchronization may still be running. Refresh the source to check its status.",
+          ),
         });
       }
     } finally {
@@ -495,7 +512,10 @@ export function GoogleDrivePanel({
     notify({
       tone: "success",
       title: "Google credential disconnected",
-      description: `${credential?.name ?? configuration.accountEmail}: synchronization is stopped for every attached Source. Saved links and documents are retained.`,
+      description: appText(
+        "{{v1}}: synchronization is stopped for every attached Source. Saved links and documents are retained.",
+        { v1: credential?.name ?? configuration.accountEmail },
+      ),
     });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: [{ _id: "getGoogleDriveConfiguration" }] }),
@@ -512,28 +532,28 @@ export function GoogleDrivePanel({
       <>
         <SourceSummaryCard source={source}>
           <div>
-            <dt className="text-content-muted">Automatic interval</dt>
+            <dt className="text-content-muted">{ui("Automatic interval")}</dt>
             <dd className="mt-2 text-content-muted">
-              {configurationQuery.isPending ? "Loading…" : "Unavailable"}
+              {configurationQuery.isPending ? ui("Loading…") : ui("Unavailable")}
             </dd>
           </div>
         </SourceSummaryCard>
         <div className="border-b border-border-subtle p-5 sm:p-6">
           {configurationQuery.isPending ? (
             <p role="status" className="text-sm text-content-muted">
-              Loading Google Drive connection…
+              {ui("Loading Google Drive connection…")}
             </p>
           ) : (
             <div className="space-y-3">
               <p role="alert" className="text-sm text-status-danger-content">
-                {sourceMutationError(configurationQuery.error, "google-drive")}
+                {ui(sourceMutationError(configurationQuery.error, "google-drive"))}
               </p>
               <Button
                 prominence="secondary"
                 pending={configurationQuery.isFetching}
                 onClick={() => void refreshStatus()}
               >
-                Retry connection status
+                {ui("Retry connection status")}
               </Button>
             </div>
           )}
@@ -543,21 +563,21 @@ export function GoogleDrivePanel({
   }
 
   return (
-    <section aria-label="Google Drive configuration" className="space-y-6">
+    <section aria-label={ui("Google Drive configuration")} className="space-y-6">
       <SourceSummaryCard source={source}>
         <div className="min-w-0" aria-live="polite">
-          <dt className="text-content-muted">Automatic interval</dt>
+          <dt className="text-content-muted">{ui("Automatic interval")}</dt>
           <dd className="mt-2 min-w-0 space-y-3 text-content-primary">
             <div className="flex flex-wrap items-center gap-2">
               <span>
                 {configuration.syncIntervalMinutes}{" "}
-                {configuration.syncIntervalMinutes === 1 ? "minute" : "minutes"}
+                {configuration.syncIntervalMinutes === 1 ? ui("minute") : ui("minutes")}
               </span>
               {!editingInterval ? (
                 <Button
                   ref={intervalEditButton}
                   size="sm"
-                  aria-label="Edit interval"
+                  aria-label={ui("Edit interval")}
                   prominence="tertiary"
                   disabled={controlsDisabled}
                   onClick={() => {
@@ -568,7 +588,7 @@ export function GoogleDrivePanel({
                     setIntervalError(null);
                   }}
                 >
-                  Edit
+                  {ui("Edit")}
                 </Button>
               ) : null}
             </div>
@@ -589,7 +609,7 @@ export function GoogleDrivePanel({
                 }}
               >
                 <label className="block space-y-1">
-                  <span>Interval in minutes</span>
+                  <span>{ui("Interval in minutes")}</span>
                   <Input
                     ref={intervalInput}
                     type="number"
@@ -621,8 +641,9 @@ export function GoogleDrivePanel({
                 ) : null}
                 {intervalConflicted ? (
                   <p role="alert" className="text-status-warning-content">
-                    The automatic interval changed while you were editing. Your interval draft has
-                    not been saved. Reload the saved interval before continuing.
+                    {ui(
+                      "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.",
+                    )}
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
@@ -631,10 +652,10 @@ export function GoogleDrivePanel({
                     disabled={controlsDisabled || intervalConflicted || Boolean(intervalValidation)}
                     pending={activeAction === "save-interval"}
                   >
-                    Save interval
+                    {ui("Save interval")}
                   </Button>
                   <Button prominence="tertiary" disabled={busy} onClick={cancelInterval}>
-                    Cancel
+                    {ui("Cancel")}
                   </Button>
                   {intervalConflicted ? (
                     <Button
@@ -643,7 +664,7 @@ export function GoogleDrivePanel({
                       pending={activeAction === "reload-interval"}
                       onClick={() => runInterval("reload-interval", reloadInterval)}
                     >
-                      Reload saved interval
+                      {ui("Reload saved interval")}
                     </Button>
                   ) : null}
                 </div>
@@ -651,7 +672,7 @@ export function GoogleDrivePanel({
             ) : null}
             {intervalError ? (
               <p role="alert" className="text-status-danger-content">
-                {intervalError}
+                {ui(intervalError)}
               </p>
             ) : null}
           </dd>
@@ -660,12 +681,12 @@ export function GoogleDrivePanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <SourceSectionIcon icon={RefreshCw} />
-          <h2 className="font-heading-h3 text-content-primary">Synchronization</h2>
-          <HelpPopover label="Synchronization">
+          <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
+          <HelpPopover label={ui("Synchronization")}>
             <p>
-              Automatic sync uses this Source’s saved interval. Saving an interval schedules the
-              next run from the save time and does not interrupt current work. Start time depends on
-              availability and pending work. Synchronize now requests a run.
+              {ui(
+                "Automatic sync uses this Source’s saved interval. Saving an interval schedules the next run from the save time and does not interrupt current work. Start time depends on availability and pending work. Synchronize now requests a run.",
+              )}
             </p>
           </HelpPopover>
         </div>
@@ -676,7 +697,7 @@ export function GoogleDrivePanel({
             pending={configurationQuery.isFetching}
             onClick={() => void refreshStatus()}
           >
-            <RefreshCw /> Refresh status
+            <RefreshCw /> {ui("Refresh status")}
           </Button>
           {connected ? (
             <Button
@@ -689,30 +710,33 @@ export function GoogleDrivePanel({
               pending={activeAction === "sync" || observingSynchronization}
               onClick={() => run("sync", sync)}
             >
-              <RefreshCw /> Synchronize now
+              <RefreshCw /> {ui("Synchronize now")}
             </Button>
           ) : null}
         </div>
       </div>
       {stale ? (
         <p role="alert" className="text-sm text-status-danger-content">
-          Status could not be refreshed. Displayed values may be out of date; refresh before making
-          changes.
+          {ui(
+            "Status could not be refreshed. Displayed values may be out of date; refresh before making changes.",
+          )}
         </p>
       ) : null}
       {error ? (
         <p role="alert" className="text-sm text-status-danger-content">
-          {error}
+          {ui(error)}
         </p>
       ) : null}
       {configuration.errorCode ? (
         <p className="text-sm text-status-danger-content">
-          {sourceStatusMessage(configuration.errorCode)}
+          {ui(sourceStatusMessage(configuration.errorCode))}
         </p>
       ) : null}
       {!connected ? (
         <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-          Reconnect the same Google account to save links and synchronize. Saved roots are retained.
+          {ui(
+            "Reconnect the same Google account to save links and synchronize. Saved roots are retained.",
+          )}
         </p>
       ) : null}
       <section
@@ -722,20 +746,20 @@ export function GoogleDrivePanel({
         <div className="flex items-center gap-3">
           <SourceSectionIcon icon={KeyRound} />
           <h2 id="source-credentials-heading" className="font-heading-h3 text-content-primary">
-            Credentials
+            {ui("Credentials")}
           </h2>
         </div>
         <details className="group" open={!connected ? true : undefined}>
           <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
             <StatusBadge tone={connected ? "success" : "warning"}>
-              {connected ? "Connected" : "Needs reconnect"}
+              {connected ? ui("Connected") : ui("Needs reconnect")}
             </StatusBadge>
             <span className="min-w-0 break-all text-content-muted">
               {configuration.accountEmail}
             </span>
             <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
-              <span className="group-open:hidden">Manage connection</span>
-              <span className="hidden group-open:inline">Close</span>
+              <span className="group-open:hidden">{ui("Manage connection")}</span>
+              <span className="hidden group-open:inline">{ui("Close")}</span>
               <ChevronDown
                 className="size-4 group-open:rotate-180 motion-safe:transition-transform"
                 aria-hidden="true"
@@ -744,36 +768,39 @@ export function GoogleDrivePanel({
           </summary>
           <div className="mt-4 space-y-4">
             <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-              This credential is shared. Reconnecting or disconnecting affects all Sources using it
-              {credential ? ` (${credential.sourceCount} Sources)` : ""}, not just this Source.
-              Saved links and indexed documents are retained.
+              {ui(
+                "This credential is shared. Reconnecting or disconnecting affects all Sources using it",
+              )}
+              {credential ? ui(" ({{v1}} Sources)", { v1: credential.sourceCount }) : ""}
+              {ui(", not just this Source. Saved links and indexed documents are retained.")}
             </p>
             {credentials.isError ? (
               <div className="space-y-2">
                 <p role="alert" className="text-sm text-status-danger-content">
-                  Credential details could not be loaded. Refresh before reconnecting.
+                  {ui("Credential details could not be loaded. Refresh before reconnecting.")}
                 </p>
                 <Button
                   prominence="secondary"
                   pending={credentials.isFetching}
                   onClick={() => void refreshCredentials()}
                 >
-                  Retry credential details
+                  {ui("Retry credential details")}
                 </Button>
               </div>
             ) : null}
             <div className="space-y-3">
               {!configuration.oauthClientConfigured ? (
                 <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  This connection has no owner-supplied OAuth app. Upload or paste your Google Web
-                  OAuth client JSON below, then reconnect the same Google account. Saved files and
-                  folders are retained.
+                  {ui(
+                    "This connection has no owner-supplied OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.",
+                  )}
                 </p>
               ) : (
                 <>
                   <p className="text-sm text-content-secondary">
-                    Reconnect reuses the OAuth app saved with this shared credential unless you
-                    replace it.
+                    {ui(
+                      "Reconnect reuses the OAuth app saved with this shared credential unless you replace it.",
+                    )}
                   </p>
                   <label className="flex items-center gap-2 text-sm text-content-primary">
                     <input
@@ -787,7 +814,7 @@ export function GoogleDrivePanel({
                         setReplaceClient(event.target.checked);
                       }}
                     />
-                    Replace OAuth app on reconnect
+                    {ui("Replace OAuth app on reconnect")}
                   </label>
                 </>
               )}
@@ -814,13 +841,16 @@ export function GoogleDrivePanel({
                     }
                     pending={activeAction === "authorize" || leaving}
                   >
-                    Reconnect Google Drive
+                    {ui("Reconnect Google Drive")}
                   </Button>
                 }
-                title="Reconnect shared Google credential?"
-                description={`Reconnecting changes the authorization used by all ${credential?.sourceCount ?? "attached"} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.`}
-                confirmLabel="Reconnect"
-                pendingLabel="Reconnecting"
+                title={ui("Reconnect shared Google credential?")}
+                description={ui(
+                  "Reconnecting changes the authorization used by all {{v1}} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.",
+                  { v1: credential?.sourceCount ?? ui("attached") },
+                )}
+                confirmLabel={ui("Reconnect")}
+                pendingLabel={ui("Reconnecting")}
                 onConfirm={() => perform("authorize", reconnect)}
                 errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
               />
@@ -828,20 +858,23 @@ export function GoogleDrivePanel({
                 <ConfirmDialog
                   trigger={
                     <Button tone="danger" prominence="tertiary" disabled={controlsDisabled}>
-                      <Unplug /> Disconnect
+                      <Unplug /> {ui("Disconnect")}
                     </Button>
                   }
-                  title="Disconnect shared Google credential?"
-                  description={`Disconnecting stops acquisition for all ${credential?.sourceCount ?? "attached"} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.`}
-                  confirmLabel="Disconnect"
-                  pendingLabel="Disconnecting"
+                  title={ui("Disconnect shared Google credential?")}
+                  description={ui(
+                    "Disconnecting stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.",
+                    { v1: credential?.sourceCount ?? ui("attached") },
+                  )}
+                  confirmLabel={ui("Disconnect")}
+                  pendingLabel={ui("Disconnecting")}
                   onConfirm={() => perform("disconnect", disconnect)}
                   errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
                 />
               ) : null}
             </div>
             <p className="text-xs text-content-muted">
-              Document access and viewing are not configured by this connection.
+              {ui("Document access and viewing are not configured by this connection.")}
             </p>
           </div>
         </details>

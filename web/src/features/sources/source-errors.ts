@@ -1,4 +1,5 @@
 import { ApiError, problemCode } from "@/lib/api";
+import { appText } from "@/i18n/app-text";
 
 type SourceMutation =
   | "create"
@@ -110,7 +111,8 @@ const statusMessages: Record<string, string> = {
 function sourceStatusMessage(code: string) {
   const known = statusMessages[code];
   if (known) return known;
-  if (isSafeCode(code)) return `Source processing failed. Error reference: ${code}.`;
+  if (isSafeCode(code))
+    return appText("Source processing failed. Error reference: {{code}}.", { code });
   return "Source processing failed. Try the operation again.";
 }
 
@@ -151,7 +153,9 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
     if (error.status === 400 || error.status === 413)
       return "Check the source name or uploaded file and try again.";
     if (code && isSafeCode(code))
-      return `The source operation could not be completed. Error reference: ${code}.`;
+      return appText("The source operation could not be completed. Error reference: {{code}}.", {
+        code,
+      });
   }
 
   return mutation === "google-drive-schedule"

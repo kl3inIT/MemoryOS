@@ -1,15 +1,18 @@
 import type { UIMessage } from "ai";
+import { i18n } from "@/i18n";
 import { sourcesSchema, type ChatSource, type SearchProgress } from "./chat-evidence";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { fileReference } from "./chat-files";
+import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 
 export type ChatUiMessage = UIMessage<{
   serverStatus?: ChatMessage["status"];
   createdAt?: string;
   sources?: ChatSource[];
   searchProgress?: SearchProgress;
+  artifacts?: ChatArtifact[];
 }>;
 export type ChatHistory = { session: ChatSession; messages: ChatMessage[] };
 export const chatSessionsKey = ["chat-sessions"] as const;
@@ -35,7 +38,16 @@ export async function loadChatHistory(
       throwOnError: true,
     });
     if (data.length === 0) return { session, messages };
-    characters += data.reduce((total, message) => total + message.content.length, 0);
+    characters += data.reduce(
+      (total, message) =>
+        total +
+        message.content.length +
+        (message.artifacts ?? []).reduce(
+          (size, artifact) => size + (artifact.spec?.length ?? 0),
+          0,
+        ),
+      0,
+    );
     if (characters > 8_000_000) throw new Error("Conversation history exceeds the browser limit");
     if (data.at(-1)?.id === messages.at(-1)?.id) throw new Error("History cursor did not advance");
     messages.push(...data);
@@ -70,7 +82,7 @@ export function initialChatTitle(text: string) {
     title += segment;
     count++;
   }
-  return title || "Hội thoại mới";
+  return title || i18n.t("app:Hội thoại mới", { keySeparator: false });
 }
 
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
@@ -90,6 +102,7 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       serverStatus: message.status,
       createdAt: message.createdAt,
       sources: sourcesSchema.parse(message.sources),
+      artifacts: artifactsSchema.parse(message.artifacts),
     },
   }));
 }

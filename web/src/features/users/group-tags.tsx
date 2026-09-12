@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { UserGroupOption } from "./user-groups-dialog";
@@ -10,6 +11,8 @@ type GroupTagsProps = {
 };
 
 export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProps) {
+  const ui = useAppTranslation();
+
   const containerRef = useRef<HTMLElement | null>(null);
   const previousWidthRef = useRef(0);
   const [measuredGroups, setMeasuredGroups] = useState(groups);
@@ -80,7 +83,7 @@ export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProp
             data-group-tag
             variant="secondary"
             className="max-w-32 shrink-0 border border-border-subtle bg-surface-subtle text-content-secondary"
-            title={group.systemKey ? `${group.name} · system group` : group.name}
+            title={group.systemKey ? ui("{{v1}} · system group", { v1: group.name }) : group.name}
           >
             <span className="truncate">{group.name}</span>
           </Badge>
@@ -90,7 +93,10 @@ export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProp
             variant="outline"
             className="shrink-0 bg-surface-raised text-content-muted"
             title={hiddenNames.join(", ")}
-            aria-label={`${overflow} more groups: ${hiddenNames.join(", ")}`}
+            aria-label={ui("{{v1}} more groups: {{v2}}", {
+              v1: overflow,
+              v2: hiddenNames.join(", "),
+            })}
           >
             +{overflow}
           </Badge>
@@ -105,7 +111,7 @@ export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProp
           containerRef.current = node;
         }}
         type="button"
-        aria-label={`Edit groups for ${userLabel}`}
+        aria-label={ui("Edit groups for {{v1}}", { v1: userLabel })}
         className={`${className} hover:bg-surface-subtle`}
         onClick={(event) => onEdit(event.currentTarget)}
       >
@@ -120,7 +126,9 @@ export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProp
         containerRef.current = node;
       }}
       className={className}
-      aria-label={groups.length === 0 ? "No groups" : groups.map((group) => group.name).join(", ")}
+      aria-label={
+        groups.length === 0 ? ui("No groups") : groups.map((group) => group.name).join(", ")
+      }
     >
       {content}
     </div>

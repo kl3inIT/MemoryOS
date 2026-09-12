@@ -1,3 +1,5 @@
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ShieldCheck, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -23,6 +25,8 @@ export function SourceGroupsSection({
   editable,
   onAuthorityChanged,
 }: SourceGroupsSectionProps) {
+  const ui = useAppTranslation();
+
   const groups = useQuery({
     ...listSourceGroupsOptions({ path: { sourceId } }),
     retry: false,
@@ -30,7 +34,7 @@ export function SourceGroupsSection({
   const updateGroups = useMutation(updateSourceGroupsMutation());
   const [baselineIds, setBaselineIds] = useState<Set<string>>(() => new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const currentGroups = useMemo(() => groups.data?.items ?? [], [groups.data?.items]);
   const incomingIds = useMemo(
     () => new Set(currentGroups.map((group) => group.id)),
@@ -73,11 +77,11 @@ export function SourceGroupsSection({
       <div className="flex items-center gap-3">
         <SourceSectionIcon icon={UsersRound} />
         <h2 id="source-groups-heading" className="font-heading-h3 text-content-primary">
-          Group associations
+          {ui("Group associations")}
         </h2>
       </div>
       <p className="mt-3 font-main-ui-body text-content-muted">
-        These groups define who can manage this Source within their authorized surface.
+        {ui("These groups define who can manage this Source within their authorized surface.")}
       </p>
 
       {error ? (
@@ -85,7 +89,7 @@ export function SourceGroupsSection({
           role="alert"
           className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
         >
-          {error}
+          {ui(error)}
         </p>
       ) : null}
 
@@ -94,12 +98,12 @@ export function SourceGroupsSection({
           role="status"
           className="mt-4 rounded-xl border border-border-subtle px-4 py-7 font-main-ui-body text-content-muted"
         >
-          Loading group associations
+          {ui("Loading group associations")}
         </p>
       ) : groups.isError ? (
         <div className="mt-4 rounded-xl border border-border-subtle p-4">
           <p role="alert" className="font-main-ui-body text-content-secondary">
-            Group associations could not be loaded.
+            {ui("Group associations could not be loaded.")}
           </p>
           <Button
             size="sm"
@@ -107,7 +111,7 @@ export function SourceGroupsSection({
             className="mt-3"
             onClick={() => void groups.refetch()}
           >
-            Try again
+            {ui("Try again")}
           </Button>
         </div>
       ) : editable ? (
@@ -128,23 +132,23 @@ export function SourceGroupsSection({
                 setError(null);
               }}
             >
-              Cancel
+              {ui("Cancel")}
             </Button>
             <Button
               pending={updateGroups.isPending}
               disabled={!dirty || selectedIds.size === 0}
               onClick={() => void save()}
             >
-              {updateGroups.isPending ? "Saving associations…" : "Save associations"}
+              {updateGroups.isPending ? ui("Saving associations…") : ui("Save associations")}
             </Button>
           </div>
         </div>
       ) : currentGroups.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center font-main-ui-body text-content-muted">
-          No group associations are visible.
+          {ui("No group associations are visible.")}
         </div>
       ) : (
-        <div className="mt-4 flex flex-wrap gap-2" aria-label="Source groups">
+        <div className="mt-4 flex flex-wrap gap-2" aria-label={ui("Source groups")}>
           {currentGroups.map((group) => (
             <Badge
               key={group.id}

@@ -1,3 +1,5 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronRight, History, RefreshCw } from "lucide-react";
@@ -28,6 +30,8 @@ const additionalCounts: Array<[keyof SourceRunCounts, string]> = [
 ];
 
 export function SourceRunHistory({ sourceId }: { sourceId: string }) {
+  const ui = useAppTranslation();
+
   const [open, setOpen] = useState(false);
   const [size, setSize] = useState(5);
   const [cursor, setCursor] = useState<string>();
@@ -53,30 +57,32 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
       <summary className="min-h-10 cursor-pointer list-none pr-24 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&::-webkit-details-marker]:hidden">
         <h2 className="inline-flex items-center gap-3 align-middle font-heading-h3">
           <SourceSectionIcon icon={History} />
-          <span>Indexing attempts</span>
+          <span>{ui("Indexing attempts")}</span>
           <ChevronRight
             className="size-4 shrink-0 group-open/history:rotate-90"
             aria-hidden="true"
           />
-          <HelpPopover label="Source indexing attempts">
+          <HelpPopover label={ui("Source indexing attempts")}>
             <p>
-              One row per Source execution, not per file. Files above is the current corpus; these
-              counts describe each execution.
+              {ui(
+                "One row per Source execution, not per file. Files above is the current corpus; these counts describe each execution.",
+              )}
             </p>
             <p>
-              Checked counts distinct files observed, Indexed counts successful publications (new or
-              replaced), and Unchanged counts files needing no new indexing. Counts can overlap and
-              are not a corpus total. Unknown means not recorded.
+              {ui(
+                "Checked counts distinct files observed, Indexed counts successful publications (new or replaced), and Unchanged counts files needing no new indexing. Counts can overlap and are not a corpus total. Unknown means not recorded.",
+              )}
             </p>
             <p>
-              Completed includes acquisition and this run’s indexing. Already pending belongs to
-              earlier work; completion does not guarantee that every file is searchable.
+              {ui(
+                "Completed includes acquisition and this run’s indexing. Already pending belongs to earlier work; completion does not guarantee that every file is searchable.",
+              )}
             </p>
           </HelpPopover>
         </h2>
       </summary>
       {open ? (
-        <section aria-label="Source indexing attempts" className="mt-4 min-w-0 space-y-2">
+        <section aria-label={ui("Source indexing attempts")} className="mt-4 min-w-0 space-y-2">
           <div className="absolute right-0 top-7">
             <Button
               size="sm"
@@ -84,29 +90,32 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
               pending={history.isFetching}
               onClick={() => void history.refetch()}
             >
-              <RefreshCw aria-hidden="true" /> Refresh
+              <RefreshCw aria-hidden="true" /> {ui("Refresh")}
             </Button>
           </div>
           {history.isError ? (
             <p role="alert" className="text-sm text-status-danger-content">
-              Source attempts could not be refreshed. Displayed outcomes may be out of date. Retry
-              with Refresh.
+              {ui(
+                "Source attempts could not be refreshed. Displayed outcomes may be out of date. Retry with Refresh.",
+              )}
             </p>
           ) : history.isPending ? (
             <p role="status" className="text-sm text-content-muted">
-              Loading source attempts…
+              {ui("Loading source attempts…")}
             </p>
           ) : null}
           {history.data ? (
             <>
               <div
                 role="region"
-                aria-label="Source execution records"
+                aria-label={ui("Source execution records")}
                 tabIndex={0}
                 className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
               >
                 <table className="w-full min-w-[58rem] border-collapse text-left text-sm">
-                  <caption className="sr-only">Source indexing attempts, newest first</caption>
+                  <caption className="sr-only">
+                    {ui("Source indexing attempts, newest first")}
+                  </caption>
                   <thead className="border-b border-border-subtle text-xs text-content-muted">
                     <tr>
                       {[
@@ -119,7 +128,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                         "Errors",
                       ].map((heading) => (
                         <th key={heading} scope="col" className="px-3 py-2 font-normal">
-                          {heading}
+                          {ui(heading)}
                         </th>
                       ))}
                     </tr>
@@ -131,7 +140,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                     {!history.data.items.length ? (
                       <tr>
                         <td colSpan={7} className="px-3 py-6 text-center text-content-muted">
-                          No Source executions on this page.
+                          {ui("No Source executions on this page.")}
                         </td>
                       </tr>
                     ) : null}
@@ -139,11 +148,11 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                 </table>
               </div>
               <TablePagination
-                label="Source attempt pages"
+                label={ui("Source attempt pages")}
                 page={previous.length}
                 totalPages={totalPages}
-                previousLabel="Previous source attempts"
-                nextLabel="Next source attempts"
+                previousLabel={ui("Previous source attempts")}
+                nextLabel={ui("Next source attempts")}
                 previousDisabled={!previous.length || history.isFetching}
                 nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
                 onPrevious={() => {
@@ -156,9 +165,9 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                 }}
               >
                 <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-                  Rows{" "}
+                  {ui("Rows")}{" "}
                   <Select
-                    aria-label="Source attempts per page"
+                    aria-label={ui("Source attempts per page")}
                     size="sm"
                     className="w-auto px-2"
                     value={size}
@@ -186,6 +195,8 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
 }
 
 function SourceRunRow({ run }: { run: SourceRun }) {
+  const ui = useAppTranslation();
+
   const duration = historyDuration(run.startedAt, run.completedAt);
   const relevantCounts = additionalCounts.filter(([field]) => run.counts[field] !== 0);
   const hasErrors =
@@ -204,19 +215,21 @@ function SourceRunRow({ run }: { run: SourceRun }) {
         {relevantCounts.length > 0 || run.nextRetryAt ? (
           <details className="mt-1 text-xs text-content-muted">
             <summary className="cursor-pointer py-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
-              Details
+              {ui("Details")}
             </summary>
             <dl>
               {relevantCounts.map(([field, label]) => (
                 <div key={field}>
-                  <dt className="inline">{label}: </dt>
-                  <dd className="inline">{run.counts[field]?.toLocaleString() ?? "Unknown"}</dd>
+                  <dt className="inline">{ui(label)}: </dt>
+                  <dd className="inline">
+                    {run.counts[field]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
+                  </dd>
                 </div>
               ))}
             </dl>
             {run.nextRetryAt ? (
               <p className="mt-1">
-                Next retry: <HistoryTime value={run.nextRetryAt} />
+                {ui("Next retry:")} <HistoryTime value={run.nextRetryAt} />
               </p>
             ) : null}
           </details>
@@ -224,7 +237,7 @@ function SourceRunRow({ run }: { run: SourceRun }) {
       </td>
       {["scanned", "published", "unchanged"].map((field) => (
         <td key={field} className="px-3 py-3 tabular-nums text-content-secondary">
-          {run.counts[field as keyof SourceRunCounts]?.toLocaleString() ?? "Unknown"}
+          {run.counts[field as keyof SourceRunCounts]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
         </td>
       ))}
       <td className="whitespace-nowrap px-3 py-3 text-content-secondary">
@@ -232,27 +245,27 @@ function SourceRunRow({ run }: { run: SourceRun }) {
           <>
             <HistoryTime value={run.completedAt} />
             <span className="ml-2 text-xs text-content-muted">
-              {duration ?? "Duration unknown"}
+              {duration ?? ui("Duration unknown")}
             </span>
           </>
         ) : (
           <span className="text-content-muted">
-            {runIsActive(run) ? "In progress" : "Not recorded"}
+            {runIsActive(run) ? ui("In progress") : ui("Not recorded")}
           </span>
         )}
       </td>
       <td className="max-w-sm px-3 py-3 text-xs text-content-muted">
         {run.errorCode ? (
           <p className="break-words text-status-danger-content">
-            {sourceStatusMessage(run.errorCode)}
+            {ui(sourceStatusMessage(run.errorCode))}
           </p>
         ) : null}
         {run.detailsExpired ? (
-          <p>Detailed errors expired; retained totals are shown.</p>
+          <p>{ui("Detailed errors expired; retained totals are shown.")}</p>
         ) : hasErrors ? (
           <RunErrors run={run} />
         ) : run.status === "UNKNOWN" ? (
-          "Unknown"
+          ui("Unknown")
         ) : (
           "—"
         )}
@@ -262,6 +275,8 @@ function SourceRunRow({ run }: { run: SourceRun }) {
 }
 
 function RunErrors({ run }: { run: SourceRun }) {
+  const ui = useAppTranslation();
+
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
@@ -277,19 +292,19 @@ function RunErrors({ run }: { run: SourceRun }) {
   return (
     <details onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
-        Error details
+        {ui("Error details")}
       </summary>
       {open ? (
         <>
           {errors.isError ? (
             <p role="alert">
-              Errors could not be loaded.{" "}
+              {ui("Errors could not be loaded.")}{" "}
               <Button size="sm" prominence="tertiary" onClick={() => void errors.refetch()}>
-                Retry
+                {ui("Retry")}
               </Button>
             </p>
           ) : errors.isPending ? (
-            <p role="status">Loading errors…</p>
+            <p role="status">{ui("Loading errors…")}</p>
           ) : null}
           {errors.data ? (
             <>
@@ -297,11 +312,22 @@ function RunErrors({ run }: { run: SourceRun }) {
                 {errors.data.items.map((error) => (
                   <li key={error.id} className="break-words">
                     <p className="font-medium text-content-primary">
-                      {error.fileName ?? "Source execution"}
+                      {error.fileName ?? ui("Source execution")}
                     </p>
                     <p>
-                      {error.stage.replaceAll("_", " ").toLowerCase()}:{" "}
-                      {sourceStatusMessage(error.code)}
+                      {ui(
+                        (
+                          {
+                            PROVIDER: "Provider",
+                            STORAGE_READ: "Reading storage",
+                            STORAGE_WRITE: "Writing storage",
+                            EXTRACTION: "Extraction",
+                            PUBLICATION: "Publication",
+                            SYSTEM: "System",
+                          } as const
+                        )[error.stage],
+                      )}
+                      : {ui(sourceStatusMessage(error.code))}
                     </p>
                     <HistoryTime value={error.occurredAt} />
                   </li>
@@ -309,8 +335,9 @@ function RunErrors({ run }: { run: SourceRun }) {
               </ul>
               {!errors.data.items.length ? (
                 <p>
-                  No retained details on this page. Review the Source connection and retry
-                  synchronization if the error persists.
+                  {ui(
+                    "No retained details on this page. Review the Source connection and retry synchronization if the error persists.",
+                  )}
                 </p>
               ) : null}
               {previous.length || errors.data.nextCursor ? (
@@ -324,7 +351,7 @@ function RunErrors({ run }: { run: SourceRun }) {
                       setPrevious((pages) => pages.slice(0, -1));
                     }}
                   >
-                    Previous errors
+                    {ui("Previous errors")}
                   </Button>
                   <Button
                     size="sm"
@@ -335,7 +362,7 @@ function RunErrors({ run }: { run: SourceRun }) {
                       setCursor(errors.data.nextCursor ?? undefined);
                     }}
                   >
-                    Next errors
+                    {ui("Next errors")}
                   </Button>
                 </div>
               ) : null}

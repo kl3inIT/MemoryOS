@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   useCallback,
   useEffect,
@@ -299,16 +300,17 @@ function ModelIcon({ children, className }: { children: ReactNode; className?: s
 }
 
 function ModelSelectorValue({
-  placeholder = "Select model",
+  placeholder,
   showEffort = true,
   className,
 }: ModelSelectorValueProps) {
+  const ui = useAppTranslation();
   const { selectedModel, efforts, effort } = useModelSelectorContext();
 
   if (!selectedModel) {
     return (
       <span data-slot="model-selector-value" className={cn("text-muted-foreground", className)}>
-        {placeholder}
+        {placeholder ?? ui("Select model")}
       </span>
     );
   }
@@ -381,9 +383,11 @@ function useLazyFlipSide(): {
  * one automatically when unfiltered.
  */
 function ModelSelectorFocusAnchor() {
+  const ui = useAppTranslation();
+
   return (
     <div className="sr-only">
-      <CommandInput readOnly aria-label="Model" />
+      <CommandInput readOnly aria-label={ui("Model")} />
     </div>
   );
 }
@@ -434,11 +438,15 @@ function ModelSelectorContent({
 
 export type ModelSelectorSearchProps = ComponentPropsWithoutRef<typeof CommandInput>;
 
-function ModelSelectorSearch({
-  placeholder = "Search models...",
-  ...props
-}: ModelSelectorSearchProps) {
-  return <CommandInput data-slot="model-selector-search" placeholder={placeholder} {...props} />;
+function ModelSelectorSearch({ placeholder, ...props }: ModelSelectorSearchProps) {
+  const ui = useAppTranslation();
+  return (
+    <CommandInput
+      data-slot="model-selector-search"
+      placeholder={placeholder ?? ui("Search models...")}
+      {...props}
+    />
+  );
 }
 
 export type ModelSelectorListProps = ComponentPropsWithoutRef<typeof CommandList>;
@@ -472,9 +480,11 @@ function ModelSelectorList({ className, children, ...props }: ModelSelectorListP
 export type ModelSelectorEmptyProps = ComponentPropsWithoutRef<typeof CommandEmpty>;
 
 function ModelSelectorEmpty({ children, ...props }: ModelSelectorEmptyProps) {
+  const ui = useAppTranslation();
+
   return (
     <CommandEmpty data-slot="model-selector-empty" {...props}>
-      {children ?? "No models found."}
+      {children ?? ui("No models found.")}
     </CommandEmpty>
   );
 }
@@ -552,6 +562,8 @@ function ModelSelectorEffort({
   onKeyDown,
   ...props
 }: ModelSelectorEffortProps) {
+  const ui = useAppTranslation();
+
   const { efforts, effort, setEffort } = useModelSelectorEfforts();
 
   if (!efforts?.length) return null;
@@ -587,7 +599,7 @@ function ModelSelectorEffort({
         value={effort ?? ""}
         onValueChange={setEffort}
         orientation="horizontal"
-        aria-label={typeof label === "string" ? label : "Reasoning effort"}
+        aria-label={typeof label === "string" ? label : ui("Reasoning effort")}
         className="flex items-center gap-0.5"
       >
         {efforts.map((option) => (

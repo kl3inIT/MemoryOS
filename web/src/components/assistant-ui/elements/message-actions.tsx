@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 // Adapted from assistant-ui MessageActions (MIT), revision 2c22f5d7.
 // Native Copy and the application's Sources action remain in the surrounding ActionBar.
 import { RotateCcw, ThumbsDown, ThumbsUp } from "lucide-react";
@@ -17,6 +18,8 @@ export function MessageActions({
   disabled: boolean;
   feedbackAvailable: boolean;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <div data-slot="message-actions" className="flex items-center gap-1">
       {feedbackAvailable && (
@@ -24,8 +27,8 @@ export function MessageActions({
           <IconButton
             size="sm"
             prominence="internal"
-            aria-label="Hữu ích"
-            title="Hữu ích"
+            aria-label={ui("Hữu ích")}
+            title={ui("Hữu ích")}
             aria-pressed={reaction === "up"}
             disabled={disabled}
             onClick={() => onReactionChange(reaction === "up" ? null : "up")}
@@ -35,8 +38,8 @@ export function MessageActions({
           <IconButton
             size="sm"
             prominence="internal"
-            aria-label="Không hữu ích"
-            title="Không hữu ích"
+            aria-label={ui("Không hữu ích")}
+            title={ui("Không hữu ích")}
             aria-pressed={reaction === "down"}
             disabled={disabled}
             onClick={() => onReactionChange(reaction === "down" ? null : "down")}
@@ -48,8 +51,8 @@ export function MessageActions({
       <IconButton
         size="sm"
         prominence="internal"
-        aria-label="Tạo lại câu trả lời"
-        title="Tạo lại câu trả lời"
+        aria-label={ui("Tạo lại câu trả lời")}
+        title={ui("Tạo lại câu trả lời")}
         disabled={disabled}
         onClick={onRegenerate}
       >

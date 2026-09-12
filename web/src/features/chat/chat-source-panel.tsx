@@ -9,6 +9,9 @@ import { IconButton } from "@/components/ui/icon-button";
 import { DocumentPreviewContent } from "@/features/search/document-preview-content";
 import type { ChatSource } from "./chat-evidence";
 import { ChatFileReader } from "./chat-file-reader";
+import { useTranslation } from "react-i18next";
+import type { ChatArtifact } from "./chat-artifacts";
+import { ChatArtifactView } from "./chat-artifact-view";
 
 const wideQuery = "(min-width: 1024px)";
 function subscribeWidth(notify: () => void) {
@@ -20,6 +23,8 @@ function subscribeWidth(notify: () => void) {
 export function ChatSourcePanel({
   id,
   sources,
+  file,
+  artifact,
   citationId,
   onSelect,
   onClose,
@@ -27,11 +32,15 @@ export function ChatSourcePanel({
 }: {
   id: string;
   sources: ChatSource[];
+  file?: { id: string; filename: string };
+  artifact?: ChatArtifact;
   citationId?: number;
   onSelect: (citationId?: number) => void;
   onClose: () => void;
   restoreFocus: () => void;
 }) {
+  const { t, i18n } = useTranslation("reader");
+  const { t: rendererText } = useTranslation("renderers");
   const wide = useSyncExternalStore(
     subscribeWidth,
     () => window.matchMedia(wideQuery).matches,
@@ -41,7 +50,7 @@ export function ChatSourcePanel({
   const selected = sources.find((source) => source.citationId === citationId);
   useEffect(() => {
     titleRef.current?.focus({ preventScroll: true });
-  }, [citationId, wide]);
+  }, [citationId, file?.id, artifact?.id, wide]);
 
   useEffect(() => {
     if (!wide) return undefined;
@@ -59,7 +68,7 @@ export function ChatSourcePanel({
           <IconButton
             prominence="internal"
             size="sm"
-            aria-label="Về danh sách nguồn"
+            aria-label={t("back")}
             onClick={() => onSelect()}
           >
             <ArrowLeft />
@@ -70,24 +79,47 @@ export function ChatSourcePanel({
           tabIndex={-1}
           className="min-w-0 flex-1 truncate font-main-ui-action outline-none"
         >
-          {selected ? "Nội dung tài liệu" : `Nguồn · ${sources.length}`}
+          {artifact ? (
+            <span title={artifact.title}>{artifact.title}</span>
+          ) : file ? (
+            <span title={file.filename}>{file.filename}</span>
+          ) : selected ? (
+            t("content")
+          ) : (
+            t("sourcesCount", {
+              total: new Intl.NumberFormat(i18n.resolvedLanguage).format(sources.length),
+            })
+          )}
         </h2>
-        <IconButton prominence="internal" size="sm" aria-label="Đóng nguồn" onClick={onClose}>
+        <IconButton
+          prominence="internal"
+          size="sm"
+          aria-label={
+            artifact ? rendererText("closeArtifact") : file ? t("closeFile") : t("closeSources")
+          }
+          onClick={onClose}
+        >
           <X />
         </IconButton>
       </header>
-      {selected ? (
+      {artifact ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <ChatArtifactView artifact={artifact} />
+        </div>
+      ) : file ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <ChatFileReader key={file.id} fileId={file.id} />
+        </div>
+      ) : selected ? (
         <>
           <div className="shrink-0 border-b border-border-subtle px-5 py-5">
             <p className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
-              <FileText className="size-3.5" aria-hidden="true" /> Tài liệu · Nguồn{" "}
-              {selected.citationId}
+              <FileText className="size-3.5" aria-hidden="true" />{" "}
+              {t("documentSource", { number: selected.citationId })}
             </p>
             <h3 className="break-words font-heading-h3">{selected.title}</h3>
             <p className="mt-2 text-xs leading-5 text-content-muted">
-              {selected.fileId
-                ? "Mở nội dung file được trích dẫn."
-                : "Các đoạn được trích dẫn được tô sáng."}
+              {selected.fileId ? t("fileCitation") : t("highlighted")}
             </p>
           </div>
           {selected.fileId != null && !selected.fileLocation?.generation ? (
@@ -130,12 +162,13 @@ export function ChatSourcePanel({
               <li key={source.citationId}>
                 <button
                   type="button"
-                  aria-label={`Đọc nguồn ${source.citationId}: ${source.title}`}
+                  aria-label={t("readSource", { number: source.citationId, title: source.title })}
                   onClick={() => onSelect(source.citationId)}
                   className="group w-full rounded-xl border border-border-subtle bg-surface-raised p-4 text-left transition-colors hover:border-border-strong hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-ring"
                 >
                   <div className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
-                    <FileText className="size-3.5" aria-hidden="true" /> Nguồn {source.citationId}
+                    <FileText className="size-3.5" aria-hidden="true" />{" "}
+                    {t("sourceNumber", { number: source.citationId })}
                     <ChevronRight className="ml-auto size-3.5" aria-hidden="true" />
                   </div>
                   <h3 className="line-clamp-2 break-words font-main-ui-action">{source.title}</h3>
@@ -152,7 +185,7 @@ export function ChatSourcePanel({
   return wide ? (
     <aside
       id={id}
-      aria-label="Nguồn"
+      aria-label={artifact ? rendererText("artifact") : file ? t("content") : t("sources")}
       className="flex h-full min-h-0 w-100 max-w-[44%] shrink-0 flex-col border-l border-border-default bg-surface-base"
     >
       {content}
@@ -176,7 +209,13 @@ export function ChatSourcePanel({
           className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-surface-base pb-[env(safe-area-inset-bottom)] shadow-lg outline-none"
         >
           <Dialog.Title className="sr-only">
-            {selected ? `Nội dung tài liệu: ${selected.title}` : "Nguồn"}
+            {artifact
+              ? artifact.title
+              : file
+                ? file.filename
+                : selected
+                  ? t("documentTitle", { title: selected.title })
+                  : t("sources")}
           </Dialog.Title>
           {content}
         </Dialog.Content>
@@ -186,12 +225,11 @@ export function ChatSourcePanel({
 }
 
 export function SourceExcerpt({ source }: { source: ChatSource }) {
+  const { t } = useTranslation("reader");
   if (source.fileId != null)
     return (
       <p className="mt-2 text-sm text-content-muted">
-        {source.fileLocation
-          ? "Tệp đính kèm · Mở đoạn trích dẫn."
-          : "Tệp đính kèm · Trích dẫn toàn tệp."}
+        {source.fileLocation ? t("fileExcerpt") : t("wholeFile")}
       </p>
     );
   return <DocumentSourceExcerpt source={source} />;
@@ -202,6 +240,7 @@ function DocumentSourceExcerpt({
 }: {
   source: Extract<ChatSource, { documentId: string }>;
 }) {
+  const { t } = useTranslation("reader");
   const { actorId, authorizationVersion } = useApplicationSession();
   const from = Math.max(0, source.startOrdinal - 2);
   const detail = useQuery({
@@ -237,10 +276,10 @@ function DocumentSourceExcerpt({
   return (
     <p className="mt-2 line-clamp-3 font-secondary-body leading-6 text-content-secondary">
       {detail.isPending
-        ? "Đang tải trích đoạn…"
+        ? t("loadingExcerpt")
         : detail.isError
-          ? "Nguồn không còn khả dụng hoặc đã thay đổi."
-          : excerpt || "Mở tài liệu để đọc ngữ cảnh."}
+          ? t("unavailable")
+          : excerpt || t("openContext")}
     </p>
   );
 }

@@ -1,3 +1,5 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,6 +25,8 @@ export function ChatSessionRow({
   onNavigate?: () => void;
   showTime?: boolean;
 }) {
+  const ui = useAppTranslation();
+
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(session.title);
   const [pending, setPending] = useState(false);
@@ -96,7 +100,7 @@ export function ChatSessionRow({
           >
             <Input
               autoFocus
-              aria-label="Tên hội thoại"
+              aria-label={ui("Tên hội thoại")}
               value={title}
               required
               maxLength={200}
@@ -115,7 +119,7 @@ export function ChatSessionRow({
               type="submit"
               size="sm"
               prominence="internal"
-              aria-label="Lưu tên hội thoại"
+              aria-label={ui("Lưu tên hội thoại")}
               disabled={pending || !title.trim()}
             >
               <Check />
@@ -124,7 +128,7 @@ export function ChatSessionRow({
               type="button"
               size="sm"
               prominence="internal"
-              aria-label="Hủy đổi tên"
+              aria-label={ui("Hủy đổi tên")}
               disabled={pending}
               onClick={() => {
                 closeEditor();
@@ -145,7 +149,7 @@ export function ChatSessionRow({
             <span className="truncate">{session.title}</span>
             {showTime && (
               <time dateTime={session.updatedAt} className="text-xs text-content-muted">
-                {new Date(session.updatedAt).toLocaleString("vi-VN", {
+                {new Date(session.updatedAt).toLocaleString(uiLocale(), {
                   dateStyle: "medium",
                   timeStyle: "short",
                 })}
@@ -156,7 +160,7 @@ export function ChatSessionRow({
       </ThreadListRow>
       {error && (
         <p role="alert" className="px-3 py-1 text-xs text-status-danger-content">
-          {error}
+          {ui(error)}
         </p>
       )}
     </div>

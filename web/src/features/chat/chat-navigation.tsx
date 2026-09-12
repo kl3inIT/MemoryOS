@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bot, Folder, ChevronDown, ChevronRight, MessageSquare, Plus, Search } from "lucide-react";
@@ -24,6 +25,8 @@ export function ChatNavigation({
   collapsed: boolean;
   onNavigate?: () => void;
 }) {
+  const ui = useAppTranslation();
+
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { actorId, authorizationVersion } = useApplicationSession();
   const [creating, setCreating] = useState(false);
@@ -54,7 +57,7 @@ export function ChatNavigation({
         selected={pathname === "/"}
         onClick={onNavigate}
       >
-        Hội thoại mới
+        {ui("Hội thoại mới")}
       </SidebarTab>
       <SidebarTab
         to="/search"
@@ -63,7 +66,7 @@ export function ChatNavigation({
         selected={pathname === "/search"}
         onClick={onNavigate}
       >
-        Search
+        {ui("Search")}
       </SidebarTab>
       <SidebarTab
         to="/assistants"
@@ -72,7 +75,7 @@ export function ChatNavigation({
         selected={pathname === "/assistants"}
         onClick={onNavigate}
       >
-        Trợ lý
+        {ui("Trợ lý")}
       </SidebarTab>
       {collapsed ? (
         <SidebarTab
@@ -82,7 +85,7 @@ export function ChatNavigation({
           selected={pathname.startsWith("/projects")}
           onClick={onNavigate}
         >
-          Dự án
+          {ui("Dự án")}
         </SidebarTab>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto pt-4">
@@ -92,12 +95,12 @@ export function ChatNavigation({
               onClick={onNavigate}
               className="rounded text-sm font-medium text-content-secondary hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Dự án
+              {ui("Dự án")}
             </Link>
             <IconButton
               size="sm"
               prominence="internal"
-              aria-label="Tạo dự án"
+              aria-label={ui("Tạo dự án")}
               onClick={() => setCreating(true)}
             >
               <Plus />
@@ -108,12 +111,12 @@ export function ChatNavigation({
           ))}
           {projects.isPending && (
             <p role="status" className="px-3 text-sm text-content-muted">
-              Đang tải dự án…
+              {ui("Đang tải dự án…")}
             </p>
           )}
           {projects.isError && (
             <Button size="sm" prominence="internal" onClick={() => void projects.refetch()}>
-              Tải lại dự án
+              {ui("Tải lại dự án")}
             </Button>
           )}
           {projects.data?.length === 0 && (
@@ -124,25 +127,25 @@ export function ChatNavigation({
               onClick={() => setCreating(true)}
             >
               <Folder className="size-4" />
-              Tạo dự án mới
+              {ui("Tạo dự án mới")}
             </Button>
           )}
           <h2 className="px-2 pb-2 pt-6 text-sm font-medium text-content-secondary">
-            Hội thoại gần đây
+            {ui("Hội thoại gần đây")}
           </h2>
-          <ThreadList label="Hội thoại gần đây">
+          <ThreadList label={ui("Hội thoại gần đây")}>
             {sessions.data?.pages.flat().map((session) => (
               <ChatSessionRow key={session.id} session={session} onNavigate={onNavigate} />
             ))}
           </ThreadList>
           {sessions.isPending && (
             <p role="status" className="px-3 text-sm text-content-muted">
-              Đang tải hội thoại…
+              {ui("Đang tải hội thoại…")}
             </p>
           )}
           {sessions.isError && (
             <Button size="sm" prominence="internal" onClick={() => void sessions.refetch()}>
-              Tải lại hội thoại
+              {ui("Tải lại hội thoại")}
             </Button>
           )}
           {sessions.hasNextPage && (
@@ -152,7 +155,7 @@ export function ChatNavigation({
               pending={sessions.isFetchingNextPage}
               onClick={() => void sessions.fetchNextPage()}
             >
-              Xem thêm hội thoại
+              {ui("Xem thêm hội thoại")}
             </Button>
           )}
         </div>
@@ -170,6 +173,8 @@ export function ChatNavigation({
 }
 
 function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?: () => void }) {
+  const ui = useAppTranslation();
+
   const [expanded, setExpanded] = useState(false);
   const [over, setOver] = useState(false);
   const [pending, setPending] = useState(false);
@@ -226,7 +231,10 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
         <IconButton
           size="sm"
           prominence="internal"
-          aria-label={`${expanded ? "Thu gọn" : "Mở rộng"} dự án ${project.name}`}
+          aria-label={ui("{{v1}} dự án {{v2}}", {
+            v1: expanded ? ui("Thu gọn") : ui("Mở rộng"),
+            v2: project.name,
+          })}
           aria-expanded={expanded}
           onClick={() => setExpanded(!expanded)}
         >
@@ -245,12 +253,12 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
       </div>
       {pending && (
         <p role="status" className="px-3 text-xs">
-          Đang chuyển hội thoại…
+          {ui("Đang chuyển hội thoại…")}
         </p>
       )}
       {error && (
         <p role="alert" className="px-3 text-xs">
-          {error}
+          {ui(error)}
         </p>
       )}
       {expanded && (
@@ -261,12 +269,14 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
 }
 
 export function ChatModeMenu({ mode }: { mode: "Chat" | "Search" }) {
+  const ui = useAppTranslation();
+
   const [open, setOpen] = useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <Button prominence="internal" aria-label={`${mode}, switch mode`}>
-          {mode}
+        <Button prominence="internal" aria-label={ui("{{v1}}, switch mode", { v1: ui(mode) })}>
+          {ui(mode)}
           <ChevronDown className="size-4" />
         </Button>
       </Popover.Trigger>
@@ -277,10 +287,10 @@ export function ChatModeMenu({ mode }: { mode: "Chat" | "Search" }) {
           className="z-50 w-44 rounded-xl border border-border-subtle bg-surface-base p-1.5 shadow-md"
         >
           <MenuItem to="/" icon={<MessageSquare />} onClick={() => setOpen(false)}>
-            Chat
+            {ui("Chat")}
           </MenuItem>
           <MenuItem to="/search" icon={<Search />} onClick={() => setOpen(false)}>
-            Search
+            {ui("Search")}
           </MenuItem>
         </Popover.Content>
       </Popover.Portal>

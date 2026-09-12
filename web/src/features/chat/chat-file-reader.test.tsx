@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +10,11 @@ import {
 import { ChatFileReader } from "./chat-file-reader";
 import { ChatFilePicker } from "./chat-file-picker";
 import { DocumentPreviewContent } from "../search/document-preview-content";
+import { AssistantRuntimeProvider, ComposerPrimitive, useLocalRuntime } from "@assistant-ui/react";
+import { ChatSourcesWorkspace } from "./chat-sources";
+import { ChatFilePart } from "./chat-attachments";
+import { fileReference } from "./chat-files";
+import { i18n } from "@/i18n";
 
 const backend = vi.hoisted(() => ({
   get: vi.fn(),
@@ -46,6 +51,7 @@ const file = {
 const session: ApplicationSession = {
   actorId: id,
   authorizationVersion: 1,
+  uiLanguage: "en",
   capabilities: [],
   scopedCapabilities: [],
   tenant: { displayName: "Test", role: "MEMBER" },
@@ -76,7 +82,63 @@ afterEach(() => {
 });
 
 describe("Private file reader", () => {
+  for (const mobile of [false, true]) {
+    it(`opens message files in the shared ${mobile ? "mobile dialog" : "desktop panel"} without losing the composer draft`, async () => {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn(() => ({
+          matches: !mobile,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        })),
+      );
+      backend.read.mockResolvedValue({
+        data: { text: "Private document content", offset: 0, nextOffset: 24, totalCharacters: 24 },
+      });
+      function Workspace() {
+        const runtime = useLocalRuntime({ run: async () => ({ content: [] }) });
+        return (
+          <AssistantRuntimeProvider runtime={runtime}>
+            <ChatSourcesWorkspace>
+              <ChatFilePart
+                data={fileReference(id)}
+                filename={file.filename}
+                mimeType={file.mediaType}
+              />
+              <ComposerPrimitive.Root>
+                <ComposerPrimitive.Input aria-label="Draft" />
+              </ComposerPrimitive.Root>
+            </ChatSourcesWorkspace>
+          </AssistantRuntimeProvider>
+        );
+      }
+      const view = mount(<Workspace />);
+      const user = userEvent.setup();
+      const draft = screen.getByRole("textbox", { name: "Draft" });
+      await user.type(draft, "Keep my draft");
+      const trigger = screen.getByRole("button", { name: file.filename });
+      await user.click(trigger);
+      expect(await screen.findByText("Private document content")).toBeVisible();
+      expect(screen.getByRole(mobile ? "dialog" : "complementary")).toBeVisible();
+      expect(trigger).toHaveAttribute("aria-expanded", "true");
+      await act(async () => {
+        await i18n.changeLanguage("vi");
+      });
+      expect(screen.getByRole("button", { name: "Đóng tệp" })).toBeVisible();
+      expect(backend.read).toHaveBeenCalledTimes(1);
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole(mobile ? "dialog" : "complementary")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+      expect(screen.getByRole("textbox", { name: "Draft" })).toBe(draft);
+      expect(draft).toHaveValue("Keep my draft");
+      await waitFor(() => expect(view.client.getQueryCache().getAll()).toHaveLength(0));
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    });
+  }
   it("uses the private indexed reader and highlights the cited passage", async () => {
+    await i18n.changeLanguage("vi");
     backend.passages.mockResolvedValue({
       data: {
         documentId: missing,
@@ -142,14 +204,14 @@ describe("Private file reader", () => {
     const view = mount(<ChatFileReader fileId={id} />);
     expect(await screen.findByText("<script>alert(1)</script>😀")).toBeInTheDocument();
     expect(view.container.querySelector("script")).toBeNull();
-    expect(screen.getByRole("link", { name: "Tải bản gốc" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Download original" })).toHaveAttribute(
       "href",
       `/api/chat/files/${id}/content`,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Phần tiếp" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next part" }));
     expect(await screen.findByText("Phần cuối")).toBeInTheDocument();
     expect(backend.read.mock.calls[1]?.[0].query).toEqual({ offset: 25, count: 16000 });
-    expect(screen.getByRole("button", { name: "Phần tiếp" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next part" })).toBeDisabled();
     view.unmount();
     await waitFor(() => expect(view.client.getQueryCache().getAll()).toHaveLength(0));
   });
@@ -157,7 +219,7 @@ describe("Private file reader", () => {
   it("does not fetch content or offer download for an unavailable file", async () => {
     backend.get.mockRejectedValue(new Error("404"));
     mount(<ChatFileReader fileId={id} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Không đọc được tệp");
+    expect(await screen.findByRole("alert")).toHaveTextContent("File unavailable");
     expect(backend.read).not.toHaveBeenCalled();
     expect(backend.download).not.toHaveBeenCalled();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
@@ -183,6 +245,9 @@ describe("Private file reader", () => {
 });
 
 describe("File selection", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("vi");
+  });
   it("retains missing identities when selecting another file or removing just one missing file", async () => {
     backend.get.mockResolvedValue({ response: new Response(null, { status: 404 }) });
     const changed = vi.fn();

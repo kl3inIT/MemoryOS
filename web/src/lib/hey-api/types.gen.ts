@@ -74,6 +74,10 @@ export type GoogleDriveSelectionReceiptResponse = {
     operation: SourceOperation;
 };
 
+export type LanguagePreference = {
+    uiLanguage: 'vi' | 'en';
+};
+
 export type Title = {
     title: string;
 };
@@ -784,6 +788,10 @@ export type CurrentIdentity = {
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
     authorizationVersion: number;
+    /**
+     * Account interface language.
+     */
+    uiLanguage: 'vi' | 'en';
 };
 
 export type CurrentTenant = {
@@ -857,6 +865,12 @@ export type SharedSession = {
     rootMessageId?: string;
 };
 
+export type ChatArtifact = {
+    id?: string;
+    title?: string;
+    spec?: string;
+};
+
 export type ChatFileDescriptor = {
     id?: string;
     filename?: string;
@@ -876,6 +890,7 @@ export type ChatMessage = {
     finishedAt: string | null;
     sources: Array<ChatSource>;
     files: Array<ChatFileDescriptor>;
+    artifacts: Array<ChatArtifact>;
 };
 
 export type ChatSource = {
@@ -905,6 +920,7 @@ export type OutcomeEvent = {
     sequence: number;
     status: 'COMPLETED' | 'CANCELED' | 'FAILED';
     failureCode: string | null;
+    hasArtifacts: boolean;
 };
 
 export type ResetEvent = {
@@ -1013,6 +1029,21 @@ export type ApiProblem = {
      * Stable capability-prefixed code; present only for expected capability failures.
      */
     code?: string;
+    /**
+     * Field validation failures with safe allowlisted parameters; no rejected values.
+     */
+    errors?: Array<{
+        field: string;
+        /**
+         * Compatible fallback message; clients localize by code.
+         */
+        message: string;
+        code: 'REQUIRED' | 'INVALID' | 'EMAIL' | 'SIZE' | 'MIN' | 'MAX';
+        params: {
+            min?: number;
+            max?: number;
+        };
+    }>;
 };
 
 export type UpdateGoogleDriveScheduleData = {
@@ -1064,6 +1095,28 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type SetCurrentIdentityLanguageData = {
+    body: LanguagePreference;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/identity/me/language';
+};
+
+export type SetCurrentIdentityLanguageResponses = {
+    /**
+     * OK
+     */
+    200: LanguagePreference;
+};
+
+export type SetCurrentIdentityLanguageResponse = SetCurrentIdentityLanguageResponses[keyof SetCurrentIdentityLanguageResponses];
 
 export type GenerateChatTitleData = {
     body?: never;

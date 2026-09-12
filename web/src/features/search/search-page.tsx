@@ -1,3 +1,5 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { appText, type AppCopy } from "@/i18n/app-text";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Clock3,
@@ -91,6 +93,8 @@ type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 type VoiceStatus = "idle" | "listening" | "permission-denied" | "error";
 
 export function SearchPage() {
+  const ui = useAppTranslation();
+
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
@@ -293,24 +297,26 @@ export function SearchPage() {
   const resultFacetCounts = countResultFileTypes(result.data?.results ?? []);
   const typeFacets = FILE_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => ({
     mediaType: option.value,
-    label: friendlyMediaType(option.value),
+    label: ui(friendlyMediaType(option.value)),
     count: resultFacetCounts[option.value] ?? 0,
   }));
   const showLoadingScreen = isSearchUpdating;
 
   return (
-    <AppShell pageTitle="Search" chatMode="Search">
+    <AppShell pageTitle={ui("Search")} chatMode="Search">
       <section
         className={cn(
           "mx-auto w-full max-w-[80rem] px-5 py-5 sm:px-8 sm:py-7 lg:px-10",
           !request && "flex min-h-full flex-col",
         )}
       >
-        <h1 className="sr-only">Search documents</h1>
+        <h1 className="sr-only">{ui("Search documents")}</h1>
         <div className={cn(!request && "my-auto w-full max-w-3xl self-center pb-[10dvh]")}>
           {!request ? (
             <header className="mb-6">
-              <h2 className="font-heading-h2 text-content-primary">Search your workspace</h2>
+              <h2 className="font-heading-h2 text-content-primary">
+                {ui("Search your workspace")}
+              </h2>
             </header>
           ) : null}
           <form
@@ -331,17 +337,17 @@ export function SearchPage() {
                 <Input
                   ref={searchInputRef}
                   size="lg"
-                  aria-label="Search documents"
+                  aria-label={ui("Search documents")}
                   value={query}
                   maxLength={1000}
-                  placeholder="Search connected sources"
+                  placeholder={ui("Search connected sources")}
                   className="min-w-0 flex-1 border-transparent bg-transparent pr-2 pl-4 hover:border-transparent focus-visible:border-transparent focus-visible:ring-0"
                   onChange={(event) => setQuery(event.target.value)}
                 />
                 {query ? (
                   <button
                     type="button"
-                    aria-label="Clear search"
+                    aria-label={ui("Clear search")}
                     className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
                     onClick={() => {
                       setQuery("");
@@ -356,16 +362,16 @@ export function SearchPage() {
                   size="lg"
                   prominence="internal"
                   tone={isListening ? "danger" : "default"}
-                  aria-label={isListening ? "Stop voice search" : "Search by voice"}
+                  aria-label={isListening ? ui("Stop voice search") : ui("Search by voice")}
                   aria-pressed={isListening}
                   aria-describedby="voice-search-status"
                   disabled={!voiceSearchSupported}
                   title={
                     voiceSearchSupported
                       ? isListening
-                        ? "Stop listening"
-                        : "Search by voice"
-                      : "Voice search is not supported in this browser"
+                        ? ui("Stop listening")
+                        : ui("Search by voice")
+                      : ui("Voice search is not supported in this browser")
                   }
                   onClick={toggleVoiceSearch}
                 >
@@ -378,8 +384,8 @@ export function SearchPage() {
                   <IconButton
                     type="button"
                     size="lg"
-                    aria-label="Search is loading"
-                    title="Searching documents"
+                    aria-label={ui("Search is loading")}
+                    title={ui("Searching documents")}
                     disabled
                   >
                     <LoaderCircle
@@ -388,7 +394,12 @@ export function SearchPage() {
                     />
                   </IconButton>
                 ) : (
-                  <IconButton type="submit" size="lg" aria-label="Search" disabled={!query.trim()}>
+                  <IconButton
+                    type="submit"
+                    size="lg"
+                    aria-label={ui("Search")}
+                    disabled={!query.trim()}
+                  >
                     <Search aria-hidden="true" />
                   </IconButton>
                 )}
@@ -399,17 +410,17 @@ export function SearchPage() {
               <div className="mt-2 flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-1 pt-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
                 <span className="inline-flex h-8 items-center gap-2 px-2 font-secondary-action text-content-muted">
                   <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                  Filters
+                  {ui("Filters")}
                 </span>
                 <SearchFilterMenu
-                  label="Updated"
+                  label={ui("Updated")}
                   value={timeRange}
                   options={TIME_RANGE_OPTIONS}
                   icon={<Clock3 className="size-3.5" />}
                   onChange={selectTimeRange}
                 />
                 <SearchFilterMenu
-                  label="File type"
+                  label={ui("File type")}
                   value={mediaType ?? "all"}
                   options={FILE_TYPE_OPTIONS}
                   icon={<FileStack className="size-3.5" />}
@@ -423,7 +434,7 @@ export function SearchPage() {
                     className="ml-auto"
                     onClick={clearFilters}
                   >
-                    Clear filters
+                    {ui("Clear filters")}
                   </Button>
                 ) : null}
               </div>
@@ -437,13 +448,13 @@ export function SearchPage() {
                 isListening ? "mt-2 text-content-secondary" : "mt-2 text-status-danger-content",
               )}
             >
-              {voiceStatusMessage(voiceStatus, voiceSearchSupported)}
+              {ui(voiceStatusMessage(voiceStatus, voiceSearchSupported))}
             </p>
           </form>
         </div>
 
         <p role="status" aria-live="polite" className="sr-only">
-          {statusMessage}
+          {ui(statusMessage)}
         </p>
 
         <div className="mt-6" aria-busy={isSearchUpdating}>
@@ -453,7 +464,7 @@ export function SearchPage() {
                 className="size-5 animate-spin motion-reduce:animate-none"
                 aria-hidden="true"
               />
-              Searching documents…
+              {ui("Searching documents…")}
             </div>
           ) : result.isError ? (
             <Empty
@@ -465,11 +476,11 @@ export function SearchPage() {
                   <SearchX aria-hidden="true" />
                 </EmptyMedia>
                 <EmptyTitle role="heading" aria-level={2}>
-                  Search is temporarily unavailable
+                  {ui("Search is temporarily unavailable")}
                 </EmptyTitle>
-                <EmptyDescription>Please try again in a moment.</EmptyDescription>
+                <EmptyDescription>{ui("Please try again in a moment.")}</EmptyDescription>
               </EmptyHeader>
-              <Button onClick={() => void result.refetch()}>Try again</Button>
+              <Button onClick={() => void result.refetch()}>{ui("Try again")}</Button>
             </Empty>
           ) : !result.data?.results.length ? (
             <Empty className="mx-auto min-h-64 max-w-2xl animate-in border-border-default bg-surface-raised duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
@@ -478,15 +489,15 @@ export function SearchPage() {
                   <SearchX aria-hidden="true" />
                 </EmptyMedia>
                 <EmptyTitle role="heading" aria-level={2}>
-                  No matching documents
+                  {ui("No matching documents")}
                 </EmptyTitle>
                 <EmptyDescription>
-                  Try a broader phrase, remove a filter, or check the document code.
+                  {ui("Try a broader phrase, remove a filter, or check the document code.")}
                 </EmptyDescription>
               </EmptyHeader>
               {hasFilters ? (
                 <Button prominence="secondary" onClick={clearFilters}>
-                  Clear filters
+                  {ui("Clear filters")}
                 </Button>
               ) : null}
             </Empty>
@@ -496,17 +507,18 @@ export function SearchPage() {
                 <header className="flex flex-wrap items-end justify-between gap-3 border-b border-border-default pb-4">
                   <div>
                     <p className="font-secondary-action tracking-[0.1em] text-content-muted uppercase">
-                      Search results
+                      {ui("Search results")}
                     </p>
                     <h2
                       id="search-results-heading"
                       className="mt-1 font-heading-h3 text-content-primary"
                     >
                       {result.data.results.length}{" "}
-                      {result.data.results.length === 1 ? "result" : "results"}
+                      {result.data.results.length === 1 ? ui("result") : ui("results")}
                     </h2>
                     <p className="mt-1 font-secondary-body text-content-muted">
-                      Page {(request.page ?? 0) + 1} for “{request.query}”
+                      {ui("Page")} {(request.page ?? 0) + 1} {ui("for “")}
+                      {request.query}”
                     </p>
                   </div>
                   {isSearchUpdating ? (
@@ -515,7 +527,7 @@ export function SearchPage() {
                         className="size-3.5 animate-spin motion-reduce:animate-none"
                         aria-hidden="true"
                       />
-                      Updating
+                      {ui("Updating")}
                     </span>
                   ) : null}
                 </header>
@@ -531,7 +543,7 @@ export function SearchPage() {
                   ))}
                 </ol>
                 <nav
-                  aria-label="Search results pages"
+                  aria-label={ui("Search results pages")}
                   className="mt-5 flex items-center justify-between gap-3"
                 >
                   <Button
@@ -543,10 +555,10 @@ export function SearchPage() {
                       setRequest({ ...request, page: (request.page ?? 0) - 1 });
                     }}
                   >
-                    Previous
+                    {ui("Previous")}
                   </Button>
                   <span className="font-secondary-body text-content-muted">
-                    Page {(request.page ?? 0) + 1}
+                    {ui("Page")} {(request.page ?? 0) + 1}
                   </span>
                   <Button
                     size="sm"
@@ -557,7 +569,7 @@ export function SearchPage() {
                       setRequest({ ...request, page: (request.page ?? 0) + 1 });
                     }}
                   >
-                    Next
+                    {ui("Next")}
                   </Button>
                 </nav>
               </section>
@@ -565,13 +577,13 @@ export function SearchPage() {
               <aside aria-labelledby="file-types-heading" className="hidden lg:block">
                 <div className="sticky top-6 rounded-xl border border-border-default bg-surface-raised p-4 shadow-xs">
                   <p className="font-secondary-action tracking-[0.1em] text-content-muted uppercase">
-                    Refine results
+                    {ui("Refine results")}
                   </p>
                   <h2
                     id="file-types-heading"
                     className="mt-1 font-main-ui-action text-content-primary"
                   >
-                    File types on this page
+                    {ui("File types on this page")}
                   </h2>
                   <ul className="mt-3 space-y-1">
                     {typeFacets?.map((facet) => {
@@ -580,7 +592,11 @@ export function SearchPage() {
                         <li key={facet.mediaType}>
                           <button
                             type="button"
-                            aria-label={`${facet.label}: ${facet.count} ${facet.count === 1 ? "result" : "results"} on this page`}
+                            aria-label={ui("{{v1}}: {{v2}} {{v3}} on this page", {
+                              v1: facet.label,
+                              v2: facet.count,
+                              v3: ui(facet.count === 1 ? "result" : "results"),
+                            })}
                             aria-pressed={selectedFacet}
                             className="flex min-h-9 w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-2.5 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:bg-surface-sunken aria-pressed:text-content-primary motion-reduce:transition-none"
                             onClick={() => {
@@ -665,11 +681,14 @@ function searchStatus(
     data?: { results: unknown[] };
   },
   isSearching: boolean,
-): string {
+): AppCopy {
   if (!request) return "";
   if (isSearching) return "Searching documents.";
   if (result.isError) return "Search is temporarily unavailable.";
   const count = result.data?.results.length ?? 0;
   if (count === 0) return "No matching documents.";
-  return `${count} ${count === 1 ? "result" : "results"} on this page.`;
+  return appText(
+    count === 1 ? "{{count}} result on this page." : "{{count}} results on this page.",
+    { count },
+  );
 }

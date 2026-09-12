@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState } from "react";
 import { useAui } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +25,8 @@ export function ChatSessionSettings({
   onChange: () => Promise<void>;
   onDelete: () => void;
 }) {
+  const ui = useAppTranslation();
+
   const { actorId, authorizationVersion } = useApplicationSession();
   const cache = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -58,8 +61,8 @@ export function ChatSessionSettings({
         <ChatDialog
           open
           onOpenChange={setSettingsOpen}
-          title="Cấu hình hội thoại"
-          description="Thay đổi áp dụng cho lượt tiếp theo. Lịch sử đã lưu giữ nguyên."
+          title={ui("Cấu hình hội thoại")}
+          description={ui("Thay đổi áp dụng cho lượt tiếp theo. Lịch sử đã lưu giữ nguyên.")}
           submitDisabled={
             busy ||
             personas.isFetching ||
@@ -82,39 +85,39 @@ export function ChatSessionSettings({
           }}
         >
           <label className="block space-y-1">
-            <span>Trợ lý</span>
+            <span>{ui("Trợ lý")}</span>
             <Select value={personaId} onChange={(e) => setPersona(e.target.value)}>
               {personas.data?.map((persona) => (
                 <option key={persona.id} value={persona.id}>
                   {persona.name}
                 </option>
               ))}
-              {personas.isPending && <option value={personaId}>Đang tải trợ lý…</option>}
+              {personas.isPending && <option value={personaId}>{ui("Đang tải trợ lý…")}</option>}
               {personas.data && !personas.data.some((p) => p.id === personaId) && (
-                <option value={personaId}>Trợ lý không còn khả dụng</option>
+                <option value={personaId}>{ui("Trợ lý không còn khả dụng")}</option>
               )}
             </Select>
           </label>
           <label className="block space-y-1">
-            <span>Dự án</span>
+            <span>{ui("Dự án")}</span>
             <Select value={projectId} onChange={(e) => setProject(e.target.value)}>
-              <option value="">Ngoài dự án</option>
+              <option value="">{ui("Ngoài dự án")}</option>
               {projects.data?.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
               ))}
               {projectId && projects.isPending && (
-                <option value={projectId}>Đang tải dự án…</option>
+                <option value={projectId}>{ui("Đang tải dự án…")}</option>
               )}
               {projectId && projects.data && !projects.data.some((p) => p.id === projectId) && (
-                <option value={projectId}>Dự án không còn khả dụng</option>
+                <option value={projectId}>{ui("Dự án không còn khả dụng")}</option>
               )}
             </Select>
           </label>
           {(personas.isError || projects.isError) && (
             <p role="alert">
-              Không tải đủ cấu hình.{" "}
+              {ui("Không tải đủ cấu hình.")}{" "}
               <Button
                 type="button"
                 prominence="internal"
@@ -123,7 +126,7 @@ export function ChatSessionSettings({
                   void projects.refetch();
                 }}
               >
-                Tải lại
+                {ui("Tải lại")}
               </Button>
             </p>
           )}

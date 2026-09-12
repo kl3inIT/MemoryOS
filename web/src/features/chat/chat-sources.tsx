@@ -1,3 +1,5 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   createContext,
   useContext,
@@ -14,14 +16,10 @@ import { Sources } from "@/components/assistant-ui/elements/sources";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { ChatSourcePanel, SourceExcerpt } from "./chat-source-panel";
 import type { ChatSource, SearchProgress } from "./chat-evidence";
+import { ChatPanelContext as PanelContext } from "./chat-panel-context";
+import type { ChatArtifact } from "./chat-artifacts";
 
 const emptySources: ChatSource[] = [];
-const PanelContext = createContext<{
-  panelId?: string;
-  messageId?: string;
-  open: (messageId: string, trigger: HTMLElement, citationId?: number) => void;
-  close: () => void;
-}>({ open: () => {}, close: () => {} });
 const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[] }>({
   messageId: "",
   sources: emptySources,
@@ -29,7 +27,12 @@ const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[]
 
 export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
   const panelId = useId();
-  const [selection, setSelection] = useState<{ messageId: string; citationId?: number }>();
+  const [selection, setSelection] = useState<{
+    messageId?: string;
+    citationId?: number;
+    file?: { id: string; filename: string };
+    artifactId?: string;
+  }>();
   const returnFocusRef = useRef<HTMLElement>(null);
   const fallbackFocusRef = useRef<HTMLDivElement>(null);
   // Read the selected message from the native runtime so an open panel follows
@@ -38,6 +41,12 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
     (state) =>
       (state.thread.messages.find((message) => message.id === selection?.messageId)?.metadata.custom
         .sources as ChatSource[] | undefined) ?? emptySources,
+  );
+  const artifact = useAuiState((state) =>
+    (
+      state.thread.messages.find((message) => message.id === selection?.messageId)?.metadata.custom
+        .artifacts as ChatArtifact[] | undefined
+    )?.find((item) => item.id === selection?.artifactId),
   );
   function restoreFocus() {
     const target = returnFocusRef.current?.isConnected
@@ -54,9 +63,19 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
       value={{
         panelId,
         messageId: selection?.messageId,
+        fileId: selection?.file?.id,
+        artifactId: selection?.artifactId,
         open: (messageId, trigger, citationId) => {
           returnFocusRef.current = trigger;
           setSelection({ messageId, citationId });
+        },
+        openFile: (file, trigger) => {
+          returnFocusRef.current = trigger;
+          setSelection({ file });
+        },
+        openArtifact: (messageId, artifactId, trigger) => {
+          returnFocusRef.current = trigger;
+          setSelection({ messageId, artifactId });
         },
         close,
       }}
@@ -67,16 +86,19 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
         className="flex min-h-0 min-w-0 flex-1 outline-none"
       >
         {children}
-        {selection && sources.length > 0 && (
-          <ChatSourcePanel
-            id={panelId}
-            sources={sources}
-            citationId={selection.citationId}
-            onSelect={(citationId) => setSelection({ ...selection, citationId })}
-            onClose={close}
-            restoreFocus={restoreFocus}
-          />
-        )}
+        {selection &&
+          (selection.file || artifact || (!selection.artifactId && sources.length > 0)) && (
+            <ChatSourcePanel
+              id={panelId}
+              sources={sources}
+              file={selection.file}
+              artifact={artifact}
+              citationId={selection.citationId}
+              onSelect={(citationId) => setSelection({ ...selection, citationId })}
+              onClose={close}
+              restoreFocus={restoreFocus}
+            />
+          )}
       </div>
     </PanelContext.Provider>
   );
@@ -95,20 +117,21 @@ export function ChatSourcesProvider({ children }: { children: ReactNode }) {
 export function ChatSources() {
   const { messageId, sources } = useContext(EvidenceContext);
   const panel = useContext(PanelContext);
+  const active = panel.messageId === messageId && !panel.artifactId;
   if (!sources.length) return null;
   return (
     <Sources
       count={sources.length}
-      aria-expanded={panel.messageId === messageId}
-      aria-controls={panel.messageId === messageId ? panel.panelId : undefined}
-      onClick={(event) =>
-        panel.messageId === messageId ? panel.close() : panel.open(messageId, event.currentTarget)
-      }
+      aria-expanded={active}
+      aria-controls={active ? panel.panelId : undefined}
+      onClick={(event) => (active ? panel.close() : panel.open(messageId, event.currentTarget))}
     />
   );
 }
 
 function Citation({ source }: { source: ChatSource }) {
+  const ui = useAppTranslation();
+
   const [open, setOpen] = useState(false);
   const { messageId } = useContext(EvidenceContext);
   const panel = useContext(PanelContext);
@@ -116,12 +139,12 @@ function Citation({ source }: { source: ChatSource }) {
     <InlineCitation
       open={open}
       onOpenChange={setOpen}
-      aria-label={`Mở nguồn ${source.citationId}: ${source.title}`}
+      aria-label={ui("Mở nguồn {{v1}}: {{v2}}", { v1: source.citationId, v2: source.title })}
       onClick={(event) => panel.open(messageId, event.currentTarget, source.citationId)}
       preview={
         <>
           <div className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
-            <FileText className="size-3.5" aria-hidden="true" /> Tài liệu · Nguồn{" "}
+            <FileText className="size-3.5" aria-hidden="true" /> {ui("Tài liệu · Nguồn")}{" "}
             {source.citationId}
           </div>
           <p className="text-sm font-medium leading-5">{source.title}</p>
@@ -156,6 +179,8 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
 }
 
 export function ChatSearchStatus() {
+  const ui = useAppTranslation();
+
   const running = useAuiState((state) => state.message.status?.type === "running");
   const progress = useAuiState(
     (state) => state.message.metadata.custom.searchProgress as SearchProgress | undefined,
@@ -182,10 +207,10 @@ export function ChatSearchStatus() {
   const filters = active?.search?.filters;
   return (
     <div className="mb-3 space-y-2 text-sm">
-      <ThinkingIndicator role="status" label={label} />
+      <ThinkingIndicator role="status" label={ui(label)} />
       {active?.search && (
         <details className="text-muted-foreground">
-          <summary className="cursor-pointer">Chi tiết tìm kiếm</summary>
+          <summary className="cursor-pointer">{ui("Chi tiết tìm kiếm")}</summary>
           <ul className="mt-2 space-y-1 pl-4 list-disc">
             {active.search.queries.map((query) => (
               <li key={query} className="break-words">
@@ -195,27 +220,31 @@ export function ChatSearchStatus() {
           </ul>
           {!!filters?.sources.length && (
             <p>
-              Nguồn:{" "}
+              {ui("Nguồn:")}{" "}
               {filters.sources
-                .map((source) => (source === "FILE" ? "Tệp tải lên" : "Google Drive"))
+                .map((source) => (source === "FILE" ? ui("Tệp tải lên") : "Google Drive"))
                 .join(", ")}
             </p>
           )}
           {filters?.created && (
             <p>
-              Ngày tạo: {displayDate(filters.created.from)} – {displayDate(filters.created.to)}
+              {ui("Ngày tạo:")}{" "}
+              {filters.created.from ? displayDate(filters.created.from) : ui("Không giới hạn")} –{" "}
+              {filters.created.to ? displayDate(filters.created.to) : ui("Không giới hạn")}
             </p>
           )}
           {filters?.updated && (
             <p>
-              Ngày cập nhật: {displayDate(filters.updated.from)} – {displayDate(filters.updated.to)}
+              {ui("Ngày cập nhật:")}{" "}
+              {filters.updated.from ? displayDate(filters.updated.from) : ui("Không giới hạn")} –{" "}
+              {filters.updated.to ? displayDate(filters.updated.to) : ui("Không giới hạn")}
             </p>
           )}
         </details>
       )}
       {!!active?.documents.length && (
         <div className="text-muted-foreground">
-          <p>Đang đọc tài liệu</p>
+          <p>{ui("Đang đọc tài liệu")}</p>
           <ul className="mt-1 space-y-1 pl-4 list-disc">
             {active.documents.map((document) => (
               <li key={`${document.documentId}:${document.startOrdinal}`}>{document.title}</li>
@@ -229,7 +258,7 @@ export function ChatSearchStatus() {
 
 function displayDate(value: string | null) {
   return value
-    ? new Intl.DateTimeFormat(undefined, {
+    ? new Intl.DateTimeFormat(uiLocale(), {
         dateStyle: "medium",
         timeStyle: "short",
         timeZone: "UTC",

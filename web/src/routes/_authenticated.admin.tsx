@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import {
@@ -9,6 +10,7 @@ import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-r
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
+    const ui = useAppTranslation();
     const canManageUsers = useGlobalCapability("USERS_MANAGE");
     const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
     const canReadSources = useCapabilityAuthority("SOURCES_READ") !== "none";
@@ -36,7 +38,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
       <AppShell
         area="admin"
         adminPage={page}
-        pageTitle={page === "users" ? "Users" : page === "groups" ? "Groups" : "Sources"}
+        pageTitle={ui(page === "users" ? "Users" : page === "groups" ? "Groups" : "Sources")}
         sourceSetupStep={sourceSetupStep}
       >
         <SourceUploadRecoveryProvider>

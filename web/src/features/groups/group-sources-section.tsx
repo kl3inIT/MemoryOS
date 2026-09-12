@@ -1,3 +1,6 @@
+import { uiLocale } from "@/i18n/format";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BookOpen, Search } from "lucide-react";
@@ -20,6 +23,8 @@ type GroupSourcesSectionProps = {
 };
 
 export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesSectionProps) {
+  const ui = useAppTranslation();
+
   const canOpenSources = useCapabilityAuthority("SOURCES_READ") !== "none";
   const canManage = group.actions.includes("manage_sources");
   const associated = useQuery({
@@ -35,7 +40,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
   const [baselineIds, setBaselineIds] = useState<Set<string>>(() => new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [search, setSearch] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const baselineKey = [...baselineIds].sort().join("\u0000");
   const selectedKey = [...selectedIds].sort().join("\u0000");
   const dirty = baselineKey !== selectedKey;
@@ -123,11 +128,12 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
         </span>
         <div>
           <h2 id="group-sources-heading" className="font-heading-h3 text-content-primary">
-            Sources
+            {ui("Sources")}
           </h2>
           <p className="mt-1 font-main-ui-body text-content-muted">
-            Associations constrain scoped group-manager authority. They do not narrow the
-            Tenant-wide Source grants above.
+            {ui(
+              "Associations constrain scoped group-manager authority. They do not narrow the Tenant-wide Source grants above.",
+            )}
           </p>
         </div>
       </div>
@@ -137,7 +143,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
           role="alert"
           className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
         >
-          {error}
+          {ui(error)}
         </p>
       ) : null}
 
@@ -146,12 +152,12 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
           role="status"
           className="mt-4 rounded-xl border border-border-subtle px-4 py-7 font-main-ui-body text-content-muted"
         >
-          Loading associated Sources
+          {ui("Loading associated Sources")}
         </p>
       ) : associated.isError ? (
         <div className="mt-4 rounded-xl border border-border-subtle p-4">
           <p role="alert" className="font-main-ui-body text-content-secondary">
-            Source associations could not be loaded.
+            {ui("Source associations could not be loaded.")}
           </p>
           <Button
             size="sm"
@@ -159,14 +165,14 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
             className="mt-3"
             onClick={() => void associated.refetch()}
           >
-            Try again
+            {ui("Try again")}
           </Button>
         </div>
       ) : canManage ? (
         <div className="mt-4 rounded-xl border border-border-default bg-surface-subtle p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Search Sources</span>
+              <span className="sr-only">{ui("Search Sources")}</span>
               <Search
                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
                 aria-hidden="true"
@@ -174,24 +180,24 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
               <Input
                 type="search"
                 value={search}
-                placeholder="Search Sources…"
+                placeholder={ui("Search Sources…")}
                 className="bg-surface-raised pl-9"
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
             <span className="font-secondary-body tabular-nums text-content-muted">
-              {selectedIds.size} selected
+              {selectedIds.size} {ui("selected")}
             </span>
           </div>
 
           {allSources.isPending ? (
             <p role="status" className="mt-4 px-2 py-6 font-main-ui-body text-content-muted">
-              Loading Sources
+              {ui("Loading Sources")}
             </p>
           ) : allSources.isError ? (
             <div className="mt-4 rounded-xl border border-border-subtle bg-surface-raised p-4">
               <p role="alert" className="font-main-ui-body text-content-secondary">
-                Source choices could not be loaded. Your associations are unchanged.
+                {ui("Source choices could not be loaded. Your associations are unchanged.")}
               </p>
               <Button
                 size="sm"
@@ -199,14 +205,14 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
                 className="mt-3"
                 onClick={() => void allSources.refetch()}
               >
-                Try again
+                {ui("Try again")}
               </Button>
             </div>
           ) : candidates.length === 0 ? (
             <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center font-main-ui-body text-content-muted">
               {allSources.data?.length
-                ? "No Sources match your search."
-                : "No Sources are available."}
+                ? ui("No Sources match your search.")
+                : ui("No Sources are available.")}
             </div>
           ) : (
             <div className="mt-4 max-h-80 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised">
@@ -246,20 +252,20 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
                 setError(null);
               }}
             >
-              Cancel
+              {ui("Cancel")}
             </Button>
             <Button
               pending={saveAssociations.isPending}
               disabled={!dirty || allSources.isError || associated.isError}
               onClick={() => void save()}
             >
-              {saveAssociations.isPending ? "Saving associations…" : "Save associations"}
+              {saveAssociations.isPending ? ui("Saving associations…") : ui("Save associations")}
             </Button>
           </div>
         </div>
       ) : sources.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center font-main-ui-body text-content-muted">
-          No Sources are associated with this group.
+          {ui("No Sources are associated with this group.")}
         </div>
       ) : (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -289,11 +295,13 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
 }
 
 function SourceIdentity({ source }: { source: SourceSummary }) {
+  const ui = useAppTranslation();
+
   return (
     <span className="min-w-0 flex-1">
       <span className="block truncate font-main-ui-action text-content-primary">{source.name}</span>
       <span className="mt-0.5 block font-secondary-body text-content-muted">
-        {source.type} · {source.documentCount.toLocaleString()} documents
+        {source.type} · {source.documentCount.toLocaleString(uiLocale())} {ui("documents")}
       </span>
     </span>
   );

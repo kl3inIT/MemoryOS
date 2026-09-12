@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { SearchX, UserRoundPlus, UsersRound, WifiOff } from "lucide-react";
@@ -25,6 +26,8 @@ import { usersQuery, type UsersSearch, type UsersSort } from "./users-search";
 const emptyEntries: UserListItem[] = [];
 
 export function UsersPage() {
+  const ui = useAppTranslation();
+
   const queryClient = useQueryClient();
   const search = useSearch({ from: "/_authenticated/admin/users" });
   const navigate = useNavigate({ from: "/admin/users" });
@@ -100,7 +103,7 @@ export function UsersPage() {
         <header className="flex items-center justify-between gap-4 border-b border-border-subtle pb-5">
           <div className="flex min-w-0 items-center gap-3">
             <UsersRound className="size-6 shrink-0 text-content-secondary" aria-hidden="true" />
-            <h1 className="font-heading-h2 text-content-primary">Users</h1>
+            <h1 className="font-heading-h2 text-content-primary">{ui("Users")}</h1>
           </div>
           <Button
             ref={inviteButtonRef}
@@ -109,7 +112,7 @@ export function UsersPage() {
             onClick={openInvitationDialog}
           >
             <UserRoundPlus aria-hidden="true" />
-            Invite member
+            {ui("Invite member")}
           </Button>
         </header>
 
@@ -145,12 +148,15 @@ export function UsersPage() {
         >
           <span className="sr-only" aria-live="polite">
             {users.isPending
-              ? "Loading…"
+              ? ui("Loading…")
               : users.isFetching
-                ? "Updating…"
+                ? ui("Updating…")
                 : usersPage
-                  ? `${usersPage.totalItems} ${usersPage.totalItems === 1 ? "user" : "users"}`
-                  : "Count unavailable"}
+                  ? ui("{{v1}} {{v2}}", {
+                      v1: usersPage.totalItems,
+                      v2: ui(usersPage.totalItems === 1 ? "user" : "users"),
+                    })
+                  : ui("Count unavailable")}
           </span>
 
           {users.isError && usersPage ? (
@@ -158,9 +164,9 @@ export function UsersPage() {
               role="alert"
               className="flex flex-col gap-2 border-b border-status-warning-content/20 bg-status-warning-surface px-4 py-3 font-secondary-body text-status-warning-content sm:flex-row sm:items-center sm:justify-between"
             >
-              <span>Could not refresh users. Showing previous results.</span>
+              <span>{ui("Could not refresh users. Showing previous results.")}</span>
               <TextButton size="sm" onClick={() => void users.refetch()}>
-                Retry refresh
+                {ui("Retry refresh")}
               </TextButton>
             </div>
           ) : null}
@@ -228,9 +234,11 @@ export function UsersPage() {
 }
 
 function UsersLoading() {
+  const ui = useAppTranslation();
+
   return (
-    <div role="status" aria-label="Loading users" className="p-4">
-      <span className="sr-only">Loading users</span>
+    <div role="status" aria-label={ui("Loading users")} className="p-4">
+      <span className="sr-only">{ui("Loading users")}</span>
       <div className="grid grid-cols-[minmax(12rem,2fr)_1.4fr_0.8fr_1fr_2rem] gap-4 border-b border-border-subtle px-1 pb-3">
         {Array.from({ length: 5 }, (_, index) => (
           <Skeleton key={index} className="h-3 w-16" />
@@ -258,14 +266,16 @@ function UsersLoading() {
 }
 
 function UsersError({ onRetry }: { onRetry: () => void }) {
+  const ui = useAppTranslation();
+
   return (
     <div className="px-6 py-16 text-center">
       <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
         <WifiOff className="size-4.5" aria-hidden="true" />
       </span>
-      <h2 className="mt-4 font-heading-h3 text-content-primary">Could not load users</h2>
+      <h2 className="mt-4 font-heading-h3 text-content-primary">{ui("Could not load users")}</h2>
       <Button prominence="secondary" size="sm" className="mt-5" onClick={onRetry}>
-        Try again
+        {ui("Try again")}
       </Button>
     </div>
   );
@@ -282,6 +292,8 @@ function UsersEmpty({
   onClear: () => void;
   onInvite: () => void;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <div className="px-6 py-16 text-center">
       <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
@@ -292,7 +304,7 @@ function UsersEmpty({
         )}
       </span>
       <h2 className="mt-4 font-heading-h3 text-content-primary">
-        {filtered ? "No users found" : "No users yet"}
+        {filtered ? ui("No users found") : ui("No users yet")}
       </h2>
       <Button
         prominence="secondary"
@@ -301,7 +313,7 @@ function UsersEmpty({
         disabled={!filtered && invitationPending}
         onClick={filtered ? onClear : onInvite}
       >
-        {filtered ? "Clear filters" : "Invite member"}
+        {filtered ? ui("Clear filters") : ui("Invite member")}
       </Button>
     </div>
   );

@@ -4,10 +4,77 @@ import { fixtureModels, fixtureSource } from "../fixtures/chat-data";
 const identity = {
   actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
   authorizationVersion: 1,
+  uiLanguage: "vi",
   tenant: { displayName: "Test tenant", role: "MEMBER" },
   capabilities: [],
   scopedCapabilities: [],
 };
+
+for (const language of ["en", "vi"] as const)
+  test(`Shiki, Mermaid and persisted read-only presentation in ${language}`, async ({ page }) => {
+    const mobile = language === "vi";
+    await page.setViewportSize(
+      mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
+    );
+    await page.route("**/api/identity/me", (route) =>
+      route.fulfill({ json: { ...identity, uiLanguage: language } }),
+    );
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", {
+        data: { mode: "renderers", title: "Renderers" },
+      })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    const input = page.getByRole("textbox", {
+      name: language === "vi" ? "Câu hỏi" : "Question",
+      exact: true,
+    });
+    await input.fill("Show a revenue card and process diagram");
+    await input.press("Enter");
+    await expect(page.locator(".aui-shiki-base code span[style]").first()).toBeVisible();
+    const diagram = page.locator('[data-slot="mermaid-diagram"] img');
+    await expect(diagram).toBeVisible();
+    expect(
+      await diagram.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
+    ).toBe(true);
+    await page
+      .getByRole("button", { name: language === "vi" ? "Mở rộng sơ đồ" : "Expand diagram" })
+      .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page
+      .getByRole("button", { name: language === "vi" ? "Phóng to" : "Zoom in", exact: true })
+      .click();
+    await page.keyboard.press("Escape");
+    await input.fill("Keep this draft");
+    const card = page.getByRole("button", { name: /^(Open presentation|Mở bản trình bày):/ });
+    await expect(card).toBeVisible();
+    await card.click();
+    const panel = page.getByRole(mobile ? "dialog" : "complementary");
+    await expect(panel.getByRole("cell", { name: "ORION" })).toBeVisible();
+    await expect(
+      panel.getByText("<script>alert('never execute')</script>", { exact: true }),
+    ).toBeVisible();
+    await expect(panel.locator("script,iframe")).toHaveCount(0);
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: `../output/playwright/renderers-${language}.png`,
+      fullPage: true,
+    });
+    await page.keyboard.press("Escape");
+    await expect(input).toHaveValue("Keep this draft");
+    await expect(card).toBeFocused();
+    await page.reload();
+    await card.click();
+    await expect(panel.getByRole("cell", { name: "ORION" })).toBeVisible();
+    const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
+    expect(stats.sends).toBe(1);
+    expect(errors).toEqual([]);
+  });
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: identity }));
 });
@@ -321,16 +388,16 @@ test("new chat, native keyboard/IME, server IDs, multiple turns, markdown and re
   await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
   await expect(page.locator("pre")).toContainText('System.out.println("Hello");');
-  await page.getByRole("button", { name: "Copy code" }).click();
+  await page.getByRole("button", { name: "Sao chép mã" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain('System.out.println("Hello");');
   await page.evaluate(() => navigator.clipboard.writeText("Replaced clipboard"));
-  await expect(page.getByRole("button", { name: "Copy code" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Sao chép mã" })).toHaveAttribute(
     "title",
-    "Copy code",
+    "Sao chép mã",
   );
-  await page.getByRole("button", { name: "Copy code" }).click();
+  await page.getByRole("button", { name: "Sao chép mã" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain('System.out.println("Hello");');
@@ -393,7 +460,7 @@ test("mobile drawer, Chat/Search mode, and leaving a running chat only closes th
   expect(box!.y + box!.height).toBeLessThan(844);
   await expect(page.getByRole("banner")).toContainText("Mobile running");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
-  const navigation = page.getByRole("dialog", { name: "MemoryOS navigation" });
+  const navigation = page.getByRole("dialog", { name: "Điều hướng MemoryOS" });
   await navigation.locator('a[href="/search"]').click();
   await expect(page).toHaveURL(/\/search$/);
   await expect

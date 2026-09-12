@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   ComposerPrimitive,
   useAui,
@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { ChatFilePicker } from "./chat-file-picker";
 import { fileReference, fileIdFromReference } from "./chat-files";
 import { File as FileDisplay } from "@/components/assistant-ui/elements/file";
-import { ChatDialog } from "./chat-dialog";
-import { ChatFileReader } from "./chat-file-reader";
+import { useChatFilePanel } from "./chat-panel-context";
+import { useTranslation } from "react-i18next";
 
 export function ChatComposerFiles() {
+  const ui = useAppTranslation();
+
   const aui = useAui();
   const attachments = useAuiState((state) => state.composer.attachments);
   const identities = attachments.map((attachment) => {
@@ -34,7 +36,7 @@ export function ChatComposerFiles() {
               disabled={attachments.length >= 20}
             >
               <Upload className="size-4" />
-              Tải tệp lên
+              {ui("Tải tệp lên")}
             </Button>
           </ComposerPrimitive.AddAttachment>
         }
@@ -57,6 +59,7 @@ export function ChatComposerFiles() {
                     filename: file.filename,
                     mimeType: file.mediaType,
                     data: fileReference(file.id),
+                    providerMetadata: { memoryos: { sizeBytes: file.sizeBytes } },
                   },
                 ],
               });
@@ -70,35 +73,36 @@ export function ChatSharedFilePart({
   filename,
   mimeType,
 }: Pick<FileMessagePartProps, "filename" | "mimeType">) {
+  const ui = useAppTranslation();
+
   return (
     <FileDisplay.Root className="my-1 max-w-full">
       <FileDisplay.Icon mimeType={mimeType} />
-      <FileDisplay.Name title={filename}>{filename ?? "Tệp đính kèm"}</FileDisplay.Name>
+      <FileDisplay.Name title={filename}>{filename ?? ui("Tệp đính kèm")}</FileDisplay.Name>
     </FileDisplay.Root>
   );
 }
 
 export function ChatFilePart(props: Pick<FileMessagePartProps, "data" | "filename" | "mimeType">) {
-  const [open, setOpen] = useState(false);
+  const panel = useChatFilePanel();
+  const { t } = useTranslation("reader");
   const fileId = typeof props.data === "string" ? fileIdFromReference(props.data) : undefined;
   if (!fileId) return <ChatSharedFilePart {...props} />;
   return (
-    <ChatDialog
-      title={props.filename ?? "Tệp đính kèm"}
-      description="Nội dung tệp riêng tư. Bảng hiển thị giá trị đã trích xuất, không chạy công thức hay mã."
-      open={open}
-      onOpenChange={setOpen}
-      trigger={
-        <button
-          type="button"
-          className="max-w-full cursor-pointer rounded-lg text-start focus-visible:outline-2"
-        >
-          <ChatSharedFilePart {...props} />
-        </button>
+    <button
+      type="button"
+      aria-expanded={panel.fileId === fileId}
+      aria-controls={panel.fileId === fileId ? panel.panelId : undefined}
+      onClick={(event) =>
+        panel.openFile(
+          { id: fileId, filename: props.filename ?? t("attachment") },
+          event.currentTarget,
+        )
       }
+      className="max-w-full cursor-pointer rounded-lg text-start focus-visible:outline-2"
     >
-      {open && <ChatFileReader key={fileId} fileId={fileId} />}
-    </ChatDialog>
+      <ChatSharedFilePart {...props} />
+    </button>
   );
 }
 
