@@ -1,6 +1,6 @@
 # Local verification — 2026-09-12
 
-Scope: [design](design.md). Initial implementation was verified on base `7474d1879819b07e4211f136c2785e435fa38079`. Publication uses `feat/mem-81-chat-ux-followup` from refreshed `origin/main` (`820f32e`, including PR #101). The user authorized opening a PR and triggering CodeRabbit, not merge or deployment. Existing OCR changes remain in the base; this PR does not modify OCR or CI/CD. No Linear status is inferred from local checks.
+Scope: [design](design.md). Initial implementation was verified on base `7474d1879819b07e4211f136c2785e435fa38079`. Initial publication used `feat/mem-81-chat-ux-followup` from refreshed `origin/main` (`820f32e`, including PR #101), with authorization to open a PR and trigger CodeRabbit. The subsequent user directive authorizes fixing the captured finding, merging and deploying staging; the fix branch incorporates main `9f5b728` (PR #103). Existing OCR changes remain in the base; this PR does not modify OCR or CI/CD. No Linear status is inferred from local checks.
 
 ## Backend
 
@@ -26,6 +26,14 @@ The latest main already contains `V39__support_one_hundred_mib_binary_inputs.sql
 - Refreshed-base frontend `check`: PASS, 134 unit tests plus generated API, lint, formatting, TypeScript and production build.
 - Refreshed-base `clean check`: NOT GREEN. The run reported `ChatFileLifecycleIntegrationTest.originalContentClosesOnMetadataMismatchOrConcurrentDeletion` failing with `NoSuchElementException` in the existing `dispatch()` helper (`getFirst()` on an empty claim list). That test/helper is unchanged by this PR. An immediate claim is time-gated in the real dispatch repository; a timing cause is suspected but not established by this failure alone. Do not substitute the initial base's green result for current-head verification.
 - Secret scan of the scoped staged diff: PASS, no leaks. Local screenshots remain excluded from the PR.
+
+## CodeRabbit fix verification
+
+- The single captured review on `ca8a6c4` found that code-point truncation can split a joined family emoji or a combining mark. Reproduced at the 40-character boundary, then replaced with native `Intl.Segmenter` grapheme iteration. No dependency added. The fallback also stays inside the existing API UTF-16 length limit.
+- Frontend `check` on refreshed main `9f5b728`: PASS, including 136 unit tests, generated API stability, lint, formatting, TypeScript and production build. Added regressions cover joined emoji, decomposed accented characters, exact-boundary titles and the API length ceiling.
+- Playwright CLI on the real local frontend with the existing fixture API: first-send header and sidebar preserve all of the family emoji in `39 A + family emoji + ellipsis`; reload retains the title. This is browser regression evidence, not live provider or staging acceptance.
+- Original PR-head CI [34672868675](https://github.com/kl3inIT/MemoryOS/actions/runs/34672868675) passed, including backend and both browser shards. That does not establish the root cause of the earlier local dispatch-helper failure. New-head local and CI verification remain separate.
+- Refreshed-base `./gradlew.bat clean check --no-daemon --console=plain`: PASS in 9m16s. Core integration tests executed; unchanged API/connector/worker tasks reused Gradle cache. The earlier dispatch-helper failure did not recur; no claim is made that its suspected timing cause was fixed.
 
 ## Boundaries
 

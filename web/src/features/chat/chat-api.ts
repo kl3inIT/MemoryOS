@@ -59,10 +59,18 @@ export async function newChatSession(
 }
 
 export function initialChatTitle(text: string) {
-  const characters = Array.from(text.trim().replace(/\s+/g, " "));
-  return characters.length > 40
-    ? `${characters.slice(0, 40).join("").trim()}…`
-    : characters.join("") || "Hội thoại mới";
+  const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
+    text.trim().replace(/\s+/g, " "),
+  );
+  let title = "";
+  let count = 0;
+  for (const { segment } of segments) {
+    // Keep whole visible characters and reserve room for the ellipsis inside the API's 200 UTF-16 limit.
+    if (count === 40 || title.length + segment.length > 199) return `${title.trimEnd()}…`;
+    title += segment;
+    count++;
+  }
+  return title || "Hội thoại mới";
 }
 
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {

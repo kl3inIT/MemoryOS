@@ -20,6 +20,18 @@ it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => 
   expect(initialChatTitle(" ")).toBe("Hội thoại mới");
   expect(initialChatTitle("😀".repeat(45))).toBe("😀".repeat(40) + "…");
 });
+it("keeps family emoji and combining marks intact at the title boundary", () => {
+  for (const grapheme of ["👨‍👩‍👧‍👦", "e\u0301", "a\u0306\u0301"]) {
+    expect(initialChatTitle("A".repeat(39) + grapheme + "x")).toBe("A".repeat(39) + grapheme + "…");
+    expect(initialChatTitle("A".repeat(39) + grapheme)).toBe("A".repeat(39) + grapheme);
+  }
+});
+it("keeps grapheme titles inside the API length limit", () => {
+  const family = "👨‍👩‍👧‍👦";
+  const title = initialChatTitle(family.repeat(40));
+  expect(title).toBe(family.repeat(18) + "…");
+  expect(title.length).toBeLessThanOrEqual(200);
+});
 const userId = "9a1b5318-f15b-4e37-899a-0809354cda6f";
 const requestId = "e7a05ee5-cfd5-470b-9641-f4c322a3b4bb";
 const row: ChatMessage = {
