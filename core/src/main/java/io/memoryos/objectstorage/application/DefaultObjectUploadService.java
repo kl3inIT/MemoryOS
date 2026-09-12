@@ -8,12 +8,14 @@ import io.memoryos.objectstorage.ObjectUploadAuthorization;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
 import io.memoryos.objectstorage.ObjectUploadException;
 import io.memoryos.objectstorage.ObjectUploadId;
+import io.memoryos.objectstorage.ObjectUploadPurpose;
 import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.ObjectVerificationToken;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.objectstorage.VerifiedObject;
+import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.iam.TenantId;
@@ -81,10 +83,12 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
         );
         transactions.executeWithoutResult(_ -> {
             objects.create(tenantId, storedObjectId, key, specification, expiresAt);
-            uploads.create(tenantId, uploadId, storedObjectId);
+            uploads.create(tenantId, uploadId, storedObjectId, specification.purpose());
         });
         try {
-            return new ObjectUploadAuthorization(uploadId, storage.authorizeUpload(key, specification.constraints()));
+            var authorization = storage.authorizeUpload(key, specification.constraints());
+            retainUntilAuthorizationExpires(tenantId, uploadId, authorization);
+            return new ObjectUploadAuthorization(uploadId, authorization);
         } catch (ObjectStorageException exception) {
             throw ObjectUploadException.storageUnavailable(exception.code(), exception);
         }
@@ -92,10 +96,48 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
 
     @Override
     public VerifiedObject verify(TenantId tenantId, ObjectUploadId uploadId) {
+        return verify(tenantId, uploadId, ObjectUploadPurpose.BINARY);
+    }
+
+    @Override
+    public ObjectUploadAuthorization resume(TenantId tenantId, ObjectUploadId uploadId, ObjectUploadPurpose purpose) {
+        var row = requireUpload(tenantId, uploadId);
+        if (row.purpose() != purpose) throw ObjectUploadException.notFound();
+        if (!"PENDING".equals(row.status())) {
+            throw ObjectUploadException.conflict("only a pending object upload can be resumed");
+        }
+        var reference = objects.find(tenantId, row.storedObjectId()).orElseThrow(ObjectUploadException::notFound);
+        try {
+            var authorization = storage.authorizeUpload(reference.key(),
+                    new io.memoryos.objectstorage.UploadConstraints(reference.metadata().sizeBytes(),
+                            reference.metadata().mediaType(), reference.metadata().checksum()));
+            retainUntilAuthorizationExpires(tenantId, uploadId, authorization);
+            return new ObjectUploadAuthorization(uploadId, authorization);
+        } catch (ObjectStorageException exception) {
+            throw ObjectUploadException.storageUnavailable(exception.code(), exception);
+        }
+    }
+
+    private void retainUntilAuthorizationExpires(TenantId tenant, ObjectUploadId upload, UploadAuthorization authorization) {
+        Instant now = Instant.now(clock);
+        // Re-signing must never outlive the durable reservation that cleanup consults.
+        Instant expiry = now.plus(properties.lifetime());
+        if (authorization.expiresAt().isAfter(expiry)) expiry = authorization.expiresAt();
+        // PostgreSQL stores microseconds. Round up so a nanosecond-precision signer
+        // can never outlive its persisted cleanup reservation through rounding down.
+        Instant retainedUntil = expiry.plusNanos(999).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        if (!Boolean.TRUE.equals(transactions.execute(ignored -> uploads.extendPendingLifetime(tenant, upload, now, retainedUntil)))) {
+            throw ObjectUploadException.conflict("object upload is expired or no longer pending");
+        }
+    }
+
+    @Override
+    public VerifiedObject verify(TenantId tenantId, ObjectUploadId uploadId, ObjectUploadPurpose purpose) {
         Objects.requireNonNull(tenantId, "tenantId must not be null");
         Objects.requireNonNull(uploadId, "uploadId must not be null");
         Instant now = Instant.now(clock);
         var existing = requireUpload(tenantId, uploadId);
+        if (existing.purpose() != purpose) throw ObjectUploadException.notFound();
         if ("VERIFIED".equals(existing.status()) && existing.adoptionDeadline() != null
                 && !existing.adoptionDeadline().isBefore(now)) {
             return verified(tenantId, existing, new ObjectVerificationToken(existing.verificationToken()));
@@ -169,6 +211,15 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
     @Override
     public void releaseAdopted(TenantId tenantId, ObjectUploadId uploadId) {
         transactions.executeWithoutResult(_ -> uploads.releaseAdopted(tenantId, uploadId));
+    }
+
+    @Override
+    public void retireAdopted(TenantId tenantId, ObjectUploadId uploadId) {
+        transactions.executeWithoutResult(ignored -> {
+            var row = requireUpload(tenantId, uploadId);
+            if (!uploads.retireAdopted(tenantId, uploadId)) throw ObjectUploadException.conflict("upload is not adopted");
+            objects.markDeletePending(tenantId, row.storedObjectId());
+        });
     }
 
     @Override
