@@ -3,7 +3,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { IconButton } from "@/components/ui/icon-button";
+import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { searchChatSessions } from "@/lib/hey-api/sdk.gen";
@@ -11,11 +11,28 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatDialog } from "./chat-dialog";
 
 /** Server search uses the shared command/dialog behavior, not a second thread store. */
-export function ChatHistorySearch({ onNavigate }: { onNavigate?: () => void }) {
+export function ChatHistorySearch({
+  collapsed = false,
+  onNavigate,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
   const ui = useAppTranslation();
   const navigate = useNavigate();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      // The mobile drawer can mount a second sidebar; the first handler wins.
+      if (event.defaultPrevented || event.key.toLowerCase() !== "k") return;
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      event.preventDefault();
+      setOpen(true);
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, []);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   useEffect(() => {
@@ -53,14 +70,13 @@ export function ChatHistorySearch({ onNavigate }: { onNavigate?: () => void }) {
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <IconButton
-          size="sm"
-          prominence="internal"
-          aria-label={ui("Tìm hội thoại")}
-          title={ui("Tìm hội thoại")}
+        <SidebarTab
+          icon={<Search className="size-4" />}
+          collapsed={collapsed}
+          aria-keyshortcuts="Control+K Meta+K"
         >
-          <Search />
-        </IconButton>
+          {ui("Tìm hội thoại")}
+        </SidebarTab>
       }
     >
       <Command shouldFilter={false} label={ui("Tìm hội thoại")}>

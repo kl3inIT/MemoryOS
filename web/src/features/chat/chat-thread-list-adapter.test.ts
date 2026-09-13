@@ -18,7 +18,6 @@ const session: ChatSession = {
   title: "Question",
   createdAt: "2026-09-09T00:00:00Z",
   updatedAt: "2026-09-10T00:00:00Z",
-  archived: false,
 };
 const message = (id: string, role: ChatMessage["role"], status: ChatMessage["status"]) =>
   ({
@@ -60,26 +59,21 @@ function setup() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("assistant-ui thread list adapter over the session API", () => {
-  it("lists regular and archived conversations with an offset cursor and rebuilds rows", async () => {
+  it("lists conversations with an offset cursor and rebuilds rows", async () => {
     const page = Array.from({ length: 30 }, (_, index) => ({
       ...session,
       id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
-      archived: index === 1,
     }));
     const requests = stubFetch(() => json(page));
     const { adapter } = setup();
 
     const first = await adapter.list();
 
-    expect(requests).toEqual(["GET /api/chat/sessions?status=ALL&offset=0&limit=30"]);
+    expect(requests).toEqual(["GET /api/chat/sessions?offset=0&limit=30"]);
     expect(first.nextCursor).toBe("30");
-    expect(first.threads.map((thread) => thread.status).slice(0, 2)).toEqual([
-      "regular",
-      "archived",
-    ]);
-    expect(sessionFromThread({ ...threadMetadata(page[1]!), status: "archived" })).toEqual(page[1]);
+    expect(sessionFromThread(threadMetadata(page[1]!))).toEqual(page[1]);
     await adapter.list({ after: "30" });
-    expect(requests.at(-1)).toBe("GET /api/chat/sessions?status=ALL&offset=30&limit=30");
+    expect(requests.at(-1)).toBe("GET /api/chat/sessions?offset=30&limit=30");
   });
 
   it("initializes from the transport's session and allows retry after a failed first send", async () => {

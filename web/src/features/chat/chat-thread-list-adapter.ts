@@ -3,13 +3,11 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createAssistantStream } from "assistant-stream";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
-  archiveChatSession,
   deleteChatSession,
   generateChatTitle,
   getChatSession,
   listChatSessions,
   renameChatSession,
-  unarchiveChatSession,
 } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import type { ChatThreadController, ChatThreadRegistry } from "./chat-thread-controller";
@@ -32,7 +30,7 @@ export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
     projectId: session.projectId ?? null,
   };
   return {
-    status: session.archived ? "archived" : "regular",
+    status: "regular",
     remoteId: session.id,
     title: session.title,
     lastMessageAt: new Date(session.updatedAt),
@@ -44,17 +42,11 @@ export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
 export function sessionFromThread(item: {
   remoteId?: string;
   title?: string;
-  status: string;
   custom?: Record<string, unknown>;
 }): ChatSession | undefined {
   const custom = item.custom as ChatThreadCustom | undefined;
   if (!item.remoteId || !custom) return undefined;
-  return {
-    id: item.remoteId,
-    title: item.title ?? "",
-    archived: item.status === "archived",
-    ...custom,
-  };
+  return { id: item.remoteId, title: item.title ?? "", ...custom };
 }
 
 /**
@@ -75,7 +67,7 @@ export function createChatThreadListAdapter(
     async list(params) {
       const offset = params?.after ? Number(params.after) : 0;
       const { data } = await listChatSessions({
-        query: { status: "ALL", offset, limit: PAGE },
+        query: { offset, limit: PAGE },
         signal: AbortSignal.timeout(30_000),
         throwOnError: true,
       });
@@ -109,21 +101,12 @@ export function createChatThreadListAdapter(
       registry.byRemoteId(remoteId)?.updateSession(data);
       await refreshLists(remoteId);
     },
-    async archive(remoteId) {
-      await archiveChatSession({
-        ...request,
-        path: { sessionId: remoteId },
-        signal: AbortSignal.timeout(30_000),
-      });
-      await refreshLists(remoteId);
+    // Conversations have no archived state; the UI never offers archive actions.
+    async archive() {
+      throw new Error("Archiving conversations is not supported");
     },
-    async unarchive(remoteId) {
-      await unarchiveChatSession({
-        ...request,
-        path: { sessionId: remoteId },
-        signal: AbortSignal.timeout(30_000),
-      });
-      await refreshLists(remoteId);
+    async unarchive() {
+      throw new Error("Archiving conversations is not supported");
     },
     async delete(remoteId) {
       await deleteChatSession({

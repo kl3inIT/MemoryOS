@@ -50,6 +50,7 @@ export function ChatNavigation({
       >
         {ui("Hội thoại mới")}
       </SidebarTab>
+      <ChatHistorySearch collapsed={collapsed} onNavigate={onNavigate} />
       <SidebarTab
         to="/assistants"
         icon={<Bot className="size-4" />}
@@ -60,18 +61,15 @@ export function ChatNavigation({
         {ui("Trợ lý")}
       </SidebarTab>
       {collapsed ? (
-        <>
-          <ChatHistorySearch onNavigate={onNavigate} />
-          <SidebarTab
-            to="/projects"
-            icon={<Folder className="size-4" />}
-            collapsed
-            selected={pathname.startsWith("/projects")}
-            onClick={onNavigate}
-          >
-            {ui("Dự án")}
-          </SidebarTab>
-        </>
+        <SidebarTab
+          to="/projects"
+          icon={<Folder className="size-4" />}
+          collapsed
+          selected={pathname.startsWith("/projects")}
+          onClick={onNavigate}
+        >
+          {ui("Dự án")}
+        </SidebarTab>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto pt-4">
           <div className="mb-2 flex items-center justify-between px-2">
@@ -115,12 +113,9 @@ export function ChatNavigation({
               {ui("Tạo dự án mới")}
             </Button>
           )}
-          <div className="flex items-center justify-between px-2 pb-2 pt-6">
-            <h2 className="text-sm font-medium text-content-secondary">
-              {ui("Hội thoại gần đây")}
-            </h2>
-            <ChatHistorySearch onNavigate={onNavigate} />
-          </div>
+          <h2 className="px-2 pb-2 pt-6 text-sm font-medium text-content-secondary">
+            {ui("Hội thoại gần đây")}
+          </h2>
           {threads && <ThreadListConversations onNavigate={onNavigate} />}
         </div>
       )}
@@ -140,12 +135,10 @@ export function ChatNavigation({
 function ThreadListConversations({ onNavigate }: { onNavigate?: () => void }) {
   const ui = useAppTranslation();
   const { runtime } = useChatThreads();
-  const [showArchived, setShowArchived] = useState(false);
   const isLoading = useAuiState((state) => state.threads.isLoading);
   const isLoadingMore = useAuiState((state) => state.threads.isLoadingMore);
   const hasMore = useAuiState((state) => state.threads.hasMore);
   const threadIds = useAuiState((state) => state.threads.threadIds);
-  const archivedIds = useAuiState((state) => state.threads.archivedThreadIds);
   const items = useAuiState((state) => state.threads.threadItems);
   const byId = new Map(items.map((item) => [item.id, item]));
   const rows = (ids: readonly string[]) =>
@@ -155,7 +148,6 @@ function ThreadListConversations({ onNavigate }: { onNavigate?: () => void }) {
       return session ? [{ ...session, threadId }] : [];
     });
   const regular = rows(threadIds);
-  const archived = rows(archivedIds);
   const groups = groupThreadTitles(regular);
   const groupLabels = { today: ui("Hôm nay"), yesterday: ui("Hôm qua"), earlier: ui("Trước đó") };
   return (
@@ -197,36 +189,6 @@ function ThreadListConversations({ onNavigate }: { onNavigate?: () => void }) {
           {ui("Xem thêm hội thoại")}
         </Button>
       )}
-      {archived.length > 0 && (
-        <div className="pt-4">
-          <Button
-            size="sm"
-            prominence="internal"
-            className="w-full justify-start"
-            aria-expanded={showArchived}
-            onClick={() => setShowArchived(!showArchived)}
-          >
-            {showArchived ? (
-              <ChevronDown className="size-4" />
-            ) : (
-              <ChevronRight className="size-4" />
-            )}
-            {ui("Hội thoại đã lưu trữ")}
-          </Button>
-          {showArchived && (
-            <ThreadList label={ui("Hội thoại đã lưu trữ")}>
-              {archived.map((session) => (
-                <ChatThreadRow
-                  key={session.threadId}
-                  threadId={session.threadId}
-                  session={session}
-                  onNavigate={onNavigate}
-                />
-              ))}
-            </ThreadList>
-          )}
-        </div>
-      )}
     </>
   );
 }
@@ -248,7 +210,6 @@ function ChatThreadRow({
       onNavigate={onNavigate}
       rename={(title) => item().rename(title)}
       deleteSession={() => item().delete()}
-      archive={() => (session.archived ? item().unarchive() : item().archive())}
     />
   );
 }

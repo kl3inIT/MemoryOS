@@ -1,10 +1,10 @@
-# Chat ThreadList runtime and archive
+# Chat ThreadList runtime
 
-Status: approved under the owner's 2026-09-13 goal ("start, commit each part"). Archive was included by the implementer's default because the owner did not answer the scope question; the owner may veto it at pull-request review.
+Status: approved under the owner's 2026-09-13 goal ("start, commit each part"). Conversation archive was implemented and then withdrawn by the owner after UI review on the same day (see plan); conversations have no archived state.
 
 ## Goal
 
-Move the Chat sidebar and conversation lifecycle onto assistant-ui's remote thread list instead of the page-local runtime plus React Query list. Add conversation archive.
+Move the Chat sidebar and conversation lifecycle onto assistant-ui's remote thread list instead of the page-local runtime plus React Query list.
 
 Visible behavior must not regress:
 - project folders and drag-and-drop;
@@ -23,7 +23,7 @@ Visible behavior must not regress:
 **No background threads.**
 - `backgroundThreads` exists only on the `RemoteThreadList` store entry.
 - That entry needs a per-thread AI SDK chat factory. `useChatThread`/`AISDKChatThread` are not exported, and `AISDKThreads` hard-wires the assistant-cloud adapter.
-- **Consequence:** only the visible thread is mounted. A switched-away reply keeps running on the server and is resumed when the thread is opened again, as today.
+- **Consequence:** only the visible thread streams. Visited bodies stay mounted but close their reader; a switched-away reply keeps running on the server and is resumed when the thread is opened again, as today.
 - Sidebar `isRunning` is live only for the visible thread.
 - Revisit when ai-sdk exports a per-thread factory for custom adapters. Do not deep-import dist internals.
 
@@ -37,7 +37,7 @@ Visible behavior must not regress:
 - After initialization, `generateTitle()` runs once, as soon as any non-running message exists. That already happens with the user message, mid-stream.
 - `adapter.generateTitle` must return an `AssistantStream`. The core only updates local title state from it; it does not call `adapter.rename`.
 
-**Switching.** A controlled `threadId` that is not in the loaded page is resolved through `adapter.fetch`. Switching to an archived thread unarchives it by default. The core knows archived threads only from `list()`/`fetch()` results.
+**Switching.** A controlled `threadId` that is not in the loaded page is resolved through `adapter.fetch`. Every MemoryOS thread is reported as `regular`, so the library's archive transitions never occur.
 
 **History.** `useAISDKRuntime` consumes the ambient `history` adapter from `unstable_useAdapters` through `withFormat(aiSDKV6FormatAdapter)`. It gates the thread with `isLoading` until `load()` resolves.
 
@@ -62,13 +62,13 @@ There is a single stable adapter object per provider mount.
 
 | Method | MemoryOS call |
 | --- | --- |
-| `list({after})` | `listChatSessions` with an offset cursor, 30 per page, `status=ALL`. Each row maps to `regular` or `archived`, so both sidebar sections render from core state. `custom` = `{updatedAt, projectId, personaId}`; `lastMessageAt` = `updatedAt`. |
-| `fetch(id)` | `getChatSession`; status comes from `archived`. |
+| `list({after})` | `listChatSessions` with an offset cursor, 30 per page. Rows are `regular`. `custom` = `{updatedAt, createdAt, projectId, personaId, rootMessageId}`; `lastMessageAt` = `updatedAt`. |
+| `fetch(id)` | `getChatSession`. |
 | `initialize(localId)` | Awaits the thread controller's session deferred (see below) and returns its id. It never creates a session with a placeholder title. |
 | `rename` / `delete` | `renameChatSession` / `deleteChatSession`. |
-| `archive` / `unarchive` | New endpoints. |
+| `archive` / `unarchive` | Required by the adapter type; reject because the product has no archive and the UI never offers it. |
 | `generateTitle(remoteId)` | Waits until the thread controller reports its first `ready` after an accepted turn. Then calls `generateChatTitle` (server-side, once, preserves manual rename) and emits the returned title as a one-part `AssistantStream`, as in the library's `LocalStorageThreadListAdapter`. The page no longer calls `generateChatTitle`. If the thread unmounts first, the next list reload shows the server title, and the server naming stays pending for a later explicit trigger. |
-| `unstable_useAdapters` | `{ history, attachments }` for each mounted thread. |
+| History and attachments | Passed directly to `useAISDKRuntime` by the per-thread runtime hook, one instance per mounted thread. |
 
 **History adapter.**
 - `load()` returns `loadChatHistory(remoteId)`, mapped with `toUiMessages` into linear selected-branch `{parentId, message}` items.
@@ -82,8 +82,9 @@ There is a single stable adapter object per provider mount.
 
 A `ChatThreadController` holds the transport, connection state, error, stopping, checking, unavailable, the model notice and a session deferred.
 - It is created per local thread id in a small registry and read through `useSyncExternalStore`.
-- `runtimeHook` creates it and calls `useChatRuntime({ transport, isSendDisabled, ... })`. The page reads the main thread's controller.
-- `ChatRuntimeBridge` keeps using `useAISDKChat`, which resolves per thread scope.
+- `runtimeHook` creates it and composes `useChat` with `useAISDKRuntime` (history, attachments, `isSendDisabled`). The page reads the main thread's controller.
+- The controller owns what `ChatRuntimeBridge` did: accepted-ID replacement, cancel, check/reload and resume.
+- The list host keeps visited thread bodies mounted; a hidden thread closes its reply reader and reconciles from saved history when shown again.
 - The controller is disposed when the thread body unmounts.
 
 Session creation stays in the transport, where the first question text is available.
@@ -105,20 +106,11 @@ The page header reads title, persona and project from `threadListItem` state and
 **Regular list.**
 - The sidebar reads `threads.threadIds`/`threadItems` from the list state and keeps the existing Today/Yesterday/Earlier sections, grouped by `custom.updatedAt`. `ThreadListPrimitive.Items` cannot emit section headers, so the sections iterate the same state.
 - A wrapper maps `threadListItem` to the `ChatSession` shape and renders the existing prop-driven `ChatSessionRow`, which project lists still reuse.
-- Rename, delete and archive go through `aui.threadListItem`, so list state updates optimistically.
+- Rename and delete go through `aui.threadListItem`, so list state updates optimistically.
 - Share and move-to-project stay app-owned and reload the list.
 - "Load more" uses `loadMore`.
 
-**Archived section.** A collapsible "Archived" section renders `ThreadListPrimitive.Items archived` with unarchive and delete.
-
-### Archive backend
-
-- V51 adds `chat_session.archived_at TIMESTAMPTZ`.
-- `GET /api/chat/sessions?status=REGULAR|ARCHIVED|ALL` (default `REGULAR` for existing callers). Ordering and page bounds are unchanged.
-- `PUT /api/chat/sessions/{id}/archive` and `DELETE /api/chat/sessions/{id}/archive` are owner-only and idempotent. They return the session, or 404 for inaccessible sessions. Archiving does not change `updated_at`.
-- `ChatSessionResponse.archived` is a boolean.
-- History search and project conversation lists exclude archived conversations.
-- Get, history, rename, delete, sharing and sending still work on archived rows. The server does not unarchive on send; the UI unarchives when a conversation is opened.
+**Search entry.** "Search conversations" is a sidebar row directly under "New conversation" (icon only when collapsed), following the Claude/v0 pattern reviewed on Mobbin, and Ctrl/⌘+K opens the same server search dialog. The "Recent conversations" heading no longer carries a search icon.
 
 ## Out of scope
 

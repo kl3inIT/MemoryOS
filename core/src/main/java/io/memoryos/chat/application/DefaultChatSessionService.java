@@ -5,7 +5,6 @@ import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSession;
 import io.memoryos.chat.ChatSessionService;
-import io.memoryos.chat.ChatSessionStatus;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcChatSearchRepository;
 import io.memoryos.iam.ActorId;
@@ -44,9 +43,9 @@ public class DefaultChatSessionService implements ChatSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ChatSession> list(ActorId actor, ChatSessionStatus status, int offset, int limit) {
+    public List<ChatSession> list(ActorId actor, int offset, int limit) {
         page(offset, limit);
-        return chats.list(tenant(actor), actor, status, offset, limit);
+        return chats.list(tenant(actor), actor, offset, limit);
     }
 
     @Override
@@ -56,7 +55,7 @@ public class DefaultChatSessionService implements ChatSessionService {
         if (query == null || query.length() > 200 || query.indexOf('\0') >= 0 || limit > 50)
             throw ChatException.invalid("Search query must be at most 200 characters and limit at most 50.");
         var tenant = tenant(actor);
-        return query.isBlank() ? chats.list(tenant, actor, ChatSessionStatus.REGULAR, offset, limit + 1)
+        return query.isBlank() ? chats.list(tenant, actor, offset, limit + 1)
                 : search.search(tenant, actor, query.strip(), offset, limit + 1);
     }
 
@@ -87,16 +86,6 @@ public class DefaultChatSessionService implements ChatSessionService {
         chats.lockOwner(tenant, actor);
         chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);
         chats.rename(sessionId, title.strip());
-        return chats.findOwned(tenant, actor, sessionId, false).orElseThrow();
-    }
-
-    @Override
-    @Transactional
-    public ChatSession archive(ActorId actor, UUID sessionId, boolean archived) {
-        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        chats.lockOwner(tenant, actor);
-        chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);
-        chats.archive(sessionId, archived);
         return chats.findOwned(tenant, actor, sessionId, false).orElseThrow();
     }
 

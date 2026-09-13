@@ -5,7 +5,6 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatMessage.Role;
 import io.memoryos.chat.ChatMessage.Status;
 import io.memoryos.chat.ChatSession;
-import io.memoryos.chat.ChatSessionStatus;
 import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
@@ -75,15 +74,11 @@ public class JdbcChatRepository {
                 .query(JdbcChatRepository::session).optional();
     }
 
-    public List<ChatSession> list(TenantId tenant, ActorId actor, ChatSessionStatus status, int offset, int limit) {
-        String archived = switch (status) {
-            case REGULAR -> " AND archived_at IS NULL";
-            case ARCHIVED -> " AND archived_at IS NOT NULL";
-            case ALL -> "";
-        };
-        return jdbc.sql("SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL"
-                        + archived + " ORDER BY updated_at DESC, id LIMIT :limit OFFSET :offset")
-                .param("tenant", tenant.value()).param("actor", actor.value())
+    public List<ChatSession> list(TenantId tenant, ActorId actor, int offset, int limit) {
+        return jdbc.sql("""
+                        SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL
+                        ORDER BY updated_at DESC, id LIMIT :limit OFFSET :offset
+                        """).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
     }
 
@@ -255,13 +250,6 @@ public class JdbcChatRepository {
                 .param("title", title).param("session", session).update();
     }
 
-    public void archive(UUID session, boolean archived) {
-        jdbc.sql("""
-                UPDATE chat_session SET archived_at = CASE WHEN :archived THEN COALESCE(archived_at, CURRENT_TIMESTAMP) END
-                WHERE id=:session AND deleted_at IS NULL
-                """).param("archived", archived).param("session", session).update();
-    }
-
     public boolean claimTitle(UUID session) {
         return jdbc.sql("UPDATE chat_session SET title_naming_pending=false WHERE id=:id AND title_naming_pending=true AND deleted_at IS NULL")
                 .param("id", session).update() == 1;
@@ -300,7 +288,7 @@ public class JdbcChatRepository {
     public List<ChatSession> projectSessions(TenantId tenant, ActorId actor, UUID project, int offset, int limit) {
         return jdbc.sql("""
                 SELECT * FROM chat_session WHERE tenant_id=:tenant AND owner_actor_id=:actor
-                    AND project_id=:project AND deleted_at IS NULL AND archived_at IS NULL ORDER BY updated_at DESC,id LIMIT :limit OFFSET :offset
+                    AND project_id=:project AND deleted_at IS NULL ORDER BY updated_at DESC,id LIMIT :limit OFFSET :offset
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("project", project)
                 .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
     }
@@ -385,8 +373,7 @@ public class JdbcChatRepository {
     static ChatSession session(ResultSet row, int ignored) throws SQLException {
         return new ChatSession(row.getObject("id", UUID.class), row.getObject("persona_id", UUID.class),
                 row.getObject("root_message_id", UUID.class), row.getString("title"),
-                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(), row.getObject("project_id", UUID.class),
-                row.getTimestamp("archived_at") != null);
+                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(), row.getObject("project_id", UUID.class));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

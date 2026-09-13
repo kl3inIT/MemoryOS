@@ -225,24 +225,6 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
         mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(other)))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(put("/api/chat/sessions/" + id + "/archive").with(authentication(actor)))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(put("/api/chat/sessions/" + id + "/archive").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
-                .andExpect(status().isNotFound());
-        mockMvc.perform(put("/api/chat/sessions/" + id + "/archive").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.archived").value(true));
-        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
-        mockMvc.perform(get("/api/chat/sessions").param("status", "ARCHIVED").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(id));
-        mockMvc.perform(get("/api/chat/sessions").param("status", "archived-ish").with(authentication(actor)))
-                .andExpect(status().isBadRequest());
-        mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(actor)))
-                .andExpect(status().isOk());
-        mockMvc.perform(delete("/api/chat/sessions/" + id + "/archive").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.archived").value(false));
-        mockMvc.perform(get("/api/chat/sessions").param("status", "ALL").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
         jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                 .param("actor", actor.getPrincipal().actorId().value()).update();
         // Existing global membership filter rejects the request before the Chat controller.

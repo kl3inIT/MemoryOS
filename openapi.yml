@@ -865,119 +865,6 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/chat/sessions/{sessionId}/archive:
-    put:
-      tags:
-      - Chat
-      summary: Hide an owned conversation from the regular list and history search
-      operationId: archiveChatSession
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sessionId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid chat request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Tenant membership or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conversation is running or revision has changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Archived conversation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatSession"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - Chat
-      summary: Return an archived conversation to the regular list
-      operationId: unarchiveChatSession
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sessionId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid chat request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Tenant membership or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conversation is running or revision has changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Regular conversation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatSession"
-      security:
-      - bearerAuth: []
-      - browserSession: []
   /api/chat/providers/{providerId}:
     put:
       tags:
@@ -3238,19 +3125,9 @@ paths:
     get:
       tags:
       - Chat
-      summary: "List the actor's private chat sessions, regular by default"
+      summary: List the actor's private chat sessions
       operationId: listChatSessions
       parameters:
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          default: REGULAR
-          enum:
-          - REGULAR
-          - ARCHIVED
-          - ALL
       - name: offset
         in: query
         required: false
@@ -6916,10 +6793,7 @@ components:
           - string
           - "null"
           format: uuid
-        archived:
-          type: boolean
       required:
-      - archived
       - createdAt
       - id
       - personaId

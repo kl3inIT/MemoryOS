@@ -242,7 +242,7 @@ class ChatPersistenceIntegrationTest {
         turns.delete(owner, session.id());
         assertFalse(turns.finish(session.id(), regeneration.assistantMessageId(), ChatMessage.Status.COMPLETED, "Late answer"));
         assertThrows(ChatException.class, () -> sessions.get(owner, session.id()));
-        assertTrue(sessions.list(owner, ChatSessionStatus.ALL, 0, 100).isEmpty());
+        assertTrue(sessions.list(owner, 0, 100).isEmpty());
     }
 
     @Test
@@ -330,21 +330,8 @@ class ChatPersistenceIntegrationTest {
         assertEquals(first.personaId(), second.personaId());
         assertEquals(first, sessions.get(owner, first.id()));
         assertTrue(sessions.history(owner, first.id(), null, 20).isEmpty());
-        assertEquals(2, sessions.list(owner, ChatSessionStatus.REGULAR, 0, 30).size());
-        assertTrue(sessions.list(other, ChatSessionStatus.ALL, 0, 30).isEmpty());
-        var updated = sessions.get(owner, first.id()).updatedAt();
-        assertTrue(sessions.archive(owner, first.id(), true).archived());
-        assertTrue(sessions.archive(owner, first.id(), true).archived());
-        assertEquals(updated, sessions.get(owner, first.id()).updatedAt());
-        assertEquals(List.of(second.id()), sessions.list(owner, ChatSessionStatus.REGULAR, 0, 30).stream().map(ChatSession::id).toList());
-        assertEquals(List.of(first.id()), sessions.list(owner, ChatSessionStatus.ARCHIVED, 0, 30).stream().map(ChatSession::id).toList());
-        assertEquals(2, sessions.list(owner, ChatSessionStatus.ALL, 0, 30).size());
-        assertEquals(List.of(second.id()), sessions.search(owner, "", 0, 30).stream().map(ChatSession::id).toList());
-        assertTrue(sessions.search(owner, "First", 0, 30).isEmpty());
-        assertEquals("First", sessions.rename(owner, first.id(), "First").title());
-        assertThrows(ChatException.class, () -> sessions.archive(other, first.id(), false));
-        assertFalse(sessions.archive(owner, first.id(), false).archived());
-        assertEquals(1, sessions.search(owner, "First", 0, 30).size());
+        assertEquals(2, sessions.list(owner, 0, 30).size());
+        assertTrue(sessions.list(other, 0, 30).isEmpty());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, first.id())).code());
         // The deployment schema permits one Tenant; verify the repository still scopes by its ID.
         assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.TenantId(UUID.randomUUID()),

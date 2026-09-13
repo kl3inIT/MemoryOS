@@ -65,19 +65,6 @@ class ChatSessionEditorController {
         turns.delete(identity.actorId(), sessionId);
     }
 
-    @PutMapping("/archive")
-    @Operation(operationId = "archiveChatSession", summary = "Hide an owned conversation from the regular list and history search")
-    @ApiResponse(responseCode = "200", description = "Archived conversation", useReturnTypeSchema = true)
-    ChatSessionResponse archive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId) {
-        return ChatSessionResponse.from(sessions.archive(identity.actorId(), sessionId, true));
-    }
-    @DeleteMapping("/archive")
-    @Operation(operationId = "unarchiveChatSession", summary = "Return an archived conversation to the regular list")
-    @ApiResponse(responseCode = "200", description = "Regular conversation", useReturnTypeSchema = true)
-    ChatSessionResponse unarchive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId) {
-        return ChatSessionResponse.from(sessions.archive(identity.actorId(), sessionId, false));
-    }
-
     @PostMapping("/title")
     @Operation(operationId = "generateChatTitle", summary = "Generate a short owned conversation title once, preserving manual renames")
     @ApiResponse(responseCode = "200", description = "Current title, including fallback when naming is unavailable", useReturnTypeSchema = true)

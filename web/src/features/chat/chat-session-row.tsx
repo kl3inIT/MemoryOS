@@ -22,7 +22,6 @@ export function ChatSessionRow({
   showTime = false,
   rename,
   deleteSession,
-  archive,
 }: {
   session: ChatSession;
   onNavigate?: () => void;
@@ -30,7 +29,6 @@ export function ChatSessionRow({
   /** Thread-list actions; rows outside the thread list use the session API directly. */
   rename?: (title: string) => Promise<void>;
   deleteSession?: () => Promise<void>;
-  archive?: () => Promise<void>;
 }) {
   const ui = useAppTranslation();
 
@@ -66,13 +64,6 @@ export function ChatSessionRow({
             <ChatSessionMenu
               session={session}
               deleteSession={deleteSession}
-              onArchive={
-                archive &&
-                (() => {
-                  setError(undefined);
-                  void archive().catch((cause: unknown) => setError(chatActionError(cause)));
-                })
-              }
               onRename={() => {
                 setTitle(session.title);
                 setError(undefined);

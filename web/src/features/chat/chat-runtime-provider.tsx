@@ -49,7 +49,7 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
       const current = path.current;
       if (id && isChatRoute(current) && current !== `/chat/${id}`)
         void navigate({ to: "/chat/$sessionId", params: { sessionId: id }, replace: true });
-      // Deleting or archiving the open conversation moves the list to a new thread.
+      // Deleting the open conversation moves the list to a new thread.
       else if (!id && current.startsWith("/chat/")) void navigate({ to: "/" });
     },
   });

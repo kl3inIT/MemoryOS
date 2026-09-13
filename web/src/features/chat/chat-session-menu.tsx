@@ -4,8 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import {
-  Archive,
-  ArchiveRestore,
   FolderInput,
   FolderOutput,
   MoreHorizontal,
@@ -34,18 +32,15 @@ export function ChatSessionMenu({
   onChange,
   deleteSession,
   onDelete,
-  onArchive,
   busy = false,
 }: {
-  session: Pick<ChatSession, "id" | "title" | "projectId"> & { archived?: boolean };
+  session: Pick<ChatSession, "id" | "title" | "projectId">;
   onRename?: () => void;
   onConfigure?: () => void;
   onChange?: () => Promise<void>;
   /** Thread-list deletion; defaults to the direct API call for lists outside the thread list. */
   deleteSession?: () => Promise<void>;
   onDelete?: () => void;
-  /** Toggles archive; offered only where the thread list owns the row. */
-  onArchive?: () => void;
   busy?: boolean;
 }) {
   const ui = useAppTranslation();
@@ -118,16 +113,6 @@ export function ChatSessionMenu({
             <More.Item className={itemClass} disabled={busy} onSelect={onConfigure}>
               <Settings2 className="size-4" />
               {ui("Cấu hình hội thoại")}
-            </More.Item>
-          )}
-          {onArchive && (
-            <More.Item className={itemClass} disabled={busy} onSelect={onArchive}>
-              {session.archived ? (
-                <ArchiveRestore className="size-4" />
-              ) : (
-                <Archive className="size-4" />
-              )}
-              {session.archived ? ui("Bỏ lưu trữ") : ui("Lưu trữ")}
             </More.Item>
           )}
           <More.Separator className="my-1 border-t border-border-subtle" />
