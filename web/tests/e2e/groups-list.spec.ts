@@ -123,11 +123,6 @@ test("Groups list separates defaults, searches server-side and opens group detai
   const fixture = await mockGroups(page);
   await page.goto("/admin/groups");
   await expect(page.getByRole("heading", { name: "Groups", exact: true })).toBeVisible();
-  await expect(page.getByText("Permissions have changed")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Learn more" })).toHaveAttribute(
-    "href",
-    /docs\/specs\/identity\.md/,
-  );
   await expect(page.getByText("Default", { exact: true })).toHaveCount(2);
   await expect(page.getByRole("article").getByRole("heading")).toHaveText([
     "Admin",

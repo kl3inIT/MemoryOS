@@ -98,7 +98,7 @@ export function SourceGroupsSection({
       </div>
       <p className="mt-3 font-main-ui-body text-content-muted">
         {ui(
-          "Groups scope Source management. For private File Sources, their members can also search and read documents. Drive document access is not granted here. Admin and other global Source managers do not need a group association to manage a Source.",
+          "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.",
         )}
       </p>
 

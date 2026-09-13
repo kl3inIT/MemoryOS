@@ -26,6 +26,10 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSourceDocumentRepository {
     private static final ObjectMapper METADATA_MAPPER = new ObjectMapper();
+    private static final String SEARCHABLE_SOURCE = """
+            (c.connector_type='FILE'
+             OR (c.connector_type='GOOGLE_DRIVE' AND p.access_type='RESTRICTED'))
+            """;
     private static final String READ_SCOPE = """
             EXISTS (
                 SELECT 1 FROM tenant_memberships reader
@@ -74,9 +78,9 @@ public class JdbcSourceDocumentRepository {
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND p.status='ACTIVE' AND c.status='ACTIVE' AND c.connector_type='FILE' AND d.status='ELIGIBLE'
+                    AND p.status='ACTIVE' AND c.status='ACTIVE' AND %s AND d.status='ELIGIBLE'
                     AND %s
-                """.formatted(READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("documents", documents).query(UUID.class).list());
     }
 
@@ -86,9 +90,9 @@ public class JdbcSourceDocumentRepository {
                 SELECT p.id,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
                 WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
-                    AND c.status='ACTIVE' AND c.connector_type='FILE' AND %s
+                    AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY p.id
-                """.formatted(READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value()).query((rs, _) -> {
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value()).query((rs, _) -> {
                     result.put(rs.getObject("id", UUID.class), SourceType.valueOf(rs.getString("connector_type")));
                     return true;
                 }).list();
@@ -101,9 +105,9 @@ public class JdbcSourceDocumentRepository {
                 SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
                 WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
-                    AND c.status='ACTIVE' AND c.connector_type='FILE' AND %s
+                    AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY c.name,p.id LIMIT :limit OFFSET :offset
-                """.formatted(READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("offset", offset).param("limit", limit)
                 .query((rs, _) -> new io.memoryos.connector.SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
                         rs.getString("name"), SourceType.valueOf(rs.getString("connector_type")))).list();
@@ -125,10 +129,10 @@ public class JdbcSourceDocumentRepository {
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
                     AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation)
-                    AND c.status='ACTIVE' AND c.connector_type='FILE' AND p.status<>'DELETING'
+                    AND c.status='ACTIVE' AND %s AND p.status<>'DELETING'
                     AND (:indexing OR (p.status='ACTIVE' AND %s))
                 ORDER BY m.document_id,p.id,i.id
-                """.formatted(READ_SCOPE)).param("tenant", tenant.value()).param("documents", ids).param("indexing", actor == null)
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("documents", ids).param("indexing", actor == null)
                 .param("actor", actor == null ? null : actor.value(), Types.OTHER)
                 .param("anyGeneration", generation == null).param("generation", generation, Types.OTHER)
                 .query((rs, _) -> {

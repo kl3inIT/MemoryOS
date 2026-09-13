@@ -236,16 +236,16 @@ export const englishUi: Record<string, string> = {
     "Chọn ít nhất một nhóm bạn quản lý. Nguồn mới ở chế độ riêng tư.",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
     "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
-  "Groups scope management and private File document access. Drive document access remains separate.":
-    "Nhóm xác định phạm vi quản lý và quyền truy cập tài liệu của Nguồn tệp riêng tư. Quyền truy cập tài liệu Drive được quản lý riêng.",
-  "Groups scope Source management. For private File Sources, their members can also search and read documents. Drive document access is not granted here. Admin and other global Source managers do not need a group association to manage a Source.":
-    "Nhóm xác định phạm vi quản lý Nguồn. Với Nguồn tệp riêng tư, thành viên nhóm còn có thể tìm kiếm và đọc tài liệu. Quyền truy cập tài liệu Drive không được cấp tại đây. Admin và người có quyền quản lý Nguồn toàn Tenant khác không cần liên kết nhóm để quản lý Nguồn.",
+  "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.":
+    "Với nguồn Tệp và Google Drive giới hạn, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Quyền từng tệp trên Google Drive không được đồng bộ.",
+  "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.":
+    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ nguồn Tệp và Google Drive giới hạn. Quyền từng tệp trên Google Drive không được đồng bộ. Quyền quản lý nguồn toàn tổ chức không cấp quyền đọc tài liệu giới hạn nếu không có tư cách thành viên nhóm.",
   "Private Source. Group associations are optional for global Source managers.":
     "Nguồn riêng tư. Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
   "Private Source. Select at least one group you manage.":
     "Nguồn riêng tư. Chọn ít nhất một nhóm bạn quản lý.",
-  "Drive document access is not granted by these groups.":
-    "Các nhóm này không cấp quyền truy cập tài liệu Drive.",
+  "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.":
+    "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập. Quyền từng tệp trên Google không được đồng bộ.",
   "Connection details": "Chi tiết kết nối",
   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
     "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
@@ -302,10 +302,6 @@ export const englishUi: Record<string, string> = {
   "Previous page": "Trang trước",
   "Page {{v1}} of {{v2}}": "Trang {{v1}} trên {{v2}}",
   "Next page": "Trang sau",
-  "Permissions have changed": "Quyền truy cập đã thay đổi",
-  "MemoryOS uses group-based permissions. Access is configured per group, so a user’s permissions are the combination of every group they belong to.":
-    "MemoryOS sử dụng quyền truy cập theo nhóm. Quyền truy cập được cấu hình cho từng nhóm, vì vậy quyền của người dùng là tổng hợp quyền của tất cả các nhóm mà họ tham gia.",
-  "Learn more": "Tìm hiểu thêm",
   "New Group": "Nhóm mới",
   "This change would leave a standard user without a group. Add them to another group first, then try again.":
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
@@ -313,8 +309,8 @@ export const englishUi: Record<string, string> = {
     "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
   "Scoped managers must retain at least one managed group. Associate the Source with another group you manage from its detail page first.":
     "Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm mình quản lý. Trước tiên, hãy liên kết nguồn với một nhóm khác mà bạn quản lý từ trang chi tiết của nguồn.",
-  "Associations constrain scoped group-manager authority. They do not narrow the Tenant-wide Source grants.":
-    "Các liên kết giới hạn quyền quản lý nhóm theo phạm vi. Chúng không thu hẹp quyền đối với nguồn trên toàn tổ chức.",
+  "Members can search and read imported documents from associated restricted File and Google Drive Sources. Source management still follows global or scoped permissions.":
+    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ các nguồn Tệp và Google Drive giới hạn được liên kết. Quyền quản lý nguồn vẫn phụ thuộc quyền toàn tổ chức hoặc theo phạm vi.",
   "Administrator access": "Quyền quản trị viên",
   "All product capabilities, including search, identity, user, group, Source, and model administration.":
     "Tất cả các quyền của sản phẩm, bao gồm tìm kiếm và quản trị danh tính, người dùng, nhóm, nguồn và mô hình.",
@@ -515,6 +511,9 @@ export const englishUi: Record<string, string> = {
     "Không tải được nguồn để chọn. Liên kết của bạn không thay đổi.",
   "No Sources match your search.": "Không có nguồn phù hợp.",
   "No Sources are available.": "Chưa có nguồn khả dụng.",
+  "Source choices could not be loaded.": "Không tải được nguồn để chọn.",
+  "All available Sources are selected.": "Đã chọn tất cả nguồn khả dụng.",
+  "Remove {{v1}}": "Gỡ {{v1}}",
   "Saving associations…": "Đang lưu liên kết…",
   "Save associations": "Lưu liên kết",
   "No Sources are associated with this group.": "Chưa có nguồn liên kết với nhóm này.",
@@ -827,8 +826,8 @@ Object.assign(englishUi, {
   "Disconnect shared Google credential?": "Ngắt kết nối tài khoản Google dùng chung?",
   "Disconnecting stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.":
     "Ngắt kết nối dừng thu thập dữ liệu cho toàn bộ {{v1}} nguồn dùng thông tin kết nối này, gồm cả các nguồn khác. Dữ liệu đã lưu không bị xóa. Kết nối lại cùng tài khoản Google để tiếp tục.",
-  "Document access and viewing are not configured by this connection.":
-    "Kết nối này không cấu hình quyền truy cập và xem tài liệu.",
+  "This credential authorizes importing files. MemoryOS Source groups control who can search and read the imported documents.":
+    "Thông tin kết nối này cho phép nhập tệp. Nhóm của nguồn trong MemoryOS quyết định ai được tìm kiếm và đọc tài liệu đã nhập.",
   "Retry Save selection": "Thử lưu lựa chọn lại",
   "Save selection": "Lưu lựa chọn",
   "Close draft": "Đóng bản nháp",
@@ -1066,8 +1065,8 @@ Object.assign(englishUi, {
   "Source summary": "Tóm tắt nguồn",
   "Source status": "Trạng thái nguồn",
   Access: "Truy cập",
-  "Google Drive document access is not configured here.":
-    "Quyền truy cập tài liệu Google Drive không được cấu hình tại đây.",
+  "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.":
+    "Quyền đọc tài liệu được xác định theo nhóm MemoryOS của nguồn này, không theo quyền từng tệp trên Google Drive.",
   "Documents indexed": "Tài liệu đã lập chỉ mục",
   "Last indexed successfully": "Lập chỉ mục thành công gần nhất",
   "Not yet": "Chưa có",

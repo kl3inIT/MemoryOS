@@ -565,6 +565,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     private SourcePermissions readPermissions(ActorId actorId) {
         ActorId requiredActorId = requireActorId(actorId);
+        
         IamAccess access = authorization.require(requiredActorId, IamCapability.SOURCES_READ, true);
         Set<IamCapability> globalCapabilities = authorization.effectiveCapabilities(requiredActorId);
         return new SourcePermissions(

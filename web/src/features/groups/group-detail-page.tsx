@@ -224,6 +224,7 @@ function GroupDetail({
         setBaselineCapabilities(new Set(selectedCapabilities));
       }
       await onAuthorityChanged();
+      await navigate({ to: "/admin/groups", search: { page: 0, size: 20 } });
     } catch (cause) {
       setError(groupMutationError(cause, capabilitiesDirty ? "capabilities" : "rename"));
     }

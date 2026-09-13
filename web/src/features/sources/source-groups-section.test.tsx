@@ -177,9 +177,8 @@ describe("ordinary Source associations", () => {
     const { saved } = setup(
       <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
     );
-    const choice = await screen.findByRole("checkbox", { name: /Team knowledge/ });
-    await waitFor(() => expect(choice).toBeChecked());
-    await user.click(choice);
+    const remove = await screen.findByRole("button", { name: /Remove Team knowledge/ });
+    await user.click(remove);
     await user.click(screen.getByRole("button", { name: "Save associations" }));
     await waitFor(() => expect(saved).toEqual([[]]));
   });
@@ -190,9 +189,8 @@ describe("ordinary Source associations", () => {
       <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
       scopedSession,
     );
-    const choice = await screen.findByRole("checkbox", { name: /Team knowledge/ });
-    await waitFor(() => expect(choice).toBeChecked());
-    await user.click(choice);
+    const remove = await screen.findByRole("button", { name: /Remove Team knowledge/ });
+    await user.click(remove);
     await user.click(screen.getByRole("button", { name: "Save associations" }));
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(saved).toEqual([]);

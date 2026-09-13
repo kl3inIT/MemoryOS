@@ -572,7 +572,9 @@ function GoogleDriveSourceSetup() {
             {globalManage
               ? ui("Private Source. Group associations are optional for global Source managers.")
               : ui("Private Source. Select at least one group you manage.")}{" "}
-            {ui("Drive document access is not granted by these groups.")}
+            {ui(
+              "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.",
+            )}
           </p>
           <GoogleDriveLinks
             scopeMode={scopeMode}
