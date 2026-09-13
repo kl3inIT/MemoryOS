@@ -115,6 +115,7 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 | Rename Escape/focus restore, retained draft on error, header synchronization; inline edit failure preserves the UUID through retry | Draft recovery scenario in `chat-workspace.spec.ts` |
 | Separate reactions retain drafts on error, survive reload and can be removed; feedback remains answer-version-specific | Feedback recovery and saved-branch scenarios in `chat-workspace.spec.ts` |
 | Regenerate with another catalog model records that model and keeps the composer choice; answer time and duration appear only on hover | Model regeneration scenario in `chat-workspace.spec.ts`; `chat-transport.test.ts` checks live `createdAt`/`finishedAt` metadata and history mapping |
+| An unsent question survives a reload of the same tab and is forgotten once sent | Draft restore scenario in `chat-workspace.spec.ts` |
 | Share/copy in one dialog, clipboard-denied manual fallback, native radio keyboard selection, focus restore and stale revision gating | Sharing scenarios in `chat-workspace.spec.ts` |
 | Saved titles `Chat`/`Search` cannot select header mode; empty Chat and Search retain their mode menus | Saved-title mobile scenarios in `chat-workspace.spec.ts` |
 | Malformed Project creation response retains the dialog/draft and exposes the error; loading assistant choices are not labeled unavailable, while a missing loaded choice is | Creation-response and delayed-settings scenarios in `chat-workspace.spec.ts` |
