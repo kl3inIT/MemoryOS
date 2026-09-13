@@ -302,10 +302,6 @@ export const englishUi: Record<string, string> = {
   "Previous page": "Trang trước",
   "Page {{v1}} of {{v2}}": "Trang {{v1}} trên {{v2}}",
   "Next page": "Trang sau",
-  "Permissions have changed": "Quyền truy cập đã thay đổi",
-  "MemoryOS uses group-based permissions. Access is configured per group, so a user’s permissions are the combination of every group they belong to.":
-    "MemoryOS sử dụng quyền truy cập theo nhóm. Quyền truy cập được cấu hình cho từng nhóm, vì vậy quyền của người dùng là tổng hợp quyền của tất cả các nhóm mà họ tham gia.",
-  "Learn more": "Tìm hiểu thêm",
   "New Group": "Nhóm mới",
   "This change would leave a standard user without a group. Add them to another group first, then try again.":
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
@@ -515,6 +511,9 @@ export const englishUi: Record<string, string> = {
     "Không tải được nguồn để chọn. Liên kết của bạn không thay đổi.",
   "No Sources match your search.": "Không có nguồn phù hợp.",
   "No Sources are available.": "Chưa có nguồn khả dụng.",
+  "Source choices could not be loaded.": "Không tải được nguồn để chọn.",
+  "All available Sources are selected.": "Đã chọn tất cả nguồn khả dụng.",
+  "Remove {{v1}}": "Gỡ {{v1}}",
   "Saving associations…": "Đang lưu liên kết…",
   "Save associations": "Lưu liên kết",
   "No Sources are associated with this group.": "Chưa có nguồn liên kết với nhóm này.",
