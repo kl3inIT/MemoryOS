@@ -36,8 +36,8 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.ExtractionArtifactPort;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
@@ -1159,7 +1159,7 @@ class SourceApiIntegrationTest {
         UUID managedGroupId = UUID.randomUUID();
         ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
         String managedSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
-                "Manager source", List.of(new io.memoryos.iam.GroupId(managedGroupId)),
+                "Manager source", List.of(new io.memoryos.iam.group.GroupId(managedGroupId)),
                 io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
         String hiddenSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
                 "Hidden manager source", List.of(), io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();

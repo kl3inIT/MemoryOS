@@ -34,14 +34,14 @@ import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.GoogleDriveSelectionProcessor;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.GoogleDriveSourceService.SelectionReceipt;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
-import io.memoryos.iam.IamAuthorization;
-import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.application.DefaultIamAuthorization;
-import io.memoryos.iam.persistence.IamAuthorizationRepository;
-import io.memoryos.iam.persistence.IamLockRepository;
+import io.memoryos.iam.group.DefaultIamAuthorization;
+import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.group.persistence.IamLockRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashSet;
@@ -126,17 +126,17 @@ class GoogleDriveCredentialAuthorityTest {
                 GoogleDriveConnectionService.class, manager);
         var attempts = new JdbcIndexAttemptRepository(jdbc, sources, documents, connections);
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials,
-                authorization, new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.application.DefaultGroupScopeService(new io.memoryos.iam.persistence.GroupInvariantRepository(jdbc),
-                        new io.memoryos.iam.persistence.GroupProjectionRepository(jdbc)))), GoogleDriveAuthorizationService.class, manager);
+                authorization, new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc),
+                        new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)))), GoogleDriveAuthorizationService.class, manager);
         selections = new JdbcGoogleDriveSelectionRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, sync, attempts, documents, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.application.DefaultGroupScopeService(new io.memoryos.iam.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.persistence.GroupProjectionRepository(jdbc))));
+        var service = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, sync, attempts, documents, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))));
         drive = service;
         processor = new DefaultGoogleDriveSelectionProcessor(selections, service, connections, manager);
     }
 
     @Test
     void scopedCredentialsAreOwnedAndEveryAttachedGroupRemainsRequiredForMutation() {
-        var group = new io.memoryos.iam.GroupId(UUID.randomUUID());
+        var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var foreign = authorize();
         var own = authorize(scoped);
@@ -148,7 +148,7 @@ class GoogleDriveCredentialAuthorityTest {
         assertThrows(SourceException.class, () -> drive.create(scoped, UUID.randomUUID(), "No groups", own, ScopeMode.SPECIFIC,
                 List.of(link("one")), List.of()));
         assertThrows(IamException.class, () -> drive.create(scoped, UUID.randomUUID(), "Outside", own, ScopeMode.SPECIFIC,
-                List.of(link("one")), List.of(group, new io.memoryos.iam.GroupId(tenant.value()))));
+                List.of(link("one")), List.of(group, new io.memoryos.iam.group.GroupId(tenant.value()))));
         UUID request = UUID.randomUUID();
         var receipt = drive.create(scoped, request, "Managed", own, ScopeMode.SPECIFIC,
                 List.of(link("one")), List.of(group, group));
@@ -157,12 +157,12 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(SourceOperationStatus.SUCCEEDED, process(receipt).status());
         var source = receipt.sourceId();
         assertEquals(List.of(group), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc).list(tenant, source)
-                .stream().map(io.memoryos.iam.GroupIdentity::id).toList());
+                .stream().map(io.memoryos.iam.group.GroupIdentity::id).toList());
         assertEquals(scoped.value(), jdbc.sql("SELECT created_by_actor_id FROM connector_credential_pairs WHERE id=:id")
                 .param("id", source.value()).query(UUID.class).single());
         assertTrue(authorizations.list(scoped).getFirst().actions().contains("reauthorize"));
         var consent = authorizations.prepare(scoped, "Reconnected", own, 1L, null);
-        var foreignGroup = new io.memoryos.iam.GroupId(UUID.randomUUID());
+        var foreignGroup = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
         scopedManager(foreignGroup);
         jdbc.sql("INSERT INTO source_group_grants(tenant_id,group_id,connector_credential_pair_id) VALUES(:tenant,:group,:source)")
                 .param("tenant", tenant.value()).param("group", foreignGroup.value()).param("source", source.value()).update();
@@ -192,7 +192,7 @@ class GoogleDriveCredentialAuthorityTest {
 
     @Test
     void scopedActivationAndConsentRejectRevokedManagerAuthorityAfterProviderIo() {
-        var group = new io.memoryos.iam.GroupId(UUID.randomUUID());
+        var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var own = authorize(scoped);
         var preparation = authorizations.prepare(scoped, "Reconnect", own, 1L, null);
@@ -213,7 +213,7 @@ class GoogleDriveCredentialAuthorityTest {
 
     @Test
     void scopedPauseLeavesActiveWorkAndManualSynchronizationIntact() {
-        var group = new io.memoryos.iam.GroupId(UUID.randomUUID());
+        var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var own = authorize(scoped);
         mockSelection();
@@ -240,7 +240,7 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(source, sync.due(10).getFirst().sourceId());
     }
 
-    private ActorId scopedManager(io.memoryos.iam.GroupId group) {
+    private ActorId scopedManager(io.memoryos.iam.group.GroupId group) {
         var actor = new ActorId(UUID.randomUUID());
         jdbc.sql("INSERT INTO actors(id) VALUES(:actor)").param("actor", actor.value()).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
@@ -808,7 +808,7 @@ class GoogleDriveCredentialAuthorityTest {
             return result;
         }).when(access).require(owner, IamCapability.SOURCES_MANAGE, command.equals("schedule"));
         var documents = new JdbcSourceDocumentRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(access, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, connections), documents, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), java.util.Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc), new SourceAccessPolicy(access, sources, new io.memoryos.iam.application.DefaultGroupScopeService(new io.memoryos.iam.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.persistence.GroupProjectionRepository(jdbc))));
+        var service = new DefaultGoogleDriveSourceService(access, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, connections), documents, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), java.util.Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc), new SourceAccessPolicy(access, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))));
         try (var executor = Executors.newSingleThreadExecutor()) {
             var update = transactions.execute(_ -> {
                 sources.lock(tenant, source);

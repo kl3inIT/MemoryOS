@@ -8,7 +8,7 @@ import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchDocument;
 import io.memoryos.retrieval.SearchDocumentUnavailableException;

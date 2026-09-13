@@ -3,7 +3,7 @@ package io.memoryos.api.chat;
 import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ChatModelResolver;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Duration;
 import java.util.List;

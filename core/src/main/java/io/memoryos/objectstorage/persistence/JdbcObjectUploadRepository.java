@@ -4,7 +4,7 @@ import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadPurpose;
 import io.memoryos.objectstorage.ObjectVerificationToken;
 import io.memoryos.objectstorage.StoredObjectId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.sql.Timestamp;
 import java.time.Instant;

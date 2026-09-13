@@ -11,7 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.ingestion",
         "io.memoryos.retrieval.embedding",
         "io.memoryos.retrieval.opensearch",
-        "io.memoryos.iam.persistence"
+        "io.memoryos.iam"
 })
 @org.springframework.context.annotation.Import({io.memoryos.retrieval.SearchTimings.class,
         io.memoryos.chat.persistence.JdbcUserFileWorkRepository.class,

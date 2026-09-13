@@ -6,12 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.InvitationException;
-import io.memoryos.iam.InvitationFailureReason;
-import io.memoryos.iam.InvitationService;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.invitation.InvitationException;
+import io.memoryos.iam.invitation.InvitationFailureReason;
+import io.memoryos.iam.invitation.InvitationService;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.HashMap;

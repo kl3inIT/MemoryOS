@@ -6,7 +6,7 @@ import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import org.jspecify.annotations.Nullable;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -90,7 +90,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
-        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_WRITE);
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try { return sendLocked(actor, session, command); }
@@ -156,7 +156,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Cancellation cancel(ActorId actor, UUID session, UUID assistant) {
-        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_WRITE);
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -168,7 +168,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
-        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_READ);
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
         var lock = commandLock(session);
         lock.lock();
         try {

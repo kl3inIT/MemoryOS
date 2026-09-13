@@ -17,20 +17,20 @@ import io.memoryos.chat.catalog.ModelSettings;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
-import io.memoryos.iam.IamAuthorization;
-import io.memoryos.iam.IamCapability;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.Map;
 import java.util.Set;
 import static org.mockito.Mockito.*;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.ActorLanguageService;
-import io.memoryos.iam.persistence.ActorRefreshImpl;
-import io.memoryos.iam.persistence.JpaActorRepository;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.persistence.IamLockRepository;
-import io.memoryos.iam.persistence.JpaTenantAccessResolver;
-import io.memoryos.iam.persistence.JpaTenantRepository;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.identity.ActorLanguageService;
+import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
+import io.memoryos.iam.identity.persistence.JpaActorRepository;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
+import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -334,7 +334,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(sessions.list(other, 0, 30).isEmpty());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, first.id())).code());
         // The deployment schema permits one Tenant; verify the repository still scopes by its ID.
-        assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.TenantId(UUID.randomUUID()),
+        assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.tenant.TenantId(UUID.randomUUID()),
                 owner, first.id(), false).isEmpty());
         jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                 .param("actor", owner.value()).update();
@@ -538,7 +538,7 @@ class ChatPersistenceIntegrationTest {
             var locked = new CountDownLatch(1);
             var release = new CountDownLatch(1);
             var revoke = executor.submit(() -> tx.executeWithoutResult(_ -> {
-                new IamLockRepository(jdbc).lockTenant(new io.memoryos.iam.TenantId(tenant));
+                new IamLockRepository(jdbc).lockTenant(new io.memoryos.iam.tenant.TenantId(tenant));
                 jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                         .param("actor", owner.value()).update();
                 locked.countDown();

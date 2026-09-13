@@ -1,7 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.search.contract.SearchDocumentResponse;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

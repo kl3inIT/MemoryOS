@@ -5,7 +5,7 @@ import io.memoryos.chat.ChatCollaborationService;
 import io.memoryos.chat.ChatCollaborationService.Feedback;
 import io.memoryos.chat.ChatCollaborationService.Sharing;
 import io.memoryos.chat.ChatCollaborationService.SharedSession;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

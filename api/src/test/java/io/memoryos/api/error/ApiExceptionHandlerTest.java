@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import io.memoryos.FailureCategory;
-import io.memoryos.iam.IdentityProvisioningException;
-import io.memoryos.iam.IdentityProvisioningFailureReason;
-import io.memoryos.iam.InvitationException;
-import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.invitation.IdentityProvisioningException;
+import io.memoryos.iam.invitation.IdentityProvisioningFailureReason;
+import io.memoryos.iam.invitation.InvitationException;
+import io.memoryos.iam.invitation.InvitationFailureReason;
 
 import java.net.URI;
 import java.util.Locale;
