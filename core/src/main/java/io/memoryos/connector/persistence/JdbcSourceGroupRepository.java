@@ -1,9 +1,9 @@
 package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.SourceId;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.GroupIdentity;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.group.GroupIdentity;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.util.Collection;
 import java.util.List;

@@ -35,17 +35,17 @@ import io.memoryos.connector.persistence.JdbcSourceUploadRepository;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.TenantId;
-import io.memoryos.iam.application.DefaultGroupScopeService;
-import io.memoryos.iam.application.DefaultIamAuthorization;
-import io.memoryos.iam.persistence.GroupInvariantRepository;
-import io.memoryos.iam.persistence.GroupProjectionRepository;
-import io.memoryos.iam.persistence.IamAuthorizationRepository;
-import io.memoryos.iam.persistence.IamLockRepository;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.DefaultGroupScopeService;
+import io.memoryos.iam.group.DefaultIamAuthorization;
+import io.memoryos.iam.group.persistence.GroupInvariantRepository;
+import io.memoryos.iam.group.persistence.GroupProjectionRepository;
+import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
@@ -344,7 +344,7 @@ class PostgresSourceLifecycleTest {
         assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(a, b)));
         assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(adminGroupId())));
         assertThrows(SourceException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of()));
-        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(a);
+        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(a);
         assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.PUBLIC));
         long before = jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single();
@@ -477,7 +477,7 @@ class PostgresSourceLifecycleTest {
         );
         service.replaceSourceGroups(manager, managed.id(), List.of(managedGroupId));
         assertThat(service.listSourceGroupOptions(manager, "", 0, 25).items())
-                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(managedGroupId);
+                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(managedGroupId);
 
         service.replaceSourceGroups(
                 owner,

@@ -1,6 +1,6 @@
 package io.memoryos.chat;
 
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;

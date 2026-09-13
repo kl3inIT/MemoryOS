@@ -12,8 +12,8 @@ import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.ChatEvidence;
 import io.memoryos.chat.prompts.ChatPrompts;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.ArrayList;

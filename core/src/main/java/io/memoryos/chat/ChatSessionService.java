@@ -1,6 +1,6 @@
 package io.memoryos.chat;
 
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

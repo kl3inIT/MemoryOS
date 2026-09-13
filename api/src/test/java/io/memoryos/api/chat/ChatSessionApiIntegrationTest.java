@@ -48,8 +48,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.core.util.Json;
 
 import java.io.IOException;
@@ -77,7 +77,7 @@ import com.embabel.chat.UserMessage;
 import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import org.springframework.ai.chat.prompt.ChatOptions;
 
 import org.springframework.ai.chat.model.ChatModel;

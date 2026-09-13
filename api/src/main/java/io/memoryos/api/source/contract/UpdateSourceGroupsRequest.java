@@ -1,6 +1,6 @@
 package io.memoryos.api.source.contract;
 
-import io.memoryos.iam.GroupId;
+import io.memoryos.iam.group.GroupId;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;

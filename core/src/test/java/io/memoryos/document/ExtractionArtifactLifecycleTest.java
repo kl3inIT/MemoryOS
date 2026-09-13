@@ -8,7 +8,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

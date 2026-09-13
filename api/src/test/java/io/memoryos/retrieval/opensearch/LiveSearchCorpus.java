@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentChunkPort;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.micrometer.core.instrument.MeterRegistry;

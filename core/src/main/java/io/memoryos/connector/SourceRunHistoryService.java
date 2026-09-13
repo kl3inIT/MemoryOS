@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

@@ -7,11 +7,11 @@ import io.memoryos.TestDatabase;
 import io.memoryos.connector.*;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.persistence.*;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
-import io.memoryos.iam.application.DefaultIamAuthorization;
-import io.memoryos.iam.persistence.IamAuthorizationRepository;
-import io.memoryos.iam.persistence.IamLockRepository;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.DefaultIamAuthorization;
+import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.group.persistence.IamLockRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -318,7 +318,7 @@ public class GoogleDriveSelectionOperationTest {
             connections=TestDatabase.transactionalProxy(new DefaultGoogleDriveConnectionService(credentials,provider,manager),GoogleDriveConnectionService.class,manager);
             selections=new JdbcGoogleDriveSelectionRepository(jdbc);
             var indexing=new JdbcIndexAttemptRepository(jdbc,sources,documents,connections);
-            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, documents, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new io.memoryos.iam.application.DefaultGroupScopeService(new io.memoryos.iam.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.persistence.GroupProjectionRepository(jdbc))));
+            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, documents, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))));
             try (var grant=new GoogleDriveAuthorizationService.Grant("subject","fixture@example.com",GoogleDriveAuthorizationService.REQUIRED_SCOPES,
                     "refresh".getBytes(StandardCharsets.UTF_8));
                  var client=new GoogleDriveOAuthClient("fixture.apps.googleusercontent.com","secret".getBytes(StandardCharsets.UTF_8))) {

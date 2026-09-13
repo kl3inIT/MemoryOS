@@ -1,6 +1,6 @@
 package io.memoryos.api.users.contract;
 
-import io.memoryos.iam.UserPage;
+import io.memoryos.iam.user.UserPage;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

@@ -1,0 +1,275 @@
+package io.memoryos.iam.group.persistence;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.TestDatabase;
+import io.memoryos.iam.group.IamCapability;
+
+import java.util.Set;
+import java.util.UUID;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import io.memoryos.iam.group.persistence.GroupEntity;
+
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+class GroupSchemaIntegrityTest {
+    private static final UUID TENANT_ONE = uuid("10000000-0000-0000-0000-000000000057");
+    private static final UUID TENANT_TWO = uuid("20000000-0000-0000-0000-000000000057");
+    private static final UUID ACTOR = uuid("30000000-0000-0000-0000-000000000057");
+    private static final UUID GROUP = uuid("40000000-0000-0000-0000-000000000057");
+
+    private JdbcClient jdbc;
+    private HikariDataSource dataSource;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
+
+    @BeforeEach
+    void setUp() throws Exception {
+        dataSource = TestDatabase.freshPostgres();
+        jdbc = JdbcClient.create(dataSource);
+        jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT ck_tenants_deployment_slot").update();
+        jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
+        persistTenant(TENANT_ONE, "one", 1);
+        persistTenant(TENANT_TWO, "two", 2);
+        jdbc.sql("INSERT INTO actors (id) VALUES (:actorId)")
+                .param("actorId", ACTOR)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO tenant_memberships (tenant_id, actor_id, role, status)
+                        VALUES (:tenantId, :actorId, 'MEMBER', 'ACTIVE')
+                        """)
+                .param("tenantId", TENANT_ONE)
+                .param("actorId", ACTOR)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name)
+                        VALUES (:tenantId, :groupId, 'Tenant two group')
+                        """)
+                .param("tenantId", TENANT_TWO)
+                .param("groupId", GROUP)
+                .update();
+    }
+
+    @Test
+    void membershipAndCapabilityGrantsRequireTenantQualifiedGroups() {
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                        INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id)
+                        VALUES (:tenantId, :groupId, :actorId)
+                        """)
+                .param("tenantId", TENANT_TWO)
+                .param("groupId", GROUP)
+                .param("actorId", ACTOR)
+                .update());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :groupId, 'USERS_MANAGE')
+                        """)
+                .param("tenantId", TENANT_ONE)
+                .param("groupId", GROUP)
+                .update());
+        assertEquals(0L, jdbc.sql("SELECT COUNT(*) FROM iam_group_memberships")
+                .query(Long.class)
+                .single());
+        assertEquals(0L, jdbc.sql("SELECT COUNT(*) FROM iam_group_capability_grants")
+                .query(Long.class)
+                .single());
+    }
+
+    @Test
+    void systemGrantsAreExclusiveAndDerivedCapabilitiesCannotBeInsertedOrMoved() {
+        jdbc.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name, system_key)
+                        VALUES (:tenantId, :adminId, 'Admin', 'ADMIN'),
+                               (:tenantId, :basicId, 'Basic', 'BASIC')
+                        """)
+                .param("tenantId", TENANT_TWO)
+                .param("adminId", GroupEntity.ADMIN_ID).param("basicId", GroupEntity.BASIC_ID).update();
+        for (UUID groupId : Set.of(GroupEntity.ADMIN_ID, GroupEntity.BASIC_ID, GROUP)) {
+            for (IamCapability capability : IamCapability.values()) {
+                boolean allowed = groupId.equals(GroupEntity.ADMIN_ID)
+                        ? capability == IamCapability.SYSTEM_ADMIN
+                        : groupId.equals(GroupEntity.BASIC_ID)
+                                ? capability == IamCapability.SYSTEM_BASIC
+                                : Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
+                                        IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE).contains(capability);
+                Runnable insert = () -> jdbc.sql("""
+                                INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                                VALUES (:tenantId, :groupId, :capability)
+                                """)
+                        .param("tenantId", TENANT_TWO).param("groupId", groupId)
+                        .param("capability", capability.name()).update();
+                if (allowed) {
+                    insert.run();
+                } else {
+                    assertThrows(DataIntegrityViolationException.class, insert::run);
+                }
+            }
+        }
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                        UPDATE iam_group_capability_grants SET group_id = :ordinaryGroupId
+                        WHERE tenant_id = :tenantId AND group_id = :basicId
+                        """)
+                .param("tenantId", TENANT_TWO).param("ordinaryGroupId", GROUP)
+                .param("basicId", GroupEntity.BASIC_ID).update());
+        for (IamCapability derived : Set.of(IamCapability.SEARCH_READ, IamCapability.CHAT_READ,
+                IamCapability.CHAT_WRITE, IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE,
+                IamCapability.GROUPS_READ, IamCapability.SOURCES_READ, IamCapability.SOURCES_DELETE)) {
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                            UPDATE iam_group_capability_grants SET capability = :capability
+                            WHERE tenant_id = :tenantId AND group_id = :basicId
+                            """)
+                    .param("capability", derived.name()).param("tenantId", TENANT_TWO)
+                    .param("basicId", GroupEntity.BASIC_ID).update());
+        }
+        assertEquals("SYSTEM_BASIC", jdbc.sql("""
+                        SELECT capability FROM iam_group_capability_grants
+                        WHERE tenant_id = :tenantId AND group_id = :basicId
+                        """)
+                .param("tenantId", TENANT_TWO).param("basicId", GroupEntity.BASIC_ID)
+                .query(String.class).single());
+        for (IamCapability derived : Set.of(
+                IamCapability.GROUPS_READ, IamCapability.SOURCES_READ, IamCapability.SOURCES_DELETE)) {
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                            UPDATE iam_group_capability_grants SET capability = :capability
+                            WHERE tenant_id = :tenantId AND group_id = :groupId AND capability = 'USERS_MANAGE'
+                            """)
+                    .param("capability", derived.name())
+                    .param("tenantId", TENANT_TWO).param("groupId", GROUP).update());
+        }
+        assertEquals("USERS_MANAGE", jdbc.sql("""
+                        SELECT capability FROM iam_group_capability_grants
+                        WHERE tenant_id = :tenantId AND group_id = :groupId AND capability = 'USERS_MANAGE'
+                        """)
+                .param("tenantId", TENANT_TWO).param("groupId", GROUP)
+                .query(String.class).single());
+    }
+
+    @Test
+    void deletingAnOrdinaryGroupRemovesOnlyItsLinksAndGrants() {
+        UUID ordinaryGroup = uuid("50000000-0000-0000-0000-000000000057");
+        UUID connector = uuid("60000000-0000-0000-0000-000000000057");
+        UUID credential = uuid("70000000-0000-0000-0000-000000000057");
+        UUID source = uuid("80000000-0000-0000-0000-000000000057");
+        UUID document = uuid("90000000-0000-0000-0000-000000000057");
+        jdbc.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name)
+                        VALUES (:tenantId, :groupId, 'Disposable group')
+                        """)
+                .param("tenantId", TENANT_ONE)
+                .param("groupId", ordinaryGroup)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id)
+                        VALUES (:tenantId, :groupId, :actorId)
+                        """)
+                .param("tenantId", TENANT_ONE)
+                .param("groupId", ordinaryGroup)
+                .param("actorId", ACTOR)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :groupId, 'USERS_MANAGE')
+                        """)
+                .param("tenantId", TENANT_ONE)
+                .param("groupId", ordinaryGroup)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO connectors (id, tenant_id, name, connector_type, status)
+                        VALUES (:id, :tenantId, 'Source', 'FILE', 'ACTIVE')
+                        """)
+                .param("id", connector)
+                .param("tenantId", TENANT_ONE)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO credentials (id, tenant_id, name, credential_kind, status)
+                        VALUES (:id, :tenantId, 'File credential', 'NO_AUTH', 'ACTIVE')
+                        """)
+                .param("id", credential)
+                .param("tenantId", TENANT_ONE)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO connector_credential_pairs (
+                            id, tenant_id, connector_id, credential_id, access_type, status
+                        ) VALUES (:id, :tenantId, :connectorId, :credentialId, 'PUBLIC', 'NOT_STARTED')
+                        """)
+                .param("id", source)
+                .param("tenantId", TENANT_ONE)
+                .param("connectorId", connector)
+                .param("credentialId", credential)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO source_group_grants (
+                            tenant_id, connector_credential_pair_id, group_id
+                        ) VALUES (:tenantId, :sourceId, :groupId)
+                        """)
+                .param("tenantId", TENANT_ONE)
+                .param("sourceId", source)
+                .param("groupId", ordinaryGroup)
+                .update();
+        jdbc.sql("""
+                        INSERT INTO documents (id, tenant_id, status)
+                        VALUES (:id, :tenantId, 'ELIGIBLE')
+                        """)
+                .param("id", document)
+                .param("tenantId", TENANT_ONE)
+                .update();
+
+        jdbc.sql("DELETE FROM iam_groups WHERE tenant_id = :tenantId AND id = :groupId")
+                .param("tenantId", TENANT_ONE)
+                .param("groupId", ordinaryGroup)
+                .update();
+
+        assertEquals(0L, countForGroup("iam_group_memberships", ordinaryGroup));
+        assertEquals(0L, countForGroup("iam_group_capability_grants", ordinaryGroup));
+        assertEquals(0L, countForGroup("source_group_grants", ordinaryGroup));
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM actors WHERE id = :id")
+                .param("id", ACTOR)
+                .query(Long.class)
+                .single());
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM connector_credential_pairs WHERE id = :id")
+                .param("id", source)
+                .query(Long.class)
+                .single());
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM documents WHERE id = :id")
+                .param("id", document)
+                .query(Long.class)
+                .single());
+    }
+
+    private long countForGroup(String table, UUID groupId) {
+        return jdbc.sql("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = :tenantId AND group_id = :groupId")
+                .param("tenantId", TENANT_ONE)
+                .param("groupId", groupId)
+                .query(Long.class)
+                .single();
+    }
+
+    private void persistTenant(UUID tenantId, String suffix, int deploymentSlot) {
+        jdbc.sql("""
+                        INSERT INTO tenants (
+                            id, slug, display_name, status, bootstrap_reference, deployment_slot
+                        ) VALUES (:id, :slug, :name, 'ACTIVE', :reference, :slot)
+                        """)
+                .param("id", tenantId)
+                .param("slug", "tenant-" + suffix)
+                .param("name", "Tenant " + suffix)
+                .param("reference", "test-" + suffix)
+                .param("slot", deploymentSlot)
+                .update();
+    }
+
+    private static UUID uuid(String value) {
+        return UUID.fromString(value);
+    }
+}

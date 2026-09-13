@@ -9,10 +9,10 @@ import io.memoryos.chat.ChatFileService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.ActorLanguageService;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.identity.ActorLanguageService;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.time.Duration;
 import java.time.Instant;

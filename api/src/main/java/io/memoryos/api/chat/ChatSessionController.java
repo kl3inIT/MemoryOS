@@ -4,7 +4,7 @@ import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.ChatWorkspaceService;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

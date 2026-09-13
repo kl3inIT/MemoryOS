@@ -1,7 +1,7 @@
 package io.memoryos.api.identity.contract;
 
-import io.memoryos.iam.IamCapability;
-import io.memoryos.iam.TenantMembership;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.tenant.TenantMembership;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

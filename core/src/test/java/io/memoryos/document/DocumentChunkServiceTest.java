@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 import io.memoryos.document.application.DocumentChunkService;
 import io.memoryos.document.application.StructuredDocumentChunker;
 import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import java.io.ByteArrayInputStream;
