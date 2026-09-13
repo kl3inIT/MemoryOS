@@ -11,7 +11,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.ingestion",
         "io.memoryos.retrieval.embedding",
         "io.memoryos.retrieval.opensearch",
-        // Only IAM persistence adapters, as before the package split; IAM services need API-only JPA repositories.
         "io.memoryos.iam.group.persistence",
         "io.memoryos.iam.identity.persistence",
         "io.memoryos.iam.invitation.persistence",

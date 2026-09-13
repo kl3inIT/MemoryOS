@@ -1,5 +1,4 @@
-/** Actor identity types exposed to other capability modules. */
-@NamedInterface("identity")
+@NamedInterface
 package io.memoryos.iam.identity;
 
 import org.springframework.modulith.NamedInterface;

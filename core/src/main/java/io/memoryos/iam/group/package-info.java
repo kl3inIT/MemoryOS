@@ -1,5 +1,4 @@
-/** Group authority and capabilities exposed to other capability modules. */
-@NamedInterface("group")
+@NamedInterface
 package io.memoryos.iam.group;
 
 import org.springframework.modulith.NamedInterface;

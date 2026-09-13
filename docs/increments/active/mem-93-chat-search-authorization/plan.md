@@ -9,6 +9,6 @@
 - [x] Actor tokens in `SourceSearchScope`; `public OR terms(access_control_list)` on Source and direct Search queries, allowing legacy chunks without access fields until repaired (the database recheck still applies).
 - [x] `SourceAccessChanged` from Group replacement and access-type changes; ingestion enqueues an `ACCESS` operation per mapped current document; the worker updates access fields in place without hiding the document or re-embedding.
 - [x] V51 allows `ACCESS` (constraint `NOT VALID`); V52 validates it and backfills `ACCESS` operations for already searchable documents; real OpenSearch and PostgreSQL tests.
-- [x] Repair CI inherited from main's IAM package split: `group`/`identity`/`tenant` become IAM named interfaces allowed as `iam :: *`, and the worker scans only IAM persistence packages again.
+- [x] CI inherited from main's IAM package split is fixed on main by #110 (IAM named interfaces, worker IAM persistence scan); this branch takes that fix.
 - [ ] Repository-wide `clean check`.
 - [ ] Google Drive per-file tokens after the MEM-88 contract.
