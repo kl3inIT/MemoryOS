@@ -71,6 +71,8 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
     private static final String CONTEXT_JOINS = """
             JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = :source
             JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
+            """ + CONTEXT_TAIL;
+    private static final String CONTEXT_TAIL = """
             JOIN connectors c ON c.tenant_id = p.tenant_id AND c.id = p.connector_id
             JOIN tenants t ON t.id = p.tenant_id
             JOIN credentials credential ON credential.tenant_id = p.tenant_id AND credential.id = p.credential_id
@@ -137,6 +139,38 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
     /** One database statement observes payload, lifecycle context and source-qualified Document mapping. */
     public Optional<GoogleDriveAclSnapshot> read(TenantId tenantId, SourceId sourceId, String fileId) {
         return get(tenantId, sourceId, fileId).map(GoogleDriveAclService.File::snapshot);
+    }
+
+    /** One statement resolves the Document's Drive mappings and returns their retained snapshots. */
+    @Override
+    public List<GoogleDriveAclSnapshot> readByDocument(TenantId tenantId, DocumentId documentId) {
+        return jdbc.sql("""
+                WITH files AS (
+                    SELECT p.id AS source_id, i.provider_file_id AS file_id
+                    FROM documents_by_connector_credential_pair mapping
+                    JOIN connector_credential_pairs p ON p.tenant_id = mapping.tenant_id
+                        AND p.id = mapping.connector_credential_pair_id
+                    JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.id = mapping.connector_item_id
+                    WHERE mapping.tenant_id = :tenant AND mapping.document_id = :document
+                )
+                SELECT f.file_id, NULL AS name, a.tenant_id, a.source_id, a.observation_revision, a.permissions_json, a.status,
+                    a.last_attempt_at, a.attempt_operation_id, a.attempt_credential_id, a.attempt_credential_revision,
+                    a.attempt_scope_revision, a.attempt_generation, a.last_success_at, a.success_operation_id,
+                    a.success_credential_id, a.success_credential_revision, a.success_scope_revision,
+                    a.success_generation, a.error_code, a.error_message, i.id AS item_id, d.id AS document_id,
+                    statement_timestamp() AS read_at,
+                """ + CONTEXT_COLUMNS + """
+                FROM files f
+                JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = f.source_id
+                JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
+                """ + CONTEXT_TAIL + """
+                LEFT JOIN documents_by_connector_credential_pair mapping ON mapping.tenant_id = p.tenant_id
+                    AND mapping.connector_credential_pair_id = p.id AND mapping.connector_item_id = i.id
+                LEFT JOIN documents d ON d.tenant_id = mapping.tenant_id AND d.id = mapping.document_id
+                WHERE a.file_id IS NOT NULL
+                ORDER BY a.source_id, a.file_id
+                """).param("tenant", tenantId.value()).param("document", documentId.value())
+                .query((row, n) -> snapshot(row, n)).list();
     }
 
     public Optional<GoogleDriveAclService.File> get(TenantId tenantId, SourceId sourceId, String fileId) {
