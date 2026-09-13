@@ -3,7 +3,7 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
 import { listSourceGroups, updateSourceGroups } from "@/lib/hey-api/sdk.gen";
 import type { GroupSummary, SourceSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
+import { findSourceProvider } from "@/features/sources/source-provider-catalog";
 
 type GroupSourcesSectionProps = {
   group: GroupSummary;
@@ -42,6 +43,8 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
   const [baselineIds, setBaselineIds] = useState<Set<string>>(() => new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [search, setSearch] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<AppCopy | null>(null);
   const baselineKey = [...baselineIds].sort().join("\u0000");
   const selectedKey = [...selectedIds].sort().join("\u0000");
@@ -151,26 +154,26 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
       source.actions.includes("manage_groups") &&
       (!normalizedSearch || source.name.toLocaleLowerCase().includes(normalizedSearch)),
   );
+  const unselectedCandidates = candidates.filter((source) => !selectedIds.has(source.id));
+  const selectedSources = (allSources.data ?? []).filter((source) => selectedIds.has(source.id));
 
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [dropdownOpen]);
   if (!ordinaryGroup || (!canOpenSources && !canManage)) return null;
 
   return (
     <section aria-labelledby="group-sources-heading" className="border-t border-border-subtle pt-7">
-      <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-secondary">
-          <BookOpen className="size-4" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 id="group-sources-heading" className="font-heading-h3 text-content-primary">
-            {ui("Sources")}
-          </h2>
-          <p className="mt-1 font-main-ui-body text-content-muted">
-            {ui(
-              "Associations constrain scoped group-manager authority. They do not narrow the Tenant-wide Source grants.",
-            )}
-          </p>
-        </div>
-      </div>
+      <h2 id="group-sources-heading" className="font-heading-h3 text-content-primary">
+        {ui("Sources")}
+      </h2>
 
       {error ? (
         <p
@@ -203,9 +206,9 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
           </Button>
         </div>
       ) : canManage ? (
-        <div className="mt-4 rounded-xl border border-border-default bg-surface-subtle p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <label className="relative min-w-0 flex-1">
+        <div className="mt-4">
+          <div className="relative">
+            <label className="relative block">
               <span className="sr-only">{ui("Search Sources")}</span>
               <Search
                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
@@ -215,88 +218,130 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
                 type="search"
                 value={search}
                 placeholder={ui("Search Sources…")}
-                className="bg-surface-raised pl-9"
-                onChange={(event) => setSearch(event.target.value)}
+                className="bg-surface-sunken pl-9"
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setDropdownOpen(true);
+                }}
+                onFocus={() => setDropdownOpen(true)}
               />
             </label>
-            <span className="font-secondary-body tabular-nums text-content-muted">
-              {selectedIds.size} {ui("selected")}
-            </span>
+
+            {dropdownOpen ? (
+              <div
+                ref={dropdownRef}
+                className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-border-subtle bg-surface-sunken shadow-md"
+              >
+                {allSources.isPending ? (
+                  <p
+                    role="status"
+                    className="px-4 py-6 text-center font-main-ui-body text-content-muted"
+                  >
+                    {ui("Loading Sources")}
+                  </p>
+                ) : allSources.isError ? (
+                  <div className="p-4">
+                    <p role="alert" className="font-main-ui-body text-content-secondary">
+                      {ui("Source choices could not be loaded.")}
+                    </p>
+                    <Button
+                      size="sm"
+                      prominence="secondary"
+                      className="mt-3"
+                      onClick={() => void allSources.refetch()}
+                    >
+                      {ui("Try again")}
+                    </Button>
+                  </div>
+                ) : unselectedCandidates.length === 0 ? (
+                  <p className="px-4 py-6 text-center font-secondary-body text-content-muted">
+                    {search
+                      ? ui("No Sources match your search.")
+                      : ui("All available Sources are selected.")}
+                  </p>
+                ) : (
+                  unselectedCandidates.map((source) => (
+                    <button
+                      type="button"
+                      key={source.id}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-subtle"
+                      onClick={() => {
+                        setSelectedIds((current) => new Set(current).add(source.id));
+                        setSearch("");
+                      }}
+                    >
+                      <SourceIdentity source={source} />
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
           </div>
 
-          {allSources.isPending ? (
-            <p role="status" className="mt-4 px-2 py-6 font-main-ui-body text-content-muted">
-              {ui("Loading Sources")}
-            </p>
-          ) : allSources.isError ? (
-            <div className="mt-4 rounded-xl border border-border-subtle bg-surface-raised p-4">
-              <p role="alert" className="font-main-ui-body text-content-secondary">
-                {ui("Source choices could not be loaded. Your associations are unchanged.")}
-              </p>
-              <Button
-                size="sm"
-                prominence="secondary"
-                className="mt-3"
-                onClick={() => void allSources.refetch()}
-              >
-                {ui("Try again")}
-              </Button>
-            </div>
-          ) : candidates.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center font-main-ui-body text-content-muted">
-              {allSources.data?.length
-                ? ui("No Sources match your search.")
-                : ui("No Sources are available.")}
-            </div>
-          ) : (
-            <div className="mt-4 max-h-80 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised">
-              {candidates.map((source) => {
-                const checked = selectedIds.has(source.id);
+          {selectedSources.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {selectedSources.map((source) => {
+                const ChipIcon = findSourceProvider(source.type)?.icon;
                 return (
-                  <label
+                  <span
                     key={source.id}
-                    className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-subtle has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30"
+                    className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-sunken px-2 py-1 text-xs"
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
+                    {ChipIcon ? (
+                      <ChipIcon
+                        className="size-3.5 shrink-0 text-content-secondary"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <span className="truncate font-main-ui-action text-content-primary">
+                      {source.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={ui("Remove {{v1}}", { v1: source.name })}
+                      className="ml-0.5 rounded p-0.5 text-content-muted transition-colors hover:text-content-primary"
                       disabled={saveAssociations.isPending}
-                      className="size-4 shrink-0 accent-content-primary outline-none"
-                      onChange={() => {
+                      onClick={() =>
                         setSelectedIds((current) => {
                           const next = new Set(current);
-                          if (checked) next.delete(source.id);
-                          else next.add(source.id);
+                          next.delete(source.id);
                           return next;
-                        });
-                      }}
-                    />
-                    <SourceIdentity source={source} />
-                  </label>
+                        })
+                      }
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </span>
                 );
               })}
             </div>
+          ) : (
+            <div className="mt-3 rounded-xl border border-dashed border-border-default px-4 py-6 text-center font-secondary-body text-content-muted">
+              {ui("No Sources are associated with this group.")}
+            </div>
           )}
 
-          <div className="mt-4 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:justify-end">
-            <Button
-              prominence="secondary"
-              disabled={!dirty || saveAssociations.isPending}
-              onClick={() => {
-                setSelectedIds(new Set(baselineIds));
-                setError(null);
-              }}
-            >
-              {ui("Cancel")}
-            </Button>
-            <Button
-              pending={saveAssociations.isPending}
-              disabled={!dirty || allSources.isError || associated.isError}
-              onClick={() => void save()}
-            >
-              {saveAssociations.isPending ? ui("Saving associations…") : ui("Save associations")}
-            </Button>
-          </div>
+          {dirty ? (
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                prominence="secondary"
+                disabled={saveAssociations.isPending}
+                onClick={() => {
+                  setSelectedIds(new Set(baselineIds));
+                  setError(null);
+                }}
+              >
+                {ui("Cancel")}
+              </Button>
+              <Button
+                pending={saveAssociations.isPending}
+                disabled={allSources.isError || associated.isError}
+                onClick={() => void save()}
+              >
+                {saveAssociations.isPending ? ui("Saving associations…") : ui("Save associations")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : sources.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center font-main-ui-body text-content-muted">
@@ -331,12 +376,20 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
 
 function SourceIdentity({ source }: { source: SourceSummary }) {
   const ui = useAppTranslation();
+  const ProviderIcon = findSourceProvider(source.type)?.icon;
 
   return (
-    <span className="min-w-0 flex-1">
-      <span className="block truncate font-main-ui-action text-content-primary">{source.name}</span>
-      <span className="mt-0.5 block font-secondary-body text-content-muted">
-        {source.type} · {source.documentCount.toLocaleString(uiLocale())} {ui("documents")}
+    <span className="flex min-w-0 flex-1 items-center gap-3">
+      {ProviderIcon ? (
+        <ProviderIcon className="size-4 shrink-0 text-content-secondary" aria-hidden="true" />
+      ) : null}
+      <span className="min-w-0">
+        <span className="block truncate font-main-ui-action text-content-primary">
+          {source.name}
+        </span>
+        <span className="mt-0.5 block font-secondary-body text-content-muted">
+          {source.type} · {source.documentCount.toLocaleString(uiLocale())} {ui("documents")}
+        </span>
       </span>
     </span>
   );

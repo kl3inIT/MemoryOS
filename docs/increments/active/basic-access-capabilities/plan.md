@@ -101,3 +101,7 @@ Publish the approved Basic/scoped-manager/Source-access scope from feat/basic-ac
 ## PR #106 CI repair
 
 Integrate the user-approved omitted local backend, V43–V48 migrations, tests and OpenAPI into an isolated worktree based on PR head `7fc0037`. Keep the original dirty checkout untouched. Repair stale browser fixtures/selectors without weakening behavioral assertions, run `clean check`, frontend checks and browser scenarios, then push normally to the existing PR branch and verify every required remote check. Do not merge or deploy.
+
+## Google Drive group-authorized retrieval
+
+Enable RESTRICTED Google Drive origins in the shared Source read/search/metadata path, requiring active Tenant and associated-group membership. Preserve global/scoped administration versus content-read separation, FILE PUBLIC behavior, and revocation/generation checks. Update contradictory UI copy in both languages, add focused group/revocation and metadata-repair regressions, and verify the existing Drive documents through real Search after matching API/worker restart. Do not claim Google per-file ACL synchronization or widen all Drive content to every user.

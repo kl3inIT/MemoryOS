@@ -16,6 +16,7 @@ web/.playwright-cli/
 .memoryos-dev.yaml
 .memoryos-dev.yaml.tmp
 .memoryos-dev.yaml.*.tmp
+.memoryos-local.yaml
 secrets/
 __pycache__/
 graphify-out/

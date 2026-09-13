@@ -1022,7 +1022,9 @@ export function GoogleDrivePanel({
               ) : null}
             </div>
             <p className="text-xs text-content-muted">
-              {ui("Document access and viewing are not configured by this connection.")}
+              {ui(
+                "This credential authorizes importing files. MemoryOS Source groups control who can search and read the imported documents.",
+              )}
             </p>
           </div>
         </details>

@@ -35,7 +35,9 @@ export function SourceSummaryCard({
         </dd>
         {source.type === "GOOGLE_DRIVE" ? (
           <dd className="mt-2 text-xs text-content-muted">
-            {ui("Google Drive document access is not configured here.")}
+            {ui(
+              "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
+            )}
           </dd>
         ) : null}
       </div>
