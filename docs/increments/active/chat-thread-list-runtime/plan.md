@@ -10,10 +10,11 @@
 
 ## B. Web runtime migration (own commit)
 
-- [ ] Thread-list adapter with history and attachments adapters; unit tests with a fake API.
-- [ ] Per-thread controller registry; transport initializes through the thread-list item.
-- [ ] Mount the list runtime in the authenticated boundary; `ChatPage` renders the main thread and syncs the URL.
-- [ ] Sidebar on `ThreadListPrimitive`, archive section, row actions through the thread-list item; remove page title generation.
-- [ ] Keep project lists, drag-and-drop, history search and shared page working.
-- [ ] Typecheck, lint, i18n, unit tests; Playwright `chat`, `chat-workspace`, `chat-history-search`, `chat-ui-polish`, `chat-sources-toolbar` with one worker. Record changed assertions in verification.
-- [ ] `verification.md`; consolidate into specs/tests; register in `AGENTS.md`.
+- [x] Thread-list adapter with history adapter; unit tests with a fake API.
+- [x] Per-thread controller registry; the transport resolves thread initialization when it creates the session.
+- [x] Mount the list runtime under the authenticated route; `ChatPage` renders the main thread and syncs the URL.
+- [x] Sidebar on thread-list state, archive section, row actions through the thread-list item; page title generation removed.
+- [x] Keep project lists, drag-and-drop, history search and shared page working.
+- [x] Typecheck, lint, i18n, unit tests; Playwright chat suites with one worker plus `chat-archive.spec.ts`.
+- [x] `verification.md`; consolidate into specs/tests; register in `AGENTS.md`.
+- [ ] Whole-repository `clean check` before the pull request.

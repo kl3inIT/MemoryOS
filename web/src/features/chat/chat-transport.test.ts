@@ -14,6 +14,7 @@ const session: ChatSession = {
   title: "Test",
   createdAt: "2026-09-09T00:00:00Z",
   updatedAt: "2026-09-09T00:00:00Z",
+  archived: false,
 };
 const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
 it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => {

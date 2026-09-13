@@ -103,7 +103,7 @@ The page header reads title, persona and project from `threadListItem` state and
 ### Sidebar
 
 **Regular list.**
-- `ThreadListPrimitive.Items` renders the regular list inside the existing Today/Yesterday/Earlier groups, grouped by `threadListItem.custom.updatedAt`.
+- The sidebar reads `threads.threadIds`/`threadItems` from the list state and keeps the existing Today/Yesterday/Earlier sections, grouped by `custom.updatedAt`. `ThreadListPrimitive.Items` cannot emit section headers, so the sections iterate the same state.
 - A wrapper maps `threadListItem` to the `ChatSession` shape and renders the existing prop-driven `ChatSessionRow`, which project lists still reuse.
 - Rename, delete and archive go through `aui.threadListItem`, so list state updates optimistically.
 - Share and move-to-project stay app-owned and reload the list.

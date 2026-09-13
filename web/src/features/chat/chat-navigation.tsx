@@ -1,5 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuiState } from "@assistant-ui/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bot, Folder, ChevronDown, ChevronRight, MessageSquare, Plus, Search } from "lucide-react";
 import { Popover } from "radix-ui";
@@ -9,14 +10,16 @@ import { IconButton } from "@/components/ui/icon-button";
 import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
+import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatHistorySearch } from "./chat-history-search";
-import { listChatSessions } from "@/lib/hey-api/sdk.gen";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { chatSessionsKey } from "./chat-api";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
 import { ProjectEditor, ProjectConversationList } from "./chat-projects-page";
 import { loadProjects, moveConversation, type Project } from "./chat-workspace-api";
 import { chatActionError } from "./chat-action-utils";
+import { useChatThreads, useOptionalChatThreads } from "./chat-threads-context";
+import { sessionFromThread } from "./chat-thread-list-adapter";
 import { cn } from "@/lib/utils";
 
 export function ChatNavigation({
@@ -30,27 +33,12 @@ export function ChatNavigation({
 
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { actorId, authorizationVersion } = useApplicationSession();
+  const threads = useOptionalChatThreads();
   const [creating, setCreating] = useState(false);
   const projects = useQuery({
     queryKey: ["chat-projects", actorId, authorizationVersion],
     queryFn: ({ signal }) => loadProjects(signal),
   });
-  const sessions = useInfiniteQuery({
-    queryKey: chatSessionsKey,
-    initialPageParam: 0,
-    queryFn: async ({ pageParam, signal }) =>
-      (
-        await listChatSessions({
-          query: { offset: pageParam, limit: 30 },
-          signal,
-          throwOnError: true,
-        })
-      ).data,
-    getNextPageParam: (last, pages) =>
-      last.length === 30 && pages.length * 30 <= 10000 ? pages.length * 30 : undefined,
-  });
-  const groups = groupThreadTitles(sessions.data?.pages.flat() ?? []);
-  const groupLabels = { today: ui("Hôm nay"), yesterday: ui("Hôm qua"), earlier: ui("Trước đó") };
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
       <SidebarTab
@@ -133,43 +121,7 @@ export function ChatNavigation({
             </h2>
             <ChatHistorySearch onNavigate={onNavigate} />
           </div>
-          <ThreadList label={ui("Hội thoại gần đây")}>
-            {groups.map((group) => (
-              <section key={group.label} aria-label={groupLabels[group.label]}>
-                <h3 className="px-3 pb-1 pt-3 text-xs font-medium text-content-muted">
-                  {groupLabels[group.label]}
-                </h3>
-                {group.items.map((session) => (
-                  <ChatSessionRow key={session.id} session={session} onNavigate={onNavigate} />
-                ))}
-              </section>
-            ))}
-          </ThreadList>
-          {!sessions.isPending && !sessions.isError && groups.length === 0 && (
-            <p role="status" className="px-3 py-2 text-sm text-content-muted">
-              {ui("Chưa có hội thoại.")}
-            </p>
-          )}
-          {sessions.isPending && (
-            <p role="status" className="px-3 text-sm text-content-muted">
-              {ui("Đang tải hội thoại…")}
-            </p>
-          )}
-          {sessions.isError && (
-            <Button size="sm" prominence="internal" onClick={() => void sessions.refetch()}>
-              {ui("Tải lại hội thoại")}
-            </Button>
-          )}
-          {sessions.hasNextPage && (
-            <Button
-              size="sm"
-              prominence="internal"
-              pending={sessions.isFetchingNextPage}
-              onClick={() => void sessions.fetchNextPage()}
-            >
-              {ui("Xem thêm hội thoại")}
-            </Button>
-          )}
+          {threads && <ThreadListConversations onNavigate={onNavigate} />}
         </div>
       )}
       {creating && (
@@ -181,6 +133,123 @@ export function ChatNavigation({
         />
       )}
     </div>
+  );
+}
+
+/** Sidebar rows come from the assistant-ui remote thread list; day sections are kept from the old list. */
+function ThreadListConversations({ onNavigate }: { onNavigate?: () => void }) {
+  const ui = useAppTranslation();
+  const { runtime } = useChatThreads();
+  const [showArchived, setShowArchived] = useState(false);
+  const isLoading = useAuiState((state) => state.threads.isLoading);
+  const isLoadingMore = useAuiState((state) => state.threads.isLoadingMore);
+  const hasMore = useAuiState((state) => state.threads.hasMore);
+  const threadIds = useAuiState((state) => state.threads.threadIds);
+  const archivedIds = useAuiState((state) => state.threads.archivedThreadIds);
+  const items = useAuiState((state) => state.threads.threadItems);
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const rows = (ids: readonly string[]) =>
+    ids.flatMap((threadId) => {
+      const item = byId.get(threadId);
+      const session = item && sessionFromThread(item);
+      return session ? [{ ...session, threadId }] : [];
+    });
+  const regular = rows(threadIds);
+  const archived = rows(archivedIds);
+  const groups = groupThreadTitles(regular);
+  const groupLabels = { today: ui("Hôm nay"), yesterday: ui("Hôm qua"), earlier: ui("Trước đó") };
+  return (
+    <>
+      <ThreadList label={ui("Hội thoại gần đây")}>
+        {groups.map((group) => (
+          <section key={group.label} aria-label={groupLabels[group.label]}>
+            <h3 className="px-3 pb-1 pt-3 text-xs font-medium text-content-muted">
+              {groupLabels[group.label]}
+            </h3>
+            {group.items.map((session) => (
+              <ChatThreadRow
+                key={session.threadId}
+                threadId={session.threadId}
+                session={session}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </section>
+        ))}
+      </ThreadList>
+      {!isLoading && regular.length === 0 && (
+        <p role="status" className="px-3 py-2 text-sm text-content-muted">
+          {ui("Chưa có hội thoại.")}
+        </p>
+      )}
+      {isLoading && regular.length === 0 && (
+        <p role="status" className="px-3 text-sm text-content-muted">
+          {ui("Đang tải hội thoại…")}
+        </p>
+      )}
+      {hasMore && (
+        <Button
+          size="sm"
+          prominence="internal"
+          pending={isLoadingMore}
+          onClick={() => void runtime.threads.loadMore()}
+        >
+          {ui("Xem thêm hội thoại")}
+        </Button>
+      )}
+      {archived.length > 0 && (
+        <div className="pt-4">
+          <Button
+            size="sm"
+            prominence="internal"
+            className="w-full justify-start"
+            aria-expanded={showArchived}
+            onClick={() => setShowArchived(!showArchived)}
+          >
+            {showArchived ? (
+              <ChevronDown className="size-4" />
+            ) : (
+              <ChevronRight className="size-4" />
+            )}
+            {ui("Hội thoại đã lưu trữ")}
+          </Button>
+          {showArchived && (
+            <ThreadList label={ui("Hội thoại đã lưu trữ")}>
+              {archived.map((session) => (
+                <ChatThreadRow
+                  key={session.threadId}
+                  threadId={session.threadId}
+                  session={session}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </ThreadList>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ChatThreadRow({
+  threadId,
+  session,
+  onNavigate,
+}: {
+  threadId: string;
+  session: ChatSession;
+  onNavigate?: () => void;
+}) {
+  const { runtime } = useChatThreads();
+  const item = () => runtime.threads.getItemById(threadId);
+  return (
+    <ChatSessionRow
+      session={session}
+      onNavigate={onNavigate}
+      rename={(title) => item().rename(title)}
+      deleteSession={() => item().delete()}
+      archive={() => (session.archived ? item().unarchive() : item().archive())}
+    />
   );
 }
 

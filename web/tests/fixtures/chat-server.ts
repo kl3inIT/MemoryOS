@@ -43,6 +43,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
     title,
     createdAt: now,
     updatedAt: now,
+    archived: false as boolean,
   };
   const value = {
     session,
@@ -137,7 +138,7 @@ export async function handleChatFixture(
           response,
           [...sessions.values()]
             .map((item) => item.session)
-            .filter((item) => item.projectId === project.id)
+            .filter((item) => item.projectId === project.id && !item.archived)
             .slice(offset, offset + Number(url.searchParams.get("limit") ?? 30)),
         );
       } else json(response, {}, 405);
@@ -170,18 +171,21 @@ export async function handleChatFixture(
         created.projectId = input.projectId ?? null;
         json(response, created, 201);
       }
-    } else
+    } else {
+      const status = url.searchParams.get("status") ?? "REGULAR";
       json(
         response,
         [...sessions.values()]
           .reverse()
           .map((item) => item.session)
+          .filter((item) => status === "ALL" || item.archived === (status === "ARCHIVED"))
           .slice(
             Number(url.searchParams.get("offset") ?? 0),
             Number(url.searchParams.get("offset") ?? 0) +
               Number(url.searchParams.get("limit") ?? 30),
           ),
       );
+    }
     return true;
   }
   const state = sessions.get(segments[4]!);
@@ -244,6 +248,11 @@ export async function handleChatFixture(
       state.feedback.set(segments[6]!, value);
       json(response, value);
     }
+    return true;
+  }
+  if (segments[5] === "archive") {
+    state.session.archived = request.method === "PUT";
+    json(response, state.session);
     return true;
   }
   if (segments[5] === "title") {

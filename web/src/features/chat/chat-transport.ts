@@ -45,7 +45,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   }
   private modelConfigurationId?: string;
   private onModelAccepted?: (selection: Accepted) => void;
-  private readonly projectId?: string;
+  /** Project for the session created by the first send; ignored once the session exists. */
+  projectId?: string;
+  onSessionCreated?: (session: ChatSession) => void;
+  /** Any failure before the first session exists, so thread initialization can be retried. */
+  onSessionFailed?: (error: unknown) => void;
   private readonly preferenceOwner?: string;
 
   selectModel(id?: string) {
@@ -110,6 +114,20 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
     const webSearch = this.webSearch;
+    const creating = !this.session;
+    try {
+      return await this.submit(options, modelConfigurationId, webSearch);
+    } catch (error) {
+      if (creating && !this.session) this.onSessionFailed?.(error);
+      throw error;
+    }
+  }
+
+  private async submit(
+    options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0],
+    modelConfigurationId: string | undefined,
+    webSearch: WebSearchMode,
+  ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
     const message = options.messages.at(-1);
@@ -131,7 +149,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.stopWhenAccepted = false;
     this.callbacks.state("sending");
     try {
-      this.session ??= await newChatSession(text, signal, undefined, this.projectId);
+      if (!this.session) {
+        this.session = await newChatSession(text, signal, undefined, this.projectId);
+        this.onSessionCreated?.(this.session);
+      }
       writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },

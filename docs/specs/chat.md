@@ -108,6 +108,8 @@ Sharing starts private. The owner can enable/revoke the session link with an exp
 
 Archive is an owner-only, idempotent list state stored as `chat_session.archived_at` (V51). It does not change the conversation's activity time. Archived conversations leave the regular list, project conversation lists and history search. They remain readable, renamable, deletable, shareable and writable. The server never unarchives implicitly.
 
+The browser keeps one assistant-ui remote thread list for the authenticated application. The sidebar lists regular and archived conversations from it, and the route selects the visible thread. Only the visible thread keeps a reply reader open. A reply in a conversation the user leaves keeps running on the server and is resumed from saved history when that conversation is shown again. Opening an archived conversation unarchives it. Title generation runs once after the first completed answer.
+
 Feedback belongs to the owner Actor and a specific saved ASSISTANT output with nonblank content. It supports nullable positive/negative rating, comment (4000 characters), reason (100), and removal; at least a rating or nonblank comment is required. Regenerated outputs have independent feedback. Shared readers cannot mutate feedback or conversation state.
 
 | Browser operation | HTTP contract |
