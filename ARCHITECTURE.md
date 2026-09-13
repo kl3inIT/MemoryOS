@@ -142,6 +142,8 @@ Search uses the current authorized Document generation. PostgreSQL holds bounded
 
 ## Chat execution and retrieval
 
+External Web tools now use this same turn/Embabel execution path, not a second worker or agent. Tenant-owned JPA connections reuse encrypted model credentials; Web URL evidence shares the existing answer-source store and reader panel. Protocol adapters, bounded public HTML/text/PDF reading and remaining native-search work are recorded in the [Chat Web contract](docs/specs/chat.md#external-web-search-and-url-reading).
+
 ```mermaid
 flowchart LR
     Q[User message] --> AUTH[Recheck Tenant authority]

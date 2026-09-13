@@ -2,7 +2,7 @@
 
 Accepted scope: deliver the backend catalog and native adapter extension now. Đức Anh adds and verifies the local provider adapter on this foundation. No model selector or provider administration UI is included; regenerate the OpenAPI client only.
 
-The [catalog spec](../../../specs/chat-models.md) remains the reference contract. MemoryOS separates provider connections, model configurations and tool configuration through its catalog and adapter boundaries. Spring AI owns provider calls and Embabel owns conversion, streaming, tool continuation and accounting.
+The [provider/model architecture](../../completed/mem-11-production-chat/provider-model-architecture.md) and [catalog spec](../../../specs/chat-models.md) remain the reference contracts. MemoryOS separates provider connections, model configurations and tool configuration through its catalog and adapter boundaries. Spring AI owns provider calls and Embabel owns conversion, streaming, tool continuation and accounting.
 
 ## Implementation
 

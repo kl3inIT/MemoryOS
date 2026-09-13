@@ -51,6 +51,8 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 ## Active
 
+Chat Web search is implemented locally for the external-provider vertical slice, with assistant-ui controls/progress/citations, bounded PDF text reading, provider-aware tool guidance, browser-local Web preferences and the existing Chat tool loop. Native provider-hosted search and live-provider acceptance remain open. [Design](increments/active/chat-web-search/design.md) · [Plan](increments/active/chat-web-search/plan.md) · [Verification](increments/active/chat-web-search/verification.md).
+
 MEM-74/MEM-22 localization and problem presentation is implemented locally across the scoped application, including account language, safe errors/notifications, Chat language hints and the approved read-only renderer follow-up. Repository, frontend and browser gates passed; PR review and release acceptance remain separate. [Design](increments/active/mem-74-22-i18n-errors/design.md) · [Verification](increments/active/mem-74-22-i18n-errors/verification.md).
 
 | Increment | Outcome | Evidence |

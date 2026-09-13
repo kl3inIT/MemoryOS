@@ -38,6 +38,10 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-74/MEM-22 — Localization and problem presentation](docs/increments/active/mem-74-22-i18n-errors/design.md) is local in-flight work; Linear remains Todo/Backlog until separately updated.
 - [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
 - [MEM-84 — Architecture documentation sync](docs/increments/active/architecture-documentation-sync/design.md) owns the current Linear and repository documentation audit.
+- [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
+- [Chat edit and navigation polish](docs/increments/active/chat-edit-navigation-polish/design.md) owns the compact editor, Actions menu, Sources toolbar and assistant-ui reuse follow-ups.
+- [Chat history search](docs/increments/active/chat-history-search/design.md) owns owner-authorized full-history conversation search.
+- [Chat model selector polish](docs/increments/active/chat-model-selector-polish/design.md) owns inherited-default marking and model identity display; plan items remain open.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 

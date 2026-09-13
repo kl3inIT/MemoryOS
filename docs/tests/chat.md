@@ -1,5 +1,30 @@
 # Chat verification matrix
 
+UI reuse follow-up: `chat-ui-polish.spec.ts` exercises Actions/options, current-branch content matching/stepping/focus, Search/Crawler sections and Exa credential KEEP/REPLACE across the shared sections at 1440/390px. `chat-sources-toolbar.spec.ts` checks DocumentReference lists and original Web links while retaining the grouped Sources row. `chat-conversation-matches.test.ts` covers literal/Unicode matching, hidden tool-text exclusion, bounded hits and local-calendar loaded-title grouping. Exact receipts and baseline differences: [edit/navigation verification](../increments/active/chat-edit-navigation-polish/verification.md).
+
+Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination` proves V44 indexes, title and unselected-version token matching, >64 KiB tail matching, owner/deletion/membership isolation, pagination and input validation on PostgreSQL. `chat-history-search.spec.ts` checks server-only hits without local filtering, paging, navigation, stale-query suppression, error retry and focus at 1440/390px with a mocked endpoint. Receipts: [history search verification](../increments/active/chat-history-search/verification.md).
+
+## Edit/navigation and Sources presentation
+
+- `edit-message.test.tsx` and `chat-attachments.test.tsx`: controlled editing focus, keyboard/IME, pending/busy, action-local errors and attachment-only messages; existing attachment readiness and preview lifecycle.
+- `sources.test.tsx`: bounded/deduplicated icon stack, localized generic Sources label, accessible count, document privacy and upstream favicon fallback/domain changes.
+- `chat-sources-toolbar.spec.ts`: mixed Web/document toolbar, panel toggle and Web selection, focus restoration and viewport bounds on desktop/mobile.
+- `chat.spec.ts`: compact editor at 1440/390 pixels, original branch retention, existing source range/denied-reader behavior and mobile Chat/Search navigation without a duplicate sidebar Search entry. These browser tests use local backend/model fixtures, not staging acceptance.
+
+## External Web search
+
+- `WebHttpTest`: private/encoded/literal address rejection, trusted-provider separation, no provider redirects, bounded response bytes and no user cookies.
+- `WebProviderClientTest`: response mappings for all six external search providers, shared Tavily connection, Exa/Firecrawl extraction, HTML sanitization, error redaction and bounded-label request metrics. Fixtures are not live-provider acceptance.
+- `WebPdfReaderTest`: the normal provider read path extracts real generated PDF text without credentials/OCR; page/output bounds are labeled, textless/malformed PDFs fail, and canceled reads propagate cancellation.
+- `WebToolsTest`: shared citation IDs, per-turn duplicate suppression, user-supplied URL reading without search, serialized token bounds and Stop before network I/O; overlapping batch calls, partial provider failures, input bounds and actual annotation-based `open_url` array binding.
+- `ChatWebPromptsTest`: actual-tool guidance for Web/internal/combined/off, preserved Persona and original prompt, conditional post-search reminder, no stale-history reminder and final-cycle behavior.
+- `ChatWebPromptsTest` also checks the supported/unsupported `site:` guidance and its absence when search is unavailable. `chat-web-preference.test.ts` checks reload restoration, owner/session isolation, new-chat defaults, invalid values and denied storage through the actual transport.
+- `ChatModelGuardTest`: required named Web tool choice is scoped to one request; shared model options remain unchanged and ignored choice fails.
+- `ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent`: real security filters, PostgreSQL/JPA migration/encrypted storage, explicit activation, HTTP provider fixture through the native tool loop with query arrays and actual prompt/reminder assertions, Send/Edit/Regenerate and off, persisted URL evidence and replay conflicts.
+- `chat-web.test.tsx` / `chat-transport.test.ts`: adapter-aware controls, unconfigured state, actual status/results, URL identity validation and immutable send intent. Browser CLI checks cover desktop/mobile controls, separate settings and the existing source panel with synthetic evidence. Exact receipts and open gates: [verification](../increments/active/chat-web-search/verification.md).
+
+Model selector follow-up: `ModelCatalogSelectionTest` covers inherited Tenant/Persona selection, revoked provider and hidden inherited model. `chat-model-picker.test.tsx` covers concrete name/context, no synthetic Auto/deployment heading, explicit selection and unavailable identity. `chat.spec.ts` includes desktop/mobile Luna-default display and retained explicit selection.
+
 Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/Mermaid, streaming fallback, whitespace, malformed/oversized diagrams and dialog focus. `chat-artifacts.test.tsx` validates the read-only allowlist and desktop/mobile panels. `chat-transport.test.ts` checks one authorized metadata read, no second inference and restored history. `ChatArtifactTest` checks native tool binding/bounds/sealing; `ChatTurnSetupTest` checks bounded follow-up context; persistence tests retain the terminal winner; `ChatSessionApiIntegrationTest.nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata` exercises actual native tool execution, saved HTTP history, denied foreign reads and the SSE flag. English/VI browser cases exercise runtime renderers, drafts and reload. Live provider quality is separate.
 
 | Contract | Test and boundary |
@@ -117,7 +142,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
 
 
-## the retired reference implementation Search parity and latency (Phase 3.3)
+## Grounded Search behavior and latency (Phase 3.3)
 
 | Contract | Verification |
 | --- | --- |

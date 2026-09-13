@@ -1,6 +1,6 @@
 # Chat provider/model catalog
 
-The backend lives in `core.chat.catalog` and `chat.persistence.ModelCatalogRepository` with Spring Data JPA lifecycle repositories, with native provider composition and HTTP controllers in `api.chat`. Chat's composer has a session-aware model picker backed by this catalog; provider/model administration screens remain MEM-77 work. This contract extends [Chat](chat.md).
+The backend lives in `core.chat.catalog` and `chat.persistence.ModelCatalogRepository` with Spring Data JPA lifecycle repositories, with native provider composition and HTTP controllers in `api.chat`. Chat's composer has a session-aware model picker backed by this catalog; provider/model administration screens remain MEM-77 work. This contract extends [Chat](chat.md); the [reference design](../increments/completed/mem-11-production-chat/provider-model-architecture.md) also describes later UI work.
 
 ## Configuration and access
 
@@ -14,7 +14,9 @@ The Tenant Chat default must be visible, enabled, credential-ready, public and u
 
 ## Selection and lifetime
 
-Send accepts optional `modelConfigurationId`: explicit selection → Persona default → Tenant Chat default. No model-name lookup or invented model tier participates. A missing or unauthorized selection falls back only to an authorized Tenant default; otherwise send fails before reserving a message. `202` returns actual `modelConfigurationId` and optional `SELECTION_UNAVAILABLE` without exposing inaccessible configuration details.
+The composer displays the concrete inherited model name (not an Auto/default-model entry) and selected checkmark using assistant-ui; the context-window subtitle is omitted. Provider connection names remain searchable but are not group headings. The available-model `isDefault` flag identifies the authorized effective Persona default, otherwise the Tenant default. Hidden inherited models remain absent rather than falsely selecting another visible model. Explicit UUID selections remain authoritative. Reasoning effort is currently a model configuration setting, not an interactive per-turn composer control.
+
+Send accepts optional `modelConfigurationId`: explicit selection → Persona default → Tenant Chat default. No model-name lookup or invented model tier participates. A missing or unauthorized selection falls back only to an authorized Tenant default; otherwise send fails before reserving a message. `202` returns actual `modelConfigurationId` and optional `SELECTION_UNAVAILABLE` without exposing inaccessible configuration details. The selection list's `isDefault` marks the effective inherited model for the session's Persona: an authorized Persona default, otherwise the Tenant default. A hidden or inaccessible inherited model marks nothing. The picker displays that model when no explicit choice is set, has no synthetic Auto entry or provider headings, and shows an unavailable state instead of naming another model.
 
 Request equality includes parent, text and the requested model ID. Repeating an accepted request returns its original message IDs and selection even after a catalog edit/deletion. The request and selected IDs are historical metadata without cascading foreign keys; configuration and credentials are not snapshotted in the transcript. The final outcome retains the actual model name and native accounting.
 

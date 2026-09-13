@@ -1,0 +1,37 @@
+# Chat edit and navigation polish
+
+## Accepted scope
+
+Owner-approved follow-up: compare Onyx's action chooser, search/crawler administration and source panel; reuse assistant-ui ConversationSearch, DocumentReference and WebSearch presentation. Group provider cards into search engines and page readers with local provider logos and a real built-in reader card. Exa/Tavily keep one credential record across both sections. The composer exposes an Actions chooser with Web as its only implemented action; selecting it requests Web for the turn, with explicit Off/Auto/Required settings preserving capability checks. Do not advertise unimplemented actions. Onyx's forced/disabled tool configuration is the behavior reference, not a new MemoryOS backend contract.
+
+ConversationSearch matches text in the currently opened branch's runtime messages and navigates real message IDs. The sidebar may group and filter loaded session titles, explicitly labelled as such; this is not an authorized full-history content-search endpoint. Preserve route/runtime ownership, real rename/delete/project actions and pagination. DocumentReference must use actual citation identifiers/excerpts, never fabricated page counts. Completed Web activity collapses into a disclosure; Sources remains in the answer toolbar and the authorized reader remains authoritative.
+
+Owner-approved Sources follow-up: keep a single Sources control in the answer toolbar like Onyx 40eb240df (MessageToolbar/SourcesTagWrapper), with up to three distinct source icons and a generic localized Sources label, not a separate row of title chips. Reuse assistant-ui SourceIcon's favicon/fallback behavior. Only Web-source hostnames are sent to the upstream DuckDuckGo favicon service, with no referrer or cross-origin credentials; internal document identities and titles never enter that request. The source panel, inline previews, citation counts for accessibility and MemoryOS's authorized reader callbacks remain unchanged. Do not claim native provider rendering or Image-element integration from this change.
+
+Fix the oversized question editor shown by the owner, remove the duplicate document Search sidebar entry, and audit assistant-ui component reuse. Document Search remains reachable through the existing Chat/Search mode selector and its route remains unchanged. Conversation search is a separate capability; this change does not silently add a title-only filter and label it full-history search.
+
+## Reuse and boundaries
+
+- Keep the controlled assistant-ui-derived EditMessage and existing server-backed edit callback: MemoryOS owns file identities, branch preservation, idempotency and pending/error state.
+- Reuse react-textarea-autosize 8.5.9, already used by the installed assistant-ui ComposerInput, as a direct dependency for the controlled editor. Use one-to-eight rows rather than handwritten measurement/resize behavior.
+- Compose the existing file picker into the same footer row as Cancel/Save, with shared Button/IconButton styling. Keep the branch-preservation hint accessible without allocating a separate visible row.
+- Keep the pathless Chat route and streaming runtime unchanged. Do not replace the application-wide navigation with a second runtime or move thread state merely for visual parity.
+- No OCR, backend, native Web adapter, deployment, commit or PR changes.
+
+## Verified reuse audit
+
+The current ThreadList is adapted from the standalone controlled element, not the AUI-connected runtime list. MemoryOS owns routing, paginated session queries, project grouping and real rename/delete actions; its menu uses ThreadListItemMorePrimitive. The upstream title filtering and Today/Yesterday/Earlier buckets are now adapted to loaded server sessions using updatedAt; full runtime focus-group/CRUD integration is not claimed. Searching all conversations' message contents requires a server-side authorized query; upstream title filtering of loaded rows is not equivalent.
+
+References: https://www.assistant-ui.com/elements/thread-list and https://www.assistant-ui.com/elements/conversation-search .
+
+Sources now uses the accepted grouped toolbar design above instead of its previous count-only pill; it is deliberately not upstream Sources' per-source link row. Its panel and inline citations preserve the selected message/citation and authorized document reader. The Image element is not installed: composer attachments already reuse AttachmentPrimitive and preview hooks, while the authorized reader renders fetched image bytes using useFileSrc and an img. These are useful existing paths but not full Image-element parity.
+
+Other inspected reuse includes Thread/Composer/ActionBar primitives, native attachment handling, File, Sources/InlineCitation, ModelSelector, ErrorState/ConnectionState, feedback/actions/branches, Markdown/Shiki/Mermaid and GenerativeUIRender. ConversationSearch now reads the active branch's actual text parts, with bounded literal matches, next/previous, excerpt highlighting and scrolling to MessagePrimitive's data-message-id. One AssistantRuntimeProvider wraps the Chat shell, header and content; no duplicate runtime/provider or route transition was introduced. Conversation map, follow-up suggestions, message timing, Quote and tool grouping are not established as integrated by this audit. No synthetic reasoning or usage UI is introduced without matching runtime data; the previously rejected context-token display remains absent.
+
+## Onyx UI comparison (inspected source snapshot 40eb240df, 2026-09-10)
+
+- `web/src/lib/tools/components/ToolsPopover.tsx` and `ToolLineItem.tsx`: searchable action list, per-action configuration, forced/disabled selection; non-selectable OpenURL and FileReader do not become separate composer actions. MemoryOS retains its accepted off/auto/required API and exposes only implemented Web, not placeholder actions or Onyx's MCP management.
+- `web/src/views/admin/WebSearchPage/index.tsx`: Search Engine and Web Crawler sections, ordered provider logos, built-in reader and shared Exa/Tavily keys. MemoryOS reuses logo sources with the upstream license and preserves explicit save/select/paid-test operations. Cards use MemoryOS theme and inline credential forms rather than claiming pixel-identical Onyx setup modals.
+- `web/src/sections/sidebar/ChatSearchCommandMenu.tsx` and `web/src/lib/sidebar/hooks.ts`: command dialog with chats/projects filters, debounced paginated server search and local fallback. That server-search feature is not implemented by MemoryOS's loaded-title filter or current-conversation finder.
+- `web/src/app/app/message/messageComponents/MessageToolbar.tsx`: grouped Sources stays beside answer actions. MemoryOS uses assistant-ui DocumentReference in its right-hand list and Web reader header while retaining its own authorized document passage reader.
+- Official assistant-ui registry sources inspected 2026-09-13: elements-conversation-search, elements-document-reference, elements-web-search, elements-edit-message, elements-thread-list and thread-list. Data-adapter changes replace demo page numbers/counters/identities; no demo timers or fake search results enter the product.
