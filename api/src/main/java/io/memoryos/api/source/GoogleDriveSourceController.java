@@ -8,6 +8,9 @@ import io.memoryos.api.source.contract.GoogleDriveSelectionResponse;
 import io.memoryos.api.source.contract.GoogleDriveSelectionTreeResponse;
 import io.memoryos.api.source.contract.SourceOperationResponse;
 import io.memoryos.api.source.contract.UpdateGoogleDriveScheduleRequest;
+import io.memoryos.api.source.contract.UpdateGoogleDrivePauseRequest;
+import io.memoryos.iam.GroupId;
+import java.util.List;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveSourceService;
 import io.memoryos.connector.SourceException;
@@ -51,7 +54,8 @@ final class GoogleDriveSourceController {
     ResponseEntity<GoogleDriveSelectionReceiptResponse> create(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody CreateGoogleDriveSourceRequest body) {
-        var receipt = sources.create(identity.actorId(), body.requestId(), body.name(), new CredentialId(body.credentialId()), body.scopeMode(), body.links());
+        var receipt = sources.create(identity.actorId(), body.requestId(), body.name(), new CredentialId(body.credentialId()),
+                body.scopeMode(), body.links(), body.groupIds() == null ? List.of() : body.groupIds().stream().map(GroupId::new).toList());
         return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
                 .body(GoogleDriveSelectionReceiptResponse.from(receipt));
     }
@@ -137,6 +141,16 @@ final class GoogleDriveSourceController {
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody UpdateGoogleDriveScheduleRequest body) {
         var value = sources.updateSchedule(identity.actorId(), new SourceId(sourceId), revision(ifMatch), body.syncIntervalMinutes());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scheduleRevision() + "\"")
+                .body(GoogleDriveConfigurationResponse.from(value));
+    }
+
+    @Operation(operationId = "updateGoogleDrivePause", summary = "Pause or resume future automatic Google Drive synchronization")
+    @PostMapping(value = "/{sourceId}/google-drive/pause", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<GoogleDriveConfigurationResponse> updatePause(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
+            @Valid @RequestBody UpdateGoogleDrivePauseRequest body) {
+        var value = sources.setPaused(identity.actorId(), new SourceId(sourceId), body.expectedRevision(), body.paused());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scheduleRevision() + "\"")
                 .body(GoogleDriveConfigurationResponse.from(value));
     }

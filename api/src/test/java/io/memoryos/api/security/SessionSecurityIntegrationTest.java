@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.invitation.InvitationSessionState;
 import io.swagger.v3.core.util.Json;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -42,8 +43,10 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -155,7 +158,7 @@ class SessionSecurityIntegrationTest {
                 var identity = Json.mapper().readTree(response.body());
                 actor = UUID.fromString(identity.path("actorId").asText());
                 assertEquals("MEMBER", identity.path("tenant").path("role").asText());
-                assertTrue(identity.path("capabilities").isEmpty());
+                assertBasicCapabilities(identity);
                 assertTrue(identity.path("scopedCapabilities").isEmpty());
                 assertEquals(false, jdbcClient.sql("SELECT email_verified FROM actor_profiles WHERE actor_id = :actor")
                         .param("actor", actor).query(Boolean.class).single());
@@ -698,7 +701,7 @@ class SessionSecurityIntegrationTest {
             assertTrue(identity.body().contains(memberActorId.toString()));
             assertTrue(identity.body().contains("\"displayName\":\"Tasco\""));
             assertTrue(identity.body().contains("\"role\":\"MEMBER\""));
-            assertTrue(identity.body().contains("\"capabilities\":[]"));
+            assertBasicCapabilities(Json.mapper().readTree(identity.body()));
             var ownerOnlyResponses = List.of(
                     memberClient.send(request("/api/invitations"), HttpResponse.BodyHandlers.ofString()),
                     memberClient.send(
@@ -997,10 +1000,10 @@ class SessionSecurityIntegrationTest {
                     .audience("memoryos-api")
                     .issueTime(new Date())
                     .expirationTime(Date.from(Instant.now().plusSeconds(300)))
-                    .claim("scope", "IAM_ADMIN USERS_MANAGE")
-                    .claim("realm_access", Map.of("roles", List.of("admin", "IAM_ADMIN")))
+                    .claim("scope", "SYSTEM_ADMIN USERS_MANAGE")
+                    .claim("realm_access", Map.of("roles", List.of("admin", "SYSTEM_ADMIN")))
                     .claim("resource_access", Map.of(
-                            "memoryos-api", Map.of("roles", List.of("IAM_ADMIN", "USERS_MANAGE"))))
+                            "memoryos-api", Map.of("roles", List.of("SYSTEM_ADMIN", "USERS_MANAGE"))))
                     .build());
             var bearerIdentityRequest = HttpRequest.newBuilder(baseUri().resolve("/api/identity/me"))
                     .timeout(Duration.ofSeconds(10))
@@ -1018,7 +1021,7 @@ class SessionSecurityIntegrationTest {
                 var identity = Json.mapper().readTree(bearerIdentity.body());
                 assertEquals(actorId, identity.path("actorId").asText());
                 assertEquals("MEMBER", identity.path("tenant").path("role").asText());
-                assertTrue(identity.path("capabilities").isEmpty());
+                assertBasicCapabilities(identity);
                 assertTrue(identity.path("scopedCapabilities").isEmpty());
                 assertEquals(403, bearerClient.send(bearerUsersRequest, HttpResponse.BodyHandlers.ofString()).statusCode());
                 assertTrue(bearerCookies.getCookieStore().getCookies().isEmpty());
@@ -1031,7 +1034,7 @@ class SessionSecurityIntegrationTest {
             var mixedIdentity = owner.send(bearerIdentityRequest, HttpResponse.BodyHandlers.ofString());
             assertEquals(200, mixedIdentity.statusCode());
             assertEquals(actorId, jsonString(mixedIdentity.body(), "actorId"));
-            assertTrue(Json.mapper().readTree(mixedIdentity.body()).path("capabilities").isEmpty());
+            assertBasicCapabilities(Json.mapper().readTree(mixedIdentity.body()));
             assertEquals(403, owner.send(bearerUsersRequest, HttpResponse.BodyHandlers.ofString()).statusCode());
             assertEquals(ownerSession, sessionCookie(ownerCookies));
             assertEquals(ownerActorId, jsonString(owner.send(request("/api/identity/me"),
@@ -1095,7 +1098,7 @@ class SessionSecurityIntegrationTest {
             var restored = member.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString());
             assertEquals(actorId, jsonString(restored.body(), "actorId"));
             assertEquals("MEMBER", jsonString(restored.body(), "role"));
-            assertTrue(Json.mapper().readTree(restored.body()).path("capabilities").isEmpty());
+            assertBasicCapabilities(Json.mapper().readTree(restored.body()));
             assertPersistedSessionsContainNoProviderOrInvitationState();
         } finally {
             AUTHENTICATING_SUBJECT.set("initial-owner");
@@ -1256,6 +1259,14 @@ class SessionSecurityIntegrationTest {
         } catch (IOException exception) {
             throw new IllegalStateException("failed to start test identity server", exception);
         }
+    }
+
+    private static void assertBasicCapabilities(JsonNode identity) {
+        var actual = new HashSet<String>();
+        identity.path("capabilities").forEach(capability -> actual.add(capability.asText()));
+        assertEquals(Set.of(
+                "SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE", "IMAGE_GENERATE", "LLM_GATEWAY_USE"
+        ), actual);
     }
 
     private static void metadata(HttpExchange exchange) throws IOException {

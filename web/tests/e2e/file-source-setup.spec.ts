@@ -376,7 +376,7 @@ test("scoped File creation requires managed groups and never publishes files", a
     }),
   );
   await page.goto("/admin");
-  await page.getByRole("link", { name: "Add source" }).click();
+  await page.locator("header").getByRole("link", { name: "Add source", exact: true }).click();
   await page.goto("/admin/sources/new/file");
   await page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file").setInputFiles({
     name: "Private knowledge.txt",

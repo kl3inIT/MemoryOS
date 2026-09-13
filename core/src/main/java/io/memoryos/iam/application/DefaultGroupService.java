@@ -27,7 +27,6 @@ import io.memoryos.iam.persistence.GroupProjectionRepository;
 import io.memoryos.iam.persistence.GroupProjectionRepository.GroupRecord;
 import io.memoryos.iam.persistence.GroupProjectionRepository.GroupRecordPage;
 import io.memoryos.iam.persistence.GroupRepository;
-import io.memoryos.iam.persistence.IamLockRepository;
 
 import java.util.Collection;
 import java.util.EnumSet;
@@ -50,9 +49,52 @@ public class DefaultGroupService implements GroupService {
             metadata(IamCapability.MODELS_MANAGE, "Manage models",
                     "Configure Chat providers, credentials, models and access within the Tenant.", true),
             metadata(
-                    IamCapability.IAM_ADMIN,
-                    "IAM administration",
-                    "Full identity, user, group, and Source administration.",
+                    IamCapability.SYSTEM_ADMIN,
+                    "Administrator access",
+                    "All product capabilities, including search, identity, user, group, Source, and model administration.",
+                    false
+            ),
+            metadata(
+                    IamCapability.SYSTEM_BASIC,
+                    "Basic access",
+                    "Search and read eligible document passages, plus reserved granular Chat, image generation, "
+                            + "and LLM gateway rights. Chat uses its existing membership and resource authorization; "
+                            + "reserved rights do not indicate enforcement. Does not grant administrative capabilities.",
+                    false
+            ),
+            metadata(
+                    IamCapability.SEARCH_READ,
+                    "Search documents",
+                    "Search and read eligible document passages, subject to Source visibility and document ACLs. "
+                            + "Derived from Basic access; cannot be granted directly.",
+                    false
+            ),
+            metadata(
+                    IamCapability.CHAT_READ,
+                    "Read chats",
+                    "Reserved granular Chat reading capability; Chat uses its existing membership and resource "
+                            + "authorization rather than this token. Derived from Basic access; cannot be granted directly.",
+                    false
+            ),
+            metadata(
+                    IamCapability.CHAT_WRITE,
+                    "Write chats",
+                    "Reserved granular Chat writing capability; Chat uses its existing membership and resource "
+                            + "authorization rather than this token. Derived from Basic access; cannot be granted directly.",
+                    false
+            ),
+            metadata(
+                    IamCapability.IMAGE_GENERATE,
+                    "Generate images",
+                    "Reserved for upcoming image generation; not an available or enforced feature permission. "
+                            + "Derived from Basic access; cannot be granted directly.",
+                    false
+            ),
+            metadata(
+                    IamCapability.LLM_GATEWAY_USE,
+                    "Use LLM gateway",
+                    "Reserved for upcoming LLM gateway use; not an available or enforced feature permission. "
+                            + "Derived from Basic access; cannot be granted directly.",
                     false
             ),
             metadata(
@@ -64,38 +106,43 @@ public class DefaultGroupService implements GroupService {
             metadata(
                     IamCapability.GROUPS_READ,
                     "View groups",
-                    "View Groups and their memberships.",
-                    true
+                    "View Groups and their memberships. Derived from Manage groups or Administrator access; "
+                            + "cannot be granted directly. Scoped managers can view only the Groups they manage.",
+                    false
             ),
             metadata(
                     IamCapability.GROUPS_MANAGE,
                     "Manage groups",
-                    "Create Groups and manage ordinary Group memberships.",
+                    "Create Groups and manage ordinary Groups. Scoped managers can rename their Groups, "
+                            + "manage existing members, and delegate peer managers without global administration.",
                     true
             ),
             metadata(
                     IamCapability.SOURCES_READ,
                     "View Sources",
-                    "Globally view Source configuration and operation history.",
-                    true
+                    "Globally view Source configuration and operation history. Derived from Manage Sources "
+                            + "or Administrator access; cannot be granted directly. "
+                            + "Scoped managers can view public, member-associated, or own nonpublic groupless Sources.",
+                    false
             ),
             metadata(
                     IamCapability.SOURCES_MANAGE,
                     "Manage Sources",
-                    "Globally create Sources, edit Group associations, upload content, and reindex. "
-                            + "Scoped managers can upload or reindex only associated Sources without this grant.",
+                    "Globally view and create Sources, edit Group associations, upload content, reindex, "
+                            + "remove Source items, and delete Sources. Scoped managers can manage nonpublic Sources "
+                            + "whose Groups they all manage, or their own nonpublic groupless Sources.",
                     true
             ),
             metadata(
                     IamCapability.SOURCES_DELETE,
                     "Delete Sources",
-                    "Globally view and remove Source items or delete Sources, without upload or management access.",
-                    true
+                    "Globally remove Source items or delete Sources. Derived from Manage Sources "
+                            + "or Administrator access; cannot be granted directly or exercised by scoped managers.",
+                    false
             )
     );
 
     private final IamAuthorization authorization;
-    private final IamLockRepository locks;
     private final GroupRepository groups;
     private final GroupMembershipRepository memberships;
     private final GroupCapabilityGrantRepository grants;
@@ -105,7 +152,6 @@ public class DefaultGroupService implements GroupService {
 
     public DefaultGroupService(
             IamAuthorization authorization,
-            IamLockRepository locks,
             GroupRepository groups,
             GroupMembershipRepository memberships,
             GroupCapabilityGrantRepository grants,
@@ -114,7 +160,6 @@ public class DefaultGroupService implements GroupService {
             GroupAdministrationGuard administrationGuard
     ) {
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
-        this.locks = Objects.requireNonNull(locks, "locks must not be null");
         this.groups = Objects.requireNonNull(groups, "groups must not be null");
         this.memberships = Objects.requireNonNull(memberships, "memberships must not be null");
         this.grants = Objects.requireNonNull(grants, "grants must not be null");
@@ -204,11 +249,12 @@ public class DefaultGroupService implements GroupService {
         ActorId requiredActorId = requireActor(actorId);
         GroupId requiredGroupId = requireGroup(groupId);
         String requiredName = requireName(name);
-        IamAccess access = authorization.lockAndRequireExclusive(
+        IamAccess access = authorization.lockAndRequireScopedMutation(
                 requiredActorId,
                 IamCapability.GROUPS_MANAGE
         );
         GroupEntity group = ordinaryGroup(access.tenantId(), requiredGroupId);
+        requireManagedScope(requiredActorId, access, requiredGroupId);
         requireUniqueName(access.tenantId(), requiredName, requiredGroupId);
         group.rename(requiredName);
         try {
@@ -229,6 +275,9 @@ public class DefaultGroupService implements GroupService {
                 IamCapability.GROUPS_MANAGE
         );
         GroupEntity group = ordinaryGroup(access.tenantId(), requiredGroupId);
+        requireRetainedGroup(!invariants.deletionLeavesStandardMembersGroupless(
+                access.tenantId(), requiredGroupId
+        ));
         groups.remove(group);
         groups.flush();
     }
@@ -250,10 +299,10 @@ public class DefaultGroupService implements GroupService {
         AccessToGroup access = visibleGroup(actorId, groupId, IamCapability.GROUPS_MANAGE);
         if (access.group().systemKey() != null
                 && !authorization.effectiveCapabilities(requireActor(actorId))
-                        .contains(IamCapability.IAM_ADMIN)) {
+                        .contains(IamCapability.SYSTEM_ADMIN)) {
             throw new IamException(
                     IamFailureReason.GROUP_PROTECTED,
-                    "System Group membership candidates require IAM_ADMIN"
+                    "System Group membership candidates require SYSTEM_ADMIN"
             );
         }
         return projections.candidates(
@@ -269,15 +318,13 @@ public class DefaultGroupService implements GroupService {
         ActorId requiredActorId = requireActor(actorId);
         GroupId requiredGroupId = requireGroup(groupId);
         Set<ActorId> requiredMembers = requireActorIds(actorIds);
-        IamAccess access = lockGroupMembershipMutation(requiredActorId);
+        IamAccess access = authorization.lockAndRequireScopedMutation(requiredActorId, IamCapability.GROUPS_MANAGE);
         GroupEntity group = mutableMembershipGroup(
                 requiredActorId,
                 access,
                 requiredGroupId
         );
-        if (access.authority() == Authority.SCOPED) {
-            requireDelegable(requiredActorId, group);
-        }
+        requireDelegable(requiredActorId, group);
         if (!invariants.existingTenantMembers(access.tenantId(), requiredMembers).equals(requiredMembers)) {
             throw new IamException(
                     IamFailureReason.GROUP_MEMBER_NOT_FOUND,
@@ -307,22 +354,25 @@ public class DefaultGroupService implements GroupService {
         ActorId requiredActorId = requireActor(actorId);
         GroupId requiredGroupId = requireGroup(groupId);
         ActorId requiredMemberActorId = requireActor(memberActorId);
-        IamAccess access = lockGroupMembershipMutation(requiredActorId);
+        IamAccess access = authorization.lockAndRequireScopedMutation(requiredActorId, IamCapability.GROUPS_MANAGE);
         GroupEntity group = mutableMembershipGroup(requiredActorId, access, requiredGroupId);
         GroupMembershipEntity membership = memberships.find(
                 access.tenantId(),
                 requiredGroupId,
                 requiredMemberActorId
         ).orElseThrow(() -> memberNotFound(requiredGroupId, requiredMemberActorId));
-        if (access.authority() == Authority.SCOPED && membership.isManager()) {
+        if (access.authority() == Authority.SCOPED && requiredActorId.equals(requiredMemberActorId)) {
             throw new IamException(
                     IamFailureReason.ACCESS_DENIED,
-                    "Scoped managers cannot remove Group manager memberships"
+                    "Scoped managers cannot remove their own managed Group membership"
             );
         }
         if (group.getSystemKey() == GroupSystemKey.ADMIN) {
             administrationGuard.requireCanDeactivate(access.tenantId(), requiredMemberActorId);
         }
+        requireRetainedGroup(!invariants.removalLeavesStandardMemberGroupless(
+                access.tenantId(), requiredGroupId, requiredMemberActorId
+        ));
         memberships.remove(membership);
         memberships.flush();
     }
@@ -349,10 +399,10 @@ public class DefaultGroupService implements GroupService {
         ActorId requiredActorId = requireActor(actorId);
         GroupId requiredGroupId = requireGroup(groupId);
         Set<IamCapability> requiredCapabilities = requireCapabilities(capabilities);
-        if (requiredCapabilities.contains(IamCapability.IAM_ADMIN)) {
+        if (!requiredCapabilities.stream().allMatch(IamCapability::isOrdinaryGrant)) {
             throw new IamException(
                     IamFailureReason.GROUP_PROTECTED,
-                    "IAM_ADMIN is reserved to the Admin Group"
+                    "Only ordinary administrative capabilities can be granted directly"
             );
         }
         IamAccess access = authorization.lockAndRequireAdministration(requiredActorId);
@@ -386,6 +436,11 @@ public class DefaultGroupService implements GroupService {
                     IamFailureReason.GROUP_NOT_FOUND,
                     "At least one replacement Group is absent, system-owned, or outside the Tenant"
             );
+        }
+        if (requiredGroupIds.isEmpty()) {
+            requireRetainedGroup(!invariants.ordinaryReplacementLeavesStandardMemberGroupless(
+                    access.tenantId(), requiredMemberActorId
+            ));
         }
 
         memberships.removeOrdinaryMembershipsExcept(
@@ -423,11 +478,18 @@ public class DefaultGroupService implements GroupService {
         ActorId requiredActorId = requireActor(actorId);
         GroupId requiredGroupId = requireGroup(groupId);
         ActorId requiredMemberActorId = requireActor(memberActorId);
-        IamAccess access = authorization.lockAndRequireExclusive(
+        IamAccess access = authorization.lockAndRequireScopedMutation(
                 requiredActorId,
                 IamCapability.GROUPS_MANAGE
         );
         ordinaryGroup(access.tenantId(), requiredGroupId);
+        requireManagedScope(requiredActorId, access, requiredGroupId);
+        if (!manager && access.authority() == Authority.SCOPED && requiredActorId.equals(requiredMemberActorId)) {
+            throw new IamException(
+                    IamFailureReason.ACCESS_DENIED,
+                    "Scoped managers cannot revoke their own Group manager scope"
+            );
+        }
         GroupMembershipEntity membership = memberships.find(
                 access.tenantId(),
                 requiredGroupId,
@@ -454,18 +516,6 @@ public class DefaultGroupService implements GroupService {
         return new AccessToGroup(access, group);
     }
 
-    private IamAccess lockGroupMembershipMutation(ActorId actorId) {
-        IamAccess beforeLock = authorization.require(actorId, IamCapability.GROUPS_MANAGE, true);
-        locks.lockTenant(beforeLock.tenantId());
-        IamAccess afterLock = authorization.require(actorId, IamCapability.GROUPS_MANAGE, true);
-        if (!beforeLock.tenantId().equals(afterLock.tenantId())) {
-            throw new IamException(
-                    IamFailureReason.ACCESS_DENIED,
-                    "Actor authority changed Tenant while acquiring the exclusive authority lock"
-            );
-        }
-        return afterLock;
-    }
 
     private GroupEntity mutableMembershipGroup(
             ActorId actorId,
@@ -475,28 +525,33 @@ public class DefaultGroupService implements GroupService {
         GroupEntity group = groups.find(access.tenantId(), groupId)
                 .orElseThrow(() -> groupNotFound(groupId));
         if (group.isSystemGroup()) {
-            if (!authorization.effectiveCapabilities(actorId).contains(IamCapability.IAM_ADMIN)) {
+            if (!authorization.effectiveCapabilities(actorId).contains(IamCapability.SYSTEM_ADMIN)) {
                 throw new IamException(
                         IamFailureReason.GROUP_PROTECTED,
-                        "System Group memberships require IAM_ADMIN"
+                        "System Group memberships require SYSTEM_ADMIN"
                 );
             }
             return group;
         }
+        requireManagedScope(actorId, access, groupId);
+        return group;
+    }
+
+    private void requireManagedScope(ActorId actorId, IamAccess access, GroupId groupId) {
         if (access.authority() == Authority.SCOPED
                 && !invariants.isManagedBy(access.tenantId(), actorId, groupId)) {
             throw groupNotFound(groupId);
         }
-        return group;
     }
 
     private void requireDelegable(ActorId actorId, GroupEntity group) {
         Set<IamCapability> groupCapabilities = IamCapability.expand(grants.findCapabilities(group));
         Set<IamCapability> managerCapabilities = authorization.effectiveCapabilities(actorId);
-        if (!managerCapabilities.containsAll(groupCapabilities)) {
+        if (!managerCapabilities.contains(IamCapability.SYSTEM_ADMIN)
+                && !managerCapabilities.containsAll(groupCapabilities)) {
             throw new IamException(
                     IamFailureReason.MANAGER_AMPLIFICATION_DENIED,
-                    "Scoped manager lacks at least one expanded capability granted by the target Group"
+                    "Group administrator lacks at least one expanded capability granted by the target Group"
             );
         }
     }
@@ -524,24 +579,25 @@ public class DefaultGroupService implements GroupService {
             Set<IamCapability> effectiveCapabilities
     ) {
         EnumSet<GroupAction> actions = EnumSet.noneOf(GroupAction.class);
-        boolean iamAdmin = effectiveCapabilities.contains(IamCapability.IAM_ADMIN);
+        boolean systemAdmin = effectiveCapabilities.contains(IamCapability.SYSTEM_ADMIN);
         boolean managesGroupsGlobally = effectiveCapabilities.contains(IamCapability.GROUPS_MANAGE);
         if (group.systemKey() == null) {
             if (managesGroupsGlobally) {
-                actions.add(GroupAction.RENAME);
                 actions.add(GroupAction.DELETE);
-                actions.add(GroupAction.MANAGE_MANAGERS);
             }
             if (managesGroupsGlobally || group.managedByActor()) {
+                actions.add(GroupAction.RENAME);
+                actions.add(GroupAction.MANAGE_MANAGERS);
                 actions.add(GroupAction.MANAGE_MEMBERS);
             }
-            if (iamAdmin) {
+            if (systemAdmin) {
                 actions.add(GroupAction.MANAGE_GRANTS);
             }
-        } else if (iamAdmin) {
+        } else if (systemAdmin) {
             actions.add(GroupAction.MANAGE_MEMBERS);
         }
-        if (effectiveCapabilities.contains(IamCapability.SOURCES_MANAGE)) {
+        if (effectiveCapabilities.contains(IamCapability.SOURCES_MANAGE)
+                || (group.systemKey() == null && group.managedByActor())) {
             actions.add(GroupAction.MANAGE_SOURCES);
         }
         return new GroupSummary(
@@ -553,6 +609,15 @@ public class DefaultGroupService implements GroupService {
                 group.capabilities(),
                 actions
         );
+    }
+
+    private static void requireRetainedGroup(boolean retained) {
+        if (!retained) {
+            throw new IamException(
+                    IamFailureReason.LAST_GROUP_PROTECTED,
+                    "Mutation would leave a STANDARD Tenant member without any Group"
+            );
+        }
     }
 
     private void requireUniqueName(

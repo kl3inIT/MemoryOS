@@ -64,7 +64,7 @@ public final class LiveSearchCorpus implements AutoCloseable {
                         UUID.fromString(row.path("item_id").asString()), SourceType.FILE,
                         Instant.parse(row.path("created_at").asString()), Instant.parse(row.path("updated_at").asString()), List.of()));
             }
-            when(sources.scope(any())).thenReturn(new SourceSearchScope(tenant, scope));
+            when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(tenant, call.getArgument(0), scope));
             when(sources.readableMetadata(any(), any())).thenReturn(origins);
             when(chunks.currentGenerations(any(), any(), any())).thenReturn(generations);
             when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);

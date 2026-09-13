@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +24,7 @@ import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.GroupProvisioner;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IdentityProvisioningException;
 import io.memoryos.iam.IdentityProvisioningFailureReason;
 import io.memoryos.iam.InitialTenantBootstrapRequest;
@@ -239,6 +241,13 @@ class DefaultInvitationServiceTest {
                 .param("actorId", member.value())
                 .query(Long.class)
                 .single());
+        assertEquals(
+                Set.of(IamCapability.SYSTEM_BASIC, IamCapability.SEARCH_READ,
+                        IamCapability.CHAT_READ, IamCapability.CHAT_WRITE,
+                        IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE),
+                authorization.effectiveCapabilities(member)
+        );
+        assertEquals(Set.of(), authorization.scopedCapabilities(member));
     }
 
     @Test

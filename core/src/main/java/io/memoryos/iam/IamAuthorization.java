@@ -20,5 +20,7 @@ public interface IamAuthorization {
 
     IamAccess lockAndRequireExclusive(ActorId actorId, IamCapability capability);
 
+    IamAccess lockAndRequireScopedMutation(ActorId actorId, IamCapability capability);
+
     IamAccess lockAndRequireAdministration(ActorId actorId);
 }

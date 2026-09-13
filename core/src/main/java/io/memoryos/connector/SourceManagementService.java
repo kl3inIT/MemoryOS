@@ -15,7 +15,11 @@ import org.jspecify.annotations.Nullable;
 
 public interface SourceManagementService {
 
-    SourceSummary createFileSource(ActorId actorId, String name, Collection<GroupId> groupIds);
+    SourceSummary createFileSource(ActorId actorId, String name, Collection<GroupId> groupIds, @Nullable SourceAccess access);
+
+    SourceSummary renameSource(ActorId actorId, SourceId sourceId, String name);
+
+    SourceSummary updateSourceAccess(ActorId actorId, SourceId sourceId, SourceAccess access);
 
     List<SourceSummary> listSources(ActorId actorId);
 

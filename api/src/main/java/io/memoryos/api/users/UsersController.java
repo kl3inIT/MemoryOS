@@ -217,7 +217,7 @@ final class UsersController {
     @ApiResponse(responseCode = "401", description = "No accepted authentication is present", content = @Content)
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks IAM_ADMIN authority or the same-origin header is missing",
+            description = "The actor lacks SYSTEM_ADMIN authority or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)

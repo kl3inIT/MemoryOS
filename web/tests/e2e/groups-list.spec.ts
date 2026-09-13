@@ -182,21 +182,22 @@ test("Add mode replaces member browsing instead of stacking searches and paginat
 }) => {
   await mockGroups(page);
   await page.goto(`/admin/groups/${customId}`);
-  await expect(page.getByRole("navigation", { name: "Member pages" })).toBeVisible();
-  await page.getByRole("searchbox", { name: "Search group members" }).fill("existing filter");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByRole("searchbox")).toHaveCount(1);
-  await expect(page.getByRole("searchbox", { name: "Search member candidates" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Member pages" })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Candidate pages" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add selected", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("searchbox")).toHaveCount(1);
-  await expect(page.getByRole("searchbox", { name: "Search group members" })).toHaveValue(
+  const members = page.getByRole("region", { name: "Group Members", exact: true });
+  await expect(members.getByRole("navigation", { name: "Member pages" })).toBeVisible();
+  await members.getByRole("searchbox", { name: "Search group members" }).fill("existing filter");
+  await members.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(members.getByRole("searchbox")).toHaveCount(1);
+  await expect(members.getByRole("searchbox", { name: "Search member candidates" })).toBeVisible();
+  await expect(members.getByRole("navigation", { name: "Member pages" })).toHaveCount(0);
+  await expect(members.getByRole("navigation", { name: "Candidate pages" })).toBeVisible();
+  await expect(members.getByRole("button", { name: "Add selected", exact: true })).toBeDisabled();
+  await members.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(members.getByRole("searchbox")).toHaveCount(1);
+  await expect(members.getByRole("searchbox", { name: "Search group members" })).toHaveValue(
     "existing filter",
   );
-  await expect(page.getByRole("navigation", { name: "Member pages" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Candidate pages" })).toHaveCount(0);
+  await expect(members.getByRole("navigation", { name: "Member pages" })).toBeVisible();
+  await expect(members.getByRole("navigation", { name: "Candidate pages" })).toHaveCount(0);
 });
 
 test("scoped group managers can delegate peers but cannot remove their own scope or a member's last group", async ({

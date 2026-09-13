@@ -65,6 +65,7 @@ public class JdbcSourceSyncRepository {
                 JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
                 JOIN tenants t ON t.id = s.tenant_id
                 WHERE t.status = 'ACTIVE' AND p.status <> 'DELETING' AND s.next_sync_at <= CURRENT_TIMESTAMP
+                  AND NOT s.sync_paused
                   AND EXISTS (SELECT 1 FROM google_drive_roots r WHERE r.tenant_id = s.tenant_id AND r.source_id = s.source_id)
                   AND NOT EXISTS (SELECT 1 FROM source_sync_attempts a WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
                     AND a.status IN ('NOT_STARTED','IN_PROGRESS'))

@@ -54,10 +54,13 @@ public class IamAuthorizationRepository {
               ON capability.tenant_id = authority_group.tenant_id
              AND capability.group_id = authority_group.id
              AND (
-                    (authority_group.system_key = 'ADMIN' AND capability.capability = 'IAM_ADMIN')
+                    (authority_group.system_key = 'ADMIN' AND capability.capability = 'SYSTEM_ADMIN')
+                    OR (authority_group.system_key = 'BASIC' AND capability.capability = 'SYSTEM_BASIC')
                     OR (
                         authority_group.system_key IS NULL
-                        AND capability.capability <> 'IAM_ADMIN'
+                        AND capability.capability IN (
+                            'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE'
+                        )
                     )
              )
             WHERE membership.actor_id = :actorId

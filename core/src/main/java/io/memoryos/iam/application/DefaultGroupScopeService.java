@@ -38,12 +38,47 @@ public class DefaultGroupScopeService implements GroupScopeService {
     public void validateGroupIds(TenantId tenantId, Collection<GroupId> groupIds) {
         TenantId requiredTenantId = Objects.requireNonNull(tenantId, "tenantId must not be null");
         Set<GroupId> requiredGroupIds = requireGroupIds(groupIds);
-        if (!invariants.existingGroups(requiredTenantId, requiredGroupIds).equals(requiredGroupIds)) {
+        if (!invariants.existingOrdinaryGroups(requiredTenantId, requiredGroupIds).equals(requiredGroupIds)) {
             throw new IamException(
                     IamFailureReason.GROUP_NOT_FOUND,
-                    "At least one Group does not belong to the authorized Tenant"
+                    "At least one Group is absent, system-owned, or outside the authorized Tenant"
             );
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void validateManagedGroupIds(
+            TenantId tenantId,
+            ActorId actorId,
+            Collection<GroupId> groupIds
+    ) {
+        TenantId requiredTenantId = Objects.requireNonNull(tenantId, "tenantId must not be null");
+        ActorId requiredActorId = Objects.requireNonNull(actorId, "actorId must not be null");
+        Set<GroupId> requiredGroupIds = requireGroupIds(groupIds);
+        if (!invariants.managedGroups(requiredTenantId, requiredActorId, requiredGroupIds)
+                .equals(requiredGroupIds)) {
+            throw new IamException(
+                    IamFailureReason.GROUP_NOT_FOUND,
+                    "At least one Group is outside the actor's active ordinary manager scope"
+            );
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public GroupIdentityPage listManagedGroupOptions(
+            TenantId tenantId,
+            ActorId actorId,
+            @Nullable String search,
+            int page,
+            int size
+    ) {
+        return projections.listManagedOptions(
+                Objects.requireNonNull(tenantId, "tenantId must not be null"),
+                Objects.requireNonNull(actorId, "actorId must not be null"),
+                new GroupQuery(search, page, size)
+        );
     }
 
     @Override

@@ -283,7 +283,7 @@ class WorkerFileProcessingIntegrationTest {
                 .update();
         jdbcClient.sql("""
                         INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
-                        VALUES (:tenantId, :adminGroupId, 'IAM_ADMIN')
+                        VALUES (:tenantId, :adminGroupId, 'SYSTEM_ADMIN')
                         """)
                 .param("tenantId", tenantId)
                 .param("adminGroupId", adminGroupId)
@@ -304,7 +304,7 @@ class WorkerFileProcessingIntegrationTest {
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
         worker.stop();
-        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of()).id();
+        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of(), null).id();
         boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
         byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
