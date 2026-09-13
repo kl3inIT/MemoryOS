@@ -2,6 +2,8 @@ package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.ConnectorSyncPort.Work;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.GoogleDriveAclChanged;
+import io.memoryos.connector.GoogleDriveAclReader;
 import io.memoryos.connector.GoogleDriveAclService;
 import io.memoryos.connector.GoogleDriveAclSnapshot;
 import io.memoryos.connector.GoogleDriveAclSnapshot.ContextStatus;
@@ -14,22 +16,24 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
-public class JdbcGoogleDriveAclRepository {
+public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String FILES = """
             WITH file_ids AS (

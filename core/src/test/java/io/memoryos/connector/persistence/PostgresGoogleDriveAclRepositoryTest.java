@@ -22,7 +22,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
