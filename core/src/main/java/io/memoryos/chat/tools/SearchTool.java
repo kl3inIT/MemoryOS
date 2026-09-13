@@ -16,6 +16,7 @@ import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.retrieval.DocumentSearchService;
+import io.memoryos.retrieval.SearchDocumentUnavailableException;
 import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.SearchQuery;
@@ -412,7 +413,11 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         var main = section.passages();
         List<SearchPage.Passage> adjacent;
         try { adjacent = timings.measure(Stage.EXPANSION, () -> search.window(result, section, 2)); }
-        catch (SearchUnavailableException unavailable) {
+        catch (SearchDocumentUnavailableException obsolete) {
+            // The indexed generation disappeared (deleted or replaced); it yields no evidence.
+            checkActive.run();
+            return List.of();
+        } catch (SearchUnavailableException unavailable) {
             checkActive.run();
             return main;
         }
@@ -441,7 +446,10 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                 if (!neighbors) yield main;
                 checkActive.run();
                 try { yield timings.measure(Stage.EXPANSION, () -> search.window(result, section, 5)); }
-                catch (SearchUnavailableException unavailable) {
+                catch (SearchDocumentUnavailableException obsolete) {
+                    checkActive.run();
+                    yield List.of();
+                } catch (SearchUnavailableException unavailable) {
                     checkActive.run();
                     yield adjacent;
                 }

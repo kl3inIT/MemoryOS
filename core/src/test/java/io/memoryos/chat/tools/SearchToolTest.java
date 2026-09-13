@@ -213,6 +213,17 @@ class SearchToolTest {
     }
 
     @Test
+    void documentRemovedDuringWindowReadYieldsNoEvidenceInsteadOfFailingTheTurn() {
+        candidates();
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
+        when(search.window(any(), eq(section), eq(2))).thenThrow(new io.memoryos.retrieval.SearchDocumentUnavailableException());
+        try (var tool = tool(8000)) {
+            assertTrue(tool.searchKnowledge(List.of("policy"), null).startsWith("No relevant evidence"));
+            assertTrue(events.stream().noneMatch(event -> event.source() != null));
+        }
+    }
+
+    @Test
     void stopDuringQueryRewriteCancelsThePhaseAndPreventsRetrieval() {
         when(runner.createObject(anyList(), eq(SearchTool.SemanticQuery.class))).thenAnswer(ignored -> {
             stopped.set(true);
