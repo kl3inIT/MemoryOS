@@ -170,8 +170,9 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
     return source ? <Citation source={source} /> : <span>{children}</span>;
   }
   return href && /^https?:\/\//i.test(href) ? (
+    // Same link styling as the assistant-ui MarkdownText element this renderer replaces.
     <a
-      className="underline underline-offset-2"
+      className="aui-md-a text-primary hover:text-primary/80 underline underline-offset-2"
       href={href}
       target="_blank"
       rel="noopener noreferrer"

@@ -748,7 +748,7 @@ test("regenerates with another catalog model and reveals answer timing on hover"
   await expect(timing).toHaveCSS("opacity", "0");
   await page.getByText("Hello 👋", { exact: true }).hover();
   await expect(timing).toHaveCSS("opacity", "1");
-  await expect(timing).toHaveText(/^\d{1,2}:\d{2} · \d+ giây$/);
+  await expect(timing).toHaveText(/^\d{1,2}:\d{2}$/);
   await menu.click();
   await page.getByRole("menuitem", { name: "Qwen3.5 9B" }).click();
   await expect(

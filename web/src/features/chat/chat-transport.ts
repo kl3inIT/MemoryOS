@@ -261,7 +261,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
-    let finishedAt: string | undefined;
     yield {
       type: "start",
       messageId: runId,
@@ -377,7 +376,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             const delta = message.content.slice(text.length);
             if (delta) yield { type: "text-delta", id: runId, delta };
             outcome = message.status;
-            finishedAt = message.finishedAt ?? undefined;
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
           } else await pause(2000, signal);
@@ -402,14 +400,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       }
       yield {
         type: "message-metadata",
-        messageMetadata: {
-          serverStatus: outcome,
-          // A terminal SSE outcome has no saved timestamp; history after reload is server-authored.
-          finishedAt: finishedAt ?? new Date().toISOString(),
-          sources,
-          artifacts,
-          searchProgress: {},
-        },
+        messageMetadata: { serverStatus: outcome, sources, artifacts, searchProgress: {} },
       };
       yield { type: "text-end", id: runId };
       this.runId = undefined;

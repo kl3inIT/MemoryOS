@@ -263,7 +263,6 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
         messageMetadata: {
           sources: [fixtureSource],
           artifacts: [],
-          finishedAt: expect.any(String),
           searchProgress: {},
           serverStatus: "CANCELED",
         },
@@ -280,10 +279,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(toUiMessages([{ ...row, sources: [fixtureSource] }])[0]?.metadata?.sources).toEqual([
       fixtureSource,
     ]);
-    expect(toUiMessages([row])[0]?.metadata).toMatchObject({
-      createdAt: row.createdAt,
-      finishedAt: row.finishedAt,
-    });
+    expect(toUiMessages([row])[0]?.metadata?.createdAt).toBe(row.createdAt);
   });
   it.each([
     ["reversed range", { endOrdinal: 2 }],

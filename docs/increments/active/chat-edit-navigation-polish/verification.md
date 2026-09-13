@@ -49,3 +49,8 @@ Browser checks use the real local frontend with fixture backend/model responses,
 - The new `chat-workspace.spec.ts` scenario selects an answer paragraph, quotes it, sees the composer preview, sends a question, sees the quote block, reads the saved question text from the fixture history, reloads and still sees the quote block and question. Its first run failed only because the reloaded question text shared one element with the quote; the remainder is now its own span.
 - Playwright, one worker: `chat-workspace`, `chat` and `chat-history-search` passed 49/49.
 - Image thumbnails were not built by owner decision (see design); no code change.
+
+## Owner review follow-up: duration and link styling — 2026-09-13
+
+- The owner found the reply duration ("· 1 giây") noisy; the answer bar now shows only the time on hover, and `finishedAt` is no longer carried into UI metadata. External Markdown links in answers reuse the MarkdownText `aui-md-a` styling instead of a plain underline.
+- Typecheck, lint, format and i18n audit pass; chat unit tests 72/72. Playwright re-ran the model regeneration/timing scenario (time now matches `HH:MM`), the grounded citation scenario and the Shiki/Mermaid renderer scenarios.

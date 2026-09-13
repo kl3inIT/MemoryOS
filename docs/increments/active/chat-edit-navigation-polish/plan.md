@@ -16,7 +16,7 @@
 
 ## assistant-ui elements follow-up
 
-- [x] Regenerate with another model from the authorized catalog; timestamps and duration on hover.
+- [x] Regenerate with another model from the authorized catalog; answer time on hover (duration removed after owner review).
 - [x] ~~Dictation with the Web Speech adapter~~ — withdrawn by the owner (audio leaves MemoryOS); tracked as MEM-91.
 - [x] Composer draft restore per conversation (sessionStorage, same tab).
 - [x] Quote a selected answer passage into the next question.

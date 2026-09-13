@@ -10,7 +10,6 @@ import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 export type ChatUiMessage = UIMessage<{
   serverStatus?: ChatMessage["status"];
   createdAt?: string;
-  finishedAt?: string | null;
   /** Set by assistant-ui on a live question sent with a composer quote. */
   custom?: { quote?: { text: string; messageId: string } };
   sources?: ChatSource[];
@@ -104,7 +103,6 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
     metadata: {
       serverStatus: message.status,
       createdAt: message.createdAt,
-      finishedAt: message.finishedAt,
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),
     },
