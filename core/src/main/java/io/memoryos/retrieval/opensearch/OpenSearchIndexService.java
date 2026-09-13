@@ -50,6 +50,7 @@ public class OpenSearchIndexService implements SearchIndex {
     private final DocumentChunkPort documents;
     private final SourceSearchService sourceSearch;
     private final SearchTimings timings;
+    private static final int ACCESS_UPDATE_BATCH = 128;
     private String sweepCursor = "";
 
     public OpenSearchIndexService(OpenSearchGateway gateway, ValidatedEmbeddingService embeddings,
@@ -324,8 +325,10 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     /**
-     * Rewrites source metadata and access fields of one indexed generation in place. No embedding is read or
-     * generated and the document stays searchable; chunks absent from the index are left to the INDEX path.
+     * Rewrites source metadata and access fields of one indexed generation in place with per-chunk partial bulk
+     * updates. Chunk IDs come from a bounded search, so the service role needs only its existing search and bulk
+     * permissions (update-by-query needs scroll permissions). No embedding is read or generated and the document
+     * stays searchable; chunks absent from the index are left to the INDEX path.
      */
     @Override
     public void updateAccess(TenantId tenant, DocumentId document, UUID generation) {
@@ -333,23 +336,50 @@ public class OpenSearchIndexService implements SearchIndex {
         ensureIndex();
         var origins = sourceSearch.indexMetadata(tenant, document, generation);
         var access = sourceSearch.indexAccess(tenant, document);
-        var params = new HashMap<String, Object>();
-        params.put("metadata", metadata(origins));
-        params.put("hash", metadataHash(origins, access));
-        params.put("everyone", access.everyone());
-        params.put("tokens", access.sortedTokens());
-        var result = gateway.json("POST", "/" + identity + "/_update_by_query", Map.of("refresh", "true", "conflicts", "proceed"), Map.of(
-                "query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", tenant.value().toString()),
-                        term("document_id", document.value().toString()), term("generation", generation.toString()),
-                        term("index_identity", identity)))),
-                "script", Map.of("lang", "painless", "params", params, "source", """
-                        ctx._source.source_metadata = params.metadata;
-                        ctx._source.metadata_hash = params.hash;
-                        ctx._source.access_public = params.everyone;
-                        ctx._source.access_control_list = params.tokens;
-                        """)));
-        // A concurrent rewrite of the same chunks must retry rather than leave mixed access fields.
-        if (!result.path("failures").isEmpty() || result.path("version_conflicts").asInt(0) > 0) throw new SearchUnavailableException();
+        var fields = new HashMap<String, Object>();
+        fields.put("source_metadata", metadata(origins));
+        fields.put("metadata_hash", metadataHash(origins, access));
+        fields.put("access_public", access.everyone());
+        fields.put("access_control_list", access.sortedTokens());
+        var ids = chunkIds(List.of(term("tenant_id", tenant.value().toString()), term("document_id", document.value().toString()),
+                term("generation", generation.toString()), term("index_identity", identity)));
+        String update = mapper.writeValueAsString(Map.of("doc", fields));
+        // Each partial update re-indexes the whole chunk including its vector, so batches stay bounded like writes.
+        for (int offset = 0; offset < ids.size(); offset += ACCESS_UPDATE_BATCH) {
+            var batch = ids.subList(offset, Math.min(offset + ACCESS_UPDATE_BATCH, ids.size()));
+            var body = new StringBuilder();
+            for (String id : batch) {
+                body.append(mapper.writeValueAsString(Map.of("update", Map.of("_id", id)))).append('\n').append(update).append('\n');
+            }
+            var response = gateway.bulk("/" + identity + "/_bulk", body.toString());
+            // Every chunk must accept the same fields; a missing chunk means a concurrent rewrite, so the work retries.
+            if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
+            for (JsonNode item : response.path("items")) {
+                int status = item.path("update").path("status").asInt();
+                if (status < 200 || status >= 300) throw new SearchUnavailableException();
+            }
+        }
+    }
+
+    /** IDs of at most 10,000 matching chunks (the per-document chunk bound), without source or vectors. */
+    private List<String> chunkIds(List<Object> filters) {
+        var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 10000, "_source", false, "track_total_hits", true,
+                "query", Map.of("bool", Map.of("filter", filters)))).path("hits");
+        if (hits.path("total").path("value").asInt(0) > 10000) throw new SearchUnavailableException();
+        var ids = new ArrayList<String>();
+        hits.path("hits").forEach(hit -> ids.add(hit.path("_id").asString()));
+        return List.copyOf(ids);
+    }
+
+    /** All chunks of the generation are present, regardless of whether their metadata and access are current. */
+    @Override
+    public boolean containsGeneration(DocumentIndexState document) {
+        if (!gateway.exists("/" + readAlias())) return false;
+        var count = gateway.json("POST", "/" + readAlias() + "/_count", Map.of(), Map.of("query", Map.of("bool", Map.of(
+                "filter", List.of(term("tenant_id", document.tenantId().value().toString()),
+                        term("document_id", document.documentId().value().toString()), term("generation", document.generation().toString()),
+                        term("index_identity", identity))))));
+        return document.chunkCount() > 0 && count.path("count").asInt(-1) == document.chunkCount();
     }
 
     @Override
@@ -397,13 +427,30 @@ public class OpenSearchIndexService implements SearchIndex {
         sweepCursor = hits.size() < 500 ? "" : hits.get(hits.size() - 1).path("_source").path("chunk_key").asString();
     }
 
+    /**
+     * Deletes every indexed generation of the document by ID in bounded bulk batches. Like access refresh this
+     * avoids delete-by-query, whose continuation beyond one batch needs scroll permissions.
+     */
     @Override
     public void delete(TenantId tenant, DocumentId document) {
         if (!gateway.exists("/" + identity)) return;
-        var result = gateway.json("POST", "/" + identity + "/_delete_by_query", Map.of("refresh", "true", "conflicts", "proceed"),
-                Map.of("query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", tenant.value().toString()),
-                        term("document_id", document.value().toString()))))));
-        if (!result.path("failures").isEmpty() || result.path("version_conflicts").asInt(0) > 0) throw new SearchUnavailableException();
+        List<Object> filters = List.of(term("tenant_id", tenant.value().toString()), term("document_id", document.value().toString()));
+        for (int round = 0; round < 100; round++) {
+            var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 1000, "_source", false,
+                    "query", Map.of("bool", Map.of("filter", filters)))).path("hits").path("hits");
+            if (hits.isEmpty()) return;
+            var body = new StringBuilder();
+            for (var hit : hits) {
+                body.append(mapper.writeValueAsString(Map.of("delete", Map.of("_id", hit.path("_id").asString())))).append('\n');
+            }
+            // Bulk waits for refresh, so the next search no longer returns deleted chunks.
+            var response = gateway.bulk("/" + identity + "/_bulk", body.toString());
+            for (JsonNode item : response.path("items")) {
+                int status = item.path("delete").path("status").asInt();
+                if (status != 404 && (status < 200 || status >= 300)) throw new SearchUnavailableException();
+            }
+        }
+        throw new SearchUnavailableException();
     }
 
     private static Map<String,Object> term(String field, String value) { return Map.of("term", Map.of(field, value)); }

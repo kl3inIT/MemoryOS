@@ -13,5 +13,7 @@ public interface SearchIndex {
     /** Refreshes source metadata and access fields of an indexed generation without re-embedding or hiding it. */
     void updateAccess(TenantId tenantId, DocumentId documentId, java.util.UUID generation);
     boolean contains(DocumentIndexState document);
+    /** All chunks of the generation are indexed, even if their metadata or access fields are stale. */
+    boolean containsGeneration(DocumentIndexState document);
     void purgeStale();
 }
