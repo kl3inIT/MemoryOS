@@ -12,7 +12,7 @@ import org.springframework.http.ContentDisposition;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

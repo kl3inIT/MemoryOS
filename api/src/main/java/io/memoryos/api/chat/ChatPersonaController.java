@@ -5,7 +5,7 @@ import io.memoryos.chat.ChatPersonaService.PersonaInput;
 import io.memoryos.chat.ChatPersonaService.PersonaView;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.connector.SourceSearchService;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

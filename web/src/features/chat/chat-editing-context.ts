@@ -6,6 +6,7 @@ export const ChatEditingContext = createContext<{
   branches: Branch[];
   feedback: Feedback[];
   edit: (id: string, text: string, requestId: string, fileIds?: string[]) => Promise<void>;
-  regenerate: (userId: string, requestId: string) => Promise<void>;
+  /** Without a model, regeneration uses the composer's current model choice. */
+  regenerate: (userId: string, requestId: string, modelConfigurationId?: string) => Promise<void>;
   branch: (targetId: string, expectedChildId: string) => Promise<void>;
 } | null>(null);

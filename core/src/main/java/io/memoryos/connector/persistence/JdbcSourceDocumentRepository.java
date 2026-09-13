@@ -6,7 +6,8 @@ import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,6 +26,23 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSourceDocumentRepository {
     private static final ObjectMapper METADATA_MAPPER = new ObjectMapper();
+    private static final String SEARCHABLE_SOURCE = """
+            (c.connector_type='FILE'
+             OR (c.connector_type='GOOGLE_DRIVE' AND p.access_type='RESTRICTED'))
+            """;
+    private static final String READ_SCOPE = """
+            EXISTS (
+                SELECT 1 FROM tenant_memberships reader
+                JOIN tenants tenant ON tenant.id=reader.tenant_id AND tenant.status='ACTIVE'
+                WHERE reader.tenant_id=p.tenant_id AND reader.actor_id=:actor AND reader.status='ACTIVE'
+            )
+            AND (p.access_type='PUBLIC' OR EXISTS (
+                SELECT 1 FROM source_group_grants grant_row
+                JOIN iam_group_memberships member ON member.tenant_id=grant_row.tenant_id
+                    AND member.group_id=grant_row.group_id AND member.actor_id=:actor
+                WHERE grant_row.tenant_id=p.tenant_id AND grant_row.connector_credential_pair_id=p.id
+            ))
+            """;
 
     private final JdbcClient jdbcClient;
 
@@ -32,8 +50,8 @@ public class JdbcSourceDocumentRepository {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
     }
 
-    public boolean hasEligibleMapping(TenantId tenantId, DocumentId documentId) {
-        return readableDocuments(tenantId, List.of(documentId.value())).contains(documentId.value());
+    public boolean hasEligibleMapping(TenantId tenantId, ActorId actor, DocumentId documentId) {
+        return readableDocuments(tenantId, actor, List.of(documentId.value())).contains(documentId.value());
     }
 
     public Optional<DocumentId> findMappedDocument(IndexWork work) {
@@ -51,7 +69,7 @@ public class JdbcSourceDocumentRepository {
                 .map(DocumentId::new);
     }
 
-    public Set<UUID> readableDocuments(TenantId tenant, List<UUID> documents) {
+    public Set<UUID> readableDocuments(TenantId tenant, ActorId actor, List<UUID> documents) {
         if (documents.isEmpty()) return Set.of();
         if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         return Set.copyOf(jdbcClient.sql("""
@@ -60,39 +78,43 @@ public class JdbcSourceDocumentRepository {
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND p.access_type='PUBLIC' AND p.status='ACTIVE' AND c.status='ACTIVE' AND c.connector_type='FILE' AND d.status='ELIGIBLE'
-                """).param("tenant", tenant.value()).param("documents", documents).query(UUID.class).list());
+                    AND p.status='ACTIVE' AND c.status='ACTIVE' AND %s AND d.status='ELIGIBLE'
+                    AND %s
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("documents", documents).query(UUID.class).list());
     }
 
-    public Map<UUID, SourceType> searchableSources(TenantId tenant) {
+    public Map<UUID, SourceType> searchableSources(TenantId tenant, ActorId actor) {
         var result = new LinkedHashMap<UUID, SourceType>();
         jdbcClient.sql("""
                 SELECT p.id,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
-                WHERE p.tenant_id=:tenant AND p.access_type='PUBLIC' AND p.status='ACTIVE'
-                    AND c.status='ACTIVE' AND c.connector_type='FILE'
+                WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
+                    AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY p.id
-                """).param("tenant", tenant.value()).query((rs, _) -> {
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value()).query((rs, _) -> {
                     result.put(rs.getObject("id", UUID.class), SourceType.valueOf(rs.getString("connector_type")));
                     return true;
                 }).list();
         return Map.copyOf(result);
     }
 
-    public List<io.memoryos.connector.SourceSearchService.SourceOption> searchableSourceOptions(TenantId tenant, int offset, int limit) {
+    public List<io.memoryos.connector.SourceSearchService.SourceOption> searchableSourceOptions(TenantId tenant, ActorId actor, int offset, int limit) {
+        if (offset < 0 || offset > 10000 || limit < 1 || limit > 100) throw new IllegalArgumentException("source page out of bounds");
         return jdbcClient.sql("""
                 SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
-                WHERE p.tenant_id=:tenant AND p.access_type='PUBLIC' AND p.status='ACTIVE'
-                    AND c.status='ACTIVE' AND c.connector_type='FILE'
+                WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
+                    AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY c.name,p.id LIMIT :limit OFFSET :offset
-                """).param("tenant", tenant.value()).param("offset", offset).param("limit", limit)
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("offset", offset).param("limit", limit)
                 .query((rs, _) -> new io.memoryos.connector.SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
                         rs.getString("name"), SourceType.valueOf(rs.getString("connector_type")))).list();
     }
 
     public Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
-            boolean readable, @Nullable UUID generation) {
+            @Nullable ActorId actor, @Nullable UUID generation) {
         if (ids.isEmpty()) return Map.of();
         if (ids.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var result = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
@@ -107,10 +129,11 @@ public class JdbcSourceDocumentRepository {
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
                     AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation)
-                    AND (:allSources OR (p.access_type='PUBLIC' AND p.status='ACTIVE'
-                        AND c.status='ACTIVE' AND c.connector_type='FILE'))
+                    AND c.status='ACTIVE' AND %s AND p.status<>'DELETING'
+                    AND (:indexing OR (p.status='ACTIVE' AND %s))
                 ORDER BY m.document_id,p.id,i.id
-                """).param("tenant", tenant.value()).param("documents", ids).param("allSources", !readable)
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("documents", ids).param("indexing", actor == null)
+                .param("actor", actor == null ? null : actor.value(), Types.OTHER)
                 .param("anyGeneration", generation == null).param("generation", generation, Types.OTHER)
                 .query((rs, _) -> {
                     var created = rs.getTimestamp("source_created_at");

@@ -19,6 +19,8 @@ import com.vp.plugin.model.IDFProcess;
 import com.vp.plugin.model.IModelElement;
 import com.vp.plugin.model.IProjectTransaction;
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.font.FontRenderContext;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.nio.charset.StandardCharsets;
@@ -403,8 +405,14 @@ public final class ContextDiagramTools extends VpAccess {
           ICaptionUIModel caption = connector.getCaptionUIModel();
           caption.setVisible(true);
           caption.setSide(ICaptionUIModel.SIDE_FREEMOVE);
-          int width = Math.max(120, clean(connector.getModelElement().getName()).length() * 7);
-          caption.setBounds(x, y, width, 28);
+          Font font = new Font("Arial", Font.PLAIN,
+              connector.getElementFont().getSize());
+          FontRenderContext metrics =
+              new FontRenderContext(null, true, true);
+          int width = (int) Math.ceil(font.getStringBounds(
+              clean(connector.getModelElement().getName()), metrics).getWidth()) + 24;
+          int height = (int) Math.ceil(font.getLineMetrics("Ag", metrics).getHeight()) + 12;
+          caption.setBounds(x, y, width, height);
           return mutationResult(diagram);
         });
   }

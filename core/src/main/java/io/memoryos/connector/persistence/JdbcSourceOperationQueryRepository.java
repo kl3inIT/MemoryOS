@@ -3,8 +3,8 @@ package io.memoryos.connector.persistence;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -46,7 +46,7 @@ public class JdbcSourceOperationQueryRepository {
                                    attempt.status,
                                    attempt.created_at,
                                    attempt.completed_at,
-                                   attempt.error_code
+                                   attempt.error_code, NULL::uuid AS scope_owner_actor_id
                             FROM index_attempts attempt
                             WHERE attempt.tenant_id = :tenantId AND attempt.id = :operationId
                             UNION ALL
@@ -57,19 +57,20 @@ public class JdbcSourceOperationQueryRepository {
                                    cleanup.status,
                                    cleanup.created_at,
                                    cleanup.completed_at,
-                                   cleanup.error_code
+                                   cleanup.error_code, cleanup.scope_owner_actor_id
                             FROM connector_cleanup_attempts cleanup
                             WHERE cleanup.tenant_id = :tenantId AND cleanup.id = :operationId
                             UNION ALL
                             SELECT sync.id, sync.tenant_id, sync.source_id,
                                    'SYNC_SOURCE' AS operation, sync.status, sync.created_at,
-                                   sync.completed_at, sync.error_code
+                                   sync.completed_at, sync.error_code, NULL::uuid AS scope_owner_actor_id
                             FROM source_sync_attempts sync
                             WHERE sync.tenant_id = :tenantId AND sync.id = :operationId
                             UNION ALL
                             SELECT selection.id, selection.tenant_id, selection.source_id,
                                    'VALIDATE_GOOGLE_DRIVE_SELECTION' AS operation, selection.status,
-                                   selection.created_at, selection.completed_at, selection.error_code
+                                   selection.created_at, selection.completed_at, selection.error_code,
+                                   selection.actor_id AS scope_owner_actor_id
                             FROM google_drive_selection_operations selection
                             WHERE selection.tenant_id = :tenantId AND selection.id = :operationId
                         ) operation_row
@@ -86,25 +87,17 @@ public class JdbcSourceOperationQueryRepository {
                               AND requesting_membership.actor_id = :actorId
                               AND requesting_membership.status = 'ACTIVE'
                         )
-                          AND (:globalRead OR EXISTS (
-                            SELECT 1
-                            FROM source_group_grants scoped_grant
-                            JOIN iam_groups scoped_group
-                              ON scoped_group.tenant_id = scoped_grant.tenant_id
-                             AND scoped_group.id = scoped_grant.group_id
-                             AND scoped_group.system_key IS NULL
-                            JOIN iam_group_memberships scoped_membership
-                              ON scoped_membership.tenant_id = scoped_grant.tenant_id
-                             AND scoped_membership.group_id = scoped_grant.group_id
-                             AND scoped_membership.actor_id = :actorId
-                             AND scoped_membership.is_manager = TRUE
-                            WHERE scoped_grant.tenant_id = operation_row.tenant_id
-                              AND scoped_grant.connector_credential_pair_id = operation_row.source_id
-                        )
-                          )
+                          AND (:globalRead OR (operation_row.scope_owner_actor_id = :actorId
+                            AND (operation_row.operation = 'DELETE_SOURCE' OR NOT EXISTS (
+                                SELECT 1 FROM connector_credential_pairs existing_source
+                                WHERE existing_source.tenant_id = operation_row.tenant_id
+                                  AND existing_source.id = operation_row.source_id))) OR EXISTS (
+                            SELECT 1 FROM connector_credential_pairs pair
+                            WHERE pair.tenant_id = operation_row.tenant_id AND pair.id = operation_row.source_id
+                              AND %s))
                         ORDER BY CASE WHEN operation_row.operation = 'INDEX' THEN 0 ELSE 1 END
                         LIMIT 1
-                        """)
+                        """.formatted(SourceScopeSql.READ))
                 .param("tenantId", tenantId.value())
                 .param("actorId", actorId.value())
                 .param("operationId", operationId.value())

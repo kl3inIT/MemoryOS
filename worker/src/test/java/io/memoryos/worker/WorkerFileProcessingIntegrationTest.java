@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -214,7 +214,7 @@ class WorkerFileProcessingIntegrationTest {
     @Autowired
     private RedisExecutionTopology topology;
 
-    @Autowired private io.memoryos.iam.TenantAccessResolver tenants;
+    @Autowired private io.memoryos.iam.tenant.TenantAccessResolver tenants;
     @Autowired private io.memoryos.objectstorage.ObjectUploadService objectUploads;
     @Autowired private io.memoryos.objectstorage.ObjectUploadCleanupPort objectCleanup;
     @Autowired private org.springframework.transaction.PlatformTransactionManager transactions;
@@ -283,7 +283,7 @@ class WorkerFileProcessingIntegrationTest {
                 .update();
         jdbcClient.sql("""
                         INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
-                        VALUES (:tenantId, :adminGroupId, 'IAM_ADMIN')
+                        VALUES (:tenantId, :adminGroupId, 'SYSTEM_ADMIN')
                         """)
                 .param("tenantId", tenantId)
                 .param("adminGroupId", adminGroupId)
@@ -304,7 +304,7 @@ class WorkerFileProcessingIntegrationTest {
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
         worker.stop();
-        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of()).id();
+        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of(), null).id();
         boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
         byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
@@ -516,7 +516,7 @@ class WorkerFileProcessingIntegrationTest {
         await(() -> redis.opsForStream().size(stream) > 0);
         worker.start();
         await(() -> files.get(OWNER, id).status() == io.memoryos.chat.UserFile.Status.READY);
-        assertTrue(files.read(OWNER, new io.memoryos.iam.TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
+        assertTrue(files.read(OWNER, new io.memoryos.iam.tenant.TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
         assertEquals(1, jdbcClient.sql("SELECT processing_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
                 .param("id", id).query(Integer.class).single());
         assertTrue(jdbcClient.sql("SELECT dispatch_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")

@@ -1,7 +1,7 @@
 package io.memoryos.api.invitation;
 
-import io.memoryos.iam.InvitationException;
-import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.invitation.InvitationException;
+import io.memoryos.iam.invitation.InvitationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 

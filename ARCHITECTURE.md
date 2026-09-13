@@ -142,9 +142,17 @@ Google SOURCE_SYNC also records bounded, fully paginated permission observations
 
 `GoogleDriveAclService` authorizes Source reads before tenant-qualified repository lookups. `GoogleDriveAclController` exposes bounded file-summary and selected-file snapshot GETs with `no-store`; neither calls Google nor grants document access. The web Source detail uses a shared synchronization summary above Content, Google Drive permissions, Sync history and Connection/settings tabs. ACL details preserve missing, failed-only, successful-empty and retained stale evidence. Sync history shows per-run outcomes and counts, with bounded errors in a separate selected-run dialog.
 
+The standalone OCR image owns a thin Serve composition and PDF backend/pipeline extensions for conservative pre-layout orientation. Worker retains its byte-only API boundary; its bounded adapter preserves raw document JSON and source-frame metadata rather than routing it through the SDK's closed document model. The [OCR recipe](infrastructure/deployment/ocr/README.md) and [Document contract](docs/specs/document.md) distinguish corrected coordinates, original provenance and unresolved financial periods. Image publication and deployment remain separate operational decisions.
+FILE and Drive binary admission is bounded at 100 MiB; native snapshots retain their separate 32 MiB bound. Admission, parser/OCR completion, financial fidelity and Search readiness are separate acceptance claims; the [Ingestion contract](docs/specs/ingestion.md) owns parser budgets and current OCR limits.
+
+
 Search uses the current authorized Document generation. PostgreSQL holds bounded chunk text and provenance; OpenSearch holds BM25/vector projection data. Query filters narrow an already authorized scope and never create authority. Search results remain source passages; answer generation belongs to Chat.
 
+Direct Search and passage reads require current global `SEARCH_READ`. Actor-bound eligibility permits active PUBLIC FILE Sources and authorized private FILE Sources, with fresh membership, origin and generation checks after index IO and during expansion. It does not grant Drive document access or expose private Chat attachments through general Search.
+
 ## Chat execution and retrieval
+
+External Web tools now use this same turn/Embabel execution path, not a second worker or agent. Tenant-owned JPA connections reuse encrypted model credentials; Web URL evidence shares the existing answer-source store and reader panel. Protocol adapters, bounded public HTML/text/PDF reading and remaining native-search work are recorded in the [Chat Web contract](docs/specs/chat.md#external-web-search-and-url-reading).
 
 ```mermaid
 flowchart LR
@@ -185,6 +193,10 @@ sequenceDiagram
 
 Keycloak is the browser credential store and enterprise identity broker. MemoryOS binds the exact validated `(issuer, subject)` to an Actor and owns Tenant membership, Group grants, capability implications and resource scope. Email, provider role presentation and indexed metadata never substitute for authorization. IAM mutations advance the Tenant authorization revision so the browser can discard revoked private state.
 
+Protected Admin/Basic Groups persist `SYSTEM_ADMIN`/`SYSTEM_BASIC`. Admin expands to every enum capability; Basic implies `SEARCH_READ`, `CHAT_READ`, `CHAT_WRITE`, `IMAGE_GENERATE` and `LLM_GATEWAY_USE`. Only Users, Groups, Sources and Models management are assignable ordinary grants. Chat retains its membership/resource policy rather than granular Chat-token enforcement; image/gateway vocabulary does not claim feature delivery. The [Identity contract](docs/specs/identity.md) defines protected memberships, peer-manager restrictions, Onyx identity presentation and the `manage_grants` gate that hides ordinary Group Permissions and its registry query.
+
+Source associations contain ordinary Groups only: global managers may save `[]`, scoped creation/replacement requires nonempty all-managed associations, and no Source defaults to Admin. Scoped operations require concrete resource authority; deep Drive selection/discovery, FILE visibility and existing OAuth client replacement remain global-only, with callback and post-provider rechecks. Shared deletion remains global, apart from the narrow existing private groupless-creator cleanup rule. The [Connector matrix](docs/specs/connector.md#management-authority-and-group-associations) owns the exact policy; the catalog settings shortcut requires nonempty projected Source actions.
+
 Google authorization is a separate Connector credential flow. Its callback cannot replace the signed-in Actor or infer identity from email. Provider tokens are encrypted or transient and do not become application-session authority.
 
 ## Data ownership and consistency
@@ -198,6 +210,19 @@ Google authorization is a separate Connector credential flow. Its callback canno
 | Keycloak | External authentication and broker configuration | MemoryOS authorization is separate |
 
 Flyway owns schema evolution and runs from the API composition root. Released migrations are append-only; local or historical review databases with divergent unpublished histories are not upgrade targets. Verification uses fresh disposable databases or an explicit data-preserving migration plan.
+
+The merged layout has 48 migrations. Published main V1–V42 stay unchanged, including Chat uploads/message files, 100 MiB binary admission, automatic titles, account language and read-only message artifacts in V37–V42. PR #106 integrates the feature migrations under these nonconflicting versions:
+
+| Historical local version | Current filename |
+| --- | --- |
+| V37 | `V43__grant_basic_access.sql` |
+| V38 | `V44__rename_system_capability_grants.sql` |
+| V39 | `V45__make_group_read_derived_only.sql` |
+| V40 | `V46__unify_source_management_grants.sql` |
+| V41 | `V47__group_manager_source_scope.sql` |
+| V42 | `V48__ordinary_source_group_associations.sql` |
+
+Existing local databases containing the old feature V37–V42 cannot run this merged layout until deliberate, data-preserving Flyway-history and schema reconciliation. The same caution applies to older feature V18–V21 and retained `memoryos_main_review`/`memoryos_drive_review` histories. Do not start either deployable against a divergent database, reset it, or automatically repair checksums/history. Deploy matching API/worker/schema only after reconciliation or use a fresh isolated database. Historical verification keeps its original migration numbers; current PR evidence is recorded in [Basic Access verification](docs/increments/active/basic-access-capabilities/verification.md#pr-106-ci-repair). The increment remains active until merge.
 
 ## Deployment and operations
 

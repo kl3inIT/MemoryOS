@@ -12,8 +12,10 @@ import {
 import { useAuiState } from "@assistant-ui/react";
 import { FileText } from "lucide-react";
 import { InlineCitation } from "@/components/assistant-ui/elements/inline-citation";
+import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { Sources } from "@/components/assistant-ui/elements/sources";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
+import { WebSearch } from "@/components/assistant-ui/elements/web-search";
 import { ChatSourcePanel, SourceExcerpt } from "./chat-source-panel";
 import type { ChatSource, SearchProgress } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "./chat-panel-context";
@@ -122,6 +124,7 @@ export function ChatSources() {
   return (
     <Sources
       count={sources.length}
+      sources={sources.map((source) => ({ url: source.web?.url }))}
       aria-expanded={active}
       aria-controls={active ? panel.panelId : undefined}
       onClick={(event) => (active ? panel.close() : panel.open(messageId, event.currentTarget))}
@@ -140,12 +143,15 @@ function Citation({ source }: { source: ChatSource }) {
       open={open}
       onOpenChange={setOpen}
       aria-label={ui("Mở nguồn {{v1}}: {{v2}}", { v1: source.citationId, v2: source.title })}
-      onClick={(event) => panel.open(messageId, event.currentTarget, source.citationId)}
+      onClick={(event) => {
+        setOpen(false);
+        panel.open(messageId, event.currentTarget, source.citationId);
+      }}
       preview={
         <>
           <div className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
-            <FileText className="size-3.5" aria-hidden="true" /> {ui("Tài liệu · Nguồn")}{" "}
-            {source.citationId}
+            <FileText className="size-3.5" aria-hidden="true" />{" "}
+            {source.web ? ui("Web · Nguồn") : ui("Tài liệu · Nguồn")} {source.citationId}
           </div>
           <p className="text-sm font-medium leading-5">{source.title}</p>
           <SourceExcerpt source={source} />
@@ -164,17 +170,29 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
     const source = sources.find((item) => item.citationId === Number(citation[1]));
     return source ? <Citation source={source} /> : <span>{children}</span>;
   }
-  return href && /^https?:\/\//i.test(href) ? (
+  if (!href || !/^https?:\/\//i.test(href)) return <span>{children}</span>;
+  const domain = new URL(href).hostname.replace(/^www\./, "");
+  // Only hostnames of this answer's Web sources may reach the favicon service; other links,
+  // possibly internal hosts written by the model, show the letter fallback.
+  const webSource = sources.some(
+    (source) => source.web && new URL(source.web.url).hostname.replace(/^www\./, "") === domain,
+  );
+  const label = typeof children === "string" && children !== href ? children : domain;
+  // Inline URL source chip adapted from the assistant-ui Sources element (outline, sm).
+  return (
     <a
-      className="underline underline-offset-2"
+      data-slot="source"
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      title={href}
+      className="mx-0.5 inline-flex max-w-64 items-center gap-1.5 rounded-md border border-border-default px-1.5 py-0.5 align-middle text-xs text-content-secondary no-underline transition-colors hover:bg-surface-sunken hover:text-content-primary"
     >
-      {children}
+      <SourceIcon domain={domain} favicon={webSource} />
+      <span data-slot="source-title" className="truncate">
+        {label}
+      </span>
     </a>
-  ) : (
-    <span>{children}</span>
   );
 }
 
@@ -188,6 +206,37 @@ export function ChatSearchStatus() {
   const hasText = useAuiState((state) =>
     state.message.parts.some((part) => part.type === "text" && part.text.trim().length > 0),
   );
+  const sources = useAuiState(
+    (state) => state.message.metadata.custom.sources as ChatSource[] | undefined,
+  );
+  const webEntries = Object.entries(progress ?? {}).filter(([id]) => id.startsWith("web-"));
+  const webActive = webEntries.find(([, value]) => !["COMPLETED", "FAILED"].includes(value.stage));
+  const webLatest = webActive ?? webEntries.at(-1);
+  if (webLatest && (webActive || !running || !hasText)) {
+    const [id, event] = webLatest;
+    const results = (sources ?? []).flatMap((source) =>
+      source.web
+        ? [{ title: source.title, url: source.web.url, domain: new URL(source.web.url).hostname }]
+        : [],
+    );
+    return (
+      <WebSearch
+        className="mb-3"
+        query={event.search?.queries.join(" · ") ?? ""}
+        results={results}
+        searching={running && !!webActive}
+        label={
+          event.stage === "FAILED"
+            ? ui("Không truy cập được nguồn Web.")
+            : running && webActive
+              ? id.startsWith("web-read-")
+                ? ui("Đang đọc trang Web…")
+                : ui("Đang tìm trên Web…")
+              : ui("Nguồn Web: {{count}}", { count: results.length })
+        }
+      />
+    );
+  }
   if (!running) return null;
   const active = Object.values(progress ?? {}).find(
     (value) => !["COMPLETED", "FAILED"].includes(value.stage),

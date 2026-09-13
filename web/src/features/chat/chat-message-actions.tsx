@@ -17,6 +17,7 @@ import { chatActionError } from "./chat-action-utils";
 import type { Feedback } from "./chat-workspace-api";
 import { fileIdFromReference } from "./chat-files";
 import { ChatFilePicker } from "./chat-file-picker";
+import { ChatRegenerateMenu } from "./chat-regenerate-menu";
 
 export function ChatUserMessageContent({
   children,
@@ -143,6 +144,8 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
   const [error, setError] = useState<string>();
   const removeBusy = useRef(false);
   const regenerateRequest = useRef(crypto.randomUUID());
+  // A retry with the same model replays its request; another model is a new command.
+  const modelRequest = useRef<{ model?: string; id?: string }>({});
   const cache = useQueryClient();
   if (!editing?.sessionId) return null;
   const sessionId = editing.sessionId;
@@ -201,6 +204,22 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
                 removeBusy.current = false;
                 setRemoving(false);
               });
+          }}
+        />
+      )}
+      {role === "assistant" && (
+        <ChatRegenerateMenu
+          sessionId={sessionId}
+          disabled={editing.busy || removing}
+          onSelect={(modelId) => {
+            if (modelRequest.current.model !== modelId)
+              modelRequest.current = { model: modelId, id: crypto.randomUUID() };
+            void editing
+              .regenerate(node.parentMessageId!, modelRequest.current.id!, modelId)
+              .then(() => {
+                modelRequest.current = {};
+              })
+              .catch(() => {});
           }}
         />
       )}

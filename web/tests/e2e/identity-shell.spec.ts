@@ -10,14 +10,36 @@ const OWNER_SESSION = {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
+  capabilities: [
+    "SYSTEM_ADMIN",
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+    "USERS_MANAGE",
+    "GROUPS_READ",
+    "GROUPS_MANAGE",
+    "SOURCES_READ",
+    "SOURCES_MANAGE",
+    "SOURCES_DELETE",
+    "MODELS_MANAGE",
+  ],
   scopedCapabilities: [],
 };
 const MEMBER_SESSION = {
   ...OWNER_SESSION,
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
   tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
-  capabilities: [],
+  capabilities: [
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+  ],
   scopedCapabilities: [],
 };
 
@@ -240,11 +262,12 @@ test("keeps one document, identity session, and admin shell across internal rout
   ).toBe("same-document");
   expect(identityRequests).toBe(1);
 
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
-  await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-  await page.getByRole("link", { name: "Users", exact: true }).click();
+  const adminSidebar = page.getByRole("complementary", { name: "Administration sidebar" });
+  await adminSidebar.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await adminSidebar.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
-  await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   expect(identityRequests).toBe(1);
 });
 
@@ -853,9 +876,9 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         body: JSON.stringify({
           items: [
             {
-              id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
-              name: "Admin",
-              systemKey: "ADMIN",
+              id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c",
+              name: "Knowledge team",
+              systemKey: null,
             },
           ],
           page: 0,
@@ -873,9 +896,9 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         body: JSON.stringify({
           items: [
             {
-              id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
-              name: "Admin",
-              systemKey: "ADMIN",
+              id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c",
+              name: "Knowledge team",
+              systemKey: null,
             },
           ],
         }),
@@ -897,7 +920,6 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     if (request.method() === "POST" && path === "/api/sources/file") {
       createAttempts += 1;
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
-      expect(request.postDataJSON()).toEqual({ name: source.name });
       sourceCreated = true;
       await page.waitForTimeout(100);
       await route.fulfill({

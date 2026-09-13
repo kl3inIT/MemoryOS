@@ -1,7 +1,7 @@
 package io.memoryos.chat;
 
 import io.memoryos.document.DocumentContent;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.Optional;
 import java.util.UUID;
 

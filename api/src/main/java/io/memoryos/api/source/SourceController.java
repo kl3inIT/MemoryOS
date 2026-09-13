@@ -1,6 +1,8 @@
 package io.memoryos.api.source;
 
 import io.memoryos.api.source.contract.CreateFileSourceRequest;
+import io.memoryos.api.source.contract.RenameSourceRequest;
+import io.memoryos.api.source.contract.UpdateSourceAccessRequest;
 import io.memoryos.api.source.contract.InitiateSourceUploadRequest;
 import io.memoryos.api.source.contract.SourceItemPageResponse;
 import io.memoryos.api.source.contract.SourceOperationResponse;
@@ -11,7 +13,7 @@ import io.memoryos.api.source.contract.SourceUploadReceiptResponse;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceManagementService;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.objectstorage.ObjectUploadId;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,8 +64,29 @@ final class SourceController {
         return SourceSummaryResponse.from(sources.createFileSource(
                 identityContext.actorId(),
                 request.name(),
-                request.toGroupIds()
+                request.toGroupIds(),
+                request.access()
         ));
+    }
+
+    @Operation(operationId = "renameSource", summary = "Rename one source")
+    @PostMapping(value = "/{sourceId}/rename", consumes = MediaType.APPLICATION_JSON_VALUE)
+    SourceSummaryResponse renameSource(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @PathVariable UUID sourceId,
+            @Valid @RequestBody RenameSourceRequest request
+    ) {
+        return SourceSummaryResponse.from(sources.renameSource(identityContext.actorId(), new SourceId(sourceId), request.name()));
+    }
+
+    @Operation(operationId = "updateSourceAccess", summary = "Update FILE source access")
+    @PostMapping(value = "/{sourceId}/access", consumes = MediaType.APPLICATION_JSON_VALUE)
+    SourceSummaryResponse updateSourceAccess(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @PathVariable UUID sourceId,
+            @Valid @RequestBody UpdateSourceAccessRequest request
+    ) {
+        return SourceSummaryResponse.from(sources.updateSourceAccess(identityContext.actorId(), new SourceId(sourceId), request.access()));
     }
 
     @Operation(operationId = "listSources", summary = "List Tenant sources")

@@ -1,5 +1,80 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  "Tìm hội thoại": "Search conversations",
+  "Tìm tiêu đề và nội dung mọi phiên bản đã lưu. Kết quả mở ở nhánh hiện tại của hội thoại.":
+    "Search titles and all saved message versions. Results open the conversation's currently selected branch.",
+  "Tìm trong toàn bộ lịch sử": "Search all conversation history",
+  "Tìm trong toàn bộ lịch sử…": "Search all conversation history…",
+  "Đang tìm hội thoại…": "Searching conversations…",
+  "Không tìm được hội thoại. Hãy thử lại.": "Could not search conversations. Try again.",
+  "Không có hội thoại phù hợp.": "No matching conversations.",
+  "Xem thêm kết quả": "Load more results",
+  "Có thêm kết quả. Hãy nhập cụ thể hơn.": "There are more matches. Refine your search.",
+  "{{current}}/{{total}}": "{{current}}/{{total}}",
+  "Thêm vào câu hỏi": "Add to question",
+  "Chọn tệp đã có": "Choose existing file",
+  "Quay lại": "Back",
+  "Tùy chọn Web": "Web options",
+  "Công cụ tìm kiếm": "Search engines",
+  "Trình đọc trang Web": "Web crawler",
+  "Đọc nội dung đầy đủ của trang từ kết quả tìm kiếm hoặc đường dẫn bạn gửi.":
+    "Read the full page from search results or a link you send.",
+  "Trình đọc MemoryOS": "MemoryOS Web Crawler",
+  "Tích hợp sẵn, không cần khóa API.": "Built in. No API key required.",
+  "Đang dùng": "Active",
+  "Tìm trong hội thoại": "Find in conversation",
+  "Tìm trong hội thoại này…": "Find in this conversation…",
+  "Tìm nội dung trong nhánh hội thoại đang mở.":
+    "Search text in the currently opened conversation branch.",
+  "Hiển thị tối đa 500 kết quả. Hãy nhập cụ thể hơn.":
+    "Showing up to 500 matches. Refine your search.",
+  "Kết quả trước": "Previous match",
+  "Kết quả tiếp theo": "Next match",
+  "Hôm nay": "Today",
+  "Hôm qua": "Yesterday",
+  "Trước đó": "Earlier",
+  "Chưa có hội thoại.": "No conversations yet.",
+  "Đang tải…": "Loading…",
+  "Cấu hình": "Configure",
+  "Kết nối": "Connect",
+  "Khóa API": "API key",
+  Web: "Web",
+  "Nội dung trang Web": "Web page content",
+  "Nội dung trang Web: {{title}}": "Web page content: {{title}}",
+  "Web · Nguồn": "Web · Source",
+  "Tắt Web": "Web off",
+  "Tự động dùng Web": "Use Web automatically",
+  "Bắt buộc tìm trên Web": "Require Web search",
+  "Tìm kiếm Web": "Web search",
+  "Tìm kiếm và đọc trang Web": "Search and read the Web",
+  "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
+  "Cài đặt Web": "Web settings",
+  "Mở trang gốc": "Open original page",
+  "Không truy cập được nguồn Web.": "Could not access the Web source.",
+  "Đang đọc trang Web…": "Reading the Web page…",
+  "Đang tìm trên Web…": "Searching the Web…",
+  "Nguồn Web: {{count}}": "Web sources: {{count}}",
+  "Bạn không có quyền quản lý mô hình.": "You do not have permission to manage models.",
+  "Kết nối công cụ tìm kiếm và đọc trang. Exa và Tavily dùng chung một kết nối cho cả hai chức năng.":
+    "Connect search and page-reading providers. Exa and Tavily share one connection for both features.",
+  "Không tải được kết nối Web.": "Could not load Web connections.",
+  "Tắt công cụ tìm kiếm": "Disable search engine",
+  "Dùng trình đọc tích hợp": "Use built-in reader",
+  "Không cập nhật được kết nối Web. Hãy tải lại và thử lại.":
+    "Could not update the Web connection. Reload and try again.",
+  "Đang dùng để tìm kiếm": "Current search provider",
+  "Đang dùng để đọc trang": "Current content provider",
+  "Địa chỉ SearXNG": "SearXNG address",
+  "Mã công cụ tìm kiếm": "Search engine ID",
+  "Đã lưu khóa; để trống để giữ nguyên": "Key saved; leave blank to keep it",
+  "Dùng để tìm kiếm": "Use for search",
+  "Dùng để đọc trang": "Use for reading",
+  "Kiểm tra tìm kiếm": "Test search",
+  "Kiểm tra đọc trang": "Test page reading",
+  "Kiểm tra kết nối có thể phát sinh phí từ nhà cung cấp.":
+    "Connection tests may incur provider charges.",
+  "Kiểm tra kết nối thành công": "Connection test succeeded",
+  "Không cập nhật hoặc kiểm tra được kết nối Web.": "Could not update or test the Web connection.",
   "Hội thoại được chia sẻ": "Shared conversation",
   "Đóng điều hướng": "Close navigation",
   "Mở điều hướng": "Open navigation",
@@ -11,6 +86,11 @@ export const vietnameseUi: Record<string, string> = {
   "Hữu ích": "Helpful",
   "Không hữu ích": "Not helpful",
   "Tạo lại câu trả lời": "Regenerate answer",
+  "Tạo lại bằng mô hình khác": "Regenerate with another model",
+  "Tạo lại bằng": "Regenerate with",
+  "Trích dẫn": "Quote",
+  "Đoạn trích dẫn": "Quoted passage",
+  "Bỏ trích dẫn": "Remove quote",
   "Phiên bản trước": "Previous version",
   "Phiên bản sau": "Next version",
   "Tải tệp lên": "Upload file",
@@ -28,7 +108,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tệp không còn khả dụng (": "File unavailable (",
   Gỡ: "Remove",
   "Đọc được · Chưa sẵn sàng tìm kiếm": "Readable · Search is not ready",
-  "Sẵn sàng": "Ready",
   "Đang xử lý…": "Processing…",
   "Upload hết hạn · Chọn file để tải lại": "Upload expired · Select the file to upload again",
   "Xử lý lỗi": "Processing failed",
@@ -376,7 +455,132 @@ export const englishUi: Record<string, string> = {
   "Current file state is unavailable; the file may have been removed.":
     "Không có trạng thái tệp hiện tại; tệp có thể đã bị xóa.",
   "The extraction service could not be reached. Ask an administrator to check the service address, network access, and service availability before indexing again.":
-    "Không thể kết nối đến dịch vụ trích xuất. Nhờ quản trị viên kiểm tra địa chỉ dịch vụ, kết nối mạng và tình trạng hoạt động của dịch vụ trước khi lập chỉ mục lại.",
+    "Không thể kết nối đến dịch vụ trích xuất. Nhờ quản trị viên kiểm tra địa chỉ dịch vụ, kết nối mạng và tình trạng hoạt động của dịch vụ trước khi lập chỉ mục lại.",  Visibility: "Chế độ hiển thị",
+  "Private · only members of the selected groups can search and read these files.":
+    "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
+  "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
+  "Private · selected group members": "Riêng tư · thành viên các nhóm đã chọn",
+  "Required · select groups you manage": "Bắt buộc · chọn các nhóm bạn quản lý",
+  "Optional · associate ordinary groups": "Không bắt buộc · liên kết các nhóm thông thường",
+  Required: "Bắt buộc",
+  None: "Không có",
+  "Select at least one managed group. New Sources are private.":
+    "Chọn ít nhất một nhóm bạn quản lý. Nguồn mới ở chế độ riêng tư.",
+  "Leave the selection empty for no group associations. Global Source management does not require an association.":
+    "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
+  "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.":
+    "Với nguồn Tệp và Google Drive giới hạn, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Quyền từng tệp trên Google Drive không được đồng bộ.",
+  "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.":
+    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ nguồn Tệp và Google Drive giới hạn. Quyền từng tệp trên Google Drive không được đồng bộ. Quyền quản lý nguồn toàn tổ chức không cấp quyền đọc tài liệu giới hạn nếu không có tư cách thành viên nhóm.",
+  "Private Source. Group associations are optional for global Source managers.":
+    "Nguồn riêng tư. Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
+  "Private Source. Select at least one group you manage.":
+    "Nguồn riêng tư. Chọn ít nhất một nhóm bạn quản lý.",
+  "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.":
+    "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập. Quyền từng tệp trên Google không được đồng bộ.",
+  "Connection details": "Chi tiết kết nối",
+  "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
+    "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
+  "This connection has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect this credential.":
+    "Kết nối này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên Tenant có quyền quản lý Nguồn toàn Tenant thêm ứng dụng và kết nối lại thông tin xác thực này.",
+  "Reconnect reuses the OAuth app saved with this shared credential.":
+    "Kết nối lại sẽ sử dụng ứng dụng OAuth đã lưu cùng thông tin xác thực dùng chung này.",
+  "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.":
+    "Thông tin xác thực này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên Tenant có quyền quản lý Nguồn toàn Tenant thêm ứng dụng và kết nối lại, hoặc tạo thông tin xác thực mới bằng ứng dụng OAuth của bạn.",
+  "Saved Drive selection": "Lựa chọn Drive đã lưu",
+  "Saved selection": "Lựa chọn đã lưu",
+  "Whole Google account": "Toàn bộ tài khoản Google",
+  "Specific files and folders": "Các tệp và thư mục cụ thể",
+  ". Selection configuration is read-only.": ". Cấu hình lựa chọn ở chế độ chỉ đọc.",
+  "{{v1}} folders · {{v2}} files · {{v3}} approved linked documents":
+    "{{v1}} thư mục · {{v2}} tệp · {{v3}} tài liệu liên kết đã duyệt",
+  "Source settings": "Cài đặt Nguồn",
+  "Rename source": "Đổi tên nguồn",
+  "Change visibility": "Thay đổi chế độ hiển thị",
+  "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
+  "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.":
+    "Mọi người trong Tenant này có thể tìm kiếm và đọc tệp công khai. Tệp riêng tư yêu cầu tư cách thành viên của một nhóm liên kết.",
+  "Save name": "Lưu tên",
+  "Save visibility": "Lưu chế độ hiển thị",
+  "Automatic synchronization": "Đồng bộ tự động",
+  Paused: "Đã tạm dừng",
+  Enabled: "Đã bật",
+  "Resume automatic sync": "Tiếp tục đồng bộ tự động",
+  "Pause automatic sync": "Tạm dừng đồng bộ tự động",
+  "Automatic synchronization paused": "Đã tạm dừng đồng bộ tự động",
+  "Automatic synchronization resumed": "Đã tiếp tục đồng bộ tự động",
+  "Current work and manual synchronization are unchanged.":
+    "Công việc hiện tại và đồng bộ thủ công không thay đổi.",
+  "Select only ordinary groups you can manage. Scoped Source managers must keep at least one group association.":
+    "Chỉ chọn các nhóm thông thường mà bạn có thể quản lý. Người quản lý Nguồn theo phạm vi phải duy trì ít nhất một liên kết nhóm.",
+  "Built-in admin group with full access to manage all permissions.":
+    "Nhóm quản trị tích hợp có toàn quyền quản lý mọi quyền truy cập.",
+  "Default group for all users with basic permissions.":
+    "Nhóm mặc định dành cho mọi người dùng với các quyền cơ bản.",
+  "Custom group for member access and permissions.":
+    "Nhóm tùy chỉnh để quản lý quyền truy cập và quyền của thành viên.",
+  "Edit Group": "Chỉnh sửa nhóm",
+  "Save Changes": "Lưu thay đổi",
+  "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.":
+    "MemoryOS quản lý nhóm này. Tên và quyền của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
+  "Group Name": "Tên nhóm",
+  "Group Permissions": "Quyền của nhóm",
+  "Toggle group permissions": "Mở hoặc thu gọn quyền của nhóm",
+  "Group permission grants": "Các quyền được cấp cho nhóm",
+  "Group Members": "Thành viên nhóm",
+  "Account Type": "Loại tài khoản",
+  "member without email": "thành viên không có email",
+  "Showing {{first}}–{{last}} of {{total}}": "Hiển thị {{first}}–{{last}} trên {{total}}",
+  "Previous page": "Trang trước",
+  "Page {{v1}} of {{v2}}": "Trang {{v1}} trên {{v2}}",
+  "Next page": "Trang sau",
+  "New Group": "Nhóm mới",
+  "This change would leave a standard user without a group. Add them to another group first, then try again.":
+    "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
+  "Source associations must use ordinary groups. Scoped managers must retain at least one group and manage every associated group.":
+    "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
+  "Scoped managers must retain at least one managed group. Associate the Source with another group you manage from its detail page first.":
+    "Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm mình quản lý. Trước tiên, hãy liên kết nguồn với một nhóm khác mà bạn quản lý từ trang chi tiết của nguồn.",
+  "Members can search and read imported documents from associated restricted File and Google Drive Sources. Source management still follows global or scoped permissions.":
+    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ các nguồn Tệp và Google Drive giới hạn được liên kết. Quyền quản lý nguồn vẫn phụ thuộc quyền toàn tổ chức hoặc theo phạm vi.",
+  "Administrator access": "Quyền quản trị viên",
+  "All product capabilities, including search, identity, user, group, Source, and model administration.":
+    "Tất cả các quyền của sản phẩm, bao gồm tìm kiếm và quản trị danh tính, người dùng, nhóm, nguồn và mô hình.",
+  "Basic access": "Quyền truy cập cơ bản",
+  "Search and read eligible document passages, plus reserved granular Chat, image generation, and LLM gateway rights. Chat uses its existing membership and resource authorization; reserved rights do not indicate enforcement. Does not grant administrative capabilities.":
+    "Tìm kiếm và đọc các đoạn tài liệu được phép, cùng các quyền chi tiết dành trước cho trò chuyện, tạo ảnh và cổng LLM. Trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có; các quyền dành trước chưa được áp dụng để kiểm soát truy cập. Không cấp quyền quản trị.",
+  "Search and read eligible document passages, subject to Source visibility and document ACLs. Derived from Basic access; cannot be granted directly.":
+    "Tìm kiếm và đọc các đoạn tài liệu được phép, tuân theo phạm vi hiển thị của nguồn và danh sách kiểm soát truy cập tài liệu. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Read chats": "Đọc trò chuyện",
+  "Reserved granular Chat reading capability; Chat uses its existing membership and resource authorization rather than this token. Derived from Basic access; cannot be granted directly.":
+    "Quyền đọc trò chuyện chi tiết được dành trước; trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có thay vì quyền này. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Write chats": "Viết trò chuyện",
+  "Reserved granular Chat writing capability; Chat uses its existing membership and resource authorization rather than this token. Derived from Basic access; cannot be granted directly.":
+    "Quyền viết trò chuyện chi tiết được dành trước; trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có thay vì quyền này. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Generate images": "Tạo ảnh",
+  "Reserved for upcoming image generation; not an available or enforced feature permission. Derived from Basic access; cannot be granted directly.":
+    "Dành trước cho tính năng tạo ảnh sắp tới; chưa phải quyền tính năng khả dụng hoặc được áp dụng để kiểm soát truy cập. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Use LLM gateway": "Sử dụng cổng LLM",
+  "Reserved for upcoming LLM gateway use; not an available or enforced feature permission. Derived from Basic access; cannot be granted directly.":
+    "Dành trước cho tính năng sử dụng cổng LLM sắp tới; chưa phải quyền tính năng khả dụng hoặc được áp dụng để kiểm soát truy cập. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "View Groups and their memberships. Derived from Manage groups or Administrator access; cannot be granted directly. Scoped managers can view only the Groups they manage.":
+    "Xem các nhóm và thành viên của nhóm. Được suy ra từ quyền quản lý nhóm hoặc quyền quản trị viên; không thể cấp trực tiếp. Người quản lý theo phạm vi chỉ có thể xem các nhóm mình quản lý.",
+  "Create Groups and manage ordinary Groups. Scoped managers can rename their Groups, manage existing members, and delegate peer managers without global administration.":
+    "Tạo nhóm và quản lý các nhóm thông thường. Người quản lý theo phạm vi có thể đổi tên nhóm của mình, quản lý thành viên hiện có và ủy quyền cho người quản lý ngang cấp mà không cần quyền quản trị toàn cục.",
+  "Globally view Source configuration and operation history. Derived from Manage Sources or Administrator access; cannot be granted directly. Scoped managers can view public, member-associated, or own nonpublic groupless Sources.":
+    "Xem cấu hình và lịch sử hoạt động của nguồn trên toàn tổ chức. Được suy ra từ quyền quản lý nguồn hoặc quyền quản trị viên; không thể cấp trực tiếp. Người quản lý theo phạm vi có thể xem nguồn công khai, nguồn liên kết với nhóm mình tham gia hoặc nguồn không công khai do mình sở hữu và không liên kết nhóm nào.",
+  "Globally view and create Sources, edit Group associations, upload content, reindex, remove Source items, and delete Sources. Scoped managers can manage nonpublic Sources whose Groups they all manage, or their own nonpublic groupless Sources.":
+    "Xem và tạo nguồn, chỉnh sửa liên kết nhóm, tải nội dung lên, lập chỉ mục lại, xóa mục trong nguồn và xóa nguồn trên toàn tổ chức. Người quản lý theo phạm vi có thể quản lý nguồn không công khai mà họ quản lý tất cả các nhóm liên kết, hoặc nguồn không công khai do mình sở hữu và không liên kết nhóm nào.",
+  "Globally remove Source items or delete Sources. Derived from Manage Sources or Administrator access; cannot be granted directly or exercised by scoped managers.":
+    "Xóa mục trong nguồn hoặc xóa nguồn trên toàn tổ chức. Được suy ra từ quyền quản lý nguồn hoặc quyền quản trị viên; không thể cấp trực tiếp hoặc sử dụng bởi người quản lý theo phạm vi.",
+  "this user": "người dùng này",
+  "this invitation": "lời mời này",
+  "user {{id}}": "người dùng {{id}}",
+  "Open navigation": "Mở điều hướng",
+  "Close navigation": "Đóng điều hướng",
+  "Search access denied": "Không có quyền tìm kiếm",
+  "Your account does not have permission to search or read documents. Ask an administrator for Basic access.":
+    "Tài khoản của bạn không có quyền tìm kiếm hoặc đọc tài liệu. Hãy yêu cầu quản trị viên cấp quyền truy cập cơ bản.",
   "Connector setup progress": "Tiến trình thiết lập kết nối",
   Completed: "Hoàn tất",
   "Not started": "Chưa bắt đầu",
@@ -539,6 +743,9 @@ export const englishUi: Record<string, string> = {
     "Không tải được nguồn để chọn. Liên kết của bạn không thay đổi.",
   "No Sources match your search.": "Không có nguồn phù hợp.",
   "No Sources are available.": "Chưa có nguồn khả dụng.",
+  "Source choices could not be loaded.": "Không tải được nguồn để chọn.",
+  "All available Sources are selected.": "Đã chọn tất cả nguồn khả dụng.",
+  "Remove {{v1}}": "Gỡ {{v1}}",
   "Saving associations…": "Đang lưu liên kết…",
   "Save associations": "Lưu liên kết",
   "No Sources are associated with this group.": "Chưa có nguồn liên kết với nhóm này.",
@@ -852,8 +1059,8 @@ Object.assign(englishUi, {
   "Disconnect shared Google credential?": "Ngắt kết nối tài khoản Google dùng chung?",
   "Disconnecting stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.":
     "Ngắt kết nối dừng thu thập dữ liệu cho toàn bộ {{v1}} nguồn dùng thông tin kết nối này, gồm cả các nguồn khác. Dữ liệu đã lưu không bị xóa. Kết nối lại cùng tài khoản Google để tiếp tục.",
-  "Document access and viewing are not configured by this connection.":
-    "Kết nối này không cấu hình quyền truy cập và xem tài liệu.",
+  "This credential authorizes importing files. MemoryOS Source groups control who can search and read the imported documents.":
+    "Thông tin kết nối này cho phép nhập tệp. Nhóm của nguồn trong MemoryOS quyết định ai được tìm kiếm và đọc tài liệu đã nhập.",
   "Retry Save selection": "Thử lưu lựa chọn lại",
   "Save selection": "Lưu lựa chọn",
   "Close draft": "Đóng bản nháp",
@@ -1099,6 +1306,8 @@ Object.assign(englishUi, {
   "Source summary": "Tóm tắt nguồn",
   "Source status": "Trạng thái nguồn",
   Access: "Truy cập",
+  "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.":
+    "Quyền đọc tài liệu được xác định theo nhóm MemoryOS của nguồn này, không theo quyền từng tệp trên Google Drive.",
   "Documents indexed": "Tài liệu đã lập chỉ mục",
   "Last indexed successfully": "Lập chỉ mục thành công gần nhất",
   "Not yet": "Chưa có",

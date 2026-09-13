@@ -104,6 +104,23 @@ async function collect(stream: ReadableStream<UIMessageChunk>) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
+  it("captures Web intent for one send and keeps missing intent off", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    transport.selectWeb("auto");
+    const pending = send(transport);
+    transport.selectWeb("off");
+    await collect(await pending);
+    const requests = fetch.mock.calls.map(([input, init]) =>
+      input instanceof Request ? input : new Request(input, init),
+    );
+    const submitted = requests.find(
+      (request) => request.method === "POST" && new URL(request.url).pathname.endsWith("/messages"),
+    );
+    expect(submitted).toBeDefined();
+    expect(await submitted!.clone().json()).toMatchObject({ webSearch: "auto" });
+    expect(new MemoryOsChatTransport(session).webSearch).toBe("off");
+  });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
       {
@@ -199,6 +216,28 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(accepted).toHaveBeenCalledWith({ userMessageId: userId, assistantMessageId: runId });
   });
 
+  it("sends a composer quote as a leading blockquote of the question", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    await collect(
+      await new MemoryOsChatTransport(session).sendMessages({
+        chatId: session.id,
+        messageId: undefined,
+        abortSignal: undefined,
+        trigger: "submit-message",
+        messages: [
+          {
+            id: requestId,
+            role: "user",
+            metadata: { custom: { quote: { text: "First line\nSecond", messageId: runId } } },
+            parts: [{ type: "text", text: "Question" }],
+          },
+        ],
+      }),
+    );
+    const request = new Request(fetch.mock.calls[0]![0], fetch.mock.calls[0]![1]);
+    expect((await request.json()).text).toBe("> First line\n> Second\n\nQuestion");
+  });
+
   it("feeds sequenced sources into native message state once and retains them on Stop", async () => {
     const source = packet(2, "search", {
       toolCallId: "s1",
@@ -207,6 +246,10 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     });
     fixture(() => sse(delta + source + source + packet(3, "outcome", { status: "CANCELED" })));
     const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks[0]).toMatchObject({
+      type: "start",
+      messageMetadata: { serverStatus: "RUNNING", createdAt: expect.any(String) },
+    });
     expect(chunks.filter((chunk) => chunk.type === "message-metadata")).toEqual([
       {
         type: "message-metadata",
@@ -236,6 +279,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(toUiMessages([{ ...row, sources: [fixtureSource] }])[0]?.metadata?.sources).toEqual([
       fixtureSource,
     ]);
+    expect(toUiMessages([row])[0]?.metadata?.createdAt).toBe(row.createdAt);
   });
   it.each([
     ["reversed range", { endOrdinal: 2 }],

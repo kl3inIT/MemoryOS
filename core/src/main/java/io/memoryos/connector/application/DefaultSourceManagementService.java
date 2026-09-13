@@ -1,5 +1,6 @@
 package io.memoryos.connector.application;
 
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
@@ -19,16 +20,16 @@ import io.memoryos.connector.persistence.JdbcSourceOperationQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceUploadRepository;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.Authority;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.GroupIdentity;
-import io.memoryos.iam.GroupIdentityPage;
-import io.memoryos.iam.GroupScopeService;
-import io.memoryos.iam.IamAccess;
-import io.memoryos.iam.IamAuthorization;
-import io.memoryos.iam.IamCapability;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.Authority;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.group.GroupIdentity;
+import io.memoryos.iam.group.GroupIdentityPage;
+import io.memoryos.iam.group.GroupScopeService;
+import io.memoryos.iam.group.IamAccess;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectUploadAuthorization;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadService;
@@ -63,6 +64,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final ObjectUploadService objectUploads;
     private final IamAuthorization authorization;
     private final GroupScopeService groupScopes;
+    private final SourceAccessPolicy sourceAccess;
     private final TransactionTemplate transactions;
     private final io.memoryos.connector.persistence.JdbcSourceSyncRepository sync;
     private final io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections;
@@ -81,7 +83,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
             GroupScopeService groupScopes,
             PlatformTransactionManager transactionManager,
             io.memoryos.connector.persistence.JdbcSourceSyncRepository sync,
-            io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections
+            io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections,
+            SourceAccessPolicy sourceAccess
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
@@ -96,6 +99,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.groupScopes = Objects.requireNonNull(groupScopes, "groupScopes must not be null");
         this.sync = Objects.requireNonNull(sync);
         this.selections = Objects.requireNonNull(selections);
+        this.sourceAccess = Objects.requireNonNull(sourceAccess);
         this.transactions = new TransactionTemplate(
                 Objects.requireNonNull(transactionManager, "transactionManager must not be null")
         );
@@ -106,34 +110,36 @@ public class DefaultSourceManagementService implements SourceManagementService {
     public SourceSummary createFileSource(
             ActorId actorId,
             String name,
-            Collection<GroupId> groupIds
+            Collection<GroupId> groupIds,
+            @Nullable SourceAccess requestedAccess
     ) {
         ActorId requiredActorId = requireActorId(actorId);
-        List<GroupId> requestedGroupIds = normalizeGroupIds(groupIds, true);
         String normalizedName = requireName(name);
-        IamAccess access = authorization.lockAndRequireExclusive(
-                requiredActorId,
-                IamCapability.SOURCES_MANAGE
-        );
-        List<GroupId> associatedGroupIds;
-        if (requestedGroupIds.isEmpty()) {
-            associatedGroupIds = List.of(sourceGroups.adminGroupId(access.tenantId()));
-        } else {
-            groupScopes.validateGroupIds(access.tenantId(), requestedGroupIds);
-            associatedGroupIds = requestedGroupIds;
-        }
-        var pair = sources.createFileSource(access.tenantId(), normalizedName);
-        sourceGroups.replace(access.tenantId(), pair.sourceId(), associatedGroupIds);
-        boolean globalDelete = authorization.effectiveCapabilities(requiredActorId)
-                .contains(IamCapability.SOURCES_DELETE);
-        return queries.summary(
-                access.tenantId(),
-                requiredActorId,
-                pair.sourceId(),
-                true,
-                true,
-                globalDelete
-        );
+        var creation = sourceAccess.lockCreation(requiredActorId, requestedAccess, groupIds);
+        IamAccess access = creation.authority();
+        var pair = sources.createFileSource(access.tenantId(), requiredActorId, normalizedName, creation.access());
+        sourceGroups.replace(access.tenantId(), pair.sourceId(), creation.groupIds());
+        return getSource(requiredActorId, pair.sourceId());
+    }
+
+    @Override
+    @Transactional
+    public SourceSummary renameSource(ActorId actorId, SourceId sourceId, String name) {
+        String normalizedName = requireName(name);
+        IamAccess access = sourceAccess.lockManage(actorId, sourceId);
+        var pair = requireMutable(sources.lock(access.tenantId(), sourceId));
+        sources.rename(access.tenantId(), pair, normalizedName);
+        return getSource(actorId, sourceId);
+    }
+
+    @Override
+    @Transactional
+    public SourceSummary updateSourceAccess(ActorId actorId, SourceId sourceId, SourceAccess requestedAccess) {
+        Objects.requireNonNull(requestedAccess, "access must not be null");
+        IamAccess access = authorization.lockAndRequireExclusive(actorId, IamCapability.SOURCES_MANAGE);
+        requireMutable(sources.lock(access.tenantId(), sourceId));
+        sources.updateAccess(access.tenantId(), sourceId, requestedAccess);
+        return getSource(actorId, sourceId);
     }
 
     @Override
@@ -191,8 +197,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     ) {
         ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
-        List<GroupId> requiredGroupIds = normalizeGroupIds(groupIds, false);
-        IamAccess access = authorization.lockAndRequireExclusive(
+        IamAccess access = authorization.lockAndRequireScopedMutation(
                 requiredActorId,
                 IamCapability.SOURCES_MANAGE
         );
@@ -200,9 +205,14 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 access.tenantId(),
                 requiredActorId,
                 requiredSourceId,
-                true
+                access.authority() == Authority.GLOBAL
         ));
-        groupScopes.validateGroupIds(access.tenantId(), requiredGroupIds);
+        List<GroupId> requiredGroupIds = normalizeGroupIds(groupIds, access.authority() == Authority.GLOBAL);
+        if (access.authority() == Authority.GLOBAL) {
+            groupScopes.validateGroupIds(access.tenantId(), requiredGroupIds);
+        } else {
+            groupScopes.validateManagedGroupIds(access.tenantId(), requiredActorId, requiredGroupIds);
+        }
         sourceGroups.replace(access.tenantId(), requiredSourceId, requiredGroupIds);
     }
 
@@ -218,9 +228,11 @@ public class DefaultSourceManagementService implements SourceManagementService {
         IamAccess access = authorization.require(
                 requiredActorId,
                 IamCapability.SOURCES_MANAGE,
-                false
+                true
         );
-        return groupScopes.listGroupOptions(access.tenantId(), search, page, size);
+        return access.authority() == Authority.GLOBAL
+                ? groupScopes.listGroupOptions(access.tenantId(), search, page, size)
+                : groupScopes.listManagedGroupOptions(access.tenantId(), requiredActorId, search, page, size);
     }
 
     @Override
@@ -456,7 +468,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 SourceOperationType.REMOVE_ITEM,
                 targetKey,
                 requiredSourceId,
-                requiredItemId
+                requiredItemId,
+                null
         );
     }
 
@@ -465,11 +478,9 @@ public class DefaultSourceManagementService implements SourceManagementService {
     public SourceOperationView deleteSource(ActorId actorId, SourceId sourceId) {
         ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
-        IamAccess access = authorization.lockAndRequire(
-                requiredActorId,
-                IamCapability.SOURCES_DELETE,
-                false
-        );
+        boolean globalDelete = authorization.effectiveCapabilities(requiredActorId).contains(IamCapability.SOURCES_DELETE);
+        IamAccess access = authorization.lockAndRequire(requiredActorId,
+                globalDelete ? IamCapability.SOURCES_DELETE : IamCapability.SOURCES_MANAGE, !globalDelete);
         String targetKey = "PAIR:" + requiredSourceId.value();
         var existing = sources.findCleanup(
                 access.tenantId(),
@@ -477,14 +488,18 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 targetKey
         );
         if (existing.isPresent()) {
+            if (!globalDelete && !sources.ownsCleanup(access.tenantId(), requiredActorId, existing.get().id())) {
+                throw SourceException.notFound();
+            }
             return existing.get();
         }
         var pair = sources.lockAuthorized(
                 access.tenantId(),
                 requiredActorId,
                 requiredSourceId,
-                true
+                globalDelete
         );
+        if (!globalDelete) sources.requireCreatorGroupless(access.tenantId(), requiredActorId, requiredSourceId);
         existing = sources.findCleanup(
                 access.tenantId(),
                 SourceOperationType.DELETE_SOURCE,
@@ -505,7 +520,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 SourceOperationType.DELETE_SOURCE,
                 targetKey,
                 requiredSourceId,
-                null
+                null,
+                globalDelete ? null : requiredActorId
         );
     }
 
@@ -539,7 +555,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     }
 
     private IamAccess requireManagedFileSource(ActorId actorId, SourceId sourceId) {
-        IamAccess access = authorization.require(actorId, IamCapability.SOURCES_MANAGE, true);
+        IamAccess access = sourceAccess.manage(actorId, sourceId);
         boolean global = access.authority() == Authority.GLOBAL;
         var source = queries.summary(access.tenantId(), actorId, sourceId, global, global, false);
         if (source.type() != io.memoryos.connector.SourceType.FILE)
@@ -549,6 +565,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     private SourcePermissions readPermissions(ActorId actorId) {
         ActorId requiredActorId = requireActorId(actorId);
+        
         IamAccess access = authorization.require(requiredActorId, IamCapability.SOURCES_READ, true);
         Set<IamCapability> globalCapabilities = authorization.effectiveCapabilities(requiredActorId);
         return new SourcePermissions(

@@ -75,7 +75,7 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
                 + ";force=" + forceOcr + ";tables=accurate;images=embedded;maxPages=" + maxPages
                 + ";timeoutSeconds=" + timeout.toSeconds() + ";maxInput=" + maxInput
                 + ";maxOutput=33554432;native=tika-4.0.0"
-                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-v1";
+                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2";
     }
 
     @Override public String toString() { return "DoclingProperties[redacted]"; }

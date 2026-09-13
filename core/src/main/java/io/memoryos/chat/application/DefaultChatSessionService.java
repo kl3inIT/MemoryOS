@@ -6,9 +6,10 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSession;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
+import io.memoryos.chat.persistence.JdbcChatSearchRepository;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -20,11 +21,13 @@ public class DefaultChatSessionService implements ChatSessionService {
     private final TenantAccessResolver tenants;
     private final JdbcChatRepository chats;
     private final PersonaProperties persona;
+    private final JdbcChatSearchRepository search;
 
-    public DefaultChatSessionService(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona) {
+    public DefaultChatSessionService(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona, JdbcChatSearchRepository search) {
         this.tenants = tenants;
         this.chats = chats;
         this.persona = persona;
+        this.search = search;
     }
 
     @Override
@@ -43,6 +46,17 @@ public class DefaultChatSessionService implements ChatSessionService {
     public List<ChatSession> list(ActorId actor, int offset, int limit) {
         page(offset, limit);
         return chats.list(tenant(actor), actor, offset, limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true, timeout = 10)
+    public List<ChatSession> search(ActorId actor, String query, int offset, int limit) {
+        page(offset, limit);
+        if (query == null || query.length() > 200 || query.indexOf('\0') >= 0 || limit > 50)
+            throw ChatException.invalid("Search query must be at most 200 characters and limit at most 50.");
+        var tenant = tenant(actor);
+        return query.isBlank() ? chats.list(tenant, actor, offset, limit + 1)
+                : search.search(tenant, actor, query.strip(), offset, limit + 1);
     }
 
     @Override

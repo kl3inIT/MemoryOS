@@ -1,7 +1,7 @@
 package io.memoryos.api.identity.contract;
 
-import io.memoryos.iam.TenantMembershipRole;
-import io.memoryos.iam.TenantMembership;
+import io.memoryos.iam.tenant.TenantMembershipRole;
+import io.memoryos.iam.tenant.TenantMembership;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(name = "CurrentTenant", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)

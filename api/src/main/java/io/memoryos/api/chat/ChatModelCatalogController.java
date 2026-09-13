@@ -6,7 +6,7 @@ import io.memoryos.chat.catalog.ModelCatalogService.ModelInput;
 import io.memoryos.chat.catalog.ModelCatalogService.ProviderInput;
 import io.memoryos.chat.catalog.ModelCatalogService.ProviderView;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

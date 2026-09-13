@@ -4,7 +4,7 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { stripGeneratedTitlePrefix } from "@/features/search/search-presentation";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Dialog } from "radix-ui";
-import { ArrowLeft, ChevronRight, FileText, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { DocumentPreviewContent } from "@/features/search/document-preview-content";
 import type { ChatSource } from "./chat-evidence";
@@ -12,6 +12,9 @@ import { ChatFileReader } from "./chat-file-reader";
 import { useTranslation } from "react-i18next";
 import type { ChatArtifact } from "./chat-artifacts";
 import { ChatArtifactView } from "./chat-artifact-view";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { DocumentReference } from "@/components/assistant-ui/elements/document-reference";
+import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 
 const wideQuery = "(min-width: 1024px)";
 function subscribeWidth(notify: () => void) {
@@ -39,6 +42,7 @@ export function ChatSourcePanel({
   onClose: () => void;
   restoreFocus: () => void;
 }) {
+  const ui = useAppTranslation();
   const { t, i18n } = useTranslation("reader");
   const { t: rendererText } = useTranslation("renderers");
   const wide = useSyncExternalStore(
@@ -83,6 +87,8 @@ export function ChatSourcePanel({
             <span title={artifact.title}>{artifact.title}</span>
           ) : file ? (
             <span title={file.filename}>{file.filename}</span>
+          ) : selected?.web ? (
+            ui("Nội dung trang Web")
           ) : selected ? (
             t("content")
           ) : (
@@ -109,6 +115,28 @@ export function ChatSourcePanel({
       ) : file ? (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
           <ChatFileReader key={file.id} fileId={file.id} />
+        </div>
+      ) : selected?.web ? (
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+          <DocumentReference
+            title={selected.title}
+            subtitle={new URL(selected.web.url).hostname}
+            icon={<SourceIcon domain={new URL(selected.web.url).hostname} className="size-4" />}
+            anchors={[]}
+          />
+          <a
+            className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-sm hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-ring"
+            href={selected.web.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
+            {ui("Mở trang gốc")} ·{" "}
+            <span className="truncate">{new URL(selected.web.url).hostname}</span>
+          </a>
+          <blockquote className="whitespace-pre-wrap break-words border-l-2 border-border-default pl-4 text-sm leading-7 text-content-secondary">
+            {selected.web.excerpt}
+          </blockquote>
         </div>
       ) : selected ? (
         <>
@@ -160,20 +188,31 @@ export function ChatSourcePanel({
           <ol className="space-y-3">
             {sources.map((source) => (
               <li key={source.citationId}>
-                <button
-                  type="button"
-                  aria-label={t("readSource", { number: source.citationId, title: source.title })}
-                  onClick={() => onSelect(source.citationId)}
-                  className="group w-full rounded-xl border border-border-subtle bg-surface-raised p-4 text-left transition-colors hover:border-border-strong hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-ring"
-                >
-                  <div className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
-                    <FileText className="size-3.5" aria-hidden="true" />{" "}
-                    {t("sourceNumber", { number: source.citationId })}
-                    <ChevronRight className="ml-auto size-3.5" aria-hidden="true" />
-                  </div>
-                  <h3 className="line-clamp-2 break-words font-main-ui-action">{source.title}</h3>
-                  <SourceExcerpt source={source} />
-                </button>
+                <DocumentReference
+                  title={source.title}
+                  subtitle={
+                    source.web
+                      ? new URL(source.web.url).hostname
+                      : t("documentSource", { number: source.citationId })
+                  }
+                  icon={
+                    source.web ? (
+                      <SourceIcon domain={new URL(source.web.url).hostname} className="size-4" />
+                    ) : undefined
+                  }
+                  anchors={[
+                    {
+                      id: source.citationId,
+                      label: t("sourceNumber", { number: source.citationId }),
+                      accessibleLabel: t("readSource", {
+                        number: source.citationId,
+                        title: source.title,
+                      }),
+                      quote: <SourceExcerpt source={source} />,
+                    },
+                  ]}
+                  onJump={onSelect}
+                />
               </li>
             ))}
           </ol>
@@ -213,9 +252,11 @@ export function ChatSourcePanel({
               ? artifact.title
               : file
                 ? file.filename
-                : selected
-                  ? t("documentTitle", { title: selected.title })
-                  : t("sources")}
+                : selected?.web
+                  ? ui("Nội dung trang Web: {{title}}", { title: selected.title })
+                  : selected
+                    ? t("documentTitle", { title: selected.title })
+                    : t("sources")}
           </Dialog.Title>
           {content}
         </Dialog.Content>
@@ -226,6 +267,12 @@ export function ChatSourcePanel({
 
 export function SourceExcerpt({ source }: { source: ChatSource }) {
   const { t } = useTranslation("reader");
+  if (source.web)
+    return (
+      <p className="mt-2 line-clamp-3 break-words text-sm text-content-muted">
+        {source.web.excerpt || new URL(source.web.url).hostname}
+      </p>
+    );
   if (source.fileId != null)
     return (
       <p className="mt-2 text-sm text-content-muted">

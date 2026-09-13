@@ -20,10 +20,15 @@ export function ChatSessionRow({
   session,
   onNavigate,
   showTime = false,
+  rename,
+  deleteSession,
 }: {
   session: ChatSession;
   onNavigate?: () => void;
   showTime?: boolean;
+  /** Thread-list actions; rows outside the thread list use the session API directly. */
+  rename?: (title: string) => Promise<void>;
+  deleteSession?: () => Promise<void>;
 }) {
   const ui = useAppTranslation();
 
@@ -58,6 +63,7 @@ export function ChatSessionRow({
           renaming ? undefined : (
             <ChatSessionMenu
               session={session}
+              deleteSession={deleteSession}
               onRename={() => {
                 setTitle(session.title);
                 setError(undefined);
@@ -76,13 +82,17 @@ export function ChatSessionRow({
               busy.current = true;
               setPending(true);
               setError(undefined);
-              void renameChatSession({
-                path: { sessionId: session.id },
-                body: { title: title.trim() },
-                headers: sameOriginMutationHeaders,
-                signal: AbortSignal.timeout(30000),
-                throwOnError: true,
-              })
+              void (
+                rename
+                  ? rename(title.trim())
+                  : renameChatSession({
+                      path: { sessionId: session.id },
+                      body: { title: title.trim() },
+                      headers: sameOriginMutationHeaders,
+                      signal: AbortSignal.timeout(30000),
+                      throwOnError: true,
+                    })
+              )
                 .then(async () => {
                   await Promise.all([
                     cache.invalidateQueries({ queryKey: chatSessionsKey }),

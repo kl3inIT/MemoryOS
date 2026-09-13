@@ -1,11 +1,11 @@
 package io.memoryos.api.security;
 
-import io.memoryos.iam.ActorProfileRecorder;
-import io.memoryos.iam.ExternalIdentityResolver;
-import io.memoryos.iam.InvitationService;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
-import io.memoryos.iam.TrustedIdentityAdmission;
+import io.memoryos.iam.identity.ActorProfileRecorder;
+import io.memoryos.iam.identity.ExternalIdentityResolver;
+import io.memoryos.iam.invitation.InvitationService;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.identity.TrustedIdentityAdmission;
 
 import java.util.UUID;
 

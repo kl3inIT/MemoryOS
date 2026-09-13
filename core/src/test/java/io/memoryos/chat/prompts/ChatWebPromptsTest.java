@@ -1,0 +1,86 @@
+package io.memoryos.chat.prompts;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
+
+class ChatWebPromptsTest {
+    @Test void siteGuidanceMatchesSelectedProviderAndNeverAdvertisesDisabledSearch() {
+        var prompt = prompt(Set.of("web_search", "open_url"), null);
+        assertTrue(ChatPrompts.forInference(prompt, false, false, false).toString().contains("does not support the site:"));
+        assertTrue(ChatPrompts.forInference(prompt, false, false, true).toString().contains("Use the site: operator"));
+        assertFalse(ChatPrompts.forInference(prompt(Set.of("open_url"), null), false, false, false).toString().contains("site:"));
+    }
+    private Prompt prompt(Set<String> tools, String lastTool) {
+        var messages = new ArrayList<Message>();
+        messages.add(new SystemMessage("Preserve my Persona instructions."));
+        messages.add(new UserMessage("Check this information."));
+        if (lastTool != null) messages.add(ToolResponseMessage.builder().responses(List.of(
+                new ToolResponseMessage.ToolResponse("tool-id", lastTool, "Evidence [1]"))).build());
+        var callbacks = tools.stream().map(name -> {
+            var callback = mock(ToolCallback.class);
+            var definition = mock(ToolDefinition.class);
+            when(definition.name()).thenReturn(name);
+            when(callback.getToolDefinition()).thenReturn(definition);
+            return callback;
+        }).toList();
+        return new Prompt(messages, OpenAiChatOptions.builder().toolCallbacks(callbacks).build());
+    }
+    @Test void webOnlyDoesNotAdvertiseInternalSearchAndPreservesOriginalPrompt() {
+        var original = prompt(Set.of("web_search", "open_url"), null);
+        var guided = ChatPrompts.forInference(original, false, false);
+        assertTrue(guided.toString().contains("## web_search"));
+        assertTrue(guided.toString().contains("## open_url"));
+        assertFalse(guided.toString().contains("searchKnowledge"));
+        assertTrue(guided.toString().contains("Preserve my Persona instructions."));
+        assertEquals(2, original.getInstructions().size());
+        assertSame(original.getOptions(), guided.getOptions());
+    }
+    @Test void disabledWebAndNoToolsNeverAdvertiseUnavailableTools() {
+        String internal = ChatPrompts.forInference(prompt(Set.of("searchKnowledge"), null), false, false).toString();
+        assertTrue(internal.contains("## searchKnowledge"));
+        assertFalse(internal.contains("web_search"));
+        assertFalse(internal.contains("open_url"));
+        var none = prompt(Set.of(), null);
+        assertSame(none, ChatPrompts.forInference(none, false, false));
+    }
+    @Test void combinedGuidanceExplainsPublicVersusInternalAndFreshness() {
+        String text = ChatPrompts.forInference(prompt(Set.of("searchKnowledge", "web_search", "open_url"), null), false, false).toString();
+        assertTrue(text.contains("team/internal information"));
+        assertTrue(text.contains("rapidly changing"));
+        assertTrue(text.contains("primary sources"));
+        assertTrue(text.contains("specific supplied URL"));
+    }
+    @Test void reminderRequiresRecentWebResultAvailableReaderAndAnotherToolCycle() {
+        var original = prompt(Set.of("web_search", "open_url"), "web_search");
+        assertTrue(Objects.requireNonNull(ChatPrompts.forInference(original, true, false).getInstructions().getLast().getText()).contains("After web_search"));
+        assertFalse(ChatPrompts.forInference(original, true, true).toString().contains("After web_search"));
+        assertFalse(ChatPrompts.forInference(original, true, true).toString().contains("## open_url"));
+        assertTrue(ChatPrompts.forInference(original, true, true).toString().contains("last cycle"));
+        assertFalse(ChatPrompts.forInference(prompt(Set.of("web_search"), "web_search"), true, false).toString().contains("After web_search"));
+        assertFalse(ChatPrompts.forInference(prompt(Set.of("open_url"), "open_url"), true, false).toString().contains("After web_search"));
+    }
+    @Test void historicalSearchBeforeANewUserQuestionDoesNotTriggerReminder() {
+        var original = prompt(Set.of("open_url"), "web_search");
+        var messages = new ArrayList<>(original.getInstructions());
+        messages.add(new UserMessage("Different question"));
+        assertFalse(ChatPrompts.forInference(new Prompt(messages, original.getOptions()), true, false).toString().contains("After web_search"));
+    }
+}

@@ -6,7 +6,7 @@ import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import org.jspecify.annotations.Nullable;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,6 +38,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelResolver models;
+    private final io.memoryos.chat.web.@Nullable WebConnectionService web;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -48,9 +49,16 @@ public final class ChatTurnService implements AutoCloseable {
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models) {
+        this(persistence, model, limits, executor, streams, models, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            io.memoryos.chat.web.@Nullable WebConnectionService web) {
         this.persistence = persistence;
         this.model = model;
         this.models = models;
+        this.web = web;
         this.limits = limits;
         this.executor = executor;
         this.streams = streams;
@@ -98,12 +106,24 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId());
             var binding = resolved.binding();
+            var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
+            if (command.webSearch() != WebSearchMode.off) {
+                // Provider-hosted search needs no external connection; external search needs one.
+                boolean nativeSearch = binding.service().getChatModel() instanceof io.memoryos.chat.execution.NativeWebSearch;
+                if (!binding.toolCalling() || (!nativeSearch && web == null)) throw ChatException.providerUnavailable();
+                if (!nativeSearch) {
+                    webAccess = web.resolve(actor);
+                    if (webAccess.search() == null) throw ChatException.providerUnavailable();
+                    if (command.webSearch() == WebSearchMode.required && !(binding.service().getChatModel() instanceof org.springframework.ai.openai.OpenAiChatModel))
+                        throw ChatException.invalid("This model adapter does not support required Web search.");
+                }
+            }
             int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.deadline(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(), resolved.fallbackReason(), binding, resolved.contextRevision()));
             if (!reserved.created()) return accepted(reserved);
             var context = persistence.loadContext(actor, session, reserved);
-            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding);
+            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding).withWeb(command.webSearch(), webAccess);
             var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);

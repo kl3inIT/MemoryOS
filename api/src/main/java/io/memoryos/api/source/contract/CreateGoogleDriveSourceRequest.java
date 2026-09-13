@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 @Schema(name = "CreateGoogleDriveSourceRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record CreateGoogleDriveSourceRequest(
@@ -17,4 +18,7 @@ public record CreateGoogleDriveSourceRequest(
                 description = "GENERAL includes the connected account's My Drive tree; SPECIFIC includes selected links.") ScopeMode scopeMode,
         @NotNull @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Empty for GENERAL; distinct non-overlapping links bounded by the selection policy for SPECIFIC.")
-        List<@NotBlank @Size(max = 2048) String> links) {}
+        List<@NotBlank @Size(max = 2048) String> links,
+        @Size(max = 100) @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.")
+        @Nullable List<@NotNull UUID> groupIds) {}

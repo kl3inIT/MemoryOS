@@ -2,7 +2,8 @@ package io.memoryos.api.chat;
 
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatCommand;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.chat.WebSearchMode;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -58,7 +59,7 @@ class ChatTurnController {
     Accepted send(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                   @PathVariable UUID sessionId, @Valid @RequestBody Send request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
-                request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds()));
+                request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch()));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -79,7 +80,7 @@ class ChatTurnController {
     Accepted edit(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
             @PathVariable UUID userMessageId, @Valid @RequestBody Edit request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
-                userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds()));
+                userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch()));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -90,17 +91,17 @@ class ChatTurnController {
     Accepted regenerate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
             @PathVariable UUID userMessageId, @Valid @RequestBody Regenerate request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
-                userMessageId, request.clientRequestId(), "", request.modelConfigurationId()));
+                userMessageId, request.clientRequestId(), "", request.modelConfigurationId(), List.of(), request.webSearch()));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
     record Edit(@NotNull UUID clientRequestId, @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
-                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds) {}
-    record Regenerate(@NotNull UUID clientRequestId, @Nullable UUID modelConfigurationId) {}
+                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds, @Nullable WebSearchMode webSearch) {}
+    record Regenerate(@NotNull UUID clientRequestId, @Nullable UUID modelConfigurationId, @Nullable WebSearchMode webSearch) {}
 
     record Send(@NotNull UUID parentMessageId, @NotNull UUID clientRequestId,
                 @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
-                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds) {
+                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds, @Nullable WebSearchMode webSearch) {
     }
 
     record Accepted(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userMessageId,

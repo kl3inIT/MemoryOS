@@ -50,8 +50,9 @@ class ChatRuntimeConfiguration {
     ChatModelExecutor chatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
                                         ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits,
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings,
-                                        io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent);
+                                        io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+                                        io.memoryos.chat.web.WebProviderClient web) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web);
     }
 
     @Bean(destroyMethod = "dispose")
@@ -63,8 +64,8 @@ class ChatRuntimeConfiguration {
     @Bean(destroyMethod = "close")
     ChatTurnService chatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
-                                    ChatModelResolver models) {
-        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models);
+                                    ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web) {
+        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web);
     }
 
     @Bean

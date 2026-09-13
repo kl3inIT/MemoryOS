@@ -16,12 +16,12 @@ public record ChatSourceResponse(@Schema(requiredMode = REQUIRED) int citationId
                                  @Schema(requiredMode = REQUIRED) int startOrdinal,
                                  @Schema(requiredMode = REQUIRED) int endOrdinal,
                                  @Schema(requiredMode = REQUIRED) List<Provenance> provenance,
-                                 @Nullable UUID fileId) {
+                                 @Nullable UUID fileId, ChatSource.@Nullable FileLocation fileLocation, ChatSource.@Nullable WebLocation web) {
     public record Provenance(@Schema(requiredMode = REQUIRED) int ordinal,
                              @Schema(requiredMode = REQUIRED) String provenanceJson) {}
     public static ChatSourceResponse from(ChatSource source) {
         return new ChatSourceResponse(source.citationId(), source.documentId(), source.generation(), source.title(),
                 source.startOrdinal(), source.endOrdinal(), source.provenance().stream()
-                .map(p -> new Provenance(p.ordinal(), p.provenanceJson())).toList(), source.fileId());
+                .map(p -> new Provenance(p.ordinal(), p.provenanceJson())).toList(), source.fileId(), source.fileLocation(), source.web());
     }
 }

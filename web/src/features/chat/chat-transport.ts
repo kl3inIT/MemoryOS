@@ -1,3 +1,4 @@
+import { injectQuoteContext } from "@assistant-ui/ai-sdk";
 import type { ChatTransport, UIMessageChunk } from "ai";
 import { z } from "zod";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
@@ -10,6 +11,7 @@ import {
 import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "./chat-api";
 import { fileIdFromReference } from "./chat-files";
+import { readWebPreference, writeWebPreference, type WebSearchMode } from "./chat-web-preference";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import {
   searchEventSchema,
@@ -37,9 +39,19 @@ type Callbacks = {
 
 /** Adapts the Java wire contract. AI SDK owns message content and tool state. */
 export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
+  webSearch: WebSearchMode = "off";
+  selectWeb(mode: WebSearchMode) {
+    this.webSearch = mode;
+    writeWebPreference(this.preferenceOwner, this.session?.id, mode);
+  }
   private modelConfigurationId?: string;
   private onModelAccepted?: (selection: Accepted) => void;
-  private readonly projectId?: string;
+  /** Project for the session created by the first send; ignored once the session exists. */
+  projectId?: string;
+  onSessionCreated?: (session: ChatSession) => void;
+  /** Any failure before the first session exists, so thread initialization can be retried. */
+  onSessionFailed?: (error: unknown) => void;
+  private readonly preferenceOwner?: string;
 
   selectModel(id?: string) {
     this.modelConfigurationId = id;
@@ -56,6 +68,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   private reader?: AbortController;
   private runId?: string;
   private runParentId?: string;
+  private runCreatedAt?: string;
   private stopRequest?: Promise<void>;
   private sending = false;
   private stopWhenAccepted = false;
@@ -67,11 +80,19 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     error: () => {},
   };
 
-  constructor(session?: ChatSession, runningMessage?: ChatMessage, projectId?: string) {
+  constructor(
+    session?: ChatSession,
+    runningMessage?: ChatMessage,
+    projectId?: string,
+    preferenceOwner?: string,
+  ) {
     this.projectId = projectId;
+    this.preferenceOwner = preferenceOwner;
     this.session = session;
+    this.webSearch = readWebPreference(preferenceOwner, session?.id);
     this.runId = runningMessage?.id;
     this.runParentId = runningMessage?.parentMessageId ?? undefined;
+    this.runCreatedAt = runningMessage?.createdAt;
   }
 
   disconnect() {
@@ -90,14 +111,32 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     const running = messages.find((message) => message.status === "RUNNING");
     this.runId = running?.id;
     this.runParentId = running?.parentMessageId ?? undefined;
+    this.runCreatedAt = running?.createdAt;
   }
 
   async sendMessages(options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0]) {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
+    const webSearch = this.webSearch;
+    const creating = !this.session;
+    try {
+      return await this.submit(options, modelConfigurationId, webSearch);
+    } catch (error) {
+      if (creating && !this.session) this.onSessionFailed?.(error);
+      throw error;
+    }
+  }
+
+  private async submit(
+    options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0],
+    modelConfigurationId: string | undefined,
+    webSearch: WebSearchMode,
+  ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
-    const message = options.messages.at(-1);
+    const sent = options.messages.at(-1);
+    // A composer quote travels in metadata; the saved question carries it as a leading blockquote.
+    const message = sent && injectQuoteContext([sent])[0];
     const text =
       message?.parts
         .filter((part) => part.type === "text")
@@ -116,7 +155,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.stopWhenAccepted = false;
     this.callbacks.state("sending");
     try {
-      this.session ??= await newChatSession(text, signal, undefined, this.projectId);
+      if (!this.session) {
+        this.session = await newChatSession(text, signal, undefined, this.projectId);
+        this.onSessionCreated?.(this.session);
+      }
+      writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
         body: {
@@ -124,6 +167,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           clientRequestId: message.id,
           text,
           modelConfigurationId,
+          webSearch,
           fileIds: fileIds as string[],
         },
         headers: sameOriginMutationHeaders,
@@ -131,6 +175,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         throwOnError: true,
       });
       this.runId = data.assistantMessageId;
+      this.runCreatedAt = new Date().toISOString();
       this.onModelAccepted?.(data);
       this.runParentId = data.userMessageId;
       if (this.stopWhenAccepted) {
@@ -215,7 +260,12 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let searchProgress: SearchProgress = {};
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
-    yield { type: "start", messageId: runId, messageMetadata: { serverStatus: "RUNNING" } };
+    const createdAt = this.runCreatedAt;
+    yield {
+      type: "start",
+      messageId: runId,
+      messageMetadata: { serverStatus: "RUNNING", ...(createdAt && { createdAt }) },
+    };
     yield { type: "text-start", id: runId };
     try {
       for (let attempt = 0; attempt < 3 && !outcome && !fallback; attempt++) {

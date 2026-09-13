@@ -1,10 +1,11 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { LoaderCircle, Search, ShieldCheck, UsersRound } from "lucide-react";
+import { LoaderCircle, Search } from "lucide-react";
 import { useMemo, useRef, useState, type RefObject } from "react";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
 import { Dialog } from "radix-ui";
+import { OnyxUserManageIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -52,7 +53,7 @@ export function UserGroupsDialog({
   const searchRef = useRef<HTMLInputElement>(null);
   const pendingRef = useRef(false);
   const actorId = entry.actorId;
-  const label = entry.displayName?.trim() || entry.email?.trim() || "this user";
+  const label = entry.displayName?.trim() || entry.email?.trim() || ui("this user");
   const groupOptions = useQuery({
     ...listGroupsOptions({ query: { search: search || undefined, page, size: 20 } }),
     placeholderData: keepPreviousData,
@@ -143,10 +144,17 @@ export function UserGroupsDialog({
                 <div className="mt-2 divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
                   {systemGroups.map((group) => (
                     <div key={group.id} className="flex items-center gap-3 px-4 py-3">
-                      <ShieldCheck
-                        className="size-4 shrink-0 text-content-muted"
-                        aria-hidden="true"
-                      />
+                      {group.systemKey === "ADMIN" ? (
+                        <OnyxUserManageIcon
+                          className="size-4 shrink-0 text-content-muted"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <OnyxUsersIcon
+                          className="size-4 shrink-0 text-content-muted"
+                          aria-hidden="true"
+                        />
+                      )}
                       <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
                         {group.name}
                       </span>
@@ -232,7 +240,7 @@ export function UserGroupsDialog({
                 </div>
               ) : ordinaryGroups.length === 0 ? (
                 <div className="mt-5 rounded-xl border border-dashed border-border-default px-4 py-8 text-center">
-                  <UsersRound className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+                  <OnyxUsersIcon className="mx-auto size-5 text-content-muted" aria-hidden="true" />
                   <p className="mt-2 font-main-ui-body text-content-muted">
                     {search
                       ? ui("No groups match your search.")

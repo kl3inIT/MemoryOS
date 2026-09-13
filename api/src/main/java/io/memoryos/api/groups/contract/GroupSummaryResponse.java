@@ -1,9 +1,9 @@
 package io.memoryos.api.groups.contract;
 
-import io.memoryos.iam.GroupAction;
-import io.memoryos.iam.GroupSummary;
-import io.memoryos.iam.GroupSystemKey;
-import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.group.GroupAction;
+import io.memoryos.iam.group.GroupSummary;
+import io.memoryos.iam.group.GroupSystemKey;
+import io.memoryos.iam.group.IamCapability;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

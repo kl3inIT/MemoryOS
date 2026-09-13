@@ -36,6 +36,7 @@ public final class ChatEvidence {
         if (sources.size() >= 24) return null;
         var source = factory.apply(nextId());
         int size = 512 + source.title().length() * 6
+                + (source.web() == null ? 0 : (source.web().url().length() + source.web().excerpt().length()) * 6)
                 + source.provenance().stream().mapToInt(p -> 64 + p.provenanceJson().length() * 6).sum();
         if (bytes + size > 131072) return null;
         sources.put(key, source);

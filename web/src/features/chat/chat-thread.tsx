@@ -26,17 +26,20 @@ import { cn } from "@/lib/utils";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
-import {
-  ChatComposerFiles,
-  ChatFilePart,
-  ChatSharedFilePart,
-  ChatMessageAttachment,
-} from "./chat-attachments";
-import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
+import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-attachments";
+import { ChatComposerDraft, ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
+import { ChatMessageTiming } from "./chat-message-timing";
+import {
+  ChatComposerQuote,
+  ChatSelectionToolbar,
+  ChatUserMessageQuote,
+  ChatUserText,
+} from "./chat-quote";
 
 export function ChatThread({
+  composerMenu,
   modelPicker,
   modelNotice,
   connection,
@@ -50,6 +53,9 @@ export function ChatThread({
   afterComposer,
   readOnly = false,
 }: {
+  /** Left of the composer toolbar: the `+` menu for files and tools. */
+  composerMenu?: ReactNode;
+  /** Right of the composer toolbar, beside Send. */
   modelPicker: ReactNode;
   modelNotice?: string;
   connection: ConnectionState;
@@ -70,7 +76,7 @@ export function ChatThread({
   return (
     <ChatSourcesWorkspace>
       <ThreadPrimitive.Root
-        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col"
+        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-amber-400/10"
         style={{ ["--thread-max-width" as string]: "48rem" }}
       >
         <ThreadPrimitive.Viewport
@@ -137,6 +143,8 @@ export function ChatThread({
               ) : null}
               <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
                 <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
+                  <ChatComposerDraft />
+                  <ChatComposerQuote />
                   <ComposerAttachments />
                   <ComposerPrimitive.Input
                     aria-label={ui("Câu hỏi")}
@@ -154,27 +162,27 @@ export function ChatThread({
                     data-testid="chat-composer-actions"
                     className="flex flex-nowrap items-center justify-between gap-2"
                   >
+                    {composerMenu ?? <span />}
                     <div className="flex min-w-0 items-center gap-1">
-                      <ChatComposerFiles />
                       {modelPicker}
-                    </div>
-                    <AuiIf condition={(state) => !state.thread.isRunning}>
-                      <ChatComposerSend asChild>
-                        <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
-                          <ArrowUp />
+                      <AuiIf condition={(state) => !state.thread.isRunning}>
+                        <ChatComposerSend asChild>
+                          <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
+                            <ArrowUp />
+                          </IconButton>
+                        </ChatComposerSend>
+                      </AuiIf>
+                      <AuiIf condition={(state) => state.thread.isRunning}>
+                        <IconButton
+                          aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
+                          prominence="secondary"
+                          disabled={stopping}
+                          onClick={onStop}
+                        >
+                          <Square />
                         </IconButton>
-                      </ChatComposerSend>
-                    </AuiIf>
-                    <AuiIf condition={(state) => state.thread.isRunning}>
-                      <IconButton
-                        aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
-                        prominence="secondary"
-                        disabled={stopping}
-                        onClick={onStop}
-                      >
-                        <Square />
-                      </IconButton>
-                    </AuiIf>
+                      </AuiIf>
+                    </div>
                   </div>
                 </ChatComposerRoot>
               </ComposerPrimitive.AttachmentDropzone>
@@ -184,6 +192,7 @@ export function ChatThread({
             <div className="mx-auto w-full max-w-(--thread-max-width) pb-8">{afterComposer}</div>
           )}
         </ThreadPrimitive.Viewport>
+        {!readOnly && <ChatSelectionToolbar />}
       </ThreadPrimitive.Root>
     </ChatSourcesWorkspace>
   );
@@ -191,13 +200,14 @@ export function ChatThread({
 
 function UserMessage({ readOnly }: { readOnly: boolean }) {
   return (
-    <MessagePrimitive.Root className="flex flex-col items-end">
+    <MessagePrimitive.Root data-aui-quote-selectable="false" className="flex flex-col items-end">
       <ChatUserMessageContent readOnly={readOnly}>
+        <ChatUserMessageQuote />
         <MessagePrimitive.Attachments>
           {() => <ChatMessageAttachment readOnly={readOnly} />}
         </MessagePrimitive.Attachments>
         <MessagePrimitive.Parts
-          components={{ File: readOnly ? ChatSharedFilePart : ChatFilePart }}
+          components={{ Text: ChatUserText, File: readOnly ? ChatSharedFilePart : ChatFilePart }}
         />
       </ChatUserMessageContent>
     </MessagePrimitive.Root>
@@ -213,10 +223,13 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
       state.message.status?.type === "incomplete" && state.message.status.reason === "cancelled",
   );
   return (
-    <MessagePrimitive.Root className="min-w-0 [overflow-wrap:anywhere]">
+    <MessagePrimitive.Root className="group/message min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
         <ChatSearchStatus />
-        <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
+        {/* Only the answer body can be quoted, not status, sources or actions. */}
+        <div data-aui-quote-selectable>
+          <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
+        </div>
         <ChatArtifactCards />
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
@@ -247,6 +260,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
           </AuiIf>
           <ChatSources />
           {!readOnly && <ChatMessageActions role="assistant" />}
+          <ChatMessageTiming />
         </ActionBarPrimitive.Root>
       </ChatSourcesProvider>
     </MessagePrimitive.Root>

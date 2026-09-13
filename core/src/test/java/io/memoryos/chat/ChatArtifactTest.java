@@ -28,10 +28,10 @@ class ChatArtifactTest {
         var collector = new ChatArtifacts();
         var checks = new AtomicInteger();
         var tool = new ArtifactTool(collector, checks::incrementAndGet);
-        assertTrue(tool.render_gui("Summary", SPEC).startsWith("Read-only artifact accepted"));
-        assertTrue(tool.render_gui("Summary", SPEC).startsWith("Read-only artifact accepted"));
-        assertTrue(tool.render_gui("Summary", SPEC).startsWith("Read-only artifact accepted"));
-        assertTrue(tool.render_gui("Summary", SPEC).startsWith("The artifact limit"));
+        assertTrue(tool.renderGui("Summary", SPEC).startsWith("Read-only artifact accepted"));
+        assertTrue(tool.renderGui("Summary", SPEC).startsWith("Read-only artifact accepted"));
+        assertTrue(tool.renderGui("Summary", SPEC).startsWith("Read-only artifact accepted"));
+        assertTrue(tool.renderGui("Summary", SPEC).startsWith("The artifact limit"));
         var saved = collector.seal();
         assertEquals(3, saved.size());
         assertEquals(3, saved.stream().map(ChatArtifact::id).distinct().count());
@@ -62,7 +62,7 @@ class ChatArtifactTest {
     void invalidInputDoesNotLeakItsContentOrKillTheAnswer() {
         var collector = new ChatArtifacts();
         var tool = new ArtifactTool(collector, () -> {});
-        assertTrue(tool.render_gui("Secret", "private-invalid-payload").startsWith("Invalid read-only UI"));
+        assertTrue(tool.renderGui("Secret", "private-invalid-payload").startsWith("Invalid read-only UI"));
         assertTrue(collector.seal().isEmpty());
     }
 }

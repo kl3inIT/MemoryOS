@@ -13,9 +13,9 @@ import io.memoryos.connector.SourceIndexAttemptView;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.tenant.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -32,51 +32,13 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSourceQueryRepository {
 
-    private static final List<SourceAction> SCOPED_MANAGE_ACTIONS =
-            List.of(SourceAction.UPLOAD, SourceAction.REINDEX);
-    private static final List<SourceAction> GLOBAL_MANAGE_ACTIONS =
-            List.of(SourceAction.UPLOAD, SourceAction.REINDEX, SourceAction.MANAGE_GROUPS);
-    private static final List<SourceAction> DELETE_ACTIONS =
-            List.of(SourceAction.REMOVE_ITEMS, SourceAction.DELETE);
-    private static final List<SourceAction> SCOPED_MANAGE_DELETE_ACTIONS =
-            List.of(SourceAction.UPLOAD, SourceAction.REINDEX, SourceAction.REMOVE_ITEMS, SourceAction.DELETE);
-    private static final List<SourceAction> GLOBAL_MANAGE_DELETE_ACTIONS = List.of(
-            SourceAction.UPLOAD,
-            SourceAction.REINDEX,
-            SourceAction.REMOVE_ITEMS,
-            SourceAction.DELETE,
-            SourceAction.MANAGE_GROUPS
-    );
-    private static final String MANAGED_SOURCE_SCOPE = """
-            EXISTS (
-                SELECT 1
-                FROM source_group_grants scoped_grant
-                JOIN iam_groups scoped_group
-                  ON scoped_group.tenant_id = scoped_grant.tenant_id
-                 AND scoped_group.id = scoped_grant.group_id
-                 AND scoped_group.system_key IS NULL
-                JOIN iam_group_memberships scoped_membership
-                  ON scoped_membership.tenant_id = scoped_grant.tenant_id
-                 AND scoped_membership.group_id = scoped_grant.group_id
-                 AND scoped_membership.actor_id = :actorId
-                 AND scoped_membership.is_manager = TRUE
-                WHERE scoped_grant.tenant_id = pair.tenant_id
-                  AND scoped_grant.connector_credential_pair_id = pair.id
-            )
-            """;
     private static final String MANAGED_REQUESTED_GROUP_SCOPE = """
-            EXISTS (
-                SELECT 1
-                FROM iam_groups scoped_group
-                JOIN iam_group_memberships scoped_membership
-                  ON scoped_membership.tenant_id = scoped_group.tenant_id
-                 AND scoped_membership.group_id = scoped_group.id
-                 AND scoped_membership.actor_id = :actorId
-                 AND scoped_membership.is_manager = TRUE
-                WHERE scoped_group.tenant_id = requested_grant.tenant_id
-                  AND scoped_group.id = requested_grant.group_id
-                  AND scoped_group.system_key IS NULL
-            )
+            EXISTS (SELECT 1 FROM iam_group_memberships member
+                JOIN iam_groups managed ON managed.tenant_id = member.tenant_id
+                  AND managed.id = member.group_id AND managed.system_key IS NULL
+                WHERE member.tenant_id = requested_grant.tenant_id
+                  AND member.group_id = requested_grant.group_id
+                  AND member.actor_id = :actorId AND member.is_manager = TRUE)
             """;
     private static final String SOURCE_SELECT = """
             SELECT pair.id AS source_id,
@@ -99,7 +61,10 @@ public class JdbcSourceQueryRepository {
                    pair.last_succeeded_at,
                    COALESCE((SELECT s.error_code FROM google_drive_sources s
                        WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id), pair.error_code) AS error_code,
-                   CASE WHEN :globalManage THEN FALSE ELSE %s END AS managed_scope
+                   CASE WHEN :globalManage THEN FALSE ELSE %s END AS managed_scope,
+                   (%s AND %s) AS creator_groupless,
+                   COALESCE((SELECT s.sync_paused FROM google_drive_sources s
+                       WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id), FALSE) AS sync_paused
             FROM connector_credential_pairs pair
             JOIN connectors connector
               ON connector.tenant_id = pair.tenant_id
@@ -114,7 +79,7 @@ public class JdbcSourceQueryRepository {
             JOIN actors requesting_actor
               ON requesting_actor.id = requesting_membership.actor_id
              AND requesting_actor.account_type = 'STANDARD'
-            """.formatted(MANAGED_SOURCE_SCOPE);
+            """.formatted(SourceScopeSql.WRITE, SourceScopeSql.ACTIVE_MANAGER, SourceScopeSql.OWNER_GROUPLESS);
 
     private static final String ITEM_CANDIDATES = """
             SELECT item.id, item.tenant_id, item.current_version_id,
@@ -197,7 +162,7 @@ public class JdbcSourceQueryRepository {
                         WHERE pair.tenant_id = :tenantId
                           AND (:globalRead OR %s)
                         ORDER BY connector.created_at, pair.id
-                        """.formatted(MANAGED_SOURCE_SCOPE))
+                        """.formatted(SourceScopeSql.READ))
                 .param("tenantId", tenantId.value())
                 .param("actorId", actorId.value())
                 .param("globalRead", globalRead)
@@ -218,7 +183,7 @@ public class JdbcSourceQueryRepository {
                         WHERE pair.tenant_id = :tenantId
                           AND pair.id = :pairId
                           AND (:globalRead OR %s)
-                        """.formatted(MANAGED_SOURCE_SCOPE))
+                        """.formatted(SourceScopeSql.READ))
                 .param("tenantId", tenantId.value())
                 .param("actorId", actorId.value())
                 .param("pairId", sourceId.value())
@@ -325,22 +290,38 @@ public class JdbcSourceQueryRepository {
                 resultSet.getLong("document_count"),
                 JdbcSourceRepository.instant(resultSet, "last_succeeded_at"),
                 resultSet.getString("error_code"),
-                actions(globalManage, globalDelete, resultSet.getBoolean("managed_scope"))
+                actions(globalManage, globalDelete, resultSet.getBoolean("managed_scope"),
+                        resultSet.getBoolean("creator_groupless"),
+                        SourceType.valueOf(resultSet.getString("connector_type")), resultSet.getBoolean("sync_paused"))
         );
     }
 
     private static List<SourceAction> actions(
             boolean globalManage,
             boolean globalDelete,
-            boolean managedScope
+            boolean managedScope,
+            boolean creatorGroupless,
+            SourceType type,
+            boolean syncPaused
     ) {
-        if (globalManage) {
-            return globalDelete ? GLOBAL_MANAGE_DELETE_ACTIONS : GLOBAL_MANAGE_ACTIONS;
+        var actions = new java.util.ArrayList<SourceAction>();
+        if (globalManage || managedScope) {
+            actions.add(SourceAction.RENAME);
+            actions.add(SourceAction.MANAGE_GROUPS);
+            actions.add(SourceAction.REINDEX);
+            if (type == SourceType.FILE) {
+                actions.add(SourceAction.UPLOAD);
+                if (globalManage) actions.add(SourceAction.MANAGE_ACCESS);
+            } else if (type == SourceType.GOOGLE_DRIVE) {
+                actions.add(SourceAction.SYNCHRONIZE);
+                actions.add(SourceAction.MANAGE_SCHEDULE);
+                actions.add(syncPaused ? SourceAction.RESUME_SYNC : SourceAction.PAUSE_SYNC);
+                if (globalManage) actions.add(SourceAction.MANAGE_CONFIGURATION);
+            }
         }
-        if (managedScope) {
-            return globalDelete ? SCOPED_MANAGE_DELETE_ACTIONS : SCOPED_MANAGE_ACTIONS;
-        }
-        return globalDelete ? DELETE_ACTIONS : List.of();
+        if (globalDelete) actions.add(SourceAction.REMOVE_ITEMS);
+        if (globalDelete || creatorGroupless) actions.add(SourceAction.DELETE);
+        return List.copyOf(actions);
     }
 
     private static SourceItemView item(ResultSet resultSet, int ignored) throws SQLException {

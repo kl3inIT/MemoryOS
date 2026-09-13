@@ -1,0 +1,50 @@
+.group-detail-page .group-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.group-detail-page .group-detail-actions > button {
+  height: 36px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.group-detail-page .group-detail-name input {
+  height: 36px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.group-detail-page .group-detail-name-readonly {
+  border-color: var(--groups-card-border);
+  background-color: transparent;
+  color: var(--content-secondary);
+  box-shadow: none;
+}
+
+.group-detail-page .group-detail-name-readonly:focus-visible {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 30%, transparent);
+}
+
+.group-detail-page .group-detail-members {
+  margin-top: 32px;
+}
+
+.dark .group-detail-page {
+  --surface-sunken: var(--groups-card-surface);
+}
+
+@media (max-width: 479px) {
+  .group-detail-page .group-detail-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .group-detail-page .group-detail-actions {
+    align-self: flex-end;
+  }
+}

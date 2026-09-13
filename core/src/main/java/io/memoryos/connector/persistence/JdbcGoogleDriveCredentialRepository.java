@@ -10,10 +10,10 @@ import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceStatus;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.List;
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcGoogleDriveCredentialRepository {
     private static final String SELECT = """
-            SELECT google.*, credential.status AS credential_status, tenant.status AS tenant_status
+            SELECT google.*, credential.owner_actor_id, credential.status AS credential_status, tenant.status AS tenant_status
             FROM credentials credential
             JOIN google_drive_credentials google ON google.tenant_id = credential.tenant_id AND google.credential_id = credential.id
             JOIN tenants tenant ON tenant.id = credential.tenant_id
@@ -53,7 +53,7 @@ public class JdbcGoogleDriveCredentialRepository {
 
     public void requireConfigured() { encryption.cipher(); }
 
-    public CredentialId create(TenantId tenantId, String name, Grant grant, GoogleDriveOAuthClient oauthClient) {
+    public CredentialId create(TenantId tenantId, ActorId owner, String name, Grant grant, GoogleDriveOAuthClient oauthClient) {
         if (!sources.lockActiveTenant(tenantId)) throw SourceException.notFound();
         UUID credentialId = UUID.randomUUID();
         byte[] token = grant.refreshToken();
@@ -61,8 +61,8 @@ public class JdbcGoogleDriveCredentialRepository {
         try { encrypted = encryption.cipher().encrypt(tenantId, credentialId, token); }
         finally { Arrays.fill(token, (byte) 0); }
         var encryptedClient = encryptClient(tenantId, credentialId, oauthClient);
-        jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status) VALUES (:id, :tenant, :name, 'GOOGLE_OAUTH', 'ACTIVE')")
-                .param("id", credentialId).param("tenant", tenantId.value()).param("name", name).update();
+        jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status, owner_actor_id) VALUES (:id, :tenant, :name, 'GOOGLE_OAUTH', 'ACTIVE', :owner)")
+                .param("id", credentialId).param("tenant", tenantId.value()).param("name", name).param("owner", owner.value()).update();
         jdbc.sql("""
                 INSERT INTO google_drive_credentials (tenant_id, credential_id, account_subject, account_email,
                     granted_scopes, connection_status, refresh_token_ciphertext, refresh_token_nonce, key_version,
@@ -78,7 +78,7 @@ public class JdbcGoogleDriveCredentialRepository {
         return new CredentialId(credentialId);
     }
 
-    public List<CredentialView> list(TenantId tenantId) {
+    public List<CredentialView> list(TenantId tenantId, @Nullable ActorId owner) {
         return jdbc.sql("""
                 SELECT c.id, c.name, g.account_email, g.connection_status, g.credential_revision,
                   g.oauth_client_ciphertext IS NOT NULL AS configured, c.created_at, c.updated_at,
@@ -87,12 +87,14 @@ public class JdbcGoogleDriveCredentialRepository {
                 FROM credentials c
                 JOIN google_drive_credentials g ON g.tenant_id = c.tenant_id AND g.credential_id = c.id
                 WHERE c.tenant_id = :tenant AND c.credential_kind = 'GOOGLE_OAUTH'
+                  AND (:global OR c.owner_actor_id = :owner)
                 ORDER BY c.created_at, c.id
-                """).param("tenant", tenantId.value()).query((r, _) -> new CredentialView(
+                """).param("tenant", tenantId.value()).param("global", owner == null)
+                .param("owner", owner == null ? null : owner.value()).query((r, _) -> new CredentialView(
                         new CredentialId(r.getObject("id", UUID.class)), r.getString("name"),
                         r.getString("account_email"), r.getString("connection_status"), r.getLong("credential_revision"),
                         r.getBoolean("configured"), r.getTimestamp("created_at").toInstant(),
-                        r.getTimestamp("updated_at").toInstant(), r.getLong("source_count"))).list();
+                        r.getTimestamp("updated_at").toInstant(), r.getLong("source_count"), List.of())).list();
     }
 
     public void delete(TenantId tenantId, CredentialId credentialId, long expectedRevision) {
@@ -157,7 +159,7 @@ public class JdbcGoogleDriveCredentialRepository {
                         row.getString("connection_status"), row.getLong("credential_revision"), row.getLong("payload_revision"),
                         row.getBytes("refresh_token_ciphertext"), row.getBytes("refresh_token_nonce"), row.getString("key_version"),
                         row.getBytes("oauth_client_ciphertext"), row.getBytes("oauth_client_nonce"),
-                        row.getString("oauth_client_key_version"),
+                        row.getString("oauth_client_key_version"), row.getObject("owner_actor_id", UUID.class),
                         "ACTIVE".equals(row.getString("connection_status")) && "ACTIVE".equals(row.getString("credential_status"))
                                 && "ACTIVE".equals(row.getString("tenant_status"))))
                 .optional();
@@ -279,7 +281,7 @@ public class JdbcGoogleDriveCredentialRepository {
                 .param("status", status).param("tenant", tenantId.value()).param("id", row.credentialId()).update();
     }
 
-    private List<SourceId> attachedSources(TenantId tenantId, CredentialId credentialId) {
+    public List<SourceId> attachedSources(TenantId tenantId, CredentialId credentialId) {
         return jdbc.sql("""
                 SELECT id FROM connector_credential_pairs
                 WHERE tenant_id = :tenant AND credential_id = :credential ORDER BY id
@@ -381,7 +383,8 @@ public class JdbcGoogleDriveCredentialRepository {
 
     public record Stored(UUID credentialId, String subject, String email, String status, long revision, long payloadRevision,
             byte @Nullable [] ciphertext, byte @Nullable [] nonce, @Nullable String keyVersion,
-            byte @Nullable [] clientCiphertext, byte @Nullable [] clientNonce, @Nullable String clientKeyVersion, boolean usable) {
+            byte @Nullable [] clientCiphertext, byte @Nullable [] clientNonce, @Nullable String clientKeyVersion,
+            @Nullable UUID ownerActorId, boolean usable) {
         public boolean oauthClientConfigured() { return clientCiphertext != null && clientNonce != null && clientKeyVersion != null; }
         @Override public boolean usable() { return usable && ciphertext != null && nonce != null && keyVersion != null && oauthClientConfigured(); }
         @Override public String toString() { return "StoredGoogleCredential[redacted]"; }

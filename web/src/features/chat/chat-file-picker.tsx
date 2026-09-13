@@ -1,10 +1,19 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Paperclip, Upload, FileText } from "lucide-react";
+import {
+  CircleAlert,
+  FileText,
+  LoaderCircle,
+  Paperclip,
+  SearchX,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ChatDialog } from "./chat-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import {
@@ -39,7 +48,7 @@ export function ChatFilePicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           {trigger ?? (
-            <Button
+            <IconButton
               type="button"
               size="sm"
               prominence="internal"
@@ -48,7 +57,7 @@ export function ChatFilePicker({
               title={ui("Đính kèm tệp")}
             >
               <Paperclip className="size-4" />
-            </Button>
+            </IconButton>
           )}
         </PopoverTrigger>
         <PopoverContent align="start" side="top" className="w-80 max-w-[calc(100vw-2rem)]">
@@ -69,19 +78,84 @@ export function ChatFilePicker({
           )}
         </PopoverContent>
       </Popover>
-      <ChatDialog
-        title={ui("Tệp gần đây")}
-        description={ui("Chọn lại tệp của bạn để sử dụng. Chỉ tệp đã xử lý xong mới được chọn.")}
+      <ChatRecentFilesDialog
+        {...props}
+        uploadAction={uploadAction}
         open={all}
         onOpenChange={setAll}
-      >
-        {all && <ChatFilePickerContent {...props} uploadAction={uploadAction} />}
-      </ChatDialog>
+      />
     </>
   );
 }
 
-function ChatFilePickerContent({
+/** All recent files in a dialog; mounted only while open. */
+export function ChatRecentFilesDialog({
+  open,
+  onOpenChange,
+  ...props
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selected: string[];
+  onSelect: (ids: string[], files: ChatFile[]) => void;
+  disabled?: boolean;
+  uploadAction?: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <ChatDialog
+      title={ui("Tệp gần đây")}
+      description={ui("Chọn lại tệp của bạn để sử dụng. Chỉ tệp đã xử lý xong mới được chọn.")}
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      {open && <ChatFilePickerContent {...props} />}
+    </ChatDialog>
+  );
+}
+
+function fileStatusLabel(file: ChatFile, ui: ReturnType<typeof useAppTranslation>) {
+  switch (file.status) {
+    case "READY":
+      return file.searchReady === false ? ui("Đọc được · Chưa sẵn sàng tìm kiếm") : undefined;
+    case "PROCESSING":
+      return ui("Đang xử lý…");
+    case "UPLOADING":
+      return ui("Chưa xác nhận upload");
+    case "FAILED":
+      return file.errorCode === "UPLOAD_EXPIRED"
+        ? ui("Upload hết hạn · Chọn file để tải lại")
+        : ui("Xử lý lỗi");
+    default:
+      return ui("Đã xóa");
+  }
+}
+
+/** The file's leading icon carries its status: a spinner while pending, a warning on failure. */
+function FileStatusIcon({ file }: { file: ChatFile }) {
+  const ui = useAppTranslation();
+  const label = fileStatusLabel(file, ui);
+  const common = "size-4 shrink-0";
+  if (!label) return <FileText aria-hidden="true" className={`${common} text-content-muted`} />;
+  const icon =
+    file.status === "PROCESSING" || file.status === "UPLOADING" ? (
+      <LoaderCircle aria-hidden="true" className={`${common} animate-spin text-content-muted`} />
+    ) : file.status === "FAILED" ? (
+      <CircleAlert aria-hidden="true" className={`${common} text-status-danger-content`} />
+    ) : file.status === "READY" ? (
+      <SearchX aria-hidden="true" className={`${common} text-content-muted`} />
+    ) : (
+      <Trash2 aria-hidden="true" className={`${common} text-content-muted`} />
+    );
+  return (
+    <span role="img" aria-label={label} title={label} className="inline-flex">
+      {icon}
+    </span>
+  );
+}
+
+/** `uploadAction` replaces the built-in server upload row; `null` hides it. */
+export function ChatFilePickerContent({
   selected,
   onSelect,
   disabled = false,
@@ -152,7 +226,9 @@ function ChatFilePickerContent({
   }
   return (
     <fieldset disabled={disabled || uploading || acting} className="min-w-0 space-y-3">
-      {uploadAction ?? (
+      {uploadAction !== undefined ? (
+        uploadAction
+      ) : (
         <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-sunken focus-within:ring-2">
           <Upload className="size-4" /> {ui("Tải tệp lên")}
           <input
@@ -246,26 +322,17 @@ function ChatFilePickerContent({
                   select(ids);
                 }}
               />
-              <FileText className="size-4 shrink-0 text-content-muted" />
+              <FileStatusIcon file={file} />
               <span className="truncate" title={file.filename}>
                 {file.filename}
               </span>
             </label>
-            <span>
-              {file.status === "READY"
-                ? file.searchReady === false
-                  ? ui("Đọc được · Chưa sẵn sàng tìm kiếm")
-                  : ui("Sẵn sàng")
-                : file.status === "PROCESSING"
-                  ? ui("Đang xử lý…")
-                  : file.status === "FAILED"
-                    ? file.errorCode === "UPLOAD_EXPIRED"
-                      ? ui("Upload hết hạn · Chọn file để tải lại")
-                      : ui("Xử lý lỗi")
-                    : file.status === "UPLOADING"
-                      ? ui("Chưa xác nhận upload")
-                      : ui("Đã xóa")}
-            </span>
+            {/* Failures stay readable where they can be acted on; touch screens have no tooltip. */}
+            {!compact && file.status === "FAILED" && (
+              <span className="text-xs text-status-danger-content">
+                {fileStatusLabel(file, ui)}
+              </span>
+            )}
             {!compact && file.status === "FAILED" && file.errorCode !== "UPLOAD_EXPIRED" && (
               <Button
                 type="button"

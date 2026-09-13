@@ -12,7 +12,7 @@ import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

@@ -33,6 +33,13 @@ export function SourceSummaryCard({
         <dd className="mt-2">
           <SourceAccessBadge access={source.access} />
         </dd>
+        {source.type === "GOOGLE_DRIVE" ? (
+          <dd className="mt-2 text-xs text-content-muted">
+            {ui(
+              "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
+            )}
+          </dd>
+        ) : null}
       </div>
       <div>
         <dt className="text-content-muted">{ui("Documents indexed")}</dt>

@@ -18,6 +18,7 @@ export type GoogleDriveConfigurationResponse = {
     revision: number;
     syncIntervalMinutes: number;
     scheduleRevision: number;
+    syncPaused: boolean;
     scopeMode: 'GENERAL' | 'SPECIFIC';
     counts: GoogleDriveSelectionCountsResponse;
     discoveryRevision: number;
@@ -76,6 +77,29 @@ export type GoogleDriveSelectionReceiptResponse = {
 
 export type LanguagePreference = {
     uiLanguage: 'vi' | 'en';
+};
+
+export type WebSelectionRequest = {
+    search?: boolean;
+    provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+};
+
+export type WebConnectionRequest = {
+    endpoint: string;
+    engineId: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    revision?: number;
+};
+
+export type WebConnectionResponse = {
+    provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    endpoint: string;
+    engineId: string;
+    credentialConfigured?: boolean;
+    searchActive?: boolean;
+    contentActive?: boolean;
+    revision?: number;
 };
 
 export type Title = {
@@ -310,8 +334,37 @@ export type SourceUploadReceipt = {
     operation: SourceOperation;
 };
 
+export type RenameSourceRequest = {
+    name: string;
+};
+
+export type SourceSummary = {
+    id: string;
+    name: string;
+    type: string;
+    access: string;
+    status: string;
+    pendingWork: boolean;
+    documentCount: number;
+    lastSucceededAt: string | null;
+    errorCode: string | null;
+    actions: Array<'upload' | 'reindex' | 'remove_items' | 'delete' | 'manage_groups' | 'rename' | 'manage_access' | 'manage_configuration' | 'synchronize' | 'manage_schedule' | 'pause_sync' | 'resume_sync'>;
+};
+
 export type UpdateSourceGroupsRequest = {
+    /**
+     * Ordinary groups. Global managers may clear all groups; scoped managers must retain at least one managed group.
+     */
     groupIds: Array<string>;
+};
+
+export type UpdateGoogleDrivePauseRequest = {
+    expectedRevision: number;
+    paused: boolean;
+};
+
+export type UpdateSourceAccessRequest = {
+    access: 'PUBLIC' | 'RESTRICTED';
 };
 
 export type CreateGoogleDriveSourceRequest = {
@@ -326,24 +379,19 @@ export type CreateGoogleDriveSourceRequest = {
      * Empty for GENERAL; distinct non-overlapping links bounded by the selection policy for SPECIFIC.
      */
     links: Array<string>;
+    /**
+     * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
+     */
+    groupIds?: Array<string> | null;
 };
 
 export type CreateFileSourceRequest = {
     name: string;
+    /**
+     * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
+     */
     groupIds?: Array<string> | null;
-};
-
-export type SourceSummary = {
-    id: string;
-    name: string;
-    type: string;
-    access: string;
-    status: string;
-    pendingWork: boolean;
-    documentCount: number;
-    lastSucceededAt: string | null;
-    errorCode: string | null;
-    actions: Array<string>;
+    access?: 'PUBLIC' | 'RESTRICTED';
 };
 
 export type SearchRequest = {
@@ -422,7 +470,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     actions: Array<string>;
 };
 
@@ -437,7 +485,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
 };
 
 export type RevokeGoogleDriveCredentialRequest = {
@@ -455,6 +503,10 @@ export type GoogleDriveAuthorizationResponse = {
     authorizationUrl: string;
 };
 
+export type WebTestRequest = {
+    search?: boolean;
+};
+
 export type CreateChatSession = {
     title: string;
     personaId?: string | null;
@@ -467,6 +519,7 @@ export type Send = {
     text: string;
     modelConfigurationId?: string;
     fileIds?: Array<string>;
+    webSearch?: 'off' | 'auto' | 'required';
 };
 
 export type Accepted = {
@@ -479,6 +532,7 @@ export type Accepted = {
 export type Regenerate = {
     clientRequestId: string;
     modelConfigurationId?: string;
+    webSearch?: 'off' | 'auto' | 'required';
 };
 
 export type Edit = {
@@ -486,6 +540,7 @@ export type Edit = {
     text: string;
     modelConfigurationId?: string;
     fileIds?: Array<string>;
+    webSearch?: 'off' | 'auto' | 'required';
 };
 
 export type Cancellation = {
@@ -869,11 +924,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -930,11 +985,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
 };
 
 export type GoogleDriveCredentialResponse = {
@@ -947,6 +1002,18 @@ export type GoogleDriveCredentialResponse = {
     createdAt: string;
     updatedAt: string;
     sourceCount: number;
+    actions: Array<string>;
+};
+
+export type WebAvailabilityResponse = {
+    searchAvailable?: boolean;
+    contentAvailable?: boolean;
+    searchProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    contentProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    automaticModelIds?: Array<string>;
+    requiredModelIds?: Array<string>;
+    inheritedModelId?: string;
+    nativeModelIds?: Array<string>;
 };
 
 export type SharedSession = {
@@ -992,11 +1059,26 @@ export type ChatSource = {
     endOrdinal: number;
     provenance: Array<Provenance>;
     fileId?: string;
+    fileLocation?: FileLocation;
+    web?: WebLocation;
+};
+
+export type FileLocation = {
+    offset?: number;
+    count?: number;
+    generation?: string;
+    ordinal?: number;
 };
 
 export type Provenance = {
     ordinal: number;
     provenanceJson: string;
+};
+
+export type WebLocation = {
+    url?: string;
+    excerpt?: string;
+    retrievedAt?: string;
 };
 
 export type TextDeltaEvent = {
@@ -1056,6 +1138,11 @@ export type ChatBranch = {
     id?: string;
     parentMessageId?: string | null;
     latestChildMessageId?: string | null;
+};
+
+export type ChatSessionSearchPage = {
+    items: Array<ChatSession>;
+    hasMore: boolean;
 };
 
 export type Descriptor = {
@@ -1207,6 +1294,110 @@ export type SetCurrentIdentityLanguageResponses = {
 };
 
 export type SetCurrentIdentityLanguageResponse = SetCurrentIdentityLanguageResponses[keyof SetCurrentIdentityLanguageResponses];
+
+export type SelectChatWebProviderData = {
+    body: WebSelectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/web/selection';
+};
+
+export type SelectChatWebProviderErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SelectChatWebProviderError = SelectChatWebProviderErrors[keyof SelectChatWebProviderErrors];
+
+export type SelectChatWebProviderResponses = {
+    /**
+     * Web selection saved
+     */
+    204: void;
+};
+
+export type SelectChatWebProviderResponse = SelectChatWebProviderResponses[keyof SelectChatWebProviderResponses];
+
+export type SaveChatWebConnectionData = {
+    body: WebConnectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    };
+    query?: never;
+    url: '/api/chat/web/connections/{provider}';
+};
+
+export type SaveChatWebConnectionErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveChatWebConnectionError = SaveChatWebConnectionErrors[keyof SaveChatWebConnectionErrors];
+
+export type SaveChatWebConnectionResponses = {
+    /**
+     * Saved Web connection
+     */
+    200: WebConnectionResponse;
+};
+
+export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof SaveChatWebConnectionResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -2427,7 +2618,7 @@ export type ReplaceUserGroupsErrors = {
      */
     401: unknown;
     /**
-     * The actor lacks IAM_ADMIN authority or the same-origin header is missing
+     * The actor lacks SYSTEM_ADMIN authority or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -2578,6 +2769,30 @@ export type FinalizeSourceUploadResponses = {
 
 export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof FinalizeSourceUploadResponses];
 
+export type RenameSourceData = {
+    body: RenameSourceRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/rename';
+};
+
+export type RenameSourceResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type RenameSourceResponse = RenameSourceResponses[keyof RenameSourceResponses];
+
 export type RemoveSourceItemData = {
     body?: never;
     headers: {
@@ -2694,6 +2909,30 @@ export type SynchronizeGoogleDriveSourceResponses = {
 
 export type SynchronizeGoogleDriveSourceResponse = SynchronizeGoogleDriveSourceResponses[keyof SynchronizeGoogleDriveSourceResponses];
 
+export type UpdateGoogleDrivePauseData = {
+    body: UpdateGoogleDrivePauseRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/pause';
+};
+
+export type UpdateGoogleDrivePauseResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveConfigurationResponse;
+};
+
+export type UpdateGoogleDrivePauseResponse = UpdateGoogleDrivePauseResponses[keyof UpdateGoogleDrivePauseResponses];
+
 export type DiscoverGoogleDriveLinkedDocumentsData = {
     body?: never;
     headers: {
@@ -2742,6 +2981,30 @@ export type DeleteSourceResponses = {
 };
 
 export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceResponses];
+
+export type UpdateSourceAccessData = {
+    body: UpdateSourceAccessRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/access';
+};
+
+export type UpdateSourceAccessResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type UpdateSourceAccessResponse = UpdateSourceAccessResponses[keyof UpdateSourceAccessResponses];
 
 export type CreateGoogleDriveSourceData = {
     body: CreateGoogleDriveSourceRequest;
@@ -3124,6 +3387,15 @@ export type RemoveGroupMemberData = {
     url: '/api/groups/{groupId}/members/{actorId}/remove';
 };
 
+export type RemoveGroupMemberErrors = {
+    /**
+     * The final active administrator or a standard member's last Group is protected
+     */
+    409: ApiProblem;
+};
+
+export type RemoveGroupMemberError = RemoveGroupMemberErrors[keyof RemoveGroupMemberErrors];
+
 export type RemoveGroupMemberResponses = {
     /**
      * Member removed
@@ -3197,6 +3469,15 @@ export type DeleteGroupData = {
     query?: never;
     url: '/api/groups/{groupId}/delete';
 };
+
+export type DeleteGroupErrors = {
+    /**
+     * IAM_LAST_GROUP_PROTECTED: a standard member would lose their last Group
+     */
+    409: ApiProblem;
+};
+
+export type DeleteGroupError = DeleteGroupErrors[keyof DeleteGroupErrors];
 
 export type DeleteGroupResponses = {
     /**
@@ -3276,6 +3557,59 @@ export type StartGoogleDriveAuthorizationResponses = {
 };
 
 export type StartGoogleDriveAuthorizationResponse = StartGoogleDriveAuthorizationResponses[keyof StartGoogleDriveAuthorizationResponses];
+
+export type TestChatWebConnectionData = {
+    body: WebTestRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    };
+    query?: never;
+    url: '/api/chat/web/connections/{provider}/test';
+};
+
+export type TestChatWebConnectionErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestChatWebConnectionError = TestChatWebConnectionErrors[keyof TestChatWebConnectionErrors];
+
+export type TestChatWebConnectionResponses = {
+    /**
+     * Provider request succeeded
+     */
+    204: void;
+};
+
+export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof TestChatWebConnectionResponses];
 
 export type ListChatSessionsData = {
     body?: never;
@@ -4836,6 +5170,98 @@ export type ListGoogleDriveCredentialsResponses = {
 
 export type ListGoogleDriveCredentialsResponse = ListGoogleDriveCredentialsResponses[keyof ListGoogleDriveCredentialsResponses];
 
+export type GetChatWebAvailabilityData = {
+    body?: never;
+    path?: never;
+    query?: {
+        sessionId?: string;
+    };
+    url: '/api/chat/web';
+};
+
+export type GetChatWebAvailabilityErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatWebAvailabilityError = GetChatWebAvailabilityErrors[keyof GetChatWebAvailabilityErrors];
+
+export type GetChatWebAvailabilityResponses = {
+    /**
+     * Available Web capabilities
+     */
+    200: WebAvailabilityResponse;
+};
+
+export type GetChatWebAvailabilityResponse = GetChatWebAvailabilityResponses[keyof GetChatWebAvailabilityResponses];
+
+export type ListChatWebConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/web/connections';
+};
+
+export type ListChatWebConnectionsErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatWebConnectionsError = ListChatWebConnectionsErrors[keyof ListChatWebConnectionsErrors];
+
+export type ListChatWebConnectionsResponses = {
+    /**
+     * Web connections
+     */
+    200: Array<WebConnectionResponse>;
+};
+
+export type ListChatWebConnectionsResponse = ListChatWebConnectionsResponses[keyof ListChatWebConnectionsResponses];
+
 export type GetSharedChatSessionData = {
     body?: never;
     path: {
@@ -5149,6 +5575,47 @@ export type GetChatBranchesResponses = {
 };
 
 export type GetChatBranchesResponse = GetChatBranchesResponses[keyof GetChatBranchesResponses];
+
+export type SearchChatSessionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/sessions/search';
+};
+
+export type SearchChatSessionsErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type SearchChatSessionsError = SearchChatSessionsErrors[keyof SearchChatSessionsErrors];
+
+export type SearchChatSessionsResponses = {
+    /**
+     * Owned matching sessions; opening preserves the selected branch
+     */
+    200: ChatSessionSearchPage;
+};
+
+export type SearchChatSessionsResponse = SearchChatSessionsResponses[keyof SearchChatSessionsResponses];
 
 export type ListChatProviderAdaptersData = {
     body?: never;

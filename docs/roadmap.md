@@ -51,6 +51,8 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 ## Active
 
+Chat Web search is implemented locally for the external-provider vertical slice, with assistant-ui controls/progress/citations, bounded PDF text reading, provider-aware tool guidance, browser-local Web preferences and the existing Chat tool loop. Native provider-hosted search and live-provider acceptance remain open. [Design](increments/active/chat-web-search/design.md) · [Plan](increments/active/chat-web-search/plan.md) · [Verification](increments/active/chat-web-search/verification.md).
+
 MEM-74/MEM-22 localization and problem presentation is implemented locally across the scoped application, including account language, safe errors/notifications, Chat language hints and the approved read-only renderer follow-up. Repository, frontend and browser gates passed; PR review and release acceptance remain separate. [Design](increments/active/mem-74-22-i18n-errors/design.md) · [Verification](increments/active/mem-74-22-i18n-errors/verification.md).
 
 | Increment | Outcome | Evidence |
@@ -66,6 +68,7 @@ MEM-74/MEM-22 localization and problem presentation is implemented locally acros
 | [MEM-84 architecture documentation sync](https://linear.app/memory-os/issue/MEM-84) | Consolidate the Linear reading set, remove obsolete external-reference material, repair repository documentation lifecycle and add architecture diagrams | [Design](increments/active/architecture-documentation-sync/design.md) · [Plan](increments/active/architecture-documentation-sync/plan.md) |
 | Source Pause/Resume planning | User-approved plan to pause one Source so new SOURCE_SYNC/INGESTION work is blocked, active work drains or cancels safely, and Resume continues from retained state. Implementation has not started; immediate external Docling task cancellation remains a non-goal until parser-side cancellation is proven | [Design](increments/active/source-pause-resume/design.md) · [Plan](increments/active/source-pause-resume/plan.md) |
 | [MEM-90 Google Drive service-account credentials](https://linear.app/memory-os/issue/MEM-90) | Additive service-account credential type with domain-wide delegation for whole-domain enterprise indexing; per-user impersonation, Admin SDK enumeration and per-user resumable traversal. Editable scope retained; immutable-connector and plain-SA models rejected | [Design](increments/active/google-drive-service-account/design.md) · [Plan](increments/active/google-drive-service-account/plan.md) |
+| Basic Access capability bundle | Persisted SYSTEM_BASIC, enforced direct Search permission, full-enum Admin, protected Onyx-style Groups, scoped manager operations and ordinary-only Source associations; unified Source management preserves independent model management | [Design](increments/active/basic-access-capabilities/design.md) · [Plan](increments/active/basic-access-capabilities/plan.md) · [PR verification](increments/active/basic-access-capabilities/verification.md#pr-106-ci-repair); [PR #106](https://github.com/kl3inIT/MemoryOS/pull/106) remains active, not merged or deployed |
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 

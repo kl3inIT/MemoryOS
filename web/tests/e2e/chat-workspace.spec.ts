@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { fixtureModels } from "../fixtures/chat-data.ts";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) =>
@@ -8,7 +9,14 @@ test.beforeEach(async ({ page }) => {
         authorizationVersion: 1,
         uiLanguage: "vi",
         tenant: { displayName: "Test tenant", role: "MEMBER" },
-        capabilities: [],
+        capabilities: [
+          "SYSTEM_BASIC",
+          "SEARCH_READ",
+          "CHAT_READ",
+          "CHAT_WRITE",
+          "IMAGE_GENERATE",
+          "LLM_GATEWAY_USE",
+        ],
         scopedCapabilities: [],
       },
     }),
@@ -723,4 +731,85 @@ test("keeps feedback drafts on failure, reloads the saved reaction and removes i
   expect(
     await (await page.request.get(`/api/chat/sessions/${session.id}/feedback`)).json(),
   ).toEqual([]);
+});
+
+test("regenerates with another catalog model and reveals answer timing on hover", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Regenerate models" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Compare models");
+  await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  const menu = page.getByRole("button", { name: "Tạo lại bằng mô hình khác" });
+  await expect(menu).toBeEnabled();
+  const timing = page.locator('[data-slot="message-timing"]');
+  await expect(timing).toHaveCSS("opacity", "0");
+  await page.getByText("Hello 👋", { exact: true }).hover();
+  await expect(timing).toHaveCSS("opacity", "1");
+  await expect(timing).toHaveText(/^\d{1,2}:\d{2}$/);
+  // A Markdown link renders as a source chip; its host is not a Web source, so no favicon request.
+  const link = page.getByRole("link", { name: "Reference" });
+  await expect(link).toHaveAttribute("data-slot", "source");
+  await expect(link.locator('[data-slot="source-icon-fallback"]')).toHaveText("E");
+  await expect(link.locator("img")).toHaveCount(0);
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Qwen3.5 9B" }).click();
+  await expect(
+    page.getByRole("group", { name: "Phiên bản câu trả lời" }).getByText("2 / 2"),
+  ).toBeVisible();
+  const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
+  const qwen = fixtureModels.find((model) => model.displayName === "Qwen3.5 9B")!;
+  expect(stats.selectedModels.at(-1)).toBe(qwen.id);
+  await expect(page.getByRole("combobox", { name: "Chọn mô hình" })).toContainText("GPT-5 mini");
+});
+
+test("restores an unsent question after reload and forgets it once sent", async ({ page }) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Draft restore" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  const input = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await input.fill("Unsent draft");
+  await page.reload();
+  await expect(input).toHaveValue("Unsent draft");
+  await input.press("Enter");
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("main").getByText("Unsent draft", { exact: true })).toBeVisible();
+  await expect(input).toHaveValue("");
+});
+
+test("quotes a selected answer passage into the next question and keeps it after reload", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Quote passage" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  const input = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await input.fill("First question");
+  await input.press("Enter");
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  await page.getByText("Here is an example:", { exact: true }).click({ clickCount: 3 });
+  await page.getByRole("button", { name: "Trích dẫn", exact: true }).click();
+  await expect(page.getByLabel("Đoạn trích dẫn")).toContainText("Here is an example:");
+  await input.fill("Explain this");
+  await input.press("Enter");
+  await expect(page.getByLabel("Đoạn trích dẫn")).toHaveCount(0);
+  const quote = page.getByRole("main").locator('[data-slot="quote-block"]');
+  await expect(quote).toContainText("Here is an example:");
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  const history = await (
+    await page.request.get(`/api/chat/sessions/${session.id}/messages`)
+  ).json();
+  expect(
+    history.find((message: { content: string }) => message.content.endsWith("Explain this"))
+      .content,
+  ).toBe("> Here is an example:\n\nExplain this");
+  await page.reload();
+  await expect(quote).toContainText("Here is an example:");
+  await expect(page.getByRole("main").getByText("Explain this", { exact: true })).toBeVisible();
 });

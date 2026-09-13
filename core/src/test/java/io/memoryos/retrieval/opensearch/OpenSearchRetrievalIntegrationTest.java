@@ -17,7 +17,7 @@ import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.document.application.StructuredDocumentChunker;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.SearchFilters;
@@ -81,6 +81,7 @@ class OpenSearchRetrievalIntegrationTest {
             var index = new OpenSearchIndexService(gateway, new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2), properties, mapper, documents, sourceSearch,
                     new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
             var tenant = new TenantId(UUID.randomUUID());
+            var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
             var leave = document(tenant, "HR-2026 Nghỉ phép", "Annual vacation policy provides 12 leave days.");
             var unrelated = document(tenant, "IT-2026", "Hardware inventory and laptop replacement.");
             var privateText = document(tenant, "Private HR-2026", "Annual vacation policy provides private leave days.");
@@ -115,7 +116,7 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
-            var scope = new SourceSearchScope(tenant, Map.of(fileSource, SourceType.FILE, driveSource, SourceType.GOOGLE_DRIVE));
+            var scope = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE, driveSource, SourceType.GOOGLE_DRIVE));
             var september = new SearchFilters(java.util.Set.of(SourceType.FILE),
                     new SearchFilters.Interval(Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z")),
                     new SearchFilters.Interval(null, Instant.parse("2026-09-08T00:00:00Z")));
@@ -132,7 +133,7 @@ class OpenSearchRetrievalIntegrationTest {
                     new SearchFilters.Interval(Instant.parse("2026-09-09T00:00:00Z"), Instant.parse("2026-09-11T00:00:00Z")));
             assertTrue(index.batch(scope, queries, wrongSourceDate, () -> {}).stream().allMatch(List::isEmpty),
                     "A date on one mapping must not be combined with another mapping's source type; lexical and vector branches both filter");
-            var fileOnly = new SourceSearchScope(tenant, Map.of(fileSource, SourceType.FILE));
+            var fileOnly = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE));
             assertTrue(index.batch(fileOnly, queries, new SearchFilters(java.util.Set.of(), null, wrongSourceDate.updated()), () -> {})
                     .stream().allMatch(List::isEmpty), "Inaccessible origins cannot satisfy a time filter");
 
@@ -143,6 +144,19 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
+            origins.set(List.of());
+            index.index(leave);
+            var driveOnly = new SourceSearchScope(tenant, actor, Map.of(driveSource, SourceType.GOOGLE_DRIVE));
+            assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream().allMatch(List::isEmpty));
+            origins.set(List.of(remote));
+            assertFalse(index.contains(leaveState), "Previously indexed Drive chunks require their newly eligible Source metadata");
+            clearInvocations(model);
+            index.index(leave);
+            verifyNoInteractions(model);
+            assertTrue(index.contains(leaveState));
+            assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream()
+                    .allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
+            clearInvocations(model);
             origins.set(List.of(new DocumentSourceMetadata(uploaded.sourceId(), uploaded.itemId(), uploaded.type(),
                     uploaded.createdAt(), Instant.parse("2026-09-15T00:00:00Z"), uploaded.authors()), remote));
             assertFalse(index.contains(leaveState));

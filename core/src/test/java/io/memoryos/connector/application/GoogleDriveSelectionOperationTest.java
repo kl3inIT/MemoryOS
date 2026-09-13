@@ -7,11 +7,11 @@ import io.memoryos.TestDatabase;
 import io.memoryos.connector.*;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.persistence.*;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
-import io.memoryos.iam.application.DefaultIamAuthorization;
-import io.memoryos.iam.persistence.IamAuthorizationRepository;
-import io.memoryos.iam.persistence.IamLockRepository;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.DefaultIamAuthorization;
+import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.group.persistence.IamLockRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -284,7 +284,7 @@ public class GoogleDriveSelectionOperationTest {
                     .param("tenant",tenant.value()).param("actor",owner.value()).update();
             jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES (:tenant,:tenant,'Admin','ADMIN')")
                     .param("tenant", tenant.value()).update();
-            jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:tenant,'IAM_ADMIN')")
+            jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:tenant,'SYSTEM_ADMIN')")
                     .param("tenant", tenant.value()).update();
             jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
                     .param("tenant", tenant.value()).param("actor", owner.value()).update();
@@ -319,12 +319,11 @@ public class GoogleDriveSelectionOperationTest {
             connections=TestDatabase.transactionalProxy(new DefaultGoogleDriveConnectionService(credentials,provider,manager),GoogleDriveConnectionService.class,manager);
             selections=new JdbcGoogleDriveSelectionRepository(jdbc);
             var indexing=new JdbcIndexAttemptRepository(jdbc,sources,documents,connections);
-            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)),connections,roots,sources,sync,indexing,
-                    documents,content -> List.of(),manager,selections,credentials,new GoogleDriveSelectionPolicy(1000,3145728),new JdbcSourceGroupRepository(jdbc));
+            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, documents, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))));
             try (var grant=new GoogleDriveAuthorizationService.Grant("subject","fixture@example.com",GoogleDriveAuthorizationService.REQUIRED_SCOPES,
                     "refresh".getBytes(StandardCharsets.UTF_8));
                  var client=new GoogleDriveOAuthClient("fixture.apps.googleusercontent.com","secret".getBytes(StandardCharsets.UTF_8))) {
-                credential=java.util.Objects.requireNonNull(transactions.execute(_ -> credentials.create(tenant,"Fixture",grant,client)));
+                credential=java.util.Objects.requireNonNull(transactions.execute(_ -> credentials.create(tenant,owner,"Fixture",grant,client)));
             }
             restartProcessor();
         }
@@ -341,7 +340,7 @@ public class GoogleDriveSelectionOperationTest {
             return links;
         }
         public SelectionReceipt create(UUID request,List<String> links) {
-            return service.create(owner,request,"Fixture",credential,ScopeMode.SPECIFIC,links);
+            return service.create(owner,request,"Fixture",credential,ScopeMode.SPECIFIC,links,List.of());
         }
         public void discoverApproval(SourceId source,String id) {
             files.put(id,file(id,false,List.of("ancestor0")));
