@@ -116,7 +116,6 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 TimeUnit.SECONDS
         );
         LOGGER.atInfo().addKeyValue("event", "ingestion.started")
-                .addKeyValue("operation_id", work.operationId().value())
                 .addKeyValue("stage", "SOURCE_STORAGE_OPEN")
                 .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                 .log("Document processing started");
@@ -154,27 +153,23 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 }
             });
             LOGGER.atInfo().addKeyValue("event", "ingestion.completed")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Document extraction and publication completed");
             return Outcome.COMPLETED;
         } catch (StaleIndexClaimException exception) {
             indexingPort.supersede(work);
             LOGGER.atDebug().addKeyValue("event", "ingestion.publication.stale")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Rolled back stale index publication");
             return Outcome.SKIPPED;
         } catch (ExtractionException exception) {
             LOGGER.atWarn().addKeyValue("event", "ingestion.extraction.failed")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("error_code", "SOURCE_EXTRACTION_" + exception.failure().name())
                     .addKeyValue("stage", failureStage)
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Extraction failed");
             if (!indexingPort.fail(work, "SOURCE_EXTRACTION_" + exception.failure().name())) {
                 LOGGER.atDebug().addKeyValue("event", "ingestion.extraction.failure.stale")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale typed extraction failure");
             }
             return Outcome.FAILED;
@@ -182,7 +177,6 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             String errorCode = failureStage + "_" + (exception instanceof io.memoryos.objectstorage.ObjectStorageException storageFailure
                     ? io.memoryos.connector.SourceStorageFailure.code(storageFailure) : "INTERNAL");
             LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("error_type", exception.getClass().getName())
                     .addKeyValue("stage", failureStage).addKeyValue("error_code", errorCode)
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
@@ -194,7 +188,6 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     RETRY_BACKOFF
             )) {
                 LOGGER.atDebug().addKeyValue("event", "ingestion.retry.stale")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale indexing failure");
             }
             return Outcome.FAILED;
@@ -205,7 +198,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
 
     private static void logIndexStage(IndexWork work, String stage, long started) {
         LOGGER.atInfo().addKeyValue("event", "ingestion.stage.started")
-                .addKeyValue("operation_id", work.operationId().value()).addKeyValue("stage", stage)
+                .addKeyValue("stage", stage)
                 .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                 .log("Document processing stage started");
     }
@@ -235,14 +228,12 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             }
             if (!cleanupPort.execute(work)) {
                 LOGGER.atDebug().addKeyValue("event", "cleanup.completion.stale")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale cleanup completion");
                 return Outcome.SKIPPED;
             }
             return Outcome.COMPLETED;
         } catch (RuntimeException exception) {
             LOGGER.atWarn().addKeyValue("event", "cleanup.retry.requested")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .addKeyValue("error_type", exception.getClass().getName())
                     .log("Cleanup failed; applying retry policy");
             if (!cleanupPort.retry(
@@ -252,7 +243,6 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     RETRY_BACKOFF
             )) {
                 LOGGER.atDebug().addKeyValue("event", "cleanup.retry.stale")
-                    .addKeyValue("operation_id", work.operationId().value())
                     .log("Ignored stale cleanup failure");
             }
             return Outcome.FAILED;

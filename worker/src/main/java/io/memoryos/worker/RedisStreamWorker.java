@@ -281,8 +281,6 @@ final class RedisStreamWorker implements SmartLifecycle {
                 span.setAttribute("error.type", exception.getClass().getName());
                 metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.PENDING);
                 LOGGER.atError().addKeyValue("event", "redis.delivery.pending")
-                        .addKeyValue("operation_id", delivery.operationId().value())
-                        .addKeyValue("delivery_id", delivery.deliveryId())
                         .addKeyValue("error_type", exception.getClass().getName())
                         .log("Delivery remains pending after processing failure");
             }
