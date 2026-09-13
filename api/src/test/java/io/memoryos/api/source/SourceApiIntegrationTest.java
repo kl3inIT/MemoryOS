@@ -1091,7 +1091,7 @@ class SourceApiIntegrationTest {
                 .param("source", id.value()).query(UUID.class).single();
         UUID group = UUID.randomUUID();
         var manager = scopedManager(tenant, group);
-        sourceManagement.replaceSourceGroups(owner.getPrincipal().actorId(), id, List.of(new io.memoryos.iam.GroupId(group)));
+        sourceManagement.replaceSourceGroups(owner.getPrincipal().actorId(), id, List.of(new io.memoryos.iam.group.GroupId(group)));
         clearInvocations(googleProvider, googleSession);
         for (String suffix : List.of("/google-drive/acl", "/google-drive/acl/acl-root")) {
             mockMvc.perform(get("/api/sources/" + source + suffix)).andExpect(status().isUnauthorized());
@@ -1104,8 +1104,7 @@ class SourceApiIntegrationTest {
             mockMvc.perform(get("/api/sources/" + UUID.randomUUID() + suffix).with(authentication(owner)))
                     .andExpect(status().isNotFound());
         }
-        sourceManagement.replaceSourceGroups(owner.getPrincipal().actorId(), id,
-                List.of(new io.memoryos.iam.GroupId(adminGroupId())));
+        sourceManagement.replaceSourceGroups(owner.getPrincipal().actorId(), id, List.of());
         for (String suffix : List.of("/google-drive/acl", "/google-drive/acl/acl-root")) {
             mockMvc.perform(get("/api/sources/" + source + suffix).with(authentication(manager)))
                     .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));

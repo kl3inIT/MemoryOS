@@ -184,13 +184,13 @@ class DoclingSourceContentExtractorTest {
     @MethodSource("transportFailures")
     void distinguishesConnectionFailuresFromProcessingTimeoutsWithoutResubmitting(
             Exception cause, ExtractionFailure expected) {
-        when(client.convertSource(any())).thenThrow(new DoclingServeClientException(cause));
+        when(client.convertDocument(any())).thenThrow(new DoclingServeClientException(cause));
         try (var extractor = extractor()) {
             var error = assertThrows(ExtractionException.class, () -> pdf(extractor));
             assertEquals(expected, error.failure());
             assertNull(error.getCause());
             assertFalse(error.toString().contains("private-endpoint"));
-            verify(client, times(1)).convertSource(any());
+            verify(client, times(1)).convertDocument(any());
         }
     }
 
