@@ -116,6 +116,7 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 | Separate reactions retain drafts on error, survive reload and can be removed; feedback remains answer-version-specific | Feedback recovery and saved-branch scenarios in `chat-workspace.spec.ts` |
 | Regenerate with another catalog model records that model and keeps the composer choice; answer time appears only on hover | Model regeneration scenario in `chat-workspace.spec.ts`; `chat-transport.test.ts` checks live `createdAt` metadata and history mapping |
 | External Markdown links render as source chips; a host that is not a Web source gets the letter fallback and no favicon request | Model regeneration scenario in `chat-workspace.spec.ts`; `sources.test.tsx` checks `SourceIcon` without favicon |
+| Recent-file status is a labelled icon (spinner, warning, not searchable); the compact list has no status text and the full dialog keeps failure text | `chat-file-reader.test.tsx` file selection scenarios |
 | An unsent question survives a reload of the same tab and is forgotten once sent | Draft restore scenario in `chat-workspace.spec.ts` |
 | A quoted answer passage is sent as a leading blockquote, saved in the question text and rendered as a quote block before and after reload | Quote scenario in `chat-workspace.spec.ts`; `chat-transport.test.ts` checks the blockquote merge |
 | Share/copy in one dialog, clipboard-denied manual fallback, native radio keyboard selection, focus restore and stale revision gating | Sharing scenarios in `chat-workspace.spec.ts` |

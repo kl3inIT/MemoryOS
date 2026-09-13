@@ -284,6 +284,28 @@ describe("File selection", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Không xóa được");
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
+  it("shows file status as labelled icons and keeps actionable failures readable", async () => {
+    backend.list.mockResolvedValue({
+      data: [
+        { ...file, status: "PROCESSING" },
+        { ...file, id: missing, filename: "Lỗi.txt", status: "FAILED", errorCode: "PARSE" },
+        { ...file, id: missing2, filename: "Chưa tìm được.txt", searchReady: false },
+      ],
+    });
+    mount(<ChatFilePicker selected={[]} onSelect={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Đính kèm tệp" }));
+    expect(await screen.findByRole("img", { name: "Đang xử lý…" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Xử lý lỗi" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Đọc được · Chưa sẵn sàng tìm kiếm" }),
+    ).toBeInTheDocument();
+    // The compact list relies on icons; only the full dialog repeats the failure as text.
+    expect(screen.queryByText("Xử lý lỗi")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Tất cả tệp gần đây" }));
+    expect(await screen.findByText("Xử lý lỗi")).toBeInTheDocument();
+    expect(screen.queryByText("Đang xử lý…")).not.toBeInTheDocument();
+  });
+
   it("keeps the composer compact and exposes three recent files through a popover", async () => {
     backend.list.mockResolvedValue({
       data: [

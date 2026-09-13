@@ -58,4 +58,4 @@ The composer toolbar had a paperclip file picker, the model picker and a sliders
 - While Web is on, a "Web" chip with a dismiss button ("Web off") sits beside `+`.
 - The model picker moves to the right beside Send and opens aligned to the end.
 - The menu advertises nothing unimplemented; the backend contract is unchanged. cmdk search is dropped because three rows need no filtering.
-- Ready files in the recent list carry no "Ready" label; only states that block or limit selection are shown.
+- Recent-file status moves into the leading icon after owner review (spinner for processing/unconfirmed, warning for failure, search-off mark for not searchable, plain file icon when ready), each with an accessible label and tooltip. Touch screens have no tooltip, so the full dialog keeps failures as short text next to Retry.

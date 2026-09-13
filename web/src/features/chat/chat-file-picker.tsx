@@ -1,6 +1,14 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Paperclip, Upload, FileText } from "lucide-react";
+import {
+  CircleAlert,
+  FileText,
+  LoaderCircle,
+  Paperclip,
+  SearchX,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ChatDialog } from "./chat-dialog";
 import { useQuery } from "@tanstack/react-query";
@@ -103,6 +111,46 @@ export function ChatRecentFilesDialog({
     >
       {open && <ChatFilePickerContent {...props} />}
     </ChatDialog>
+  );
+}
+
+function fileStatusLabel(file: ChatFile, ui: ReturnType<typeof useAppTranslation>) {
+  switch (file.status) {
+    case "READY":
+      return file.searchReady === false ? ui("Đọc được · Chưa sẵn sàng tìm kiếm") : undefined;
+    case "PROCESSING":
+      return ui("Đang xử lý…");
+    case "UPLOADING":
+      return ui("Chưa xác nhận upload");
+    case "FAILED":
+      return file.errorCode === "UPLOAD_EXPIRED"
+        ? ui("Upload hết hạn · Chọn file để tải lại")
+        : ui("Xử lý lỗi");
+    default:
+      return ui("Đã xóa");
+  }
+}
+
+/** The file's leading icon carries its status: a spinner while pending, a warning on failure. */
+function FileStatusIcon({ file }: { file: ChatFile }) {
+  const ui = useAppTranslation();
+  const label = fileStatusLabel(file, ui);
+  const common = "size-4 shrink-0";
+  if (!label) return <FileText aria-hidden="true" className={`${common} text-content-muted`} />;
+  const icon =
+    file.status === "PROCESSING" || file.status === "UPLOADING" ? (
+      <LoaderCircle aria-hidden="true" className={`${common} animate-spin text-content-muted`} />
+    ) : file.status === "FAILED" ? (
+      <CircleAlert aria-hidden="true" className={`${common} text-status-danger-content`} />
+    ) : file.status === "READY" ? (
+      <SearchX aria-hidden="true" className={`${common} text-content-muted`} />
+    ) : (
+      <Trash2 aria-hidden="true" className={`${common} text-content-muted`} />
+    );
+  return (
+    <span role="img" aria-label={label} title={label} className="inline-flex">
+      {icon}
+    </span>
   );
 }
 
@@ -274,27 +322,17 @@ export function ChatFilePickerContent({
                   select(ids);
                 }}
               />
-              <FileText className="size-4 shrink-0 text-content-muted" />
+              <FileStatusIcon file={file} />
               <span className="truncate" title={file.filename}>
                 {file.filename}
               </span>
             </label>
-            {/* A ready file needs no label; only states that block or limit its use are shown. */}
-            <span className="text-xs text-content-muted empty:hidden">
-              {file.status === "READY"
-                ? file.searchReady === false
-                  ? ui("Đọc được · Chưa sẵn sàng tìm kiếm")
-                  : null
-                : file.status === "PROCESSING"
-                  ? ui("Đang xử lý…")
-                  : file.status === "FAILED"
-                    ? file.errorCode === "UPLOAD_EXPIRED"
-                      ? ui("Upload hết hạn · Chọn file để tải lại")
-                      : ui("Xử lý lỗi")
-                    : file.status === "UPLOADING"
-                      ? ui("Chưa xác nhận upload")
-                      : ui("Đã xóa")}
-            </span>
+            {/* Failures stay readable where they can be acted on; touch screens have no tooltip. */}
+            {!compact && file.status === "FAILED" && (
+              <span className="text-xs text-status-danger-content">
+                {fileStatusLabel(file, ui)}
+              </span>
+            )}
             {!compact && file.status === "FAILED" && file.errorCode !== "UPLOAD_EXPIRED" && (
               <Button
                 type="button"

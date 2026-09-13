@@ -62,3 +62,8 @@ Browser checks use the real local frontend with fixture backend/model responses,
 - `+` menu: typecheck, lint, format and i18n audit pass; chat and assistant-ui element unit tests 86/86. `chat-web.test.tsx` now drives `ChatWebToggle` (toggle and options entry) and `ChatWebModes` (disabled unsupported modes, native search without a connection, adapter-declared required mode).
 - `chat-ui-polish.spec.ts` checks the toolbar order `+` → model picker → Send, the three root rows, choosing automatic Web from the options view and the resulting "Tắt Web" chip at 1440/390px.
 - Playwright, one worker: `chat-ui-polish`, `chat-workspace` and `chat` passed 50/50, including the unchanged mobile model picker and compact question editor (which keeps its paperclip file picker).
+
+## Recent-file status icons — 2026-09-13
+
+- Owner asked for icons instead of status text. `chat-file-reader.test.tsx` checks labelled status images for processing, failed and not-searchable files, no failure text in the compact list, and failure text in the full dialog. The change applies everywhere `ChatFilePicker` is used (composer `+` menu, question editor, assistants, projects).
+- Typecheck, lint, format, i18n audit and chat unit tests 73/73 pass; Playwright `chat-ui-polish` and `chat-workspace` passed 24/24 with one worker.
