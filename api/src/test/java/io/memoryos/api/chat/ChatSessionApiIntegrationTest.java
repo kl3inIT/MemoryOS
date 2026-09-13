@@ -233,6 +233,37 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership() throws Exception {
+        var session = create();
+        String id = session.path("id").asText();
+        mockMvc.perform(put("/api/chat/sessions/" + id + "/sharing").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true,\"revision\":0}")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isOk());
+        jdbc.sql("DELETE FROM iam_group_memberships m USING iam_groups g WHERE g.tenant_id=m.tenant_id AND g.id=m.group_id AND g.system_key='BASIC' AND m.actor_id IN (:actors)")
+                .param("actors", List.of(actor.getPrincipal().actorId().value(), other.getPrincipal().actorId().value())).update();
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Question");
+        // Reads and writes of transcripts follow CHAT_READ/CHAT_WRITE, like Search follows SEARCH_READ.
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor))).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/sessions/" + id + "/branches").with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/chat/sessions/" + id + "/messages").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Denied\"}")).andExpect(status().isForbidden());
+        // Owner settings of an existing conversation need only active membership and ownership.
+        mockMvc.perform(put("/api/chat/sessions/" + id + "/title").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Renamed\"}")).andExpect(status().isOk());
+        mockMvc.perform(put("/api/chat/sessions/" + id + "/sharing").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false,\"revision\":1}")).andExpect(status().isOk());
+        mockMvc.perform(delete("/api/chat/sessions/" + id).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM chat_session WHERE id=:id AND deleted_at IS NULL").param("id", UUID.fromString(id)).query(Long.class).single());
+    }
+
+    @Test
     void searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination() throws Exception {
         var ownedIds = new ArrayList<String>();
         for (String title : List.of("Doanh thu HUT 2026", "Older conversation", "Deleted conversation")) {
@@ -1819,6 +1850,9 @@ class ChatSessionApiIntegrationTest {
         UUID id = UUID.randomUUID();
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", id).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id, actor_id, role, status) VALUES (:tenant, :actor, 'MEMBER', 'ACTIVE')")
+                .param("tenant", TENANT).param("actor", id).update();
+        // Invitation and JIT admission add the Basic edge; Chat capabilities derive from it.
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) SELECT tenant_id,id,:actor FROM iam_groups WHERE tenant_id=:tenant AND system_key='BASIC'")
                 .param("tenant", TENANT).param("actor", id).update();
         return new ActorAuthenticationToken(new IdentityContext(new ActorId(id)));
     }

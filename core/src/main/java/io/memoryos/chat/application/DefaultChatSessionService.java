@@ -8,6 +8,8 @@ import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcChatSearchRepository;
 import io.memoryos.iam.ActorId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.TenantId;
 import java.util.List;
@@ -19,12 +21,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DefaultChatSessionService implements ChatSessionService {
     private final TenantAccessResolver tenants;
+    private final IamAuthorization authorization;
     private final JdbcChatRepository chats;
     private final PersonaProperties persona;
     private final JdbcChatSearchRepository search;
 
-    public DefaultChatSessionService(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona, JdbcChatSearchRepository search) {
+    public DefaultChatSessionService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
+                                     PersonaProperties persona, JdbcChatSearchRepository search) {
         this.tenants = tenants;
+        this.authorization = authorization;
         this.chats = chats;
         this.persona = persona;
         this.search = search;
@@ -36,6 +41,7 @@ public class DefaultChatSessionService implements ChatSessionService {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
+        authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         var personaId = chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
         return chats.create(tenant, actor, personaId, title.strip());
@@ -74,7 +80,9 @@ public class DefaultChatSessionService implements ChatSessionService {
         return chats.history(session, after, limit);
     }
 
+    /** Every read of the actor's own conversations requires CHAT_READ; rename, branch selection and deletion need ownership only. */
     private TenantId tenant(ActorId actor) {
+        authorization.require(actor, IamCapability.CHAT_READ, false);
         return tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
     }
 
