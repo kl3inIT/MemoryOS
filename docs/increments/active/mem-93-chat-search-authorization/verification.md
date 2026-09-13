@@ -60,4 +60,15 @@ No staging login accounts were available, so the grant was applied with the same
 | Index filter count with reader tokens: the Group / another Group / none | 7,327 / 0 / 0 |
 | `ACCESS` operations for the grant | FAILED (scroll permission), repaired through full re-index |
 
+### After the fix (#112, `5a5e036`, deployed 2026-09-13 20:41 UTC)
+
+Access refresh and delete use chunk IDs with bulk requests; access-only drift is repaired without hiding; delivery logs no longer repeat MDC keys. The same Source was exercised in both directions with the application's SQL (grant change plus `ACCESS` enqueue):
+
+| Step | `ACCESS` operations | Hidden documents during refresh | Chunks matched: Group token / no token |
+|---|---|---|---|
+| Revoke the Group from "Việt Test Drive" | 6 SUCCESS on the first attempt (about 45 s) | 0 of 6 | 0 / 0 of 7,327 |
+| Grant it again | 6 SUCCESS on the first attempt (about 60 s) | 0 of 6 | 7,327 / 0 of 7,327 |
+
+Since the deploy the worker logged no `search.index.failed` and no duplicate-name appender error, and OpenSearch logged no permission denial. The test Group remains granted on staging for manual acceptance.
+
 Browser/API acceptance with real accounts remains open.
