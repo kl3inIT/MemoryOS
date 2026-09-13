@@ -258,6 +258,28 @@ class DocumentSearchServiceTest {
     }
 
     @Test
+    void chatCitationReaderRequiresChatReadInsteadOfSearchReadAndKeepsDocumentEligibility() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var id = UUID.randomUUID();
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        when(authorization.require(actor, IamCapability.SEARCH_READ, false))
+                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "No Search grant"));
+        when(authorization.require(actor, IamCapability.CHAT_READ, false)).thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        when(index.identity()).thenReturn("space");
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
+        when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
+        var window = new SearchDocument(id, generation, "Title", List.of(), 0, 1, false);
+        when(index.document(tenant, id, generation, 0, 20)).thenReturn(window);
+        assertEquals(window, service.citation(actor, id, generation, 0));
+        assertThrows(IamException.class, () -> service.document(actor, id, generation, 0));
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citation(actor, id, generation, 0));
+        when(authorization.require(actor, IamCapability.CHAT_READ, false))
+                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "No Chat grant"));
+        assertThrows(IamException.class, () -> service.citation(actor, id, generation, 0));
+    }
+
+    @Test
     void authorizesTheUnionInBoundedBatchesAndMergesPastThirtyChunksBeforeSelection() {
         var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), actor, Map.of(UUID.randomUUID(), SourceType.FILE));
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(scope.tenant()));

@@ -140,20 +140,34 @@ public class DocumentSearchService {
                 chunks.stream().map(hit -> new SearchPage.ChunkProvenance(hit.ordinal(), hit.provenanceJson())).toList());
     }
 
+    /** Search reader: requires SEARCH_READ plus current document eligibility. */
     public SearchDocument document(ActorId actor, UUID id, UUID generation, int from) {
+        return read(actor, IamCapability.SEARCH_READ, id, generation, from);
+    }
+
+    /** Chat citation reader: requires CHAT_READ instead of SEARCH_READ; document eligibility is unchanged. */
+    public SearchDocument citation(ActorId actor, UUID id, UUID generation, int from) {
+        return read(actor, IamCapability.CHAT_READ, id, generation, from);
+    }
+
+    private SearchDocument read(ActorId actor, IamCapability capability, UUID id, UUID generation, int from) {
         if (from < 0 || from > 9999) throw new SearchRequestException();
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
-        authorization.require(actor, IamCapability.SEARCH_READ, false);
+        authorization.require(actor, capability, false);
         requireDocumentAccess(actor, tenant, id, generation);
         var result = search.document(tenant, id, generation, from, 20);
-        requireSearchAccess(actor, tenant);
+        requireSearchAccess(actor, tenant, capability);
         requireDocumentAccess(actor, tenant, id, generation);
         return result;
     }
 
     private void requireSearchAccess(ActorId actor, TenantId tenant) {
+        requireSearchAccess(actor, tenant, IamCapability.SEARCH_READ);
+    }
+
+    private void requireSearchAccess(ActorId actor, TenantId tenant, IamCapability capability) {
         if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()) throw new SearchDocumentUnavailableException();
-        authorization.require(actor, IamCapability.SEARCH_READ, false);
+        authorization.require(actor, capability, false);
     }
 
     private void requireDocumentAccess(ActorId actor, TenantId tenant, UUID id, UUID generation) {

@@ -22,14 +22,17 @@ The UI is not locked. Hiding actions from per-resource permission maps is split 
 
 ## Citation reads
 
-The Chat source panel currently reads passages through `/api/search/documents/{id}`, which requires `SEARCH_READ`. A conversation owner who may read the conversation should open a citation it already contains through a Chat-scoped read that requires `CHAT_READ` and still applies current document eligibility. This is a follow-up commit in this increment.
+The Chat source panel read passages through `/api/search/documents/{id}`, which requires `SEARCH_READ`. It now uses `GET /api/chat/documents/{documentId}?generation&from` (`readChatDocumentPassages`), which requires `CHAT_READ` and applies the same document eligibility and generation checks before and after the index read (`DocumentSearchService.citation`). The Search page keeps `/api/search/documents`. Owner-private file citations keep `/api/chat/files/{fileId}/passages`.
 
-## Document access list (later phases)
+## Document access list
 
-- Index each chunk with an access list (`user:<actorId>`, `group:<groupId>`) and a public flag; the query adds `public OR terms(access list, user tokens)` in every read path.
-- Source Group changes, access-type changes and user-file lifecycle enqueue metadata-only updates through the existing search work queue, reusing vectors.
-- Google Drive per-file tokens follow the MEM-88 contract (verified e-mail identity linking, Google groups, fail closed).
-- The current post-query database recheck and expansion recheck are kept only if measurement shows their cost is small. The reference model accepts index-sync lag instead of a per-result recheck.
+What it buys, stated plainly: per-document authority in the index, so Google Drive per-file permissions have a place to live and the query has the reference shape. It is not a latency win; the actor's Group tokens still come from PostgreSQL at request time (the measured PREFETCH is ≈ 6 ms) and the post-query recheck stays.
+
+- **Index time.** `JdbcSourceDocumentRepository` resolves, for the Sources a document maps to, a public flag (any mapped Source is `PUBLIC`) and `group:<groupId>` tokens from `source_group_grants`. Every chunk stores `access_public` (boolean) and `access_control_list` (keyword array). Both enter `metadata_hash` (`v2:`), so an access change makes `contains()` false and the existing projection repair re-indexes with vector reuse.
+- **Query time.** `SourceSearchScope` carries the actor's tokens (`group:<id>` for current ordinary Group memberships), computed in `SourceSearchService.scope`. Every Source query adds `bool.should[term(access_public,true), terms(access_control_list, tokens)]` with `minimum_should_match: 1`. The existing `source_metadata.source_id` filter stays because Persona Source narrowing, Source-type and time filters use the same nested origin.
+- **Out of scope.** Owner-private chat files are already excluded from Source queries and read only through explicit owner file mappings, so no `user:<actorId>` token is added for them.
+- **Propagation.** `reconcile()` scans 32 documents per minute (≈ 26 hours for 50,000 documents), too slow for access changes. Replacing a Source's Groups or changing its access type enqueues its current documents for re-index in the same transaction; the worker rewrites chunks with reused vectors and the new access fields. Group membership changes need no index write because tokens are resolved per request.
+- **Google Drive per-file permissions** follow the MEM-88 contract (verified e-mail identity linking, Google groups, fail closed). Main has no per-file permission tables yet, so this phase waits for MEM-88.
 
 ## Measurement
 
