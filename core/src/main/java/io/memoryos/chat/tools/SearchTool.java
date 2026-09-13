@@ -14,7 +14,7 @@ import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.prompts.SearchPrompts;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchDocumentUnavailableException;
 import io.memoryos.retrieval.SearchHit;

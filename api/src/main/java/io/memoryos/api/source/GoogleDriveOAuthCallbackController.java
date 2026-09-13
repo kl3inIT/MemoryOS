@@ -1,7 +1,7 @@
 package io.memoryos.api.source;
 
 import io.memoryos.connector.GoogleDriveAuthorizationService;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -8,9 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import io.memoryos.iam.IdentityProvisioningException;
-import io.memoryos.iam.IdentityProvisioningFailureReason;
-import io.memoryos.iam.KeycloakRecipientProvisioning;
+import io.memoryos.iam.invitation.IdentityProvisioningException;
+import io.memoryos.iam.invitation.IdentityProvisioningFailureReason;
+import io.memoryos.iam.invitation.KeycloakRecipientProvisioning;
 
 import java.io.IOException;
 import java.net.InetAddress;

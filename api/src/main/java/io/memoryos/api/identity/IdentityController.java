@@ -1,16 +1,16 @@
 package io.memoryos.api.identity;
 
 import io.memoryos.api.identity.contract.CurrentIdentityResponse;
-import io.memoryos.iam.IamAuthorization;
-import io.memoryos.iam.ActorLanguageService;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.identity.ActorLanguageService;
 import io.memoryos.api.identity.contract.LanguagePreference;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import io.memoryos.iam.IamCapability;
-import io.memoryos.iam.IdentityContext;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantMembership;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantMembership;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

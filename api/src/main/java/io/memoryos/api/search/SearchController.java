@@ -1,6 +1,6 @@
 package io.memoryos.api.search;
 
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
 import io.memoryos.api.search.contract.SearchPageResponse;
 import io.memoryos.retrieval.SearchRequest;

@@ -1,8 +1,8 @@
 package io.memoryos.api.security;
 
-import io.memoryos.iam.ExternalIdentityResolver;
-import io.memoryos.iam.IdentityContext;
-import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.iam.identity.ExternalIdentityResolver;
+import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.tenant.TenantAccessResolver;
 
 import java.net.URI;
 import java.util.Objects;

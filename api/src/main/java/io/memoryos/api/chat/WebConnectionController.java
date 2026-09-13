@@ -11,7 +11,7 @@ import io.memoryos.chat.catalog.ProviderCredentials;
 import io.memoryos.chat.web.WebConnectionService;
 import io.memoryos.chat.web.WebProvider;
 import io.memoryos.chat.web.WebProviderClient;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

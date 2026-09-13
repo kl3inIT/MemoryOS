@@ -1,7 +1,7 @@
 package io.memoryos.connector;
 
 import io.memoryos.objectstorage.StoredObjectReference;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.time.Duration;
 import java.util.UUID;

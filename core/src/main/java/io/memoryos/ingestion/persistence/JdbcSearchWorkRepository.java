@@ -3,7 +3,7 @@ package io.memoryos.ingestion.persistence;
 import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.ingestion.OperationDelivery;
 import java.sql.Types;
 import java.util.Optional;

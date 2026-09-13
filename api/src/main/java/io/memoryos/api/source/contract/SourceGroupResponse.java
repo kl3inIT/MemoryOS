@@ -1,7 +1,7 @@
 package io.memoryos.api.source.contract;
 
-import io.memoryos.iam.GroupIdentity;
-import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.iam.group.GroupIdentity;
+import io.memoryos.iam.group.GroupSystemKey;
 
 import java.util.UUID;
 

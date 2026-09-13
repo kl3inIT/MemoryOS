@@ -21,7 +21,7 @@ import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
 import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.net.URI;
 import java.time.Clock;

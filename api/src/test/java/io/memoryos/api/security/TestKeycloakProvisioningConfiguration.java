@@ -1,7 +1,7 @@
 package io.memoryos.api.security;
 
-import io.memoryos.iam.KeycloakRecipientProvisioner;
-import io.memoryos.iam.KeycloakRecipientProvisioning;
+import io.memoryos.iam.invitation.KeycloakRecipientProvisioner;
+import io.memoryos.iam.invitation.KeycloakRecipientProvisioning;
 
 import java.util.Objects;
 

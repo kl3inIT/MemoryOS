@@ -1,6 +1,6 @@
 package io.memoryos.document;
 
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.util.List;
 

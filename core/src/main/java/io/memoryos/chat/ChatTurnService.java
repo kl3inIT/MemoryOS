@@ -6,7 +6,7 @@ import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import org.jspecify.annotations.Nullable;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;

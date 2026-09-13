@@ -1,8 +1,8 @@
 package io.memoryos.chat.persistence;
 
 import io.memoryos.chat.UserFile;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadSpecification;

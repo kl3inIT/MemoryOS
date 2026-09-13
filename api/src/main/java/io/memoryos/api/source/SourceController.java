@@ -13,7 +13,7 @@ import io.memoryos.api.source.contract.SourceUploadReceiptResponse;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceManagementService;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.objectstorage.ObjectUploadId;
 
 import io.swagger.v3.oas.annotations.Operation;
