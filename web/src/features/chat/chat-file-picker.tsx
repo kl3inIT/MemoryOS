@@ -252,11 +252,12 @@ function ChatFilePickerContent({
                 {file.filename}
               </span>
             </label>
-            <span>
+            {/* A ready file needs no label; only states that block or limit its use are shown. */}
+            <span className="text-xs text-content-muted empty:hidden">
               {file.status === "READY"
                 ? file.searchReady === false
                   ? ui("Đọc được · Chưa sẵn sàng tìm kiếm")
-                  : ui("Sẵn sàng")
+                  : null
                 : file.status === "PROCESSING"
                   ? ui("Đang xử lý…")
                   : file.status === "FAILED"

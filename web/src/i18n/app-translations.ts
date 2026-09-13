@@ -109,7 +109,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tệp không còn khả dụng (": "File unavailable (",
   Gỡ: "Remove",
   "Đọc được · Chưa sẵn sàng tìm kiếm": "Readable · Search is not ready",
-  "Sẵn sàng": "Ready",
   "Đang xử lý…": "Processing…",
   "Upload hết hạn · Chọn file để tải lại": "Upload expired · Select the file to upload again",
   "Xử lý lỗi": "Processing failed",

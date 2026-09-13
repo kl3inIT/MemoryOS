@@ -299,6 +299,8 @@ describe("File selection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Đính kèm tệp" }));
     await screen.findByText("Ba.txt");
     expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    // Ready files carry no status label; only limiting states are shown.
+    expect(screen.queryByText("Sẵn sàng")).not.toBeInTheDocument();
     expect(screen.queryByText("Bốn.txt")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Làm mới" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("checkbox", { name: file.filename }));
