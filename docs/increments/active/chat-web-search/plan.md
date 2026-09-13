@@ -16,12 +16,13 @@
 - [x] Finish the identified explicit imports, dependency catalog entries and reconcile IDE inspection.
 - [ ] Add verified native adapters reusing LLM connections; retain provider events and continuation data.
   - [x] Verify protocol and library support (Responses API only; openai-java 4.49.0; Embabel/MessageAggregator metadata round-trip).
-  - [ ] Validate `options.webSearch = "native"` in the OpenAI adapter and expose native-capable models in Web availability.
-  - [ ] Implement the Responses-backed `ChatModel`: input/tool conversion, streaming events, usage, errors, `store=false`, encrypted reasoning echo.
-  - [ ] Per-turn evidence/event hook: `web_search_call` progress and `url_citation` sources; no external Web tools on native turns.
-  - [ ] Required mode via hosted `tool_choice`; adapter-declared support replaces the `OpenAiChatModel` instanceof check.
-  - [ ] Composer/settings: native-capable model enables Web without an external connection; vi/en labels.
-  - [ ] SSE fixture tests (hosted search, function-call continuation, required, failure, Stop); IDE inspection and focused gates.
+  - [x] Validate `options.webSearch = "native"` in the OpenAI adapter and expose native-capable models in Web availability.
+  - [x] Implement the Responses-backed `ChatModel`: input/tool conversion, streaming events, usage, errors, `store=false`, encrypted reasoning echo.
+  - [x] Per-turn evidence/event hook: `web_search_call` progress and `url_citation` sources; no external Web tools on native turns.
+  - [x] Required mode via hosted `tool_choice`; native turns skip the external connection and `OpenAiChatModel` checks.
+  - [x] Composer: a native-capable model enables Web without an external connection. The model-administration UI does not yet edit `webSearch` (MEM-77).
+  - [x] SSE fixture tests (hosted search, function-call continuation, required, failure, final cycle, non-Web delegation); IDE inspection and focused gates.
+  - [ ] Owner-run paid acceptance with a real OpenAI key.
   - [ ] Gemini and Anthropic native adapters (open).
 - [x] Generate API contract/client; inspect changed Java and run focused contract/runtime checks.
 - [x] Consolidate implemented facts and record remaining live-provider acceptance separately.

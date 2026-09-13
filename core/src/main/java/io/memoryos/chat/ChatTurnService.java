@@ -108,11 +108,15 @@ public final class ChatTurnService implements AutoCloseable {
             var binding = resolved.binding();
             var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {
-                if (web == null || !binding.toolCalling()) throw ChatException.providerUnavailable();
-                webAccess = web.resolve(actor);
-                if (webAccess.search() == null) throw ChatException.providerUnavailable();
-                if (command.webSearch() == WebSearchMode.required && !(binding.service().getChatModel() instanceof org.springframework.ai.openai.OpenAiChatModel))
-                    throw ChatException.invalid("This model adapter does not support required Web search.");
+                // Provider-hosted search needs no external connection; external search needs one.
+                boolean nativeSearch = binding.service().getChatModel() instanceof io.memoryos.chat.execution.NativeWebSearch;
+                if (!binding.toolCalling() || (!nativeSearch && web == null)) throw ChatException.providerUnavailable();
+                if (!nativeSearch) {
+                    webAccess = web.resolve(actor);
+                    if (webAccess.search() == null) throw ChatException.providerUnavailable();
+                    if (command.webSearch() == WebSearchMode.required && !(binding.service().getChatModel() instanceof org.springframework.ai.openai.OpenAiChatModel))
+                        throw ChatException.invalid("This model adapter does not support required Web search.");
+                }
             }
             int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.deadline(), contextLimit,

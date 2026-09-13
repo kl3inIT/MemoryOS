@@ -9269,6 +9269,11 @@ components:
         inheritedModelId:
           type: string
           format: uuid
+        nativeModelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     SharedSession:
       type: object
       properties:

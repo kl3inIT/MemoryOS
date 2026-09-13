@@ -923,6 +923,7 @@ export type WebAvailabilityResponse = {
     automaticModelIds?: Array<string>;
     requiredModelIds?: Array<string>;
     inheritedModelId?: string;
+    nativeModelIds?: Array<string>;
 };
 
 export type SharedSession = {

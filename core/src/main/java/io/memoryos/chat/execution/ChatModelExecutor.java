@@ -96,7 +96,12 @@ public final class ChatModelExecutor {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         int maxOutput = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
-        var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
+        boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
+                && metadata.getChatModel() instanceof NativeWebSearch;
+        var delegate = metadata.getChatModel();
+        if (nativeWeb) delegate = ((NativeWebSearch) delegate).forTurn(new NativeWebSearch.Turn(setup.evidence(), events,
+                setup.webSearch() == io.memoryos.chat.WebSearchMode.required, checkActive));
+        var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
                 selected.finalRequest());
         int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
@@ -126,7 +131,7 @@ public final class ChatModelExecutor {
             if (selected.toolCalling()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.ArtifactTool(setup.artifacts(), guard::checkActive)));
             }
-            if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off) {
+            if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
                         fileWork, setup.deadline(), events, guard::availableContextTokens, selected.tokens());

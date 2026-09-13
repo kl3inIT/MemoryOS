@@ -214,7 +214,7 @@ public class ModelCatalogService {
         return availableModels(actor, tenant.value(), personaId);
     }
 
-    public record WebModels(List<UUID> automatic, List<UUID> required, @Nullable UUID inherited) {}
+    public record WebModels(List<UUID> automatic, List<UUID> required, @Nullable UUID inherited, List<UUID> nativeSearch) {}
 
     @Transactional
     public WebModels availableWebModels(ActorId actor, @Nullable UUID sessionId) {
@@ -225,7 +225,11 @@ public class ModelCatalogService {
         var required = models.stream().filter(m -> m.capabilities().toolCalling())
                 .filter(m -> adapters.require(providers.get(m.providerId()).adapterType()).supportsRequiredToolChoice())
                 .map(AvailableModel::id).toList();
-        return new WebModels(automatic, required, models.stream().filter(AvailableModel::isDefault).map(AvailableModel::id).findFirst().orElse(null));
+        var settings = catalog.models(tenant).stream().collect(Collectors.toMap(Model::id, Model::settings));
+        var nativeSearch = models.stream().filter(m -> m.capabilities().toolCalling())
+                .filter(m -> adapters.require(providers.get(m.providerId()).adapterType()).supportsNativeWebSearch(settings.get(m.id())))
+                .map(AvailableModel::id).toList();
+        return new WebModels(automatic, required, models.stream().filter(AvailableModel::isDefault).map(AvailableModel::id).findFirst().orElse(null), nativeSearch);
     }
 
     private List<AvailableModel> availableModels(ActorId actor, UUID tenant, UUID personaId) {

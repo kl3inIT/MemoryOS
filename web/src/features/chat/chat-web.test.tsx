@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
     searchAvailable: true,
     automaticModelIds: ["a", "b"],
     requiredModelIds: ["a"],
+    nativeModelIds: [] as string[],
     inheritedModelId: "a",
   },
 }));
@@ -70,6 +71,26 @@ it("keeps Web off when no search connection is configured", async () => {
   );
   await userEvent.click(screen.getByRole("option", { name: "Use Web automatically" }));
   expect(change).not.toHaveBeenCalled();
+});
+
+it("lets a declared native-search model use Web without an external connection", async () => {
+  state.availability.searchAvailable = false;
+  state.availability.nativeModelIds = ["native"];
+  try {
+    const change = vi.fn();
+    render(<ChatActionsMenu value="off" modelId="native" disabled={false} onChange={change} />);
+    await userEvent.click(screen.getByRole("button", { name: "Actions" }));
+    expect(screen.queryByText("No search engine connected.")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Web options" }));
+    expect(screen.getByRole("option", { name: "Require Web search" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await userEvent.click(screen.getByRole("option", { name: "Require Web search" }));
+    expect(change).toHaveBeenCalledExactlyOnceWith("required");
+  } finally {
+    state.availability.nativeModelIds = [];
+  }
 });
 
 it("uses adapter capabilities for required mode, never model-name guesses", async () => {

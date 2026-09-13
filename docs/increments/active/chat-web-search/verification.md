@@ -26,6 +26,15 @@ Every changed Web Java/Kotlin file was inspected with JetBrains warnings enabled
 - Batch admission limits (8 queries/5 URLs) are MemoryOS bounds; parallel execution reuses the existing four-worker SearchTasks implementation, not Onyx's five-worker URL reader. Chat title length remains the accepted MemoryOS eight-word rule rather than Onyx's five-word rule.
 - No commit, PR, push, deploy, paid probe, Linear update or OCR change was made in this implementation slice. Unrelated checkout changes were preserved.
 
+## Native OpenAI Web search — 2026-09-13
+
+- `OpenAiResponsesChatModelTest` passed 6/6 against a local SSE server through the real openai-java 4.49.0 async client. It covers hosted search progress, text deltas, a `url_citation` registered as a `web:` source, usage/finish reason, `store=false`, and function plus `web_search` tools without `tool_choice`. It also covers function-call continuation: encrypted reasoning and function-call items are echoed before `function_call_output`, with `include=reasoning.encrypted_content`. Further scenarios: required mode sends `tool_choice: web_search` and rejects an answer without search; the final cycle omits hosted search; `response.failed` becomes `CHAT_INCOMPLETE_RESPONSE`; turns without Web and helper `call()` use the Chat Completions delegate with no Responses request.
+- `OpenAiChatProviderAdapterTest` passed 4/4, including rejection of `webSearch` values other than `native` and of native search on a non-tool model. A model name alone does not enable it; `create` selects the Responses model only for the declaration.
+- `OpenApiContractTest` passed after regenerating `openapi.yml` (`nativeModelIds`). `ModelCatalogSelectionTest`, `ChatModelGuardTest`, architecture tests and the real PostgreSQL/local HTTP Web integration test passed; Worker compiled.
+- Frontend: generated client refreshed; `chat-web.test.tsx` passed 6/6, including a native model enabling required Web with no external connection and no "not connected" notice. Typecheck, lint, formatting and i18n audit (zero findings) passed.
+- JetBrains inspection with warnings: adapter, `ChatModelExecutor` and `ChatTurnService` are clean. `OpenAiResponsesChatModel` retains one nullability false positive on `requireNonNullElse(...)`.
+- Boundaries: no paid OpenAI request was made. Live Responses event shapes, citation offsets and cost remain owner-run acceptance. Stop is covered by disposing the SDK stream through the existing guard/runner cancellation path, not by a dedicated native test. The model-administration UI does not yet edit `webSearch`. The full-turn executor path with a native model is covered by unit composition, not a PostgreSQL HTTP scenario.
+
 ## Reproduction
 
 ### PDF, site guidance, preferences and dependency follow-up

@@ -42,8 +42,11 @@ export function ChatActionsMenu({
     retry: false,
   });
   const selectedModel = modelId ?? available.data?.inheritedModelId;
+  // Provider-hosted search belongs to the model itself and needs no external search connection.
+  const nativeSearch = !!(selectedModel && available.data?.nativeModelIds?.includes(selectedModel));
   const supported = (mode: WebSearchMode) =>
     mode === "off" ||
+    nativeSearch ||
     !!(
       available.data?.searchAvailable &&
       selectedModel &&
@@ -149,7 +152,7 @@ export function ChatActionsMenu({
           <Button size="sm" prominence="internal" onClick={() => void available.refetch()}>
             {ui("Tải lại")}
           </Button>
-        ) : !available.isPending && !available.data?.searchAvailable ? (
+        ) : !available.isPending && !available.data?.searchAvailable && !nativeSearch ? (
           <p className="px-2 text-xs text-content-muted">{ui("Chưa kết nối công cụ tìm kiếm.")}</p>
         ) : null}
         {configure && session.capabilities.includes("MODELS_MANAGE") && (
