@@ -1,5 +1,6 @@
 package io.memoryos.ingestion.persistence;
 
+import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentId;
@@ -39,6 +40,25 @@ public class JdbcSearchWorkRepository {
                 .param("repair", repair).update();
     }
 
+    /**
+     * Queues an access refresh for every searchable document mapped to the Source, in the caller's transaction.
+     * A pending or running refresh is reset so the next claim reads the newest access; its old claim cannot finish.
+     */
+    @Transactional
+    public void enqueueSourceAccess(TenantId tenant, SourceId source, String identity) {
+        jdbc.sql("""
+                INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
+                SELECT gen_random_uuid(),d.tenant_id,d.id,d.content_generation,'ACCESS',:identity FROM documents d
+                WHERE d.tenant_id=:tenant AND d.status='ELIGIBLE'
+                    AND d.searchable_generation=d.content_generation AND d.search_index_identity=:identity
+                    AND EXISTS (SELECT 1 FROM documents_by_connector_credential_pair m
+                        WHERE m.tenant_id=d.tenant_id AND m.document_id=d.id AND m.connector_credential_pair_id=:source)
+                ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
+                SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,claim_token=NULL,
+                    lease_expires_at=NULL,next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
+                """).param("tenant", tenant.value()).param("source", source.value()).param("identity", identity).update();
+    }
+
     @Transactional
     public Optional<Claim> claim(OperationDelivery delivery, String identity) {
         UUID token = UUID.randomUUID();
@@ -54,7 +74,7 @@ public class JdbcSearchWorkRepository {
                 .param("id", delivery.operationId().value()).param("delivery", delivery.deliveryId()).param("identity", identity)
                 .query((rs, _) -> new Claim(delivery.tenantId(), delivery.operationId().value(), token,
                         new DocumentId(rs.getObject("document_id", UUID.class)), rs.getObject("generation", UUID.class),
-                        "DELETE".equals(rs.getString("action")), rs.getInt("processing_attempts"))).optional();
+                        rs.getString("action"), rs.getInt("processing_attempts"))).optional();
     }
 
     public boolean renew(Claim claim) {
@@ -89,11 +109,15 @@ public class JdbcSearchWorkRepository {
                 WHERE w.id IN (SELECT candidate.id FROM search_index_operations candidate
                     JOIN tenants t ON t.id=candidate.tenant_id
                     WHERE candidate.status IN ('NOT_STARTED','IN_PROGRESS')
-                        AND (candidate.index_identity<>:identity OR (candidate.action='INDEX' AND t.status<>'ACTIVE'))
+                        AND (candidate.index_identity<>:identity OR (candidate.action<>'DELETE' AND t.status<>'ACTIVE'))
                     ORDER BY candidate.created_at LIMIT 100 FOR UPDATE OF candidate SKIP LOCKED)
                 """).param("identity", identity).update();
     }
 
     public record Claim(TenantId tenantId, UUID id, UUID token, DocumentId documentId,
-            UUID generation, boolean removed, int attempts) { }
+            UUID generation, String action, int attempts) {
+        public boolean removed() { return "DELETE".equals(action); }
+        public boolean access() { return "ACCESS".equals(action); }
+        public boolean index() { return "INDEX".equals(action); }
+    }
 }

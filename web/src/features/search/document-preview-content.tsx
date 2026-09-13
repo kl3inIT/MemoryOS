@@ -2,7 +2,11 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getSearchDocument, readChatFilePassages } from "@/lib/hey-api/sdk.gen";
+import {
+  getSearchDocument,
+  readChatDocumentPassages,
+  readChatFilePassages,
+} from "@/lib/hey-api/sdk.gen";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { stripGeneratedTitlePrefix } from "./search-presentation";
 import type { DocumentSelection } from "./document-preview-dialog";
@@ -33,7 +37,8 @@ export function DocumentPreviewContent({
             signal,
             throwOnError: true,
           })
-        : await getSearchDocument({
+        : // Chat citations open with Chat authority; the Search page keeps Search authority.
+          await (variant === "chat" ? readChatDocumentPassages : getSearchDocument)({
             path: { documentId: selection.documentId },
             query: { generation: selection.generation, from },
             signal,

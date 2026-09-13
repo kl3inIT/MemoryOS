@@ -10,6 +10,8 @@ public interface SearchIndex {
     String identity();
     void index(DocumentChunkSet document);
     void delete(TenantId tenantId, DocumentId documentId);
+    /** Refreshes source metadata and access fields of an indexed generation without re-embedding or hiding it. */
+    void updateAccess(TenantId tenantId, DocumentId documentId, java.util.UUID generation);
     boolean contains(DocumentIndexState document);
     void purgeStale();
 }

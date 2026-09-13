@@ -29,6 +29,7 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   getChatFile: backend.get,
   readChatFilePassages: backend.passages,
   getSearchDocument: backend.searchDocument,
+  readChatDocumentPassages: backend.searchDocument,
   readChatFileText: backend.read,
   downloadChatFile: backend.download,
   listChatFiles: backend.list,

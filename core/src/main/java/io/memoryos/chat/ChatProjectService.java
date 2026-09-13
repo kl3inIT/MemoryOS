@@ -7,6 +7,8 @@ import io.memoryos.chat.persistence.ProjectEntity;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -14,15 +16,18 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Project settings need membership and ownership only; listing its conversations needs CHAT_READ. */
 @Service
 public class ChatProjectService {
     private final TenantAccessResolver tenants;
+    private final IamAuthorization authorization;
     private final JdbcChatRepository chats;
     private final JpaProjectRepository settings;
     private final ChatSessionService sessions;
     private final ChatFileService files;
-    public ChatProjectService(TenantAccessResolver tenants, JdbcChatRepository chats, JpaProjectRepository settings, ChatSessionService sessions, ChatFileService files) {
-        this.tenants = tenants; this.chats = chats; this.settings = settings; this.sessions = sessions;
+    public ChatProjectService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
+                              JpaProjectRepository settings, ChatSessionService sessions, ChatFileService files) {
+        this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings; this.sessions = sessions;
         this.files = files;
     }
     public record ProjectInput(String name, String description, String instructions, @Nullable List<UUID> fileIds) {
@@ -63,7 +68,8 @@ public class ChatProjectService {
     }
     @Transactional(readOnly = true)
     public List<ChatSession> conversations(ActorId actor, UUID id, int offset, int limit) {
-        ChatPersonaService.page(offset, limit); var tenant = tenant(actor); owned(tenant, actor, id, false);
+        ChatPersonaService.page(offset, limit); authorization.require(actor, IamCapability.CHAT_READ, false);
+        var tenant = tenant(actor); owned(tenant, actor, id, false);
         return chats.projectSessions(tenant, actor, id, offset, limit);
     }
     @Transactional

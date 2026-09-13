@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -29,9 +30,11 @@ import org.springframework.stereotype.Repository;
 public class JdbcSourceRepository {
 
     private final JdbcClient jdbcClient;
+    private final ApplicationEventPublisher events;
 
-    public JdbcSourceRepository(JdbcClient jdbcClient) {
+    public JdbcSourceRepository(JdbcClient jdbcClient, ApplicationEventPublisher events) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+        this.events = Objects.requireNonNull(events, "events must not be null");
     }
 
     public SourcePair createFileSource(TenantId tenantId, ActorId actorId, String name, SourceAccess access) {
@@ -170,6 +173,7 @@ public class JdbcSourceRepository {
                 """).param("tenantId", tenantId.value()).param("pairId", sourceId.value())
                 .param("access", access.name()).update();
         if (updated != 1) throw SourceException.conflict("access changes require a FILE source");
+        events.publishEvent(new io.memoryos.connector.SourceAccessChanged(tenantId, sourceId));
     }
 
     public boolean ownsCleanup(TenantId tenantId, ActorId actorId, SourceOperationId operationId) {
