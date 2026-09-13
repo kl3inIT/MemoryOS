@@ -15,6 +15,17 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  :where(
+    button:not(:disabled),
+    [role="button"]:not([aria-disabled="true"]),
+    a[href],
+    select:not(:disabled),
+    summary,
+    label:has(> input:not(:disabled))
+  ) {
+    cursor: pointer;
+  }
+
   :where(input, textarea, select)[aria-invalid="true"] {
     border-color: var(--status-danger-content);
   }

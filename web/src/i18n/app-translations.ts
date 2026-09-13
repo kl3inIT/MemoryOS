@@ -455,7 +455,8 @@ export const englishUi: Record<string, string> = {
   "Current file state is unavailable; the file may have been removed.":
     "Không có trạng thái tệp hiện tại; tệp có thể đã bị xóa.",
   "The extraction service could not be reached. Ask an administrator to check the service address, network access, and service availability before indexing again.":
-    "Không thể kết nối đến dịch vụ trích xuất. Nhờ quản trị viên kiểm tra địa chỉ dịch vụ, kết nối mạng và tình trạng hoạt động của dịch vụ trước khi lập chỉ mục lại.",  Visibility: "Chế độ hiển thị",
+    "Không thể kết nối đến dịch vụ trích xuất. Nhờ quản trị viên kiểm tra địa chỉ dịch vụ, kết nối mạng và tình trạng hoạt động của dịch vụ trước khi lập chỉ mục lại.",
+  Visibility: "Chế độ hiển thị",
   "Private · only members of the selected groups can search and read these files.":
     "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
   "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
@@ -1069,8 +1070,8 @@ Object.assign(englishUi, {
     "Phạm vi toàn bộ gồm nội dung được hỗ trợ trong Drive của tôi của tài khoản này, không gồm mục Được chia sẻ với tôi và bộ nhớ dùng chung.",
   "Specific includes directly selected files, folder contents and approved linked documents. This is not an account-wide browser.":
     "Phạm vi cụ thể gồm tệp được chọn trực tiếp, nội dung thư mục và tài liệu liên kết đã được duyệt. Đây không phải trình duyệt toàn bộ tài khoản.",
-  "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree.":
-    "Mở rộng thư mục để xem tệp thực tế có quyền truy cập, rồi mở rộng tệp để xem tài liệu liên kết đã ghi nhận. Số thư mục và tệp là số mục gốc được chọn trực tiếp, không phải mục con. Tìm kiếm và lọc loại hiển thị kết quả không trùng thay cho cây.",
+  "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree, including files inside selected folders once the source has synced.":
+    "Mở rộng thư mục để xem tệp thực tế có quyền truy cập, rồi mở rộng tệp để xem tài liệu liên kết đã ghi nhận. Số thư mục và tệp là số mục gốc được chọn trực tiếp, không phải mục con. Tìm kiếm và lọc loại hiển thị kết quả không trùng thay cho cây, gồm cả tệp bên trong thư mục đã chọn sau khi nguồn đồng bộ.",
   "References count unique locations within source documents. Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.":
     "Tham chiếu đếm các vị trí riêng biệt trong tài liệu nguồn. Mở liên kết của tệp chỉ đọc bằng chứng đã lưu, không quét hoặc phê duyệt nội dung. Tệp chưa có liên kết ghi nhận có thể chưa được kiểm tra. Đích liên kết có thể xuất hiện ở nhiều nhánh nhưng dùng chung lựa chọn đồng bộ.",
   "Use Edit selection to paste file or folder links, one per line or separated by commas. Choose a folder or its descendants, not both. Links and Google access are checked when you save; OAuth permissions may be broader than this selection.":
@@ -1103,22 +1104,18 @@ Object.assign(englishUi, {
   "Discovery could not check": "Không kiểm tra được",
   inputs: "đầu vào",
   "Search selected content": "Tìm nội dung đã chọn",
+  "Filter selected content": "Lọc nội dung đã chọn",
+  "Show search": "Hiện ô tìm kiếm",
+  "Hide search": "Ẩn ô tìm kiếm",
   "Content type": "Loại nội dung",
   "All types": "Mọi loại",
   Folders: "Thư mục",
   Files: "Tệp",
   "Linked documents": "Tài liệu liên kết",
-  "Filtered results · Each matching selected root or linked target appears once, across the full selection index. Folder descendants are browsed in the tree.":
-    "Kết quả đã lọc · Mỗi mục gốc hoặc đích liên kết phù hợp xuất hiện một lần trên toàn bộ chỉ mục lựa chọn. Xem mục con của thư mục trong cây.",
   "Refresh selection page": "Làm mới trang lựa chọn",
   "Loading selection page…": "Đang tải trang lựa chọn…",
-  "folders ·": "thư mục ·",
-  "files ·": "tệp ·",
-  files: "tệp",
-  "linked documents": "tài liệu liên kết",
   "Selection results": "Kết quả lựa chọn",
-  "No matching selected roots or linked documents on this page. Browse folders in the tree to see their files.":
-    "Không có mục gốc hoặc tài liệu liên kết phù hợp trên trang này. Mở thư mục trong cây để xem tệp.",
+  "No matching items": "Không có kết quả phù hợp",
   "items on this page": "mục trên trang này",
   "Previous selection page": "Trang lựa chọn trước",
   "Next selection page": "Trang lựa chọn tiếp",
@@ -1126,12 +1123,9 @@ Object.assign(englishUi, {
   "Edit replacement proposal": "Sửa đề xuất thay thế",
   "Edit selection": "Sửa lựa chọn",
   "Loading saved links…": "Đang tải liên kết đã lưu…",
-  "Search roots and linked documents": "Tìm thư mục gốc và tài liệu liên kết",
   "Search scope": "Phạm vi tìm kiếm",
-  "Search covers selected folders, files and linked documents. To find files inside a folder, expand it in the tree below.":
-    "Tìm kiếm bao gồm các thư mục, tệp đã chọn và tài liệu liên kết. Để tìm tệp bên trong thư mục, hãy mở rộng thư mục đó trong cây bên dưới.",
-  "Editing selection — {{count}} changes": "Đang sửa lựa chọn — {{count}} thay đổi",
-  "Editing selection — no changes yet": "Đang sửa lựa chọn — chưa có thay đổi",
+  "Search covers selected folders, files, linked documents and files inside selected folders. Folder contents become searchable after the source syncs.":
+    "Tìm kiếm bao gồm thư mục, tệp đã chọn, tài liệu liên kết và tệp bên trong thư mục đã chọn. Nội dung thư mục có thể tìm được sau khi nguồn đồng bộ.",
   "In scope": "Trong phạm vi",
   Linked: "Liên kết",
   "Loading folder contents…": "Đang tải nội dung thư mục…",

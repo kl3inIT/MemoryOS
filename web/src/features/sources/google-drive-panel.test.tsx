@@ -437,15 +437,18 @@ describe("Google Drive enterprise selection", () => {
   it("loads the full draft separately and preserves hidden approvals through cursor pages and search", async () => {
     const user = userEvent.setup();
     const server = setup();
+    await user.click(await screen.findByRole("button", { name: "Filter selected content" }));
     await user.selectOptions(
       await screen.findByRole("combobox", { name: "Content type" }),
       "LINKED",
     );
+    await user.keyboard("{Escape}");
     const input = await edit(user);
     expect(input).toHaveFocus();
     await user.click(await screen.findByRole("checkbox", { name: "Sync Budget" }));
     await user.click(screen.getByRole("button", { name: "Next selection page" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Research" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Show search" }));
     await user.type(screen.getByRole("textbox", { name: "Search selected content" }), "Budget");
     await user.click(screen.getByRole("button", { name: "Search" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Budget" })).toBeChecked();

@@ -1,6 +1,6 @@
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useId, type Ref } from "react";
+import { useId, type ReactNode, type Ref } from "react";
 import { inputVariants } from "@/components/ui/input";
 import { HelpPopover } from "@/components/ui/help-popover";
 import type {
@@ -113,6 +113,8 @@ export function GoogleDriveLinks({
   value,
   disabled,
   readOnly = false,
+  showLabel = true,
+  actions,
   inputRef,
   errorMessage,
   onChange,
@@ -123,6 +125,10 @@ export function GoogleDriveLinks({
   value: string;
   disabled: boolean;
   readOnly?: boolean;
+  /** Hide the visible field label when an enclosing section already names the field. */
+  showLabel?: boolean;
+  /** Controls rendered beside the root count, so the count and the actions share one row. */
+  actions?: ReactNode;
   inputRef?: Ref<HTMLTextAreaElement>;
   errorMessage?: string | null;
   onChange: (value: string) => void;
@@ -205,7 +211,7 @@ export function GoogleDriveLinks({
       ) : null}
       {scopeMode === "SPECIFIC" ? (
         <div>
-          {readOnly ? null : (
+          {readOnly || !showLabel ? null : (
             <label htmlFor={id} className="font-secondary-action text-content-primary">
               {ui("File or folder links")}
             </label>
@@ -220,7 +226,7 @@ export function GoogleDriveLinks({
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            aria-label={readOnly ? ui("File or folder links") : undefined}
+            aria-label={readOnly || !showLabel ? ui("File or folder links") : undefined}
             aria-describedby={`${id}-count${error ? ` ${id}-error` : ""}`}
             aria-invalid={Boolean(error)}
             className={cn(
@@ -233,16 +239,19 @@ export function GoogleDriveLinks({
             onChange={(event) => onChange(event.target.value)}
           />
           {readOnly ? null : (
-            <p id={`${id}-count`} className="mt-1 text-xs text-content-muted" aria-live="polite">
-              {policy
-                ? ui("{{count}} of {{max}} explicit roots", {
-                    count: links.length.toLocaleString(uiLocale()),
-                    max: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
-                  })
-                : ui("{{count}} explicit roots", {
-                    count: links.length.toLocaleString(uiLocale()),
-                  })}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+              <p id={`${id}-count`} className="text-xs text-content-muted" aria-live="polite">
+                {policy
+                  ? ui("{{count}} of {{max}} explicit roots", {
+                      count: links.length.toLocaleString(uiLocale()),
+                      max: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+                    })
+                  : ui("{{count}} explicit roots", {
+                      count: links.length.toLocaleString(uiLocale()),
+                    })}
+              </p>
+              {actions}
+            </div>
           )}
           {error ? (
             <p id={`${id}-error`} role="alert" className="mt-2 text-sm text-status-danger-content">

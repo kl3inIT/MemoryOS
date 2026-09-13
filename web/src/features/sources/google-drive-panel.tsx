@@ -849,7 +849,9 @@ export function GoogleDrivePanel({
                 pending={activeAction === "pause"}
                 onClick={() => run("pause", togglePause)}
               >
-                {configuration.syncPaused ? ui("Resume automatic sync") : ui("Pause automatic sync")}
+                {configuration.syncPaused
+                  ? ui("Resume automatic sync")
+                  : ui("Pause automatic sync")}
               </Button>
             ) : null}
             {connected && canSynchronize ? (

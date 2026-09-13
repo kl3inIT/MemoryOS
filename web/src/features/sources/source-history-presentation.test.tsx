@@ -201,7 +201,7 @@ describe("Source execution and current-file history", () => {
       indexingStatus: "COMPLETED_WITH_ERRORS",
       counts: { ...run.counts, indexingFailed: 1 },
     };
-    const failure: SourceRunError = {
+    const failure = {
       id: "error-b",
       runId: failedRun.id,
       operationId: null,
@@ -216,7 +216,7 @@ describe("Source execution and current-file history", () => {
       currentItemStatus: null,
       currentItemErrorCode: null,
       currentItemLastIndexedAt: null,
-    };
+    } as unknown as SourceRunError;
     showHistory([failedRun], [failure]);
     fireEvent.click(screen.getByRole("button", { name: /View details/ }));
     expect(

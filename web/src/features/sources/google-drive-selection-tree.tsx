@@ -205,7 +205,12 @@ function SelectionTreeNode({
           <span aria-hidden="true" className="w-8 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <GoogleDriveSelectionRow {...props} item={item} parentId={ancestors.at(-1)} />
+          <GoogleDriveSelectionRow
+            {...props}
+            item={item}
+            parentId={ancestors.at(-1)}
+            showScopeBadge={ancestors.length === 0}
+          />
           {repeated ? (
             <p className="pb-2 text-xs text-content-muted">
               {ui("Already shown earlier in this branch. Its sync selection is shared.")}
@@ -232,12 +237,18 @@ function SelectionTreeNode({
 export function GoogleDriveSelectionRow({
   item,
   parentId,
+  showScopeBadge = true,
   approved,
   disabled,
   allowSelection,
   onApprove,
   onSelect,
-}: SelectionControls & { item: GoogleDriveSelectionItemResponse; parentId?: string }) {
+}: SelectionControls & {
+  item: GoogleDriveSelectionItemResponse;
+  parentId?: string;
+  /** Descendants of a selected folder are in scope by construction, so the badge only adds noise there. */
+  showScopeBadge?: boolean;
+}) {
   const ui = useAppTranslation();
 
   const included = item.coveredByRoots || (approved ? approved.has(item.id) : item.selected);
@@ -250,7 +261,9 @@ export function GoogleDriveSelectionRow({
     item.status !== "AVAILABLE" ? (
       <StatusBadge tone="warning">{ui(statusLabel(item.status))}</StatusBadge>
     ) : item.coveredByRoots ? (
-      <StatusBadge tone="neutral">{ui("In scope")}</StatusBadge>
+      showScopeBadge ? (
+        <StatusBadge tone="neutral">{ui("In scope")}</StatusBadge>
+      ) : null
     ) : item.kind === "LINKED" ? (
       <StatusBadge tone="neutral">{ui("Linked")}</StatusBadge>
     ) : null;

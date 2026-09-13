@@ -3,11 +3,14 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { statusLabel } from "@/i18n/status-copy";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderTree } from "lucide-react";
+import { FolderTree, Pencil, Search, SearchX, SlidersHorizontal } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { HelpPopover } from "@/components/ui/help-popover";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input, inputVariants } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
@@ -84,6 +87,7 @@ export function GoogleDriveSelectionPanel({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<"" | "FOLDER" | "FILE" | "LINKED">("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const authority = `${sourceId}:${session.actorId}:${configuration.revision}:${configuration.discoveryRevision}:${configuration.credentialRevision}`;
   const filtered = Boolean(search || kind);
   const [paging, setPaging] = useState<{
@@ -157,11 +161,6 @@ export function GoogleDriveSelectionPanel({
     (links.length !== draft.saved.links.length ||
       links.some((link, index) => link !== draft.saved.links[index])),
   );
-  const changeCount = draft
-    ? (rootChanges ? 1 : 0) +
-      [...draft.approved].filter((id) => !draft.saved.linkedDocumentIds.includes(id)).length +
-      draft.saved.linkedDocumentIds.filter((id) => !draft.approved.has(id)).length
-    : 0;
   const proposal = draft
     ? {
         scopeMode: configuration.scopeMode,
@@ -179,6 +178,13 @@ export function GoogleDriveSelectionPanel({
     page.discoveryRevision === configuration.discoveryRevision &&
     page.credentialRevision === configuration.credentialRevision;
   const rows = useMemo(() => (pageMatches ? page.items : []), [pageMatches, page]);
+  const searchVisible = searchOpen || Boolean(search);
+  const clearFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setKind("");
+    setPaging({ authority, previous: [] });
+  };
   const controlsDisabled =
     disabled || busy || submitted || tracking.uncertain || tracking.recovering;
 
@@ -406,7 +412,7 @@ export function GoogleDriveSelectionPanel({
         {" "}
         {submitted ? ui("Close draft") : ui("Cancel")}
       </Button>
-      {!submitted && !tracking.uncertain ? (
+      {conflicted && !submitted && !tracking.uncertain ? (
         <Button prominence="secondary" disabled={busy || disabled} onClick={() => loadDraft()}>
           {ui("Reload saved selection")}
         </Button>
@@ -431,7 +437,7 @@ export function GoogleDriveSelectionPanel({
             </p>
             <p>
               {ui(
-                "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree.",
+                "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree, including files inside selected folders once the source has synced.",
               )}
             </p>
             <p>
@@ -468,52 +474,99 @@ export function GoogleDriveSelectionPanel({
           </HelpPopover>
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-sunken px-4 py-2.5">
-        <p className="text-sm text-content-secondary">
-          <span className="font-medium tabular-nums text-content-primary">
-            {configuration.counts.folders.toLocaleString(uiLocale())}
-          </span>{" "}
-          {ui("folders ·")}{" "}
-          <span className="font-medium tabular-nums text-content-primary">
-            {configuration.counts.files.toLocaleString(uiLocale())}
-          </span>{" "}
-          {ui("files ·")}{" "}
-          <span className="font-medium tabular-nums text-content-primary">
-            {configuration.counts.linkedDocuments.toLocaleString(uiLocale())}
-          </span>{" "}
-          {ui("linked documents")}
-        </p>
-        {configuration.scopeMode === "SPECIFIC" && !draft?.editingRoots ? (
-          <Button
-            ref={editButton}
-            prominence="secondary"
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        {configuration.scopeMode === "SPECIFIC" ? (
+          <p className="min-w-0 text-xs text-content-muted">
+            {configuration.discoveredAt
+              ? ui("Last discovery · {{v1}}", {
+                  v1: new Date(configuration.discoveredAt).toLocaleString(uiLocale()),
+                })
+              : ui("No discovery yet.")}
+          </p>
+        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          {configuration.scopeMode === "SPECIFIC" ? (
+            <Button
+              prominence="secondary"
+              disabled={disabled || busy || Boolean(draft) || pending}
+              pending={action === "discover"}
+              onClick={() =>
+                void perform("discover", async (signal) => {
+                  await discoverGoogleDriveLinkedDocuments({
+                    path: { sourceId },
+                    headers: {
+                      ...sameOriginMutationHeaders,
+                      "If-Match": `"${configuration.revision}"`,
+                    },
+                    signal,
+                    throwOnError: true,
+                  });
+                  signal.throwIfAborted();
+                  await onActivated();
+                })
+              }
+            >
+              {ui("Discover linked documents")}
+            </Button>
+          ) : null}
+          <IconButton
             size="sm"
-            disabled={disabled || busy || tracking.recovering || tracking.uncertain}
-            pending={action === "load"}
+            aria-label={searchVisible ? ui("Hide search") : ui("Show search")}
+            aria-expanded={searchVisible}
             onClick={() => {
-              if (draft) {
-                selectionControl.current = null;
-                setDraft({ ...draft, editingRoots: true });
-              } else loadDraft();
+              if (!searchVisible) {
+                setSearchOpen(true);
+                return;
+              }
+              setSearchOpen(false);
+              setSearchInput("");
+              if (search) {
+                setSearch("");
+                setPaging({ authority, previous: [] });
+              }
             }}
           >
-            {pending ? ui("Edit replacement proposal") : ui("Edit selection")}
-          </Button>
-        ) : null}
-      </div>
-      {draft ? (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-subtle px-4 py-2.5"
-        >
-          <p className="text-sm font-medium text-content-primary">
-            {changeCount
-              ? ui("Editing selection — {{count}} changes", { count: changeCount })
-              : ui("Editing selection — no changes yet")}
-          </p>
-          {draftActions}
+            <Search aria-hidden="true" />
+          </IconButton>
+          <Popover>
+            <PopoverTrigger asChild>
+              <IconButton size="sm" className="relative" aria-label={ui("Filter selected content")}>
+                <SlidersHorizontal aria-hidden="true" />
+                {kind ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1 right-1 size-1.5 rounded-full bg-primary"
+                  />
+                ) : null}
+              </IconButton>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56">
+              <label className="flex flex-col gap-1.5">
+                <span className="font-secondary-action text-content-primary">
+                  {ui("Content type")}
+                </span>
+                <select
+                  aria-label={ui("Content type")}
+                  className={inputVariants()}
+                  value={kind}
+                  onChange={(event) => {
+                    setKind(event.target.value as typeof kind);
+                    setPaging({ authority, previous: [] });
+                  }}
+                >
+                  <option value="">{ui("All types")}</option>
+                  <option value="FOLDER">{ui("Folders")}</option>
+                  <option value="FILE">{ui("Files")}</option>
+                  <option value="LINKED">{ui("Linked documents")}</option>
+                </select>
+              </label>
+              <Button prominence="tertiary" disabled={!filtered} onClick={clearFilters}>
+                {ui("Clear filters")}
+              </Button>
+            </PopoverContent>
+          </Popover>
         </div>
-      ) : null}
+      </div>
       {operation || tracking.recovering || tracking.uncertain ? (
         <div className="space-y-2 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm">
           {operation ? (
@@ -589,126 +642,140 @@ export function GoogleDriveSelectionPanel({
         </Button>
       ) : null}
       {configuration.scopeMode === "SPECIFIC" ? (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-content-muted">
-              {configuration.discoveredAt
-                ? ui("Last discovery · {{v1}}", {
-                    v1: new Date(configuration.discoveredAt).toLocaleString(uiLocale()),
-                  })
-                : ui("No discovery yet.")}
-            </p>
-            <Button
-              prominence="secondary"
-              disabled={disabled || busy || Boolean(draft) || pending}
-              pending={action === "discover"}
-              onClick={() =>
-                void perform("discover", async (signal) => {
-                  await discoverGoogleDriveLinkedDocuments({
-                    path: { sourceId },
-                    headers: {
-                      ...sameOriginMutationHeaders,
-                      "If-Match": `"${configuration.revision}"`,
-                    },
-                    signal,
-                    throwOnError: true,
-                  });
-                  signal.throwIfAborted();
-                  await onActivated();
-                })
-              }
-            >
-              {ui("Discover linked documents")}
-            </Button>
+        <section
+          aria-label={ui("File and folder links")}
+          className="space-y-3 rounded-lg border border-border-subtle p-4"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-medium text-content-primary">
+              {ui("File and folder links")}
+            </h3>
+            {!draft?.editingRoots ? (
+              <IconButton
+                ref={editButton}
+                size="sm"
+                aria-label={pending ? ui("Edit replacement proposal") : ui("Edit selection")}
+                title={pending ? ui("Edit replacement proposal") : ui("Edit selection")}
+                disabled={disabled || busy || tracking.recovering || tracking.uncertain}
+                pending={action === "load"}
+                onClick={() => {
+                  if (draft) {
+                    selectionControl.current = null;
+                    setDraft({ ...draft, editingRoots: true });
+                  } else loadDraft();
+                }}
+              >
+                <Pencil />
+              </IconButton>
+            ) : null}
           </div>
-          {rootChanges ? (
-            <p className="text-xs text-content-muted">
+          {draft ? (
+            <div
+              className="space-y-3 rounded-lg border border-border-default p-4"
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
+                  event.preventDefault();
+                  setDraft(null);
+                  setError(null);
+                }
+              }}
+            >
+              <GoogleDriveLinks
+                policy={policy.data}
+                scopeMode={configuration.scopeMode}
+                value={draft.links}
+                inputRef={input}
+                disabled={controlsDisabled || conflicted}
+                errorMessage=""
+                showLabel={false}
+                actions={draftActions}
+                onChange={(value) => {
+                  if (tracking.terminal) tracking.forget();
+                  setDraft({ ...draft, links: value });
+                  setError(null);
+                }}
+              />
+            </div>
+          ) : savedLinks.isPending ? (
+            <p role="status" className="text-sm text-content-muted">
+              {ui("Loading saved links…")}
+            </p>
+          ) : savedLinks.isError ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <p role="alert" className="text-sm text-status-danger-content">
+                {ui(sourceMutationError(savedLinks.error, "google-drive"))}
+              </p>
+              <Button
+                prominence="secondary"
+                size="sm"
+                pending={savedLinks.isFetching}
+                onClick={() => void savedLinks.refetch()}
+              >
+                {ui("Retry")}
+              </Button>
+            </div>
+          ) : savedLinks.data ? (
+            <GoogleDriveLinks
+              policy={policy.data}
+              scopeMode="SPECIFIC"
+              value={savedLinks.data.links.join("\n")}
+              disabled={false}
+              readOnly
+              onChange={() => {}}
+            />
+          ) : null}
+        </section>
+      ) : null}
+      {configuration.scopeMode === "SPECIFIC" && configuration.discoveryErrors.length ? (
+        <details className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
+          <summary className="min-h-11 cursor-pointer">
+            {ui("Discovery could not check")} {configuration.discoveryErrors.length} {ui("inputs")}
+          </summary>
+          <ul>
+            {configuration.discoveryErrors.map((failure) => (
+              <li key={`${failure.fileId}:${failure.code}`} className="break-words">
+                {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {searchVisible ? (
+        <form
+          className="flex flex-col gap-2 sm:flex-row sm:items-center"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSearch(searchInput.trim());
+            setPaging({ authority, previous: [] });
+          }}
+        >
+          <label className="min-w-0 flex-1">
+            <span className="sr-only">{ui("Search selected content")}</span>
+            <Input
+              autoFocus
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder={ui("Search selected content")}
+            />
+          </label>
+          <HelpPopover label={ui("Search scope")}>
+            <p>
               {ui(
-                "The list below shows the active selection, not the unverified links in your draft.",
+                "Search covers selected folders, files, linked documents and files inside selected folders. Folder contents become searchable after the source syncs.",
               )}
             </p>
-          ) : null}
-          {configuration.discoveryErrors.length ? (
-            <details className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
-              <summary className="min-h-11 cursor-pointer">
-                {ui("Discovery could not check")} {configuration.discoveryErrors.length}{" "}
-                {ui("inputs")}
-              </summary>
-              <ul>
-                {configuration.discoveryErrors.map((failure) => (
-                  <li key={`${failure.fileId}:${failure.code}`} className="break-words">
-                    {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-        </>
-      ) : null}
-      <form
-        className="flex flex-col gap-2 sm:flex-row sm:items-center"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSearch(searchInput.trim());
-          setPaging({ authority, previous: [] });
-        }}
-      >
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">{ui("Search roots and linked documents")}</span>
-          <Input
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder={ui("Search roots and linked documents")}
-          />
-        </label>
-        <HelpPopover label={ui("Search scope")}>
-          <p>
-            {ui(
-              "Search covers selected folders, files and linked documents. To find files inside a folder, expand it in the tree below.",
-            )}
-          </p>
-        </HelpPopover>
-        <label>
-          <span className="sr-only">{ui("Content type")}</span>
-          <select
-            aria-label={ui("Content type")}
-            className={inputVariants()}
-            value={kind}
-            onChange={(event) => {
-              setKind(event.target.value as typeof kind);
-              setPaging({ authority, previous: [] });
-            }}
-          >
-            <option value="">{ui("All types")}</option>
-            <option value="FOLDER">{ui("Folders")}</option>
-            <option value="FILE">{ui("Files")}</option>
-            <option value="LINKED">{ui("Linked documents")}</option>
-          </select>
-        </label>
-        <Button type="submit" prominence="secondary" size="sm">
-          {ui("Search")}
-        </Button>
-      </form>
-      {filtered ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-content-muted">
-            {ui(
-              "Filtered results · Each matching selected root or linked target appears once, across the full selection index. Folder descendants are browsed in the tree.",
-            )}
-          </p>
-          <Button
-            prominence="tertiary"
-            onClick={() => {
-              setSearchInput("");
-              setSearch("");
-              setKind("");
-              setPaging({ authority, previous: [] });
-            }}
-          >
-            {ui("Clear filters")}
+          </HelpPopover>
+          <Button type="submit" prominence="secondary" size="sm">
+            {ui("Search")}
           </Button>
-        </div>
-      ) : (
+        </form>
+      ) : null}
+      {rootChanges ? (
+        <p className="text-xs text-content-muted">
+          {ui("The list below shows the active selection, not the unverified links in your draft.")}
+        </p>
+      ) : null}
+      {filtered ? null : (
         <GoogleDriveSelectionTree
           key={authority}
           sourceId={sourceId}
@@ -748,12 +815,6 @@ export function GoogleDriveSelectionPanel({
           ) : null}
           {pageMatches ? (
             <>
-              <p className="text-xs text-content-muted">
-                {page.counts.folders.toLocaleString(uiLocale())} {ui("folders ·")}{" "}
-                {page.counts.files.toLocaleString(uiLocale())} {ui("files")}
-                {" · "}
-                {page.counts.linkedDocuments.toLocaleString(uiLocale())} {ui("linked documents")}
-              </p>
               {rows.length ? (
                 <ul
                   aria-label={ui("Selection results")}
@@ -773,113 +834,60 @@ export function GoogleDriveSelectionPanel({
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-content-muted">
-                  {ui(
-                    "No matching selected roots or linked documents on this page. Browse folders in the tree to see their files.",
-                  )}
-                </p>
+                <Empty className="py-8">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <SearchX aria-hidden="true" />
+                    </EmptyMedia>
+                    <EmptyTitle>{ui("No matching items")}</EmptyTitle>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button prominence="secondary" onClick={clearFilters}>
+                      {ui("Clear filters")}
+                    </Button>
+                  </EmptyContent>
+                </Empty>
               )}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-content-muted">
-                  {rows.length} {ui("items on this page")}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    aria-label={ui("Previous selection page")}
-                    prominence="secondary"
-                    disabled={!previous.length || selection.isFetching}
-                    onClick={() =>
-                      setPaging({
-                        authority,
-                        cursor: previous.at(-1),
-                        previous: previous.slice(0, -1),
-                      })
-                    }
-                  >
-                    {ui("Previous")}
-                  </Button>
-                  <Button
-                    aria-label={ui("Next selection page")}
-                    prominence="secondary"
-                    disabled={!page.nextCursor || selection.isFetching}
-                    onClick={() =>
-                      setPaging({
-                        authority,
-                        cursor: page.nextCursor ?? undefined,
-                        previous: [...previous, cursor],
-                      })
-                    }
-                  >
-                    {ui("Next")}
-                  </Button>
+              {previous.length || page.nextCursor ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-content-muted">
+                    {rows.length} {ui("items on this page")}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      aria-label={ui("Previous selection page")}
+                      prominence="secondary"
+                      disabled={!previous.length || selection.isFetching}
+                      onClick={() =>
+                        setPaging({
+                          authority,
+                          cursor: previous.at(-1),
+                          previous: previous.slice(0, -1),
+                        })
+                      }
+                    >
+                      {ui("Previous")}
+                    </Button>
+                    <Button
+                      aria-label={ui("Next selection page")}
+                      prominence="secondary"
+                      disabled={!page.nextCursor || selection.isFetching}
+                      onClick={() =>
+                        setPaging({
+                          authority,
+                          cursor: page.nextCursor ?? undefined,
+                          previous: [...previous, cursor],
+                        })
+                      }
+                    >
+                      {ui("Next")}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </>
           ) : null}
         </>
-      ) : null}
-      {configuration.scopeMode === "SPECIFIC" ? (
-        <section
-          aria-label={ui("File and folder links")}
-          className="space-y-3 rounded-lg border border-border-subtle p-4"
-        >
-          <h3 className="text-sm font-medium text-content-primary">
-            {ui("File and folder links")}
-          </h3>
-          {draft ? (
-            <div
-              className="space-y-3 rounded-lg border border-border-default p-4"
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
-                  event.preventDefault();
-                  setDraft(null);
-                  setError(null);
-                }
-              }}
-            >
-              <GoogleDriveLinks
-                policy={policy.data}
-                scopeMode={configuration.scopeMode}
-                value={draft.links}
-                inputRef={input}
-                disabled={controlsDisabled || conflicted}
-                errorMessage=""
-                onChange={(value) => {
-                  if (tracking.terminal) tracking.forget();
-                  setDraft({ ...draft, links: value });
-                  setError(null);
-                }}
-              />
-            </div>
-          ) : savedLinks.isPending ? (
-            <p role="status" className="text-sm text-content-muted">
-              {ui("Loading saved links…")}
-            </p>
-          ) : savedLinks.isError ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <p role="alert" className="text-sm text-status-danger-content">
-                {ui(sourceMutationError(savedLinks.error, "google-drive"))}
-              </p>
-              <Button
-                prominence="secondary"
-                size="sm"
-                pending={savedLinks.isFetching}
-                onClick={() => void savedLinks.refetch()}
-              >
-                {ui("Retry")}
-              </Button>
-            </div>
-          ) : savedLinks.data ? (
-            <GoogleDriveLinks
-              policy={policy.data}
-              scopeMode="SPECIFIC"
-              value={savedLinks.data.links.join("\n")}
-              disabled={false}
-              readOnly
-              onChange={() => {}}
-            />
-          ) : null}
-        </section>
       ) : null}
     </section>
   );
