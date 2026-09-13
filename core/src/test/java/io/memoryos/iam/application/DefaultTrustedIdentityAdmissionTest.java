@@ -11,6 +11,7 @@ import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.GroupProvisioner;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.InitialTenantBootstrapRequest;
@@ -20,12 +21,14 @@ import io.memoryos.iam.TrustedIdentityAdmission;
 import io.memoryos.iam.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.persistence.GroupMembershipRepository;
 import io.memoryos.iam.persistence.GroupRepository;
+import io.memoryos.iam.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.persistence.IamLockRepository;
 import io.memoryos.iam.persistence.JpaExternalIdentityRegistry;
 import io.memoryos.iam.persistence.JpaTenantMembershipProvisioner;
 import io.memoryos.iam.persistence.JpaTenantRepository;
 
 import java.sql.SQLException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -102,6 +105,14 @@ class DefaultTrustedIdentityAdmissionTest {
                         WHERE gm.actor_id = :actor
                         """)
                 .param("actor", actor.value()).query(String.class).single());
+        var authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), locks);
+        assertEquals(
+                Set.of(IamCapability.SYSTEM_BASIC, IamCapability.SEARCH_READ,
+                        IamCapability.CHAT_READ, IamCapability.CHAT_WRITE,
+                        IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE),
+                authorization.effectiveCapabilities(actor)
+        );
+        assertEquals(Set.of(), authorization.scopedCapabilities(actor));
         assertEquals(owner, admission.admit(TENANT, new ExternalIdentity(ISSUER, "owner")));
         assertEquals("OWNER", jdbc.sql("SELECT role FROM tenant_memberships WHERE actor_id = :actor")
                 .param("actor", owner.value()).query(String.class).single());

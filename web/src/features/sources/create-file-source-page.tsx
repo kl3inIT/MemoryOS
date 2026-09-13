@@ -9,6 +9,11 @@ import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { Select } from "@/components/ui/select";
+import {
+  useApplicationSession,
+  useCapabilityAuthority,
+} from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
@@ -26,6 +31,10 @@ import { SourceGroupPicker } from "./source-group-picker";
 export function CreateFileSourcePage() {
   const ui = useAppTranslation();
 
+  const session = useApplicationSession();
+  const authority = useCapabilityAuthority("SOURCES_MANAGE");
+  const scoped = authority === "scoped";
+  const [access, setAccess] = useState<"PUBLIC" | "RESTRICTED">(scoped ? "RESTRICTED" : "PUBLIC");
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: "/admin/sources/new/file" });
   const notify = useActionNotifications();
@@ -35,7 +44,7 @@ export function CreateFileSourcePage() {
   const { pendingFinalize, setPendingFinalize } = useSourceUploadRecovery();
   const [sourceName, setSourceName] = useState("");
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
-  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(scoped);
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [uploadAccepted, setUploadAccepted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -50,6 +59,19 @@ export function CreateFileSourcePage() {
   const blocked = Boolean(pendingFinalize && !ownPending);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
+
+  const authorityKey = `${session.actorId}:${session.authorizationVersion}:${authority}`;
+  const [previousAuthorityKey, setPreviousAuthorityKey] = useState(authorityKey);
+  if (previousAuthorityKey !== authorityKey) {
+    setPreviousAuthorityKey(authorityKey);
+    setGroupIds(new Set());
+    setAccess(scoped ? "RESTRICTED" : "PUBLIC");
+    setGroupPickerOpen(scoped);
+  }
+
+  useEffect(() => {
+    controllerRef.current?.abort();
+  }, [authorityKey]);
 
   function selectFiles(files: FileList | null) {
     if (busy || pendingFinalize || uploadAccepted || !files?.length) return;
@@ -76,7 +98,15 @@ export function CreateFileSourcePage() {
   }
 
   async function submit() {
-    if (controllerRef.current || blocked || !file || !sourceName.trim()) return;
+    if (
+      authority === "none" ||
+      (!sourceId && scoped && groupIds.size === 0) ||
+      controllerRef.current ||
+      blocked ||
+      !file ||
+      !sourceName.trim()
+    )
+      return;
     const controller = new AbortController();
     controllerRef.current = controller;
     setError(null);
@@ -99,6 +129,7 @@ export function CreateFileSourcePage() {
             body: {
               name: sourceName.trim(),
               groupIds: groupIds.size > 0 ? [...groupIds] : undefined,
+              access: scoped ? "RESTRICTED" : access,
             },
             headers: sameOriginMutationHeaders,
             signal: controller.signal,
@@ -216,6 +247,28 @@ export function CreateFileSourcePage() {
               className="mt-2"
             />
           </div>
+          <div className="space-y-2">
+            <label htmlFor="file-source-access" className="font-secondary-action">
+              {ui("Visibility")}
+            </label>
+            {scoped ? (
+              <p className="font-secondary-body text-content-muted">
+                {ui(
+                  "Private · only members of the selected groups can search and read these files.",
+                )}
+              </p>
+            ) : (
+              <Select
+                id="file-source-access"
+                value={access}
+                disabled={busy || Boolean(sourceId)}
+                onChange={(event) => setAccess(event.target.value as "PUBLIC" | "RESTRICTED")}
+              >
+                <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
+                <option value="RESTRICTED">{ui("Private · selected group members")}</option>
+              </Select>
+            )}
+          </div>
           <details
             open={groupPickerOpen}
             onToggle={(event) => setGroupPickerOpen(event.currentTarget.open)}
@@ -228,11 +281,17 @@ export function CreateFileSourcePage() {
                     {ui("Access groups")}
                   </span>
                   <span className="mt-0.5 block font-secondary-body text-content-muted">
-                    {ui("Optional · defaults to the protected Admin group")}
+                    {scoped
+                      ? ui("Required · select groups you manage")
+                      : ui("Optional · associate ordinary groups")}
                   </span>
                 </span>
                 <span className="font-secondary-body tabular-nums text-content-muted">
-                  {groupIds.size > 0 ? ui("{{v1}} selected", { v1: groupIds.size }) : ui("Default")}
+                  {groupIds.size > 0
+                    ? ui("{{v1}} selected", { v1: groupIds.size })
+                    : scoped
+                      ? ui("Required")
+                      : ui("None")}
                 </span>
               </span>
             </summary>
@@ -240,13 +299,16 @@ export function CreateFileSourcePage() {
               <div className="border-t border-border-subtle p-4 sm:p-5">
                 <SourceGroupPicker
                   selected={groupIds}
+                  required={scoped}
                   disabled={busy || Boolean(sourceId)}
                   onChange={setGroupIds}
                 />
                 <p className="mt-3 font-secondary-body text-content-muted">
-                  {ui(
-                    "Leave the selection empty to associate the new Source with the protected Admin group.",
-                  )}
+                  {scoped
+                    ? ui("Select at least one managed group. New Sources are private.")
+                    : ui(
+                        "Leave the selection empty for no group associations. Global Source management does not require an association.",
+                      )}
                 </p>
               </div>
             ) : null}
@@ -376,7 +438,14 @@ export function CreateFileSourcePage() {
             <Button
               type="submit"
               pending={busy}
-              disabled={busy || blocked || !file || !sourceName.trim()}
+              disabled={
+                authority === "none" ||
+                (!sourceId && scoped && groupIds.size === 0) ||
+                busy ||
+                blocked ||
+                !file ||
+                !sourceName.trim()
+              }
             >
               <Upload />
               {uploadAccepted

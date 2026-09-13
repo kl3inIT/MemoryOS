@@ -47,6 +47,7 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
             transactions.executeWithoutResult(_ -> sources.requireIntent(work,intent));
             try (var connection=connections.openCredential(work.tenantId(),new CredentialId(Objects.requireNonNull(intent.credentialId())))) {
                 if (connection.credentialRevision()!=intent.credentialRevision()) throw SourceException.staleConfiguration();
+                transactions.executeWithoutResult(_ -> sources.requireIntent(work,intent));
                 var batch=new Batch(work,intent,connection.session(),started);
                 batch.verify();
             }
@@ -189,6 +190,7 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
         }
 
         private GoogleDriveProvider.FileMetadata metadata(String id) {
+            transactions.executeWithoutResult(_ -> sources.requireIntent(work,intent));
             var cached=selections.metadata(work,id);
             if (cached.isPresent()) return cached.get();
             if (calls>=32 || elapsed(started)>=30000) throw new ContinueBatch();

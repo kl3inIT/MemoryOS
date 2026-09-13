@@ -5,6 +5,7 @@ import io.memoryos.connector.GoogleDriveSelectionProcessor.Work;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.TenantId;
+import io.memoryos.iam.GroupId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -102,7 +103,8 @@ public class JdbcGoogleDriveSelectionRepository {
 
     public SelectionReceipt submit(TenantId tenant, ActorId actor, UUID request, String hash, SourceId source,
             CredentialId credential, long credentialRevision, long scopeRevision, long discoveryRevision,
-            ScopeMode mode, @Nullable String name, List<String> roots, List<LinkedDocument> approvals, SelectionPolicy policy) {
+            ScopeMode mode, @Nullable String name, List<String> roots, List<LinkedDocument> approvals, SelectionPolicy policy,
+            List<GroupId> groupIds) {
         jdbc.sql("""
                 UPDATE google_drive_selection_operations SET status='SUPERSEDED', completed_at=CURRENT_TIMESTAMP,
                     claim_token=NULL, lease_expires_at=NULL,error_code='SELECTION_SUPERSEDED'
@@ -113,15 +115,17 @@ public class JdbcGoogleDriveSelectionRepository {
         jdbc.sql("""
                 INSERT INTO google_drive_selection_operations(id,tenant_id,source_id,actor_id,request_id,request_hash,
                     credential_id,credential_revision,scope_revision,discovery_revision,scope_mode,source_name,
-                    max_requests,max_metadata,max_roots,max_request_bytes,origin_trace_id,origin_span_id)
+                    max_requests,max_metadata,max_roots,max_request_bytes,origin_trace_id,origin_span_id,group_ids)
                 VALUES(:id,:tenant,:source,:actor,:request,:hash,:credential,:credentialRevision,:scope,:discovery,
-                    :mode,:name,:requests,:metadata,:roots,:bytes,:trace,:span)
+                    :mode,:name,:requests,:metadata,:roots,:bytes,:trace,:span,CAST(:groups AS jsonb))
                 """).param("id",id).param("tenant",tenant.value()).param("source",source.value()).param("actor",actor.value())
                 .param("request",request).param("hash",hash).param("credential",credential.value())
                 .param("credentialRevision",credentialRevision).param("scope",scopeRevision).param("discovery",discoveryRevision)
                 .param("mode",mode.name()).param("name",name).param("requests",Math.min(100000,policy.maxExplicitRootsPerSource()*64+4096))
                 .param("metadata",Math.min(50000,policy.maxExplicitRootsPerSource()*32+4096))
                 .param("roots",policy.maxExplicitRootsPerSource()).param("bytes",policy.maxRequestBytes())
+                .param("groups", groupIds.stream().map(idValue -> "\"" + idValue.value() + "\"")
+                        .collect(java.util.stream.Collectors.joining(",", "[", "]")))
                 .param("trace",trace == null ? null : trace.traceId()).param("span",trace == null ? null : trace.spanId()).update();
         for (String root : mode == ScopeMode.GENERAL ? List.of("root") : roots)
             entry(tenant,id,root,"ROOT",false,null,null);
@@ -182,7 +186,17 @@ public class JdbcGoogleDriveSelectionRepository {
                 .param("tenant",work.tenantId().value()).param("id",work.operationId().value()).query((r,n) -> new Intent(
                         new ActorId(r.getObject("actor_id",UUID.class)),r.getObject("credential_id",UUID.class),
                         r.getLong("credential_revision"),r.getLong("scope_revision"),r.getLong("discovery_revision"),
-                        ScopeMode.valueOf(r.getString("scope_mode")),r.getString("source_name"))).single();
+                        ScopeMode.valueOf(r.getString("scope_mode")),r.getString("source_name"),
+                        groupIds(work))).single();
+    }
+
+    private List<GroupId> groupIds(Work work) {
+        return jdbc.sql("""
+                SELECT value FROM google_drive_selection_operations,
+                  jsonb_array_elements_text(group_ids) AS selected(value)
+                WHERE tenant_id=:tenant AND id=:id ORDER BY value
+                """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
+                .query((r, _) -> new GroupId(UUID.fromString(r.getString("value")))).list();
     }
 
     public List<Entry> entries(Work work) {
@@ -261,7 +275,7 @@ public class JdbcGoogleDriveSelectionRepository {
                 JdbcSourceRepository.instant(r,"completed_at"),r.getString("error_code"));
     }
     public record Intent(ActorId actorId,@Nullable UUID credentialId,long credentialRevision,long scopeRevision,
-            long discoveryRevision,ScopeMode scopeMode,@Nullable String name) {}
+            long discoveryRevision,ScopeMode scopeMode,@Nullable String name,List<GroupId> groupIds) {}
     public record Entry(String id,String kind,boolean wasSelected,boolean verified,boolean covered,String status,
             @Nullable String name,@Nullable String mimeType) {}
 }

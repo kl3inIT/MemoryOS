@@ -2,7 +2,7 @@
 
 | Requirement | Durable verification |
 | --- | --- |
-| First startup creates the exact Tenant/Actor/membership aggregate, `STANDARD` account classification, Admin/Basic Groups, owner system memberships and the Admin `IAM_ADMIN` grant; identical startup replays it idempotently | `core/src/test/java/io/memoryos/iam/application/DefaultInitialTenantBootstrapperTest.java` — `createsTheExactInitialIamAggregateAndReplaysTheSameConfiguration` |
+| First startup creates the exact Tenant/Actor/membership aggregate, `STANDARD` account classification, Admin/Basic Groups, owner system memberships and the Admin `SYSTEM_ADMIN` grant; identical startup replays it idempotently | `core/src/test/java/io/memoryos/iam/application/DefaultInitialTenantBootstrapperTest.java` — `createsTheExactInitialIamAggregateAndReplaysTheSameConfiguration` |
 | Concurrent startup publishes one aggregate through the bootstrap-state lock | `DefaultInitialTenantBootstrapperTest.serializesConcurrentStartupAndCreatesOneAggregate` |
 | Bootstrap configuration drift fails without changing the published aggregate | `DefaultInitialTenantBootstrapperTest.rejectsConfigurationDriftWithoutChangingTheExistingAggregate` |
 | Failure during system-Group provisioning rolls back mixed JPA Actor, binding, Tenant, membership and Group writes | `DefaultInitialTenantBootstrapperTest.rollsBackMixedJpaWritesWhenGroupProvisioningFails` |

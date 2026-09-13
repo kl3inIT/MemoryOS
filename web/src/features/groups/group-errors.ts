@@ -13,6 +13,8 @@ type GroupMutation =
 export function groupMutationError(error: unknown, mutation: GroupMutation) {
   if (error instanceof ApiError) {
     const code = problemCode(error);
+    if (code === "IAM_LAST_GROUP_PROTECTED")
+      return "This change would leave a standard user without a group. Add them to another group first, then try again.";
     if (error.status === 401) return "Your session expired. Sign in and try again.";
     if (error.status === 403) return "You no longer have permission to make this change.";
     if (error.status === 404) {
@@ -31,7 +33,7 @@ export function groupMutationError(error: unknown, mutation: GroupMutation) {
       if (mutation === "create" || mutation === "rename")
         return "Enter a valid, unique group name.";
       if (mutation === "sources")
-        return "Every source must stay associated with at least one group.";
+        return "Source associations must use ordinary groups. Scoped managers must retain at least one group and manage every associated group.";
       return "The requested group change is not valid.";
     }
     if (code && /^[A-Z][A-Z0-9_]{2,80}$/.test(code)) {

@@ -1,5 +1,7 @@
 # Search verification matrix
 
+These entries identify retained regression contracts and prior evidence, not passing verification of the merge with main `3e4e318`. The active Basic Access/private FILE changes and upstream private Chat readers must be verified together before a merged-tree acceptance claim.
+
 | Contract | Evidence |
 | --- | --- |
 | Bounded checksum-verified artifact reads release object/reader resources on rejection; Vietnamese headings/page provenance; merged/repeated table headers, numeric values, row provenance, wide/oversized table bounds and bounded Unicode | `DocumentChunkServiceTest`, `StructuredDocumentChunkerTest` |
@@ -22,12 +24,16 @@
 | Adjacent-hit sections in document order; best-hit score/anchor; gaps; duplicate ordinals; stale generation/source exclusion; deterministic ties; limit three sections after merging; per-chunk provenance without neighbor reads | `DocumentSearchServiceTest` |
 | Dedicated centered Search landing and reduced-motion-aware dock transition; no `+`/attachment/Source action in the Search composer; browser-supported voice transcript without auto-submit/audio upload plus unsupported/permission feedback; fixed-size pending spinner without Cancel, post-submit Radix time/file-type menus, result workspace/file-type facet, bounded snippets/literal highlights/friendly metadata, paging/retry/empty requests, responsive dialog, section switching, Escape close and focus return, with extracted markup retained as text | `web/src/features/search/search-page.test.tsx`, `web/src/features/search/search-presentation.test.ts`, `web/tests/e2e/search.spec.ts`; component tests plus browser HTTP fixtures |
 | Existing identity/navigation/Source browser behavior with Chat home and Search at `/search` | `identity-shell.spec.ts`, Search page unit tests |
+| Active Tenant members without global SEARCH_READ cannot execute direct search or read passages; checks precede provider/document IO and do not bypass Source eligibility | DocumentSearchServiceTest grant-denial/eligibility regressions |
+| Basic Search authority mounts the normal Search/reader UI; missing global Search authority mounts no protected query subtree | Search page unit tests and Basic Access browser verification |
+| Direct Search and preview reject Search-grant revocation during provider IO; private hits/passages cannot survive revoked Group eligibility | `DocumentSearchServiceTest.directSearchRejectsGrantRevocationDuringProviderIo`, `directSearchDropsPrivateHitsWhenMembershipIsRevokedDuringProviderIo`, `previewRejectsGroupRevocationDuringIndexWindowRead`, `previewRejectsSearchGrantRevocationDuringIndexWindowRead`; current merge run pending |
+| Private FILE content requires current Group membership regardless of management or creator authority; Drive remains excluded | `SourceSearchMetadataMigrationTest.privateFilesRequireCurrentGroupMembershipRegardlessOfManagementOrCreationAuthority`; current merge run pending |
 
 The following acceptance evidence remains distinct: approved OpenAI embeddings over representative Vietnamese/identifier/table corpora; provider cost and latency/concurrency; complete deployed FILE→MinIO→worker→OpenSearch→API→browser; native Google input where its provider exists; configured snapshot restore/catch-up and production RPO/RTO. Test fixtures do not stand in for those measurements. Current runs and blockers are recorded in the [active verification log](../increments/completed/mem-46-search/verification.md).
 
 
 ## Shared grounded retrieval (MEM-11 Phase 3.1)
 
-- `DocumentSearchServiceTest`: denied/stale candidates are removed before RRF; ranks deduplicate chunks and honor query weights; expansion accepts only members of a backend-created result set, uses its Tenant/generation, and never calls ACL again. Independent preview checks current permission and avoids PostgreSQL content reads.
+- `DocumentSearchServiceTest`: denied/stale candidates are removed before RRF; ranks deduplicate chunks and honor query weights. Expansion accepts only members of a backend-created Actor/Tenant/Source-bound result set and rechecks current origins and generation before and after neighbor IO. Independent preview rechecks current permission after index IO. Private Chat-file readers retain their separate scope/generation checks. This supersedes the earlier no-repeat-ACL expansion contract; historical runs do not prove the merged behavior.
 - `OpenSearchRetrievalIntegrationTest`: real OpenSearch 3.8.0 receives 25 indexed chunks; verifies bounded middle/tail/past-end windows, title/count/provenance and Tenant/generation isolation without embedding calls for reads. A short keyword query calls embeddings and retains both lexical-only and semantic-only hits through the shared hybrid pipeline. Existing indexing/reuse/repair tests remain in the same runtime fixture.
-- Principal ACL-aware top-k is not established by these tests. PUBLIC FILE eligibility remains the current production policy.
+- General Search permits eligible PUBLIC FILE and private FILE with current associated-Group membership; neither creator nor Source-management authority bypasses that policy. These tests do not establish Google Drive ACL-aware retrieval or expose private Chat attachments through general Search.

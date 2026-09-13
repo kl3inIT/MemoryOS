@@ -31,22 +31,23 @@ When a bearer token accompanies a browser cookie, the bearer determines that req
 
 Application membership/Group revocation and provider session revocation are separate contracts. Current local JWT validation does not introspect Keycloak, and Actor-only browser sessions do not implement incoming OIDC logout. Application-initiated logout invalidates the local session and returns the provider logout location; this does not establish propagation from Keycloak or an upstream IdP. The configured session timeout defaults to 30 minutes of inactivity, not an absolute authentication lifetime.
 
-`GET /api/identity/me` returns one repeatable-read IAM presentation/authority projection. For example, an admitted Actor with explicit `GROUPS_READ`:
+`GET /api/identity/me` returns one repeatable-read IAM presentation/authority projection. For example, an admitted Basic member with an additional explicit `GROUPS_MANAGE` grant:
 
 ```json
 {
   "actorId": "<uuid>",
+  "uiLanguage": "en",
   "tenant": {
     "displayName": "Tasco",
     "role": "MEMBER"
   },
-  "capabilities": ["GROUPS_READ"],
+  "capabilities": ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE", "IMAGE_GENERATE", "LLM_GATEWAY_USE", "GROUPS_MANAGE", "GROUPS_READ"],
   "scopedCapabilities": [],
   "authorizationVersion": 7
 }
 ```
 
-Capabilities come from current Group grants, not membership role. A Basic-only active member has empty capability sets. A bound Actor without active membership receives `tenant: null`, empty global/scoped sets and revision `0`; ordinary browser admission still requires active Tenant authority. The projection suppresses forbidden UI but never authorizes a server operation. Every protected API resolves durable authority for the operation. Sessions retain no capabilities, Group edges or revision.
+Capabilities come from current Group grants, not membership role. A Basic-only active member has global `SYSTEM_BASIC` and its five derived child tokens, with no scoped or administrative capabilities. Reserved future tokens describe permission vocabulary, not feature availability. A bound Actor without active membership receives `tenant: null`, empty global/scoped sets and revision `0`; ordinary browser admission still requires active Tenant authority. The projection suppresses forbidden UI but never authorizes a server operation. Every implemented protected API resolves durable authority for the operation. Sessions retain no capabilities, Group edges or revision.
 
 ## Trusted browser JIT admission
 
@@ -62,9 +63,27 @@ Realm reconciliation maps the Keycloak User Session Note `identity_provider` int
 
 `AccountType` belongs to Actor and is neither a membership role nor a permission. Only persisted `STANDARD` interactive accounts are implemented; Users exposes that classification for membership rows. Invitations do not fabricate an Actor or account classification before admission. No bot, anonymous, service-account, SCIM or Requests creation/control surface exists.
 
-Explicit capabilities are `IAM_ADMIN`, `USERS_MANAGE`, `GROUPS_READ`, `GROUPS_MANAGE`, `SOURCES_READ`, `SOURCES_MANAGE` and `SOURCES_DELETE`. Authority is the union of active membership's Group grants, expanded centrally: `IAM_ADMIN` implies all implemented capabilities; `GROUPS_MANAGE` implies `GROUPS_READ`; `SOURCES_MANAGE` and `SOURCES_DELETE` each imply `SOURCES_READ`. No effective-permission cache or role-derived fallback exists.
+Code-defined capabilities include SYSTEM_BASIC, SYSTEM_ADMIN, four assignable administrative capabilities (USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE), derived GROUPS_READ/SOURCES_READ/SOURCES_DELETE and five Basic child tokens. SYSTEM_ADMIN expands to every enum value; SYSTEM_BASIC implies SEARCH_READ, CHAT_READ, CHAT_WRITE, IMAGE_GENERATE and LLM_GATEWAY_USE. GROUPS_MANAGE implies GROUPS_READ; SOURCES_MANAGE implies Source read/delete. Derived tokens cannot be persisted directly. Main implements Chat with membership/resource authorization; its Chat tokens remain reserved for granular capability enforcement, while image/gateway features remain absent. Full Admin does not bypass active Tenant/membership, protected account guards or independent resource eligibility.
 
-Every Tenant has protected Admin and Basic system Groups. Only Admin may carry `IAM_ADMIN`, and Admin accepts no other explicit grant; Basic accepts none. The owner belongs to both. Invitation acceptance and trusted JIT admission add only a non-manager Basic edge. Ordinary Groups carry explicit non-admin grants and an `isManager` flag on individual membership edges, not a global manager role. Tenant-qualified keys prevent cross-Tenant associations.
+Every Tenant has protected Admin and Basic system Groups storing exactly SYSTEM_ADMIN and SYSTEM_BASIC. The owner belongs to both; invitation acceptance and trusted JIT add only a non-manager Basic edge. Ordinary Groups carry explicit administrative grants and a per-membership manager flag. Tenant-qualified keys prevent cross-Tenant associations. V43 seeds Basic and advances affected revisions; V44 renames system grants while preserving existing model grants. Published main V1–V42 are not rewritten.
+
+V45 revokes standalone GROUPS_READ without upgrading it to GROUPS_MANAGE. Group reads remain derived from Manage groups/Admin or scoped to managed groups. Basic and USERS_MANAGE do not gain global Group reads. Source selection uses its SOURCES_MANAGE-authorized identity projection; Users membership editing remains SYSTEM_ADMIN-only and Group-filter options require current read authority.
+
+V46 makes Manage Sources the only Source switch, covering global read/create/configuration/upload/reindex/removal/deletion. It revokes standalone read/delete grants without promotion and advances revisions for affected grants or existing Source managers. V47 adds scoped ownership/operations; V48 enforces ordinary-only Source associations. Scoped rights are concrete resource policy, not global deletion authority; the narrow existing non-public groupless-creator cleanup exception is defined in the Connector matrix. Main MODELS_MANAGE remains independently grantable and is not implied by Source management.
+
+The capability registry supplies labels, descriptions, editability and implications for every enum value, including noneditable derived capabilities. Reserved future permissions are described as such rather than advertised as implemented features. Admin implication metadata includes all other capabilities, excluding itself. Group detail uses an Onyx-style collapsible permission card. System Admin displays exactly one disabled Administrator access (SYSTEM_ADMIN) switch; Basic displays exactly one disabled Basic access (SYSTEM_BASIC) switch. Checked state reflects the persisted explicit grant, not implications or the Group name. No other administrative, Source or derived rows appear for system Groups; ordinary Groups expose editable grants only. Browser labels/descriptions use account-language copy keyed by stable capability IDs; user-provided Group names are not translated and system behavior is keyed by `systemKey`.
+
+The Groups list keeps protected defaults before ordinary Groups, separated visually, with truthful member counts and detail navigation. Its Onyx-aligned layout uses a centered 840px column, scoped light/dark surfaces, an information banner, debounced server search and compact cards. Pagination remains server-driven when needed. Creation and inline rename appear only with the corresponding authority/actions; rename retains the same-origin request guard. No connector, document-set or agent counts are invented from missing API data.
+
+System detail follows Onyx's Edit Group layout: users icon/header, Cancel and settings Save Changes, blue System group notice, readonly Group Name and compact Name/Account Type member table with search, authorized Add/removal and bounded pagination. System Groups do not mount Source-sharing controls or issue their queries. Existing member commands persist immediately; Save Changes applies only dirty editable settings and stays disabled when none exist. Existing owner/final-admin protection and ordinary-Group manager operations remain enforced.
+
+Users/Groups identity glyphs use the shared Onyx-derived SVG module: user for Users/Standard accounts, users for Groups, user-manage for administrator/management presentation, plus/check/x for user lifecycle and user-shield for group-manager controls. Navigation, group selectors/associations and invitation identity presentation reuse the same paths. No authority or action semantics are inferred from an icon.
+
+Group Name, Group Members and Group Permissions use the same section-heading typography. The member identity column shows email only (or an explicit unavailable-email state), without display names or Owner/Manager/Inactive badges; Account Type and authorized actions remain. User-profile details belong in Users. Group Permissions has no section subtitle; individual permission descriptions remain. Hiding identity badges does not change protected-owner or manager authorization.
+
+Ordinary Group Permissions is mounted only when the Group action projection includes `manage_grants`. Without it, scoped managers and global Group administrators see neither the section nor readonly switches, and the detail page does not enable the capability-registry query. Loss of the action hides the section on projection refresh. System-group readonly bundle presentation remains unchanged.
+
+The member section has mutually exclusive browse/add modes, one shared search toolbar and only the active mode's list and pagination. Add opens eligible candidates; Done restores the existing member filter without a mutation; adding selected users persists through the guarded command and returns to member browsing. Empty candidate results must not leave the member table or a second pager underneath.
 
 `IamAuthorization` resolves `GLOBAL`, `SCOPED` or `NONE`. A global capability authorizes its operation across the Tenant. Without it, an ordinary-Group manager receives only eligible scoped Group/Source operations on concrete associated resources. Invalid or inactive authority fails closed. Read projections filter scope before exposing rows or totals.
 
@@ -75,9 +94,10 @@ Every Tenant has protected Admin and Basic system Groups. Only Admin may carry `
 | Create/rename/delete ordinary Groups | Global `GROUPS_MANAGE`; system Groups remain protected |
 | Add/remove ordinary Group members | Global `GROUPS_MANAGE` or own managed Group, subject to delegation and protected-membership checks |
 | Assign/remove an ordinary Group's manager flag | Global `GROUPS_MANAGE`; scoped management cannot change manager status |
-| Replace explicit Group grants | Global `IAM_ADMIN` |
-| Change Admin membership or replace a User's ordinary Groups | Global `IAM_ADMIN`; preserve system edges and retained manager flags in ordinary-membership replacement |
+| Replace explicit Group grants | Global `SYSTEM_ADMIN` |
+| Change Admin membership or replace a User's ordinary Groups | Global `SYSTEM_ADMIN`; preserve system edges and retained manager flags in ordinary-membership replacement |
 | Source operations and associations | The [Connector management matrix](connector.md#management-authority-and-group-associations) |
+| Search and document passage reads | Global `SEARCH_READ`, followed by existing Source/document eligibility checks; this does not grant Source administration or universal document access |
 
 A scoped manager cannot remove another manager membership, including their own, as an indirect manager-status mutation. Group commands revalidate delegation under the authority lock. Protected Groups cannot be deleted or renamed, the configured owner cannot lose protected authority, and the final active `STANDARD` administrator cannot be removed or deactivated.
 
@@ -109,6 +129,8 @@ User/invitation/group-edit failures consume the shared typed problem presenter a
 V13 adds one optional latest-observation row per Actor in `actor_profiles`. `display_name` and `email` are nullable; `email_verified`, `observed_at` and exact `issuer`/`subject` provenance are required. A composite foreign key requires provenance to name an existing binding for the same Actor. Profile recording creates no Actor, membership or provider credential state. V14 adds Account Type and authorization revision and invalidates existing serialized Spring Sessions for the `ActorId` namespace cutover. V15 adds the protected Group/grant model and seeds existing memberships.
 
 Flyway owns the schema under `core/src/main/resources/db/migration/`. Applied migrations are immutable.
+
+There are 48 migrations in the merged layout. Historical local Basic/scoped-source V37–V42 map to current V43–V48; they must not be confused with main's published V37–V42. A database already carrying the old feature history cannot start this layout until deliberate data-preserving history/schema reconciliation; no automatic reset or checksum repair is authorized. See the [migration mapping and cutover warning](../../ARCHITECTURE.md#data-ownership-and-consistency). Prior verification is historical, not proof of the current merge.
 
 ## Binding lifecycle boundary
 

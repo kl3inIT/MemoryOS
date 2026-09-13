@@ -162,6 +162,14 @@ final class GroupsController {
 
     @Operation(operationId = "deleteGroup", summary = "Delete an ordinary Group")
     @ApiResponse(responseCode = "204", description = "Group links and grants deleted", content = @Content)
+    @ApiResponse(
+            responseCode = "409",
+            description = "IAM_LAST_GROUP_PROTECTED: a standard member would lose their last Group",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
+            )
+    )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/delete")
     void deleteGroup(
@@ -235,6 +243,14 @@ final class GroupsController {
 
     @Operation(operationId = "removeGroupMember", summary = "Remove one member from a Group")
     @ApiResponse(responseCode = "204", description = "Member removed", content = @Content)
+    @ApiResponse(
+            responseCode = "409",
+            description = "The final active administrator or a standard member's last Group is protected",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
+            )
+    )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/members/{actorId}/remove")
     void removeGroupMember(

@@ -197,7 +197,7 @@ class ChatSessionApiIntegrationTest {
     @BeforeEach
     @SuppressWarnings("resource") // Mockito records a factory call; the runtime cache owns the actual client.
     void actors() {
-        when(sourceSearch.scope(any())).thenReturn(new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT),
+        when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
         doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
                 call.getArgument(1), call.getArgument(2), model), () -> {}))

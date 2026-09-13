@@ -1787,7 +1787,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor lacks IAM_ADMIN authority or the same-origin header
+          description: The actor lacks SYSTEM_ADMIN authority or the same-origin header
             is missing
           content:
             application/problem+json:
@@ -1961,6 +1961,43 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/rename:
+    post:
+      tags:
+      - Sources
+      summary: Rename one source
+      operationId: renameSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameSourceRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items/{itemId}/remove:
     post:
       tags:
@@ -2121,6 +2158,43 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/google-drive/pause:
+    post:
+      tags:
+      - Sources
+      summary: Pause or resume future automatic Google Drive synchronization
+      operationId: updateGoogleDrivePause
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGoogleDrivePauseRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/google-drive/linked-documents/discover:
     post:
       tags:
@@ -2185,6 +2259,43 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/access:
+    post:
+      tags:
+      - Sources
+      summary: Update FILE source access
+      operationId: updateSourceAccess
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSourceAccessRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2730,6 +2841,13 @@ paths:
       responses:
         "204":
           description: Member removed
+        "409":
+          description: The final active administrator or a standard member's last
+            Group is protected
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2823,6 +2941,13 @@ paths:
       responses:
         "204":
           description: Group links and grants deleted
+        "409":
+          description: "IAM_LAST_GROUP_PROTECTED: a standard member would lose their\
+            \ last Group"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6366,6 +6491,8 @@ components:
           type: integer
           format: int64
           minimum: 1
+        syncPaused:
+          type: boolean
         scopeMode:
           type: string
           enum:
@@ -6420,6 +6547,7 @@ components:
       - scopeMode
       - sourceId
       - syncIntervalMinutes
+      - syncPaused
     GoogleDriveDiscoveryErrorResponse:
       type: object
       additionalProperties: false
@@ -7205,57 +7333,7 @@ components:
       required:
       - item
       - operation
-    UpdateSourceGroupsRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        groupIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          maxItems: 100
-          maxLength: 100
-          minItems: 0
-          minLength: 1
-      required:
-      - groupIds
-    CreateGoogleDriveSourceRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        requestId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-        credentialId:
-          type: string
-          format: uuid
-        scopeMode:
-          type: string
-          description: GENERAL includes the connected account's My Drive tree; SPECIFIC
-            includes selected links.
-          enum:
-          - GENERAL
-          - SPECIFIC
-        links:
-          type: array
-          description: Empty for GENERAL; distinct non-overlapping links bounded by
-            the selection policy for SPECIFIC.
-          items:
-            type: string
-            maxLength: 2048
-            minLength: 0
-      required:
-      - credentialId
-      - links
-      - name
-      - requestId
-      - scopeMode
-    CreateFileSourceRequest:
+    RenameSourceRequest:
       type: object
       additionalProperties: false
       properties:
@@ -7263,15 +7341,6 @@ components:
           type: string
           maxLength: 120
           minLength: 0
-        groupIds:
-          type:
-          - array
-          - "null"
-          items:
-            type: string
-            format: uuid
-          maxItems: 100
-          minItems: 0
       required:
       - name
     SourceSummary:
@@ -7307,6 +7376,19 @@ components:
           type: array
           items:
             type: string
+            enum:
+            - upload
+            - reindex
+            - remove_items
+            - delete
+            - manage_groups
+            - rename
+            - manage_access
+            - manage_configuration
+            - synchronize
+            - manage_schedule
+            - pause_sync
+            - resume_sync
       required:
       - access
       - actions
@@ -7318,6 +7400,120 @@ components:
       - pendingWork
       - status
       - type
+    UpdateSourceGroupsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        groupIds:
+          type: array
+          description: Ordinary groups. Global managers may clear all groups; scoped
+            managers must retain at least one managed group.
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          maxLength: 100
+          minItems: 0
+      required:
+      - groupIds
+    UpdateGoogleDrivePauseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        paused:
+          type: boolean
+      required:
+      - expectedRevision
+      - paused
+    UpdateSourceAccessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        access:
+          type: string
+          enum:
+          - PUBLIC
+          - RESTRICTED
+      required:
+      - access
+    CreateGoogleDriveSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        scopeMode:
+          type: string
+          description: GENERAL includes the connected account's My Drive tree; SPECIFIC
+            includes selected links.
+          enum:
+          - GENERAL
+          - SPECIFIC
+        links:
+          type: array
+          description: Empty for GENERAL; distinct non-overlapping links bounded by
+            the selection policy for SPECIFIC.
+          items:
+            type: string
+            maxLength: 2048
+            minLength: 0
+        groupIds:
+          type:
+          - array
+          - "null"
+          description: Ordinary groups; at least one managed group is required for
+            scoped managers. Global creation may omit groups.
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+      required:
+      - credentialId
+      - links
+      - name
+      - requestId
+      - scopeMode
+    CreateFileSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        groupIds:
+          type:
+          - array
+          - "null"
+          description: Ordinary groups; at least one managed group is required for
+            scoped managers. Global creation may omit groups.
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+        access:
+          type:
+          - string
+          - "null"
+          enum:
+          - PUBLIC
+          - RESTRICTED
+      required:
+      - name
     SearchRequest:
       type: object
       properties:
@@ -7538,7 +7734,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -7597,7 +7799,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -8739,7 +8947,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -8754,7 +8968,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -8922,7 +9142,13 @@ components:
         id:
           type: string
           enum:
-          - IAM_ADMIN
+          - SYSTEM_ADMIN
+          - SYSTEM_BASIC
+          - SEARCH_READ
+          - CHAT_READ
+          - CHAT_WRITE
+          - IMAGE_GENERATE
+          - LLM_GATEWAY_USE
           - USERS_MANAGE
           - GROUPS_READ
           - GROUPS_MANAGE
@@ -8941,7 +9167,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -8982,8 +9214,13 @@ components:
         sourceCount:
           type: integer
           format: int64
+        actions:
+          type: array
+          items:
+            type: string
       required:
       - accountEmail
+      - actions
       - createdAt
       - credentialRevision
       - id

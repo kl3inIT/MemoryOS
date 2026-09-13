@@ -1,3 +1,5 @@
 *
 !Dockerfile
 !tesseract
+!memoryos_docling/
+!memoryos_docling/*.py

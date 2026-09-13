@@ -2,16 +2,24 @@ package io.memoryos.iam.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.ActorId;
+import io.memoryos.iam.GroupId;
 import io.memoryos.iam.GroupProvisioner;
+import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.IamException;
+import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.TenantId;
 import io.memoryos.iam.persistence.GroupCapabilityGrantRepository;
+import io.memoryos.iam.persistence.GroupEntity;
 import io.memoryos.iam.persistence.GroupMembershipRepository;
 import io.memoryos.iam.persistence.GroupRepository;
 
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -86,7 +94,7 @@ class PostgresGroupProvisionerTest {
         transactions.executeWithoutResult(_ -> provisioner.addToBasicGroup(TENANT, INACTIVE_MEMBER));
 
         assertEquals(2L, count("iam_groups"));
-        assertEquals(1L, count("iam_group_capability_grants"));
+        assertEquals(2L, count("iam_group_capability_grants"));
         assertEquals(1L, jdbc.sql("""
                         SELECT COUNT(*)
                         FROM iam_group_capability_grants grant_record
@@ -95,10 +103,22 @@ class PostgresGroupProvisionerTest {
                          AND group_record.id = grant_record.group_id
                         WHERE group_record.tenant_id = :tenantId
                           AND group_record.system_key = 'ADMIN'
-                          AND grant_record.capability = 'IAM_ADMIN'
+                          AND grant_record.capability = 'SYSTEM_ADMIN'
                         """)
                 .param("tenantId", TENANT.value())
                 .query(Long.class)
+                .single());
+        assertEquals("SYSTEM_BASIC", jdbc.sql("""
+                        SELECT grant_record.capability
+                        FROM iam_group_capability_grants grant_record
+                        JOIN iam_groups group_record
+                          ON group_record.tenant_id = grant_record.tenant_id
+                         AND group_record.id = grant_record.group_id
+                        WHERE group_record.tenant_id = :tenantId
+                          AND group_record.system_key = 'BASIC'
+                        """)
+                .param("tenantId", TENANT.value())
+                .query(String.class)
                 .single());
         assertEquals(2L, membershipCount(OWNER));
         assertEquals(1L, membershipCount(INACTIVE_MEMBER));
@@ -126,6 +146,57 @@ class PostgresGroupProvisionerTest {
                 .param("actorId", INACTIVE_MEMBER.value())
                 .query(String.class)
                 .single());
+    }
+
+    @Test
+    void repositoryRejectsProtectedGrantReplacementWithoutRemovingExistingAuthority() {
+        transactions.executeWithoutResult(_ -> provisioner.bootstrap(TENANT, OWNER));
+        var groupRepository = new GroupRepository(jpa.entityManager());
+        var grantRepository = new GroupCapabilityGrantRepository(jpa.entityManager());
+        var ordinaryId = new GroupId(UUID.randomUUID());
+        transactions.executeWithoutResult(_ -> {
+            var ordinary = new GroupEntity(groupRepository.tenantReference(TENANT),
+                    ordinaryId.value(), "Ordinary", null);
+            groupRepository.persist(ordinary);
+            grantRepository.replace(ordinary, Set.of(IamCapability.USERS_MANAGE));
+        });
+
+        for (Set<IamCapability> requested : Set.of(
+                Set.<IamCapability>of(),
+                Set.of(IamCapability.SEARCH_READ),
+                Set.of(IamCapability.CHAT_READ),
+                Set.of(IamCapability.CHAT_WRITE),
+                Set.of(IamCapability.IMAGE_GENERATE),
+                Set.of(IamCapability.LLM_GATEWAY_USE),
+                Set.of(IamCapability.GROUPS_READ),
+                Set.of(IamCapability.SOURCES_READ),
+                Set.of(IamCapability.SOURCES_DELETE),
+                Set.of(IamCapability.SYSTEM_BASIC, IamCapability.USERS_MANAGE),
+                Set.of(IamCapability.SYSTEM_ADMIN)
+        )) {
+            var failure = assertThrows(IamException.class, () -> transactions.executeWithoutResult(_ ->
+                    grantRepository.replace(groupRepository.findSystem(TENANT, GroupSystemKey.BASIC)
+                            .orElseThrow(), requested)));
+            assertEquals(IamFailureReason.GROUP_PROTECTED.code(), failure.code());
+        }
+        for (IamCapability reserved : Set.of(
+                IamCapability.SYSTEM_BASIC, IamCapability.SEARCH_READ, IamCapability.SYSTEM_ADMIN,
+                IamCapability.CHAT_READ, IamCapability.CHAT_WRITE,
+                IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE, IamCapability.GROUPS_READ,
+                IamCapability.SOURCES_READ, IamCapability.SOURCES_DELETE
+        )) {
+            var failure = assertThrows(IamException.class, () -> transactions.executeWithoutResult(_ ->
+                    grantRepository.replace(groupRepository.find(TENANT, ordinaryId).orElseThrow(),
+                            Set.of(IamCapability.USERS_MANAGE, reserved))));
+            assertEquals(IamFailureReason.GROUP_PROTECTED.code(), failure.code());
+        }
+        transactions.executeWithoutResult(_ -> {
+            assertEquals(Set.of(IamCapability.SYSTEM_BASIC),
+                    grantRepository.findCapabilities(groupRepository.findSystem(TENANT, GroupSystemKey.BASIC)
+                            .orElseThrow()));
+            assertEquals(Set.of(IamCapability.USERS_MANAGE),
+                    grantRepository.findCapabilities(groupRepository.find(TENANT, ordinaryId).orElseThrow()));
+        });
     }
 
     private void persistMember(ActorId actorId, String role, String status) {

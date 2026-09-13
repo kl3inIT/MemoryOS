@@ -14,6 +14,7 @@ import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.TenantId;
 import io.memoryos.iam.persistence.GroupProjectionRepository;
+import io.memoryos.iam.persistence.GroupInvariantRepository;
 import io.memoryos.iam.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.persistence.IamLockRepository;
 
@@ -108,13 +109,18 @@ class PostgresIamAuthorizationTest {
                         IamCapability.GROUPS_MANAGE,
                         IamCapability.GROUPS_READ,
                         IamCapability.SOURCES_MANAGE,
-                        IamCapability.SOURCES_READ
+                        IamCapability.SOURCES_READ,
+                        IamCapability.SOURCES_DELETE
                 ),
                 authorization.effectiveCapabilities(ACTOR)
         );
         assertEquals(
                 Authority.GLOBAL,
                 authorization.require(ACTOR, IamCapability.GROUPS_READ, false).authority()
+        );
+        assertEquals(
+                Authority.GLOBAL,
+                authorization.require(ACTOR, IamCapability.SOURCES_DELETE, false).authority()
         );
         assertEquals(Set.of(), authorization.scopedCapabilities(ACTOR));
 
@@ -158,9 +164,25 @@ class PostgresIamAuthorizationTest {
                 Authority.SCOPED,
                 authorization.require(ACTOR, IamCapability.SOURCES_MANAGE, true).authority()
         );
+        assertEquals(
+                Authority.SCOPED,
+                authorization.require(ACTOR, IamCapability.GROUPS_READ, true).authority()
+        );
+        assertThrows(
+                IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.GROUPS_READ, false)
+        );
         assertThrows(
                 IamException.class,
                 () -> authorization.require(ACTOR, IamCapability.USERS_MANAGE, true)
+        );
+        assertThrows(
+                IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.SOURCES_DELETE, true)
+        );
+        assertThrows(
+                IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.SOURCES_DELETE, false)
         );
 
         jdbc.sql("""
@@ -208,11 +230,44 @@ class PostgresIamAuthorizationTest {
     }
 
     @Test
-    void rejectsReservedOrBasicGroupGrantsAtTheDatabaseBoundary() {
-        assertThrows(
-                DataIntegrityViolationException.class,
-                () -> grant(GROUP_ONE, IamCapability.IAM_ADMIN)
+    void managedGroupOptionsAndValidationRejectOtherGroupsAndInactiveManagers() {
+        jdbc.sql("""
+                        UPDATE iam_group_memberships SET is_manager = TRUE
+                        WHERE tenant_id = :tenantId AND group_id = :groupId AND actor_id = :actorId
+                        """)
+                .param("tenantId", TENANT.value()).param("groupId", GROUP_ONE)
+                .param("actorId", ACTOR.value()).update();
+        var scope = new DefaultGroupScopeService(
+                new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)
         );
+        var page = scope.listManagedGroupOptions(TENANT, ACTOR, "On", 0, 1);
+        assertEquals(1, page.totalItems());
+        assertEquals(new GroupId(GROUP_ONE), page.items().getFirst().id());
+        assertEquals(0, scope.listManagedGroupOptions(TENANT, ACTOR, "Two", 0, 1).totalItems());
+        scope.validateManagedGroupIds(TENANT, ACTOR, Set.of(new GroupId(GROUP_ONE)));
+        assertEquals("IAM_GROUP_NOT_FOUND", assertThrows(IamException.class,
+                () -> scope.validateManagedGroupIds(TENANT, ACTOR,
+                        Set.of(new GroupId(GROUP_ONE), new GroupId(GROUP_TWO)))).code());
+        jdbc.sql("""
+                        UPDATE tenant_memberships SET status = 'INACTIVE'
+                        WHERE tenant_id = :tenantId AND actor_id = :actorId
+                        """)
+                .param("tenantId", TENANT.value()).param("actorId", ACTOR.value()).update();
+        assertEquals(0, scope.listManagedGroupOptions(TENANT, ACTOR, null, 0, 100).totalItems());
+        assertEquals("IAM_GROUP_NOT_FOUND", assertThrows(IamException.class,
+                () -> scope.validateManagedGroupIds(TENANT, ACTOR, Set.of(new GroupId(GROUP_ONE)))).code());
+    }
+
+    @Test
+    void rejectsReservedAndDerivedGrantsAtTheDatabaseBoundary() {
+        for (IamCapability capability : Set.of(
+                IamCapability.SYSTEM_ADMIN, IamCapability.SYSTEM_BASIC, IamCapability.SEARCH_READ,
+                IamCapability.CHAT_READ, IamCapability.CHAT_WRITE,
+                IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE, IamCapability.GROUPS_READ,
+                IamCapability.SOURCES_READ, IamCapability.SOURCES_DELETE
+        )) {
+            assertThrows(DataIntegrityViolationException.class, () -> grant(GROUP_ONE, capability));
+        }
         assertEquals(Set.of(), authorization.effectiveCapabilities(ACTOR));
 
         jdbc.sql("""
@@ -228,6 +283,58 @@ class PostgresIamAuthorizationTest {
                 () -> grant(GROUP_ONE, IamCapability.SOURCES_MANAGE)
         );
         assertEquals(Set.of(), authorization.effectiveCapabilities(ACTOR));
+    }
+
+    @Test
+    void basicGrantProvidesBaselineAndReservedRightsAndProjectsOnlyItsBundleUntilMembershipIsRevoked() {
+        jdbc.sql("""
+                        UPDATE iam_groups SET system_key = 'BASIC'
+                        WHERE tenant_id = :tenantId AND id = :groupId
+                        """)
+                .param("tenantId", TENANT.value()).param("groupId", GROUP_ONE).update();
+        grant(GROUP_ONE, IamCapability.SYSTEM_BASIC);
+
+        assertEquals(
+                Set.of(IamCapability.SYSTEM_BASIC, IamCapability.SEARCH_READ,
+                        IamCapability.CHAT_READ, IamCapability.CHAT_WRITE,
+                        IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE),
+                authorization.effectiveCapabilities(ACTOR)
+        );
+        assertEquals(Authority.GLOBAL,
+                authorization.require(ACTOR, IamCapability.SEARCH_READ, false).authority());
+        assertThrows(IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.SOURCES_READ, true));
+        assertThrows(IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.SOURCES_MANAGE, true));
+        assertThrows(IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.SOURCES_DELETE, true));
+        assertThrows(IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.USERS_MANAGE, true));
+        assertThrows(IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.GROUPS_READ, true));
+
+        var projections = new GroupProjectionRepository(jdbc);
+        assertEquals(Set.of(IamCapability.SYSTEM_BASIC),
+                projections.detail(TENANT, ACTOR, new GroupId(GROUP_ONE), true)
+                        .orElseThrow().capabilities());
+        assertEquals(Set.of(IamCapability.SYSTEM_BASIC),
+                projections.list(TENANT, ACTOR, true, new GroupQuery(null, 0, 100))
+                        .items().stream().filter(group -> group.id().value().equals(GROUP_ONE))
+                        .findFirst().orElseThrow().capabilities());
+
+        transaction.executeWithoutResult(_ -> {
+            locks.lockTenant(TENANT);
+            jdbc.sql("""
+                            DELETE FROM iam_group_memberships
+                            WHERE tenant_id = :tenantId AND group_id = :groupId AND actor_id = :actorId
+                            """)
+                    .param("tenantId", TENANT.value()).param("groupId", GROUP_ONE)
+                    .param("actorId", ACTOR.value()).update();
+        });
+        assertEquals(1, authorization.authorizationVersion(ACTOR));
+        assertEquals(Set.of(), authorization.effectiveCapabilities(ACTOR));
+        assertThrows(IamException.class,
+                () -> authorization.require(ACTOR, IamCapability.SEARCH_READ, false));
     }
 
     @Test
@@ -280,6 +387,49 @@ class PostgresIamAuthorizationTest {
                 IamException.class,
                 () -> authorization.require(ACTOR, IamCapability.SOURCES_MANAGE, false)
         );
+    }
+
+    @Test
+    void exclusiveScopedMutationRechecksManagerRoleAfterConcurrentRevoke() throws Exception {
+        jdbc.sql("""
+                        UPDATE iam_group_memberships SET is_manager = TRUE
+                        WHERE tenant_id = :tenantId AND group_id = :groupId AND actor_id = :actorId
+                        """)
+                .param("tenantId", TENANT.value()).param("groupId", GROUP_ONE)
+                .param("actorId", ACTOR.value()).update();
+        assertEquals(Authority.SCOPED, transaction.execute(_ ->
+                authorization.lockAndRequireScopedMutation(ACTOR, IamCapability.GROUPS_MANAGE).authority()));
+        CountDownLatch revokerLocked = new CountDownLatch(1);
+        CountDownLatch mutationReadAuthority = new CountDownLatch(1);
+        var waitingAuthorization = new DefaultIamAuthorization(
+                new IamAuthorizationRepository(jdbc),
+                new IamLockRepository(jdbc) {
+                    @Override
+                    public void lockTenant(TenantId tenantId) {
+                        mutationReadAuthority.countDown();
+                        super.lockTenant(tenantId);
+                    }
+                }
+        );
+        CompletableFuture<Void> revoker = CompletableFuture.runAsync(() -> transaction.executeWithoutResult(_ -> {
+            locks.lockTenant(TENANT);
+            jdbc.sql("""
+                            UPDATE iam_group_memberships SET is_manager = FALSE
+                            WHERE tenant_id = :tenantId AND group_id = :groupId AND actor_id = :actorId
+                            """)
+                    .param("tenantId", TENANT.value()).param("groupId", GROUP_ONE)
+                    .param("actorId", ACTOR.value()).update();
+            revokerLocked.countDown();
+            await(mutationReadAuthority);
+        }), executor);
+        assertTrue(revokerLocked.await(5, TimeUnit.SECONDS));
+        CompletableFuture<IamException> mutation = CompletableFuture.supplyAsync(() ->
+                assertThrows(IamException.class, () -> transaction.executeWithoutResult(_ ->
+                        waitingAuthorization.lockAndRequireScopedMutation(ACTOR, IamCapability.GROUPS_MANAGE))),
+                executor);
+        revoker.get(10, TimeUnit.SECONDS);
+        assertEquals("IAM_ACCESS_DENIED", mutation.get(10, TimeUnit.SECONDS).code());
+        assertEquals(2, authorization.authorizationVersion(ACTOR));
     }
 
     private void persistGroup(UUID groupId, String name) {
