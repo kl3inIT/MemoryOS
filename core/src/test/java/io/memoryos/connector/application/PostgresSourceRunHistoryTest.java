@@ -101,7 +101,7 @@ class PostgresSourceRunHistoryTest {
                 .param("tenant", tenant.value()).update();
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
                 .param("tenant", tenant.value()).param("actor", owner.value()).update();
-        sources = new JdbcSourceRepository(jdbc);
+        sources = new JdbcSourceRepository(jdbc, event -> { });
         var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.RESTRICTED)));
         source = pair.sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();

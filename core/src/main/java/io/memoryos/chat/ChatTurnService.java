@@ -90,6 +90,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try { return sendLocked(actor, session, command); }
@@ -155,6 +156,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Cancellation cancel(ActorId actor, UUID session, UUID assistant) {
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -166,6 +168,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
         var lock = commandLock(session);
         lock.lock();
         try {

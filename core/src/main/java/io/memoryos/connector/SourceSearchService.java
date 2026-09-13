@@ -23,7 +23,16 @@ public class SourceSearchService {
 
     public SourceSearchScope scope(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SourceException::notFound);
-        return new SourceSearchScope(tenant, actor, documents.searchableSources(tenant, actor));
+        return new SourceSearchScope(tenant, actor, documents.searchableSources(tenant, actor), documents.actorAccessTokens(tenant, actor));
+    }
+
+    /** Index access tokens for direct Search, which has no Source scope. */
+    public java.util.Set<String> accessTokens(TenantId tenant, ActorId actor) {
+        return documents.actorAccessTokens(tenant, actor);
+    }
+
+    public DocumentAccess indexAccess(TenantId tenant, DocumentId document) {
+        return documents.documentAccess(tenant, document.value());
     }
 
     public record SourceOption(UUID id, String name, SourceType type) {}

@@ -6488,6 +6488,62 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/documents/{documentId}:
+    get:
+      tags:
+      - Chat
+      summary: Read current document passages around a Chat citation
+      operationId: readChatDocumentPassages
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      responses:
+        "400":
+          description: Invalid passage window
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "CHAT_READ, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Document generation not readable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Authorized document passages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchDocument"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:

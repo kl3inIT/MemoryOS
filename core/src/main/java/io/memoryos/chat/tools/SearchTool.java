@@ -170,7 +170,8 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             var scope = search.scope(actor);
             if (!allowedSourceIds.isEmpty()) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
                     .filter(entry -> allowedSourceIds.contains(entry.getKey()))
-                    .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)));
+                    .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)),
+                    scope.accessTokens());
             var preparation = prepare(queries, scope, requestedFilters == null ? SearchFilters.NONE : requestedFilters);
             var expansion = preparation.expansion();
             var filters = preparation.filters();
@@ -212,17 +213,10 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                 choices = IntStream.rangeClosed(1, Math.min(limits.sections(), candidates.size()))
                         .boxed().toList();
             }
-            var selectedSections = new ArrayList<SearchSection>();
-            for (int choice : choices) {
-                checkActive.run();
-                var section = candidates.get(choice - 1);
-                try {
-                    timings.measure(Stage.EXPANSION, () -> search.expand(result, section, 0));
-                    selectedSections.add(section);
-                } catch (SearchDocumentUnavailableException revoked) {
-                    checkActive.run();
-                }
-            }
+            checkActive.run();
+            // Selection performed provider IO: recheck all chosen sections once before streaming their titles.
+            var selectedSections = search.authorizedSections(result, choices.stream().map(choice -> candidates.get(choice - 1)).toList());
+            checkActive.run();
             if (selectedSections.isEmpty())
                 return "No authorized evidence remains. Do not invent an organization-specific answer.";
             events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.EXPANDING, null, null, selectedSections.stream()
@@ -232,19 +226,17 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             var metadata = new LinkedHashMap<String, SearchHit>();
             var contexts = SearchTasks.run(selectedSections.stream().<Callable<List<SearchPage.Passage>>>map(section ->
                     () -> selectContext(result, section, selectionQuery)).toList(), checkActive);
+            checkActive.run();
+            // Classification and window reads performed provider IO: one final recheck before evidence is returned.
+            var withContext = IntStream.range(0, selectedSections.size()).filter(i -> !contexts.get(i).isEmpty())
+                    .mapToObj(selectedSections::get).toList();
+            var authorized = new java.util.HashSet<>(search.authorizedSections(result, withContext));
             for (int i = 0; i < selectedSections.size(); i++) {
                 checkActive.run();
                 var selectedSection = selectedSections.get(i);
                 var hit = selectedSection.anchor();
                 var passages = contexts.get(i);
-                if (passages.isEmpty()) continue;
-                // Classification and other sections may have performed provider IO since expansion.
-                try { timings.measure(Stage.EXPANSION, () -> search.expand(result, selectedSection, 0)); }
-                catch (SearchDocumentUnavailableException revoked) {
-                    checkActive.run();
-                    continue;
-                }
-                checkActive.run();
+                if (passages.isEmpty() || !authorized.contains(selectedSection)) continue;
                 String key = hit.documentId() + ":" + hit.generation();
                 metadata.putIfAbsent(key, hit);
                 var ordered = groups.computeIfAbsent(key, ignored -> new TreeMap<>());
@@ -420,8 +412,9 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         var hit = section.anchor();
         var main = section.passages();
         List<SearchPage.Passage> adjacent;
-        try { adjacent = timings.measure(Stage.EXPANSION, () -> search.expand(result, section, 2)); }
+        try { adjacent = timings.measure(Stage.EXPANSION, () -> search.window(result, section, 2)); }
         catch (SearchDocumentUnavailableException obsolete) {
+            // The indexed generation disappeared (deleted or replaced); it yields no evidence.
             checkActive.run();
             return List.of();
         } catch (SearchUnavailableException unavailable) {
@@ -452,7 +445,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             case FULL_DOCUMENT -> {
                 if (!neighbors) yield main;
                 checkActive.run();
-                try { yield timings.measure(Stage.EXPANSION, () -> search.expand(result, section, 5)); }
+                try { yield timings.measure(Stage.EXPANSION, () -> search.window(result, section, 5)); }
                 catch (SearchDocumentUnavailableException obsolete) {
                     checkActive.run();
                     yield List.of();

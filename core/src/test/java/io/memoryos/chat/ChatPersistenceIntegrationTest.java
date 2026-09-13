@@ -76,14 +76,15 @@ class ChatPersistenceIntegrationTest {
                         new JpaTenantRepository(jpa.entityManager()), new IamLockRepository(jdbc)),
                 TenantAccessResolver.class, jpa.transactionManager());
         var repository = new JdbcChatRepository(jdbc);
-        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, repository, new PersonaProperties(), new JdbcChatSearchRepository(jdbc)),
+        var authorization = mock(IamAuthorization.class);
+        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository, new PersonaProperties(), new JdbcChatSearchRepository(jdbc)),
                 ChatSessionService.class, jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
                 mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
-        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, repository, new PersonaProperties(), fileService,
+        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, new PersonaProperties(), fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants)));
         factory.setProxyTargetClass(true);
@@ -92,7 +93,6 @@ class ChatPersistenceIntegrationTest {
         tenant = tenant();
         owner = member(tenant);
         other = member(tenant);
-        var authorization = mock(IamAuthorization.class);
         when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE));
         when(authorization.effectiveCapabilities(other)).thenReturn(Set.of());
         var models = mock(ModelCatalogService.class);
@@ -103,8 +103,8 @@ class ChatPersistenceIntegrationTest {
         when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
                 new PersonaProperties(), models, sources, fileService), ChatPersonaService.class);
-        projects = service(new ChatProjectService(tenants, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
-        collaboration = service(new ChatCollaborationService(tenants, repository, jpa.repository(JpaChatSharingRepository.class),
+        projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
+        collaboration = service(new ChatCollaborationService(tenants, authorization, repository, jpa.repository(JpaChatSharingRepository.class),
                 jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
     }
 

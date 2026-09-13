@@ -1,5 +1,6 @@
 package io.memoryos.connector.persistence;
 
+import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.connector.SourceId;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupIdentity;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -18,9 +20,11 @@ import org.springframework.stereotype.Repository;
 public class JdbcSourceGroupRepository {
 
     private final JdbcClient jdbcClient;
+    private final ApplicationEventPublisher events;
 
-    public JdbcSourceGroupRepository(JdbcClient jdbcClient) {
+    public JdbcSourceGroupRepository(JdbcClient jdbcClient, ApplicationEventPublisher events) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+        this.events = Objects.requireNonNull(events, "events must not be null");
     }
 
     public List<GroupIdentity> list(TenantId tenantId, SourceId sourceId) {
@@ -58,6 +62,8 @@ public class JdbcSourceGroupRepository {
                 .param("tenantId", tenantId.value())
                 .param("sourceId", sourceId.value())
                 .update();
+        // Listeners run in this transaction; a rollback also discards their index work.
+        events.publishEvent(new SourceAccessChanged(tenantId, sourceId));
         if (values.isEmpty()) {
             return;
         }

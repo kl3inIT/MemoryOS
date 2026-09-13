@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getSearchDocument } from "@/lib/hey-api/sdk.gen";
+import { readChatDocumentPassages } from "@/lib/hey-api/sdk.gen";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { stripGeneratedTitlePrefix } from "@/features/search/search-presentation";
 import { useEffect, useRef, useSyncExternalStore } from "react";
@@ -301,7 +301,7 @@ function DocumentSourceExcerpt({
     ],
     queryFn: async ({ signal }) =>
       (
-        await getSearchDocument({
+        await readChatDocumentPassages({
           path: { documentId: source.documentId },
           query: { generation: source.generation, from },
           signal,

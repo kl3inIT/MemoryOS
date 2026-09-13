@@ -1,5 +1,6 @@
 package io.memoryos.connector.persistence;
 
+import io.memoryos.connector.DocumentAccess;
 import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceType;
@@ -98,6 +99,37 @@ public class JdbcSourceDocumentRepository {
                 }).list();
         return Map.copyOf(result);
     }
+
+    /** Index-time access over the same mappings that index metadata uses; no mapping means no access. */
+    public DocumentAccess documentAccess(TenantId tenant, UUID document) {
+        var rows = jdbcClient.sql("""
+                SELECT p.access_type,grant_row.group_id FROM documents_by_connector_credential_pair m
+                JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
+                JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
+                LEFT JOIN source_group_grants grant_row ON grant_row.tenant_id=p.tenant_id
+                    AND grant_row.connector_credential_pair_id=p.id
+                WHERE m.tenant_id=:tenant AND m.document_id=:document AND m.retrieval_eligible=TRUE
+                    AND c.status='ACTIVE' AND %s AND p.status<>'DELETING'
+                """.formatted(SEARCHABLE_SOURCE)).param("tenant", tenant.value()).param("document", document)
+                .query((rs, _) -> new AccessRow(rs.getString("access_type"), rs.getObject("group_id", UUID.class))).list();
+        boolean everyone = rows.stream().anyMatch(row -> "PUBLIC".equals(row.accessType()));
+        var tokens = rows.stream().filter(row -> !"PUBLIC".equals(row.accessType()) && row.groupId() != null)
+                .map(row -> DocumentAccess.group(row.groupId())).collect(java.util.stream.Collectors.toSet());
+        return new DocumentAccess(everyone, tokens);
+    }
+
+    /** The reader's current Group tokens; an inactive membership yields none. */
+    public Set<String> actorAccessTokens(TenantId tenant, ActorId actor) {
+        return jdbcClient.sql("""
+                SELECT member.group_id FROM iam_group_memberships member
+                JOIN tenant_memberships reader ON reader.tenant_id=member.tenant_id AND reader.actor_id=member.actor_id
+                    AND reader.status='ACTIVE'
+                WHERE member.tenant_id=:tenant AND member.actor_id=:actor
+                """).param("tenant", tenant.value()).param("actor", actor.value()).query(UUID.class).list()
+                .stream().map(DocumentAccess::group).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    private record AccessRow(String accessType, @Nullable UUID groupId) { }
 
     public List<io.memoryos.connector.SourceSearchService.SourceOption> searchableSourceOptions(TenantId tenant, ActorId actor, int offset, int limit) {
         if (offset < 0 || offset > 10000 || limit < 1 || limit > 100) throw new IllegalArgumentException("source page out of bounds");
