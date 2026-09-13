@@ -11,6 +11,8 @@ export type ChatUiMessage = UIMessage<{
   serverStatus?: ChatMessage["status"];
   createdAt?: string;
   finishedAt?: string | null;
+  /** Set by assistant-ui on a live question sent with a composer quote. */
+  custom?: { quote?: { text: string; messageId: string } };
   sources?: ChatSource[];
   searchProgress?: SearchProgress;
   artifacts?: ChatArtifact[];

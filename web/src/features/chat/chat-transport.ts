@@ -1,3 +1,4 @@
+import { injectQuoteContext } from "@assistant-ui/ai-sdk";
 import type { ChatTransport, UIMessageChunk } from "ai";
 import { z } from "zod";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
@@ -133,7 +134,9 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
-    const message = options.messages.at(-1);
+    const sent = options.messages.at(-1);
+    // A composer quote travels in metadata; the saved question carries it as a leading blockquote.
+    const message = sent && injectQuoteContext([sent])[0];
     const text =
       message?.parts
         .filter((part) => part.type === "text")

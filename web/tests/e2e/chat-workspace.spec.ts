@@ -776,3 +776,35 @@ test("restores an unsent question after reload and forgets it once sent", async 
   await expect(page.getByRole("main").getByText("Unsent draft", { exact: true })).toBeVisible();
   await expect(input).toHaveValue("");
 });
+
+test("quotes a selected answer passage into the next question and keeps it after reload", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Quote passage" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  const input = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await input.fill("First question");
+  await input.press("Enter");
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  await page.getByText("Here is an example:", { exact: true }).click({ clickCount: 3 });
+  await page.getByRole("button", { name: "Trích dẫn", exact: true }).click();
+  await expect(page.getByLabel("Đoạn trích dẫn")).toContainText("Here is an example:");
+  await input.fill("Explain this");
+  await input.press("Enter");
+  await expect(page.getByLabel("Đoạn trích dẫn")).toHaveCount(0);
+  const quote = page.getByRole("main").locator('[data-slot="quote-block"]');
+  await expect(quote).toContainText("Here is an example:");
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  const history = await (
+    await page.request.get(`/api/chat/sessions/${session.id}/messages`)
+  ).json();
+  expect(
+    history.find((message: { content: string }) => message.content.endsWith("Explain this"))
+      .content,
+  ).toBe("> Here is an example:\n\nExplain this");
+  await page.reload();
+  await expect(quote).toContainText("Here is an example:");
+  await expect(page.getByRole("main").getByText("Explain this", { exact: true })).toBeVisible();
+});

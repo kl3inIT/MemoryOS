@@ -42,3 +42,10 @@ Browser checks use the real local frontend with fixture backend/model responses,
 - Dictation was not implemented: the Web Speech adapter sends audio to the browser vendor's recognition service. The owner deferred it; no existing Linear issue covered it, so MEM-91 was created in Backlog.
 - Draft restore: typecheck, lint, format and i18n audit pass; chat unit tests 71/71. The new `chat-workspace.spec.ts` scenario types a question, reloads, finds it restored, sends it, reloads again and finds the composer empty.
 - Playwright, one worker: `chat-workspace`, `chat` and `chat-history-search` passed 47/48. The failure was `chat.spec.ts` "grounds prose citations…" missing the transient "Đang tìm trong tài liệu…" status within 5 s; it passed 2/2 on an immediate repeat and does not touch the composer, so it is recorded as a timing flake, not fixed.
+
+## Quote and image preview decision — 2026-09-13
+
+- Typecheck, lint, format and i18n audit pass; chat unit tests 72/72. `chat-transport.test.ts` checks that a composer quote is sent as `> First line\n> Second\n\nQuestion`.
+- The new `chat-workspace.spec.ts` scenario selects an answer paragraph, quotes it, sees the composer preview, sends a question, sees the quote block, reads the saved question text from the fixture history, reloads and still sees the quote block and question. Its first run failed only because the reloaded question text shared one element with the quote; the remainder is now its own span.
+- Playwright, one worker: `chat-workspace`, `chat` and `chat-history-search` passed 49/49.
+- Image thumbnails were not built by owner decision (see design); no code change.

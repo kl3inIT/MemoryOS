@@ -19,5 +19,5 @@
 - [x] Regenerate with another model from the authorized catalog; timestamps and duration on hover.
 - [x] ~~Dictation with the Web Speech adapter~~ — withdrawn by the owner (audio leaves MemoryOS); tracked as MEM-91.
 - [x] Composer draft restore per conversation (sessionStorage, same tab).
-- [ ] Quote a selected answer passage into the next question.
-- [ ] Image attachment thumbnails through the authorized file content.
+- [x] Quote a selected answer passage into the next question.
+- [x] ~~Image attachment thumbnails~~ — not added by owner decision; image chips already open the authorized reader.

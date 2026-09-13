@@ -216,6 +216,28 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(accepted).toHaveBeenCalledWith({ userMessageId: userId, assistantMessageId: runId });
   });
 
+  it("sends a composer quote as a leading blockquote of the question", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    await collect(
+      await new MemoryOsChatTransport(session).sendMessages({
+        chatId: session.id,
+        messageId: undefined,
+        abortSignal: undefined,
+        trigger: "submit-message",
+        messages: [
+          {
+            id: requestId,
+            role: "user",
+            metadata: { custom: { quote: { text: "First line\nSecond", messageId: runId } } },
+            parts: [{ type: "text", text: "Question" }],
+          },
+        ],
+      }),
+    );
+    const request = new Request(fetch.mock.calls[0]![0], fetch.mock.calls[0]![1]);
+    expect((await request.json()).text).toBe("> First line\n> Second\n\nQuestion");
+  });
+
   it("feeds sequenced sources into native message state once and retains them on Stop", async () => {
     const source = packet(2, "search", {
       toolCallId: "s1",
