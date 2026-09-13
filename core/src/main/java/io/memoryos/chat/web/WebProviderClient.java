@@ -35,34 +35,35 @@ public final class WebProviderClient {
     private List<Result> searchRequest(WebConnectionService.Connection connection, String query) throws IOException {
         if (query == null || query.isBlank() || query.length() > 2000) throw new IllegalArgumentException("Invalid Web query");
         String key = connections.key(connection);
+        String base = connection.endpoint().replaceAll("/+$", "");
         String url;
         Map<String, String> headers;
         Map<String, Object> body = null;
         String resultPath, urlKey = "url", textKey = "content";
         switch (connection.provider()) {
             case BRAVE -> {
-                url = "https://api.search.brave.com/res/v1/web/search?q=" + encode(query) + "&count=20";
+                url = (base.isEmpty() ? "https://api.search.brave.com" : base) + "/res/v1/web/search?q=" + encode(query) + "&count=20";
                 headers = Map.of("X-Subscription-Token", key); resultPath = "/web/results"; textKey = "description";
             }
             case TAVILY -> {
-                url = "https://api.tavily.com/search"; headers = bearer(key);
+                url = (base.isEmpty() ? "https://api.tavily.com" : base) + "/search"; headers = bearer(key);
                 body = Map.of("query", query, "max_results", 20, "search_depth", "basic", "include_answer", false);
                 resultPath = "/results";
             }
             case EXA -> {
-                url = "https://api.exa.ai/search"; headers = Map.of("x-api-key", key);
+                url = (base.isEmpty() ? "https://api.exa.ai" : base) + "/search"; headers = Map.of("x-api-key", key);
                 body = Map.of("query", query, "numResults", 20); resultPath = "/results"; textKey = "text";
             }
             case SERPER -> {
-                url = "https://google.serper.dev/search"; headers = Map.of("X-API-KEY", key);
+                url = (base.isEmpty() ? "https://google.serper.dev" : base) + "/search"; headers = Map.of("X-API-KEY", key);
                 body = Map.of("q", query, "num", 20); resultPath = "/organic"; urlKey = "link"; textKey = "snippet";
             }
             case GOOGLE_PSE -> {
-                url = "https://customsearch.googleapis.com/customsearch/v1?key=" + encode(key) + "&cx=" + encode(connection.engineId()) + "&q=" + encode(query) + "&num=10";
+                url = (base.isEmpty() ? "https://customsearch.googleapis.com" : base) + "/customsearch/v1?key=" + encode(key) + "&cx=" + encode(connection.engineId()) + "&q=" + encode(query) + "&num=10";
                 headers = Map.of(); resultPath = "/items"; urlKey = "link"; textKey = "snippet";
             }
             case SEARXNG -> {
-                url = connection.endpoint().replaceAll("/+$", "") + "/search?q=" + encode(query) + "&format=json";
+                url = base + "/search?q=" + encode(query) + "&format=json";
                 headers = key.isEmpty() ? Map.of() : bearer(key); resultPath = "/results";
             }
             default -> throw new IllegalArgumentException("Provider does not support search");
@@ -98,22 +99,23 @@ public final class WebProviderClient {
             return new Result(url, clipped(document.title().isBlank() ? url : document.title(), 1024), clipped(document.body().text(), 16000));
         }
         String key = connections.key(connection);
+        String base = connection.endpoint().replaceAll("/+$", "");
         JsonNode root;
         switch (connection.provider()) {
             case TAVILY -> {
-                root = json("POST", "https://api.tavily.com/extract", bearer(key), Map.of("urls", List.of(url)));
+                root = json("POST", (base.isEmpty() ? "https://api.tavily.com" : base) + "/extract", bearer(key), Map.of("urls", List.of(url)));
                 root = root.path("results").path(0);
                 if (root.isMissingNode()) throw new IOException("Web extraction failed");
                 return new Result(url, clipped(root.path("title").asString(url), 1024), clipped(root.path("raw_content").asString(""), 16000));
             }
             case EXA -> {
-                root = json("POST", "https://api.exa.ai/contents", Map.of("x-api-key", key), Map.of("ids", List.of(url), "text", true));
+                root = json("POST", (base.isEmpty() ? "https://api.exa.ai" : base) + "/contents", Map.of("x-api-key", key), Map.of("ids", List.of(url), "text", true));
                 root = root.path("results").path(0);
                 if (root.isMissingNode()) throw new IOException("Web extraction failed");
                 return new Result(url, clipped(root.path("title").asString(url), 1024), clipped(root.path("text").asString(""), 16000));
             }
             case FIRECRAWL -> {
-                root = json("POST", "https://api.firecrawl.dev/v2/scrape", bearer(key), Map.of("url", url, "formats", List.of("markdown"), "onlyMainContent", true));
+                root = json("POST", (base.isEmpty() ? "https://api.firecrawl.dev" : base) + "/v2/scrape", bearer(key), Map.of("url", url, "formats", List.of("markdown"), "onlyMainContent", true));
                 if (!root.path("success").asBoolean()) throw new IOException("Web extraction failed");
                 root = root.path("data");
                 return new Result(url, clipped(root.path("metadata").path("title").asString(url), 1024), clipped(root.path("markdown").asString(""), 16000));

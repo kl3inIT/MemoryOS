@@ -75,6 +75,11 @@ class WebProviderClientTest {
             assertTrue(result.getFirst().text().endsWith("text"), fixture.getKey().name());
         }
     }
+    @Test void configuredEndpointReplacesTheProviderDefaultBase() throws Exception {
+        when(http.provider(anyString(), any(), anyMap(), any())).thenReturn(response("{\"results\":[{\"url\":\"https://example.com\",\"title\":\"T\",\"text\":\"x\"}]}"));
+        client.search(connection(WebProvider.EXA), "example");
+        verify(http).provider(eq("POST"), argThat(uri -> uri.toString().startsWith("http://search.internal/search")), anyMap(), anyString());
+    }
     @Test void exaAndFirecrawlReturnExtractedTextAndRejectFailedExtraction() throws Exception {
         when(http.provider(anyString(), any(), anyMap(), any())).thenReturn(response("{\"results\":[{\"text\":\"Exa page\"}]}"));
         assertEquals("Exa page", client.read(connection(WebProvider.EXA), "https://example.com", () -> {}).text());

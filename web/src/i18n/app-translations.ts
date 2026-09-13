@@ -17,8 +17,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tùy chọn Web": "Web options",
   "Công cụ tìm kiếm": "Search engines",
   "Trình đọc trang Web": "Web crawler",
-  "Đọc nội dung đầy đủ của trang từ kết quả tìm kiếm hoặc đường dẫn bạn gửi.":
-    "Read the full page from search results or a link you send.",
   "Trình đọc MemoryOS": "MemoryOS Web Crawler",
   "Tích hợp sẵn, không cần khóa API.": "Built in. No API key required.",
   "Đang dùng": "Active",
@@ -48,6 +46,14 @@ export const vietnameseUi: Record<string, string> = {
   "Tìm kiếm Web": "Web search",
   "Tìm kiếm và đọc trang Web": "Search and read the Web",
   "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
+  "Chọn một công cụ tìm kiếm để bật tìm kiếm Web.": "Select a search engine to enable web search.",
+  "Cài đặt tìm kiếm bên ngoài trên internet.":
+    "Search settings for external search across the internet.",
+  "API tìm kiếm bên ngoài trả về đường dẫn, trích đoạn và siêu dữ liệu cho kết quả Web.":
+    "External search engine API used for web search result URLs, snippets, and metadata.",
+  "Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.":
+    "Used to read the full contents of search result pages.",
+  "Đặt làm mặc định": "Set as Default",
   "Cài đặt Web": "Web settings",
   "Mở trang gốc": "Open original page",
   "Không truy cập được nguồn Web.": "Could not access the Web source.",
@@ -55,8 +61,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đang tìm trên Web…": "Searching the Web…",
   "Nguồn Web: {{count}}": "Web sources: {{count}}",
   "Bạn không có quyền quản lý mô hình.": "You do not have permission to manage models.",
-  "Kết nối công cụ tìm kiếm và đọc trang. Exa và Tavily dùng chung một kết nối cho cả hai chức năng.":
-    "Connect search and page-reading providers. Exa and Tavily share one connection for both features.",
+  "Đã kết nối": "Connected",
   "Không tải được kết nối Web.": "Could not load Web connections.",
   "Tắt công cụ tìm kiếm": "Disable search engine",
   "Dùng trình đọc tích hợp": "Use built-in reader",
@@ -67,14 +72,16 @@ export const vietnameseUi: Record<string, string> = {
   "Địa chỉ SearXNG": "SearXNG address",
   "Mã công cụ tìm kiếm": "Search engine ID",
   "Đã lưu khóa; để trống để giữ nguyên": "Key saved; leave blank to keep it",
-  "Dùng để tìm kiếm": "Use for search",
-  "Dùng để đọc trang": "Use for reading",
-  "Kiểm tra tìm kiếm": "Test search",
-  "Kiểm tra đọc trang": "Test page reading",
-  "Kiểm tra kết nối có thể phát sinh phí từ nhà cung cấp.":
-    "Connection tests may incur provider charges.",
+  "Kiểm tra kết nối": "Test connection",
   "Kiểm tra kết nối thành công": "Connection test succeeded",
   "Không cập nhật hoặc kiểm tra được kết nối Web.": "Could not update or test the Web connection.",
+  "Tìm kiếm của nhà cung cấp mô hình": "Model provider search",
+  "Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.":
+    "No models on search-capable providers yet.",
+  "Địa chỉ tùy chỉnh (để trống dùng mặc định)": "Custom address (leave blank for default)",
+  "{{provider}} · Mô hình này không hỗ trợ công cụ nên không dùng được tìm kiếm.":
+    "{{provider}} · This model does not support tools, so search is unavailable.",
+  "Tìm kiếm Web của nhà cung cấp cho {{name}}": "Provider Web search for {{name}}",
   "Hội thoại được chia sẻ": "Shared conversation",
   "Đóng điều hướng": "Close navigation",
   "Mở điều hướng": "Open navigation",
