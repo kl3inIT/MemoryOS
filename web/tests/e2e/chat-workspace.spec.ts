@@ -759,3 +759,20 @@ test("regenerates with another catalog model and reveals answer timing on hover"
   expect(stats.selectedModels.at(-1)).toBe(qwen.id);
   await expect(page.getByRole("combobox", { name: "Chọn mô hình" })).toContainText("GPT-5 mini");
 });
+
+test("restores an unsent question after reload and forgets it once sent", async ({ page }) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Draft restore" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  const input = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await input.fill("Unsent draft");
+  await page.reload();
+  await expect(input).toHaveValue("Unsent draft");
+  await input.press("Enter");
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("main").getByText("Unsent draft", { exact: true })).toBeVisible();
+  await expect(input).toHaveValue("");
+});

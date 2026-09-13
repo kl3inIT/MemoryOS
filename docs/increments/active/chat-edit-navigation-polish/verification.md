@@ -36,3 +36,9 @@ Browser checks use the real local frontend with fixture backend/model responses,
 - Typecheck, lint, format and i18n audit pass; unit tests 40 files / 216 tests pass. `chat-transport.test.ts` asserts the live `createdAt` on the start chunk, terminal `finishedAt`, and `toUiMessages` timestamps.
 - Playwright (synthetic fixture, one worker): the new `chat-workspace.spec.ts` scenario opens the menu, regenerates with Qwen3.5 9B, sees version 2 / 2, confirms the fixture recorded that model, and checks the composer still shows GPT-5 mini. Timing is transparent until the answer is hovered, then reads `HH:MM · N giây`. A desktop screenshot of the open menu was reviewed. Full suites afterwards: `chat-workspace.spec.ts` 16/16 and `chat.spec.ts` 28/28 passed.
 - No live provider run. On touch screens the timing is not revealed (no hover); the full date remains in the tooltip for pointer users.
+
+## Dictation withdrawn and draft restore — 2026-09-13
+
+- Dictation was not implemented: the Web Speech adapter sends audio to the browser vendor's recognition service. The owner deferred it; no existing Linear issue covered it, so MEM-91 was created in Backlog.
+- Draft restore: typecheck, lint, format and i18n audit pass; chat unit tests 71/71. The new `chat-workspace.spec.ts` scenario types a question, reloads, finds it restored, sends it, reloads again and finds the composer empty.
+- Playwright, one worker: `chat-workspace`, `chat` and `chat-history-search` passed 47/48. The failure was `chat.spec.ts` "grounds prose citations…" missing the transient "Đang tìm trong tài liệu…" status within 5 s; it passed 2/2 on an immediate repeat and does not touch the composer, so it is recorded as a timing flake, not fixed.

@@ -17,7 +17,7 @@
 ## assistant-ui elements follow-up
 
 - [x] Regenerate with another model from the authorized catalog; timestamps and duration on hover.
-- [ ] Dictation with the Web Speech adapter, hidden when unsupported.
-- [ ] Composer draft restore per conversation.
+- [x] ~~Dictation with the Web Speech adapter~~ — withdrawn by the owner (audio leaves MemoryOS); tracked as MEM-91.
+- [x] Composer draft restore per conversation (sessionStorage, same tab).
 - [ ] Quote a selected answer passage into the next question.
 - [ ] Image attachment thumbnails through the authorized file content.

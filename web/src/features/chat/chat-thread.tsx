@@ -32,7 +32,7 @@ import {
   ChatSharedFilePart,
   ChatMessageAttachment,
 } from "./chat-attachments";
-import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
+import { ChatComposerDraft, ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
 import { ChatMessageTiming } from "./chat-message-timing";
@@ -138,6 +138,7 @@ export function ChatThread({
               ) : null}
               <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
                 <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
+                  <ChatComposerDraft />
                   <ComposerAttachments />
                   <ComposerPrimitive.Input
                     aria-label={ui("Câu hỏi")}
