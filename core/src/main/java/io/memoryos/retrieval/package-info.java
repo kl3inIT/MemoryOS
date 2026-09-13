@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Retrieval",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"document", "connector", "iam"}
+        allowedDependencies = {"document", "connector", "iam :: *"}
 )
 package io.memoryos.retrieval;
 
