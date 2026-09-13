@@ -214,16 +214,33 @@ public class ModelCatalogService {
         return availableModels(actor, tenant.value(), personaId);
     }
 
+    public record WebModels(List<UUID> automatic, List<UUID> required, @Nullable UUID inherited) {}
+
+    @Transactional
+    public WebModels availableWebModels(ActorId actor, @Nullable UUID sessionId) {
+        var models = availableModels(actor, sessionId);
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId().value();
+        var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
+        var automatic = models.stream().filter(m -> m.capabilities().toolCalling()).map(AvailableModel::id).toList();
+        var required = models.stream().filter(m -> m.capabilities().toolCalling())
+                .filter(m -> adapters.require(providers.get(m.providerId()).adapterType()).supportsRequiredToolChoice())
+                .map(AvailableModel::id).toList();
+        return new WebModels(automatic, required, models.stream().filter(AvailableModel::isDefault).map(AvailableModel::id).findFirst().orElse(null));
+    }
+
     private List<AvailableModel> availableModels(ActorId actor, UUID tenant, UUID personaId) {
         var groups = catalog.actorGroups(tenant, actor.value());
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
+        UUID personaDefault = catalog.personaModel(tenant, personaId).modelConfigurationId();
+        UUID inheritedId = personaDefault != null && accessible(tenant, personaDefault, personaId, manager, groups) != null
+                ? personaDefault : defaultId;
         return catalog.models(tenant).stream().filter(Model::visible)
                 .filter(m -> providers.containsKey(m.providerId()))
                 .filter(m -> available(providers.get(m.providerId()), personaId, manager, groups))
                 .map(m -> new AvailableModel(m.id(), m.providerId(), providers.get(m.providerId()).name(), m.modelName(), m.displayName(),
-                        m.settings().capabilities(), m.settings().contextWindow(), m.settings().maxOutputTokens(), m.settings().pricing(), m.id().equals(defaultId)))
+                        m.settings().capabilities(), m.settings().contextWindow(), m.settings().maxOutputTokens(), m.settings().pricing(), m.id().equals(inheritedId)))
                 .toList();
     }
 

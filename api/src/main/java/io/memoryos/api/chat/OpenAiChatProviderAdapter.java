@@ -36,6 +36,7 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         this.meters = meters;
     }
     @Override public String type() { return "openai"; }
+    @Override public boolean supportsRequiredToolChoice() { return true; }
     @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.REQUIRED; }
 
     @Override public void validate(String baseUrl, String modelName, ModelSettings settings) {

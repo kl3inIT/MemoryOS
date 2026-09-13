@@ -34,7 +34,17 @@ import org.springframework.ai.tokenizer.TokenCountEstimator;
  */
 public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                             String model, List<Message> messages, Instant deadline, ChatModelBinding binding, ChatTurnOptions options,
-                            Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts) {
+                            Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts,
+                            io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess) {
+    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
+                         String model, List<Message> messages, Instant deadline, ChatModelBinding binding, ChatTurnOptions options,
+                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts) {
+        this(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts,
+                io.memoryos.chat.WebSearchMode.off, new io.memoryos.chat.web.WebConnectionService.Access(null, null));
+    }
+    public ChatTurnSetup withWeb(io.memoryos.chat.WebSearchMode intent, io.memoryos.chat.web.WebConnectionService.Access access) {
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts, intent, access);
+    }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, Instant deadline, ChatModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence) {
@@ -75,11 +85,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     }
 
     public static void validateQuestion(String instructions, String text, int contextTokenLimit, ChatModelBinding binding) {
-        validateQuestion(instructions(instructions, binding), text, historyLimit(contextTokenLimit, binding), binding.tokens());
-    }
-
-    private static String instructions(String instructions, ChatModelBinding binding) {
-        return ChatPrompts.resolve(instructions, binding.toolCalling(), Instant.now());
+        validateQuestion(ChatPrompts.resolve(instructions, false, Instant.now()), text, historyLimit(contextTokenLimit, binding), binding.tokens());
     }
 
     private static int historyLimit(int limit, ChatModelBinding binding) {
@@ -91,7 +97,8 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         binding = binding.forOptions(context.options());
         if (context.options().contextTokenLimit() != null) contextTokenLimit = Math.min(contextTokenLimit, context.options().contextTokenLimit());
         var selected = new ArrayList<Message>();
-        String instructions = ChatPrompts.resolve(context.instructions(), binding.toolCalling() && context.options().searchEnabled(), Instant.now(), context.uiLanguage());
+        // Tool guidance is added to the actual inference request after runtime tool registration.
+        String instructions = ChatPrompts.resolve(context.instructions(), false, Instant.now(), context.uiLanguage());
         var evidence = new ChatEvidence();
         var media = new IdentityHashMap<Message, List<ChatFileDescriptor>>();
         // Reserve room for tool schemas/results; transcript is still stored in full.

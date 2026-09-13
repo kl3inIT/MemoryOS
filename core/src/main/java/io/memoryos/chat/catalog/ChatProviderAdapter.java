@@ -9,6 +9,9 @@ public interface ChatProviderAdapter {
     String type();
     CredentialRequirement credentialRequirement();
 
+    /** Protocol support for forcing a named tool on the first request, not native Web search. */
+    default boolean supportsRequiredToolChoice() { return false; }
+
     /** Local validation only. Must not contact the model or echo credentials in errors. */
     void validate(String baseUrl, String modelName, ModelSettings settings);
 

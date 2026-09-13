@@ -28,6 +28,8 @@ dependencies {
     implementation(libs.embabel.openai)
     implementation(libs.opensearch.java)
     implementation(libs.httpclient5)
+    implementation(libs.jsoup)
+    implementation(libs.pdfbox)
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.security.crypto)
     implementation(libs.jakarta.persistence.api)
