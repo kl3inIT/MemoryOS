@@ -401,16 +401,16 @@ export const englishUi: Record<string, string> = {
   "All product capabilities, including search, identity, user, group, Source, and model administration.":
     "Tất cả các quyền của sản phẩm, bao gồm tìm kiếm và quản trị danh tính, người dùng, nhóm, nguồn và mô hình.",
   "Basic access": "Quyền truy cập cơ bản",
-  "Search and read eligible document passages, plus reserved granular Chat, image generation, and LLM gateway rights. Chat uses its existing membership and resource authorization; reserved rights do not indicate enforcement. Does not grant administrative capabilities.":
-    "Tìm kiếm và đọc các đoạn tài liệu được phép, cùng các quyền chi tiết dành trước cho trò chuyện, tạo ảnh và cổng LLM. Trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có; các quyền dành trước chưa được áp dụng để kiểm soát truy cập. Không cấp quyền quản trị.",
+  "Search and read eligible document passages, read and write own chats, plus reserved image generation and LLM gateway rights. Does not grant administrative capabilities.":
+    "Tìm kiếm và đọc các đoạn tài liệu được phép, đọc và viết trò chuyện của mình, cùng các quyền dành trước cho tạo ảnh và cổng LLM. Không cấp quyền quản trị.",
   "Search and read eligible document passages, subject to Source visibility and document ACLs. Derived from Basic access; cannot be granted directly.":
     "Tìm kiếm và đọc các đoạn tài liệu được phép, tuân theo phạm vi hiển thị của nguồn và danh sách kiểm soát truy cập tài liệu. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
   "Read chats": "Đọc trò chuyện",
-  "Reserved granular Chat reading capability; Chat uses its existing membership and resource authorization rather than this token. Derived from Basic access; cannot be granted directly.":
-    "Quyền đọc trò chuyện chi tiết được dành trước; trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có thay vì quyền này. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Read own and shared conversations and follow replies. Derived from Basic access; cannot be granted directly.":
+    "Đọc trò chuyện của mình và trò chuyện được chia sẻ, theo dõi câu trả lời. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
   "Write chats": "Viết trò chuyện",
-  "Reserved granular Chat writing capability; Chat uses its existing membership and resource authorization rather than this token. Derived from Basic access; cannot be granted directly.":
-    "Quyền viết trò chuyện chi tiết được dành trước; trò chuyện sử dụng cơ chế phân quyền thành viên và tài nguyên hiện có thay vì quyền này. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
+  "Start conversations, send, edit, regenerate and stop replies. Derived from Basic access; cannot be granted directly.":
+    "Bắt đầu trò chuyện, gửi, sửa, tạo lại và dừng câu trả lời. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",
   "Generate images": "Tạo ảnh",
   "Reserved for upcoming image generation; not an available or enforced feature permission. Derived from Basic access; cannot be granted directly.":
     "Dành trước cho tính năng tạo ảnh sắp tới; chưa phải quyền tính năng khả dụng hoặc được áp dụng để kiểm soát truy cập. Được suy ra từ quyền truy cập cơ bản; không thể cấp trực tiếp.",

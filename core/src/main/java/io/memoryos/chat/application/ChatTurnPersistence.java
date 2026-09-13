@@ -13,6 +13,8 @@ import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.ActorLanguageService;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -33,17 +35,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ChatTurnPersistence {
     private final TenantAccessResolver tenants;
+    private final IamAuthorization authorization;
     private final JdbcChatRepository chats;
     private final PersonaProperties persona;
     private final ChatFileService files;
     private final ActorLanguageService languages;
 
-    public ChatTurnPersistence(TenantAccessResolver tenants, JdbcChatRepository chats, PersonaProperties persona, ChatFileService files, ActorLanguageService languages) {
+    public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
+                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages) {
         this.tenants = tenants;
+        this.authorization = authorization;
         this.chats = chats;
         this.persona = persona;
         this.files = files;
         this.languages = languages;
+    }
+
+    /** Capability gate checked once per command or stream entry, before ownership and the session lock. */
+    @Transactional(readOnly = true)
+    public void require(ActorId actor, IamCapability capability) {
+        authorization.require(actor, capability, false);
     }
 
     public record TitleInput(io.memoryos.chat.ChatSession session, List<ChatMessage> messages) {}

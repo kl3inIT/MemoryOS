@@ -1,5 +1,6 @@
 package io.memoryos.ingestion.application;
 
+import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
@@ -25,6 +26,10 @@ public class SearchProjectionMaintenance {
 
     @EventListener
     public void changed(DocumentChanged event) { work.enqueue(event, index.identity(), false); }
+
+    /** Runs in the transaction that changed Source access; membership changes need no index write. */
+    @EventListener
+    public void accessChanged(SourceAccessChanged event) { work.enqueueSourceAccess(event.tenantId(), event.sourceId(), index.identity()); }
 
     public synchronized void reconcile() {
         work.cancelObsolete(index.identity());

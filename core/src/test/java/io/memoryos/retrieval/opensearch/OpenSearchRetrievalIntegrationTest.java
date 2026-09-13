@@ -24,6 +24,7 @@ import io.memoryos.retrieval.SearchFilters;
 import io.memoryos.retrieval.SearchQuery;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
+import io.memoryos.connector.DocumentAccess;
 import io.memoryos.connector.DocumentSourceMetadata;
 import java.net.URI;
 import java.time.Duration;
@@ -31,6 +32,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.metadata.EmptyUsage;
@@ -95,13 +97,42 @@ class OpenSearchRetrievalIntegrationTest {
             var origins = new java.util.concurrent.atomic.AtomicReference<>(List.of(uploaded, remote));
             when(sourceSearch.indexMetadata(any(), any(), any())).thenAnswer(call ->
                     leave.documentId().equals(call.getArgument(1)) ? origins.get() : List.of());
+            var accessOf = new java.util.concurrent.ConcurrentHashMap<DocumentId, DocumentAccess>();
+            when(sourceSearch.indexAccess(any(), any())).thenAnswer(call ->
+                    accessOf.getOrDefault(call.<DocumentId>getArgument(1), new DocumentAccess(true, Set.of())));
             index.index(leave);
             index.index(unrelated);
             index.index(privateFile);
             assertTrue(index.contains(new DocumentIndexState(tenant,privateFile.documentId(),privateFile.generation(),1,true)));
-            assertTrue(index.search(tenant,"vacation policy",List.of(),null).stream()
+            assertTrue(index.search(tenant,"vacation policy",List.of(), null, Set.of()).stream()
                     .noneMatch(hit -> hit.documentId().equals(privateFile.documentId().value())),
                     "Private files must be excluded before lexical/vector candidate ranking, even without a source filter");
+            // Document access: a restricted document matches only a shared Group token, and an access refresh
+            // rewrites the chunks in place without embedding while invalidating the previous metadata hash.
+            String group = DocumentAccess.group(UUID.randomUUID());
+            var restricted = document(tenant, "Restricted HR-2026", "Confidential vacation policy for managers.");
+            accessOf.put(restricted.documentId(), new DocumentAccess(false, Set.of(group)));
+            index.index(restricted);
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of()).stream()
+                    .noneMatch(hit -> hit.documentId().equals(restricted.documentId().value())), "No shared token must exclude the document in the index");
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of(group)).stream()
+                    .anyMatch(hit -> hit.documentId().equals(restricted.documentId().value())));
+            var restrictedState = new DocumentIndexState(tenant, restricted.documentId(), restricted.generation(), 1, true);
+            assertTrue(index.contains(restrictedState));
+            accessOf.put(restricted.documentId(), new DocumentAccess(false, Set.of()));
+            assertFalse(index.contains(restrictedState), "An access change must make the projection stale");
+            clearInvocations(model);
+            index.updateAccess(tenant, restricted.documentId(), restricted.generation());
+            verifyNoInteractions(model);
+            assertTrue(index.contains(restrictedState));
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of(group)).stream()
+                    .noneMatch(hit -> hit.documentId().equals(restricted.documentId().value())), "A revoked Group token must stop matching after refresh");
+            gateway.json("POST", "/" + index.identity() + "/_update/" + restricted.chunkId(0), Map.of("refresh", "true"),
+                    Map.of("script", Map.of("source", "ctx._source.remove('access_public'); ctx._source.remove('access_control_list')")));
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of()).stream()
+                    .anyMatch(hit -> hit.documentId().equals(restricted.documentId().value())),
+                    "Chunks written before access fields existed stay visible until backfill; the database recheck authorizes hits");
+            index.delete(tenant, restricted.documentId());
             String collision = index.identity() + "-collision";
             gateway.json("PUT", "/" + collision, Map.of(),
                     Map.of("aliases", Map.of(index.identity() + "-read", Map.of())));
@@ -163,12 +194,12 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
-            var hits = index.search(tenant, "quy định nghỉ phép", List.of(), null);
+            var hits = index.search(tenant, "quy định nghỉ phép", List.of(), null, Set.of());
             assertEquals(1, hits.size());
             assertEquals(leave.documentId().value(), hits.getFirst().documentId());
             assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(unrelated.documentId().value())));
             assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(foreign.documentId().value())));
-            assertTrue(index.search(tenant, "HR-2026", List.of("application/pdf"), null).isEmpty());
+            assertTrue(index.search(tenant, "HR-2026", List.of("application/pdf"), null, Set.of()).isEmpty());
             var replacement = new DocumentChunkSet(tenant, leave.documentId(), UUID.randomUUID(), leave.title(), leave.mediaType(), Instant.now(), leave.chunks());
             clearInvocations(model);
             var replacementState = new DocumentIndexState(tenant, replacement.documentId(), replacement.generation(), 1, true);
@@ -215,7 +246,7 @@ class OpenSearchRetrievalIntegrationTest {
                     () -> index.document(tenant, paged.documentId().value(), UUID.randomUUID(), 0, 5));
             verifyNoInteractions(model);
             // Short keyword queries use the same hybrid path: neither lexical-only nor semantic-only hits disappear.
-            var keywordHits = index.search(tenant, "Paged HR", List.of(), null);
+            var keywordHits = index.search(tenant, "Paged HR", List.of(), null, Set.of());
             assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(paged.documentId().value())));
             assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(unrelated.documentId().value())));
             verify(model).call(any());

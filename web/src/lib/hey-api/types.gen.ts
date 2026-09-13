@@ -6006,6 +6006,48 @@ export type GetChatFilePolicyResponses = {
 
 export type GetChatFilePolicyResponse = GetChatFilePolicyResponses[keyof GetChatFilePolicyResponses];
 
+export type ReadChatDocumentPassagesData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+        from?: number;
+    };
+    url: '/api/chat/documents/{documentId}';
+};
+
+export type ReadChatDocumentPassagesErrors = {
+    /**
+     * Invalid passage window
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CHAT_READ, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Document generation not readable
+     */
+    404: ApiProblem;
+};
+
+export type ReadChatDocumentPassagesError = ReadChatDocumentPassagesErrors[keyof ReadChatDocumentPassagesErrors];
+
+export type ReadChatDocumentPassagesResponses = {
+    /**
+     * Authorized document passages
+     */
+    200: SearchDocument;
+};
+
+export type ReadChatDocumentPassagesResponse = ReadChatDocumentPassagesResponses[keyof ReadChatDocumentPassagesResponses];
+
 export type DeleteGoogleDriveCredentialData = {
     body?: never;
     headers: {

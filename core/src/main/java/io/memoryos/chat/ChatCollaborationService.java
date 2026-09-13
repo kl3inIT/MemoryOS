@@ -8,20 +8,25 @@ import io.memoryos.chat.persistence.JpaChatFeedbackRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Sharing and feedback need membership and ownership only; reading a shared transcript needs CHAT_READ. */
 @Service
 public class ChatCollaborationService {
     private final TenantAccessResolver tenants;
+    private final IamAuthorization authorization;
     private final JdbcChatRepository chats;
     private final JpaChatSharingRepository shares;
     private final JpaChatFeedbackRepository feedbacks;
-    public ChatCollaborationService(TenantAccessResolver tenants, JdbcChatRepository chats, JpaChatSharingRepository shares, JpaChatFeedbackRepository feedbacks) {
-        this.tenants = tenants; this.chats = chats; this.shares = shares; this.feedbacks = feedbacks;
+    public ChatCollaborationService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
+                                    JpaChatSharingRepository shares, JpaChatFeedbackRepository feedbacks) {
+        this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.shares = shares; this.feedbacks = feedbacks;
     }
     public record Sharing(boolean enabled, long revision) {}
     public record SharedSession(UUID id, String title, UUID rootMessageId) {}
@@ -44,12 +49,14 @@ public class ChatCollaborationService {
     }
     @Transactional(readOnly = true)
     public SharedSession shared(ActorId actor, UUID session) {
+        authorization.require(actor, IamCapability.CHAT_READ, false);
         var found = chats.shared(tenant(actor), session).orElseThrow(ChatException::unavailable);
         return new SharedSession(found.id(), found.title(), found.rootMessageId());
     }
     @Transactional(readOnly = true)
     public List<ChatMessage> sharedHistory(ActorId actor, UUID session, @Nullable UUID after, int limit) {
         ChatPersonaService.page(0, limit);
+        authorization.require(actor, IamCapability.CHAT_READ, false);
         var found = chats.shared(tenant(actor), session).orElseThrow(ChatException::unavailable);
         return chats.history(found, after, limit).stream().filter(m -> m.status() != ChatMessage.Status.RUNNING).toList();
     }

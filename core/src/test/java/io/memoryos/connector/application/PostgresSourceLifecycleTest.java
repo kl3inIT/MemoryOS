@@ -152,7 +152,7 @@ class PostgresSourceLifecycleTest {
         seedGroups(actorId);
         owner = new ActorId(actorId);
 
-        var sourceRepository = new JdbcSourceRepository(jdbcClient);
+        var sourceRepository = new JdbcSourceRepository(jdbcClient, event -> { });
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
                 org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class));
@@ -1134,7 +1134,7 @@ class PostgresSourceLifecycleTest {
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 new JdbcSourceOperationQueryRepository(jdbcClient),
-                new JdbcSourceGroupRepository(jdbcClient),
+                new JdbcSourceGroupRepository(jdbcClient, event -> { }),
                 sourceUploads,
                 objectUploads,
                 new DefaultIamAuthorization(
@@ -1298,7 +1298,7 @@ class PostgresSourceLifecycleTest {
         private final CountDownLatch allowLock = new CountDownLatch(1);
 
         private CoordinatedSourceRepository(JdbcClient jdbcClient) {
-            super(jdbcClient);
+            super(jdbcClient, event -> { });
         }
 
         @Override

@@ -312,7 +312,7 @@ test("grounds prose citations in message sources, opens the cited range, and pre
     })
   ).json();
   const documentReads: URL[] = [];
-  await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) => {
+  await page.route(`**/api/chat/documents/${fixtureSource.documentId}?*`, (route) => {
     const url = new URL(route.request().url());
     documentReads.push(url);
     const from = Number(url.searchParams.get("from"));
@@ -384,7 +384,7 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(page.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" })).toBeVisible();
   await page.getByRole("button", { name: "Nguồn 1", exact: true }).click();
   await expect(panel).toBeHidden();
-  await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) =>
+  await page.route(`**/api/chat/documents/${fixtureSource.documentId}?*`, (route) =>
     route.fulfill({ status: 404, json: {} }),
   );
   await citation.click();
@@ -683,7 +683,7 @@ for (const mobile of [false, true]) {
         ),
       });
     });
-    await page.route("**/api/search/documents/*?*", (route) => {
+    await page.route("**/api/chat/documents/*?*", (route) => {
       const source = route.request().url().includes(second.documentId!) ? second : fixtureSource;
       return route.fulfill({
         json: {

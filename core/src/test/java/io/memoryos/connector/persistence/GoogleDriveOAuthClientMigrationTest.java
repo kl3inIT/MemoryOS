@@ -133,7 +133,7 @@ class GoogleDriveOAuthClientMigrationTest {
                 }
                 connection.commit();
                 Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
-                var credentials = new JdbcGoogleDriveCredentialRepository(jdbc, new JdbcSourceRepository(jdbc),
+                var credentials = new JdbcGoogleDriveCredentialRepository(jdbc, new JdbcSourceRepository(jdbc, event -> { }),
                         new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "preserved-key"),
                         new JdbcSourceDocumentRepository(jdbc), new JdbcSourceSyncRepository(jdbc));
                 var stored = credentials.readUsable(new TenantId(tenant), new CredentialId(drive));
