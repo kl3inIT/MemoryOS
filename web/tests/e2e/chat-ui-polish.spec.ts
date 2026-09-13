@@ -28,23 +28,26 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [1440, 390]) {
-  test(`Actions and current conversation search at ${width}px`, async ({ page }) => {
+  test(`composer plus menu and current conversation search at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const session = await (
       await page.request.post("/api/chat/test-fixture", { data: { title: "HUT Q1 2026" } })
     ).json();
     await page.goto(`/chat/${session.id}`);
-    const actions = page.getByRole("button", { name: "Hành động", exact: true });
-    await actions.click();
-    await expect(
-      page.getByRole("combobox", { name: "" }).filter({ hasNotText: /GPT/ }),
-    ).toHaveCount(1);
-    await expect(page.getByRole("option", { name: "Tìm kiếm Web", exact: true })).toBeVisible();
-    await expect(page.getByRole("option")).toHaveCount(1);
-    await page.screenshot({ path: `../output/playwright/actions-${width}.png` });
+    // One `+` entry for files and tools; the model picker sits beside Send.
+    const add = page.getByRole("button", { name: "Thêm vào câu hỏi", exact: true });
+    const send = page.getByRole("button", { name: "Gửi câu hỏi" });
+    const picker = page.getByRole("combobox", { name: "Chọn mô hình" });
+    expect((await add.boundingBox())!.x).toBeLessThan((await picker.boundingBox())!.x);
+    expect((await picker.boundingBox())!.x).toBeLessThan((await send.boundingBox())!.x);
+    await add.click();
+    await expect(page.getByRole("button", { name: "Tải tệp lên", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Chọn tệp đã có", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Tìm kiếm Web", exact: true })).toBeVisible();
+    await page.screenshot({ path: `../output/playwright/composer-menu-${width}.png` });
     await page.getByRole("button", { name: "Tùy chọn Web" }).click();
-    await page.getByRole("option", { name: "Tự động dùng Web" }).click();
-    await expect(actions).toContainText("Web");
+    await page.getByRole("radio", { name: "Tự động dùng Web" }).click();
+    await expect(page.getByRole("button", { name: "Tắt Web" })).toBeVisible();
     await page
       .getByRole("textbox", { name: "Câu hỏi", exact: true })
       .fill("HUT Q1 2026 và HUT Q2 2026");

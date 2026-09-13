@@ -70,19 +70,44 @@ export function ChatFilePicker({
           )}
         </PopoverContent>
       </Popover>
-      <ChatDialog
-        title={ui("Tệp gần đây")}
-        description={ui("Chọn lại tệp của bạn để sử dụng. Chỉ tệp đã xử lý xong mới được chọn.")}
+      <ChatRecentFilesDialog
+        {...props}
+        uploadAction={uploadAction}
         open={all}
         onOpenChange={setAll}
-      >
-        {all && <ChatFilePickerContent {...props} uploadAction={uploadAction} />}
-      </ChatDialog>
+      />
     </>
   );
 }
 
-function ChatFilePickerContent({
+/** All recent files in a dialog; mounted only while open. */
+export function ChatRecentFilesDialog({
+  open,
+  onOpenChange,
+  ...props
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selected: string[];
+  onSelect: (ids: string[], files: ChatFile[]) => void;
+  disabled?: boolean;
+  uploadAction?: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <ChatDialog
+      title={ui("Tệp gần đây")}
+      description={ui("Chọn lại tệp của bạn để sử dụng. Chỉ tệp đã xử lý xong mới được chọn.")}
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      {open && <ChatFilePickerContent {...props} />}
+    </ChatDialog>
+  );
+}
+
+/** `uploadAction` replaces the built-in server upload row; `null` hides it. */
+export function ChatFilePickerContent({
   selected,
   onSelect,
   disabled = false,
@@ -153,7 +178,9 @@ function ChatFilePickerContent({
   }
   return (
     <fieldset disabled={disabled || uploading || acting} className="min-w-0 space-y-3">
-      {uploadAction ?? (
+      {uploadAction !== undefined ? (
+        uploadAction
+      ) : (
         <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-sunken focus-within:ring-2">
           <Upload className="size-4" /> {ui("Tải tệp lên")}
           <input

@@ -52,7 +52,7 @@ export function ChatModelPicker({
               ? ui("Mô hình đã chọn không khả dụng")
               : undefined}
       </ModelSelectorTrigger>
-      <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="start">
+      <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="end">
         <ModelSelectorSearch aria-label={ui("Tìm mô hình")} placeholder={ui("Tìm mô hình…")} />
         <ModelSelectorList>
           <ModelSelectorEmpty>{ui("Không tìm thấy mô hình.")}</ModelSelectorEmpty>

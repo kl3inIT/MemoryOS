@@ -26,12 +26,7 @@ import { cn } from "@/lib/utils";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
-import {
-  ChatComposerFiles,
-  ChatFilePart,
-  ChatSharedFilePart,
-  ChatMessageAttachment,
-} from "./chat-attachments";
+import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-attachments";
 import { ChatComposerDraft, ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
@@ -44,6 +39,7 @@ import {
 } from "./chat-quote";
 
 export function ChatThread({
+  composerMenu,
   modelPicker,
   modelNotice,
   connection,
@@ -57,6 +53,9 @@ export function ChatThread({
   afterComposer,
   readOnly = false,
 }: {
+  /** Left of the composer toolbar: the `+` menu for files and tools. */
+  composerMenu?: ReactNode;
+  /** Right of the composer toolbar, beside Send. */
   modelPicker: ReactNode;
   modelNotice?: string;
   connection: ConnectionState;
@@ -163,27 +162,27 @@ export function ChatThread({
                     data-testid="chat-composer-actions"
                     className="flex flex-nowrap items-center justify-between gap-2"
                   >
+                    {composerMenu ?? <span />}
                     <div className="flex min-w-0 items-center gap-1">
-                      <ChatComposerFiles />
                       {modelPicker}
-                    </div>
-                    <AuiIf condition={(state) => !state.thread.isRunning}>
-                      <ChatComposerSend asChild>
-                        <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
-                          <ArrowUp />
+                      <AuiIf condition={(state) => !state.thread.isRunning}>
+                        <ChatComposerSend asChild>
+                          <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
+                            <ArrowUp />
+                          </IconButton>
+                        </ChatComposerSend>
+                      </AuiIf>
+                      <AuiIf condition={(state) => state.thread.isRunning}>
+                        <IconButton
+                          aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
+                          prominence="secondary"
+                          disabled={stopping}
+                          onClick={onStop}
+                        >
+                          <Square />
                         </IconButton>
-                      </ChatComposerSend>
-                    </AuiIf>
-                    <AuiIf condition={(state) => state.thread.isRunning}>
-                      <IconButton
-                        aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
-                        prominence="secondary"
-                        disabled={stopping}
-                        onClick={onStop}
-                      >
-                        <Square />
-                      </IconButton>
-                    </AuiIf>
+                      </AuiIf>
+                    </div>
                   </div>
                 </ChatComposerRoot>
               </ComposerPrimitive.AttachmentDropzone>

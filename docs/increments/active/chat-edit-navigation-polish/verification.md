@@ -55,3 +55,10 @@ Browser checks use the real local frontend with fixture backend/model responses,
 - The owner found the reply duration ("· 1 giây") noisy; the answer bar now shows only the time on hover, and `finishedAt` is no longer carried into UI metadata. External Markdown links in answers reuse the MarkdownText `aui-md-a` styling instead of a plain underline.
 - Typecheck, lint, format and i18n audit pass; chat unit tests 72/72. Playwright re-ran the model regeneration/timing scenario (time now matches `HH:MM`), the grounded citation scenario and the Shiki/Mermaid renderer scenarios.
 - Links then moved to the Sources chip shape at the owner's request (see design). `sources.test.tsx` checks the fallback-only icon; the regeneration scenario checks the fixture's `Reference` link is a `data-slot="source"` chip with letter fallback and no favicon image.
+
+## Composer `+` menu — 2026-09-13
+
+- Ready recent files no longer show "Sẵn sàng" (`chat-file-reader.test.tsx` asserts its absence), committed separately.
+- `+` menu: typecheck, lint, format and i18n audit pass; chat and assistant-ui element unit tests 86/86. `chat-web.test.tsx` now drives `ChatWebToggle` (toggle and options entry) and `ChatWebModes` (disabled unsupported modes, native search without a connection, adapter-declared required mode).
+- `chat-ui-polish.spec.ts` checks the toolbar order `+` → model picker → Send, the three root rows, choosing automatic Web from the options view and the resulting "Tắt Web" chip at 1440/390px.
+- Playwright, one worker: `chat-ui-polish`, `chat-workspace` and `chat` passed 50/50, including the unchanged mobile model picker and compact question editor (which keeps its paperclip file picker).

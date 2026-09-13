@@ -19,7 +19,8 @@ import type { Accepted } from "@/lib/hey-api/types.gen";
 import type { MemoryOsChatTransport } from "./chat-transport";
 import { ChatThread } from "./chat-thread";
 import { ChatModelPicker } from "./chat-model-picker";
-import { ChatActionsMenu, type WebSearchMode } from "./chat-actions-menu";
+import { ChatComposerMenu } from "./chat-composer-menu";
+import type { WebSearchMode } from "./chat-web-preference";
 import { ChatEditingContext } from "./chat-editing-context";
 import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
 import { ChatConversationSearch } from "./chat-conversation-search";
@@ -297,25 +298,27 @@ function ChatConversation({
               project && !session ? <ProjectConversationList projectId={project.id} /> : undefined
             }
             starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
-            modelPicker={
-              <>
-                <ChatModelPicker
-                  sessionId={transport.session?.id}
-                  value={model.choice.id}
-                  onChange={model.select}
-                  disabled={busy}
-                />
-                <ChatActionsMenu
-                  sessionId={session?.id}
-                  modelId={model.choice.id}
-                  value={webSearch}
-                  onChange={(mode) => {
+            composerMenu={
+              <ChatComposerMenu
+                disabled={busy}
+                web={{
+                  sessionId: session?.id,
+                  modelId: model.choice.id,
+                  value: webSearch,
+                  onChange: (mode) => {
                     transport.selectWeb(mode);
                     setWebSearch(mode);
-                  }}
-                  disabled={busy}
-                />
-              </>
+                  },
+                }}
+              />
+            }
+            modelPicker={
+              <ChatModelPicker
+                sessionId={transport.session?.id}
+                value={model.choice.id}
+                onChange={model.select}
+                disabled={busy}
+              />
             }
             modelNotice={
               model.choice.fallback
