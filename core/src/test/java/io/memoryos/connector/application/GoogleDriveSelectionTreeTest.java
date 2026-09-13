@@ -213,12 +213,39 @@ class GoogleDriveSelectionTreeTest {
     }
 
     @Test
+    void membershipRevocationDiscardsProviderPageEvenWhenManagerRoleSurvives() throws Exception {
+        var f = fixture();
+        var source = create(f, 1);
+        UUID visible = UUID.randomUUID();
+        UUID managed = UUID.randomUUID();
+        for (UUID group : List.of(visible, managed)) {
+            f.jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES(:tenant,:group,:name)")
+                    .param("tenant", f.tenant.value()).param("group", group).param("name", group.toString()).update();
+            f.jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id,is_manager) VALUES(:tenant,:group,:actor,:manager)")
+                    .param("tenant", f.tenant.value()).param("group", group).param("actor", f.owner.value())
+                    .param("manager", group.equals(managed)).update();
+        }
+        f.jdbc.sql("INSERT INTO source_group_grants(tenant_id,group_id,connector_credential_pair_id) VALUES(:tenant,:group,:source)")
+                .param("tenant", f.tenant.value()).param("group", visible).param("source", source.value()).update();
+        f.jdbc.sql("DELETE FROM iam_group_memberships WHERE group_id=:admin AND actor_id=:actor")
+                .param("admin", f.tenant.value()).param("actor", f.owner.value()).update();
+        assertEquals(source, f.service.configuration(f.owner, source).sourceId());
+        f.pages.put("root0|", new GoogleDriveProvider.FilePage(List.of(file("child", false, List.of("root0"))), null));
+        f.afterProviderRead = () -> f.jdbc.sql("DELETE FROM iam_group_memberships WHERE group_id=:group AND actor_id=:actor")
+                .param("group", visible).param("actor", f.owner.value()).update();
+        assertThrows(SourceException.class, () -> tree(f, source, "root0", null, 25));
+        int calls = f.calls;
+        assertThrows(SourceException.class, () -> tree(f, source, null, null, 25));
+        assertEquals(calls, f.calls);
+    }
+
+    @Test
     void generalScopeResolvesItsSavedMyDriveBoundaryAndRejectsForeignDriveChildren() throws Exception {
         var f = fixture();
         var root = file("my-drive", true, List.of());
         f.files.put("root", root);
         f.files.put(root.id(), root);
-        var receipt = f.service.create(f.owner, UUID.randomUUID(), "My Drive", f.credential, ScopeMode.GENERAL, List.of());
+        var receipt = f.service.create(f.owner,UUID.randomUUID(),"My Drive",f.credential,ScopeMode.GENERAL,List.of(),List.of());
         f.finish(receipt);
         var source = receipt.sourceId();
         assertEquals(List.of("my-drive"), ids(tree(f, source, null, null, 25)));

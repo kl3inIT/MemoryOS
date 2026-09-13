@@ -60,8 +60,8 @@ public class DefaultGroupProvisioner implements GroupProvisioner {
                 "Basic",
                 GroupSystemKey.BASIC
         );
-        grants.replace(admin, Set.of(IamCapability.IAM_ADMIN));
-        grants.replace(basic, Set.of());
+        grants.replace(admin, Set.of(IamCapability.SYSTEM_ADMIN));
+        grants.replace(basic, Set.of(IamCapability.SYSTEM_BASIC));
 
         TenantMembershipEntity ownerMembership = memberships.tenantMembershipReference(
                 requiredTenantId,

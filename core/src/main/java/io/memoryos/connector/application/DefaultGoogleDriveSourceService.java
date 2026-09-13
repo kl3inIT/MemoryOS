@@ -27,6 +27,8 @@ import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.connector.persistence.JdbcSourceGroupRepository;
 import io.memoryos.iam.TenantId;
+import io.memoryos.iam.GroupId;
+import io.memoryos.connector.SourceAccess;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -59,13 +61,14 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     private final JdbcGoogleDriveSelectionRepository selections;
     private final JdbcGoogleDriveCredentialRepository credentials;
     private final GoogleDriveSelectionPolicy policy;
+    private final SourceAccessPolicy sourceAccess;
 
     public DefaultGoogleDriveSourceService(IamAuthorization authorization, GoogleDriveConnectionService connections,
             JdbcGoogleDriveSourceRepository drive, JdbcSourceRepository sources, JdbcSourceSyncRepository sync,
             JdbcIndexAttemptRepository indexing, JdbcSourceDocumentRepository documents,
             GoogleDriveLinkReader linkReader, PlatformTransactionManager transactionManager,
             JdbcGoogleDriveSelectionRepository selections, JdbcGoogleDriveCredentialRepository credentials,
-            GoogleDriveSelectionPolicy policy, JdbcSourceGroupRepository sourceGroups) {
+            GoogleDriveSelectionPolicy policy, JdbcSourceGroupRepository sourceGroups, SourceAccessPolicy sourceAccess) {
         this.authorization = authorization;
         this.connections = connections;
         this.drive = drive;
@@ -79,37 +82,41 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         this.credentials = credentials;
         this.policy = policy;
         this.sourceGroups = sourceGroups;
+        this.sourceAccess = sourceAccess;
     }
 
     @Override
-    public SelectionReceipt create(ActorId actor, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode, List<String> links) {
+    public SelectionReceipt create(ActorId actor, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode, List<String> links, List<GroupId> groupIds) {
         if (name == null || name.isBlank() || name.strip().length() > 120)
             throw SourceException.invalid("Source name must contain 1 to 120 characters.", "invalid source name");
         Objects.requireNonNull(credentialId, "credentialId must not be null");
         Objects.requireNonNull(requestId, "requestId must not be null");
-        var tenant = management(actor);
+        var tenant = sourceAccess.creation(actor, SourceAccess.RESTRICTED, groupIds).authority().tenantId();
         var ids = rootIds(scopeMode, links);
         policy.requireSize(name, links, List.of());
-        String hash = requestHash("CREATE", name, credentialId.toString(), scopeMode.name(), links, List.of());
         return Objects.requireNonNull(transactions.execute(_ -> {
-            requireManagementLock(actor, tenant);
-            if (!sources.lockActiveTenant(tenant) || !tenant.equals(management(actor))) throw SourceException.notFound();
+            var creation = sourceAccess.lockCreation(actor, SourceAccess.RESTRICTED, groupIds);
+            if (!tenant.equals(creation.authority().tenantId())) throw SourceException.notFound();
+            var groups = creation.groupIds().stream().sorted(java.util.Comparator.comparing(group -> group.value().toString())).toList();
+            String hash = requestHash("CREATE", name, credentialId.toString(), scopeMode.name(), links,
+                    groups.stream().map(group -> group.value().toString()).toList());
+            var credential = credentials.lock(tenant, credentialId).orElseThrow(SourceException::notFound);
+            DefaultGoogleDriveAuthorizationService.requireCredentialOwner(creation.authority(), actor, credential);
+            if (!credential.usable()) throw SourceException.conflict("Google connection is unavailable");
             var receipt = selections.receipt(tenant, actor, requestId, hash);
             if (receipt.isPresent()) return receipt.get();
-            var credential = credentials.lock(tenant, credentialId).orElseThrow(SourceException::notFound);
-            if (!credential.usable()) throw SourceException.conflict("Google connection is unavailable");
                 return selections.submit(tenant, actor, requestId, hash, new SourceId(UUID.randomUUID()), credentialId,
-                    credential.revision(), 0, 0, scopeMode, name.strip(), ids, List.of(), policy.value());
+                    credential.revision(), 0, 0, scopeMode, name.strip(), ids, List.of(), policy.value(), groups);
         }));
     }
 
     @Override
     public Configuration configuration(ActorId actor, SourceId source) {
-        var tenant = management(actor, source);
+        var tenant = readable(actor, source);
         return Objects.requireNonNull(transactions.execute(_ -> {
-            requireManagementLock(actor, tenant);
+            requireReadLock(actor, tenant, source);
             sources.lock(tenant, source);
-            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
+            if (!tenant.equals(readable(actor, source))) throw SourceException.notFound();
             return configuration(tenant, source);
         }));
     }
@@ -119,7 +126,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var config = drive.configuration(tenant, source);
         return new Configuration(source, state.credentialId(), state.accountEmail(), state.status(), state.credentialRevision(),
                 state.oauthClientConfigured(), config.revision(), config.syncIntervalMinutes(), config.scheduleRevision(),
-                config.scopeMode(), drive.counts(tenant, source),
+                config.syncPaused(), config.scopeMode(), drive.counts(tenant, source),
                 config.scopeMode() == ScopeMode.GENERAL ? 0 : config.discoveryRevision(),
                 config.scopeMode() == ScopeMode.GENERAL ? null : config.discoveredAt(),
                 config.scopeMode() == ScopeMode.GENERAL ? List.of() : drive.discoveryErrors(tenant, source),
@@ -163,7 +170,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                 approvals.add(candidate);
             }
             return selections.submit(tenant, actor, requestId, hash, source, saved.credentialId(), saved.credentialRevision(),
-                    expectedRevision, saved.configuration().discoveryRevision(), scopeMode, null, roots, approvals, policy.value());
+                    expectedRevision, saved.configuration().discoveryRevision(), scopeMode, null, roots, approvals, policy.value(), List.of());
         }));
     }
 
@@ -248,26 +255,36 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     @Override
     public Configuration updateSchedule(ActorId actor, SourceId source, long expectedRevision, int syncIntervalMinutes) {
-        var tenant = management(actor, source);
+        var tenant = sourceAccess.manage(actor, source).tenantId();
         if (syncIntervalMinutes < 1) {
             throw SourceException.invalid("Automatic interval must be at least 1 minute.", "invalid Drive sync interval");
         }
         return Objects.requireNonNull(transactions.execute(_ -> {
-            requireManagementLock(actor, tenant);
-            sources.lock(tenant, source);
-            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
+            if (!tenant.equals(sourceAccess.lockManage(actor, source).tenantId())) throw SourceException.notFound();
+            drive.requireGoogle(tenant, source);
             drive.updateSchedule(tenant, source, expectedRevision, syncIntervalMinutes);
             return configuration(tenant, source);
         }));
     }
 
     @Override
+    public Configuration setPaused(ActorId actor, SourceId source, long expectedRevision, boolean paused) {
+        return Objects.requireNonNull(transactions.execute(_ -> {
+            var tenant = sourceAccess.lockManage(actor, source).tenantId();
+            drive.requireGoogle(tenant, source);
+            drive.setPaused(tenant, source, expectedRevision, paused);
+            return configuration(tenant, source);
+        }));
+    }
+
+    @Override
     public SourceOperationView synchronize(ActorId actor, SourceId source) {
-        var tenant = management(actor, source);
+        var tenant = sourceAccess.manage(actor, source).tenantId();
         return java.util.Objects.requireNonNull(transactions.execute(_ -> {
-            requireManagementLock(actor, tenant);
-            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
-            sources.lock(tenant, source);
+            authorization.lockAndRequire(actor, IamCapability.SOURCES_MANAGE, true);
+            credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
+            if (!tenant.equals(sourceAccess.lockManage(actor, source).tenantId())) throw SourceException.notFound();
+            drive.requireGoogle(tenant, source);
             var state = connections.state(tenant, source);
             if (!connections.current(tenant, source, state.credentialRevision())) throw SourceException.conflict("Google connection is unavailable");
             if (drive.roots(tenant, source).isEmpty()) throw SourceException.invalid("Select roots before synchronizing.", "Drive roots not configured");
@@ -276,18 +293,29 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     }
 
     private TenantId management(ActorId actor, SourceId source) {
-        var tenant = management(actor);
+        var tenant = authorization.require(actor, IamCapability.SOURCES_MANAGE, false).tenantId();
         drive.requireGoogle(tenant, source);
         return tenant;
     }
 
     private TenantId management(ActorId actor) {
-        return authorization.require(actor, IamCapability.SOURCES_MANAGE, false).tenantId();
+        return authorization.require(actor, IamCapability.SOURCES_MANAGE, true).tenantId();
     }
 
     private void requireManagementLock(ActorId actor, TenantId tenant) {
         var access = authorization.lockAndRequire(actor, IamCapability.SOURCES_MANAGE, false);
         if (!access.tenantId().equals(tenant)) throw SourceException.notFound();
+    }
+
+    private TenantId readable(ActorId actor, SourceId source) {
+        var tenant = sourceAccess.read(actor, source).tenantId();
+        drive.requireGoogle(tenant, source);
+        return tenant;
+    }
+
+    private void requireReadLock(ActorId actor, TenantId tenant, SourceId source) {
+        var access = authorization.lockAndRequire(actor, IamCapability.SOURCES_READ, true);
+        if (!tenant.equals(access.tenantId()) || !tenant.equals(readable(actor, source))) throw SourceException.notFound();
     }
 
     private List<String> rootIds(ScopeMode scopeMode, List<String> links) {
@@ -361,10 +389,11 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     @Override
     public SelectionDraft selectionDraft(ActorId actor, SourceId source) {
-        var tenant = management(actor, source);
+        var tenant = readable(actor, source);
         return Objects.requireNonNull(transactions.execute(_ -> {
-            requireManagementLock(actor, tenant);
+            requireReadLock(actor, tenant, source);
             sources.lock(tenant, source);
+            if (!tenant.equals(readable(actor, source))) throw SourceException.notFound();
             var config = drive.configuration(tenant, source);
             var state = connections.state(tenant, source);
             return new SelectionDraft(config.revision(), config.discoveryRevision(), state.credentialRevision(),
@@ -377,10 +406,11 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     @Override
     public SelectionPage selection(ActorId actor, SourceId source, @Nullable String search,
             @Nullable SelectionKind kind, @Nullable String cursor, int size) {
-        var tenant = management(actor, source);
+        var tenant = readable(actor, source);
         return Objects.requireNonNull(transactions.execute(_ -> {
-            requireManagementLock(actor, tenant);
+            requireReadLock(actor, tenant, source);
             sources.lock(tenant, source);
+            if (!tenant.equals(readable(actor, source))) throw SourceException.notFound();
             var state = connections.state(tenant, source);
             return drive.selection(tenant, source, state.credentialRevision(), search, kind, cursor, size);
         }));
@@ -389,13 +419,13 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     @Override
     public SelectionTreePage selectionTree(ActorId actor, SourceId source, @Nullable String parentId,
             @Nullable String cursor, int size) {
-        var tenant = management(actor, source);
+        var tenant = readable(actor, source);
         GoogleDriveSelectionTree.validate(parentId, cursor, size);
         var saved = Objects.requireNonNull(transactions.execute(_ -> {
-            requireManagementLock(actor, tenant);
+            requireReadLock(actor, tenant, source);
             var credential = credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
             sources.lock(tenant, source);
-            if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
+            if (!tenant.equals(readable(actor, source))) throw SourceException.notFound();
             return new TreeSnapshot(drive.configuration(tenant, source), connections.state(tenant, source),
                     drive.roots(tenant, source), credential.usable());
         }));
@@ -422,10 +452,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     }
 
     private void checkTreeSnapshot(ActorId actor, TenantId tenant, SourceId source, TreeSnapshot saved, long credentialRevision) {
-        requireManagementLock(actor, tenant);
+        requireReadLock(actor, tenant, source);
         var credential = credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
         sources.lock(tenant, source);
-        if (!tenant.equals(management(actor, source))) throw SourceException.notFound();
+        if (!tenant.equals(readable(actor, source))) throw SourceException.notFound();
         var state = connections.state(tenant, source);
         var config = drive.configuration(tenant, source);
         if (credentialRevision != saved.state().credentialRevision() || !state.equals(saved.state())
@@ -442,10 +472,14 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     void requireIntent(Work work, JdbcGoogleDriveSelectionRepository.Intent intent) {
         var tenant = work.tenantId();
-        requireManagementLock(intent.actorId(), tenant);
-        if (intent.credentialId() == null || !sources.lockActiveTenant(tenant) || !tenant.equals(management(intent.actorId())))
+        // Creation can attach groups: take exclusive IAM authority before any tenant/source locks.
+        var authority = intent.name() != null
+                ? sourceAccess.lockCreation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds()).authority()
+                : authorization.lockAndRequire(intent.actorId(), IamCapability.SOURCES_MANAGE, false);
+        if (intent.credentialId() == null || !tenant.equals(authority.tenantId()) || !sources.lockActiveTenant(tenant))
             throw SourceException.staleConfiguration();
         var credential = credentials.lock(tenant, new CredentialId(intent.credentialId())).orElseThrow(SourceException::staleConfiguration);
+        DefaultGoogleDriveAuthorizationService.requireCredentialOwner(authority, intent.actorId(), credential);
         if (!credential.usable() || credential.revision() != intent.credentialRevision()) throw SourceException.staleConfiguration();
         if (intent.name() == null) {
             sources.lock(tenant, work.sourceId());
@@ -456,7 +490,6 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                     || !connections.state(tenant, work.sourceId()).credentialId().value().equals(intent.credentialId()))
                 throw SourceException.staleConfiguration();
         }
-        requireManagementLock(intent.actorId(), tenant);
         if (!selections.current(work)) throw SourceException.staleConfiguration();
     }
 
@@ -465,8 +498,9 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var tenant = work.tenantId();
         var source = work.sourceId();
         if (intent.name() != null) {
-            drive.create(tenant, source, intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())), intent.scopeMode(), roots);
-            sourceGroups.replace(tenant, source, List.of(sourceGroups.adminGroupId(tenant)));
+            drive.create(tenant, source, intent.actorId(), intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())), intent.scopeMode(), roots);
+            var groups = sourceAccess.creation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds()).groupIds();
+            sourceGroups.replace(tenant, source, groups);
             sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {
             boolean changed = !Set.copyOf(drive.roots(tenant, source).stream().map(Root::id).toList())

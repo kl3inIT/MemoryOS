@@ -168,7 +168,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         } catch (SearchRequestException invalid) { return "Invalid search query. Each query must contain 1-2000 characters."; }
         try {
             var scope = search.scope(actor);
-            if (!allowedSourceIds.isEmpty()) scope = new SourceSearchScope(scope.tenant(), scope.sources().entrySet().stream()
+            if (!allowedSourceIds.isEmpty()) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
                     .filter(entry -> allowedSourceIds.contains(entry.getKey()))
                     .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)));
             var preparation = prepare(queries, scope, requestedFilters == null ? SearchFilters.NONE : requestedFilters);
@@ -212,18 +212,38 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                 choices = IntStream.rangeClosed(1, Math.min(limits.sections(), candidates.size()))
                         .boxed().toList();
             }
-            events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.EXPANDING, null, null, choices.stream()
-                    .map(choice -> candidates.get(choice - 1)).map(s -> new ChatSearchEvent.ReadingDocument(
-                            s.anchor().documentId(), s.anchor().generation(), readingTitle(s.anchor().title()), s.start(), s.end())).toList()));
+            var selectedSections = new ArrayList<SearchSection>();
+            for (int choice : choices) {
+                checkActive.run();
+                var section = candidates.get(choice - 1);
+                try {
+                    timings.measure(Stage.EXPANSION, () -> search.expand(result, section, 0));
+                    selectedSections.add(section);
+                } catch (SearchDocumentUnavailableException revoked) {
+                    checkActive.run();
+                }
+            }
+            if (selectedSections.isEmpty())
+                return "No authorized evidence remains. Do not invent an organization-specific answer.";
+            events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.EXPANDING, null, null, selectedSections.stream()
+                    .map(s -> new ChatSearchEvent.ReadingDocument(s.anchor().documentId(), s.anchor().generation(),
+                            readingTitle(s.anchor().title()), s.start(), s.end())).toList()));
             var groups = new LinkedHashMap<String, TreeMap<Integer, SearchPage.Passage>>();
             var metadata = new LinkedHashMap<String, SearchHit>();
-            var selectedSections = choices.stream().map(choice -> candidates.get(choice - 1)).toList();
             var contexts = SearchTasks.run(selectedSections.stream().<Callable<List<SearchPage.Passage>>>map(section ->
                     () -> selectContext(result, section, selectionQuery)).toList(), checkActive);
             for (int i = 0; i < selectedSections.size(); i++) {
                 checkActive.run();
-                var hit = selectedSections.get(i).anchor();
+                var selectedSection = selectedSections.get(i);
+                var hit = selectedSection.anchor();
                 var passages = contexts.get(i);
+                if (passages.isEmpty()) continue;
+                // Classification and other sections may have performed provider IO since expansion.
+                try { timings.measure(Stage.EXPANSION, () -> search.expand(result, selectedSection, 0)); }
+                catch (SearchDocumentUnavailableException revoked) {
+                    checkActive.run();
+                    continue;
+                }
                 checkActive.run();
                 String key = hit.documentId() + ":" + hit.generation();
                 metadata.putIfAbsent(key, hit);

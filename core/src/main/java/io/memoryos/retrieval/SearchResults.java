@@ -1,6 +1,6 @@
 package io.memoryos.retrieval;
 
-import io.memoryos.iam.TenantId;
+import io.memoryos.connector.SourceSearchScope;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -12,13 +12,13 @@ import java.util.Set;
 
 /** Only Retrieval creates this authorized candidate set. It is not an HTTP or model input. */
 public final class SearchResults {
-    private final TenantId tenant;
+    private final SourceSearchScope scope;
     private final List<SearchHit> hits;
     private final Set<SearchHit> authorized;
-    SearchResults(TenantId tenant, List<SearchHit> hits) {
-        this.tenant = tenant; this.hits = List.copyOf(hits); this.authorized = Set.copyOf(hits);
+    SearchResults(SourceSearchScope scope, List<SearchHit> hits) {
+        this.scope = scope; this.hits = List.copyOf(hits); this.authorized = Set.copyOf(hits);
     }
-    TenantId tenant() { return tenant; }
+    SourceSearchScope scope() { return scope; }
     public List<SearchHit> hits() { return hits; }
     boolean contains(SearchSection section) { return authorized.containsAll(section.chunks()); }
 

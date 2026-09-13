@@ -151,6 +151,8 @@ export const vi = {
       "Không thể sao chép liên kết mời. Hãy chọn và sao chép trực tiếp từ ô liên kết.",
     ownerProtected: "Không thể xóa hoặc vô hiệu hóa chủ tổ chức đã được cấu hình.",
     lastAdmin: "Không thể xóa hoặc vô hiệu hóa quản trị viên đang hoạt động cuối cùng.",
+    lastGroup:
+      "Người dùng tiêu chuẩn phải thuộc ít nhất một nhóm. Hãy thêm họ vào nhóm khác trước khi xóa tư cách thành viên cuối cùng.",
     languageInvalid: "Chọn Tiếng Việt hoặc English.",
     unexpected: "Đã có lỗi xảy ra. Vui lòng thử lại.",
     unauthenticated: "Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.",

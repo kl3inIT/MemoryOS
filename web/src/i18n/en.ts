@@ -151,6 +151,8 @@ export const en = {
     copyInvitation: "The invitation link could not be copied. Select and copy it from the field.",
     ownerProtected: "The configured owner cannot be removed or deactivated.",
     lastAdmin: "The final active administrator cannot be removed or deactivated.",
+    lastGroup:
+      "A standard user must belong to at least one group. Add another group before removing their last membership.",
     languageInvalid: "Choose Vietnamese or English.",
     unexpected: "Something went wrong. Please try again.",
     unauthenticated: "Your session has ended. Sign in again.",

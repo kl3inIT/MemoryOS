@@ -18,6 +18,7 @@ export type GoogleDriveConfigurationResponse = {
     revision: number;
     syncIntervalMinutes: number;
     scheduleRevision: number;
+    syncPaused: boolean;
     scopeMode: 'GENERAL' | 'SPECIFIC';
     counts: GoogleDriveSelectionCountsResponse;
     discoveryRevision: number;
@@ -310,8 +311,37 @@ export type SourceUploadReceipt = {
     operation: SourceOperation;
 };
 
+export type RenameSourceRequest = {
+    name: string;
+};
+
+export type SourceSummary = {
+    id: string;
+    name: string;
+    type: string;
+    access: string;
+    status: string;
+    pendingWork: boolean;
+    documentCount: number;
+    lastSucceededAt: string | null;
+    errorCode: string | null;
+    actions: Array<'upload' | 'reindex' | 'remove_items' | 'delete' | 'manage_groups' | 'rename' | 'manage_access' | 'manage_configuration' | 'synchronize' | 'manage_schedule' | 'pause_sync' | 'resume_sync'>;
+};
+
 export type UpdateSourceGroupsRequest = {
+    /**
+     * Ordinary groups. Global managers may clear all groups; scoped managers must retain at least one managed group.
+     */
     groupIds: Array<string>;
+};
+
+export type UpdateGoogleDrivePauseRequest = {
+    expectedRevision: number;
+    paused: boolean;
+};
+
+export type UpdateSourceAccessRequest = {
+    access: 'PUBLIC' | 'RESTRICTED';
 };
 
 export type CreateGoogleDriveSourceRequest = {
@@ -326,24 +356,19 @@ export type CreateGoogleDriveSourceRequest = {
      * Empty for GENERAL; distinct non-overlapping links bounded by the selection policy for SPECIFIC.
      */
     links: Array<string>;
+    /**
+     * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
+     */
+    groupIds?: Array<string> | null;
 };
 
 export type CreateFileSourceRequest = {
     name: string;
+    /**
+     * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
+     */
     groupIds?: Array<string> | null;
-};
-
-export type SourceSummary = {
-    id: string;
-    name: string;
-    type: string;
-    access: string;
-    status: string;
-    pendingWork: boolean;
-    documentCount: number;
-    lastSucceededAt: string | null;
-    errorCode: string | null;
-    actions: Array<string>;
+    access?: 'PUBLIC' | 'RESTRICTED';
 };
 
 export type SearchRequest = {
@@ -422,7 +447,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     actions: Array<string>;
 };
 
@@ -437,7 +462,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
 };
 
 export type RevokeGoogleDriveCredentialRequest = {
@@ -779,11 +804,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -840,11 +865,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'IAM_ADMIN' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
 };
 
 export type GoogleDriveCredentialResponse = {
@@ -857,6 +882,7 @@ export type GoogleDriveCredentialResponse = {
     createdAt: string;
     updatedAt: string;
     sourceCount: number;
+    actions: Array<string>;
 };
 
 export type SharedSession = {
@@ -2337,7 +2363,7 @@ export type ReplaceUserGroupsErrors = {
      */
     401: unknown;
     /**
-     * The actor lacks IAM_ADMIN authority or the same-origin header is missing
+     * The actor lacks SYSTEM_ADMIN authority or the same-origin header is missing
      */
     403: ApiProblem;
     /**
@@ -2488,6 +2514,30 @@ export type FinalizeSourceUploadResponses = {
 
 export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof FinalizeSourceUploadResponses];
 
+export type RenameSourceData = {
+    body: RenameSourceRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/rename';
+};
+
+export type RenameSourceResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type RenameSourceResponse = RenameSourceResponses[keyof RenameSourceResponses];
+
 export type RemoveSourceItemData = {
     body?: never;
     headers: {
@@ -2604,6 +2654,30 @@ export type SynchronizeGoogleDriveSourceResponses = {
 
 export type SynchronizeGoogleDriveSourceResponse = SynchronizeGoogleDriveSourceResponses[keyof SynchronizeGoogleDriveSourceResponses];
 
+export type UpdateGoogleDrivePauseData = {
+    body: UpdateGoogleDrivePauseRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/pause';
+};
+
+export type UpdateGoogleDrivePauseResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveConfigurationResponse;
+};
+
+export type UpdateGoogleDrivePauseResponse = UpdateGoogleDrivePauseResponses[keyof UpdateGoogleDrivePauseResponses];
+
 export type DiscoverGoogleDriveLinkedDocumentsData = {
     body?: never;
     headers: {
@@ -2652,6 +2726,30 @@ export type DeleteSourceResponses = {
 };
 
 export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceResponses];
+
+export type UpdateSourceAccessData = {
+    body: UpdateSourceAccessRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/access';
+};
+
+export type UpdateSourceAccessResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type UpdateSourceAccessResponse = UpdateSourceAccessResponses[keyof UpdateSourceAccessResponses];
 
 export type CreateGoogleDriveSourceData = {
     body: CreateGoogleDriveSourceRequest;
@@ -3034,6 +3132,15 @@ export type RemoveGroupMemberData = {
     url: '/api/groups/{groupId}/members/{actorId}/remove';
 };
 
+export type RemoveGroupMemberErrors = {
+    /**
+     * The final active administrator or a standard member's last Group is protected
+     */
+    409: ApiProblem;
+};
+
+export type RemoveGroupMemberError = RemoveGroupMemberErrors[keyof RemoveGroupMemberErrors];
+
 export type RemoveGroupMemberResponses = {
     /**
      * Member removed
@@ -3107,6 +3214,15 @@ export type DeleteGroupData = {
     query?: never;
     url: '/api/groups/{groupId}/delete';
 };
+
+export type DeleteGroupErrors = {
+    /**
+     * IAM_LAST_GROUP_PROTECTED: a standard member would lose their last Group
+     */
+    409: ApiProblem;
+};
+
+export type DeleteGroupError = DeleteGroupErrors[keyof DeleteGroupErrors];
 
 export type DeleteGroupResponses = {
     /**

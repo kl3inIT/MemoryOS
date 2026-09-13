@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/api/sources/group-options**", (route) =>
+    route.fulfill({ json: { items: [], page: 0, size: 25, totalItems: 0, totalPages: 0 } }),
+  );
   await page.route("**/api/sources/google-drive/selection-policy", (route) =>
     route.fulfill({
       json: {
@@ -12,12 +15,69 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+test("scoped setup uses credential actions and requires managed groups before proposing Drive creation", async ({
+  page,
+}) => {
+  const managedGroup = {
+    id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
+    name: "Managed team",
+    systemKey: null,
+  };
+  await page.route("**/api/identity/me", (route) =>
+    route.fulfill({
+      json: {
+        ...owner,
+        capabilities: [],
+        scopedCapabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+      },
+    }),
+  );
+  await page.route("**/api/credentials/google-drive", (route) =>
+    route.fulfill({ json: [{ ...credential, actions: [] }] }),
+  );
+  await page.route("**/api/sources/group-options**", (route) =>
+    route.fulfill({
+      json: {
+        items: [managedGroup],
+        page: 0,
+        size: 25,
+        totalItems: 1,
+        totalPages: 1,
+      },
+    }),
+  );
+  await page.goto("/admin/sources/new/google-drive");
+  await expect(page.getByRole("button", { name: `Manage ${credential.name}` })).toHaveCount(0);
+  await page.getByRole("radio", { name: `Select ${credential.name}` }).check();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByLabel("Source name").fill("Managed Drive");
+  await page
+    .getByRole("textbox", { name: "File or folder links" })
+    .fill("https://drive.google.com/file/d/file-a/view");
+  await expect(page.getByRole("button", { name: "Create Source", exact: true })).toBeDisabled();
+  await page.getByRole("checkbox", { name: /Managed team/ }).check();
+  const submitted = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/sources/google-drive",
+  );
+  await page.route("**/api/sources/google-drive", (route) =>
+    route.fulfill({
+      status: 403,
+      json: { code: "IAM_ACCESS_DENIED", status: 403 },
+    }),
+  );
+  await page.getByRole("button", { name: "Create Source", exact: true }).click();
+  expect((await submitted).postDataJSON().groupIds).toEqual([managedGroup.id]);
+  await expect(page.getByRole("alert").filter({ hasText: /permissions changed/ })).toBeVisible();
+});
+
 const owner = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },
-  capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+  capabilities: ["SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
   scopedCapabilities: [],
 };
 const credential = {
@@ -30,6 +90,7 @@ const credential = {
   createdAt: "2026-09-01T10:00:00Z",
   updatedAt: "2026-09-02T14:30:00Z",
   sourceCount: 0,
+  actions: ["reauthorize", "replace_oauth_client", "revoke", "delete"],
 };
 
 test("pasted and uploaded OAuth JSON are cleared on rejection and modal close", async ({

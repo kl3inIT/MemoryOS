@@ -81,6 +81,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             try {
                 boolean accepted = Boolean.TRUE.equals(transactions.execute(_ -> {
                     sources.lock(due.tenantId(), due.sourceId());
+                    if (!drive.automaticSyncEnabled(due.tenantId(), due.sourceId())) return false;
                     var state = connections.state(due.tenantId(), due.sourceId());
                     sync.postpone(due.tenantId(), due.sourceId());
                     if (!connections.current(due.tenantId(), due.sourceId(), state.credentialRevision())) return false;
@@ -168,7 +169,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 documents.invalidateItem(work.tenantId(), work.sourceId(), item);
                 indexing.cancelForItem(work.tenantId(), work.sourceId(), item);
                 sources.createCleanup(new SourceOperationId(UUID.randomUUID()), work.tenantId(),
-                        SourceOperationType.REMOVE_ITEM, "ITEM:" + item.value(), work.sourceId(), item);
+                        SourceOperationType.REMOVE_ITEM, "ITEM:" + item.value(), work.sourceId(), item, null);
             }
             sync.removed(work, missing.size());
             if (!missing.isEmpty()) return null;

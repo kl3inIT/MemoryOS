@@ -25,7 +25,7 @@ public interface GoogleDriveAuthorizationService {
 
     record CredentialView(CredentialId id, String name, String accountEmail, String status,
                           long credentialRevision, boolean oauthClientConfigured,
-                          Instant createdAt, Instant updatedAt, long sourceCount) {}
+                          Instant createdAt, Instant updatedAt, long sourceCount, List<String> actions) {}
 
     record Preparation(TenantId tenantId, String name, @Nullable CredentialId credentialId, @Nullable Long expectedRevision,
                        UUID consentId, String oauthClientSnapshot) {

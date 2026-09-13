@@ -95,7 +95,7 @@ class DefaultInitialTenantBootstrapperTest {
         assertEquals(1L, count("tenant_memberships"));
         assertEquals(2L, count("iam_groups"));
         assertEquals(2L, count("iam_group_memberships"));
-        assertEquals(1L, count("iam_group_capability_grants"));
+        assertEquals(2L, count("iam_group_capability_grants"));
         assertEquals("STANDARD", jdbcClient.sql("SELECT account_type FROM actors").query(String.class).single());
         assertEquals(
                 TENANT_ID.value(),

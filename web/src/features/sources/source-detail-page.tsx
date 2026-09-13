@@ -22,7 +22,7 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
@@ -36,8 +36,10 @@ import {
   listSourcesQueryKey,
   reindexSourceItemMutation,
   removeSourceItemMutation,
+  renameSourceMutation,
+  updateSourceAccessMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
+import type { SourceItem, SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { SourceSummaryCard } from "./source-summary-card";
@@ -64,7 +66,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const ui = useAppTranslation();
 
   const navigate = useNavigate({ from: "/admin/sources/$sourceId" });
-  const canManageDrive = useApplicationSession().capabilities.includes("SOURCES_MANAGE");
   const queryClient = useQueryClient();
   const notify = useActionNotifications();
   const [reindexControllers] = useState(() => new Map<string, AbortController>());
@@ -649,7 +650,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         </p>
       ) : null}
 
-      {sourceQuery.isError && detail && (detail.type !== "GOOGLE_DRIVE" || !canManageDrive) ? (
+      {sourceQuery.isError && detail && detail.type !== "GOOGLE_DRIVE" ? (
         <div className="mt-5 space-y-3">
           <p role="alert" className="text-sm text-status-danger-content">
             {ui("Source status could not be refreshed. Displayed values may be out of date.")}
@@ -726,6 +727,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   />
                 ) : null
               }
+            />
+            <SourceMetadataEditor
+              key={`${detail.id}:${detail.actions.join(",")}`}
+              source={detail}
+              disabled={busy || sourceQuery.isError || detail.status === "DELETING"}
+              onSaved={refreshAuthorityViews}
             />
             {detail.errorCode &&
             !(detail.type === "GOOGLE_DRIVE" && detail.errorCode.startsWith("SOURCE_GOOGLE_")) ? (
@@ -926,12 +933,16 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   title={previous.length ? ui("No files on this page") : ui("No files yet")}
                   detail={
                     previous.length
-                      ? "Files may have been removed. Return to the previous page or refresh this page."
+                      ? ui(
+                          "Files may have been removed. Return to the previous page or refresh this page.",
+                        )
                       : detail.type === "GOOGLE_DRIVE"
-                        ? "Files appear here after synchronization acquires them from Google Drive."
+                        ? ui(
+                            "Files appear here after synchronization acquires them from Google Drive.",
+                          )
                         : canUpload
-                          ? "Upload one supported file to start indexing."
-                          : "No files are indexed in this Source."
+                          ? ui("Upload one supported file to start indexing.")
+                          : ui("No files are indexed in this Source.")
                   }
                 />
               ) : itemsQuery.data ? (
@@ -1117,6 +1128,157 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         )}
       </div>
     </SettingsLayout>
+  );
+}
+
+function SourceMetadataEditor({
+  source,
+  disabled,
+  onSaved,
+}: {
+  source: SourceSummary;
+  disabled: boolean;
+  onSaved: () => Promise<void>;
+}) {
+  const ui = useAppTranslation();
+  const globalManage = useGlobalCapability("SOURCES_MANAGE");
+  const rename = useMutation(renameSourceMutation());
+  const updateAccess = useMutation(updateSourceAccessMutation());
+  const [editing, setEditing] = useState<"name" | "access" | null>(null);
+  const [name, setName] = useState(source.name);
+  const [access, setAccess] = useState<"PUBLIC" | "RESTRICTED">(
+    source.access === "PUBLIC" ? "PUBLIC" : "RESTRICTED",
+  );
+  const [error, setError] = useState<AppCopy | null>(null);
+  const canRename = source.actions.includes("rename");
+  const canManageAccess =
+    globalManage && source.type === "FILE" && source.actions.includes("manage_access");
+  const pending = rename.isPending || updateAccess.isPending;
+  if (editing === "access" && !canManageAccess) {
+    setEditing(null);
+    setAccess(source.access === "PUBLIC" ? "PUBLIC" : "RESTRICTED");
+    setError(null);
+  }
+
+  async function save() {
+    if (disabled || pending) return;
+    setError(null);
+    try {
+      if (editing === "name" && canRename && name.trim()) {
+        await rename.mutateAsync({
+          path: { sourceId: source.id },
+          headers: sameOriginMutationHeaders,
+          body: { name: name.trim() },
+        });
+      } else if (editing === "access" && canManageAccess) {
+        await updateAccess.mutateAsync({
+          path: { sourceId: source.id },
+          headers: sameOriginMutationHeaders,
+          body: { access },
+        });
+      } else return;
+      setEditing(null);
+      await onSaved();
+    } catch (cause) {
+      setError(sourceMutationError(cause, "metadata"));
+    }
+  }
+
+  if (!canRename && !canManageAccess) return null;
+  return (
+    <section aria-label={ui("Source settings")} className="mb-6 space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {canRename ? (
+          <Button
+            prominence="tertiary"
+            disabled={disabled || pending}
+            onClick={() => {
+              setName(source.name);
+              setError(null);
+              setEditing("name");
+            }}
+          >
+            {ui("Rename source")}
+          </Button>
+        ) : null}
+        {canManageAccess ? (
+          <Button
+            prominence="tertiary"
+            disabled={disabled || pending}
+            onClick={() => {
+              setAccess(source.access === "PUBLIC" ? "PUBLIC" : "RESTRICTED");
+              setError(null);
+              setEditing("access");
+            }}
+          >
+            {ui("Change visibility")}
+          </Button>
+        ) : null}
+      </div>
+      {editing ? (
+        <form
+          className="space-y-3 rounded-lg border border-border-subtle p-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          {editing === "name" ? (
+            <label className="block space-y-2">
+              <span>{ui("Source name")}</span>
+              <Input
+                value={name}
+                maxLength={120}
+                required
+                disabled={disabled || pending}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+          ) : (
+            <label className="block space-y-2">
+              <span>{ui("Visibility")}</span>
+              <Select
+                value={access}
+                disabled={disabled || pending}
+                onChange={(event) => setAccess(event.target.value as "PUBLIC" | "RESTRICTED")}
+              >
+                <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
+                <option value="RESTRICTED">{ui("Private · associated group members")}</option>
+              </Select>
+              <span className="block text-sm text-content-muted">
+                {ui(
+                  "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.",
+                )}
+              </span>
+            </label>
+          )}
+          {error ? (
+            <p role="alert" className="text-sm text-status-danger-content">
+              {ui(error)}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              pending={pending}
+              disabled={disabled || (editing === "name" && !name.trim())}
+            >
+              {editing === "name" ? ui("Save name") : ui("Save visibility")}
+            </Button>
+            <Button
+              prominence="secondary"
+              disabled={pending}
+              onClick={() => {
+                setEditing(null);
+                setError(null);
+              }}
+            >
+              {ui("Cancel")}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </section>
   );
 }
 

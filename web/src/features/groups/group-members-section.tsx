@@ -2,17 +2,15 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import {
+  ChevronLeft,
+  ChevronRight,
+  CircleMinus,
+  CirclePlus,
   LoaderCircle,
-  Plus,
   Search,
-  ShieldMinus,
-  ShieldPlus,
-  Trash2,
-  UserRound,
-  UsersRound,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { OnyxUserIcon, OnyxUsersIcon, OnyxUserShieldIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
@@ -62,7 +60,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
       path: { groupId: group.id },
       query: { search: candidateSearch || undefined, page: candidatePage, size: 10 },
     }),
-    enabled: adding,
+    enabled: adding && group.actions.includes("manage_members"),
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -72,6 +70,30 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
   const removeManager = useMutation(removeGroupManagerMutation());
   const canManageMembers = group.actions.includes("manage_members");
   const canManageManagers = group.actions.includes("manage_managers");
+  const [previousAuthority, setPreviousAuthority] = useState(() => ({
+    canManageMembers,
+    canManageManagers,
+  }));
+
+  if (
+    previousAuthority.canManageMembers !== canManageMembers ||
+    previousAuthority.canManageManagers !== canManageManagers
+  ) {
+    setPreviousAuthority({ canManageMembers, canManageManagers });
+    if (!canManageMembers) {
+      setAdding(false);
+      setSelectedCandidates(new Set());
+      setCandidateSearch("");
+      setCandidateSearchDraft("");
+      setCandidatePage(0);
+    }
+    if (
+      (previousAuthority.canManageMembers && !canManageMembers) ||
+      (previousAuthority.canManageManagers && !canManageManagers)
+    ) {
+      setActionError(null);
+    }
+  }
 
   const memberTotalPages = members.data?.totalPages;
   if (!members.isPlaceholderData && memberTotalPages !== undefined) {
@@ -86,7 +108,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
   }
 
   async function addSelectedMembers() {
-    if (selectedCandidates.size === 0 || addMembers.isPending) return;
+    if (!canManageMembers || selectedCandidates.size === 0 || addMembers.isPending) return;
     setActionError(null);
     try {
       await addMembers.mutateAsync({
@@ -104,6 +126,12 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
   }
 
   async function removeSelectedMember(member: GroupMember) {
+    if (
+      !canManageMembers ||
+      member.protectedOwner ||
+      (member.isManager && (member.actorId === currentActorId || !canManageManagers))
+    )
+      return;
     setActionError(null);
     await removeMember.mutateAsync({
       path: { groupId: group.id, actorId: member.actorId },
@@ -114,6 +142,12 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
   }
 
   async function changeManager(member: GroupMember) {
+    if (
+      !canManageManagers ||
+      member.protectedOwner ||
+      (member.isManager && member.actorId === currentActorId)
+    )
+      return;
     setActionError(null);
     const mutation = member.isManager ? removeManager : assignManager;
     try {
@@ -139,28 +173,67 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
     removeManager.isPending;
 
   return (
-    <section aria-labelledby="group-members-heading" className="border-t border-border-subtle pt-7">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-secondary">
-            <UsersRound className="size-4" aria-hidden="true" />
-          </span>
-          <div>
-            <h2 id="group-members-heading" className="font-heading-h3 text-content-primary">
-              {ui("Members")}
-            </h2>
-            <p className="mt-1 font-main-ui-body text-content-muted">
-              {ui(
-                "Group managers can maintain ordinary membership without changing manager status.",
-              )}
-            </p>
-          </div>
-        </div>
+    <section
+      aria-labelledby="group-members-heading"
+      className="group-detail-members min-w-0 border-t border-border-subtle pt-5"
+    >
+      <h2 id="group-members-heading" className="mb-4 font-heading-h3 text-content-primary">
+        {ui("Group Members")}
+      </h2>
+      <div className="flex min-w-0 items-center gap-2">
+        <form
+          role="search"
+          className="relative min-w-0 flex-1"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (adding) {
+              setCandidateSearch(candidateSearchDraft.trim());
+              setCandidatePage(0);
+            } else {
+              setSearch(searchDraft.trim());
+              setPage(0);
+            }
+          }}
+        >
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            value={adding ? candidateSearchDraft : searchDraft}
+            aria-label={adding ? ui("Search member candidates") : ui("Search group members")}
+            maxLength={200}
+            placeholder={adding ? ui("Search users…") : ui("Search members…")}
+            className="h-9 bg-surface-sunken pl-9"
+            onChange={(event) =>
+              adding
+                ? setCandidateSearchDraft(event.target.value)
+                : setSearchDraft(event.target.value)
+            }
+          />
+          <button type="submit" className="sr-only">
+            {adding ? ui("Search candidates") : ui("Search members")}
+          </button>
+        </form>
+        {adding && canManageMembers ? (
+          <Button
+            size="sm"
+            disabled={
+              selectedCandidates.size === 0 || candidates.isPending || candidates.isError || busy
+            }
+            pending={addMembers.isPending}
+            onClick={() => void addSelectedMembers()}
+          >
+            {ui("Add")} {selectedCandidates.size > 0 ? selectedCandidates.size : ui("selected")}
+          </Button>
+        ) : null}
         {canManageMembers ? (
           <Button
             ref={addButtonRef}
             size="sm"
             prominence={adding ? "secondary" : "tertiary"}
+            className="shrink-0"
             disabled={busy}
             onClick={() => {
               setAdding((current) => !current);
@@ -168,8 +241,8 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
               setActionError(null);
             }}
           >
-            <Plus aria-hidden="true" />
-            {adding ? ui("Done adding") : ui("Add members")}
+            <CirclePlus aria-hidden="true" />
+            {adding ? ui("Done") : ui("Add")}
           </Button>
         ) : null}
       </div>
@@ -183,44 +256,8 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
         </p>
       ) : null}
 
-      {adding ? (
-        <div className="mt-4 rounded-xl border border-border-default bg-surface-subtle p-4 sm:p-5">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <form
-              role="search"
-              className="relative min-w-0 flex-1"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setCandidateSearch(candidateSearchDraft.trim());
-                setCandidatePage(0);
-              }}
-            >
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-                aria-hidden="true"
-              />
-              <Input
-                type="search"
-                value={candidateSearchDraft}
-                aria-label={ui("Search member candidates")}
-                maxLength={200}
-                placeholder={ui("Search users…")}
-                className="bg-surface-raised pl-9"
-                onChange={(event) => setCandidateSearchDraft(event.target.value)}
-              />
-              <button type="submit" className="sr-only">
-                {ui("Search candidates")}
-              </button>
-            </form>
-            <Button
-              disabled={selectedCandidates.size === 0 || candidates.isPending}
-              pending={addMembers.isPending}
-              onClick={() => void addSelectedMembers()}
-            >
-              {ui("Add")} {selectedCandidates.size > 0 ? selectedCandidates.size : ui("selected")}
-            </Button>
-          </div>
-
+      {adding && canManageMembers ? (
+        <div className="mt-3 min-w-0">
           {candidates.isPending ? (
             <LoadingRows label={ui("Loading eligible users")} />
           ) : candidates.isError ? (
@@ -237,18 +274,18 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
               }
               detail={
                 candidateSearch
-                  ? "Try another name or email."
-                  : "There are no more users to add to this group."
+                  ? ui("Try another name or email.")
+                  : ui("There are no more users to add to this group.")
               }
             />
           ) : (
-            <div className="mt-4 divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
+            <div className="mt-3 divide-y divide-border-subtle overflow-hidden rounded-lg border border-border-subtle bg-surface-sunken">
               {candidateRows.map((candidate) => {
                 const checked = selectedCandidates.has(candidate.actorId);
                 return (
                   <label
                     key={candidate.actorId}
-                    className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-subtle has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30"
+                    className="flex min-w-0 cursor-pointer items-center gap-2 px-3 py-2 transition-colors hover:bg-surface-subtle has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30"
                   >
                     <input
                       type="checkbox"
@@ -270,253 +307,199 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
               })}
             </div>
           )}
-          {candidatesPage && candidatesPage.totalPages > 1 ? (
+          {candidatesPage && !candidates.isError ? (
             <Pagination
               label={ui("Candidate pages")}
-              page={candidatePage}
+              page={candidatesPage.page}
+              pageSize={candidatesPage.size}
+              itemCount={candidateRows.length}
+              totalItems={candidatesPage.totalItems}
               totalPages={candidatesPage.totalPages}
+              disabled={candidates.isFetching}
               onPageChange={setCandidatePage}
             />
           ) : null}
         </div>
-      ) : null}
-
-      <form
-        role="search"
-        className="relative mt-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSearch(searchDraft.trim());
-          setPage(0);
-        }}
-      >
-        <Search
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-          aria-hidden="true"
-        />
-        <Input
-          type="search"
-          value={searchDraft}
-          aria-label={ui("Search group members")}
-          maxLength={200}
-          placeholder={ui("Search members…")}
-          className="bg-surface-sunken pl-9"
-          onChange={(event) => setSearchDraft(event.target.value)}
-        />
-        <button type="submit" className="sr-only">
-          {ui("Search members")}
-        </button>
-      </form>
-
-      {members.isPending ? (
-        <LoadingRows label={ui("Loading members")} />
-      ) : members.isError ? (
-        <InlineError
-          label={ui("Members could not be loaded.")}
-          onRetry={() => void members.refetch()}
-        />
-      ) : rows.length === 0 ? (
-        <EmptyRows
-          title={search ? ui("No members found") : ui("No members")}
-          detail={
-            search ? "Try another name or email." : "Add an eligible Tenant user to this group."
-          }
-        />
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
-          <table className="w-full min-w-[42rem] table-fixed border-collapse">
-            <caption className="sr-only">
-              {ui("Members of")} {group.name}
-            </caption>
-            <colgroup>
-              <col />
-              <col className="w-32" />
-              <col className="w-28" />
-              <col className="w-28" />
-            </colgroup>
-            <thead className="border-b border-border-subtle bg-surface-subtle text-left">
-              <tr>
-                <th className="h-10 px-4 font-secondary-action text-content-secondary">
-                  {ui("Name")}
-                </th>
-                <th className="h-10 px-4 font-secondary-action text-content-secondary">
-                  {ui("Account type")}
-                </th>
-                <th className="h-10 px-4 font-secondary-action text-content-secondary">
-                  {ui("Status")}
-                </th>
-                <th className="h-10 px-4 text-center font-secondary-action text-content-secondary">
-                  <span className="sr-only">{ui("Actions")}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {rows.map((member) => {
-                const name =
-                  member.displayName?.trim() || member.email?.trim() || `user ${member.actorId}`;
-                const managerPending =
-                  (assignManager.isPending &&
-                    assignManager.variables?.path.actorId === member.actorId) ||
-                  (removeManager.isPending &&
-                    removeManager.variables?.path.actorId === member.actorId);
-                const ownManager = member.isManager && member.actorId === currentActorId;
-                return (
-                  <tr
-                    key={member.actorId}
-                    className="bg-surface-raised transition-colors hover:bg-surface-subtle"
-                  >
-                    <td className="h-16 px-4 py-3">
-                      <MemberIdentity member={member} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <MemberAccount member={member} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant="outline"
-                        className={
-                          member.status === "ACTIVE"
-                            ? "border-status-success-content/25 bg-status-success-surface text-status-success-content"
-                            : "bg-surface-subtle text-content-muted"
-                        }
-                      >
-                        {member.status === "ACTIVE" ? ui("Active") : ui("Inactive")}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {member.protectedOwner ? (
-                          <Badge
-                            variant="outline"
-                            className="mr-1 bg-surface-raised text-content-muted"
-                          >
-                            {ui("Protected")}
-                          </Badge>
-                        ) : null}
-                        {canManageManagers ? (
-                          <ConfirmDialog
-                            trigger={
-                              <IconButton
-                                size="sm"
-                                disabled={busy || member.protectedOwner || ownManager}
-                                pending={managerPending}
-                                aria-label={ui("{{v1}} for {{v2}}", {
-                                  v1: ui(member.isManager ? "Remove manager" : "Make manager"),
-                                  v2: name,
-                                })}
-                              >
-                                {member.isManager ? <ShieldMinus /> : <ShieldPlus />}
-                              </IconButton>
-                            }
-                            title={ui(
-                              member.isManager
-                                ? "Remove manager access from {{name}}?"
-                                : "Make {{name}} a manager?",
-                              { name },
-                            )}
-                            description={
-                              member.isManager
-                                ? ui(
-                                    "Their group-scoped management access ends on the next authorized request.",
-                                  )
-                                : ui(
-                                    "They will be able to maintain this group’s ordinary membership and access associated Sources within their granted scope.",
-                                  )
-                            }
-                            confirmLabel={
-                              member.isManager ? ui("Remove manager") : ui("Make manager")
-                            }
-                            pendingLabel={ui("Updating manager…")}
-                            confirmTone={member.isManager ? "danger" : "default"}
-                            onConfirm={() => changeManager(member)}
-                            errorMessage={(cause) => groupMutationError(cause, "manager")}
-                          />
-                        ) : member.isManager ? (
-                          <Badge
-                            variant="secondary"
-                            className="bg-surface-subtle text-content-secondary"
-                          >
-                            {ui("Manager")}
-                          </Badge>
-                        ) : null}
-                        {canManageMembers && (!member.isManager || canManageManagers) ? (
-                          <ConfirmDialog
-                            trigger={
-                              <IconButton
-                                size="sm"
-                                tone="danger"
-                                prominence="tertiary"
-                                disabled={busy || member.protectedOwner || ownManager}
-                                aria-label={ui("Remove {{v1}} from {{v2}}", {
-                                  v1: name,
-                                  v2: group.name,
-                                })}
-                              >
-                                <Trash2 />
-                              </IconButton>
-                            }
-                            successFocusRef={addButtonRef}
-                            fallbackFocusRef={addButtonRef}
-                            title={ui("Remove {{v1}}?", { v1: name })}
-                            description={ui(
-                              "They will leave “{{v1}}”. Other group memberships and their Tenant account stay unchanged.",
-                              { v1: group.name },
-                            )}
-                            confirmLabel={ui("Remove member")}
-                            pendingLabel={ui("Removing member…")}
-                            onConfirm={() => removeSelectedMember(member)}
-                            errorMessage={(cause) => groupMutationError(cause, "members")}
-                          />
-                        ) : null}
-                      </div>
-                    </td>
+        <>
+          {members.isPending ? (
+            <LoadingRows label={ui("Loading members")} />
+          ) : members.isError ? (
+            <InlineError
+              label={ui("Members could not be loaded.")}
+              onRetry={() => void members.refetch()}
+            />
+          ) : rows.length === 0 ? (
+            <EmptyRows
+              title={search ? ui("No members found") : ui("No members")}
+              detail={
+                search
+                  ? ui("Try another name or email.")
+                  : ui("Add an eligible Tenant user to this group.")
+              }
+            />
+          ) : (
+            <div className="mt-3 min-w-0">
+              <table
+                className="w-full table-fixed border-separate border-spacing-x-0 border-spacing-y-1"
+                aria-busy={members.isFetching}
+              >
+                <caption className="sr-only">
+                  {ui("Members of")} {group.name}
+                </caption>
+                <colgroup>
+                  <col />
+                  <col className="w-28 sm:w-40" />
+                  <col className={canManageManagers ? "w-16 sm:w-20" : "w-10 sm:w-12"} />
+                </colgroup>
+                <thead className="text-left">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="h-8 px-3 font-secondary-action text-content-secondary"
+                    >
+                      {ui("Name")}
+                    </th>
+                    <th
+                      scope="col"
+                      className="h-8 px-2 font-secondary-action text-content-secondary"
+                    >
+                      {ui("Account Type")}
+                    </th>
+                    <th
+                      scope="col"
+                      className="h-8 px-2 font-secondary-action text-content-secondary"
+                    >
+                      <span className="sr-only">{ui("Actions")}</span>
+                    </th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {rows.map((member) => {
+                    const name = member.email?.trim() || ui("member without email");
+                    const managerPending =
+                      (assignManager.isPending &&
+                        assignManager.variables?.path.actorId === member.actorId) ||
+                      (removeManager.isPending &&
+                        removeManager.variables?.path.actorId === member.actorId);
+                    const ownManager = member.isManager && member.actorId === currentActorId;
+                    return (
+                      <tr
+                        key={member.actorId}
+                        className="bg-surface-sunken transition-colors hover:bg-surface-subtle"
+                      >
+                        <td className="h-11 rounded-l-lg px-3 py-2">
+                          <MemberIdentity member={member} />
+                        </td>
+                        <td className="px-2 py-2">
+                          <MemberAccount member={member} />
+                        </td>
+                        <td className="rounded-r-lg px-1 py-2 sm:px-2">
+                          <div className="flex flex-wrap items-center justify-end gap-0.5">
+                            {canManageManagers ? (
+                              <ConfirmDialog
+                                trigger={
+                                  <IconButton
+                                    size="sm"
+                                    disabled={busy || member.protectedOwner || ownManager}
+                                    pending={managerPending}
+                                    aria-label={ui("{{v1}} for {{v2}}", {
+                                      v1: ui(member.isManager ? "Remove manager" : "Make manager"),
+                                      v2: name,
+                                    })}
+                                  >
+                                    <OnyxUserShieldIcon />
+                                  </IconButton>
+                                }
+                                title={ui(
+                                  member.isManager
+                                    ? "Remove manager access from {{name}}?"
+                                    : "Make {{name}} a manager?",
+                                  { name },
+                                )}
+                                description={
+                                  member.isManager
+                                    ? ui(
+                                        "Their group-scoped management access ends on the next authorized request.",
+                                      )
+                                    : ui(
+                                        "They will be able to maintain this group’s ordinary membership and access associated Sources within their granted scope.",
+                                      )
+                                }
+                                confirmLabel={
+                                  member.isManager ? ui("Remove manager") : ui("Make manager")
+                                }
+                                pendingLabel={ui("Updating manager…")}
+                                confirmTone={member.isManager ? "danger" : "default"}
+                                onConfirm={() => changeManager(member)}
+                                errorMessage={(cause) => groupMutationError(cause, "manager")}
+                              />
+                            ) : null}
+                            {canManageMembers && (!member.isManager || canManageManagers) ? (
+                              <ConfirmDialog
+                                trigger={
+                                  <IconButton
+                                    size="sm"
+                                    prominence="tertiary"
+                                    disabled={busy || member.protectedOwner || ownManager}
+                                    aria-label={ui("Remove {{v1}} from {{v2}}", {
+                                      v1: name,
+                                      v2: group.name,
+                                    })}
+                                  >
+                                    <CircleMinus />
+                                  </IconButton>
+                                }
+                                successFocusRef={addButtonRef}
+                                fallbackFocusRef={addButtonRef}
+                                title={ui("Remove {{v1}}?", { v1: name })}
+                                description={ui(
+                                  "They will leave “{{v1}}”. Other group memberships and their Tenant account stay unchanged.",
+                                  { v1: group.name },
+                                )}
+                                confirmLabel={ui("Remove member")}
+                                pendingLabel={ui("Removing member…")}
+                                onConfirm={() => removeSelectedMember(member)}
+                                errorMessage={(cause) => groupMutationError(cause, "members")}
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-      {pageData && pageData.totalPages > 1 ? (
-        <Pagination
-          label={ui("Member pages")}
-          page={page}
-          totalPages={pageData.totalPages}
-          onPageChange={setPage}
-        />
-      ) : null}
+          {pageData && !members.isError ? (
+            <Pagination
+              label={ui("Member pages")}
+              page={pageData.page}
+              pageSize={pageData.size}
+              itemCount={rows.length}
+              totalItems={pageData.totalItems}
+              totalPages={pageData.totalPages}
+              disabled={members.isFetching}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </>
+      )}
     </section>
   );
 }
 
 function MemberIdentity({ member }: { member: GroupMember }) {
   const ui = useAppTranslation();
-
-  const name = member.displayName?.trim() || member.email?.trim() || `user ${member.actorId}`;
+  const email = member.email?.trim() || ui("Email unavailable");
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-3">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-subtle text-content-muted">
-        <UserRound className="size-4" aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate font-main-ui-action text-content-primary">{name}</span>
-          {member.isManager ? (
-            <Badge
-              variant="secondary"
-              className="shrink-0 bg-surface-subtle text-content-secondary"
-            >
-              {ui("Manager")}
-            </Badge>
-          ) : null}
-        </span>
-        {member.displayName && member.email ? (
-          <span className="block truncate font-secondary-body text-content-muted">
-            {member.email}
-          </span>
-        ) : null}
-      </span>
+    <span
+      className="block min-w-0 flex-1 truncate font-main-ui-body text-content-primary"
+      title={email}
+    >
+      {email}
     </span>
   );
 }
@@ -525,7 +508,7 @@ function MemberAccount({ member }: { member: GroupMember }) {
 
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 font-main-ui-body text-content-secondary">
-      <UserRound className="size-4 text-content-muted" aria-hidden="true" />
+      <OnyxUserIcon className="size-4 text-content-muted" aria-hidden="true" />
       {member.accountType === "STANDARD" ? ui("Standard") : member.accountType}
     </span>
   );
@@ -561,7 +544,7 @@ function InlineError({ label, onRetry }: { label: string; onRetry: () => void })
 function EmptyRows({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center">
-      <UsersRound className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+      <OnyxUsersIcon className="mx-auto size-5 text-content-muted" aria-hidden="true" />
       <p className="mt-2 font-main-ui-action text-content-primary">{title}</p>
       <p className="mt-1 font-secondary-body text-content-muted">{detail}</p>
     </div>
@@ -571,37 +554,59 @@ function EmptyRows({ title, detail }: { title: string; detail: string }) {
 function Pagination({
   label,
   page,
+  pageSize,
+  itemCount,
+  totalItems,
   totalPages,
+  disabled,
   onPageChange,
 }: {
   label: string;
   page: number;
+  pageSize: number;
+  itemCount: number;
+  totalItems: number;
   totalPages: number;
+  disabled: boolean;
   onPageChange: (page: number) => void;
 }) {
   const ui = useAppTranslation();
-
+  const firstItem = itemCount === 0 ? 0 : page * pageSize + 1;
+  const lastItem = itemCount === 0 ? 0 : page * pageSize + itemCount;
   return (
-    <nav aria-label={label} className="mt-4 flex items-center justify-end gap-2">
-      <Button
-        size="sm"
-        prominence="secondary"
-        disabled={page === 0}
-        onClick={() => onPageChange(page - 1)}
-      >
-        {ui("Previous")}
-      </Button>
-      <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-muted">
-        {ui("Page")} {page + 1} {ui("of")} {Math.max(totalPages, 1)}
+    <nav aria-label={label} className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <span className="font-secondary-body tabular-nums text-content-secondary" aria-live="polite">
+        {ui("Showing {{first}}–{{last}} of {{total}}", {
+          first: firstItem,
+          last: lastItem,
+          total: totalItems,
+        })}
       </span>
-      <Button
-        size="sm"
-        prominence="secondary"
-        disabled={page + 1 >= totalPages}
-        onClick={() => onPageChange(page + 1)}
-      >
-        {ui("Next")}
-      </Button>
+      <div className="flex items-center gap-1">
+        <IconButton
+          size="sm"
+          aria-label={ui("Previous page")}
+          disabled={disabled || page === 0}
+          onClick={() => onPageChange(page - 1)}
+        >
+          <ChevronLeft />
+        </IconButton>
+        <span
+          className="min-w-8 rounded-lg bg-surface-subtle px-2 py-1.5 text-center font-secondary-body tabular-nums text-content-secondary"
+          aria-label={ui("Page {{v1}} of {{v2}}", { v1: page + 1, v2: Math.max(totalPages, 1) })}
+          aria-current="page"
+        >
+          {page + 1}
+        </span>
+        <IconButton
+          size="sm"
+          aria-label={ui("Next page")}
+          disabled={disabled || page + 1 >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRight />
+        </IconButton>
+      </div>
     </nav>
   );
 }

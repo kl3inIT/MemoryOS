@@ -243,7 +243,7 @@ class DefaultUserQueryServiceTest {
         persistGroup(RESEARCH_GROUP, "Research", null);
         jdbcClient.sql("""
                         INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
-                        VALUES (:tenantId, :groupId, 'IAM_ADMIN')
+                        VALUES (:tenantId, :groupId, 'SYSTEM_ADMIN')
                         """)
                 .param("tenantId", TENANT.value())
                 .param("groupId", ADMIN_GROUP.value())

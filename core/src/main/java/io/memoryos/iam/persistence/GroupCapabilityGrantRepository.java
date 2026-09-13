@@ -60,14 +60,14 @@ public class GroupCapabilityGrantRepository {
     private static void requireAllowedGrants(GroupEntity group, Set<IamCapability> capabilities) {
         GroupSystemKey systemKey = group.getSystemKey();
         boolean valid = switch (systemKey) {
-            case ADMIN -> capabilities.equals(Set.of(IamCapability.IAM_ADMIN));
-            case BASIC -> capabilities.isEmpty();
-            case null -> !capabilities.contains(IamCapability.IAM_ADMIN);
+            case ADMIN -> capabilities.equals(Set.of(IamCapability.SYSTEM_ADMIN));
+            case BASIC -> capabilities.equals(Set.of(IamCapability.SYSTEM_BASIC));
+            case null -> capabilities.stream().allMatch(IamCapability::isOrdinaryGrant);
         };
         if (!valid) {
             throw new IamException(
                     IamFailureReason.GROUP_PROTECTED,
-                    "IAM_ADMIN is reserved to Admin and Basic cannot receive capability grants"
+                    "System bundles must match their Groups; derived capabilities cannot be granted directly"
             );
         }
     }

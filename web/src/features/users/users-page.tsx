@@ -1,8 +1,9 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { SearchX, UserRoundPlus, UsersRound, WifiOff } from "lucide-react";
+import { SearchX, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { OnyxUserIcon, OnyxUserPlusIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
@@ -32,7 +33,7 @@ export function UsersPage() {
   const search = useSearch({ from: "/_authenticated/admin/users" });
   const navigate = useNavigate({ from: "/admin/users" });
   const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
-  const canEditUserGroups = useGlobalCapability("IAM_ADMIN");
+  const canEditUserGroups = useGlobalCapability("SYSTEM_ADMIN");
   const inviteButtonRef = useRef<HTMLButtonElement>(null);
   const invitationReturnFocusRef = useRef<HTMLElement | null>(null);
   const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
@@ -102,7 +103,7 @@ export function UsersPage() {
       <section className="mx-auto w-full max-w-[var(--page-width-wide)] px-5 pt-7 pb-12 sm:px-8 sm:pt-10 sm:pb-16">
         <header className="flex items-center justify-between gap-4 border-b border-border-subtle pb-5">
           <div className="flex min-w-0 items-center gap-3">
-            <UsersRound className="size-6 shrink-0 text-content-secondary" aria-hidden="true" />
+            <OnyxUserIcon className="size-6 shrink-0 text-content-secondary" aria-hidden="true" />
             <h1 className="font-heading-h2 text-content-primary">{ui("Users")}</h1>
           </div>
           <Button
@@ -111,7 +112,7 @@ export function UsersPage() {
             disabled={actions.invitationPending}
             onClick={openInvitationDialog}
           >
-            <UserRoundPlus aria-hidden="true" />
+            <OnyxUserPlusIcon aria-hidden="true" />
             {ui("Invite member")}
           </Button>
         </header>
@@ -300,7 +301,7 @@ function UsersEmpty({
         {filtered ? (
           <SearchX className="size-4.5" aria-hidden="true" />
         ) : (
-          <UserRoundPlus className="size-4.5" aria-hidden="true" />
+          <OnyxUserPlusIcon className="size-4.5" aria-hidden="true" />
         )}
       </span>
       <h2 className="mt-4 font-heading-h3 text-content-primary">
