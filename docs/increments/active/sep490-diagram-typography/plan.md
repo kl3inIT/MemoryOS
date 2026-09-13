@@ -10,3 +10,5 @@
 IDE inspection cannot resolve the independent nested build dependencies in the main project; compilation against installed Visual Paradigm OpenAPI and plugin tests pass. PNG previews carry the Visual Paradigm Evaluation watermark. These are review diagrams, not instructor acceptance.
 
 This scoped direct-to-main commit uses `[skip ci]`: application CI and its downstream staging deployment are not needed for diagrams and the independently verified desktop tool.
+
+- [x] Add persistent push/PR path filters for docs, root Markdown and the Visual Paradigm tool. `[skip ci]` is only needed for the migration commit that edits the workflow itself.
