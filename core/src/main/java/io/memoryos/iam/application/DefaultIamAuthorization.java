@@ -96,8 +96,16 @@ public class DefaultIamAuthorization implements IamAuthorization {
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
+    public IamAccess lockAndRequireScopedMutation(ActorId actorId, IamCapability capability) {
+        AuthorizationSnapshot beforeLock = snapshotOrDenied(actorId);
+        lockRepository.lockTenant(beforeLock.tenantId());
+        return requireSameTenant(actorId, beforeLock.tenantId(), capability, true);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public IamAccess lockAndRequireAdministration(ActorId actorId) {
-        return lockAndRequireExclusive(actorId, IamCapability.IAM_ADMIN);
+        return lockAndRequireExclusive(actorId, IamCapability.SYSTEM_ADMIN);
     }
 
     private IamAccess requireSameTenant(

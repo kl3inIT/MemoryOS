@@ -3,9 +3,9 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Pencil, ShieldCheck, UsersRound } from "lucide-react";
+import { ChevronRight, Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { OnyxUserManageIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -27,16 +27,40 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
   const [error, setError] = useState<AppCopy | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
-  const canRename = group.actions.includes("rename");
+  const canRename = group.systemKey === null && group.actions.includes("rename");
+  const [previousRenameState, setPreviousRenameState] = useState(() => ({
+    groupId: group.id,
+    name: group.name,
+    canRename,
+  }));
   const builtIn = group.systemKey !== null;
+  const description =
+    group.systemKey === "ADMIN"
+      ? "Built-in admin group with full access to manage all permissions."
+      : group.systemKey === "BASIC"
+        ? "Default group for all users with basic permissions."
+        : "Custom group for member access and permissions.";
 
   useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
 
+  if (
+    previousRenameState.groupId !== group.id ||
+    previousRenameState.name !== group.name ||
+    previousRenameState.canRename !== canRename
+  ) {
+    setPreviousRenameState({ groupId: group.id, name: group.name, canRename });
+    if (!canRename || previousRenameState.groupId !== group.id) {
+      setEditing(false);
+      setName(group.name);
+      setError(null);
+    }
+  }
+
   async function saveName() {
     const nextName = name.trim();
-    if (!nextName || nextName === group.name || renameGroup.isPending) return;
+    if (!canRename || !nextName || nextName === group.name || renameGroup.isPending) return;
     setError(null);
     try {
       await renameGroup.mutateAsync({
@@ -60,17 +84,17 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
   }
 
   return (
-    <article className="rounded-xl border border-border-subtle bg-surface-raised p-4 shadow-xs transition-colors hover:border-border-default sm:p-5">
+    <article className="groups-list-card group">
       <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
+        <span className="mt-0.5 size-5 shrink-0 text-content-secondary">
           {group.systemKey === "ADMIN" ? (
-            <ShieldCheck className="size-5" aria-hidden="true" />
+            <OnyxUserManageIcon className="size-5" aria-hidden="true" />
           ) : (
-            <UsersRound className="size-5" aria-hidden="true" />
+            <OnyxUsersIcon className="size-5" aria-hidden="true" />
           )}
         </span>
         <div className="min-w-0 flex-1">
-          {editing ? (
+          {editing && canRename ? (
             <form
               className="flex flex-col gap-2 sm:flex-row"
               onSubmit={(event) => {
@@ -113,14 +137,11 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
             </form>
           ) : (
             <div className="flex min-w-0 items-center gap-2">
-              <h2 className="truncate font-heading-h3 text-content-primary">{group.name}</h2>
+              <h2 className="truncate text-base font-semibold leading-5 text-content-primary">
+                {group.name}
+              </h2>
               {builtIn ? (
-                <Badge
-                  variant="outline"
-                  className="shrink-0 bg-surface-raised text-content-secondary"
-                >
-                  {ui("System")}
-                </Badge>
+                <span className="groups-default-tag shrink-0">{ui("Default")}</span>
               ) : null}
               {canRename ? (
                 <IconButton
@@ -128,6 +149,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                   size="sm"
                   prominence="tertiary"
                   aria-label={ui("Rename {{v1}}", { v1: group.name })}
+                  className="size-5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                   onClick={() => {
                     setName(group.name);
                     setEditing(true);
@@ -138,59 +160,31 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
               ) : null}
             </div>
           )}
-          <p className="mt-1 font-main-ui-body text-content-muted">
-            {group.memberCount.toLocaleString(uiLocale())}{" "}
-            {group.memberCount === 1 ? ui("member") : ui("members")}
-            {group.managerCount > 0
-              ? ui(" · {{v1}} {{v2}}", {
-                  v1: group.managerCount.toLocaleString(uiLocale()),
-                  v2: ui(group.managerCount === 1 ? "manager" : "managers"),
-                })
-              : ""}
-          </p>
-          {group.capabilities.length > 0 ? (
-            <div
-              className="mt-3 flex flex-wrap gap-1"
-              aria-label={ui("Capabilities for {{v1}}", { v1: group.name })}
-            >
-              {group.capabilities.slice(0, 3).map((capability) => (
-                <Badge
-                  key={capability}
-                  variant="secondary"
-                  className="bg-surface-subtle text-content-secondary"
-                >
-                  {ui(capabilityCopy[capability]?.label ?? "Unknown")}
-                </Badge>
-              ))}
-              {group.capabilities.length > 3 ? (
-                <Badge variant="outline" className="text-content-muted">
-                  +{group.capabilities.length - 3}
-                </Badge>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-3 font-secondary-body text-content-muted">
-              {ui("No administrative capabilities")}
-            </p>
-          )}
+          <p className="mt-1 text-xs leading-4 text-content-secondary">{ui(description)}</p>
           {error ? (
             <p role="alert" className="mt-3 font-secondary-body text-status-danger-content">
               {ui(error)}
             </p>
           ) : null}
         </div>
-        <IconButton
-          asChild
-          size="sm"
-          prominence="tertiary"
-          aria-label={ui("Open {{v1}}", { v1: group.name })}
-        >
-          <Link to="/admin/groups/$groupId" params={{ groupId: group.id }}>
-            <ChevronRight />
-          </Link>
-        </IconButton>
+        <div className="flex shrink-0 items-start gap-2">
+          <span className="pt-0.5 text-sm leading-5 tabular-nums text-content-secondary">
+            {group.memberCount.toLocaleString(uiLocale())}{" "}
+            {group.memberCount === 1 ? ui("Member") : ui("Members")}
+          </span>
+          <IconButton
+            asChild
+            size="sm"
+            prominence="internal"
+            aria-label={ui("Open {{v1}}", { v1: group.name })}
+            className="-mt-1 -mr-1 text-content-muted"
+          >
+            <Link to="/admin/groups/$groupId" params={{ groupId: group.id }}>
+              <ChevronRight className="size-4" />
+            </Link>
+          </IconButton>
+        </div>
       </div>
     </article>
   );
 }
-import { capabilityCopy } from "./group-capability-copy";

@@ -32,14 +32,14 @@ public class DefaultSourceDocumentAccessResolver implements SourceDocumentAccess
         Objects.requireNonNull(actorId, "actorId must not be null");
         Objects.requireNonNull(documentId, "documentId must not be null");
         return tenantAccess.findActiveTenant(actorId)
-                .map(tenantId -> sourceDocuments.hasEligibleMapping(tenantId, documentId))
+                .map(tenantId -> sourceDocuments.hasEligibleMapping(tenantId, actorId, documentId))
                 .orElse(false);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Set<UUID> readableDocuments(ActorId actorId, List<UUID> documents) {
-        return tenantAccess.findActiveTenant(actorId).map(tenant -> sourceDocuments.readableDocuments(tenant, documents))
+        return tenantAccess.findActiveTenant(actorId).map(tenant -> sourceDocuments.readableDocuments(tenant, actorId, documents))
                 .orElse(Set.of());
     }
 }

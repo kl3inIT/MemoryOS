@@ -6,7 +6,7 @@ The backend lives in `core.chat.catalog` and `chat.persistence.ModelCatalogRepos
 
 Flyway V33 creates `llm_provider`, `model_configuration`, `chat_model_default`, provider Group/Persona associations and optional Persona model selections. Composite foreign keys enforce Tenant ownership. The deployment still has one Tenant. Model API names are unique within a provider; stable model configuration UUIDs distinguish identical names at different endpoints.
 
-`MODELS_MANAGE` is a global IAM capability, grantable through ordinary Groups and implied by `IAM_ADMIN`. It does not follow from Source management or scoped Group management. Model administration revalidates authority under the IAM Tenant lock; writes take the exclusive lock. Expected revisions reject stale updates/deletes. Limits are 64 providers and 256 model configurations per Tenant.
+`MODELS_MANAGE` is a global IAM capability, grantable through ordinary Groups and implied by `SYSTEM_ADMIN`. It does not follow from Source management or scoped Group management. Model administration revalidates authority under the IAM Tenant lock; writes take the exclusive lock. Expected revisions reject stale updates/deletes. Limits are 64 providers and 256 model configurations per Tenant.
 
 Public providers bypass Group restrictions. Restricted providers require Group membership or model management. A nonempty Persona allowlist applies to everyone, including model managers. A restricted provider without matching Groups is manager-only. Disabled providers are unavailable; hidden models leave selection lists but retain their access policy. List and send use the same access predicate; selection lists additionally filter hidden models.
 

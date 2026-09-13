@@ -21,6 +21,12 @@ import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.iam.ActorId;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.IamException;
+import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.TenantId;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
@@ -35,11 +41,12 @@ import org.junit.jupiter.api.Test;
 
 class DocumentSearchServiceTest {
     private final TenantAccessResolver tenants = mock(TenantAccessResolver.class);
+    private final IamAuthorization authorization = mock(IamAuthorization.class);
     private final SourceDocumentAccessResolver access = mock(SourceDocumentAccessResolver.class);
     private final DocumentChunkPort documents = mock(DocumentChunkPort.class);
     private final OpenSearchIndexService index = mock(OpenSearchIndexService.class);
     private final SourceSearchService sourceSearch = mock(SourceSearchService.class);
-    private final DocumentSearchService service = new DocumentSearchService(tenants, access, documents, index, new SimpleMeterRegistry(), sourceSearch,
+    private final DocumentSearchService service = new DocumentSearchService(tenants, authorization, access, documents, index, new SimpleMeterRegistry(), sourceSearch,
             new SearchTimings(new SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final UUID generation = UUID.randomUUID();
@@ -68,7 +75,7 @@ class DocumentSearchServiceTest {
         var first = UUID.fromString("00000000-0000-0000-0000-000000000001");
         var second = UUID.fromString("00000000-0000-0000-0000-000000000002");
         var hidden = UUID.randomUUID();
-        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        givenSearchAccess(tenant);
         when(index.identity()).thenReturn("space"); when(index.candidateLimit()).thenReturn(500);
         when(index.search(any(), any(), any(), any())).thenReturn(List.of(
                 hit(hidden, generation, 0, 1), hit(first, UUID.randomUUID(), 0, .99),
@@ -139,7 +146,7 @@ class DocumentSearchServiceTest {
     }
 
     private void givenHits(UUID document, List<SearchHit> hits) {
-        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(new TenantId(UUID.randomUUID())));
+        givenSearchAccess(new TenantId(UUID.randomUUID()));
         when(index.identity()).thenReturn("space");
         when(index.candidateLimit()).thenReturn(500);
         when(index.search(any(), any(), any(), any())).thenReturn(hits);
@@ -147,14 +154,51 @@ class DocumentSearchServiceTest {
         when(access.readableDocuments(any(), any())).thenReturn(Set.of(document));
     }
 
+    private void givenSearchAccess(TenantId tenant) {
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        when(authorization.require(actor, IamCapability.SEARCH_READ, false))
+                .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+    }
+
     @Test
-    void unprovisionedActorCannotReachProviderAndUnavailableDocumentCannotBeRead() {
+    void activeMemberWithoutSearchGrantCannotReachProvider() {
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(new TenantId(UUID.randomUUID())));
+        when(authorization.require(actor, IamCapability.SEARCH_READ, false))
+                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant required"));
+
+        var failure = assertThrows(IamException.class,
+                () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10)));
+
+        assertEquals(IamFailureReason.ACCESS_DENIED.code(), failure.code());
+        verifyNoInteractions(index, documents, access);
+    }
+
+    @Test
+    void activeMemberWithoutSearchGrantCannotReadPassages() {
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(new TenantId(UUID.randomUUID())));
+        when(authorization.require(actor, IamCapability.SEARCH_READ, false))
+                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant required"));
+
+        var failure = assertThrows(IamException.class,
+                () -> service.document(actor, UUID.randomUUID(), generation, 0));
+
+        assertEquals(IamFailureReason.ACCESS_DENIED.code(), failure.code());
+        verifyNoInteractions(index, documents, access);
+    }
+
+    @Test
+    void unprovisionedActorCannotReachProviderOrReadPassages() {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.empty());
         assertThrows(SearchDocumentUnavailableException.class, () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10)));
-        verifyNoInteractions(index);
-        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(new TenantId(UUID.randomUUID())));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, UUID.randomUUID(), generation, 0));
-        verifyNoInteractions(documents);
+        verifyNoInteractions(index, documents, access, authorization);
+    }
+
+    @Test
+    void searchGrantDoesNotAllowReadingAnIneligibleDocument() {
+        givenSearchAccess(new TenantId(UUID.randomUUID()));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, UUID.randomUUID(), generation, 0));
+        verifyNoInteractions(index, documents);
     }
 
     private SearchHit hit(UUID document, UUID version, int ordinal, double score) {
@@ -171,7 +215,7 @@ class DocumentSearchServiceTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         when(index.identity()).thenReturn("space");
         var source = UUID.randomUUID();
-        var scope = new SourceSearchScope(tenant, Map.of(source, SourceType.FILE));
+        var scope = new SourceSearchScope(tenant, actor, Map.of(source, SourceType.FILE));
         var origin = new DocumentSourceMetadata(source, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
         when(index.batch(any(), any(), any(), any())).thenReturn(List.of(List.of(
                 hit(hidden, generation, 0, 1), hit(first, generation, 3, .9), hit(first, generation, 3, .8), hit(second, generation, 1, .5)),
@@ -199,7 +243,7 @@ class DocumentSearchServiceTest {
     void independentPreviewChecksPermissionAndGenerationThenReadsOnlyTheIndexWindow() {
         var tenant = new TenantId(UUID.randomUUID());
         var id = UUID.randomUUID();
-        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        givenSearchAccess(tenant);
         when(index.identity()).thenReturn("space");
         when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
@@ -214,7 +258,8 @@ class DocumentSearchServiceTest {
 
     @Test
     void authorizesTheUnionInBoundedBatchesAndMergesPastThirtyChunksBeforeSelection() {
-        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), Map.of(UUID.randomUUID(), SourceType.FILE));
+        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), actor, Map.of(UUID.randomUUID(), SourceType.FILE));
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(scope.tenant()));
         var origin = new DocumentSourceMetadata(scope.sources().keySet().iterator().next(), UUID.randomUUID(),
                 SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
         var document = UUID.randomUUID();
@@ -245,7 +290,8 @@ class DocumentSearchServiceTest {
     void equalFusionScoresUseFirstSourceRankThenFirstQueryInsteadOfDocumentId() {
         UUID first = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"), second = UUID.fromString("00000000-0000-0000-0000-000000000001");
         var source = UUID.randomUUID();
-        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), Map.of(source, SourceType.FILE));
+        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), actor, Map.of(source, SourceType.FILE));
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(scope.tenant()));
         var origin = new DocumentSourceMetadata(source, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
         when(index.identity()).thenReturn("space");
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation));
@@ -260,6 +306,143 @@ class DocumentSearchServiceTest {
             assertEquals(List.of(first, second), hits.stream().map(SearchHit::documentId).toList());
         }
     }
+
+    @Test
+    void directSearchRejectsGrantRevocationDuringProviderIo() {
+        var tenant = new TenantId(UUID.randomUUID());
+        givenSearchAccess(tenant);
+        when(index.search(any(), any(), any(), any())).thenAnswer(_ -> {
+            when(authorization.require(actor, IamCapability.SEARCH_READ, false))
+                    .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant revoked"));
+            return List.of();
+        });
+        assertThrows(IamException.class, () -> service.search(actor, new SearchRequest("private", List.of(), null, 0, 10)));
+    }
+
+    @Test
+    void directSearchDropsPrivateHitsWhenMembershipIsRevokedDuringProviderIo() {
+        var document = UUID.randomUUID();
+        givenHits(document, List.of(hit(document, generation, 0, 1)));
+        when(index.search(any(), any(), any(), any())).thenAnswer(_ -> {
+            when(access.readableDocuments(any(), any())).thenReturn(Set.of());
+            return List.of(hit(document, generation, 0, 1));
+        });
+        assertTrue(service.search(actor, new SearchRequest("private", List.of(), null, 0, 10)).results().isEmpty());
+    }
+
+    @Test
+    void previewRejectsGroupRevocationDuringIndexWindowRead() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var id = UUID.randomUUID();
+        givenSearchAccess(tenant);
+        when(index.identity()).thenReturn("space");
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
+        when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
+        when(index.document(tenant, id, generation, 0, 20)).thenAnswer(_ -> {
+            when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
+            return new SearchDocument(id, generation, "Private", List.of(new SearchPage.Passage(0, "secret", "[]")), 0, 1, false);
+        });
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, id, generation, 0));
+    }
+
+    @Test
+    void previewRejectsSearchGrantRevocationDuringIndexWindowRead() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var id = UUID.randomUUID();
+        givenSearchAccess(tenant);
+        when(index.identity()).thenReturn("space");
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
+        when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
+        when(index.document(tenant, id, generation, 0, 20)).thenAnswer(_ -> {
+            when(authorization.require(actor, IamCapability.SEARCH_READ, false))
+                    .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant revoked"));
+            return new SearchDocument(id, generation, "Private", List.of(), 0, 1, false);
+        });
+        assertThrows(IamException.class, () -> service.document(actor, id, generation, 0));
+    }
+
+    @Test
+    void rankedSearchDropsRevokedOriginsAfterProviderIoWithoutRequiringAChatCapability() {
+        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), actor, Map.of(UUID.randomUUID(), SourceType.FILE));
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(scope.tenant()));
+        var id = UUID.randomUUID();
+        when(index.identity()).thenReturn("space");
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(id, generation));
+        when(index.batch(any(), any(), any(), any())).thenAnswer(_ -> {
+            when(sourceSearch.readableMetadata(scope, List.of(id))).thenReturn(Map.of());
+            return List.of(List.of(hit(id, generation, 0, 1)));
+        });
+        assertTrue(service.ranked(scope, List.of(new SearchQuery("private", false, 1)), SearchFilters.NONE, () -> {}).hits().isEmpty());
+        verifyNoInteractions(authorization);
+    }
+
+    @Test
+    void rankedSearchRejectsActorDeactivationDuringProviderIoEvenWithNoHits() {
+        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), actor, Map.of(UUID.randomUUID(), SourceType.FILE));
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(scope.tenant()));
+        when(index.batch(any(), any(), any(), any())).thenAnswer(_ -> {
+            when(tenants.findActiveTenant(actor)).thenReturn(Optional.empty());
+            return List.of(List.of());
+        });
+        assertThrows(SearchDocumentUnavailableException.class,
+                () -> service.ranked(scope, List.of(new SearchQuery("private", false, 1)), SearchFilters.NONE, () -> {}));
+    }
+
+    @Test
+    void expansionRechecksBoundActorScopeEvenWhenNoNeighborIoIsRequested() {
+        var fixture = expansionFixture();
+        when(sourceSearch.readableMetadata(fixture.scope(), List.of(fixture.hit().documentId()))).thenReturn(Map.of());
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(fixture.results(), fixture.section(), 0));
+        verify(index, never()).document(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void expansionStopsAfterGroupRevocationDuringFirstNeighborRead() {
+        var fixture = expansionFixture();
+        when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 1, 1)).thenAnswer(_ -> {
+            when(sourceSearch.readableMetadata(fixture.scope(), List.of(fixture.hit().documentId()))).thenReturn(Map.of());
+            return new SearchDocument(fixture.hit().documentId(), generation, "Private",
+                    List.of(new SearchPage.Passage(1, "secret", "[]")), 1, 4, true);
+        });
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(fixture.results(), fixture.section(), 1));
+        verify(index, never()).document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 3, 1);
+        verifyNoInteractions(authorization);
+    }
+
+    @Test
+    void remainingPublicOriginCannotAuthorizeStalePrivateSourceMetadataDuringExpansion() {
+        var fixture = expansionFixture();
+        var publicOrigin = new DocumentSourceMetadata(UUID.randomUUID(), UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
+        var scope = new SourceSearchScope(fixture.scope().tenant(), actor, Map.of(
+                publicOrigin.sourceId(), SourceType.FILE, fixture.hit().origins().getFirst().sourceId(), SourceType.FILE));
+        var mixed = fixture.hit().withOrigins(List.of(publicOrigin, fixture.hit().origins().getFirst()));
+        var results = new SearchResults(scope, List.of(mixed));
+        when(sourceSearch.readableMetadata(scope, List.of(mixed.documentId()))).thenReturn(Map.of(mixed.documentId(), List.of(publicOrigin)));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(results, results.sections().getFirst(), 0));
+    }
+
+    @Test
+    void expansionRejectsDeactivatedActorDespiteItsOldAuthorizedResults() {
+        var fixture = expansionFixture();
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.empty());
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(fixture.results(), fixture.section(), 0));
+        verify(index, never()).document(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    private ExpansionFixture expansionFixture() {
+        var source = UUID.randomUUID();
+        var scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), actor, Map.of(source, SourceType.FILE));
+        var origin = new DocumentSourceMetadata(source, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
+        var hit = hit(UUID.randomUUID(), generation, 2, 1).withOrigins(List.of(origin));
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(scope.tenant()));
+        when(index.identity()).thenReturn("space");
+        when(documents.isCurrent(scope.tenant(), new DocumentId(hit.documentId()), generation, "space")).thenReturn(true);
+        when(sourceSearch.readableMetadata(scope, List.of(hit.documentId()))).thenReturn(Map.of(hit.documentId(), List.of(origin)));
+        var results = new SearchResults(scope, List.of(hit));
+        return new ExpansionFixture(scope, hit, results, results.sections().getFirst());
+    }
+
+    private record ExpansionFixture(SourceSearchScope scope, SearchHit hit, SearchResults results, SearchSection section) {}
 
     @Test
     void springMvcDebugFormattingCannotExpandQueriesOrDocumentText() {

@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.iam.IamCapability;
 
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -70,7 +72,7 @@ class GroupSchemaIntegrityTest {
                 .update());
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
                         INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
-                        VALUES (:tenantId, :groupId, 'GROUPS_READ')
+                        VALUES (:tenantId, :groupId, 'USERS_MANAGE')
                         """)
                 .param("tenantId", TENANT_ONE)
                 .param("groupId", GROUP)
@@ -81,6 +83,75 @@ class GroupSchemaIntegrityTest {
         assertEquals(0L, jdbc.sql("SELECT COUNT(*) FROM iam_group_capability_grants")
                 .query(Long.class)
                 .single());
+    }
+
+    @Test
+    void systemGrantsAreExclusiveAndDerivedCapabilitiesCannotBeInsertedOrMoved() {
+        jdbc.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name, system_key)
+                        VALUES (:tenantId, :adminId, 'Admin', 'ADMIN'),
+                               (:tenantId, :basicId, 'Basic', 'BASIC')
+                        """)
+                .param("tenantId", TENANT_TWO)
+                .param("adminId", GroupEntity.ADMIN_ID).param("basicId", GroupEntity.BASIC_ID).update();
+        for (UUID groupId : Set.of(GroupEntity.ADMIN_ID, GroupEntity.BASIC_ID, GROUP)) {
+            for (IamCapability capability : IamCapability.values()) {
+                boolean allowed = groupId.equals(GroupEntity.ADMIN_ID)
+                        ? capability == IamCapability.SYSTEM_ADMIN
+                        : groupId.equals(GroupEntity.BASIC_ID)
+                                ? capability == IamCapability.SYSTEM_BASIC
+                                : Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
+                                        IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE).contains(capability);
+                Runnable insert = () -> jdbc.sql("""
+                                INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                                VALUES (:tenantId, :groupId, :capability)
+                                """)
+                        .param("tenantId", TENANT_TWO).param("groupId", groupId)
+                        .param("capability", capability.name()).update();
+                if (allowed) {
+                    insert.run();
+                } else {
+                    assertThrows(DataIntegrityViolationException.class, insert::run);
+                }
+            }
+        }
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                        UPDATE iam_group_capability_grants SET group_id = :ordinaryGroupId
+                        WHERE tenant_id = :tenantId AND group_id = :basicId
+                        """)
+                .param("tenantId", TENANT_TWO).param("ordinaryGroupId", GROUP)
+                .param("basicId", GroupEntity.BASIC_ID).update());
+        for (IamCapability derived : Set.of(IamCapability.SEARCH_READ, IamCapability.CHAT_READ,
+                IamCapability.CHAT_WRITE, IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE,
+                IamCapability.GROUPS_READ, IamCapability.SOURCES_READ, IamCapability.SOURCES_DELETE)) {
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                            UPDATE iam_group_capability_grants SET capability = :capability
+                            WHERE tenant_id = :tenantId AND group_id = :basicId
+                            """)
+                    .param("capability", derived.name()).param("tenantId", TENANT_TWO)
+                    .param("basicId", GroupEntity.BASIC_ID).update());
+        }
+        assertEquals("SYSTEM_BASIC", jdbc.sql("""
+                        SELECT capability FROM iam_group_capability_grants
+                        WHERE tenant_id = :tenantId AND group_id = :basicId
+                        """)
+                .param("tenantId", TENANT_TWO).param("basicId", GroupEntity.BASIC_ID)
+                .query(String.class).single());
+        for (IamCapability derived : Set.of(
+                IamCapability.GROUPS_READ, IamCapability.SOURCES_READ, IamCapability.SOURCES_DELETE)) {
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                            UPDATE iam_group_capability_grants SET capability = :capability
+                            WHERE tenant_id = :tenantId AND group_id = :groupId AND capability = 'USERS_MANAGE'
+                            """)
+                    .param("capability", derived.name())
+                    .param("tenantId", TENANT_TWO).param("groupId", GROUP).update());
+        }
+        assertEquals("USERS_MANAGE", jdbc.sql("""
+                        SELECT capability FROM iam_group_capability_grants
+                        WHERE tenant_id = :tenantId AND group_id = :groupId AND capability = 'USERS_MANAGE'
+                        """)
+                .param("tenantId", TENANT_TWO).param("groupId", GROUP)
+                .query(String.class).single());
     }
 
     @Test
@@ -107,7 +178,7 @@ class GroupSchemaIntegrityTest {
                 .update();
         jdbc.sql("""
                         INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
-                        VALUES (:tenantId, :groupId, 'GROUPS_READ')
+                        VALUES (:tenantId, :groupId, 'USERS_MANAGE')
                         """)
                 .param("tenantId", TENANT_ONE)
                 .param("groupId", ordinaryGroup)

@@ -17,9 +17,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class GroupInvariantRepository {
-    private static final String MANAGED_GROUP = """
-            SELECT EXISTS (
-                SELECT 1
+    static final String MANAGED_GROUPS = """
+                SELECT group_record.id
                 FROM tenant_memberships tenant_membership
                 JOIN tenants tenant
                   ON tenant.id = tenant_membership.tenant_id
@@ -38,8 +37,6 @@ public class GroupInvariantRepository {
                 WHERE tenant_membership.tenant_id = :tenantId
                   AND tenant_membership.actor_id = :actorId
                   AND tenant_membership.status = 'ACTIVE'
-                  AND group_record.id = :groupId
-            )
             """;
 
     private static final String ADMIN_STATE = """
@@ -162,21 +159,123 @@ public class GroupInvariantRepository {
     }
 
 
-    public Set<GroupId> existingGroups(TenantId tenantId, Collection<GroupId> groupIds) {
-        return existingGroups(tenantId, groupIds, false);
-    }
-
     public Set<GroupId> existingOrdinaryGroups(TenantId tenantId, Collection<GroupId> groupIds) {
-        return existingGroups(tenantId, groupIds, true);
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
+        Set<GroupId> requiredGroupIds = Set.copyOf(groupIds);
+        if (requiredGroupIds.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(jdbcClient.sql("""
+                        SELECT group_record.id
+                        FROM iam_groups group_record
+                        WHERE group_record.tenant_id = :tenantId
+                          AND group_record.system_key IS NULL
+                          AND group_record.id IN (:groupIds)
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("groupIds", requiredGroupIds.stream().map(GroupId::value).toList())
+                .query((resultSet, _) -> new GroupId(
+                        resultSet.getObject("id", UUID.class)
+                ))
+                .list());
     }
 
     public boolean isManagedBy(TenantId tenantId, ActorId actorId, GroupId groupId) {
-        return jdbcClient.sql(MANAGED_GROUP)
+        return jdbcClient.sql("SELECT EXISTS (" + MANAGED_GROUPS + " AND group_record.id = :groupId)")
                 .param("tenantId", tenantId.value())
                 .param("actorId", actorId.value())
                 .param("groupId", groupId.value())
                 .query(Boolean.class)
                 .single();
+    }
+
+    public Set<GroupId> managedGroups(
+            TenantId tenantId,
+            ActorId actorId,
+            Collection<GroupId> groupIds
+    ) {
+        Set<GroupId> requiredGroupIds = Set.copyOf(groupIds);
+        if (requiredGroupIds.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(jdbcClient.sql(MANAGED_GROUPS + " AND group_record.id IN (:groupIds)")
+                .param("tenantId", tenantId.value())
+                .param("actorId", actorId.value())
+                .param("groupIds", requiredGroupIds.stream().map(GroupId::value).toList())
+                .query((resultSet, _) -> new GroupId(resultSet.getObject("id", UUID.class)))
+                .list());
+    }
+
+    public boolean removalLeavesStandardMemberGroupless(
+            TenantId tenantId,
+            GroupId groupId,
+            ActorId actorId
+    ) {
+        return jdbcClient.sql("""
+                        SELECT EXISTS (
+                            SELECT 1
+                            FROM iam_group_memberships removed
+                            JOIN actors actor ON actor.id = removed.actor_id
+                            WHERE removed.tenant_id = :tenantId
+                              AND removed.group_id = :groupId
+                              AND removed.actor_id = :actorId
+                              AND actor.account_type = 'STANDARD'
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM iam_group_memberships retained
+                                  WHERE retained.tenant_id = removed.tenant_id
+                                    AND retained.actor_id = removed.actor_id
+                                    AND retained.group_id <> removed.group_id
+                              )
+                        )
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("groupId", groupId.value())
+                .param("actorId", actorId.value())
+                .query(Boolean.class).single();
+    }
+
+    public boolean deletionLeavesStandardMembersGroupless(TenantId tenantId, GroupId groupId) {
+        return jdbcClient.sql("""
+                        SELECT EXISTS (
+                            SELECT 1
+                            FROM iam_group_memberships removed
+                            JOIN actors actor ON actor.id = removed.actor_id
+                            WHERE removed.tenant_id = :tenantId
+                              AND removed.group_id = :groupId
+                              AND actor.account_type = 'STANDARD'
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM iam_group_memberships retained
+                                  WHERE retained.tenant_id = removed.tenant_id
+                                    AND retained.actor_id = removed.actor_id
+                                    AND retained.group_id <> removed.group_id
+                              )
+                        )
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("groupId", groupId.value())
+                .query(Boolean.class).single();
+    }
+
+    public boolean ordinaryReplacementLeavesStandardMemberGroupless(TenantId tenantId, ActorId actorId) {
+        return jdbcClient.sql("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM actors actor
+                            WHERE actor.id = :actorId
+                              AND actor.account_type = 'STANDARD'
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM iam_group_memberships retained
+                                  JOIN iam_groups group_record
+                                    ON group_record.tenant_id = retained.tenant_id
+                                   AND group_record.id = retained.group_id
+                                  WHERE retained.tenant_id = :tenantId
+                                    AND retained.actor_id = actor.id
+                                    AND group_record.system_key IS NOT NULL
+                              )
+                        )
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("actorId", actorId.value())
+                .query(Boolean.class).single();
     }
 
     public AdminState adminState(TenantId tenantId, ActorId actorId) {
@@ -185,31 +284,6 @@ public class GroupInvariantRepository {
                 .param("actorId", actorId.value())
                 .query(GroupInvariantRepository::adminState)
                 .single();
-    }
-
-    private Set<GroupId> existingGroups(
-            TenantId tenantId,
-            Collection<GroupId> groupIds,
-            boolean ordinaryOnly
-    ) {
-        Objects.requireNonNull(tenantId, "tenantId must not be null");
-        Set<GroupId> requiredGroupIds = Set.copyOf(groupIds);
-        if (requiredGroupIds.isEmpty()) {
-            return Set.of();
-        }
-        String ordinaryFilter = ordinaryOnly ? " AND group_record.system_key IS NULL" : "";
-        return Set.copyOf(jdbcClient.sql("""
-                        SELECT group_record.id
-                        FROM iam_groups group_record
-                        WHERE group_record.tenant_id = :tenantId
-                          AND group_record.id IN (:groupIds)
-                        """ + ordinaryFilter)
-                .param("tenantId", tenantId.value())
-                .param("groupIds", requiredGroupIds.stream().map(GroupId::value).toList())
-                .query((resultSet, _) -> new GroupId(
-                        resultSet.getObject("id", UUID.class)
-                ))
-                .list());
     }
 
     private static AdminState adminState(ResultSet resultSet, int rowNumber) throws SQLException {

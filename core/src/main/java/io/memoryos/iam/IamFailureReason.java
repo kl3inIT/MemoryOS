@@ -44,6 +44,11 @@ public enum IamFailureReason implements FailureReason {
             FailureCategory.CONFLICT,
             "The final active administrator cannot be removed or deactivated."
     ),
+    LAST_GROUP_PROTECTED(
+            "IAM_LAST_GROUP_PROTECTED",
+            FailureCategory.CONFLICT,
+            "A standard user must retain at least one group."
+    ),
     CONFIGURED_OWNER_PROTECTED(
             "IAM_CONFIGURED_OWNER_PROTECTED",
             FailureCategory.NOT_PERMITTED,
@@ -52,7 +57,7 @@ public enum IamFailureReason implements FailureReason {
     MANAGER_AMPLIFICATION_DENIED(
             "IAM_MANAGER_AMPLIFICATION_DENIED",
             FailureCategory.NOT_PERMITTED,
-            "A scoped manager cannot delegate permissions they do not hold."
+            "A group administrator cannot delegate permissions they do not hold."
     );
 
     private final String code;

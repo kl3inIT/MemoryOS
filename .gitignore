@@ -19,3 +19,4 @@ web/.playwright-cli/
 secrets/
 __pycache__/
 graphify-out/
+/output/

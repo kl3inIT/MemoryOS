@@ -5,6 +5,7 @@ const messages = {
   INVITATION_CONFLICT: { key: "invitationConflict" },
   IAM_CONFIGURED_OWNER_PROTECTED: { key: "ownerProtected" },
   IAM_LAST_ADMIN_PROTECTED: { key: "lastAdmin" },
+  IAM_LAST_GROUP_PROTECTED: { key: "lastGroup" },
 } satisfies Record<string, ErrorMessage>;
 
 export function invitationError(error: unknown) {

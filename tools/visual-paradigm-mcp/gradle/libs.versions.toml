@@ -1,0 +1,21 @@
+[versions]
+java = "25"
+springBoot = "4.1.0"
+springDependencyManagement = "1.1.7"
+springAi = "2.0.0"
+jackson2 = "2.20.1"
+undertow = "2.3.18.Final"
+junit5 = "5.11.4"
+
+[libraries]
+spring-ai-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
+spring-boot-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson2" }
+undertow-core = { module = "io.undertow:undertow-core", version.ref = "undertow" }
+junit-jupiter5 = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit5" }
+junit-platform-launcher5 = { module = "org.junit.platform:junit-platform-launcher", version = "1.11.4" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }

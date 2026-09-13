@@ -9,6 +9,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.ActorId;
 import io.memoryos.iam.GroupAdministrationGuard;
+import io.memoryos.iam.GroupAction;
 import io.memoryos.iam.GroupId;
 import io.memoryos.iam.GroupService;
 import io.memoryos.iam.IamAuthorization;
@@ -69,7 +70,6 @@ class PostgresGroupMembershipReplacementTest {
         );
         GroupService target = new DefaultGroupService(
                 authorization,
-                locks,
                 new GroupRepository(entityManager),
                 new GroupMembershipRepository(entityManager),
                 new GroupCapabilityGrantRepository(entityManager),
@@ -106,20 +106,100 @@ class PostgresGroupMembershipReplacementTest {
     }
 
     @Test
-    void scopedManagerCannotRemoveAnotherManagerButGlobalAdministrationCan() {
-        ActorId otherManager = actor("70000000-0000-0000-0000-000000000059");
-        persistActor(otherManager, "MEMBER");
-        persistMembership(RETAINED, otherManager, true);
+    void scopedManagerDelegatesAndRevokesPeerScopeAndCanRemovePeerMembership() {
+        ActorId peer = actor("70000000-0000-0000-0000-000000000059");
+        persistActor(peer, "MEMBER");
+        persistMembership(new GroupId(GroupEntity.BASIC_ID), peer, false);
+        groups.addMembers(MEMBER, RETAINED, Set.of(peer));
 
-        IamException failure = assertThrows(
-                IamException.class,
-                () -> groups.removeMember(MEMBER, RETAINED, otherManager)
-        );
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> groups.get(peer, RETAINED)).code());
+        groups.assignManager(MEMBER, RETAINED, peer);
+        assertEquals(RETAINED, groups.get(peer, RETAINED).id());
+        groups.removeManager(MEMBER, RETAINED, peer);
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> groups.get(peer, RETAINED)).code());
+        groups.assignManager(MEMBER, RETAINED, peer);
+        groups.removeMember(MEMBER, RETAINED, peer);
+        assertEquals(0L, membershipCount(RETAINED, peer));
+        assertEquals(1L, membershipCount(new GroupId(GroupEntity.BASIC_ID), peer));
+    }
 
-        assertEquals("IAM_ACCESS_DENIED", failure.code());
-        assertEquals(1L, membershipCount(RETAINED, otherManager));
-        groups.removeMember(ADMIN, RETAINED, otherManager);
-        assertEquals(0L, membershipCount(RETAINED, otherManager));
+    @Test
+    void scopedMutationIsRestrictedToOwnedGroupsAndCannotLoseOwnScope() {
+        assertEquals("Renamed", groups.rename(MEMBER, RETAINED, "Renamed").name());
+        assertEquals(Set.of(GroupAction.RENAME, GroupAction.MANAGE_MEMBERS,
+                        GroupAction.MANAGE_MANAGERS, GroupAction.MANAGE_SOURCES),
+                groups.get(MEMBER, RETAINED).actions());
+        assertEquals("IAM_GROUP_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.rename(MEMBER, REMOVED, "Hidden")).code());
+        assertEquals("IAM_GROUP_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.addMembers(MEMBER, REMOVED, Set.of(ADMIN))).code());
+        assertEquals("IAM_GROUP_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.assignManager(MEMBER, REMOVED, MEMBER)).code());
+        assertEquals("IAM_GROUP_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.removeMember(MEMBER, REMOVED, MEMBER)).code());
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> groups.removeManager(MEMBER, RETAINED, MEMBER)).code());
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> groups.removeMember(MEMBER, RETAINED, MEMBER)).code());
+        assertEquals("IAM_GROUP_MEMBER_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.assignManager(MEMBER, RETAINED, ADMIN)).code());
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> groups.create(MEMBER, "Forbidden")).code());
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> groups.delete(MEMBER, RETAINED)).code());
+        assertEquals("IAM_ACCESS_DENIED",
+                assertThrows(IamException.class, () -> groups.replaceCapabilities(MEMBER, RETAINED, Set.of())).code());
+        assertTrue(managerFlag(RETAINED));
+    }
+
+    @Test
+    void everyRemovalPathProtectsTheLastStandardMembershipButAllowsReplacement() {
+        ActorId peer = actor("70000000-0000-0000-0000-000000000059");
+        persistActor(peer, "MEMBER");
+        persistMembership(RETAINED, peer, false);
+
+        assertEquals("IAM_LAST_GROUP_PROTECTED",
+                assertThrows(IamException.class, () -> groups.removeMember(MEMBER, RETAINED, peer)).code());
+        assertEquals("IAM_LAST_GROUP_PROTECTED",
+                assertThrows(IamException.class, () -> groups.removeMember(ADMIN, RETAINED, peer)).code());
+        assertEquals("IAM_LAST_GROUP_PROTECTED",
+                assertThrows(IamException.class, () -> groups.delete(ADMIN, RETAINED)).code());
+        assertEquals("IAM_LAST_GROUP_PROTECTED",
+                assertThrows(IamException.class, () -> groups.replaceOrdinaryMemberships(ADMIN, peer, Set.of())).code());
+        assertEquals(1L, membershipCount(RETAINED, peer));
+
+        groups.replaceOrdinaryMemberships(ADMIN, peer, Set.of(ADDED));
+        assertEquals(0L, membershipCount(RETAINED, peer));
+        assertEquals(1L, membershipCount(ADDED, peer));
+        groups.delete(ADMIN, RETAINED);
+        assertEquals(0L, membershipCount(RETAINED, MEMBER));
+        groups.replaceOrdinaryMemberships(ADMIN, MEMBER, Set.of());
+        assertEquals(1L, membershipCount(new GroupId(GroupEntity.BASIC_ID), MEMBER));
+    }
+
+    @Test
+    void globalGroupsAdministratorCannotAmplifyGrantsButSystemAdminCan() {
+        ActorId peer = actor("70000000-0000-0000-0000-000000000059");
+        persistActor(peer, "MEMBER");
+        persistMembership(new GroupId(GroupEntity.BASIC_ID), peer, false);
+        jdbc.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :administrators, 'GROUPS_MANAGE'),
+                               (:tenantId, :privileged, 'MODELS_MANAGE')
+                        """)
+                .param("tenantId", TENANT.value())
+                .param("administrators", RETAINED.value())
+                .param("privileged", ADDED.value()).update();
+
+        assertEquals("IAM_MANAGER_AMPLIFICATION_DENIED",
+                assertThrows(IamException.class, () -> groups.addMembers(MEMBER, ADDED, Set.of(peer))).code());
+        assertEquals(0L, membershipCount(ADDED, peer));
+        groups.addMembers(ADMIN, ADDED, Set.of(peer));
+        assertEquals(1L, membershipCount(ADDED, peer));
+        groups.addMembers(MEMBER, REMOVED, Set.of(peer));
+        assertEquals(1L, membershipCount(REMOVED, peer));
     }
 
     private void seed() {
@@ -139,7 +219,7 @@ class PostgresGroupMembershipReplacementTest {
         persistGroup(REMOVED, "Removed", null);
         jdbc.sql("""
                         INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
-                        VALUES (:tenantId, :groupId, 'IAM_ADMIN')
+                        VALUES (:tenantId, :groupId, 'SYSTEM_ADMIN')
                         """)
                 .param("tenantId", TENANT.value())
                 .param("groupId", GroupEntity.ADMIN_ID)

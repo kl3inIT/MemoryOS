@@ -1,13 +1,14 @@
 package io.memoryos.connector;
 
 import io.memoryos.iam.ActorId;
+import io.memoryos.iam.GroupId;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 public interface GoogleDriveSourceService {
-    SelectionReceipt create(ActorId actorId, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode, List<String> links);
+    SelectionReceipt create(ActorId actorId, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode, List<String> links, List<GroupId> groupIds);
     Configuration configuration(ActorId actorId, SourceId sourceId);
     SelectionReceipt replaceRoots(ActorId actorId, UUID requestId, SourceId sourceId, long expectedRevision,
             long expectedDiscoveryRevision, long expectedCredentialRevision, ScopeMode scopeMode,
@@ -22,6 +23,7 @@ public interface GoogleDriveSourceService {
             @Nullable String cursor, int size);
     Configuration discoverLinkedDocuments(ActorId actorId, SourceId sourceId, long expectedRevision);
     Configuration updateSchedule(ActorId actorId, SourceId sourceId, long expectedRevision, int syncIntervalMinutes);
+    Configuration setPaused(ActorId actorId, SourceId sourceId, long expectedRevision, boolean paused);
     SourceOperationView synchronize(ActorId actorId, SourceId sourceId);
 
     enum ScopeMode { GENERAL, SPECIFIC }
@@ -50,7 +52,7 @@ public interface GoogleDriveSourceService {
     record DiscoveryError(String fileId, String fileName, String code) {}
     record Configuration(SourceId sourceId, CredentialId credentialId, String accountEmail, String credentialStatus,
             long credentialRevision, boolean oauthClientConfigured, long revision, int syncIntervalMinutes,
-            long scheduleRevision, ScopeMode scopeMode, SelectionCounts counts, long discoveryRevision,
+            long scheduleRevision, boolean syncPaused, ScopeMode scopeMode, SelectionCounts counts, long discoveryRevision,
             @Nullable Instant discoveredAt, List<DiscoveryError> discoveryErrors,
             @Nullable Instant lastSyncedAt, boolean pendingWork, @Nullable String errorCode,
             @Nullable SourceOperationView pendingSelectionOperation) {

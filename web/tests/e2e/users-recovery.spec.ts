@@ -6,7 +6,22 @@ const owner: CurrentIdentity = {
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "MemoryOS", role: "OWNER" },
-  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE"],
+  capabilities: [
+    "SYSTEM_ADMIN",
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+    "USERS_MANAGE",
+    "GROUPS_READ",
+    "GROUPS_MANAGE",
+    "SOURCES_READ",
+    "SOURCES_MANAGE",
+    "SOURCES_DELETE",
+    "MODELS_MANAGE",
+  ],
   scopedCapabilities: [],
 };
 

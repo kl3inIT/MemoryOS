@@ -30,7 +30,11 @@ public record SourceSummaryResponse(
         @Nullable Instant lastSucceededAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String errorCode,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+        @io.swagger.v3.oas.annotations.media.ArraySchema(
+                arraySchema = @Schema(requiredMode = Schema.RequiredMode.REQUIRED),
+                schema = @Schema(allowableValues = {"upload", "reindex", "remove_items", "delete", "manage_groups",
+                        "rename", "manage_access", "manage_configuration", "synchronize", "manage_schedule",
+                        "pause_sync", "resume_sync"}))
         List<String> actions
 ) {
     public SourceSummaryResponse {

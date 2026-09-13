@@ -24,7 +24,7 @@ const owner: ApplicationSession = {
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },
-  capabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
+  capabilities: ["SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
   scopedCapabilities: [],
 };
 const source: SourceSummary = {
@@ -37,7 +37,17 @@ const source: SourceSummary = {
   documentCount: 0,
   lastSucceededAt: null,
   errorCode: null,
-  actions: ["reindex", "remove_items", "delete", "manage_groups"],
+  actions: [
+    "reindex",
+    "remove_items",
+    "delete",
+    "manage_groups",
+    "rename",
+    "manage_configuration",
+    "synchronize",
+    "manage_schedule",
+    "pause_sync",
+  ],
 };
 const firstLink = "https://drive.google.com/file/d/file-a/view";
 const secondLink = "https://drive.google.com/file/d/file-b/view";
@@ -73,6 +83,7 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
     revision: 7,
     syncIntervalMinutes: 5,
     scheduleRevision: 3,
+    syncPaused: false,
     scopeMode: "SPECIFIC",
     discoveryRevision: 2,
     discoveredAt: "2026-09-08T09:00:00Z",
@@ -93,6 +104,7 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
   let proposed: { links: string[]; linkedDocumentIds: string[]; requestId: string } | null = null;
   let storedRequestId: string | null = null;
   let authorize: (() => Promise<Response>) | undefined;
+  let currentSession: ApplicationSession = owner;
   const requests: Request[] = [];
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -115,6 +127,14 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
             createdAt: "2026-09-01T00:00:00Z",
             updatedAt: "2026-09-01T00:00:00Z",
             sourceCount: 2,
+            actions: [
+              "reauthorize",
+              ...(currentSession.capabilities.includes("SOURCES_MANAGE")
+                ? ["replace_oauth_client"]
+                : []),
+              "revoke",
+              "delete",
+            ],
           },
         ]);
       if (url.pathname.endsWith("/selection-policy"))
@@ -286,15 +306,23 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
       throw new Error(`Unexpected request ${request.method} ${url.pathname}`);
     }),
   );
-  const tree = (session: ApplicationSession, sourceStale = false) => (
-    <QueryClientProvider client={queryClient}>
-      <ApplicationSessionProvider session={session}>
-        <ActionNotifications>
-          <GoogleDrivePanel source={source} sourceStale={sourceStale} onBusyChange={() => {}} />
-        </ActionNotifications>
-      </ApplicationSessionProvider>
-    </QueryClientProvider>
-  );
+  let currentSource = source;
+  const tree = (session: ApplicationSession, sourceStale = false) => {
+    currentSession = session;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <ApplicationSessionProvider session={session}>
+          <ActionNotifications>
+            <GoogleDrivePanel
+              source={currentSource}
+              sourceStale={sourceStale}
+              onBusyChange={() => {}}
+            />
+          </ActionNotifications>
+        </ApplicationSessionProvider>
+      </QueryClientProvider>
+    );
+  };
   const view = render(tree(owner));
   return {
     requests,
@@ -313,6 +341,10 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
     },
     changeSession(session: ApplicationSession) {
       view.rerender(tree(session));
+    },
+    changeActions(actions: SourceSummary["actions"]) {
+      currentSource = { ...source, actions };
+      view.rerender(tree(owner));
     },
     setSourceStale(stale: boolean) {
       view.rerender(tree(owner, stale));
@@ -371,21 +403,27 @@ describe("Google Drive enterprise selection", () => {
     expect(synchronize).toBeEnabled();
   });
 
-  it("withdraws cached Drive administration when a user retains only scoped source authority", async () => {
+  it("withdraws open configuration drafts when actions change while retaining scoped operations", async () => {
+    const user = userEvent.setup();
     const server = setup();
-    await screen.findByRole("button", { name: "Synchronize now" });
-
+    await edit(user);
+    server.changeActions(["synchronize", "manage_schedule", "pause_sync"]);
     server.changeSession({
       ...owner,
       authorizationVersion: 2,
       capabilities: [],
       scopedCapabilities: ["SOURCES_READ", "SOURCES_MANAGE"],
     });
-
+    expect(screen.getByRole("region", { name: "Google Drive configuration" })).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "File or folder links" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Edit interval" }));
+    server.changeActions([]);
     expect(
-      screen.queryByRole("region", { name: "Google Drive configuration" }),
+      screen.queryByRole("spinbutton", { name: "Interval in minutes" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Synchronize now" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pause automatic sync" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Source summary")).toBeVisible();
   });
 

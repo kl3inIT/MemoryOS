@@ -1,0 +1,44 @@
+server:
+  address: 127.0.0.1
+  port: 2027
+
+spring:
+  application:
+    name: swd392-vp-mcp
+  ai:
+    mcp:
+      server:
+        name: swd392-visual-paradigm
+        version: 0.1.0
+        type: SYNC
+        protocol: STREAMABLE
+        request-timeout: 35s
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+        resource-change-notification: false
+        prompt-change-notification: false
+        tool-change-notification: false
+        annotation-scanner:
+          enabled: false
+        streamable-http:
+          mcp-endpoint: /mcp
+        instructions: >-
+          Create, inspect, validate, and repair native System Context, Class,
+          Sequence, Activity, and State diagrams in the currently open Visual
+          Paradigm project. For a System Context Diagram, use one central
+          circular process, rectangular external entities around all four
+          sides, and named directed data flows; never add an internal data store.
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+vp:
+  bridge:
+    base-url: ${VP_BRIDGE_URL:http://127.0.0.1:2026}
+    required-on-startup: ${VP_BRIDGE_REQUIRED:true}

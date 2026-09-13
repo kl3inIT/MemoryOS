@@ -79,10 +79,13 @@ public class GroupProjectionRepository {
                     WHERE grant_record.tenant_id = group_record.tenant_id
                       AND grant_record.group_id = group_record.id
                       AND (
-                            (group_record.system_key = 'ADMIN' AND grant_record.capability = 'IAM_ADMIN')
+                            (group_record.system_key = 'ADMIN' AND grant_record.capability = 'SYSTEM_ADMIN')
+                            OR (group_record.system_key = 'BASIC' AND grant_record.capability = 'SYSTEM_BASIC')
                             OR (
                                 group_record.system_key IS NULL
-                                AND grant_record.capability <> 'IAM_ADMIN'
+                                AND grant_record.capability IN (
+                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE'
+                                )
                             )
                       )
                 ), '') AS capabilities,
@@ -129,10 +132,13 @@ public class GroupProjectionRepository {
                     WHERE grant_record.tenant_id = group_record.tenant_id
                       AND grant_record.group_id = group_record.id
                       AND (
-                            (group_record.system_key = 'ADMIN' AND grant_record.capability = 'IAM_ADMIN')
+                            (group_record.system_key = 'ADMIN' AND grant_record.capability = 'SYSTEM_ADMIN')
+                            OR (group_record.system_key = 'BASIC' AND grant_record.capability = 'SYSTEM_BASIC')
                             OR (
                                 group_record.system_key IS NULL
-                                AND grant_record.capability <> 'IAM_ADMIN'
+                                AND grant_record.capability IN (
+                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE'
+                                )
                             )
                       )
                 ), '') AS capabilities,
@@ -255,6 +261,7 @@ public class GroupProjectionRepository {
             SELECT COUNT(*)
             FROM iam_groups group_record
             WHERE group_record.tenant_id = :tenantId
+              AND group_record.system_key IS NULL
               AND (NOT :hasSearch OR LOWER(group_record.name) LIKE :search ESCAPE '\\')
             """;
 
@@ -262,9 +269,9 @@ public class GroupProjectionRepository {
             SELECT group_record.id, group_record.name, group_record.system_key
             FROM iam_groups group_record
             WHERE group_record.tenant_id = :tenantId
+              AND group_record.system_key IS NULL
               AND (NOT :hasSearch OR LOWER(group_record.name) LIKE :search ESCAPE '\\')
             ORDER BY
-                CASE group_record.system_key WHEN 'ADMIN' THEN 0 WHEN 'BASIC' THEN 1 ELSE 2 END,
                 LOWER(group_record.name),
                 group_record.id
             OFFSET :offset ROWS FETCH FIRST :size ROWS ONLY
@@ -331,6 +338,29 @@ public class GroupProjectionRepository {
                 query.size(),
                 totalItems,
                 totalPages(totalItems, query.size())
+        );
+    }
+
+    public GroupIdentityPage listManagedOptions(TenantId tenantId, ActorId actorId, GroupQuery query) {
+        Search search = Search.from(query);
+        String filter = " AND group_record.id IN (" + GroupInvariantRepository.MANAGED_GROUPS + ")";
+        long totalItems = optionQuery(OPTION_COUNT + filter, tenantId, search)
+                .param("actorId", actorId.value()).query(Long.class).single();
+        List<GroupIdentity> items = optionQuery("""
+                        SELECT group_record.id, group_record.name, group_record.system_key
+                        FROM iam_groups group_record
+                        WHERE group_record.tenant_id = :tenantId
+                          AND (NOT :hasSearch OR LOWER(group_record.name) LIKE :search ESCAPE '\\')
+                        """ + filter + """
+                        ORDER BY LOWER(group_record.name), group_record.id
+                        OFFSET :offset ROWS FETCH FIRST :size ROWS ONLY
+                        """, tenantId, search)
+                .param("actorId", actorId.value())
+                .param("offset", (long) query.page() * query.size())
+                .param("size", query.size())
+                .query(GroupProjectionRepository::identity).list();
+        return new GroupIdentityPage(
+                items, query.page(), query.size(), totalItems, totalPages(totalItems, query.size())
         );
     }
 
