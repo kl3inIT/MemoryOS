@@ -48,6 +48,10 @@ public final class ChatModelGuard implements ChatModel {
     private int outputLimit;
     private long admittedTokens;
     private double admittedCost;
+    private boolean requiredWebSearch;
+    private boolean webSiteFilter = true;
+    public void webSiteFilter(boolean supported) { webSiteFilter = supported; }
+    public void requireWebSearch() { requiredWebSearch = true; }
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
             int cycles, Runnable checkActive, UnaryOperator<Prompt> finalRequest) {
@@ -112,6 +116,7 @@ public final class ChatModelGuard implements ChatModel {
             var request = admission.request();
             var reservation = admission.reservation();
             var finished = new AtomicBoolean();
+            var requiredToolSeen = new AtomicBoolean();
             var usageResponse = new AtomicReference<@Nullable ChatResponse>();
             var recorded = new AtomicBoolean();
             var settled = new AtomicBoolean();
@@ -135,6 +140,7 @@ public final class ChatModelGuard implements ChatModel {
                         var usage = response.getMetadata().getUsage();
                         if (usage.getTotalTokens() > 0) usageResponse.set(response);
                         if (response.getResult() != null) {
+                            if (response.getResult().getOutput().getToolCalls().stream().anyMatch(tool -> "web_search".equals(tool.name()))) requiredToolSeen.set(true);
                             String reason = response.getResult().getMetadata().getFinishReason();
                             if (reason != null && !reason.isBlank())
                                 finished.set(true);
@@ -144,7 +150,7 @@ public final class ChatModelGuard implements ChatModel {
                                 throw new IllegalStateException("CHAT_LAST_CYCLE_TOOL_CALL");
                         }
                     })
-                    .concatWith(Flux.defer(() -> finished.get() ? Flux.empty()
+                    .concatWith(Flux.defer(() -> finished.get() && (!requiredWebSearch || cycle != 1 || requiredToolSeen.get()) ? Flux.empty()
                             : Flux.error(new IllegalStateException("CHAT_INCOMPLETE_RESPONSE"))))
                     .doOnComplete(record).doOnError(ignored -> record.run()).doOnCancel(record);
         });
@@ -204,8 +210,14 @@ public final class ChatModelGuard implements ChatModel {
     private synchronized StreamAdmission admitStream(Prompt original) {
         int cycle = calls.get() + 1;
         if (cycle > cycles) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
-        var guided = ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), cycle == cycles);
+        var guided = ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), cycle == cycles, webSiteFilter);
         var request = cycle == cycles ? finalRequest.apply(guided) : guided;
+        if (requiredWebSearch && cycle == 1) {
+            if (cycles < 2 || !(request.getOptions() instanceof org.springframework.ai.openai.OpenAiChatOptions originalOptions))
+                throw new IllegalStateException("CHAT_UNSUPPORTED_OPTIONS");
+            var options = originalOptions.mutate().toolChoice(java.util.Map.of("type", "function", "function", java.util.Map.of("name", "web_search"))).build();
+            request = new Prompt(request.getInstructions(), options);
+        }
         int input = validateContext(request);
         var reservation = reserve(input);
         lastStreamInput = input;

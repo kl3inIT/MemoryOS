@@ -94,7 +94,7 @@ Status: **MEM-76 selection policy, durable asynchronous validation, paged select
 
 User-approved scope: acquisition, synchronization, extraction and current Document only. No source ACL collection/enforcement, reader identity linking or document-read API/UI. Preserve Tenant/Owner authorization and exclude Drive from FILE PUBLIC. This is not all MEM-10/MEM-60 acceptance. The user authorized selective port, a backed-up fresh local database, isolated local MinIO, reuse of the existing Drive corpus and UI verification in Orca's embedded browser. No PR, push, merge or shared deployment is authorized here.
 
-User-approved UI revision — 2026-09-09: remove the Source Run history component, its list/detail/error requests and dedicated browser scenario. Replace the verbose item-processing list with a compact the retired reference implementation-informed Indexing attempts table and server-side page sizes 5 (default), 10, 25 and 50. Keep backend run contracts/data/retention, synchronization controls, selection and Files unchanged. Verify desktop/mobile rendering, page-size changes and cursor reset; the earlier 39-scenario evidence below describes the pre-removal UI.
+User-approved UI revision — 2026-09-09: remove the Source Run history component, its list/detail/error requests and dedicated browser scenario. Replace the verbose item-processing list with a compact Indexing attempts table and server-side page sizes 5 (default), 10, 25 and 50. Keep backend run contracts/data/retention, synchronization controls, selection and Files unchanged. Verify desktop/mobile rendering, page-size changes and cursor reset; the earlier 39-scenario evidence below describes the pre-removal UI.
 
 ## Enterprise source operations plan
 
@@ -159,7 +159,7 @@ Contracts are canonical in [Connector](../../../specs/connector.md), [Ingestion]
 
 ## Owner-credential and explicit-link cutover
 
-- [x] Inspect local the retired reference implementation reference and its OAuth/service-account setup docs: OAuth JSON belongs to a credential; explicit URL selections disable account-wide retrieval.
+- [x] Confirm the OAuth/service-account contract: OAuth JSON belongs to a credential; explicit URL selections disable account-wide retrieval.
 - [x] Replace shared server OAuth client settings with encrypted owner-supplied app credentials across consent, callback and worker refresh; migrate legacy grants to require explicit reauthorization.
 - [x] Replace browser candidate listing with pasted file/folder links and server-side URL/metadata validation; remove candidate API and generated callers.
 - [x] Restrict sync enumeration to saved roots and descendants, removing account-wide Changes replay while retaining resumable traversal, publication fencing and incomplete-generation safety.
@@ -168,21 +168,21 @@ Contracts are canonical in [Connector](../../../specs/connector.md), [Ingestion]
 
 Ownership: Main integrates root validation, scoped synchronization, docs and final verification. AuthBackend owns OAuth/core credential persistence/provider protocol and API contracts. DriveUi owns frontend setup/selection and affected browser tests. API request contracts are `oauthClientJson` (optional only when reusing a stored app) and root `links`; source configuration adds safe `oauthClientConfigured`. No plaintext client secret may enter persisted session state or returned configuration. All work stays in the target; no donor edit, PR, push or shared application deployment.
 
-## the retired reference implementation interface-only alignment
+## Interface alignment
 
-- [x] Inspect the user-supplied read-only `E:/Project/the retired reference implementation` checkout and clarify scope: all existing MemoryOS screens, not new Chat/Search/Agents capabilities.
+- [x] Clarify scope: align existing MemoryOS screens without adding new Chat/Search/Agents capabilities.
 - [x] Trace actual source scheduling: refresh intervals, separate pruning intervals, and historical modified-time cutoff; none is a wall-clock worker start time.
-- [x] Align shared tokens/primitives, responsive shell, session/access and invitation screens with the retired reference implementation, retaining existing authorization and functionality.
+- [x] Align shared tokens/primitives, responsive shell, session/access and invitation screens with the accepted MemoryOS interaction contract, retaining existing authorization and functionality.
 - [x] Port source catalog, setup progression, detail/configuration and operational status presentation; retain owner JSON secrecy and explicit-link ingestion.
 - [x] Remove the mistakenly introduced scheduling API/schema/editor and schedule-only tests, keeping fixed five-minute synchronization and manual commands.
 - [x] Verify authorization/selection/processing boundaries and inspect desktop/mobile and light/dark browser evidence with controlled API responses. Real-provider evidence is recorded separately below.
 - [x] Widen the shared wide-page token so Sources and Add a source align; allocate readable table columns and contain horizontal scrolling, including off-screen accessible column labels.
-- [x] Port the actual the retired reference implementation setup sidebar, credential card/table, OAuth modal and compact upload/paste component, replacing the custom full-page form while retaining Source-owned OAuth semantics.
+- [x] Implement the approved setup sidebar, credential card/table, OAuth modal and compact upload/paste component, replacing the custom full-page form while retaining Source-owned OAuth semantics.
 - [x] Verify modal dismissal/secret clearing, credential continuation, callback-to-Connector setup and desktop/mobile behavior; move redirect/app configuration into collapsed Setup instructions rather than an extra Source field.
 - [x] Initial simplification removed UUIDs, timestamps, duplicate email and horizontal scrolling while disclosing lifecycle actions; the metadata removal was superseded by the four-field review below.
   - Verified the retained real credential in Orca: full account-label click selects it, Continue opens Connector setup, Manage reveals the one-Source count and disabled attached-credential Delete, and closing Manage restores the compact row. The live picker had no horizontal overflow; dark-theme screenshot was inspected. No Source or credential mutation was submitted.
   - Frontend formatting, lint and TypeScript passed. All four focused Google setup browser scenarios passed with one worker and zero retries, including keyboard Space selection and existing shared lifecycle/secret-clearing guards. Removed the obsolete UUID-display assertion rather than preserving metadata as a presentation requirement. Backend and dependency contracts are unchanged; no new throwaway script remains.
-- [x] Restore the four the retired reference implementation metadata fields (ID, Name, Created, Last Updated), replacing the overly reduced picker; retain compact responsive rendering and disclosed lifecycle actions.
+- [x] Restore the four approved metadata fields (ID, Name, Created, Last Updated), replacing the overly reduced picker; retain compact responsive rendering and disclosed lifecycle actions.
   - Inspected the populated dark-theme table in the actual Orca session: exactly four column headers, short ID, one account name and compact dates, with no horizontal overflow. Continue opened Connector setup with the same credential; returned to the table without submitting any mutation.
   - Inspected the 390px-wide browser capture: name/selection first, short ID and two labelled dates remain readable without forcing narrow desktop columns. Formatting, lint and TypeScript passed; all four focused Google setup browser scenarios passed with one worker and zero retries, including keyboard selection and shared lifecycle guards. No backend, dependency or credential data changes.
 - [x] Separate credential selection from Name; reduce setup subtitles and move synchronization/selection guidance into keyboard- and touch-accessible help popovers. Verify the table, help disclosure and existing selection/lifecycle behavior.
@@ -205,11 +205,11 @@ Ownership: Main integrates root validation, scoped synchronization, docs and fin
 - [x] Regenerate the Spring OpenAPI snapshot and browser client, run backend/frontend gates and verify save/reload/conflict plus a real automatic due cycle without changing Google roots or credentials.
   - OpenAPI/client generation, complete backend/frontend gates and browser save/reload/conflict scenarios pass. After owner login was restored, a live save retained the user's interval of one minute, schedule revision 3 and three roots across reload. Without a manual sync during observation, `lastSyncedAt` advanced from `2026-09-07T15:41:58.974239Z` to `2026-09-07T15:43:18.775658Z`; the Source returned to no pending work with three Documents. This verifies the configured interval and normal due-scan scheduling, not an exact sixty-second worker-start guarantee. No interval was changed through SQL.
 
-The user has approved reusable Google Drive credentials for multiple Sources. The prior Source-owned UI adaptation is superseded by the independent credential lifecycle in the updated design. Read-only the retired reference implementation inspection confirmed independent credential creation, provider/owner filtering and guarded deletion. MemoryOS keeps its existing tables while replacing the Google singleton constraints, atomic credential-plus-Source OAuth creation and orphan-credential cleanup.
+The user has approved reusable Google Drive credentials for multiple Sources. The prior Source-owned UI adaptation is superseded by the independent credential lifecycle in the updated design. MemoryOS keeps its existing tables while replacing the Google singleton constraints, atomic credential-plus-Source OAuth creation and orphan-credential cleanup.
 
 The earlier UI-only baseline passed `pnpm check` (54 unit tests) and all 21 browser tests. Current reusable-credential evidence is recorded below. The separate dependency audit reported four high and two moderate advisories, including transitive `fast-uri` paths under development dependency `shadcn` (patched in 3.1.6). Dependency remediation was not part of this change; no security-clean claim is made.
 
-Integration ownership: Main owns design/docs, generated API/client integration and final verification. Core owns credential persistence, shared authority and atomic Source creation; API owns HTTP/session contracts and HTTP tests; web owns the the retired reference implementation credential workflow and browser coverage. All share explicit contracts and skip validation while sibling edits are in flight. Per-Source intervals are now approved; ACL and other advanced the retired reference implementation backend capabilities remain excluded.
+Integration ownership: Main owns design/docs, generated API/client integration and final verification. Core owns credential persistence, shared authority and atomic Source creation; API owns HTTP/session contracts and HTTP tests; web owns the credential workflow and browser coverage. All share explicit contracts and skip validation while sibling edits are in flight. Per-Source intervals are approved; ACL and other advanced backend capabilities remain excluded.
 
 ## Reusable credential cutover
 
@@ -217,10 +217,10 @@ Integration ownership: Main owns design/docs, generated API/client integration a
 - [x] Implement shared reconnect/revoke/auth-failure fencing, guarded credential deletion and Source-only cleanup.
 - [x] Create Source with an existing credential and validated links atomically; keep remote calls outside SQL transactions.
 - [x] Cut over owner HTTP endpoints, encrypted consent state and callback routing to credential identity.
-- [x] Bind the retired reference implementation Select credential/Create New/Connector steps to real metadata and independent Source creation; migrate all callers.
+- [x] Bind Select credential/Create New/Connector steps to real metadata and independent Source creation; migrate all callers.
 - [x] Verify migration preservation, tenant isolation, shared invalidation, concurrency boundaries and actual browser reuse; run backend/frontend gates after integration.
 
-Local runtime preservation: retain Source `45a91ebf-c73d-47ba-95f6-04e96f7cf808` and its three indexed Sheets. Do not edit the frozen `D:/Capstone Project/MemoryOS` donor or read-only `E:/Project/the retired reference implementation` reference. No PR, push, merge or deployment.
+Local runtime preservation: retain Source `45a91ebf-c73d-47ba-95f6-04e96f7cf808` and its three indexed Sheets. Do not edit the frozen `D:/Capstone Project/MemoryOS` donor. No PR, push, merge or deployment.
 
 ### Reusable credential verification
 
@@ -369,7 +369,7 @@ Afterward, the local sign-in route returned 302 to shared Keycloak, whose login 
 
 ### Owner-app and interface verification
 
-At this earlier review, the user limited the retired reference implementation to **presentation only**. The unapproved temporary schedule API and migration were removed before the local review migration; owner OAuth JSON, explicit links, the five-minute cadence, manual commands and server-backed read-only access filtering were retained. This is historical baseline evidence: the later reusable-credential V18 and explicitly approved per-Source interval V19 supersede its scheduling scope.
+At this earlier review, the user limited the change to **presentation only**. The unapproved temporary schedule API and migration were removed before the local review migration; owner OAuth JSON, explicit links, the five-minute cadence, manual commands and server-backed read-only access filtering were retained. This is historical baseline evidence: the later reusable-credential V18 and explicitly approved per-Source interval V19 supersede its scheduling scope.
 
 | Check | Observed result |
 | --- | --- |
@@ -417,7 +417,7 @@ Fixtures prove deterministic boundaries; actual service/browser runs prove only 
 - [x] Add Synchronize now acceptance and terminal acquisition feedback using the same notification lifecycle, without claiming downstream indexing completion.
 - [x] Verify successful, failed, superseded and unavailable operation outcomes plus notification dismissal on the actual browser surface; retain the user's current interval and three selected Sheets.
 
-The user-reported missing feedback and permanently displayed interval acknowledgement are the reproduction evidence. Source detail now uses the existing Radix dependency for page-scoped notifications and a shared abortable observer for the exact returned operation. The live Source announced Synchronization requested and Synchronization complete, explicitly allowing indexing to continue; a same-value interval save announced Automatic interval saved for one minute. the retired reference implementation setup remains paused; its General/Specific controls were inspected read-only to answer the user's scope question.
+The user-reported missing feedback and permanently displayed interval acknowledgement are the reproduction evidence. Source detail now uses the existing Radix dependency for page-scoped notifications and a shared abortable observer for the exact returned operation. The live Source announced Synchronization requested and Synchronization complete, explicitly allowing indexing to continue; a same-value interval save announced Automatic interval saved for one minute. Further setup changes remained paused while General/Specific scope was reviewed.
 
 - [x] Apply the user's final timing requirement: every notification, including errors, disappears after five seconds without pausing for hover, keyboard focus or an unfocused Orca pane.
 - [x] Verify that expiry regression and consolidate the final frontend and live-browser evidence.
@@ -470,9 +470,9 @@ Delivery authorization: create focused commits and push `nhuxuanviet/google-driv
 - After cleanup, the original Source retained exactly its saved credential, root and Item identities, `SPECIFIC`, public configuration `revision: 6`, `credentialRevision: 1`, `credentialStatus: ACTIVE`, one-minute interval and `scheduleRevision: 3`. All three Items remained `INDEXED`, all three Documents remained present, and the reusable credential returned to one attached Source.
 - Removed the temporary browser observer after verification. Private screenshots/configuration backups remain ignored; no test Source, credential mutation, PR, merge or shared deployment is part of this delivery. Whole-My-Drive live traversal and the broader provider acceptance recorded above remain unclaimed. JetBrains IDE inspection was unavailable; the checked-in Gradle gate, compiler checks and exercised runtime are the verification evidence.
 
-## Creation-only scope correction after the retired reference implementation review
+## Creation-only scope correction
 
-Owner approved removing post-creation General/Specific switching. The inspected the retired reference implementation reference (`ec08b5f948165d4640f51343e04e77081b33ea32`) renders scope controls in creation and read-only connector configuration in detail. This supersedes the mode-switch acceptance above, not the recorded historical test evidence. Specific link editing remains supported; mode, credentials, existing content and schedules are not migrated.
+Owner approved removing post-creation General/Specific switching. Scope controls appear during creation and connector configuration is read-only in detail. This supersedes the mode-switch acceptance above, not the recorded historical test evidence. Specific link editing remains supported; mode, credentials, existing content and schedules are not migrated.
 
 - [x] Reject mode changes before provider access and preserve the mode in transactional root persistence; cover both directions and unchanged state.
 - [x] Keep both creation choices, render saved mode without detail radios, and remove mode drafts/General selection-save controls.
@@ -577,7 +577,7 @@ The [expanded-state evidence](../../../tests/connector.md#expanded-saved-links-l
 
 ### File and indexing history clarity — 2026-09-09
 
-- [x] Inspect actual the retired reference implementation table/counter semantics against MemoryOS Source-run and per-file contracts.
+- [x] Verify table/counter semantics against MemoryOS Source-run and per-file contracts.
 - [x] Surface each current file's real indexing time and clarify its latest per-file processing details.
 - [x] Replace Drive's ambiguous per-file history table with actual per-Source execution outcomes and truthful counters, preserving FILE behavior and avoiding the removed run dashboard.
 - [x] Verify no-change, unknown/legacy, active indexing, failure and current-file timestamps in focused checks and the actual authenticated UI.

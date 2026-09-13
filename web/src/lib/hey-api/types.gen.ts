@@ -79,6 +79,29 @@ export type LanguagePreference = {
     uiLanguage: 'vi' | 'en';
 };
 
+export type WebSelectionRequest = {
+    search?: boolean;
+    provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+};
+
+export type WebConnectionRequest = {
+    endpoint: string;
+    engineId: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    revision?: number;
+};
+
+export type WebConnectionResponse = {
+    provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    endpoint: string;
+    engineId: string;
+    credentialConfigured?: boolean;
+    searchActive?: boolean;
+    contentActive?: boolean;
+    revision?: number;
+};
+
 export type Title = {
     title: string;
 };
@@ -480,6 +503,10 @@ export type GoogleDriveAuthorizationResponse = {
     authorizationUrl: string;
 };
 
+export type WebTestRequest = {
+    search?: boolean;
+};
+
 export type CreateChatSession = {
     title: string;
     personaId?: string | null;
@@ -492,6 +519,7 @@ export type Send = {
     text: string;
     modelConfigurationId?: string;
     fileIds?: Array<string>;
+    webSearch?: 'off' | 'auto' | 'required';
 };
 
 export type Accepted = {
@@ -504,6 +532,7 @@ export type Accepted = {
 export type Regenerate = {
     clientRequestId: string;
     modelConfigurationId?: string;
+    webSearch?: 'off' | 'auto' | 'required';
 };
 
 export type Edit = {
@@ -511,6 +540,7 @@ export type Edit = {
     text: string;
     modelConfigurationId?: string;
     fileIds?: Array<string>;
+    webSearch?: 'off' | 'auto' | 'required';
 };
 
 export type Cancellation = {
@@ -885,6 +915,17 @@ export type GoogleDriveCredentialResponse = {
     actions: Array<string>;
 };
 
+export type WebAvailabilityResponse = {
+    searchAvailable?: boolean;
+    contentAvailable?: boolean;
+    searchProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    contentProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    automaticModelIds?: Array<string>;
+    requiredModelIds?: Array<string>;
+    inheritedModelId?: string;
+    nativeModelIds?: Array<string>;
+};
+
 export type SharedSession = {
     id?: string;
     title?: string;
@@ -928,11 +969,26 @@ export type ChatSource = {
     endOrdinal: number;
     provenance: Array<Provenance>;
     fileId?: string;
+    fileLocation?: FileLocation;
+    web?: WebLocation;
+};
+
+export type FileLocation = {
+    offset?: number;
+    count?: number;
+    generation?: string;
+    ordinal?: number;
 };
 
 export type Provenance = {
     ordinal: number;
     provenanceJson: string;
+};
+
+export type WebLocation = {
+    url?: string;
+    excerpt?: string;
+    retrievedAt?: string;
 };
 
 export type TextDeltaEvent = {
@@ -992,6 +1048,11 @@ export type ChatBranch = {
     id?: string;
     parentMessageId?: string | null;
     latestChildMessageId?: string | null;
+};
+
+export type ChatSessionSearchPage = {
+    items: Array<ChatSession>;
+    hasMore: boolean;
 };
 
 export type Descriptor = {
@@ -1143,6 +1204,110 @@ export type SetCurrentIdentityLanguageResponses = {
 };
 
 export type SetCurrentIdentityLanguageResponse = SetCurrentIdentityLanguageResponses[keyof SetCurrentIdentityLanguageResponses];
+
+export type SelectChatWebProviderData = {
+    body: WebSelectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/web/selection';
+};
+
+export type SelectChatWebProviderErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SelectChatWebProviderError = SelectChatWebProviderErrors[keyof SelectChatWebProviderErrors];
+
+export type SelectChatWebProviderResponses = {
+    /**
+     * Web selection saved
+     */
+    204: void;
+};
+
+export type SelectChatWebProviderResponse = SelectChatWebProviderResponses[keyof SelectChatWebProviderResponses];
+
+export type SaveChatWebConnectionData = {
+    body: WebConnectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    };
+    query?: never;
+    url: '/api/chat/web/connections/{provider}';
+};
+
+export type SaveChatWebConnectionErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveChatWebConnectionError = SaveChatWebConnectionErrors[keyof SaveChatWebConnectionErrors];
+
+export type SaveChatWebConnectionResponses = {
+    /**
+     * Saved Web connection
+     */
+    200: WebConnectionResponse;
+};
+
+export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof SaveChatWebConnectionResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -3303,6 +3468,59 @@ export type StartGoogleDriveAuthorizationResponses = {
 
 export type StartGoogleDriveAuthorizationResponse = StartGoogleDriveAuthorizationResponses[keyof StartGoogleDriveAuthorizationResponses];
 
+export type TestChatWebConnectionData = {
+    body: WebTestRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    };
+    query?: never;
+    url: '/api/chat/web/connections/{provider}/test';
+};
+
+export type TestChatWebConnectionErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestChatWebConnectionError = TestChatWebConnectionErrors[keyof TestChatWebConnectionErrors];
+
+export type TestChatWebConnectionResponses = {
+    /**
+     * Provider request succeeded
+     */
+    204: void;
+};
+
+export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof TestChatWebConnectionResponses];
+
 export type ListChatSessionsData = {
     body?: never;
     path?: never;
@@ -4821,6 +5039,98 @@ export type ListGoogleDriveCredentialsResponses = {
 
 export type ListGoogleDriveCredentialsResponse = ListGoogleDriveCredentialsResponses[keyof ListGoogleDriveCredentialsResponses];
 
+export type GetChatWebAvailabilityData = {
+    body?: never;
+    path?: never;
+    query?: {
+        sessionId?: string;
+    };
+    url: '/api/chat/web';
+};
+
+export type GetChatWebAvailabilityErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatWebAvailabilityError = GetChatWebAvailabilityErrors[keyof GetChatWebAvailabilityErrors];
+
+export type GetChatWebAvailabilityResponses = {
+    /**
+     * Available Web capabilities
+     */
+    200: WebAvailabilityResponse;
+};
+
+export type GetChatWebAvailabilityResponse = GetChatWebAvailabilityResponses[keyof GetChatWebAvailabilityResponses];
+
+export type ListChatWebConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/web/connections';
+};
+
+export type ListChatWebConnectionsErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatWebConnectionsError = ListChatWebConnectionsErrors[keyof ListChatWebConnectionsErrors];
+
+export type ListChatWebConnectionsResponses = {
+    /**
+     * Web connections
+     */
+    200: Array<WebConnectionResponse>;
+};
+
+export type ListChatWebConnectionsResponse = ListChatWebConnectionsResponses[keyof ListChatWebConnectionsResponses];
+
 export type GetSharedChatSessionData = {
     body?: never;
     path: {
@@ -5134,6 +5444,47 @@ export type GetChatBranchesResponses = {
 };
 
 export type GetChatBranchesResponse = GetChatBranchesResponses[keyof GetChatBranchesResponses];
+
+export type SearchChatSessionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/sessions/search';
+};
+
+export type SearchChatSessionsErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type SearchChatSessionsError = SearchChatSessionsErrors[keyof SearchChatSessionsErrors];
+
+export type SearchChatSessionsResponses = {
+    /**
+     * Owned matching sessions; opening preserves the selected branch
+     */
+    200: ChatSessionSearchPage;
+};
+
+export type SearchChatSessionsResponse = SearchChatSessionsResponses[keyof SearchChatSessionsResponses];
 
 export type ListChatProviderAdaptersData = {
     body?: never;

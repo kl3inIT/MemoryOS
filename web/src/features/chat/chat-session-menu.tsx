@@ -30,6 +30,7 @@ export function ChatSessionMenu({
   onRename,
   onConfigure,
   onChange,
+  deleteSession,
   onDelete,
   busy = false,
 }: {
@@ -37,6 +38,8 @@ export function ChatSessionMenu({
   onRename?: () => void;
   onConfigure?: () => void;
   onChange?: () => Promise<void>;
+  /** Thread-list deletion; defaults to the direct API call for lists outside the thread list. */
+  deleteSession?: () => Promise<void>;
   onDelete?: () => void;
   busy?: boolean;
 }) {
@@ -207,12 +210,14 @@ export function ChatSessionMenu({
         pendingLabel={ui("Đang xóa…")}
         errorMessage={chatActionError}
         onConfirm={async () => {
-          await deleteChatSession({
-            path: { sessionId: session.id },
-            headers: sameOriginMutationHeaders,
-            signal: AbortSignal.timeout(30000),
-            throwOnError: true,
-          });
+          if (deleteSession) await deleteSession();
+          else
+            await deleteChatSession({
+              path: { sessionId: session.id },
+              headers: sameOriginMutationHeaders,
+              signal: AbortSignal.timeout(30000),
+              throwOnError: true,
+            });
           onDelete?.();
           if (pathname === `/chat/${session.id}`) await navigate({ to: "/" });
           await refresh(false);

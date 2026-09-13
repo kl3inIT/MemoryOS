@@ -33,10 +33,12 @@ public final class ChatModelExecutor {
     private final io.memoryos.chat.ChatFileService files;
     private final io.memoryos.chat.ChatFileSearchService fileSearch;
     private final io.memoryos.chat.ChatFileContentService fileContent;
+    private final io.memoryos.chat.web.@Nullable WebProviderClient web;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent) {
+            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+            io.memoryos.chat.web.@Nullable WebProviderClient web) {
         this.contexts = contexts;
         this.processes = processes;
         this.limits = limits;
@@ -47,6 +49,7 @@ public final class ChatModelExecutor {
         this.files = files;
         this.fileSearch = fileSearch;
         this.fileContent = fileContent;
+        this.web = web;
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
@@ -93,7 +96,12 @@ public final class ChatModelExecutor {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         int maxOutput = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
-        var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
+        boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
+                && metadata.getChatModel() instanceof NativeWebSearch;
+        var delegate = metadata.getChatModel();
+        if (nativeWeb) delegate = ((NativeWebSearch) delegate).forTurn(new NativeWebSearch.Turn(setup.evidence(), events,
+                setup.webSearch() == io.memoryos.chat.WebSearchMode.required, checkActive));
+        var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
                 selected.finalRequest());
         int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
@@ -122,6 +130,14 @@ public final class ChatModelExecutor {
             }
             if (selected.toolCalling()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.ArtifactTool(setup.artifacts(), guard::checkActive)));
+            }
+            if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
+                if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
+                var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
+                        fileWork, setup.deadline(), events, guard::availableContextTokens, selected.tokens());
+                runner = runner.withTools(Tool.fromInstance(webTools));
+                guard.webSiteFilter(setup.webAccess().search() != null && setup.webAccess().search().provider().supportsSiteFilter());
+                if (setup.webSearch() == io.memoryos.chat.WebSearchMode.required) guard.requireWebSearch();
             }
             if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),

@@ -170,7 +170,7 @@ export async function handleChatFixture(
         created.projectId = input.projectId ?? null;
         json(response, created, 201);
       }
-    } else
+    } else {
       json(
         response,
         [...sessions.values()]
@@ -182,6 +182,7 @@ export async function handleChatFixture(
               Number(url.searchParams.get("limit") ?? 30),
           ),
       );
+    }
     return true;
   }
   const state = sessions.get(segments[4]!);

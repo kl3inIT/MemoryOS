@@ -2,6 +2,7 @@ package io.memoryos.api.chat;
 
 import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
+import io.memoryos.api.chat.contract.ChatSessionSearchResponse;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.ChatWorkspaceService;
 import io.memoryos.iam.identity.IdentityContext;
@@ -71,6 +72,16 @@ class ChatSessionController {
     ChatSessionResponse get(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID sessionId) {
         return ChatSessionResponse.from(sessions.get(identity.actorId(), sessionId));
+    }
+
+    @GetMapping("/search")
+    @Operation(operationId = "searchChatSessions", summary = "Search owned conversation titles and all saved message versions")
+    @ApiResponse(responseCode = "200", description = "Owned matching sessions; opening preserves the selected branch", useReturnTypeSchema = true)
+    ChatSessionSearchResponse search(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit) {
+        var results = sessions.search(identity.actorId(), query, offset, limit);
+        return new ChatSessionSearchResponse(results.stream().limit(limit).map(ChatSessionResponse::from).toList(), results.size() > limit);
     }
 
     @GetMapping("/{sessionId}/messages")

@@ -18,11 +18,13 @@ export function ChatSessionSettings({
   session,
   busy,
   onChange,
+  deleteSession,
   onDelete,
 }: {
   session?: ChatSession;
   busy: boolean;
   onChange: () => Promise<void>;
+  deleteSession?: () => Promise<void>;
   onDelete: () => void;
 }) {
   const ui = useAppTranslation();
@@ -50,6 +52,7 @@ export function ChatSessionSettings({
         session={session}
         busy={busy}
         onChange={onChange}
+        deleteSession={deleteSession}
         onDelete={onDelete}
         onConfigure={() => {
           setPersona(session.personaId);

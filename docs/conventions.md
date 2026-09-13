@@ -60,6 +60,8 @@ Keep parts together when they share one language, invariant owner, transaction/l
 ## Java and Gradle
 
 - Target JDK 25 and use the checked-in Gradle wrapper.
+- Use explicit imports and short type names in handwritten Java, including tests. Do not inline fully qualified class names merely to avoid adding an import. Keep a qualified name only when needed to disambiguate colliding type names; remove unused imports.
+- Use `lowerCamelCase` for Java methods and `UpperCamelCase` for class names. Keep external protocol/tool identifiers separate: for example, expose `web_search` through `@LlmTool(name = "web_search", ...)` while naming the Java method `webSearch`. Preserve the public tool identifier when refactoring Java names.
 - Prefer immutable value types and constructor validation at public boundaries.
 - Preserve exact security identifiers. Do not normalize issuer, subject, actor ID, email, or username unless a capability contract explicitly requires it.
 - Prefer Spring `JdbcClient` for explicit SQL and Spring-managed transaction/error semantics. Application services never contain SQL or row mapping; concrete capability-owned `@Repository` classes own those mechanics and need no interface when only one internal implementation exists. Group repositories by consistency/use-case boundary, not table. Use JPA only when entity lifecycle or relationships provide concrete value; never create parallel domain/entity/repository/mapper layers by default. See [persistence policy](guidelines/persistence.md).

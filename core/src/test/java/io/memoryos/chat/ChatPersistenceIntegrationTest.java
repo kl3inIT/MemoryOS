@@ -7,6 +7,7 @@ import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.application.DefaultChatSessionService;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persistence.JdbcChatSearchRepository;
 import io.memoryos.chat.persistence.JpaPersonaRepository;
 import io.memoryos.chat.persistence.JpaProjectRepository;
 import io.memoryos.chat.persistence.JpaChatSharingRepository;
@@ -75,7 +76,7 @@ class ChatPersistenceIntegrationTest {
                         new JpaTenantRepository(jpa.entityManager()), new IamLockRepository(jdbc)),
                 TenantAccessResolver.class, jpa.transactionManager());
         var repository = new JdbcChatRepository(jdbc);
-        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, repository, new PersonaProperties()),
+        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, repository, new PersonaProperties(), new JdbcChatSearchRepository(jdbc)),
                 ChatSessionService.class, jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());

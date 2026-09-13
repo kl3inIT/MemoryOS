@@ -177,6 +177,7 @@ public class ChatTurnPersistence {
     private static void match(JdbcChatRepository.ReservedRequest previous, ChatCommand command) {
         if (previous.operation() != command.operation() || !previous.parentMessageId().equals(command.targetMessageId())
                 || !previous.content().equals(command.text()) || !previous.fileIds().equals(command.fileIds())
+                || previous.webSearch() != command.webSearch()
                 || !Objects.equals(previous.requestedModelId(), command.modelConfigurationId()))
             throw ChatException.conflict();
     }

@@ -7,6 +7,8 @@ archunit = "1.5.0"
 springdoc = "3.1.0"
 keycloak-admin-client = "26.0.12"
 tika = "4.0.0"
+jsoup = "1.23.1"
+pdfbox = "3.0.8"
 imageio = "3.15.0"
 arconia = "0.30.0"
 db-scheduler = "16.12.0"
@@ -28,6 +30,8 @@ embabel-openai = { module = "com.embabel.agent:embabel-agent-openai", version.re
 spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigure-model-tool" }
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
 otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.31.1-alpha" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }

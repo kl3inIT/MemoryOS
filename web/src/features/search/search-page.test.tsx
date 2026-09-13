@@ -123,7 +123,8 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
+    // Document Search is reached through the Chat/Search mode menu, not a duplicate sidebar link.
+    expect(screen.queryByRole("link", { name: "Search" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Search your workspace" })).toBeInTheDocument();
