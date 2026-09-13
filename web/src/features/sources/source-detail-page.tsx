@@ -1,7 +1,7 @@
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { Tabs } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -50,6 +51,7 @@ import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
+import { GoogleDriveAclPanel } from "./google-drive-acl-panel";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
@@ -63,6 +65,7 @@ export function SourceDetailPage() {
 function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const ui = useAppTranslation();
 
+  const [section, setSection] = useState("content");
   const navigate = useNavigate({ from: "/admin/sources/$sourceId" });
   const canManageDrive = useApplicationSession().capabilities.includes("SOURCES_MANAGE");
   const queryClient = useQueryClient();
@@ -80,7 +83,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [cleanupPending, setCleanupPending] = useState(false);
   const [driveBusy, setDriveBusy] = useState(false);
-  const [filesSize, setFilesSize] = useState(25);
+  const [filesSize, setFilesSize] = useState(5);
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
   const filesHeading = useRef<HTMLHeadingElement | null>(null);
@@ -122,6 +125,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     enabled: Boolean(sourceQuery.data),
     retry: false,
     staleTime: 0,
+    placeholderData: keepPreviousData,
     refetchInterval: (query) =>
       sourceQuery.data?.pendingWork ||
       query.state.data?.items.some(
@@ -629,6 +633,234 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     await queryClient.invalidateQueries();
   }
 
+  const filesPanel = detail ? (
+    <section
+      aria-labelledby="source-files-heading"
+      className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 sm:p-5"
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <SourceSectionIcon icon={FileText} />
+          <h2
+            ref={filesHeading}
+            id="source-files-heading"
+            tabIndex={-1}
+            className="font-heading-h3 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
+          >
+            {ui("Files")}
+          </h2>
+          <HelpPopover label={ui("Files and indexing times")}>
+            <p>
+              {ui(
+                "Current files acquired by this Source, not a log of sync runs. Last indexed is the latest retained successful attempt for the current file version; Unknown means no retained success is known.",
+              )}
+            </p>
+            <p>
+              {ui(
+                "A previous indexing success does not make a pending or failed current attempt successful.",
+              )}
+            </p>
+          </HelpPopover>
+        </div>
+        <div className="flex items-center gap-2">
+          {detail.pendingWork ? <LoadingLabel label={ui("Work pending")} /> : null}
+          <Button
+            prominence="tertiary"
+            pending={itemsQuery.isFetching}
+            onClick={() => void itemsQuery.refetch()}
+          >
+            {ui("Refresh files")}
+          </Button>
+        </div>
+      </div>
+      {itemsQuery.isError ? (
+        <p role="alert" className="mb-3 text-sm text-status-danger-content">
+          {ui(
+            "Files could not be loaded. Displayed files may be out of date. Retry this page or return to a previous page.",
+          )}
+        </p>
+      ) : null}
+      {itemsQuery.isPending ? (
+        <div className="py-8">
+          <LoadingLabel label={ui("Loading files")} />
+        </div>
+      ) : itemsQuery.data?.items.length === 0 ? (
+        <EmptyState
+          title={previous.length ? ui("No files on this page") : ui("No files yet")}
+          detail={
+            previous.length
+              ? "Files may have been removed. Return to the previous page or refresh this page."
+              : detail.type === "GOOGLE_DRIVE"
+                ? "Files appear here after synchronization acquires them from Google Drive."
+                : canUpload
+                  ? "Upload one supported file to start indexing."
+                  : "No files are indexed in this Source."
+          }
+        />
+      ) : itemsQuery.data ? (
+        <div
+          className="overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline-2 focus-visible:outline-focus-ring"
+          tabIndex={0}
+          role="region"
+          aria-label={ui("Source files table")}
+        >
+          <table className="w-full min-w-[48rem] table-fixed text-left text-sm">
+            <colgroup>
+              <col />
+              <col className="w-24" />
+              <col className="w-36" />
+              <col className="w-36" />
+              <col className="w-44" />
+            </colgroup>
+            <thead className="border-b border-border-subtle bg-surface-sunken text-content-muted">
+              <tr>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  {ui("File name")}
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  {ui("Size")}
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  {ui("Status")}
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  {ui("Last indexed")}
+                </th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">
+                  {ui("Actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {itemsQuery.data.items.map((item) => (
+                <tr key={item.id}>
+                  <td className="px-4 py-4 [overflow-wrap:anywhere]">
+                    <span className="flex min-w-0 items-start gap-2 font-medium text-content-primary">
+                      <FileText
+                        className="mt-0.5 size-4 shrink-0 text-content-muted"
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0" title={item.filename ?? ui("Uploaded file")}>
+                        {item.filename ?? ui("Uploaded file")}
+                      </span>
+                    </span>
+                    {item.errorCode ? (
+                      <p className="mt-1 text-xs text-status-danger-content">
+                        {ui(sourceStatusMessage(item.errorCode))}
+                      </p>
+                    ) : null}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-4 text-content-muted">
+                    {item.sizeBytes == null ? ui("Unknown") : formatBytes(item.sizeBytes)}
+                  </td>
+                  <td className="px-4 py-4 text-content-secondary">
+                    <ItemStatus item={item} />
+                  </td>
+                  <td className="px-4 py-4 text-content-secondary">
+                    <HistoryTime value={item.lastIndexedAt} />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex justify-end gap-1">
+                      {canReindex ? (
+                        <Button
+                          prominence="tertiary"
+                          size="sm"
+                          pending={reindexingItems.includes(item.id)}
+                          disabled={
+                            itemBusy ||
+                            removingItems.includes(item.id) ||
+                            item.status === "DELETING" ||
+                            detail.status === "DELETING"
+                          }
+                          onClick={() => void reindex(item)}
+                        >
+                          <RefreshCw /> {ui("Reindex")}
+                        </Button>
+                      ) : null}
+                      {canRemoveItems ? (
+                        <ConfirmDialog
+                          trigger={
+                            <Button
+                              tone="danger"
+                              prominence="tertiary"
+                              size="sm"
+                              pending={removingItems.includes(item.id)}
+                              disabled={
+                                itemBusy ||
+                                reindexingItems.includes(item.id) ||
+                                item.status === "DELETING" ||
+                                detail.status === "DELETING"
+                              }
+                            >
+                              <Trash2 /> {ui("Remove")}
+                            </Button>
+                          }
+                          title={ui("Remove {{v1}}?", {
+                            v1: item.filename ?? ui("uploaded file"),
+                          })}
+                          description={ui(
+                            "Removing “{{v1}}” makes its indexed document unavailable. Cleanup continues asynchronously.",
+                            { v1: item.filename ?? ui("this file") },
+                          )}
+                          confirmLabel={ui("Remove file")}
+                          pendingLabel={ui("Removing file")}
+                          onConfirm={() => removeSelectedItem(item)}
+                          errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
+                        />
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      <TablePagination
+        label={ui("Files pagination")}
+        className="mt-3"
+        page={previous.length}
+        totalPages={filesTotalPages}
+        previousLabel={ui("Previous files")}
+        nextLabel={ui("Next files")}
+        previousDisabled={!previous.length || itemsQuery.isFetching}
+        nextDisabled={!itemsQuery.data?.nextCursor || itemsQuery.isFetching || itemsQuery.isError}
+        onPrevious={() => {
+          filesHeading.current?.focus();
+          setCursor(previous.at(-1));
+          setPrevious((pages) => pages.slice(0, -1));
+        }}
+        onNext={() => {
+          filesHeading.current?.focus();
+          setPrevious((pages) => [...pages, cursor]);
+          setCursor(itemsQuery.data?.nextCursor ?? undefined);
+        }}
+      >
+        <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
+          {ui("Rows")}
+          <Select
+            aria-label={ui("Files per page")}
+            size="sm"
+            className="w-auto px-2"
+            value={filesSize}
+            disabled={itemsQuery.isFetching}
+            onChange={(event) => {
+              setFilesSize(Number(event.target.value));
+              setCursor(undefined);
+              setPrevious([]);
+            }}
+          >
+            {[5, 10, 25, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </TablePagination>
+    </section>
+  ) : null;
+
   return (
     <SettingsLayout wide>
       <Link
@@ -695,12 +927,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             </Button>
           </div>
         ) : (
-          <div>
+          <Tabs.Root value={section} onValueChange={setSection}>
             <PageHeader
               icon={<ProviderIcon />}
               iconSize={detail.type === "GOOGLE_DRIVE" ? "lg" : "sm"}
               title={detail.name}
-              description={ui(findSourceProvider(detail.type)?.name ?? detail.type)}
               actions={
                 canDelete ? (
                   <ConfirmDialog
@@ -727,13 +958,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 ) : null
               }
             />
-            {detail.errorCode &&
-            !(detail.type === "GOOGLE_DRIVE" && detail.errorCode.startsWith("SOURCE_GOOGLE_")) ? (
+            {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
+            {detail.type !== "GOOGLE_DRIVE" && detail.errorCode ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
                 {ui(sourceStatusMessage(detail.errorCode))}
               </p>
             ) : null}
-            {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
 
             {canUpload && detail.type === "FILE" ? (
               <form
@@ -865,255 +1095,72 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 sourceStale={sourceQuery.isError}
                 disabled={managementBusy || detail.status === "DELETING"}
                 onBusyChange={setDriveBusy}
+                activeSection={section}
+                content={filesPanel}
+                settings={
+                  <SourceGroupsSection
+                    sourceId={selectedId}
+                    editable={canManageGroups}
+                    onAuthorityChanged={refreshAuthorityViews}
+                  />
+                }
+                navigation={
+                  <>
+                    {detail.errorCode && !detail.errorCode.startsWith("SOURCE_GOOGLE_") ? (
+                      <p role="alert" className="text-sm text-status-danger-content">
+                        {ui(sourceStatusMessage(detail.errorCode))}
+                      </p>
+                    ) : null}
+                    <Tabs.List
+                      aria-label={ui("Source sections")}
+                      className="flex flex-wrap gap-1 border-b border-border-subtle"
+                    >
+                      {[
+                        ["content", "Content"],
+                        ["permissions", "Google Drive permissions"],
+                        ["history", "Sync history"],
+                        ["settings", "Connection and settings"],
+                      ].map(([value, label]) => (
+                        <Tabs.Trigger
+                          key={value}
+                          value={value}
+                          className="min-h-11 border-b-2 border-transparent px-4 py-3 text-sm font-medium text-content-muted hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=active]:border-content-primary data-[state=active]:text-content-primary"
+                        >
+                          {ui(label)}
+                        </Tabs.Trigger>
+                      ))}
+                    </Tabs.List>
+                  </>
+                }
               />
             ) : null}
 
-            <section
-              aria-labelledby="source-files-heading"
-              className="mt-8 border-t border-border-subtle pt-6"
-            >
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <SourceSectionIcon icon={FileText} />
-                  <h2
-                    ref={filesHeading}
-                    id="source-files-heading"
-                    tabIndex={-1}
-                    className="font-heading-h3 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
-                  >
-                    {ui("Files")}
-                  </h2>
-                  <HelpPopover label={ui("Files and indexing times")}>
-                    <p>
-                      {ui(
-                        "Current files acquired by this Source, not a log of sync runs. Last indexed is the latest retained successful attempt for the current file version; Unknown means no retained success is known.",
-                      )}
-                    </p>
-                    <p>
-                      {ui(
-                        "A previous indexing success does not make a pending or failed current attempt successful.",
-                      )}
-                    </p>
-                  </HelpPopover>
-                </div>
-                <div className="flex items-center gap-2">
-                  {detail.pendingWork ? <LoadingLabel label={ui("Work pending")} /> : null}
-                  <Button
-                    prominence="tertiary"
-                    pending={itemsQuery.isFetching}
-                    onClick={() => void itemsQuery.refetch()}
-                  >
-                    {ui("Refresh files")}
-                  </Button>
-                </div>
-              </div>
-              <p className="mb-3 font-secondary-body text-content-muted">
-                {ui("Indexed means processing completed, not that financial values were verified.")}
-              </p>
-              {itemsQuery.isError ? (
-                <p role="alert" className="mb-3 text-sm text-status-danger-content">
-                  {ui(
-                    "Files could not be loaded. Displayed files may be out of date. Retry this page or return to a previous page.",
-                  )}
-                </p>
-              ) : null}
-              {itemsQuery.isPending ? (
-                <div className="py-8">
-                  <LoadingLabel label={ui("Loading files")} />
-                </div>
-              ) : itemsQuery.data?.items.length === 0 ? (
-                <EmptyState
-                  title={previous.length ? ui("No files on this page") : ui("No files yet")}
-                  detail={
-                    previous.length
-                      ? "Files may have been removed. Return to the previous page or refresh this page."
-                      : detail.type === "GOOGLE_DRIVE"
-                        ? "Files appear here after synchronization acquires them from Google Drive."
-                        : canUpload
-                          ? "Upload one supported file to start indexing."
-                          : "No files are indexed in this Source."
-                  }
-                />
-              ) : itemsQuery.data ? (
-                <div
-                  className="overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline-2 focus-visible:outline-focus-ring"
-                  tabIndex={0}
-                  role="region"
-                  aria-label={ui("Source files table")}
-                >
-                  <table className="w-full min-w-[64rem] table-fixed text-left text-sm">
-                    <colgroup>
-                      <col />
-                      <col className="w-24" />
-                      <col className="w-44" />
-                      <col className="w-48" />
-                      <col className="w-52" />
-                    </colgroup>
-                    <thead className="border-b border-border-subtle bg-surface-sunken text-content-muted">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 font-medium">
-                          {ui("File")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 font-medium">
-                          {ui("Size")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 font-medium">
-                          {ui("Status")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 font-medium">
-                          {ui("Last indexed")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-right font-medium">
-                          {ui("Actions")}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle">
-                      {itemsQuery.data.items.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-4 [overflow-wrap:anywhere]">
-                            <span className="flex min-w-0 items-start gap-2 font-medium text-content-primary">
-                              <FileText
-                                className="mt-0.5 size-4 shrink-0 text-content-muted"
-                                aria-hidden="true"
-                              />
-                              <span
-                                className="min-w-0"
-                                title={item.filename ?? ui("Uploaded file")}
-                              >
-                                {item.filename ?? ui("Uploaded file")}
-                              </span>
-                            </span>
-                            {item.errorCode ? (
-                              <p className="mt-1 text-xs text-status-danger-content">
-                                {ui(sourceStatusMessage(item.errorCode))}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-content-muted">
-                            {item.sizeBytes == null ? ui("Unknown") : formatBytes(item.sizeBytes)}
-                          </td>
-                          <td className="px-4 py-4 text-content-secondary">
-                            <ItemStatus item={item} />
-                          </td>
-                          <td className="px-4 py-4 text-content-secondary">
-                            <HistoryTime value={item.lastIndexedAt} />
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex justify-end gap-1">
-                              {canReindex ? (
-                                <Button
-                                  prominence="tertiary"
-                                  size="sm"
-                                  pending={reindexingItems.includes(item.id)}
-                                  disabled={
-                                    itemBusy ||
-                                    removingItems.includes(item.id) ||
-                                    item.status === "DELETING" ||
-                                    detail.status === "DELETING"
-                                  }
-                                  onClick={() => void reindex(item)}
-                                >
-                                  <RefreshCw /> {ui("Reindex")}
-                                </Button>
-                              ) : null}
-                              {canRemoveItems ? (
-                                <ConfirmDialog
-                                  trigger={
-                                    <Button
-                                      tone="danger"
-                                      prominence="tertiary"
-                                      size="sm"
-                                      pending={removingItems.includes(item.id)}
-                                      disabled={
-                                        itemBusy ||
-                                        reindexingItems.includes(item.id) ||
-                                        item.status === "DELETING" ||
-                                        detail.status === "DELETING"
-                                      }
-                                    >
-                                      <Trash2 /> {ui("Remove")}
-                                    </Button>
-                                  }
-                                  title={ui("Remove {{v1}}?", {
-                                    v1: item.filename ?? ui("uploaded file"),
-                                  })}
-                                  description={ui(
-                                    "Removing “{{v1}}” makes its indexed document unavailable. Cleanup continues asynchronously.",
-                                    { v1: item.filename ?? ui("this file") },
-                                  )}
-                                  confirmLabel={ui("Remove file")}
-                                  pendingLabel={ui("Removing file")}
-                                  onConfirm={() => removeSelectedItem(item)}
-                                  errorMessage={(cause) =>
-                                    sourceMutationError(cause, "remove-item")
-                                  }
-                                />
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-              <TablePagination
-                label={ui("Files pagination")}
-                className="mt-3"
-                page={previous.length}
-                totalPages={filesTotalPages}
-                previousLabel={ui("Previous files")}
-                nextLabel={ui("Next files")}
-                previousDisabled={!previous.length || itemsQuery.isFetching}
-                nextDisabled={
-                  !itemsQuery.data?.nextCursor || itemsQuery.isFetching || itemsQuery.isError
-                }
-                onPrevious={() => {
-                  filesHeading.current?.focus();
-                  setCursor(previous.at(-1));
-                  setPrevious((pages) => pages.slice(0, -1));
-                }}
-                onNext={() => {
-                  filesHeading.current?.focus();
-                  setPrevious((pages) => [...pages, cursor]);
-                  setCursor(itemsQuery.data?.nextCursor ?? undefined);
-                }}
-              >
-                <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-                  {ui("Rows")}
-                  <Select
-                    aria-label={ui("Files per page")}
-                    size="sm"
-                    className="w-auto px-2"
-                    value={filesSize}
-                    disabled={itemsQuery.isFetching}
-                    onChange={(event) => {
-                      setFilesSize(Number(event.target.value));
-                      setCursor(undefined);
-                      setPrevious([]);
-                    }}
-                  >
-                    {[5, 10, 25, 50, 100].map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-              </TablePagination>
-            </section>
+            {detail.type !== "GOOGLE_DRIVE" ? filesPanel : null}
             {detail.type === "GOOGLE_DRIVE" ? (
-              <SourceRunHistory key={selectedId} sourceId={selectedId} />
+              <Tabs.Content value="permissions" className="mt-5 outline-none">
+                <GoogleDriveAclPanel key={selectedId} sourceId={selectedId} />
+              </Tabs.Content>
+            ) : null}
+            {detail.type === "GOOGLE_DRIVE" ? (
+              <Tabs.Content
+                value="history"
+                className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
+              >
+                <SourceRunHistory key={selectedId} sourceId={selectedId} />
+              </Tabs.Content>
             ) : (
               <SourceItemHistory key={selectedId} sourceId={selectedId} />
             )}
-            <SourceGroupsSection
-              sourceId={selectedId}
-              editable={canManageGroups}
-              onAuthorityChanged={refreshAuthorityViews}
-            />
-          </div>
+            {detail.type !== "GOOGLE_DRIVE" ? (
+              <div className="mt-5 rounded-xl border border-border-subtle bg-surface-raised px-4 sm:px-5">
+                <SourceGroupsSection
+                  sourceId={selectedId}
+                  editable={canManageGroups}
+                  onAuthorityChanged={refreshAuthorityViews}
+                />
+              </div>
+            ) : null}
+          </Tabs.Root>
         )}
       </div>
     </SettingsLayout>

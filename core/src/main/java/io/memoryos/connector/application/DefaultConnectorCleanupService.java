@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,8 +75,8 @@ public class DefaultConnectorCleanupService implements ConnectorCleanupPort {
 
     @Override
     @Transactional
-    public boolean retry(CleanupWork work, String errorCode, int maxAttempts, Duration backoff) {
-        return attempts.retry(work, errorCode, maxAttempts, backoff);
+    public boolean retry(CleanupWork work, String errorCode, @Nullable String errorMessage, @Nullable String errorDetail, int maxAttempts, Duration backoff) {
+        return attempts.retry(work, errorCode, errorMessage, errorDetail, maxAttempts, backoff);
     }
 
     @Override
@@ -92,26 +93,26 @@ public class DefaultConnectorCleanupService implements ConnectorCleanupPort {
             sources.lock(work.tenantId(), work.sourceId());
         } catch (SourceException exception) {
             if (!"SOURCE_NOT_FOUND".equals(exception.code())) throw exception;
-            return attempts.ownsClaim(work) && attempts.complete(work, "SUPERSEDED", null);
+            return attempts.ownsClaim(work) && attempts.complete(work, "SUPERSEDED", null, null, null);
         }
         if (!attempts.ownsClaim(work)) {
             return false;
         }
         if (work.type() == SourceOperationType.DELETE_SOURCE && !deleteSource(work)) {
-            return attempts.complete(work, "SUPERSEDED", null);
+            return attempts.complete(work, "SUPERSEDED", null, null, null);
         }
         if (work.type() == SourceOperationType.REMOVE_ITEM) {
             removeItem(work);
         } else if (work.type() != SourceOperationType.DELETE_SOURCE) {
             throw new IllegalStateException("unsupported cleanup operation: " + work.type());
         }
-        return attempts.complete(work, "SUCCEEDED", null);
+        return attempts.complete(work, "SUCCEEDED", null, null, null);
     }
 
     @Override
     @Transactional
-    public boolean fail(CleanupWork work, String errorCode) {
-        return attempts.complete(work, "FAILED", safeErrorCode(errorCode));
+    public boolean fail(CleanupWork work, String errorCode, @Nullable String errorMessage, @Nullable String errorDetail) {
+        return attempts.complete(work, "FAILED", safeErrorCode(errorCode), errorMessage, errorDetail);
     }
 
     private void removeItem(CleanupWork work) {

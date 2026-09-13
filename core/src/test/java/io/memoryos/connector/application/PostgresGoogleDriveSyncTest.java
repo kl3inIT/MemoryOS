@@ -187,6 +187,10 @@ class PostgresGoogleDriveSyncTest {
             if (value == null) throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.NOT_FOUND);
             return value;
         });
+        when(session.permissions(any())).thenAnswer(i -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return List.of(permission("owner", "owner"));
+        });
         when(session.listFiles(any(), any())).thenAnswer(i -> {
             String parent = i.getArgument(0);
             String page = i.getArgument(1);
@@ -203,6 +207,100 @@ class PostgresGoogleDriveSyncTest {
                     (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8),
                     new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(), "https://drive.google.com/file/d/" + file.id() + "/view"));
         });
+    }
+
+    @Test
+    void permissionOnlyChangesRefreshTheSnapshotWithoutAcquiringOrIndexingContent() {
+        listing(file("one", false, "1"));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var acls = new JdbcGoogleDriveAclRepository(jdbc);
+        var first = acls.read(tenant, source, "one").orElseThrow();
+        when(session.permissions("one")).thenReturn(List.of(permission("reader", "reader")));
+        org.mockito.Mockito.clearInvocations(session);
+
+        finish(enqueue());
+
+        var updated = acls.read(tenant, source, "one").orElseThrow();
+        assertThat(updated.revision()).isEqualTo(first.revision() + 1);
+        assertThat(updated.permissions()).extracting(GoogleDriveProvider.Permission::id).containsExactly("reader");
+        assertThat(updated.documentIds()).isEqualTo(first.documentIds());
+        assertThat(updated.contextStatus()).isEqualTo(GoogleDriveAclSnapshot.ContextStatus.CURRENT);
+        verify(session, never()).acquire(any());
+        assertThat(dispatch.claim(OperationWorkload.INGESTION, 1)).isEmpty();
+    }
+
+    @Test
+    void failedAclRefreshRetainsTheCompleteSnapshotWithoutBlockingUnchangedContent() {
+        listing(file("one", false, "1"));
+        finish(enqueue());
+        var acls = new JdbcGoogleDriveAclRepository(jdbc);
+        var first = acls.read(tenant, source, "one").orElseThrow();
+        when(session.permissions("one")).thenThrow(new GoogleDriveProviderException(
+                GoogleDriveProviderException.Failure.MALFORMED));
+        org.mockito.Mockito.clearInvocations(session);
+
+        finish(enqueue());
+
+        var failed = acls.read(tenant, source, "one").orElseThrow();
+        assertThat(failed.status()).isEqualTo(GoogleDriveAclSnapshot.Status.FAILED);
+        assertThat(failed.errorCode()).isEqualTo("SOURCE_GOOGLE_MALFORMED");
+        assertThat(failed.revision()).isEqualTo(first.revision());
+        assertThat(failed.permissions()).isEqualTo(first.permissions());
+        assertThat(failed.lastSuccess()).isEqualTo(first.lastSuccess());
+        verify(session, never()).acquire(any());
+    }
+
+    @Test
+    void metadataVersionBumpWithIdenticalBinaryBytesReusesExtractionAndRetainsProvenance() {
+        byte[] content = "unchanged binary content".getBytes(StandardCharsets.UTF_8);
+        doAnswer(i -> {
+            GoogleDriveProvider.FileMetadata file = i.getArgument(0);
+            return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain", content,
+                    new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(),
+                            "https://drive.google.com/file/d/" + file.id() + "/view"));
+        }).when(session).acquire(any());
+        listing(file("one", false, "1"));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var before = new JdbcGoogleDriveAclRepository(jdbc).read(tenant, source, "one").orElseThrow();
+        listing(file("one", false, "2"));
+        when(session.permissions("one")).thenReturn(List.of(permission("reader", "reader")));
+
+        finish(enqueue());
+
+        assertThat(dispatch.claim(OperationWorkload.INGESTION, 1)).isEmpty();
+        assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions")).isEqualTo(1);
+        assertThat(scalar("SELECT COUNT(*) FROM object_writes")).isEqualTo(1);
+        var after = new JdbcGoogleDriveAclRepository(jdbc).read(tenant, source, "one").orElseThrow();
+        assertThat(after.documentIds()).isEqualTo(before.documentIds());
+        assertThat(after.permissions()).extracting(GoogleDriveProvider.Permission::id).containsExactly("reader");
+        org.mockito.Mockito.clearInvocations(session);
+        finish(enqueue());
+        verify(session, never()).acquire(any());
+        assertThat(jdbc.sql("SELECT provider_version FROM connector_item_versions").query(String.class).single()).isEqualTo("1");
+    }
+
+    @Test
+    void credentialRevisionChangeDuringAclRetrievalCannotPublishTheNewSnapshot() {
+        listing(file("one", false, "1"));
+        finish(enqueue());
+        var acls = new JdbcGoogleDriveAclRepository(jdbc);
+        var before = acls.read(tenant, source, "one").orElseThrow();
+        when(session.permissions("one")).thenAnswer(_ -> {
+            revision.incrementAndGet();
+            return List.of(permission("reader", "reader"));
+        });
+
+        assertThat(service().execute(claim(enqueue()))).isEqualTo(ConnectorSyncPort.Result.SUPERSEDED);
+        var after = acls.read(tenant, source, "one").orElseThrow();
+        assertThat(after.revision()).isEqualTo(before.revision());
+        assertThat(after.permissions()).isEqualTo(before.permissions());
+    }
+
+    private static GoogleDriveProvider.Permission permission(String id, String role) {
+        return new GoogleDriveProvider.Permission(id, "user", role, id + "@example.test",
+                null, null, null, false, false, List.of(), null, null);
     }
 
     @Test
@@ -538,7 +636,7 @@ class PostgresGoogleDriveSyncTest {
         var delivery = dispatch.claim(OperationWorkload.INGESTION, 1).getFirst().delivery();
         var indexing = TestDatabase.transactionalProxy(attempts, ConnectorIndexingPort.class, manager);
         var retryWork = indexing.claim(tenant, delivery.operationId(), delivery.deliveryId()).orElseThrow();
-        assertThat(indexing.retry(retryWork, "SOURCE_EXTRACTION_FAILED", 2, Duration.ofSeconds(1))).isTrue();
+        assertThat(indexing.retry(retryWork, "SOURCE_EXTRACTION_FAILED", null, null, 2, Duration.ofSeconds(1))).isTrue();
         jdbc.sql("UPDATE index_attempts SET next_dispatch_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id = :id")
                 .param("id", delivery.operationId().value()).update();
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
@@ -944,7 +1042,8 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private DefaultConnectorSyncService service() {
-        return new DefaultConnectorSyncService(syncRows, sources, roots, items, attempts, mappings, connections, writes, manager);
+        return new DefaultConnectorSyncService(syncRows, sources, roots, new JdbcGoogleDriveAclRepository(jdbc),
+                items, attempts, mappings, connections, writes, manager);
     }
 
     private SourceOperationId enqueue() {

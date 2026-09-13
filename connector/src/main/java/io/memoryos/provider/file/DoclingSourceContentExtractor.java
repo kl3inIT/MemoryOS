@@ -163,6 +163,12 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                     externalFailure = true;
                     if (sdk.getStatusCode() > 0) httpStatus = sdk.getStatusCode();
                 }
+                if (root instanceof java.net.http.HttpConnectTimeoutException
+                        || root instanceof java.net.ConnectException || root instanceof java.net.UnknownHostException) {
+                    reason = ExtractionFailure.CONNECTION_FAILED;
+                    externalFailure = true;
+                    break;
+                }
                 if (root instanceof java.net.http.HttpTimeoutException || root instanceof InterruptedException) {
                     reason = ExtractionFailure.TIMEOUT;
                     externalFailure = true;

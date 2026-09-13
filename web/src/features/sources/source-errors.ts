@@ -22,6 +22,8 @@ const statusMessages: Record<string, string> = {
   SOURCE_EXTRACTION_ENCRYPTED: "Password-protected files cannot be indexed.",
   SOURCE_EXTRACTION_MALFORMED: "The file could not be read. Check the file and upload it again.",
   SOURCE_EXTRACTION_TIMEOUT: "File extraction took too long. Try indexing the file again.",
+  SOURCE_EXTRACTION_CONNECTION_FAILED:
+    "The extraction service could not be reached. Ask an administrator to check the service address, network access, and service availability before indexing again.",
   SOURCE_EXTRACTION_WRITE_LIMIT: "The extracted document exceeds the supported text limit.",
   SOURCE_EXTRACTION_INTERNAL: "File extraction failed unexpectedly. Try indexing the file again.",
   SOURCE_CLEANUP_INTERNAL: "Cleanup failed unexpectedly. Try the removal again.",

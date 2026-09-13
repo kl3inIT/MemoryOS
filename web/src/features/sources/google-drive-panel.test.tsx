@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Tabs } from "radix-ui";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -62,7 +63,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
+function setup(
+  initial: Partial<GetGoogleDriveConfigurationResponse> = {},
+  activeSection = "content",
+) {
   let configuration: GetGoogleDriveConfigurationResponse = {
     sourceId: source.id,
     credentialId: "81c51573-31a9-4e67-91c5-f276960c94af",
@@ -290,7 +294,16 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
     <QueryClientProvider client={queryClient}>
       <ApplicationSessionProvider session={session}>
         <ActionNotifications>
-          <GoogleDrivePanel source={source} sourceStale={sourceStale} onBusyChange={() => {}} />
+          <Tabs.Root value={activeSection}>
+            <GoogleDrivePanel
+              source={source}
+              sourceStale={sourceStale}
+              onBusyChange={() => {}}
+              activeSection={activeSection}
+              content={null}
+              settings={null}
+            />
+          </Tabs.Root>
         </ActionNotifications>
       </ApplicationSessionProvider>
     </QueryClientProvider>
@@ -349,8 +362,6 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
 }
 
 async function edit(user: UserEvent) {
-  const disclosure = await screen.findByText("File and folder links", { selector: "summary" });
-  if (!disclosure.parentElement?.hasAttribute("open")) await user.click(disclosure);
   await user.click(await screen.findByRole("button", { name: "Edit selection" }));
   return screen.findByRole("textbox", { name: "File or folder links" });
 }
@@ -562,7 +573,7 @@ describe("Google Drive enterprise selection", () => {
 
   it("never caches owner-supplied OAuth secrets and ignores late authorization after actor change", async () => {
     const user = userEvent.setup();
-    const server = setup();
+    const server = setup({}, "settings");
     await user.click(await screen.findByText("Manage connection"));
     await user.click(screen.getByRole("checkbox", { name: "Replace OAuth app on reconnect" }));
     const input = screen.getByRole("textbox", { name: "Upload or paste OAuth app JSON" });

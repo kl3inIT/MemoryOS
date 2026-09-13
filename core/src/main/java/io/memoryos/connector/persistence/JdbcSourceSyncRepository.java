@@ -160,7 +160,8 @@ public class JdbcSourceSyncRepository {
                 .param("key", node.kind() + ":" + node.fileId()).update();
     }
 
-    public void failedNode(Work work, Node node, String code, boolean unsupported) {
+    public void failedNode(Work work, Node node, String code, boolean unsupported,
+            @Nullable String errorMessage, @Nullable String errorDetail) {
         jdbc.sql("""
                 UPDATE google_drive_frontier SET attempts = attempts + 1, error_code = :code,
                     state = CASE WHEN :unsupported THEN 'UNSUPPORTED' WHEN attempts >= 2 THEN 'FAILED' ELSE 'PENDING' END
@@ -170,16 +171,19 @@ public class JdbcSourceSyncRepository {
                 .param("file", node.fileId()).param("kind", node.kind()).update();
         jdbc.sql("""
                 INSERT INTO source_run_errors (id, tenant_id, run_id, error_key, operation_id,
-                    file_id, file_name, stage, code)
+                    file_id, file_name, stage, code, error_message, error_detail)
                 SELECT :errorId, f.tenant_id, f.attempt_id, :key, f.attempt_id, f.file_id, leaf.file_name,
-                    source_run_error_stage(:code), :code
+                    source_run_error_stage(:code), :code, :errorMessage, :errorDetail
                 FROM google_drive_frontier f LEFT JOIN source_run_files leaf
                     ON leaf.tenant_id = f.tenant_id AND leaf.run_id = f.attempt_id AND leaf.file_id = f.file_id
                 WHERE f.tenant_id = :tenant AND f.attempt_id = :id AND f.file_id = :file AND f.task_kind = :kind
                     AND f.state IN ('FAILED', 'UNSUPPORTED')
                 ON CONFLICT (tenant_id, run_id, error_key) DO NOTHING
                 """).param("errorId", UUID.randomUUID()).param("key", node.kind() + ":" + node.fileId())
-                .param("code", WorkLeases.safeErrorCode(code)).param("tenant", work.tenantId().value())
+                .param("code", WorkLeases.safeErrorCode(code))
+                .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
+                .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
+                .param("tenant", work.tenantId().value())
                 .param("id", work.operationId().value()).param("file", node.fileId()).param("kind", node.kind()).update();
         jdbc.sql("""
                 WITH changed AS (
@@ -214,14 +218,21 @@ public class JdbcSourceSyncRepository {
     }
 
     public void observe(Work work, String file, @Nullable String root, @Nullable String version) {
+        observe(work, file, root, version, version);
+    }
+
+    public void observe(Work work, String file, @Nullable String root, @Nullable String version,
+            @Nullable String contentVersion) {
         jdbc.sql("""
-                INSERT INTO google_drive_membership (tenant_id, source_id, file_id, root_id, generation, provider_version)
-                VALUES (:tenant, :source, :file, :root, :generation, :version)
+                INSERT INTO google_drive_membership (tenant_id, source_id, file_id, root_id, generation, provider_version, content_provider_version)
+                VALUES (:tenant, :source, :file, :root, :generation, :version, :contentVersion)
                 ON CONFLICT (tenant_id, source_id, file_id) DO UPDATE SET root_id = EXCLUDED.root_id,
                   generation = EXCLUDED.generation, provider_version = EXCLUDED.provider_version, error_code = NULL,
+                  content_provider_version = EXCLUDED.content_provider_version,
                   eligible = CASE WHEN EXCLUDED.root_id IS NULL THEN FALSE ELSE google_drive_membership.eligible END
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).param("file", file)
-                .param("root", root).param("generation", work.generation()).param("version", version).update();
+                .param("root", root).param("generation", work.generation()).param("version", version)
+                .param("contentVersion", contentVersion).update();
     }
 
     public void observeLeaf(Work work, String file, String name) {
@@ -296,7 +307,7 @@ public class JdbcSourceSyncRepository {
                     JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.connector_id = p.connector_id
                     JOIN connector_item_versions v ON v.tenant_id = i.tenant_id AND v.id = i.current_version_id
                     WHERE p.tenant_id = m.tenant_id AND p.id = m.source_id AND i.provider_file_id = m.file_id
-                      AND i.status <> 'DELETING' AND v.provider_version = m.provider_version
+                      AND i.status <> 'DELETING' AND v.provider_version = COALESCE(m.content_provider_version, m.provider_version)
                       AND v.scope_revision = :scope AND v.credential_revision = :credential)
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                 .param("generation", work.generation()).param("attempt", work.operationId().value())
@@ -315,15 +326,20 @@ public class JdbcSourceSyncRepository {
                   next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute', error_code = NULL
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();
-        terminal(work, "SUCCEEDED", null);
+        terminal(work, "SUCCEEDED", null, null, null);
     }
 
-    public void terminal(Work work, String status, @Nullable String code) {
+    public void terminal(Work work, String status, @Nullable String code,
+            @Nullable String errorMessage, @Nullable String errorDetail) {
         int updated = jdbc.sql("""
                 UPDATE source_sync_attempts SET status = :status, error_code = :code, completed_at = CURRENT_TIMESTAMP,
+                    error_message = :errorMessage, error_detail = :errorDetail,
                     claim_token = NULL, lease_expires_at = NULL WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
                     AND status = 'IN_PROGRESS' AND lease_expires_at > CURRENT_TIMESTAMP
-                """).param("status", status).param("code", code).param("tenant", work.tenantId().value())
+                """).param("status", status).param("code", code)
+                .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
+                .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
+                .param("tenant", work.tenantId().value())
                 .param("id", work.operationId().value()).param("token", work.claimToken()).update();
         if (updated == 1 && code != null) jdbc.sql("""
                 UPDATE google_drive_sources SET error_code = :code,
@@ -344,17 +360,21 @@ public class JdbcSourceSyncRepository {
                 .param("token", work.claimToken()).update();
     }
 
-    public void retry(Work work, String error) {
+    public void retry(Work work, String error, @Nullable String errorMessage, @Nullable String errorDetail) {
         var status = jdbc.sql("""
                 UPDATE source_sync_attempts SET failure_attempts = failure_attempts + 1,
                   status = CASE WHEN failure_attempts >= 5 THEN 'FAILED' ELSE 'NOT_STARTED' END,
                   completed_at = CASE WHEN failure_attempts >= 5 THEN CURRENT_TIMESTAMP ELSE NULL END,
                   claim_token = NULL, lease_expires_at = NULL, delivery_id = NULL, dispatch_token = NULL,
                   dispatch_lease_expires_at = NULL, redis_message_id = NULL, dispatched_at = NULL,
-                  next_dispatch_at = CURRENT_TIMESTAMP + INTERVAL '30 seconds', error_code = :error
+                  next_dispatch_at = CURRENT_TIMESTAMP + INTERVAL '30 seconds', error_code = :error,
+                  error_message = :errorMessage, error_detail = :errorDetail
                 WHERE tenant_id = :tenant AND id = :id AND claim_token = :token AND lease_expires_at > CURRENT_TIMESTAMP
                 RETURNING status
-                """).param("error", WorkLeases.safeErrorCode(error)).param("tenant", work.tenantId().value())
+                """).param("error", WorkLeases.safeErrorCode(error))
+                .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
+                .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
+                .param("tenant", work.tenantId().value())
                 .param("id", work.operationId().value()).param("token", work.claimToken()).query(String.class).optional();
         if (status.filter("FAILED"::equals).isPresent()) jdbc.sql("""
                 UPDATE google_drive_sources SET error_code = :error, next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'

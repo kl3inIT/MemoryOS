@@ -531,6 +531,10 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", foreignSource).with(authentication(otherOwner))
                         .param("parentId", "foreign-root"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        for (String suffix : List.of("/google-drive/acl", "/google-drive/acl/foreign-root")) {
+            mockMvc.perform(get("/api/sources/" + foreignSource + suffix).with(authentication(otherOwner)))
+                    .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        }
         mockMvc.perform(get("/api/credentials/google-drive").with(authentication(otherOwner)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
         for (UUID id : List.of(credential.value(), UUID.randomUUID())) {
@@ -1037,6 +1041,109 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.discoveryRevision").value(0));
     }
 
+    @Test
+    void aclInspectorRequiresSourceReadAuthorityAndImmediatelyRevokesManagedGroupScope() throws Exception {
+        String source = createGoogleSource(googleCredential("ACL source account"), "ACL source", "acl-root");
+        var id = new io.memoryos.connector.SourceId(UUID.fromString(source));
+        String fileSource = createSource(owner, "Wrong provider", null);
+        UUID tenant = jdbcClient.sql("SELECT tenant_id FROM connector_credential_pairs WHERE id = :source")
+                .param("source", id.value()).query(UUID.class).single();
+        UUID group = UUID.randomUUID();
+        var manager = scopedManager(tenant, group);
+        sourceManagement.replaceSourceGroups(owner.getPrincipal().actorId(), id, List.of(new io.memoryos.iam.GroupId(group)));
+        clearInvocations(googleProvider, googleSession);
+        for (String suffix : List.of("/google-drive/acl", "/google-drive/acl/acl-root")) {
+            mockMvc.perform(get("/api/sources/" + source + suffix)).andExpect(status().isUnauthorized());
+            mockMvc.perform(get("/api/sources/" + source + suffix).with(authentication(member)))
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+            mockMvc.perform(get("/api/sources/" + source + suffix).with(authentication(manager)))
+                    .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+            mockMvc.perform(get("/api/sources/" + fileSource + suffix).with(authentication(owner)))
+                    .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+            mockMvc.perform(get("/api/sources/" + UUID.randomUUID() + suffix).with(authentication(owner)))
+                    .andExpect(status().isNotFound());
+        }
+        sourceManagement.replaceSourceGroups(owner.getPrincipal().actorId(), id,
+                List.of(new io.memoryos.iam.GroupId(adminGroupId())));
+        for (String suffix : List.of("/google-drive/acl", "/google-drive/acl/acl-root")) {
+            mockMvc.perform(get("/api/sources/" + source + suffix).with(authentication(manager)))
+                    .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        }
+        verifyNoInteractions(googleProvider, googleSession);
+    }
+
+    @Test
+    void aclInspectorSerializesAbsentFailedAndSuccessfulEmptyEvidenceWithoutProviderAccess() throws Exception {
+        String source = createGoogleSource(googleCredential("ACL observation account"), "ACL observations", "acl-root");
+        String path = "/api/sources/" + source + "/google-drive/acl";
+        clearInvocations(googleProvider, googleSession);
+        mockMvc.perform(get(path).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.items[0].fileId").value("acl-root"))
+                .andExpect(jsonPath("$.items[0].status").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[0].permissionCount").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[0].permissions").doesNotExist());
+        mockMvc.perform(get(path + "/acl-root").with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.snapshot").value(org.hamcrest.Matchers.nullValue()));
+        mockMvc.perform(get(path + "/not-selected").with(authentication(owner))).andExpect(status().isNotFound());
+        jdbcClient.sql("""
+                INSERT INTO google_drive_acl_snapshots (tenant_id, source_id, file_id, status, last_attempt_at,
+                    attempt_operation_id, attempt_credential_id, attempt_credential_revision, attempt_scope_revision,
+                    attempt_generation, error_code)
+                SELECT p.tenant_id, p.id, 'acl-root', 'FAILED', CURRENT_TIMESTAMP, gen_random_uuid(), p.credential_id,
+                    g.credential_revision, s.revision, s.generation, 'SOURCE_GOOGLE_UNAVAILABLE'
+                FROM connector_credential_pairs p
+                JOIN google_drive_sources s ON s.tenant_id = p.tenant_id AND s.source_id = p.id
+                JOIN google_drive_credentials g ON g.tenant_id = p.tenant_id AND g.credential_id = p.credential_id
+                WHERE p.id = :source
+                """).param("source", UUID.fromString(source)).update();
+        mockMvc.perform(get(path + "/acl-root").with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.snapshot.status").value("FAILED"))
+                .andExpect(jsonPath("$.snapshot.contextStatus").value("UNOBSERVED"))
+                .andExpect(jsonPath("$.snapshot.lastSuccess").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.snapshot.errorCode").value("SOURCE_GOOGLE_UNAVAILABLE"));
+        jdbcClient.sql("""
+                INSERT INTO google_drive_membership (tenant_id, source_id, file_id, root_id, generation)
+                SELECT tenant_id, source_id, file_id, file_id, attempt_generation FROM google_drive_acl_snapshots WHERE source_id = :source
+                """).param("source", UUID.fromString(source)).update();
+        jdbcClient.sql("""
+                UPDATE google_drive_acl_snapshots SET observation_revision = 1, permissions_json = '[]'::jsonb,
+                    status = 'SUCCEEDED', error_code = NULL, last_success_at = last_attempt_at,
+                    success_operation_id = attempt_operation_id, success_credential_id = attempt_credential_id,
+                    success_credential_revision = attempt_credential_revision, success_scope_revision = attempt_scope_revision,
+                    success_generation = attempt_generation WHERE source_id = :source
+                """).param("source", UUID.fromString(source)).update();
+        mockMvc.perform(get(path).with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].permissionCount").value(0))
+                .andExpect(jsonPath("$.items[0].status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.items[0].contextStatus").value("CURRENT"));
+        mockMvc.perform(get(path + "/acl-root").with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.snapshot.permissions").isEmpty())
+                .andExpect(jsonPath("$.snapshot.lastSuccess.credentialId").isString())
+                .andExpect(jsonPath("$.snapshot.documentIds").isEmpty());
+        jdbcClient.sql("""
+                UPDATE google_drive_acl_snapshots SET status = 'FAILED', error_code = 'SOURCE_GOOGLE_UNAVAILABLE',
+                    permissions_json = '[{"id":"reader","type":"user","role":"reader","emailAddress":"reader@example.test",
+                    "domain":null,"expirationTime":null,"allowFileDiscovery":false,"deleted":false,"pendingOwner":null,
+                    "permissionDetails":[{"permissionType":"member","role":"reader","inheritedFrom":"folder","inherited":true}],
+                    "view":null,"inheritedPermissionsDisabled":false}]'::jsonb WHERE source_id = :source
+                """).param("source", UUID.fromString(source)).update();
+        mockMvc.perform(get(path + "/acl-root").with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.snapshot.status").value("FAILED"))
+                .andExpect(jsonPath("$.snapshot.lastSuccess.credentialId").isString())
+                .andExpect(jsonPath("$.snapshot.permissions[0].emailAddress").value("reader@example.test"))
+                .andExpect(jsonPath("$.snapshot.permissions[0].allowFileDiscovery").value(false))
+                .andExpect(jsonPath("$.snapshot.permissions[0].pendingOwner").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.snapshot.permissions[0].permissionDetails[0].inheritedFrom").value("folder"))
+                .andExpect(jsonPath("$.snapshot.permissions[0].permissionDetails[0].inherited").value(true));
+        for (String size : List.of("0", "101")) {
+            mockMvc.perform(get(path).with(authentication(owner)).param("size", size)).andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(get(path).with(authentication(owner)).param("query", "x".repeat(257))).andExpect(status().isBadRequest());
+        mockMvc.perform(get(path).with(authentication(owner)).param("cursor", "invalid")).andExpect(status().isBadRequest());
+        verifyNoInteractions(googleProvider, googleSession);
+    }
+
     private CredentialId googleCredential(String name) {
         var scopes = new HashSet<>(GoogleDriveAuthorizationService.REQUIRED_SCOPES);
         scopes.add("email");
@@ -1216,7 +1323,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/group-options?search=Scoped")
                         .with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].id").value(managedGroupId.toString()));
+                .andExpect(jsonPath("$.items[?(@.id == '%s')]".formatted(managedGroupId)).exists());
         mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")

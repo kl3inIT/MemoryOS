@@ -205,9 +205,11 @@ export function GoogleDriveLinks({
       ) : null}
       {scopeMode === "SPECIFIC" ? (
         <div>
-          <label htmlFor={id} className="font-secondary-action text-content-primary">
-            {ui("File or folder links")}
-          </label>
+          {readOnly ? null : (
+            <label htmlFor={id} className="font-secondary-action text-content-primary">
+              {ui("File or folder links")}
+            </label>
+          )}
           <textarea
             id={id}
             ref={inputRef}
@@ -218,32 +220,30 @@ export function GoogleDriveLinks({
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
+            aria-label={readOnly ? ui("File or folder links") : undefined}
             aria-describedby={`${id}-count${error ? ` ${id}-error` : ""}`}
             aria-invalid={Boolean(error)}
             className={cn(
-              "mt-2 h-auto py-2",
+              "h-auto py-2",
               readOnly
-                ? "w-full min-w-0 resize-none rounded-lg border border-transparent bg-transparent px-3 text-sm text-content-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-                : cn(inputVariants(), "min-h-28 resize-y"),
+                ? "w-full min-w-0 resize-none rounded-lg border border-transparent bg-transparent px-0 text-sm text-content-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+                : cn(inputVariants(), "mt-2 min-h-28 resize-y"),
             )}
             placeholder="https://drive.google.com/drive/folders/…"
             onChange={(event) => onChange(event.target.value)}
           />
-          <p id={`${id}-count`} className="mt-1 text-xs text-content-muted" aria-live="polite">
-            {readOnly ? (
-              <>
-                {links.length.toLocaleString(uiLocale())}
-                {ui(" links · Read only")}
-              </>
-            ) : policy ? (
-              ui("{{count}} of {{max}} explicit roots", {
-                count: links.length.toLocaleString(uiLocale()),
-                max: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
-              })
-            ) : (
-              ui("{{count}} explicit roots", { count: links.length.toLocaleString(uiLocale()) })
-            )}
-          </p>
+          {readOnly ? null : (
+            <p id={`${id}-count`} className="mt-1 text-xs text-content-muted" aria-live="polite">
+              {policy
+                ? ui("{{count}} of {{max}} explicit roots", {
+                    count: links.length.toLocaleString(uiLocale()),
+                    max: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+                  })
+                : ui("{{count}} explicit roots", {
+                    count: links.length.toLocaleString(uiLocale()),
+                  })}
+            </p>
+          )}
           {error ? (
             <p id={`${id}-error`} role="alert" className="mt-2 text-sm text-status-danger-content">
               {error}

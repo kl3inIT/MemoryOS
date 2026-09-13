@@ -54,7 +54,7 @@ class UserFileIngestionCoordinatorTest {
         assertEquals(IngestionCoordinator.Outcome.SKIPPED, coordinator.process(new OperationDelivery(work.tenantId(),
                 OperationWorkload.USER_FILE, new SourceOperationId(work.operationId()), UUID.randomUUID())));
         verifyNoInteractions(artifacts);
-        verify(files, never()).complete(any(), any()); verify(files, never()).failed(any(), any());
+        verify(files, never()).complete(any(), any()); verify(files, never()).failed(any(), any(), any(), any());
         verify(content).close(); verify(future).cancel(false);
     }
 }

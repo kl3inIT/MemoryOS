@@ -12,6 +12,7 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.SourceStorageFailure;
+import io.memoryos.connector.persistence.JdbcGoogleDriveAclRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
@@ -42,6 +43,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
     private final JdbcSourceSyncRepository sync;
     private final JdbcSourceRepository sources;
     private final JdbcGoogleDriveSourceRepository drive;
+    private final JdbcGoogleDriveAclRepository acls;
     private final JdbcSourceItemRepository items;
     private final JdbcIndexAttemptRepository indexing;
     private final JdbcSourceDocumentRepository documents;
@@ -50,12 +52,13 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
     private final TransactionTemplate transactions;
 
     public DefaultConnectorSyncService(JdbcSourceSyncRepository sync, JdbcSourceRepository sources,
-            JdbcGoogleDriveSourceRepository drive, JdbcSourceItemRepository items,
+            JdbcGoogleDriveSourceRepository drive, JdbcGoogleDriveAclRepository acls, JdbcSourceItemRepository items,
             JdbcIndexAttemptRepository indexing, JdbcSourceDocumentRepository documents,
             GoogleDriveConnectionService connections, ObjectWriteService writes, PlatformTransactionManager manager) {
         this.sync = sync;
         this.sources = sources;
         this.drive = drive;
+        this.acls = acls;
         this.items = items;
         this.indexing = indexing;
         this.documents = documents;
@@ -115,22 +118,23 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             fenced(work, () -> { sync.continuation(work, null); return true; });
             return Result.CONTINUED;
         } catch (StaleSyncException exception) {
-            settle(work, () -> sync.terminal(work, "SUPERSEDED", null));
+            settle(work, () -> sync.terminal(work, "SUPERSEDED", null, null, null));
             return Result.SUPERSEDED;
         } catch (GoogleDriveProviderException exception) {
             String code = "SOURCE_GOOGLE_" + exception.failure().name();
             if (exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION) {
                 connections.authenticationFailed(work.tenantId(), work.sourceId(), work.credentialRevision());
-                settle(work, () -> sync.terminal(work, "FAILED", code));
+                settle(work, () -> sync.terminal(work, "FAILED", code, exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             } else {
-                settle(work, () -> sync.retry(work, code));
+                settle(work, () -> sync.retry(work, code, exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             }
             return Result.FAILED;
         } catch (io.memoryos.BusinessException exception) {
-            settle(work, () -> sync.terminal(work, "FAILED", "SOURCE_GOOGLE_CONNECTION_UNAVAILABLE"));
+            settle(work, () -> sync.terminal(work, "FAILED", "SOURCE_GOOGLE_CONNECTION_UNAVAILABLE",
+                    exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             return Result.FAILED;
         } catch (RuntimeException exception) {
-            settle(work, () -> sync.retry(work, "SOURCE_GOOGLE_INTERNAL"));
+            settle(work, () -> sync.retry(work, "SOURCE_GOOGLE_INTERNAL", exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             return Result.FAILED;
         }
     }
@@ -158,7 +162,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         return fenced(work, () -> {
             if (sync.hasFailures(work)) {
                 sync.releaseConfirmed(work);
-                sync.terminal(work, "FAILED", "SOURCE_GOOGLE_INCOMPLETE");
+                sync.terminal(work, "FAILED", "SOURCE_GOOGLE_INCOMPLETE", null, null);
                 return Result.FAILED;
             }
             var missing = sync.pruneCandidates(work);
@@ -182,6 +186,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
     private void processNode(Work work, Node node, GoogleDriveProvider.Session session, Set<String> roots,
             Set<String> approved, @Nullable String generalRoot) {
         boolean generalRootNode = node.fileId().equals(generalRoot);
+        boolean aclAttempted = false;
         try {
             var file = session.metadata(node.fileId());
             if (!file.folder()) fenced(work, () -> { sync.observeLeaf(work, file.id(), file.name()); return true; });
@@ -192,14 +197,14 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 }
             }
             if (file.trashed()) {
-                absent(work, node);
+                absent(work, node, "SOURCE_GOOGLE_TRASHED");
                 return;
             }
             if (approved.contains(file.id()) && file.folder() && !roots.contains(file.id()))
                 throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.UNSUPPORTED);
             String root = approved.contains(file.id()) && !file.folder() ? file.id() : membership(file, roots, session);
             if (root == null || sync.excluded(work, file.id())) {
-                absent(work, node);
+                absent(work, node, "SOURCE_GOOGLE_OUT_OF_SCOPE");
                 return;
             }
             if (file.shortcutTargetId() != null || "application/vnd.google-apps.shortcut".equals(file.mimeType()))
@@ -209,6 +214,10 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                     || file.driveId() == null && file.parents().isEmpty()
                     && file.id().equals(session.metadata("root").id()))) {
                 throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.UNSUPPORTED);
+            }
+            if (!"FOLDER".equals(node.kind())) {
+                aclAttempted = true;
+                synchronizeAcl(work, file, session);
             }
             if ("FOLDER".equals(node.kind())) {
                 var page = session.listFiles(file.id(), node.pageToken());
@@ -234,13 +243,18 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 acquire(work, node, file, root, session);
             }
         } catch (GoogleDriveProviderException exception) {
+            if (!aclAttempted) fenced(work, () -> {
+                acls.recordFailure(work, node.fileId(), "SOURCE_GOOGLE_" + exception.failure().name(), exception.getMessage());
+                return true;
+            });
             if (generalRootNode || exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION) throw exception;
             if (exception.failure() == GoogleDriveProviderException.Failure.NOT_FOUND) {
-                absent(work, node);
+                absent(work, node, "SOURCE_GOOGLE_NOT_FOUND");
             } else {
                 fenced(work, () -> {
                     sync.failedNode(work, node, "SOURCE_GOOGLE_" + exception.failure().name(),
-                            exception.failure() == GoogleDriveProviderException.Failure.UNSUPPORTED);
+                            exception.failure() == GoogleDriveProviderException.Failure.UNSUPPORTED,
+                            exception.getMessage(), io.memoryos.FailureEvidence.detail(exception));
                     return true;
                 });
             }
@@ -248,10 +262,29 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             throw exception;
         } catch (ObjectStorageException exception) {
             String code = "SOURCE_STORAGE_WRITE_" + SourceStorageFailure.code(exception);
-            fenced(work, () -> { sync.failedNode(work, node, code, false); return true; });
+            fenced(work, () -> { sync.failedNode(work, node, code, false, exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)); return true; });
         } catch (RuntimeException exception) {
             if (generalRootNode) throw exception;
-            fenced(work, () -> { sync.failedNode(work, node, "SOURCE_ACQUISITION_INTERNAL", false); return true; });
+            fenced(work, () -> { sync.failedNode(work, node, "SOURCE_ACQUISITION_INTERNAL", false,
+                    exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)); return true; });
+        }
+    }
+
+    private void synchronizeAcl(Work work, GoogleDriveProvider.FileMetadata file, GoogleDriveProvider.Session session) {
+        try {
+            var permissions = session.permissions(file.id());
+            if (!file.version().equals(session.metadata(file.id()).version()))
+                throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.INCONSISTENT);
+            fenced(work, () -> {
+                acls.recordSuccess(work, file.id(), permissions);
+                return true;
+            });
+        } catch (GoogleDriveProviderException exception) {
+            fenced(work, () -> {
+                acls.recordFailure(work, file.id(), "SOURCE_GOOGLE_" + exception.failure().name(), exception.getMessage());
+                return true;
+            });
+            if (exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION) throw exception;
         }
     }
 
@@ -260,8 +293,9 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         boolean unchanged = fenced(work, () -> {
             var version = items.unchanged(work, file.id(), file.version());
             if (version.isEmpty()) return false;
-            sync.observe(work, file.id(), root, file.version());
-            sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(), version.get()).isPresent());
+            sync.observe(work, file.id(), root, file.version(), version.get().providerVersion());
+            sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(),
+                    version.get().itemVersion()).isPresent());
             sync.checkpoint(work, node, null);
             return true;
         });
@@ -269,6 +303,19 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         var content = session.acquire(file);
         if (!file.id().equals(content.descriptor().providerFileId()) || !file.version().equals(content.descriptor().providerVersion()))
             throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.INCONSISTENT);
+        if (content.descriptor().format() == SourceInputFormat.BINARY) {
+            String checksum = checksum(content.bytes());
+            boolean reused = fenced(work, () -> {
+                var existing = items.unchangedBinary(work, file.id(), content.filename(), content.mediaType(), checksum);
+                if (existing.isEmpty()) return false;
+                sync.observe(work, file.id(), root, file.version(), existing.get().providerVersion());
+                sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(),
+                        existing.get().itemVersion()).isPresent());
+                sync.checkpoint(work, node, null);
+                return true;
+            });
+            if (reused) return;
+        }
         var staged = writes.stage(work.tenantId(), new ObjectWriteService.Specification(content.filename(),
                 content.mediaType(), content.descriptor().format() != SourceInputFormat.BINARY), content.bytes());
         boolean adopted = false;
@@ -291,8 +338,17 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         }
     }
 
-    private void absent(Work work, Node node) {
+    private static String checksum(byte[] bytes) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private void absent(Work work, Node node, String errorCode) {
         fenced(work, () -> {
+            acls.recordFailure(work, node.fileId(), errorCode, null);
             sync.observe(work, node.fileId(), null, null);
             sync.skipped(work, node.fileId());
             sync.checkpoint(work, node, null);
@@ -342,6 +398,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             throw exception;
         }
     }
+
 
     private static final class StaleSyncException extends RuntimeException {}
 }

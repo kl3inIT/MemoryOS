@@ -166,7 +166,7 @@ class ChatFileLifecycleIntegrationTest {
         files.delete(owner,id);
         assertFalse(work.renew(stale));
         assertFalse(work.complete(stale,content()));
-        work.failed(stale,"FILE_PROCESSING_FAILED");
+        work.failed(stale,"FILE_PROCESSING_FAILED", null, null);
         assertEquals(UserFile.Status.DELETING,files.get(owner,id).status());
         assertEquals(0,count("documents"));
     }
@@ -182,7 +182,7 @@ class ChatFileLifecycleIntegrationTest {
         assertNotEquals(stale.token(), current.token());
         assertFalse(work.renew(stale));
         assertFalse(work.complete(stale, content()));
-        work.failed(stale, "FILE_PROCESSING_FAILED");
+        work.failed(stale, "FILE_PROCESSING_FAILED", null, null);
         assertTrue(work.complete(current, content()));
         assertEquals(UserFile.Status.READY, files.get(owner, id).status());
         assertEquals(1, count("documents"));

@@ -615,6 +615,8 @@ class PostgresSourceLifecycleTest {
             assertTrue(attempts.retry(
                     work,
                     "SOURCE_EXTRACTION_INTERNAL",
+                    null,
+                    null,
                     3,
                     Duration.ofHours(1)
             ));
@@ -688,7 +690,7 @@ class PostgresSourceLifecycleTest {
                     ("content " + index).getBytes(StandardCharsets.UTF_8)));
             var delivery = dispatch(OperationWorkload.INGESTION);
             var work = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
-            assertTrue(attempts.fail(work, failures[index]));
+            assertTrue(attempts.fail(work, failures[index], null, null));
         }
         assertEquals(failures[1], service.getSource(owner, sourceId).errorCode());
 
@@ -813,7 +815,7 @@ class PostgresSourceLifecycleTest {
                 initialDelivery.operationId(),
                 initialDelivery.deliveryId()
         ).orElseThrow();
-        assertTrue(attempts.fail(initialWork, "SOURCE_EXTRACTION_TIMEOUT"));
+        assertTrue(attempts.fail(initialWork, "SOURCE_EXTRACTION_TIMEOUT", null, null));
 
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> service.reindex(owner, sourceId, upload.item().id()));
@@ -844,8 +846,8 @@ class PostgresSourceLifecycleTest {
         assertThat(staleCleanup.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
         assertNull(currentCleanup.initialQueueWait());
         assertNotEquals(staleCleanup.claimToken(), currentCleanup.claimToken());
-        assertFalse(cleanup.fail(staleCleanup, "SOURCE_CLEANUP_INTERNAL"));
-        assertTrue(cleanup.fail(currentCleanup, "SOURCE_CLEANUP_INTERNAL"));
+        assertFalse(cleanup.fail(staleCleanup, "SOURCE_CLEANUP_INTERNAL", null, null));
+        assertTrue(cleanup.fail(currentCleanup, "SOURCE_CLEANUP_INTERNAL", null, null));
     }
 
     @Test

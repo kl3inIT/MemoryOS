@@ -18,7 +18,7 @@ export function SourceSummaryCard({
     <dl
       aria-label={ui("Source summary")}
       className={cn(
-        "my-6 grid gap-5 rounded-lg border border-border-subtle px-4 py-5 text-sm sm:grid-cols-2",
+        "my-6 grid grid-cols-2 gap-x-8 gap-y-5 rounded-lg border border-border-subtle px-4 py-5 text-sm lg:gap-x-12",
         children ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4",
       )}
     >
@@ -33,11 +33,6 @@ export function SourceSummaryCard({
         <dd className="mt-2">
           <SourceAccessBadge access={source.access} />
         </dd>
-        {source.type === "GOOGLE_DRIVE" ? (
-          <dd className="mt-2 text-xs text-content-muted">
-            {ui("Google Drive document access is not configured here.")}
-          </dd>
-        ) : null}
       </div>
       <div>
         <dt className="text-content-muted">{ui("Documents indexed")}</dt>

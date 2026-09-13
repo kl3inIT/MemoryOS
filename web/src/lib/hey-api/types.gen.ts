@@ -638,6 +638,11 @@ export type SourceRunError = {
     stage: 'PROVIDER' | 'STORAGE_READ' | 'STORAGE_WRITE' | 'EXTRACTION' | 'PUBLICATION' | 'SYSTEM';
     code: string;
     occurredAt: string;
+    errorMessage: string | null;
+    errorDetail: string | null;
+    currentItemStatus: 'PENDING' | 'INDEXED' | 'FAILED' | 'DELETING';
+    currentItemErrorCode: string | null;
+    currentItemLastIndexedAt: string | null;
 };
 
 export type SourceRunErrorPage = {
@@ -721,6 +726,91 @@ export type GoogleDriveSelectionDraftResponse = {
     credentialRevision: number;
     links: Array<string>;
     linkedDocumentIds: Array<string>;
+};
+
+export type GoogleDriveAclItem = {
+    fileId: string;
+    name: string;
+    status: 'SUCCEEDED' | 'FAILED' | null;
+    contextStatus: 'CURRENT' | 'STALE' | 'INVALID' | 'UNOBSERVED' | null;
+    revision: number | null;
+    permissionCount: number | null;
+    lastSuccessAt: string | null;
+    lastAttemptAt: string | null;
+};
+
+export type GoogleDriveAclPage = {
+    items: Array<GoogleDriveAclItem>;
+    nextCursor: string | null;
+    totalItems: number;
+};
+
+export type GoogleDriveAclCurrentContext = {
+    tenantActive: boolean;
+    sourceActive: boolean;
+    credentialId: string;
+    credentialRevision: number;
+    credentialActive: boolean;
+    scopeRevision: number;
+    generation: number;
+    membershipGeneration: number | null;
+    selected: boolean;
+    itemRemoved: boolean;
+};
+
+export type GoogleDriveAclFile = {
+    fileId: string;
+    name: string;
+    snapshot: GoogleDriveAclSnapshot | null;
+};
+
+export type GoogleDriveAclObservation = {
+    at: string;
+    operationId: string;
+    credentialId: string;
+    credentialRevision: number;
+    scopeRevision: number;
+    generation: number;
+};
+
+export type GoogleDriveAclSnapshot = {
+    tenantId: string;
+    sourceId: string;
+    fileId: string;
+    revision: number;
+    permissions: Array<GoogleDrivePermission>;
+    status: 'SUCCEEDED' | 'FAILED';
+    lastAttempt: GoogleDriveAclObservation;
+    lastSuccess: GoogleDriveAclObservation | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+    contextStatus: 'CURRENT' | 'STALE' | 'INVALID' | 'UNOBSERVED';
+    currentContext: GoogleDriveAclCurrentContext;
+    sourceItemId: string | null;
+    documentIds: Array<string>;
+    readAt: string;
+};
+
+export type GoogleDrivePermission = {
+    id: string;
+    type: string;
+    role: string;
+    emailAddress: string | null;
+    domain: string | null;
+    expirationTime: string | null;
+    allowFileDiscovery: boolean | null;
+    deleted: boolean | null;
+    pendingOwner: boolean | null;
+    permissionDetails: Array<GoogleDrivePermissionDetail>;
+    view: string | null;
+    inheritedPermissionsDisabled: boolean | null;
+};
+
+export type GoogleDrivePermissionDetail = {
+    permissionType: string | null;
+    role: string | null;
+    inheritedFrom: string | null;
+    inherited: boolean | null;
 };
 
 export type SourceGroupPage = {
@@ -4473,6 +4563,47 @@ export type GetGoogleDriveSelectionDraftResponses = {
 };
 
 export type GetGoogleDriveSelectionDraftResponse = GetGoogleDriveSelectionDraftResponses[keyof GetGoogleDriveSelectionDraftResponses];
+
+export type ListGoogleDriveAclData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        cursor?: string;
+        size?: number;
+        query?: string;
+    };
+    url: '/api/sources/{sourceId}/google-drive/acl';
+};
+
+export type ListGoogleDriveAclResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveAclPage;
+};
+
+export type ListGoogleDriveAclResponse = ListGoogleDriveAclResponses[keyof ListGoogleDriveAclResponses];
+
+export type GetGoogleDriveAclData = {
+    body?: never;
+    path: {
+        sourceId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/google-drive/acl/{fileId}';
+};
+
+export type GetGoogleDriveAclResponses = {
+    /**
+     * OK
+     */
+    200: GoogleDriveAclFile;
+};
+
+export type GetGoogleDriveAclResponse = GetGoogleDriveAclResponses[keyof GetGoogleDriveAclResponses];
 
 export type ListSourceGroupOptionsData = {
     body?: never;

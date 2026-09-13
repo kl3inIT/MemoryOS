@@ -103,16 +103,19 @@ public class JdbcUserFileWorkRepository {
         return refs;
     }
 
-    public void failed(UserFileWork work, String code) {
+    public void failed(UserFileWork work, String code, @Nullable String errorMessage, @Nullable String errorDetail) {
         if (!code.matches("[A-Z][A-Z0-9_]{0,63}")) throw new IllegalArgumentException("invalid file error code");
         if (!lockCurrent(work)) return;
         boolean terminal = work.action() == UserFileWork.Action.PROCESS && work.attempts() >= 3;
         int changed = jdbc.sql("""
                 UPDATE chat_file_work SET status=:status,claim_token=NULL,lease_expires_at=NULL,error_code=:code,
+                    error_message=:errorMessage,error_detail=:errorDetail,
                     next_dispatch_at=CURRENT_TIMESTAMP+INTERVAL '5 seconds',dispatch_token=NULL,dispatch_lease_expires_at=NULL
                 WHERE id=:id AND tenant_id=:tenant AND claim_token=:token AND status='IN_PROGRESS'
                     AND lease_expires_at>=CURRENT_TIMESTAMP
                 """).param("status", terminal ? "FAILED" : "NOT_STARTED").param("code", code)
+                .param("errorMessage", io.memoryos.FailureEvidence.safeErrorMessage(errorMessage))
+                .param("errorDetail", io.memoryos.FailureEvidence.safeErrorDetail(errorDetail))
                 .param("id", work.operationId()).param("tenant", work.tenantId().value()).param("token", work.token()).update();
         if (changed == 1 && terminal) {
             jdbc.sql("""

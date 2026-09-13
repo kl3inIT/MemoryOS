@@ -4581,6 +4581,79 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/google-drive/acl:
+    get:
+      tags:
+      - Sources
+      summary: List persisted Google Drive permission observation summaries
+      operationId: listGoogleDriveAcl
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 256
+          minLength: 0
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveAclPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/google-drive/acl/{fileId}:
+    get:
+      tags:
+      - Sources
+      summary: Get retained provider permissions and lifecycle context for one known
+        Drive file
+      operationId: getGoogleDriveAcl
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveAclFile"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/group-options:
     get:
       tags:
@@ -7835,8 +7908,39 @@ components:
         occurredAt:
           type: string
           format: date-time
+        errorMessage:
+          type:
+          - string
+          - "null"
+        errorDetail:
+          type:
+          - string
+          - "null"
+        currentItemStatus:
+          type:
+          - string
+          - "null"
+          enum:
+          - PENDING
+          - INDEXED
+          - FAILED
+          - DELETING
+        currentItemErrorCode:
+          type:
+          - string
+          - "null"
+        currentItemLastIndexedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
       required:
       - code
+      - currentItemErrorCode
+      - currentItemLastIndexedAt
+      - currentItemStatus
+      - errorDetail
+      - errorMessage
       - fileId
       - fileName
       - id
@@ -8112,6 +8216,326 @@ components:
       - linkedDocumentIds
       - links
       - revision
+    GoogleDriveAclItem:
+      type: object
+      additionalProperties: false
+      properties:
+        fileId:
+          type: string
+        name:
+          type: string
+        status:
+          oneOf:
+          - type: string
+            enum:
+            - SUCCEEDED
+            - FAILED
+          - type: "null"
+        contextStatus:
+          oneOf:
+          - type: string
+            enum:
+            - CURRENT
+            - STALE
+            - INVALID
+            - UNOBSERVED
+          - type: "null"
+        revision:
+          oneOf:
+          - type: integer
+            format: int64
+          - type: "null"
+        permissionCount:
+          oneOf:
+          - type: integer
+            format: int32
+          - type: "null"
+        lastSuccessAt:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: "null"
+        lastAttemptAt:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: "null"
+      required:
+      - contextStatus
+      - fileId
+      - lastAttemptAt
+      - lastSuccessAt
+      - name
+      - permissionCount
+      - revision
+      - status
+    GoogleDriveAclPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoogleDriveAclItem"
+        nextCursor:
+          oneOf:
+          - type: string
+          - type: "null"
+        totalItems:
+          type: integer
+          format: int64
+      required:
+      - items
+      - nextCursor
+      - totalItems
+    GoogleDriveAclCurrentContext:
+      type: object
+      additionalProperties: false
+      properties:
+        tenantActive:
+          type: boolean
+        sourceActive:
+          type: boolean
+        credentialId:
+          type: string
+          format: uuid
+        credentialRevision:
+          type: integer
+          format: int64
+        credentialActive:
+          type: boolean
+        scopeRevision:
+          type: integer
+          format: int64
+        generation:
+          type: integer
+          format: int64
+        membershipGeneration:
+          oneOf:
+          - type: integer
+            format: int64
+          - type: "null"
+        selected:
+          type: boolean
+        itemRemoved:
+          type: boolean
+      required:
+      - credentialActive
+      - credentialId
+      - credentialRevision
+      - generation
+      - itemRemoved
+      - membershipGeneration
+      - scopeRevision
+      - selected
+      - sourceActive
+      - tenantActive
+    GoogleDriveAclFile:
+      type: object
+      additionalProperties: false
+      properties:
+        fileId:
+          type: string
+        name:
+          type: string
+        snapshot:
+          oneOf:
+          - $ref: "#/components/schemas/GoogleDriveAclSnapshot"
+          - type: "null"
+      required:
+      - fileId
+      - name
+      - snapshot
+    GoogleDriveAclObservation:
+      type: object
+      additionalProperties: false
+      properties:
+        at:
+          type: string
+          format: date-time
+        operationId:
+          type: string
+          format: uuid
+        credentialId:
+          type: string
+          format: uuid
+        credentialRevision:
+          type: integer
+          format: int64
+        scopeRevision:
+          type: integer
+          format: int64
+        generation:
+          type: integer
+          format: int64
+      required:
+      - at
+      - credentialId
+      - credentialRevision
+      - generation
+      - operationId
+      - scopeRevision
+    GoogleDriveAclSnapshot:
+      type: object
+      additionalProperties: false
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        sourceId:
+          type: string
+          format: uuid
+        fileId:
+          type: string
+        revision:
+          type: integer
+          format: int64
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoogleDrivePermission"
+        status:
+          type: string
+          enum:
+          - SUCCEEDED
+          - FAILED
+        lastAttempt:
+          $ref: "#/components/schemas/GoogleDriveAclObservation"
+        lastSuccess:
+          oneOf:
+          - $ref: "#/components/schemas/GoogleDriveAclObservation"
+          - type: "null"
+        errorCode:
+          oneOf:
+          - type: string
+          - type: "null"
+        errorMessage:
+          oneOf:
+          - type: string
+          - type: "null"
+        contextStatus:
+          type: string
+          enum:
+          - CURRENT
+          - STALE
+          - INVALID
+          - UNOBSERVED
+        currentContext:
+          $ref: "#/components/schemas/GoogleDriveAclCurrentContext"
+        sourceItemId:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: "null"
+        documentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        readAt:
+          type: string
+          format: date-time
+      required:
+      - contextStatus
+      - currentContext
+      - documentIds
+      - errorCode
+      - errorMessage
+      - fileId
+      - lastAttempt
+      - lastSuccess
+      - permissions
+      - readAt
+      - revision
+      - sourceId
+      - sourceItemId
+      - status
+      - tenantId
+    GoogleDrivePermission:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        role:
+          type: string
+        emailAddress:
+          oneOf:
+          - type: string
+          - type: "null"
+        domain:
+          oneOf:
+          - type: string
+          - type: "null"
+        expirationTime:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: "null"
+        allowFileDiscovery:
+          oneOf:
+          - type: boolean
+          - type: "null"
+        deleted:
+          oneOf:
+          - type: boolean
+          - type: "null"
+        pendingOwner:
+          oneOf:
+          - type: boolean
+          - type: "null"
+        permissionDetails:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoogleDrivePermissionDetail"
+        view:
+          oneOf:
+          - type: string
+          - type: "null"
+        inheritedPermissionsDisabled:
+          oneOf:
+          - type: boolean
+          - type: "null"
+      required:
+      - allowFileDiscovery
+      - deleted
+      - domain
+      - emailAddress
+      - expirationTime
+      - id
+      - inheritedPermissionsDisabled
+      - pendingOwner
+      - permissionDetails
+      - role
+      - type
+      - view
+    GoogleDrivePermissionDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        permissionType:
+          oneOf:
+          - type: string
+          - type: "null"
+        role:
+          oneOf:
+          - type: string
+          - type: "null"
+        inheritedFrom:
+          oneOf:
+          - type: string
+          - type: "null"
+        inherited:
+          oneOf:
+          - type: boolean
+          - type: "null"
+      required:
+      - inherited
+      - inheritedFrom
+      - permissionType
+      - role
     SourceGroupPage:
       type: object
       additionalProperties: false

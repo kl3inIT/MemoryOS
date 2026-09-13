@@ -138,6 +138,10 @@ sequenceDiagram
 
 FILE uploads use checksum-bound presigned PUT directly from the browser to object storage. Google Drive synchronization acquires provider content into tracked immutable raw snapshots before ingestion; ingestion never depends on a later provider read. Current Documents replace prior representations, while retained run/attempt records preserve observable processing history. Extraction success and Search readiness are separate states.
 
+Google SOURCE_SYNC also records bounded, fully paginated permission observations under Tenant/Source/provider-file identity before the unchanged-content shortcut. `JdbcGoogleDriveAclRepository` owns atomic snapshot replacement and lifecycle-aware reads; failure retains prior complete evidence with distinct attempt status. ACL data can precede a Document and is not an effective-read grant. Binary metadata-version changes with identical verified bytes retain the immutable content version and do not enqueue extraction; membership separately records observed provider version and retained content-provider version. See the [ACL handoff contract](docs/specs/connector.md#google-drive-acl-observations--mem-88).
+
+`GoogleDriveAclService` authorizes Source reads before tenant-qualified repository lookups. `GoogleDriveAclController` exposes bounded file-summary and selected-file snapshot GETs with `no-store`; neither calls Google nor grants document access. The web Source detail uses a shared synchronization summary above Content, Google Drive permissions, Sync history and Connection/settings tabs. ACL details preserve missing, failed-only, successful-empty and retained stale evidence. Sync history shows per-run outcomes and counts, with bounded errors in a separate selected-run dialog.
+
 Search uses the current authorized Document generation. PostgreSQL holds bounded chunk text and provenance; OpenSearch holds BM25/vector projection data. Query filters narrow an already authorized scope and never create authority. Search results remain source passages; answer generation belongs to Chat.
 
 ## Chat execution and retrieval

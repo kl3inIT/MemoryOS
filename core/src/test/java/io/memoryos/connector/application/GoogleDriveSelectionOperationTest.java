@@ -312,6 +312,7 @@ public class GoogleDriveSelectionOperationTest {
                     return page;
                 }
                 @Override public GoogleDriveProvider.AcquiredContent acquire(GoogleDriveProvider.FileMetadata file) { throw new AssertionError("Selection cannot acquire content"); }
+                @Override public List<GoogleDriveProvider.Permission> permissions(String id) { throw new AssertionError("Selection cannot collect permissions"); }
                 @Override public byte[] rotatedRefreshToken() { return null; }
                 @Override public void close() {}
             };

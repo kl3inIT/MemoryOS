@@ -1,6 +1,7 @@
 package io.memoryos.api.source.contract;
 
 import io.memoryos.connector.SourceRunError;
+import io.memoryos.connector.SourceItemStatus;
 import java.time.Instant;
 import io.memoryos.connector.SourceRunErrorStage;
 import java.util.UUID;
@@ -26,7 +27,17 @@ public record SourceRunErrorResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         String code,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-        Instant occurredAt
+        Instant occurredAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
+        @Nullable String errorMessage,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
+        @Nullable String errorDetail,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
+        @Nullable SourceItemStatus currentItemStatus,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
+        @Nullable String currentItemErrorCode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
+        @Nullable Instant currentItemLastIndexedAt
 ) {
     public static SourceRunErrorResponse from(SourceRunError value) {
         return new SourceRunErrorResponse(
@@ -38,7 +49,12 @@ public record SourceRunErrorResponse(
                 value.fileName(),
                 value.stage(),
                 value.code(),
-                value.occurredAt()
+                value.occurredAt(),
+                value.errorMessage(),
+                value.errorDetail(),
+                value.currentItemStatus(),
+                value.currentItemErrorCode(),
+                value.currentItemLastIndexedAt()
         );
     }
 }

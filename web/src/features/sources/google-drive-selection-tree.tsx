@@ -1,6 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { statusLabel } from "@/i18n/status-copy";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getGoogleDriveSelectionTreeQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -184,11 +186,11 @@ function SelectionTreeNode({
   const expandable = item.expandable && !repeated;
   return (
     <li className="min-w-0">
-      <div className="flex min-w-0 items-start gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         {expandable ? (
           <Button
             prominence="tertiary"
-            className="mt-1 size-11 shrink-0 p-0"
+            className="size-8 shrink-0 p-0"
             aria-label={ui("{{v1}} {{v2}}", {
               v1: ui(expanded ? "Collapse" : "Expand"),
               v2: item.name,
@@ -200,7 +202,7 @@ function SelectionTreeNode({
             {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
           </Button>
         ) : (
-          <span aria-hidden="true" className="w-11 shrink-0" />
+          <span aria-hidden="true" className="w-8 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
           <GoogleDriveSelectionRow {...props} item={item} parentId={ancestors.at(-1)} />
@@ -244,33 +246,22 @@ export function GoogleDriveSelectionRow({
     () => (parentId ? item.origins.filter((origin) => origin.parentId === parentId) : item.origins),
     [item.origins, parentId],
   );
+  const statusChip =
+    item.status !== "AVAILABLE" ? (
+      <StatusBadge tone="warning">{ui(statusLabel(item.status))}</StatusBadge>
+    ) : item.coveredByRoots ? (
+      <StatusBadge tone="neutral">{ui("In scope")}</StatusBadge>
+    ) : item.kind === "LINKED" ? (
+      <StatusBadge tone="neutral">{ui("Linked")}</StatusBadge>
+    ) : null;
   return (
-    <div className="flex min-w-0 items-start gap-2 py-2">
+    <div className="flex min-w-0 items-center gap-2 py-1.5">
       <GoogleDriveMimeIcon mimeType={item.mimeType} />
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
-          <div className="min-w-0 flex-1 basis-36">
-            <p className="break-words text-content-primary">{item.name}</p>
-            <p className="break-words text-xs text-content-muted">
-              {item.kind === "FOLDER"
-                ? ui("Folder · Contents included")
-                : item.kind === "FILE"
-                  ? item.coveredByRoots
-                    ? ui("File · Included in scope")
-                    : ui("File · Selected directly")
-                  : item.coveredByRoots
-                    ? ui("Linked document · Included in selected scope")
-                    : included
-                      ? approved
-                        ? ui("Linked document · Selected in draft")
-                        : ui("Linked document · Selected for sync")
-                      : approved
-                        ? ui("Linked document · Not selected in draft")
-                        : ui("Linked document · Not selected for sync")}
-              {item.status !== "AVAILABLE"
-                ? ui(" · {{v1}}", { v1: ui(statusLabel(item.status)) })
-                : ""}
-            </p>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <div className="flex min-w-0 flex-1 basis-36 items-center gap-2">
+            <p className="min-w-0 break-words text-content-primary">{item.name}</p>
+            {statusChip}
           </div>
           {canSelect ? (
             <div className="min-w-0">
@@ -336,7 +327,7 @@ function SelectionProvenance({
   }, [origins]);
   return (
     <details aria-label={ui("References for {{v1}}", { v1: name })} className="min-w-0">
-      <summary className="min-h-11 cursor-pointer py-3 text-xs text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
+      <summary className="min-h-11 cursor-pointer py-2 text-xs text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
         {referenceCount} {referenceCount === 1 ? ui("reference") : ui("references")} ·{" "}
         {parents.length} {parents.length === 1 ? ui("source document") : ui("source documents")}
       </summary>
@@ -357,4 +348,3 @@ function SelectionProvenance({
     </details>
   );
 }
-import { statusLabel } from "@/i18n/status-copy";
