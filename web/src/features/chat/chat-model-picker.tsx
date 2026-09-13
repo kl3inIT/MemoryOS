@@ -48,27 +48,17 @@ export function ChatModelPicker({
           {
             id: model.id,
             name: model.displayName || model.modelName || ui("Model"),
-            provider: model.providerName ?? ui("Models"),
+            keywords: [model.modelName ?? "", model.providerName ?? ""],
             icon: <ModelLogo modelName={model.modelName ?? ""} />,
           },
         ]
       : [],
   );
-  const options = [
-    {
-      id: "auto",
-      name: ui("Tự động"),
-      icon: <Bot aria-hidden="true" className="size-4" />,
-    },
-    ...models,
-  ];
-  const groups = [...new Set(models.map((model) => model.provider))];
+  // Undefined remains backend inheritance, not a synthetic selectable model.
+  const inheritedId = catalog.data?.find((model) => model.isDefault)?.id;
+  const selectedId = value ?? inheritedId;
   return (
-    <ModelSelectorRoot
-      models={options}
-      value={value ?? "auto"}
-      onValueChange={(id) => onChange(id === "auto" ? undefined : id)}
-    >
+    <ModelSelectorRoot models={models} value={selectedId ?? ""} onValueChange={onChange}>
       <ModelSelectorTrigger
         aria-label={ui("Chọn mô hình")}
         variant="ghost"
@@ -80,7 +70,7 @@ export function ChatModelPicker({
           ? ui("Đang tải mô hình…")
           : models.length === 0
             ? ui("Chưa có mô hình khả dụng")
-            : value && !models.some((model) => model.id === value)
+            : !selectedId || !models.some((model) => model.id === selectedId)
               ? ui("Mô hình đã chọn không khả dụng")
               : undefined}
       </ModelSelectorTrigger>
@@ -89,17 +79,10 @@ export function ChatModelPicker({
         <ModelSelectorList>
           <ModelSelectorEmpty>{ui("Không tìm thấy mô hình.")}</ModelSelectorEmpty>
           <ModelSelectorGroup>
-            <ModelSelectorItem model={options[0]!} />
+            {models.map((model) => (
+              <ModelSelectorItem key={model.id} model={model} />
+            ))}
           </ModelSelectorGroup>
-          {groups.map((provider) => (
-            <ModelSelectorGroup heading={provider} key={provider}>
-              {models
-                .filter((model) => model.provider === provider)
-                .map((model) => (
-                  <ModelSelectorItem key={model.id} model={model} />
-                ))}
-            </ModelSelectorGroup>
-          ))}
         </ModelSelectorList>
       </ModelSelectorContent>
     </ModelSelectorRoot>
