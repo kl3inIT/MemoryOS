@@ -220,8 +220,8 @@ class SearchIndexWorkIntegrationTest {
         var document = publish(null);
         jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP + INTERVAL '1' HOUR WHERE action='INDEX'").update();
         jdbc.sql("""
-                INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
-                VALUES (:id,:tenant,:document,:generation,'ACCESS',:identity)
+                INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity,next_dispatch_at)
+                VALUES (:id,:tenant,:document,:generation,'ACCESS',:identity,CURRENT_TIMESTAMP - INTERVAL '1' MINUTE)
                 """).param("id", UUID.randomUUID()).param("tenant", tenant.value()).param("document", document.value())
                 .param("generation", generation(document)).param("identity", IDENTITY).update();
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
