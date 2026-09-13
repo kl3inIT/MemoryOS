@@ -5,7 +5,7 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationWorkload;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
