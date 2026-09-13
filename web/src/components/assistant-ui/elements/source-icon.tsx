@@ -5,10 +5,19 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-export function SourceIcon({ domain, className }: { domain: string; className?: string }) {
+export function SourceIcon({
+  domain,
+  className,
+  favicon = true,
+}: {
+  domain: string;
+  className?: string;
+  /** False renders the letter fallback without sending the domain to the favicon service. */
+  favicon?: boolean;
+}) {
   const src = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
   const [errorSrc, setErrorSrc] = useState<string>();
-  if (errorSrc === src) {
+  if (!favicon || errorSrc === src) {
     return (
       <span
         data-slot="source-icon-fallback"

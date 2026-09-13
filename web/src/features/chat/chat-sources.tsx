@@ -12,6 +12,7 @@ import {
 import { useAuiState } from "@assistant-ui/react";
 import { FileText } from "lucide-react";
 import { InlineCitation } from "@/components/assistant-ui/elements/inline-citation";
+import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { Sources } from "@/components/assistant-ui/elements/sources";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { WebSearch } from "@/components/assistant-ui/elements/web-search";
@@ -169,18 +170,29 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
     const source = sources.find((item) => item.citationId === Number(citation[1]));
     return source ? <Citation source={source} /> : <span>{children}</span>;
   }
-  return href && /^https?:\/\//i.test(href) ? (
-    // Same link styling as the assistant-ui MarkdownText element this renderer replaces.
+  if (!href || !/^https?:\/\//i.test(href)) return <span>{children}</span>;
+  const domain = new URL(href).hostname.replace(/^www\./, "");
+  // Only hostnames of this answer's Web sources may reach the favicon service; other links,
+  // possibly internal hosts written by the model, show the letter fallback.
+  const webSource = sources.some(
+    (source) => source.web && new URL(source.web.url).hostname.replace(/^www\./, "") === domain,
+  );
+  const label = typeof children === "string" && children !== href ? children : domain;
+  // Inline URL source chip adapted from the assistant-ui Sources element (outline, sm).
+  return (
     <a
-      className="aui-md-a text-primary hover:text-primary/80 underline underline-offset-2"
+      data-slot="source"
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      title={href}
+      className="mx-0.5 inline-flex max-w-64 items-center gap-1.5 rounded-md border border-border-default px-1.5 py-0.5 align-middle text-xs text-content-secondary no-underline transition-colors hover:bg-surface-sunken hover:text-content-primary"
     >
-      {children}
+      <SourceIcon domain={domain} favicon={webSource} />
+      <span data-slot="source-title" className="truncate">
+        {label}
+      </span>
     </a>
-  ) : (
-    <span>{children}</span>
   );
 }
 

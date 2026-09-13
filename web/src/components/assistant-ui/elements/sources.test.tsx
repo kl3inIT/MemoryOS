@@ -58,6 +58,12 @@ it("reuses favicon fallback and retries when the domain changes", () => {
   );
 });
 
+it("renders the letter fallback without a favicon request when favicons are not allowed", () => {
+  const { container } = render(<SourceIcon domain="intranet.example" favicon={false} />);
+  expect(container.querySelector("img")).toBeNull();
+  expect(container.querySelector('[data-slot="source-icon-fallback"]')).toHaveTextContent("I");
+});
+
 it("localizes the generic label without a visible count", async () => {
   await i18n.changeLanguage("en");
   render(<Sources count={1} sources={[{}]} />);

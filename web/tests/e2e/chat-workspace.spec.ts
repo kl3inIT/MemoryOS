@@ -749,6 +749,11 @@ test("regenerates with another catalog model and reveals answer timing on hover"
   await page.getByText("Hello 👋", { exact: true }).hover();
   await expect(timing).toHaveCSS("opacity", "1");
   await expect(timing).toHaveText(/^\d{1,2}:\d{2}$/);
+  // A Markdown link renders as a source chip; its host is not a Web source, so no favicon request.
+  const link = page.getByRole("link", { name: "Reference" });
+  await expect(link).toHaveAttribute("data-slot", "source");
+  await expect(link.locator('[data-slot="source-icon-fallback"]')).toHaveText("E");
+  await expect(link.locator("img")).toHaveCount(0);
   await menu.click();
   await page.getByRole("menuitem", { name: "Qwen3.5 9B" }).click();
   await expect(
