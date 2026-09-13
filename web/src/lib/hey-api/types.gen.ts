@@ -114,6 +114,7 @@ export type ChatSession = {
     createdAt: string;
     updatedAt: string;
     projectId: string | null;
+    archived: boolean;
 };
 
 export type Sharing = {
@@ -1794,6 +1795,104 @@ export type SelectChatBranchResponses = {
 };
 
 export type SelectChatBranchResponse = SelectChatBranchResponses[keyof SelectChatBranchResponses];
+
+export type UnarchiveChatSessionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/archive';
+};
+
+export type UnarchiveChatSessionErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type UnarchiveChatSessionError = UnarchiveChatSessionErrors[keyof UnarchiveChatSessionErrors];
+
+export type UnarchiveChatSessionResponses = {
+    /**
+     * Regular conversation
+     */
+    200: ChatSession;
+};
+
+export type UnarchiveChatSessionResponse = UnarchiveChatSessionResponses[keyof UnarchiveChatSessionResponses];
+
+export type ArchiveChatSessionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/archive';
+};
+
+export type ArchiveChatSessionErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ArchiveChatSessionError = ArchiveChatSessionErrors[keyof ArchiveChatSessionErrors];
+
+export type ArchiveChatSessionResponses = {
+    /**
+     * Archived conversation
+     */
+    200: ChatSession;
+};
+
+export type ArchiveChatSessionResponse = ArchiveChatSessionResponses[keyof ArchiveChatSessionResponses];
 
 export type DeleteChatProviderData = {
     body?: never;
@@ -3525,6 +3624,7 @@ export type ListChatSessionsData = {
     body?: never;
     path?: never;
     query?: {
+        status?: 'REGULAR' | 'ARCHIVED' | 'ALL';
         offset?: number;
         limit?: number;
     };

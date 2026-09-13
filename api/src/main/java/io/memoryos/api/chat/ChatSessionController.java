@@ -4,6 +4,7 @@ import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.api.chat.contract.ChatSessionSearchResponse;
 import io.memoryos.chat.ChatSessionService;
+import io.memoryos.chat.ChatSessionStatus;
 import io.memoryos.chat.ChatWorkspaceService;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,11 +60,12 @@ class ChatSessionController {
     }
 
     @GetMapping
-    @Operation(operationId = "listChatSessions", summary = "List the actor's private chat sessions")
+    @Operation(operationId = "listChatSessions", summary = "List the actor's private chat sessions, regular by default")
     @ApiResponse(responseCode = "200", description = "Owned sessions", useReturnTypeSchema = true)
     List<ChatSessionResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @RequestParam(defaultValue = "REGULAR") ChatSessionStatus status,
             @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "30") int limit) {
-        return sessions.list(identity.actorId(), offset, limit).stream().map(ChatSessionResponse::from).toList();
+        return sessions.list(identity.actorId(), status, offset, limit).stream().map(ChatSessionResponse::from).toList();
     }
 
     @GetMapping("/{sessionId}")

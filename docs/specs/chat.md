@@ -106,11 +106,14 @@ The sharing dialog creates/copies the link without closing, exposes a selectable
 
 Sharing starts private. The owner can enable/revoke the session link with an expected revision. `/shared/{sessionId}` requires an active same-Tenant membership and reads only the currently selected saved branch through dedicated shared APIs. It has no composer, editing or Stop and does not subscribe to the owner's inference. The page rechecks access using the lightweight shared-session endpoint on focus and every 30 seconds, removing displayed content on denied reads. Full history loads on entry, focus or manual reload; the periodic access check does not paginate the transcript. Every API read revalidates sharing and membership. Sharing grants transcript access only: citation previews still use the reader's source authority. Revocation cannot retract text already viewed or copied.
 
+Archive is an owner-only, idempotent list state stored as `chat_session.archived_at` (V51). It does not change the conversation's activity time. Archived conversations leave the regular list, project conversation lists and history search. They remain readable, renamable, deletable, shareable and writable. The server never unarchives implicitly.
+
 Feedback belongs to the owner Actor and a specific saved ASSISTANT output with nonblank content. It supports nullable positive/negative rating, comment (4000 characters), reason (100), and removal; at least a rating or nonblank comment is required. Regenerated outputs have independent feedback. Shared readers cannot mutate feedback or conversation state.
 
 | Browser operation | HTTP contract |
 | --- | --- |
 | Rename/delete | `PUT /api/chat/sessions/{id}/title`; `DELETE /api/chat/sessions/{id}` |
+| Archive/list | `PUT`/`DELETE /api/chat/sessions/{id}/archive`; `GET /api/chat/sessions?status=REGULAR\|ARCHIVED\|ALL` (default `REGULAR`) |
 | Edit/regenerate | `POST /api/chat/sessions/{id}/messages/{userId}/edit` or `/regenerate` |
 | Read/select versions | `GET /api/chat/sessions/{id}/branches`; `PUT /api/chat/sessions/{id}/branch` |
 | Combined settings | `PUT /api/chat/sessions/{id}/settings`; optional Persona/Project on session creation |

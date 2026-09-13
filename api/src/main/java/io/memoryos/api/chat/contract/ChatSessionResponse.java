@@ -14,9 +14,10 @@ public record ChatSessionResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid") @Nullable UUID projectId) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid") @Nullable UUID projectId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean archived) {
     public static ChatSessionResponse from(ChatSession session) {
         return new ChatSessionResponse(session.id(), session.personaId(), session.rootMessageId(), session.title(),
-                session.createdAt(), session.updatedAt(), session.projectId());
+                session.createdAt(), session.updatedAt(), session.projectId(), session.archived());
     }
 }
