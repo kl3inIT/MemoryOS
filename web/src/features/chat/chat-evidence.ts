@@ -8,6 +8,7 @@ const documentSourceSchema = z
     generation: z.string().uuid(),
     fileId: z.null().optional(),
     fileLocation: z.null().optional(),
+    web: z.null().optional(),
     title: z.string().max(1024),
     startOrdinal: z.number().int().min(0).max(9999),
     endOrdinal: z.number().int().min(0).max(9999),
@@ -27,10 +28,36 @@ const documentSourceSchema = z
     "Source provenance must stay within its ordered passage range",
   );
 export const sourceSchema = z.union([
+  z.object({
+    citationId: z.number().int().min(1).max(24),
+    title: z.string().max(1024),
+    documentId: z.null(),
+    generation: z.null(),
+    fileId: z.null(),
+    fileLocation: z.null().optional(),
+    startOrdinal: z.literal(0),
+    endOrdinal: z.literal(0),
+    provenance: z.array(z.never()).max(0),
+    web: z.object({
+      url: z
+        .string()
+        .max(2048)
+        .url()
+        .refine((url) => {
+          const parsed = new URL(url);
+          return (
+            ["http:", "https:"].includes(parsed.protocol) && !parsed.username && !parsed.password
+          );
+        }),
+      excerpt: z.string().max(4000),
+      retrievedAt: z.string().datetime({ offset: true }),
+    }),
+  }),
   documentSourceSchema,
   z.object({
     citationId: z.number().int().min(1).max(24),
     fileId: z.string().uuid(),
+    web: z.null().optional(),
     fileLocation: z
       .union([
         z.object({

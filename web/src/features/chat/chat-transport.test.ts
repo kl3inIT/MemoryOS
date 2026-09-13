@@ -104,6 +104,23 @@ async function collect(stream: ReadableStream<UIMessageChunk>) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
+  it("captures Web intent for one send and keeps missing intent off", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    transport.selectWeb("auto");
+    const pending = send(transport);
+    transport.selectWeb("off");
+    await collect(await pending);
+    const requests = fetch.mock.calls.map(([input, init]) =>
+      input instanceof Request ? input : new Request(input, init),
+    );
+    const submitted = requests.find(
+      (request) => request.method === "POST" && new URL(request.url).pathname.endsWith("/messages"),
+    );
+    expect(submitted).toBeDefined();
+    expect(await submitted!.clone().json()).toMatchObject({ webSearch: "auto" });
+    expect(new MemoryOsChatTransport(session).webSearch).toBe("off");
+  });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
       {

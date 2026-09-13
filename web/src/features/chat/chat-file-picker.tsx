@@ -5,6 +5,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { ChatDialog } from "./chat-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import {
@@ -39,7 +40,7 @@ export function ChatFilePicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           {trigger ?? (
-            <Button
+            <IconButton
               type="button"
               size="sm"
               prominence="internal"
@@ -48,7 +49,7 @@ export function ChatFilePicker({
               title={ui("Đính kèm tệp")}
             >
               <Paperclip className="size-4" />
-            </Button>
+            </IconButton>
           )}
         </PopoverTrigger>
         <PopoverContent align="start" side="top" className="w-80 max-w-[calc(100vw-2rem)]">

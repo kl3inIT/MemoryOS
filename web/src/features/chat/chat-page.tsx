@@ -25,8 +25,10 @@ import { chatSessionsKey, loadChatHistory, toUiMessages, type ChatHistory } from
 import { MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
 import { ChatThread } from "./chat-thread";
 import { ChatModelPicker } from "./chat-model-picker";
+import { ChatActionsMenu, type WebSearchMode } from "./chat-actions-menu";
 import { ChatEditingContext } from "./chat-editing-context";
 import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
+import { ChatConversationSearch } from "./chat-conversation-search";
 import {
   branchSchema,
   feedbackSchema,
@@ -168,10 +170,11 @@ function ChatConversation({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const running = initial?.messages.find((message) => message.status === "RUNNING");
+  const identity = useApplicationSession();
   const { t } = useTranslation("chatStatus");
   const problemMessage = useProblemMessage();
   const [transport] = useState(
-    () => new MemoryOsChatTransport(initial?.session, running, project?.id),
+    () => new MemoryOsChatTransport(initial?.session, running, project?.id, identity.actorId),
   );
   const [session, setSession] = useState(initial?.session);
   const metadata = useQuery({
@@ -190,6 +193,7 @@ function ChatConversation({
       queryClient.setQueryData(["chat-session", initial.session.id], initial.session);
   }, [initial?.session, queryClient]);
   const model = useChatModelChoice(transport);
+  const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
   const [connection, setConnection] = useState<ConnectionState>(running ? "recovering" : "ready");
   const [error, setError] = useState<ErrorMessage | "unfinished" | "disconnected">();
   const [unavailable, setUnavailable] = useState(false);
@@ -315,25 +319,28 @@ function ChatConversation({
       </AppShell>
     );
   return (
-    <AppShell
-      pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
-      chatMode={!headerSession && !project ? "Chat" : undefined}
-      headerActions={
-        <ChatSessionSettings
-          session={headerSession}
-          busy={connection !== "ready" || checking}
-          onChange={async () => {
-            model.select(undefined);
-            await refresh();
-          }}
-          onDelete={() => {
-            transport.disconnect();
-            setUnavailable(true);
-          }}
-        />
-      }
-    >
-      <AssistantRuntimeProvider runtime={runtime}>
+    <AssistantRuntimeProvider runtime={runtime}>
+      <AppShell
+        pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
+        chatMode={!headerSession && !project ? "Chat" : undefined}
+        headerActions={
+          <div className="flex items-center gap-1">
+            <ChatConversationSearch key={headerSession?.id ?? "new"} />
+            <ChatSessionSettings
+              session={headerSession}
+              busy={connection !== "ready" || checking}
+              onChange={async () => {
+                model.select(undefined);
+                await refresh();
+              }}
+              onDelete={() => {
+                transport.disconnect();
+                setUnavailable(true);
+              }}
+            />
+          </div>
+        }
+      >
         <div className="flex h-full min-h-0 flex-col">
           <ChatEditingContext.Provider
             value={{
@@ -345,7 +352,13 @@ function ChatConversation({
                 mutate(async () => {
                   const { data } = await editChatMessage({
                     path: { sessionId: session!.id, userMessageId },
-                    body: { text, clientRequestId, modelConfigurationId: model.choice.id, fileIds },
+                    body: {
+                      text,
+                      clientRequestId,
+                      modelConfigurationId: model.choice.id,
+                      fileIds,
+                      webSearch,
+                    },
                     headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
                     throwOnError: true,
@@ -356,7 +369,7 @@ function ChatConversation({
                 mutate(async () => {
                   const { data } = await regenerateChatMessage({
                     path: { sessionId: session!.id, userMessageId },
-                    body: { clientRequestId, modelConfigurationId: model.choice.id },
+                    body: { clientRequestId, modelConfigurationId: model.choice.id, webSearch },
                     headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
                     throwOnError: true,
@@ -473,12 +486,24 @@ function ChatConversation({
                 />
               }
               modelPicker={
-                <ChatModelPicker
-                  sessionId={transport.session?.id}
-                  value={model.choice.id}
-                  onChange={model.select}
-                  disabled={connection !== "ready" || checking}
-                />
+                <>
+                  <ChatModelPicker
+                    sessionId={transport.session?.id}
+                    value={model.choice.id}
+                    onChange={model.select}
+                    disabled={connection !== "ready" || checking}
+                  />
+                  <ChatActionsMenu
+                    sessionId={session?.id}
+                    modelId={model.choice.id}
+                    value={webSearch}
+                    onChange={(mode) => {
+                      transport.selectWeb(mode);
+                      setWebSearch(mode);
+                    }}
+                    disabled={connection !== "ready" || checking}
+                  />
+                </>
               }
               modelNotice={
                 model.choice.fallback
@@ -508,8 +533,8 @@ function ChatConversation({
             />
           </ChatEditingContext.Provider>
         </div>
-      </AssistantRuntimeProvider>
-    </AppShell>
+      </AppShell>
+    </AssistantRuntimeProvider>
   );
 }
 

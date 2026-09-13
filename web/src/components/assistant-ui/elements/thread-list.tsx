@@ -3,6 +3,26 @@
 import type { DragEventHandler, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
+// assistant-ui ThreadList's Today, Yesterday, Earlier buckets, adapted to the existing
+// server session list (no second thread runtime). Searching is server-side, not a title filter.
+export function groupThreadTitles<T extends { title: string; updatedAt: string }>(
+  items: readonly T[],
+  now = new Date(),
+) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const groups: { label: "today" | "yesterday" | "earlier"; items: T[] }[] = [];
+  for (const item of items.toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))) {
+    const time = Date.parse(item.updatedAt);
+    const label =
+      time >= today.getTime() ? "today" : time >= yesterday.getTime() ? "yesterday" : "earlier";
+    const last = groups.at(-1);
+    if (last?.label === label) last.items.push(item);
+    else groups.push({ label, items: [item] });
+  }
+  return groups;
+}
+
 export function ThreadList({
   children,
   className,

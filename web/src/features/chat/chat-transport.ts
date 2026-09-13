@@ -10,6 +10,7 @@ import {
 import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "./chat-api";
 import { fileIdFromReference } from "./chat-files";
+import { readWebPreference, writeWebPreference, type WebSearchMode } from "./chat-web-preference";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import {
   searchEventSchema,
@@ -37,9 +38,15 @@ type Callbacks = {
 
 /** Adapts the Java wire contract. AI SDK owns message content and tool state. */
 export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
+  webSearch: WebSearchMode = "off";
+  selectWeb(mode: WebSearchMode) {
+    this.webSearch = mode;
+    writeWebPreference(this.preferenceOwner, this.session?.id, mode);
+  }
   private modelConfigurationId?: string;
   private onModelAccepted?: (selection: Accepted) => void;
   private readonly projectId?: string;
+  private readonly preferenceOwner?: string;
 
   selectModel(id?: string) {
     this.modelConfigurationId = id;
@@ -67,9 +74,16 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     error: () => {},
   };
 
-  constructor(session?: ChatSession, runningMessage?: ChatMessage, projectId?: string) {
+  constructor(
+    session?: ChatSession,
+    runningMessage?: ChatMessage,
+    projectId?: string,
+    preferenceOwner?: string,
+  ) {
     this.projectId = projectId;
+    this.preferenceOwner = preferenceOwner;
     this.session = session;
+    this.webSearch = readWebPreference(preferenceOwner, session?.id);
     this.runId = runningMessage?.id;
     this.runParentId = runningMessage?.parentMessageId ?? undefined;
   }
@@ -95,6 +109,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   async sendMessages(options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0]) {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
+    const webSearch = this.webSearch;
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
     const message = options.messages.at(-1);
@@ -117,6 +132,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.callbacks.state("sending");
     try {
       this.session ??= await newChatSession(text, signal, undefined, this.projectId);
+      writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
         body: {
@@ -124,6 +140,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           clientRequestId: message.id,
           text,
           modelConfigurationId,
+          webSearch,
           fileIds: fileIds as string[],
         },
         headers: sameOriginMutationHeaders,

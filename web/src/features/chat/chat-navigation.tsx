@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
-import { ThreadList } from "@/components/assistant-ui/elements/thread-list";
+import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
+import { ChatHistorySearch } from "./chat-history-search";
 import { listChatSessions } from "@/lib/hey-api/sdk.gen";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { chatSessionsKey } from "./chat-api";
@@ -48,6 +49,8 @@ export function ChatNavigation({
     getNextPageParam: (last, pages) =>
       last.length === 30 && pages.length * 30 <= 10000 ? pages.length * 30 : undefined,
   });
+  const groups = groupThreadTitles(sessions.data?.pages.flat() ?? []);
+  const groupLabels = { today: ui("Hôm nay"), yesterday: ui("Hôm qua"), earlier: ui("Trước đó") };
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
       <SidebarTab
@@ -60,15 +63,6 @@ export function ChatNavigation({
         {ui("Hội thoại mới")}
       </SidebarTab>
       <SidebarTab
-        to="/search"
-        icon={<Search className="size-4" />}
-        collapsed={collapsed}
-        selected={pathname === "/search"}
-        onClick={onNavigate}
-      >
-        {ui("Search")}
-      </SidebarTab>
-      <SidebarTab
         to="/assistants"
         icon={<Bot className="size-4" />}
         collapsed={collapsed}
@@ -78,15 +72,18 @@ export function ChatNavigation({
         {ui("Trợ lý")}
       </SidebarTab>
       {collapsed ? (
-        <SidebarTab
-          to="/projects"
-          icon={<Folder className="size-4" />}
-          collapsed
-          selected={pathname.startsWith("/projects")}
-          onClick={onNavigate}
-        >
-          {ui("Dự án")}
-        </SidebarTab>
+        <>
+          <ChatHistorySearch onNavigate={onNavigate} />
+          <SidebarTab
+            to="/projects"
+            icon={<Folder className="size-4" />}
+            collapsed
+            selected={pathname.startsWith("/projects")}
+            onClick={onNavigate}
+          >
+            {ui("Dự án")}
+          </SidebarTab>
+        </>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto pt-4">
           <div className="mb-2 flex items-center justify-between px-2">
@@ -130,14 +127,29 @@ export function ChatNavigation({
               {ui("Tạo dự án mới")}
             </Button>
           )}
-          <h2 className="px-2 pb-2 pt-6 text-sm font-medium text-content-secondary">
-            {ui("Hội thoại gần đây")}
-          </h2>
+          <div className="flex items-center justify-between px-2 pb-2 pt-6">
+            <h2 className="text-sm font-medium text-content-secondary">
+              {ui("Hội thoại gần đây")}
+            </h2>
+            <ChatHistorySearch onNavigate={onNavigate} />
+          </div>
           <ThreadList label={ui("Hội thoại gần đây")}>
-            {sessions.data?.pages.flat().map((session) => (
-              <ChatSessionRow key={session.id} session={session} onNavigate={onNavigate} />
+            {groups.map((group) => (
+              <section key={group.label} aria-label={groupLabels[group.label]}>
+                <h3 className="px-3 pb-1 pt-3 text-xs font-medium text-content-muted">
+                  {groupLabels[group.label]}
+                </h3>
+                {group.items.map((session) => (
+                  <ChatSessionRow key={session.id} session={session} onNavigate={onNavigate} />
+                ))}
+              </section>
             ))}
           </ThreadList>
+          {!sessions.isPending && !sessions.isError && groups.length === 0 && (
+            <p role="status" className="px-3 py-2 text-sm text-content-muted">
+              {ui("Chưa có hội thoại.")}
+            </p>
+          )}
           {sessions.isPending && (
             <p role="status" className="px-3 text-sm text-content-muted">
               {ui("Đang tải hội thoại…")}
