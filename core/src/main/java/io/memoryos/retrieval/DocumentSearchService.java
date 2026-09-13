@@ -227,11 +227,14 @@ public class DocumentSearchService {
         return new SearchResults(scope, ranked);
     }
 
-    /** The result retains its actor and narrowed source scope; expansion rechecks current resource authority. */
-    public List<SearchPage.Passage> expand(SearchResults results, SearchSection section, int neighbors) {
+    /**
+     * Reads a bounded window around an already ranked section of the result. It performs no authorization of its
+     * own: callers must pass the sections through {@link #authorizedSections} after their last IO and before any
+     * passage or metadata leaves the call.
+     */
+    public List<SearchPage.Passage> window(SearchResults results, SearchSection section, int neighbors) {
         if (!results.contains(section) || neighbors < 0 || neighbors > 5) throw new SearchRequestException();
         var hit = section.anchor();
-        requireExpansionAccess(results.scope(), hit);
         var passages = new TreeMap<Integer, SearchPage.Passage>();
         section.passages().forEach(p -> passages.put(p.ordinal(), p));
         if (neighbors > 0) {
@@ -239,24 +242,33 @@ public class DocumentSearchService {
             if (start < section.start()) {
                 search.document(results.scope().tenant(), hit.documentId(), hit.generation(), start,
                         section.start() - start).passages().forEach(p -> passages.put(p.ordinal(), p));
-                requireExpansionAccess(results.scope(), hit);
             }
             if (section.end() < 9999) {
                 search.document(results.scope().tenant(), hit.documentId(), hit.generation(), section.end() + 1, neighbors)
                         .passages().forEach(p -> passages.put(p.ordinal(), p));
             }
         }
-        requireExpansionAccess(results.scope(), hit);
         return List.copyOf(passages.values());
     }
 
-    private void requireExpansionAccess(SourceSearchScope scope, SearchHit hit) {
-        if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()
-                || !documents.isCurrent(scope.tenant(), new DocumentId(hit.documentId()), hit.generation(), search.identity()))
-            throw new SearchDocumentUnavailableException();
-        var origins = sourceSearch.readableMetadata(scope, List.of(hit.documentId()))
-                .getOrDefault(hit.documentId(), List.of());
-        // A still-public mapping must not authorize returning metadata from a now-private origin.
-        if (origins.isEmpty() || !origins.containsAll(hit.origins())) throw new SearchDocumentUnavailableException();
+    /**
+     * One batched recheck of current resource authority for the given sections, in their order. Sections whose
+     * document is no longer current, readable, or readable through every origin they carry are dropped; an actor
+     * who lost the result's Tenant keeps none.
+     */
+    public List<SearchSection> authorizedSections(SearchResults results, List<SearchSection> sections) {
+        if (sections.size() > 100 || sections.stream().anyMatch(section -> !results.contains(section))) throw new SearchRequestException();
+        if (sections.isEmpty()) return List.of();
+        var scope = results.scope();
+        if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return List.of();
+        var ids = sections.stream().map(section -> section.anchor().documentId()).distinct().toList();
+        var current = timings.measure(SearchTimings.Stage.AUTHORIZATION, () -> documents.currentGenerations(scope.tenant(), ids, search.identity()));
+        var readable = timings.measure(SearchTimings.Stage.AUTHORIZATION, () -> sourceSearch.readableMetadata(scope, ids));
+        return sections.stream().filter(section -> {
+            var hit = section.anchor();
+            var origins = readable.getOrDefault(hit.documentId(), List.of());
+            // A still-public mapping must not authorize returning metadata from a now-private origin.
+            return hit.generation().equals(current.get(hit.documentId())) && !origins.isEmpty() && origins.containsAll(hit.origins());
+        }).toList();
     }
 }

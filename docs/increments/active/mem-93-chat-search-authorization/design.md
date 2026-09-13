@@ -34,3 +34,5 @@ The Chat source panel currently reads passages through `/api/search/documents/{i
 ## Measurement
 
 Before the index access list, record the real-database cost of `memoryos.search.stage.duration` stages `prefetch` and `authorization` against `hybrid` and `expansion` on the actual Search path, plus the Chat capability check. The decision rule: if the database recheck is a material share of Search latency, follow the reference (index filter only, sync lag accepted) rather than keeping the stricter recheck.
+
+Result and accepted decision: the ranked recheck costs ≈ 14 ms for 400 candidates and stays. Only repeated per-read expansion rechecks were material (up to ≈ 225 ms per Chat Search call); they are replaced by `DocumentSearchService.authorizedSections`, one batched recheck after LLM selection and one before evidence is returned. `window` reads neighbors without its own recheck.

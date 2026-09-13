@@ -231,11 +231,12 @@ class DocumentSearchServiceTest {
                 List.of(new SearchPage.Passage(0, "Passage 0", "[]")), 0, 4, true));
         when(index.document(tenant, second, generation, 2, 2)).thenReturn(new SearchDocument(second, generation, "Title",
                 List.of(new SearchPage.Passage(2, "Passage 2", "[]")), 2, 3, false));
-        assertEquals(List.of(0, 1, 2), service.expand(result, result.sections().getFirst(), 2).stream().map(SearchPage.Passage::ordinal).toList());
+        assertEquals(List.of(0, 1, 2), service.window(result, result.sections().getFirst(), 2).stream().map(SearchPage.Passage::ordinal).toList());
         verifyNoInteractions(access);
         var foreign = hit(hidden, generation, 0, 1);
-        assertThrows(SearchRequestException.class, () -> service.expand(result, new SearchSection(foreign, List.of(foreign)), 2));
-        assertThrows(SearchRequestException.class, () -> service.expand(result, result.sections().getFirst(), 6));
+        assertThrows(SearchRequestException.class, () -> service.window(result, new SearchSection(foreign, List.of(foreign)), 2));
+        assertThrows(SearchRequestException.class, () -> service.window(result, result.sections().getFirst(), 6));
+        assertThrows(SearchRequestException.class, () -> service.authorizedSections(result, List.of(new SearchSection(foreign, List.of(foreign)))));
         verify(documents, never()).read(any(), any(), any());
     }
 
@@ -282,7 +283,7 @@ class DocumentSearchServiceTest {
         assertEquals(1041, result.hits().size());
         assertEquals(40, result.sections().getFirst().chunks().size());
         assertEquals(39, result.sections().getFirst().end());
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(result, result.sections().getFirst(), 2));
+        assertEquals(List.of(result.sections().getFirst()), service.authorizedSections(result, List.of(result.sections().getFirst())));
         verify(index, never()).document(any(), any(), any(), anyInt(), anyInt());
     }
 
@@ -389,28 +390,48 @@ class DocumentSearchServiceTest {
     }
 
     @Test
-    void expansionRechecksBoundActorScopeEvenWhenNoNeighborIoIsRequested() {
+    void sectionRecheckDropsRevokedGroupAccessWithoutIndexIo() {
         var fixture = expansionFixture();
+        assertEquals(List.of(fixture.section()), service.authorizedSections(fixture.results(), List.of(fixture.section())));
         when(sourceSearch.readableMetadata(fixture.scope(), List.of(fixture.hit().documentId()))).thenReturn(Map.of());
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(fixture.results(), fixture.section(), 0));
+        assertTrue(service.authorizedSections(fixture.results(), List.of(fixture.section())).isEmpty());
         verify(index, never()).document(any(), any(), any(), anyInt(), anyInt());
     }
 
     @Test
-    void expansionStopsAfterGroupRevocationDuringFirstNeighborRead() {
+    void windowReadsNeighborsWithoutDatabaseRechecksAndTheFinalRecheckDropsRevocationDuringTheRead() {
         var fixture = expansionFixture();
+        org.mockito.Mockito.clearInvocations(documents, tenants);
         when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 1, 1)).thenAnswer(_ -> {
             when(sourceSearch.readableMetadata(fixture.scope(), List.of(fixture.hit().documentId()))).thenReturn(Map.of());
             return new SearchDocument(fixture.hit().documentId(), generation, "Private",
                     List.of(new SearchPage.Passage(1, "secret", "[]")), 1, 4, true);
         });
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(fixture.results(), fixture.section(), 1));
-        verify(index, never()).document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 3, 1);
+        when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 3, 1)).thenReturn(new SearchDocument(
+                fixture.hit().documentId(), generation, "Private", List.of(new SearchPage.Passage(3, "after", "[]")), 3, 4, false));
+        assertEquals(List.of(1, 2, 3), service.window(fixture.results(), fixture.section(), 1).stream().map(SearchPage.Passage::ordinal).toList());
+        verify(documents, never()).currentGenerations(any(), any(), any());
+        verify(tenants, never()).findActiveTenant(any());
+        assertTrue(service.authorizedSections(fixture.results(), List.of(fixture.section())).isEmpty());
         verifyNoInteractions(authorization);
     }
 
     @Test
-    void remainingPublicOriginCannotAuthorizeStalePrivateSourceMetadataDuringExpansion() {
+    void sectionRecheckBatchesDocumentsIntoOneGenerationAndOneMetadataQuery() {
+        var fixture = expansionFixture();
+        var other = hit(UUID.randomUUID(), generation, 0, 1).withOrigins(fixture.hit().origins());
+        var results = new SearchResults(fixture.scope(), List.of(fixture.hit(), other));
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(fixture.hit().documentId(), generation, other.documentId(), generation));
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(fixture.hit().documentId(), fixture.hit().origins()));
+        org.mockito.Mockito.clearInvocations(documents, sourceSearch);
+        var kept = service.authorizedSections(results, results.sections());
+        assertEquals(List.of(fixture.hit().documentId()), kept.stream().map(section -> section.anchor().documentId()).toList());
+        verify(documents, times(1)).currentGenerations(any(), any(), any());
+        verify(sourceSearch, times(1)).readableMetadata(any(), any());
+    }
+
+    @Test
+    void remainingPublicOriginCannotAuthorizeStalePrivateSourceMetadataDuringRecheck() {
         var fixture = expansionFixture();
         var publicOrigin = new DocumentSourceMetadata(UUID.randomUUID(), UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
         var scope = new SourceSearchScope(fixture.scope().tenant(), actor, Map.of(
@@ -418,14 +439,14 @@ class DocumentSearchServiceTest {
         var mixed = fixture.hit().withOrigins(List.of(publicOrigin, fixture.hit().origins().getFirst()));
         var results = new SearchResults(scope, List.of(mixed));
         when(sourceSearch.readableMetadata(scope, List.of(mixed.documentId()))).thenReturn(Map.of(mixed.documentId(), List.of(publicOrigin)));
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(results, results.sections().getFirst(), 0));
+        assertTrue(service.authorizedSections(results, results.sections()).isEmpty());
     }
 
     @Test
-    void expansionRejectsDeactivatedActorDespiteItsOldAuthorizedResults() {
+    void sectionRecheckKeepsNothingForDeactivatedActorDespiteItsOldAuthorizedResults() {
         var fixture = expansionFixture();
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.empty());
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.expand(fixture.results(), fixture.section(), 0));
+        assertTrue(service.authorizedSections(fixture.results(), List.of(fixture.section())).isEmpty());
         verify(index, never()).document(any(), any(), any(), anyInt(), anyInt());
     }
 
@@ -436,7 +457,7 @@ class DocumentSearchServiceTest {
         var hit = hit(UUID.randomUUID(), generation, 2, 1).withOrigins(List.of(origin));
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(scope.tenant()));
         when(index.identity()).thenReturn("space");
-        when(documents.isCurrent(scope.tenant(), new DocumentId(hit.documentId()), generation, "space")).thenReturn(true);
+        when(documents.currentGenerations(scope.tenant(), List.of(hit.documentId()), "space")).thenReturn(Map.of(hit.documentId(), generation));
         when(sourceSearch.readableMetadata(scope, List.of(hit.documentId()))).thenReturn(Map.of(hit.documentId(), List.of(origin)));
         var results = new SearchResults(scope, List.of(hit));
         return new ExpansionFixture(scope, hit, results, results.sections().getFirst());

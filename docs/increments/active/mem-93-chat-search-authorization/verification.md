@@ -35,3 +35,5 @@ A first run without the calibration row gave the same order (400-candidate reche
 ### Decision input
 
 The post-query ranked recheck is small (≈ 14 ms for 400 candidates) and is not the latency driver; provider rewrites, selection, classification and embeddings dominate. The only material authorization share is the repeated per-section expansion recheck. Following the reference design would remove the per-result and expansion rechecks and rely on the index filter plus sync lag; the measured saving is at most a few percent of a Search call.
+
+Accepted: the ranked recheck stays and the per-read expansion rechecks become two batched `authorizedSections` calls per Search call (after selection, before evidence). Each batch is the same query shape measured above for 100 candidate documents (≈ 8 ms), so a call now spends ≈ 2 × 8 ms instead of up to ≈ 225 ms. `DocumentSearchServiceTest` (25), `SearchToolTest` (23) and `OpenSearchRetrievalIntegrationTest` passed after the change.
