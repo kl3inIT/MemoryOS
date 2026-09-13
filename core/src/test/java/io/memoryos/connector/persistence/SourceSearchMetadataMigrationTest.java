@@ -55,9 +55,9 @@ class SourceSearchMetadataMigrationTest {
             assertEquals(Instant.parse("2001-01-01T00:00:00Z"), origin.updatedAt());
             assertEquals(List.of("Alice"), origin.authors());
             var indexed = service.indexMetadata(tenant, new DocumentId(document), generation);
-            assertEquals(java.util.Set.of(file, inactive), indexed.stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId)
+            assertEquals(java.util.Set.of(file, drive, inactive), indexed.stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId)
                     .collect(java.util.stream.Collectors.toSet()));
-            assertTrue(indexed.stream().allMatch(m -> m.type() == SourceType.FILE));
+            assertEquals(SourceType.GOOGLE_DRIVE, indexed.stream().filter(m -> m.sourceId().equals(drive)).findFirst().orElseThrow().type());
             assertTrue(service.indexMetadata(tenant, new DocumentId(document), UUID.randomUUID()).isEmpty());
 
             jdbc.sql("UPDATE connector_items SET updated_at=CURRENT_TIMESTAMP WHERE tenant_id=:tenant")
@@ -103,7 +103,7 @@ class SourceSearchMetadataMigrationTest {
     }
 
     @Test
-    void privateFilesRequireCurrentGroupMembershipRegardlessOfManagementOrCreationAuthority() throws Exception {
+    void privateSourcesRequireCurrentGroupMembershipRegardlessOfManagementOrCreationAuthority() throws Exception {
         try (var database = TestDatabase.freshPostgres()) {
             var jdbc = JdbcClient.create(database);
             var tenant = new TenantId(UUID.randomUUID());
@@ -130,15 +130,16 @@ class SourceSearchMetadataMigrationTest {
                         .param("id", document).param("tenant", tenant.value()).param("generation", generation).update();
             }
             UUID publicFile = UUID.randomUUID(), mixedPrivate = UUID.randomUUID(), privateFile = UUID.randomUUID(),
-                    drive = UUID.randomUUID(), orphan = UUID.randomUUID();
+                    drive = UUID.randomUUID(), mixedDrive = UUID.randomUUID(), orphan = UUID.randomUUID();
             seed(jdbc, tenant, publicFile, publicFile, mixed, false, true);
             seed(jdbc, tenant, mixedPrivate, publicFile, mixed, false, true);
             seed(jdbc, tenant, privateFile, publicFile, privateDoc, false, true);
             seed(jdbc, tenant, drive, drive, driveDoc, true, true);
+            seed(jdbc, tenant, mixedDrive, drive, mixed, true, true);
             seed(jdbc, tenant, orphan, publicFile, orphanDoc, false, true);
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED',created_by_actor_id=:actor WHERE id IN (:ids)")
-                    .param("actor", manager.value()).param("ids", List.of(mixedPrivate, privateFile, orphan)).update();
-            for (var source : List.of(mixedPrivate, privateFile, drive)) {
+                    .param("actor", manager.value()).param("ids", List.of(mixedPrivate, privateFile, drive, mixedDrive, orphan)).update();
+            for (var source : List.of(mixedPrivate, privateFile, drive, mixedDrive)) {
                 jdbc.sql("INSERT INTO source_group_grants(tenant_id,connector_credential_pair_id,group_id) VALUES(:tenant,:source,:group)")
                         .param("tenant", tenant.value()).param("source", source).param("group", group).update();
             }
@@ -148,28 +149,53 @@ class SourceSearchMetadataMigrationTest {
             var search = new SourceSearchService(tenants, repository);
             var access = new io.memoryos.connector.application.DefaultSourceDocumentAccessResolver(tenants, repository);
             var ids = List.of(mixed, privateDoc, driveDoc, orphanDoc);
-            assertEquals(java.util.Set.of(mixed, privateDoc), access.readableDocuments(member, ids));
+            assertEquals(java.util.Set.of(mixed, privateDoc, driveDoc), access.readableDocuments(member, ids));
             for (var actor : List.of(outsider, manager)) {
                 assertEquals(java.util.Set.of(mixed), access.readableDocuments(actor, ids));
                 assertFalse(access.canRead(actor, new DocumentId(privateDoc)));
                 assertFalse(access.canRead(actor, new DocumentId(orphanDoc)));
+                assertFalse(access.canRead(actor, new DocumentId(driveDoc)));
                 assertEquals(java.util.Set.of(publicFile), search.scope(actor).sources().keySet());
                 assertEquals(List.of(publicFile), search.options(actor, 0, 100).stream().map(SourceSearchService.SourceOption::id).toList());
                 assertEquals(List.of(publicFile), search.readableMetadata(search.scope(actor), ids).get(mixed).stream()
                         .map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
             }
             var scope = search.scope(member);
-            assertEquals(java.util.Set.of(publicFile, mixedPrivate, privateFile), scope.sources().keySet());
+            assertEquals(java.util.Set.of(publicFile, mixedPrivate, privateFile, drive, mixedDrive), scope.sources().keySet());
+            assertEquals(SourceType.GOOGLE_DRIVE, scope.sources().get(drive));
+            assertEquals(scope.sources().keySet(), search.options(member, 0, 100).stream()
+                    .map(SourceSearchService.SourceOption::id).collect(java.util.stream.Collectors.toSet()));
+            var driveScope = new io.memoryos.connector.SourceSearchScope(tenant, member, java.util.Map.of(drive, SourceType.GOOGLE_DRIVE));
+            assertEquals(java.util.Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
             var narrowed = new io.memoryos.connector.SourceSearchScope(scope.tenant(), scope.actor(), java.util.Map.of(mixedPrivate, SourceType.FILE));
             assertEquals(List.of(mixedPrivate), search.readableMetadata(narrowed, ids).get(mixed).stream()
                     .map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
             assertEquals(java.util.Set.of(mixed), search.readableMetadata(narrowed, ids).keySet());
-            assertEquals(java.util.Set.of(publicFile, mixedPrivate), search.indexMetadata(tenant, new DocumentId(mixed), generation)
+            assertEquals(java.util.Set.of(publicFile, mixedPrivate, mixedDrive), search.indexMetadata(tenant, new DocumentId(mixed), generation)
                     .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).collect(java.util.stream.Collectors.toSet()));
             assertEquals(List.of(privateFile), search.indexMetadata(tenant, new DocumentId(privateDoc), generation)
                     .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+            assertEquals(List.of(drive), search.indexMetadata(tenant, new DocumentId(driveDoc), generation)
+                    .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+            assertTrue(access.canRead(member, new DocumentId(driveDoc)));
+
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE id=:id").param("id", drive).update();
+            assertFalse(access.canRead(member, new DocumentId(driveDoc)), "Drive never inherits FILE public access");
+            assertFalse(access.canRead(outsider, new DocumentId(driveDoc)));
+            assertFalse(search.scope(member).sources().containsKey(drive));
+            assertTrue(search.readableMetadata(driveScope, ids).isEmpty());
             assertTrue(search.indexMetadata(tenant, new DocumentId(driveDoc), generation).isEmpty());
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED',status='NOT_STARTED' WHERE id=:id")
+                    .param("id", drive).update();
             assertFalse(access.canRead(member, new DocumentId(driveDoc)));
+            jdbc.sql("UPDATE connector_credential_pairs SET status='ACTIVE' WHERE id=:id").param("id", drive).update();
+            jdbc.sql("DELETE FROM source_group_grants WHERE tenant_id=:tenant AND connector_credential_pair_id=:id")
+                    .param("tenant", tenant.value()).param("id", drive).update();
+            assertFalse(access.canRead(member, new DocumentId(driveDoc)), "An unshared Drive source is not readable");
+            assertTrue(search.readableMetadata(driveScope, ids).isEmpty(), "Existing scopes recheck removed associations");
+            jdbc.sql("INSERT INTO source_group_grants(tenant_id,connector_credential_pair_id,group_id) VALUES(:tenant,:source,:group)")
+                    .param("tenant", tenant.value()).param("source", drive).param("group", group).update();
+            assertTrue(access.canRead(member, new DocumentId(driveDoc)));
             jdbc.sql("DELETE FROM iam_group_memberships WHERE tenant_id=:tenant AND group_id=:group")
                     .param("tenant", tenant.value()).param("group", group).update();
             assertEquals(java.util.Set.of(mixed), access.readableDocuments(member, ids));
@@ -177,6 +203,7 @@ class SourceSearchMetadataMigrationTest {
             assertEquals(java.util.Set.of(mixed), revoked.keySet());
             assertEquals(List.of(publicFile), revoked.get(mixed).stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
             assertTrue(search.readableMetadata(narrowed, ids).isEmpty(), "A narrowed private scope must not fall back to another public origin");
+            assertTrue(search.readableMetadata(driveScope, ids).isEmpty());
             jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE tenant_id=:tenant AND actor_id=:actor")
                     .param("tenant", tenant.value()).param("actor", member.value()).update();
             assertTrue(access.readableDocuments(member, ids).isEmpty());

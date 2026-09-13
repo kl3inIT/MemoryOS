@@ -144,6 +144,19 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
+            origins.set(List.of());
+            index.index(leave);
+            var driveOnly = new SourceSearchScope(tenant, actor, Map.of(driveSource, SourceType.GOOGLE_DRIVE));
+            assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream().allMatch(List::isEmpty));
+            origins.set(List.of(remote));
+            assertFalse(index.contains(leaveState), "Previously indexed Drive chunks require their newly eligible Source metadata");
+            clearInvocations(model);
+            index.index(leave);
+            verifyNoInteractions(model);
+            assertTrue(index.contains(leaveState));
+            assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream()
+                    .allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
+            clearInvocations(model);
             origins.set(List.of(new DocumentSourceMetadata(uploaded.sourceId(), uploaded.itemId(), uploaded.type(),
                     uploaded.createdAt(), Instant.parse("2026-09-15T00:00:00Z"), uploaded.authors()), remote));
             assertFalse(index.contains(leaveState));

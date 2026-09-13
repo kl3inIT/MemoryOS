@@ -339,9 +339,9 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
               }
             />
           ) : (
-            <div className="mt-3 min-w-0">
+            <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-sunken">
               <table
-                className="w-full table-fixed border-separate border-spacing-x-0 border-spacing-y-1"
+                className="w-full table-fixed"
                 aria-busy={members.isFetching}
               >
                 <caption className="sr-only">
@@ -386,15 +386,15 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                     return (
                       <tr
                         key={member.actorId}
-                        className="bg-surface-sunken transition-colors hover:bg-surface-subtle"
+                        className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-subtle"
                       >
-                        <td className="h-11 rounded-l-lg px-3 py-2">
+                        <td className="h-11 px-3 py-2">
                           <MemberIdentity member={member} />
                         </td>
                         <td className="px-2 py-2">
                           <MemberAccount member={member} />
                         </td>
-                        <td className="rounded-r-lg px-1 py-2 sm:px-2">
+                        <td className="px-1 py-2 sm:px-2">
                           <div className="flex flex-wrap items-center justify-end gap-0.5">
                             {canManageManagers ? (
                               <ConfirmDialog
