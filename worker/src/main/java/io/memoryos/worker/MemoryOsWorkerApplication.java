@@ -11,7 +11,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.ingestion",
         "io.memoryos.retrieval.embedding",
         "io.memoryos.retrieval.opensearch",
-        "io.memoryos.iam"
+        // Only IAM persistence adapters, as before the package split; IAM services need API-only JPA repositories.
+        "io.memoryos.iam.group.persistence",
+        "io.memoryos.iam.identity.persistence",
+        "io.memoryos.iam.invitation.persistence",
+        "io.memoryos.iam.tenant.persistence",
+        "io.memoryos.iam.user.persistence"
 })
 @org.springframework.context.annotation.Import({io.memoryos.retrieval.SearchTimings.class,
         io.memoryos.chat.persistence.JdbcUserFileWorkRepository.class,

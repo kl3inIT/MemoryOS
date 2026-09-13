@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "Connector",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"iam", "document", "objectstorage"}
+        allowedDependencies = {"iam", "iam :: *", "document", "objectstorage"}
 )
 package io.memoryos.connector;
 
