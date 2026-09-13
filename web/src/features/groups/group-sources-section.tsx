@@ -233,7 +233,10 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
                 className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-border-subtle bg-surface-sunken shadow-md"
               >
                 {allSources.isPending ? (
-                  <p role="status" className="px-4 py-6 text-center font-main-ui-body text-content-muted">
+                  <p
+                    role="status"
+                    className="px-4 py-6 text-center font-main-ui-body text-content-muted"
+                  >
                     {ui("Loading Sources")}
                   </p>
                 ) : allSources.isError ? (
@@ -280,32 +283,35 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
               {selectedSources.map((source) => {
                 const ChipIcon = findSourceProvider(source.type)?.icon;
                 return (
-                <span
-                  key={source.id}
-                  className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-sunken px-2 py-1 text-xs"
-                >
-                  {ChipIcon ? (
-                    <ChipIcon className="size-3.5 shrink-0 text-content-secondary" aria-hidden="true" />
-                  ) : null}
-                  <span className="truncate font-main-ui-action text-content-primary">
-                    {source.name}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={ui("Remove {{v1}}", { v1: source.name })}
-                    className="ml-0.5 rounded p-0.5 text-content-muted transition-colors hover:text-content-primary"
-                    disabled={saveAssociations.isPending}
-                    onClick={() =>
-                      setSelectedIds((current) => {
-                        const next = new Set(current);
-                        next.delete(source.id);
-                        return next;
-                      })
-                    }
+                  <span
+                    key={source.id}
+                    className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-sunken px-2 py-1 text-xs"
                   >
-                    <X className="size-3.5" aria-hidden="true" />
-                  </button>
-                </span>
+                    {ChipIcon ? (
+                      <ChipIcon
+                        className="size-3.5 shrink-0 text-content-secondary"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <span className="truncate font-main-ui-action text-content-primary">
+                      {source.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={ui("Remove {{v1}}", { v1: source.name })}
+                      className="ml-0.5 rounded p-0.5 text-content-muted transition-colors hover:text-content-primary"
+                      disabled={saveAssociations.isPending}
+                      onClick={() =>
+                        setSelectedIds((current) => {
+                          const next = new Set(current);
+                          next.delete(source.id);
+                          return next;
+                        })
+                      }
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </span>
                 );
               })}
             </div>
@@ -378,7 +384,9 @@ function SourceIdentity({ source }: { source: SourceSummary }) {
         <ProviderIcon className="size-4 shrink-0 text-content-secondary" aria-hidden="true" />
       ) : null}
       <span className="min-w-0">
-        <span className="block truncate font-main-ui-action text-content-primary">{source.name}</span>
+        <span className="block truncate font-main-ui-action text-content-primary">
+          {source.name}
+        </span>
         <span className="mt-0.5 block font-secondary-body text-content-muted">
           {source.type} · {source.documentCount.toLocaleString(uiLocale())} {ui("documents")}
         </span>

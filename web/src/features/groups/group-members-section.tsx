@@ -340,10 +340,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
             />
           ) : (
             <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-sunken">
-              <table
-                className="w-full table-fixed"
-                aria-busy={members.isFetching}
-              >
+              <table className="w-full table-fixed" aria-busy={members.isFetching}>
                 <caption className="sr-only">
                   {ui("Members of")} {group.name}
                 </caption>
