@@ -2,11 +2,11 @@
 
 ## Goal
 
-User-approved change: give Basic a persisted enum-backed grant following Onyx's code-defined permissions and database-backed Group grants. Main now supplies Chat at home and richer Search at /search. This increment enforces direct Search access and carries granular Chat capability vocabulary without adding new Chat enforcement; existing Chat membership/resource authorization remains. Image generation and LLM gateway remain reserved.
+User-approved change: give Basic a persisted enum-backed grant following Onyx's code-defined permissions and database-backed Group grants. Main now supplies Chat at home and richer Search at /search. This increment enforces direct Search access and carries granular Chat capability vocabulary without adding new Chat enforcement; existing Chat membership/resource authorization remains. [MEM-93](../mem-93-chat-search-authorization/design.md) later enforces CHAT_READ/CHAT_WRITE. Image generation and LLM gateway remain reserved.
 
 ## Contract
 
-- SYSTEM_BASIC implies SEARCH_READ, CHAT_READ, CHAT_WRITE, IMAGE_GENERATE and LLM_GATEWAY_USE; CHAT_WRITE implies CHAT_READ. Chat is implemented by merged main, but the two Chat tokens remain reserved for granular capability enforcement; image/gateway features remain absent. SYSTEM_ADMIN expands to every enum value, including main MODELS_MANAGE.
+- SYSTEM_BASIC implies SEARCH_READ, CHAT_READ, CHAT_WRITE, IMAGE_GENERATE and LLM_GATEWAY_USE; CHAT_WRITE implies CHAT_READ. Chat is implemented by merged main; the two Chat tokens were reserved here and are enforced by [MEM-93](../mem-93-chat-search-authorization/design.md); image/gateway features remain absent. SYSTEM_ADMIN expands to every enum value, including main MODELS_MANAGE.
 - Basic stores exactly SYSTEM_BASIC, Admin exactly SYSTEM_ADMIN. Basic children and Group/Source leaf capabilities cannot be granted directly. Preserve main's MODELS_MANAGE alongside USERS_MANAGE, GROUPS_MANAGE and SOURCES_MANAGE.
 - Main V1–V36 are immutable. Local V37 seeds historical BASIC_ACCESS; V38 renames it and IAM_ADMIN to SYSTEM_BASIC/SYSTEM_ADMIN; V39/V40 make Group read and Source leaves derived-only. Preserve identities, memberships and Source associations.
 - Bootstrap reconciles Basic to the same persisted grant. Invitation and JIT still add non-manager Basic membership only.

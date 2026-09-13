@@ -234,8 +234,11 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 12)));
         var session = create();
         String id = session.path("id").asText();
+        String assistant = send(session, UUID.randomUUID().toString()).path("assistantMessageId").asText();
+        awaitOutcome(assistant, "COMPLETED");
         mockMvc.perform(put("/api/chat/sessions/" + id + "/sharing").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true,\"revision\":0}")).andExpect(status().isOk());
         mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isOk());
@@ -249,6 +252,9 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/sessions/" + id + "/branches").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isForbidden());
+        // A denied subscriber receives a problem response, never an event stream.
+        mockMvc.perform(get("/api/chat/sessions/" + id + "/messages/" + assistant + "/events").with(authentication(actor))
+                .accept(MediaType.TEXT_EVENT_STREAM)).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/chat/sessions/" + id + "/messages").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
