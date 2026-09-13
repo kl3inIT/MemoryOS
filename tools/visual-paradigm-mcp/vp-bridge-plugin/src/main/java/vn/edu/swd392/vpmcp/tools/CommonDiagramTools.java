@@ -4,7 +4,10 @@ import com.vp.plugin.ExportDiagramAsImageOption;
 import com.vp.plugin.ExportDiagramImageMargin;
 import com.vp.plugin.diagram.IDiagramElement;
 import com.vp.plugin.diagram.IDiagramUIModel;
+import com.vp.plugin.diagram.IConnectorUIModel;
 import com.vp.plugin.model.IModelElement;
+import java.awt.Color;
+import java.awt.Font;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +19,30 @@ import java.util.Set;
 import vn.edu.swd392.vpmcp.bridge.Tool;
 
 public final class CommonDiagramTools extends VpAccess {
+  @Tool(description = "Set readable shape and connector fonts on one diagram. Preserves model semantics and node bounds. Inspect and reroute captions after changing typography.", idempotent = true)
+  public String setDiagramTypography(String diagramName, int shapeFontSize, int flowFontSize)
+      throws Exception {
+    if (shapeFontSize < 10 || shapeFontSize > 48 || flowFontSize < 10 || flowFontSize > 48) {
+      throw new IllegalArgumentException("Font sizes must be between 10 and 48 points");
+    }
+    return onEdt(() -> {
+      IDiagramUIModel diagram = findDiagram(diagramName);
+      int count = 0;
+      Iterator<?> iterator = diagram.diagramElementIterator();
+      while (iterator.hasNext()) {
+        Object item = iterator.next();
+        if (!(item instanceof IDiagramElement)) continue;
+        IDiagramElement element = (IDiagramElement) item;
+        boolean connector = element instanceof IConnectorUIModel;
+        element.getElementFont().setValues("Arial", connector ? Font.PLAIN : Font.BOLD,
+            connector ? flowFontSize : shapeFontSize, new Color(24, 39, 57));
+        element.resetCaptionSize();
+        count++;
+      }
+      return "Updated typography for " + count + " diagram elements";
+    });
+  }
+
   @Tool(
       description =
           "List diagrams in the open Visual Paradigm project. Use an empty typeFilter for all diagrams.",
