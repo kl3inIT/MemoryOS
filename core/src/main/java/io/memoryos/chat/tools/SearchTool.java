@@ -169,7 +169,8 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             var scope = search.scope(actor);
             if (!allowedSourceIds.isEmpty()) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
                     .filter(entry -> allowedSourceIds.contains(entry.getKey()))
-                    .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)));
+                    .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)),
+                    scope.accessTokens());
             var preparation = prepare(queries, scope, requestedFilters == null ? SearchFilters.NONE : requestedFilters);
             var expansion = preparation.expansion();
             var filters = preparation.filters();

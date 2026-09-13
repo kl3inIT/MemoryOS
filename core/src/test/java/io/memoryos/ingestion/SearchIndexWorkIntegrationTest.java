@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.TestDatabase;
 import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.connector.SourceId;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentContent;
@@ -193,6 +194,60 @@ class SearchIndexWorkIntegrationTest {
         } finally {
             chunkRepository.closeReader(reader.readerId());
         }
+    }
+
+    @Test
+    void sourceAccessChangeRefreshesIndexedAccessInPlaceWithoutHidingOrRewritingContent() {
+        var document = publish(null);
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+            var source = mapToFileSource(document);
+            tx.executeWithoutResult(_ -> work.enqueueSourceAccess(tenant, source, IDENTITY));
+            tx.executeWithoutResult(_ -> work.enqueueSourceAccess(tenant, source, IDENTITY));
+            assertEquals(1, jdbc.sql("SELECT COUNT(*) FROM search_index_operations WHERE action='ACCESS' AND status='NOT_STARTED'")
+                    .query(Integer.class).single(), "Repeated changes collapse into one pending refresh");
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+        }
+        verify(index).updateAccess(tenant, document, generation(document));
+        verify(index, times(1)).index(any());
+        assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "An access refresh must not hide the document");
+        assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
+    }
+
+    @Test
+    void accessRefreshWaitsForAPendingContentRewriteInsteadOfWritingStaleFields() {
+        var document = publish(null);
+        jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP + INTERVAL '1' HOUR WHERE action='INDEX'").update();
+        jdbc.sql("""
+                INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
+                VALUES (:id,:tenant,:document,:generation,'ACCESS',:identity)
+                """).param("id", UUID.randomUUID()).param("tenant", tenant.value()).param("document", document.value())
+                .param("generation", generation(document)).param("identity", IDENTITY).update();
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.SKIPPED, coordinator.process(delivery()));
+        }
+        verify(index, times(0)).updateAccess(any(), any(), any());
+        assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
+    }
+
+    private SourceId mapToFileSource(DocumentId document) {
+        UUID source = UUID.randomUUID(), item = UUID.randomUUID();
+        for (String sql : List.of(
+                "INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:source,:tenant,'Files','NO_AUTH','ACTIVE')",
+                "INSERT INTO connectors(id,tenant_id,name,connector_type,status) VALUES(:source,:tenant,'Files','FILE','ACTIVE')",
+                "INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status) VALUES(:source,:tenant,:source,:source,'RESTRICTED','ACTIVE')",
+                "INSERT INTO connector_items(id,tenant_id,connector_id,content_sha256,status) VALUES(:item,:tenant,:source,REPEAT('b',64),'INDEXED')",
+                """
+                INSERT INTO documents_by_connector_credential_pair(tenant_id,connector_id,connector_credential_pair_id,document_id,connector_item_id,retrieval_eligible)
+                VALUES(:tenant,:source,:source,:document,:item,TRUE)""")) {
+            var statement = jdbc.sql(sql).param("tenant", tenant.value()).param("source", source);
+            if (sql.contains(":item")) statement = statement.param("item", item);
+            if (sql.contains(":document")) statement = statement.param("document", document.value());
+            statement.update();
+        }
+        return new SourceId(source);
     }
 
     @Test

@@ -55,7 +55,8 @@ public class DocumentSearchService {
         long started = System.nanoTime();
         String outcome = "failed";
         try {
-            var hits = authorized(actor, tenant, search.search(tenant, request.query(), request.mediaTypes(), request.updatedSince()));
+            var tokens = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.accessTokens(tenant, actor));
+            var hits = authorized(actor, tenant, search.search(tenant, request.query(), request.mediaTypes(), request.updatedSince(), tokens));
             requireSearchAccess(actor, tenant);
             var grouped = new LinkedHashMap<UUID, List<SearchHit>>();
             hits.stream()

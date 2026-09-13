@@ -77,7 +77,7 @@ class DocumentSearchServiceTest {
         var hidden = UUID.randomUUID();
         givenSearchAccess(tenant);
         when(index.identity()).thenReturn("space"); when(index.candidateLimit()).thenReturn(500);
-        when(index.search(any(), any(), any(), any())).thenReturn(List.of(
+        when(index.search(any(), any(), any(), any(), any())).thenReturn(List.of(
                 hit(hidden, generation, 0, 1), hit(first, UUID.randomUUID(), 0, .99),
                 hit(second, generation, 0, .9), hit(first, generation, 2, .9), hit(first, generation, 1, .9)));
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation, hidden, generation));
@@ -149,7 +149,7 @@ class DocumentSearchServiceTest {
         givenSearchAccess(new TenantId(UUID.randomUUID()));
         when(index.identity()).thenReturn("space");
         when(index.candidateLimit()).thenReturn(500);
-        when(index.search(any(), any(), any(), any())).thenReturn(hits);
+        when(index.search(any(), any(), any(), any(), any())).thenReturn(hits);
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation));
         when(access.readableDocuments(any(), any())).thenReturn(Set.of(document));
     }
@@ -334,7 +334,7 @@ class DocumentSearchServiceTest {
     void directSearchRejectsGrantRevocationDuringProviderIo() {
         var tenant = new TenantId(UUID.randomUUID());
         givenSearchAccess(tenant);
-        when(index.search(any(), any(), any(), any())).thenAnswer(_ -> {
+        when(index.search(any(), any(), any(), any(), any())).thenAnswer(_ -> {
             when(authorization.require(actor, IamCapability.SEARCH_READ, false))
                     .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant revoked"));
             return List.of();
@@ -346,7 +346,7 @@ class DocumentSearchServiceTest {
     void directSearchDropsPrivateHitsWhenMembershipIsRevokedDuringProviderIo() {
         var document = UUID.randomUUID();
         givenHits(document, List.of(hit(document, generation, 0, 1)));
-        when(index.search(any(), any(), any(), any())).thenAnswer(_ -> {
+        when(index.search(any(), any(), any(), any(), any())).thenAnswer(_ -> {
             when(access.readableDocuments(any(), any())).thenReturn(Set.of());
             return List.of(hit(document, generation, 0, 1));
         });
