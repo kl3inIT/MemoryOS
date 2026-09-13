@@ -68,10 +68,6 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
                     AND approval.source_id = p.id AND approval.file_id = m.root_id)), FALSE) AS selected,
             COALESCE(i.status = 'DELETING', FALSE) AS item_removed
             """;
-    private static final String CONTEXT_JOINS = """
-            JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = :source
-            JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
-            """ + CONTEXT_TAIL;
     private static final String CONTEXT_TAIL = """
             JOIN connectors c ON c.tenant_id = p.tenant_id AND c.id = p.connector_id
             JOIN tenants t ON t.id = p.tenant_id
@@ -81,9 +77,17 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
             LEFT JOIN google_drive_membership m ON m.tenant_id = p.tenant_id AND m.source_id = p.id AND m.file_id = f.file_id
             LEFT JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.connector_id = p.connector_id AND i.provider_file_id = f.file_id
             """;
+    private static final String CONTEXT_JOINS = """
+            JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = :source
+            JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
+            """ + CONTEXT_TAIL;
     private final JdbcClient jdbc;
+    private final ApplicationEventPublisher events;
 
-    public JdbcGoogleDriveAclRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
+    public JdbcGoogleDriveAclRepository(JdbcClient jdbc, ApplicationEventPublisher events) {
+        this.jdbc = jdbc;
+        this.events = events;
+    }
 
     /** Caller holds the source, credential, scope and operation fences in its transaction. */
     public void recordSuccess(Work work, String fileId, List<Permission> permissions) {
@@ -97,43 +101,71 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
 
     private void record(Work work, String fileId, @Nullable String permissions, @Nullable String errorCode,
             @Nullable String errorMessage) {
-        int changed = jdbc.sql("""
-                INSERT INTO google_drive_acl_snapshots (tenant_id, source_id, file_id, observation_revision,
-                    permissions_json, status, last_attempt_at, attempt_operation_id, attempt_credential_id,
-                    attempt_credential_revision, attempt_scope_revision, attempt_generation, last_success_at,
-                    success_operation_id, success_credential_id, success_credential_revision,
-                    success_scope_revision, success_generation, error_code, error_message)
-                SELECT p.tenant_id, p.id, :file, CASE WHEN :success THEN 1 ELSE 0 END,
-                    CAST(:permissions AS jsonb), :status, statement_timestamp(), :operation, p.credential_id,
-                    :credential, :scope, :generation, CASE WHEN :success THEN statement_timestamp() END,
-                    CASE WHEN :success THEN CAST(:operation AS uuid) END,
-                    CASE WHEN :success THEN p.credential_id END,
-                    CASE WHEN :success THEN CAST(:credential AS bigint) END,
-                    CASE WHEN :success THEN CAST(:scope AS bigint) END,
-                    CASE WHEN :success THEN CAST(:generation AS bigint) END, :error, :errorMessage
-                FROM connector_credential_pairs p WHERE p.tenant_id = :tenant AND p.id = :source
-                ON CONFLICT (tenant_id, source_id, file_id) DO UPDATE SET
-                    observation_revision = google_drive_acl_snapshots.observation_revision + EXCLUDED.observation_revision,
-                    permissions_json = COALESCE(EXCLUDED.permissions_json, google_drive_acl_snapshots.permissions_json),
-                    status = EXCLUDED.status, last_attempt_at = EXCLUDED.last_attempt_at,
-                    attempt_operation_id = EXCLUDED.attempt_operation_id,
-                    attempt_credential_id = EXCLUDED.attempt_credential_id,
-                    attempt_credential_revision = EXCLUDED.attempt_credential_revision,
-                    attempt_scope_revision = EXCLUDED.attempt_scope_revision, attempt_generation = EXCLUDED.attempt_generation,
-                    last_success_at = COALESCE(EXCLUDED.last_success_at, google_drive_acl_snapshots.last_success_at),
-                    success_operation_id = COALESCE(EXCLUDED.success_operation_id, google_drive_acl_snapshots.success_operation_id),
-                    success_credential_id = COALESCE(EXCLUDED.success_credential_id, google_drive_acl_snapshots.success_credential_id),
-                    success_credential_revision = COALESCE(EXCLUDED.success_credential_revision, google_drive_acl_snapshots.success_credential_revision),
-                    success_scope_revision = COALESCE(EXCLUDED.success_scope_revision, google_drive_acl_snapshots.success_scope_revision),
-                    success_generation = COALESCE(EXCLUDED.success_generation, google_drive_acl_snapshots.success_generation),
-                    error_code = EXCLUDED.error_code, error_message = EXCLUDED.error_message
+        var row = jdbc.sql("""
+                WITH prior AS (
+                    SELECT permissions_json, status FROM google_drive_acl_snapshots
+                    WHERE tenant_id = :tenant AND source_id = :source AND file_id = :file
+                ), upserted AS (
+                    INSERT INTO google_drive_acl_snapshots (tenant_id, source_id, file_id, observation_revision,
+                        permissions_json, status, last_attempt_at, attempt_operation_id, attempt_credential_id,
+                        attempt_credential_revision, attempt_scope_revision, attempt_generation, last_success_at,
+                        success_operation_id, success_credential_id, success_credential_revision,
+                        success_scope_revision, success_generation, error_code, error_message)
+                    SELECT p.tenant_id, p.id, :file, CASE WHEN :success THEN 1 ELSE 0 END,
+                        CAST(:permissions AS jsonb), :status, statement_timestamp(), :operation, p.credential_id,
+                        :credential, :scope, :generation, CASE WHEN :success THEN statement_timestamp() END,
+                        CASE WHEN :success THEN CAST(:operation AS uuid) END,
+                        CASE WHEN :success THEN p.credential_id END,
+                        CASE WHEN :success THEN CAST(:credential AS bigint) END,
+                        CASE WHEN :success THEN CAST(:scope AS bigint) END,
+                        CASE WHEN :success THEN CAST(:generation AS bigint) END, :error, :errorMessage
+                    FROM connector_credential_pairs p WHERE p.tenant_id = :tenant AND p.id = :source
+                    ON CONFLICT (tenant_id, source_id, file_id) DO UPDATE SET
+                        observation_revision = google_drive_acl_snapshots.observation_revision + EXCLUDED.observation_revision,
+                        permissions_json = COALESCE(EXCLUDED.permissions_json, google_drive_acl_snapshots.permissions_json),
+                        status = EXCLUDED.status, last_attempt_at = EXCLUDED.last_attempt_at,
+                        attempt_operation_id = EXCLUDED.attempt_operation_id,
+                        attempt_credential_id = EXCLUDED.attempt_credential_id,
+                        attempt_credential_revision = EXCLUDED.attempt_credential_revision,
+                        attempt_scope_revision = EXCLUDED.attempt_scope_revision, attempt_generation = EXCLUDED.attempt_generation,
+                        last_success_at = COALESCE(EXCLUDED.last_success_at, google_drive_acl_snapshots.last_success_at),
+                        success_operation_id = COALESCE(EXCLUDED.success_operation_id, google_drive_acl_snapshots.success_operation_id),
+                        success_credential_id = COALESCE(EXCLUDED.success_credential_id, google_drive_acl_snapshots.success_credential_id),
+                        success_credential_revision = COALESCE(EXCLUDED.success_credential_revision, google_drive_acl_snapshots.success_credential_revision),
+                        success_scope_revision = COALESCE(EXCLUDED.success_scope_revision, google_drive_acl_snapshots.success_scope_revision),
+                        success_generation = COALESCE(EXCLUDED.success_generation, google_drive_acl_snapshots.success_generation),
+                        error_code = EXCLUDED.error_code, error_message = EXCLUDED.error_message
+                    RETURNING observation_revision, permissions_json, status, error_code
+                )
+                SELECT u.observation_revision, u.status, u.error_code, u.permissions_json,
+                    (SELECT prior.permissions_json FROM prior) AS prior_permissions,
+                    (SELECT prior.status FROM prior) AS prior_status
+                FROM upserted u
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                 .param("file", fileId).param("permissions", permissions).param("success", permissions != null)
                 .param("status", permissions == null ? Status.FAILED.name() : Status.SUCCEEDED.name())
                 .param("operation", work.operationId().value()).param("credential", work.credentialRevision())
                 .param("scope", work.scopeRevision()).param("generation", work.generation())
-                .param("error", errorCode).param("errorMessage", errorMessage).update();
-        if (changed != 1) throw SourceException.notFound();
+                .param("error", errorCode).param("errorMessage", errorMessage)
+                .query((r, n) -> new Object[] {
+                        r.getLong("observation_revision"), r.getString("status"), r.getString("error_code"),
+                        r.getString("permissions_json"), r.getString("prior_permissions"),
+                        r.getString("prior_status") }).optional();
+        if (row.isEmpty()) throw SourceException.notFound();
+        Object[] result = row.get();
+        boolean payloadChanged = !Objects.equals(result[3], result[4]);
+        boolean statusChanged = !Objects.equals(result[1], result[5]);
+        if (payloadChanged || statusChanged) {
+            List<DocumentId> documentIds = jdbc.sql("""
+                    SELECT DISTINCT mapping.document_id FROM documents_by_connector_credential_pair mapping
+                    JOIN connector_items i ON i.tenant_id = mapping.tenant_id AND i.id = mapping.connector_item_id
+                    WHERE mapping.tenant_id = :tenant AND mapping.connector_credential_pair_id = :source
+                        AND i.provider_file_id = :file
+                    """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
+                    .param("file", fileId).query((r, n) -> new DocumentId(r.getObject(1, UUID.class))).list();
+            events.publishEvent(new GoogleDriveAclChanged(work.tenantId(), work.sourceId(), fileId,
+                    documentIds, (Long) result[0], Status.valueOf((String) result[1]), (String) result[2]));
+        }
     }
 
     /** One database statement observes payload, lifecycle context and source-qualified Document mapping. */

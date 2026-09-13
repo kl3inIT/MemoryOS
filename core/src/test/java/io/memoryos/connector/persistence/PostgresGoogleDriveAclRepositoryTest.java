@@ -22,6 +22,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.document.DocumentId;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -52,6 +53,7 @@ class PostgresGoogleDriveAclRepositoryTest {
     private JdbcGoogleDriveSourceRepository drive;
     private JdbcGoogleDriveCredentialRepository credentials;
     private JdbcGoogleDriveAclRepository acls;
+    private final ActorId owner = new ActorId(java.util.UUID.randomUUID());
     private Fixture fixture;
 
     @BeforeEach
@@ -59,13 +61,13 @@ class PostgresGoogleDriveAclRepositoryTest {
         dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
-        sources = new JdbcSourceRepository(jdbc);
+        sources = new JdbcSourceRepository(jdbc, event -> {});
         sync = new JdbcSourceSyncRepository(jdbc);
         drive = new JdbcGoogleDriveSourceRepository(jdbc);
         credentials = new JdbcGoogleDriveCredentialRepository(jdbc, sources,
                 new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test"),
                 new JdbcSourceDocumentRepository(jdbc), sync);
-        acls = new JdbcGoogleDriveAclRepository(jdbc);
+        acls = new JdbcGoogleDriveAclRepository(jdbc, event -> {});
         fixture = source(tenant());
     }
 
@@ -417,13 +419,16 @@ class PostgresGoogleDriveAclRepositoryTest {
 
     private TenantId tenant() {
         var tenant = new TenantId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO actors(id) VALUES (:id) ON CONFLICT DO NOTHING").param("id", owner.value()).update();
         jdbc.sql("INSERT INTO tenants (id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'ACL fixture', 'ACTIVE', :reference)")
                 .param("id", tenant.value()).param("slug", "acl-" + tenant.value()).param("reference", "ACL-" + tenant.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant", tenant.value()).param("actor", owner.value()).update();
         return tenant;
     }
 
     private Fixture source(TenantId tenant) {
-        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, "Drive ACL fixture")));
+        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Drive ACL fixture", io.memoryos.connector.SourceAccess.RESTRICTED)));
         var credential = credential(tenant);
         jdbc.sql("UPDATE connectors SET connector_type = 'GOOGLE_DRIVE' WHERE tenant_id = :tenant AND id = :connector")
                 .param("tenant", tenant.value()).param("connector", pair.connectorId()).update();
@@ -442,7 +447,7 @@ class PostgresGoogleDriveAclRepositoryTest {
         try (var client = new GoogleDriveOAuthClient("fixture.apps.googleusercontent.com", "fixture-secret".getBytes(StandardCharsets.UTF_8));
                 var grant = new GoogleDriveAuthorizationService.Grant("fixture-subject", "fixture@example.test",
                         GoogleDriveAuthorizationService.REQUIRED_SCOPES, "fixture-refresh".getBytes(StandardCharsets.UTF_8))) {
-            return Objects.requireNonNull(tx.execute(_ -> credentials.create(tenant, "ACL fixture credential", grant, client)));
+            return Objects.requireNonNull(tx.execute(_ -> credentials.create(tenant, owner, "ACL fixture credential", grant, client)));
         }
     }
 

@@ -155,7 +155,7 @@ class PostgresSourceRunHistoryTest {
         var writes = new DefaultObjectWriteService(new JdbcStoredObjectRepository(jdbc), new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
         service = new DefaultConnectorSyncService(sync, sources, new JdbcGoogleDriveSourceRepository(jdbc),
-                new JdbcGoogleDriveAclRepository(jdbc), items, attempts,
+                new JdbcGoogleDriveAclRepository(jdbc, event -> {}), items, attempts,
                 mappings, connections, writes, manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
@@ -271,8 +271,12 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES (:id,'foreign','Foreign','ACTIVE','FOREIGN-HISTORY-TEST')")
                 .param("id", foreignTenant.value()).update();
-        var otherSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, "Other")));
-        var foreignSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(foreignTenant, "Foreign")));
+        var foreignOwner = new ActorId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO actors(id) VALUES (:id) ON CONFLICT DO NOTHING").param("id", foreignOwner.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant", foreignTenant.value()).param("actor", foreignOwner.value()).update();
+        var otherSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.RESTRICTED)));
+        var foreignSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(foreignTenant, foreignOwner, "Foreign", io.memoryos.connector.SourceAccess.RESTRICTED)));
         for (var pair : List.of(otherSource, foreignSource)) {
             var errorTenant = pair.sourceId().equals(otherSource.sourceId()) ? tenant : foreignTenant;
             jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id")
