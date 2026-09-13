@@ -30,3 +30,9 @@
 ### Shared verification boundary
 
 Browser checks use the real local frontend with fixture backend/model responses, not staging acceptance. Favicon failure is tested; live favicon availability is not guaranteed. No paid provider probes, backend/OCR changes, commit, PR, push or deployment in this slice. The Sources change does not claim Image-element integration, all-history conversation search or native Web adapters; remaining audit findings are in design.md and the Web increment.
+
+## Regenerate with another model and answer timing — 2026-09-13
+
+- Typecheck, lint, format and i18n audit pass; unit tests 40 files / 216 tests pass. `chat-transport.test.ts` asserts the live `createdAt` on the start chunk, terminal `finishedAt`, and `toUiMessages` timestamps.
+- Playwright (synthetic fixture, one worker): the new `chat-workspace.spec.ts` scenario opens the menu, regenerates with Qwen3.5 9B, sees version 2 / 2, confirms the fixture recorded that model, and checks the composer still shows GPT-5 mini. Timing is transparent until the answer is hovered, then reads `HH:MM · N giây`. A desktop screenshot of the open menu was reviewed. Full suites afterwards: `chat-workspace.spec.ts` 16/16 and `chat.spec.ts` 28/28 passed.
+- No live provider run. On touch screens the timing is not revealed (no hover); the full date remains in the tooltip for pointer users.

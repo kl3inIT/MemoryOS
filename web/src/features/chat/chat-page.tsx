@@ -236,11 +236,15 @@ function ChatConversation({
                 });
                 transport.recordModelSelection(data);
               }),
-            regenerate: (userMessageId, clientRequestId) =>
+            regenerate: (userMessageId, clientRequestId, modelConfigurationId) =>
               controller.mutate(async () => {
                 const { data } = await regenerateChatMessage({
                   path: { sessionId: session!.id, userMessageId },
-                  body: { clientRequestId, modelConfigurationId: model.choice.id, webSearch },
+                  body: {
+                    clientRequestId,
+                    modelConfigurationId: modelConfigurationId ?? model.choice.id,
+                    webSearch,
+                  },
                   headers: sameOriginMutationHeaders,
                   signal: AbortSignal.timeout(30000),
                   throwOnError: true,

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { fixtureModels } from "../fixtures/chat-data.ts";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) =>
@@ -730,4 +731,31 @@ test("keeps feedback drafts on failure, reloads the saved reaction and removes i
   expect(
     await (await page.request.get(`/api/chat/sessions/${session.id}/feedback`)).json(),
   ).toEqual([]);
+});
+
+test("regenerates with another catalog model and reveals answer timing on hover", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Regenerate models" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Compare models");
+  await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  const menu = page.getByRole("button", { name: "Tạo lại bằng mô hình khác" });
+  await expect(menu).toBeEnabled();
+  const timing = page.locator('[data-slot="message-timing"]');
+  await expect(timing).toHaveCSS("opacity", "0");
+  await page.getByText("Hello 👋", { exact: true }).hover();
+  await expect(timing).toHaveCSS("opacity", "1");
+  await expect(timing).toHaveText(/^\d{1,2}:\d{2} · \d+ giây$/);
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Qwen3.5 9B" }).click();
+  await expect(
+    page.getByRole("group", { name: "Phiên bản câu trả lời" }).getByText("2 / 2"),
+  ).toBeVisible();
+  const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
+  const qwen = fixtureModels.find((model) => model.displayName === "Qwen3.5 9B")!;
+  expect(stats.selectedModels.at(-1)).toBe(qwen.id);
+  await expect(page.getByRole("combobox", { name: "Chọn mô hình" })).toContainText("GPT-5 mini");
 });

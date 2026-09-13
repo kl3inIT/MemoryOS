@@ -10,6 +10,7 @@ import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 export type ChatUiMessage = UIMessage<{
   serverStatus?: ChatMessage["status"];
   createdAt?: string;
+  finishedAt?: string | null;
   sources?: ChatSource[];
   searchProgress?: SearchProgress;
   artifacts?: ChatArtifact[];
@@ -101,6 +102,7 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
     metadata: {
       serverStatus: message.status,
       createdAt: message.createdAt,
+      finishedAt: message.finishedAt,
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),
     },

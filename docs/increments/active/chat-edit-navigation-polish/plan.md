@@ -13,3 +13,11 @@
 - [x] Keep Onyx-style grouped Sources in the toolbar; reuse assistant-ui favicon/fallback and the existing reader callbacks.
 - [x] Verify mixed Web/document Sources on desktop/mobile and existing document citations.
 - [x] Record evidence and remaining component reuse gaps without claiming full parity.
+
+## assistant-ui elements follow-up
+
+- [x] Regenerate with another model from the authorized catalog; timestamps and duration on hover.
+- [ ] Dictation with the Web Speech adapter, hidden when unsupported.
+- [ ] Composer draft restore per conversation.
+- [ ] Quote a selected answer passage into the next question.
+- [ ] Image attachment thumbnails through the authorized file content.

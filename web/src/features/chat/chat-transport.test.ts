@@ -224,6 +224,10 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     });
     fixture(() => sse(delta + source + source + packet(3, "outcome", { status: "CANCELED" })));
     const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks[0]).toMatchObject({
+      type: "start",
+      messageMetadata: { serverStatus: "RUNNING", createdAt: expect.any(String) },
+    });
     expect(chunks.filter((chunk) => chunk.type === "message-metadata")).toEqual([
       {
         type: "message-metadata",
@@ -237,6 +241,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
         messageMetadata: {
           sources: [fixtureSource],
           artifacts: [],
+          finishedAt: expect.any(String),
           searchProgress: {},
           serverStatus: "CANCELED",
         },
@@ -253,6 +258,10 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(toUiMessages([{ ...row, sources: [fixtureSource] }])[0]?.metadata?.sources).toEqual([
       fixtureSource,
     ]);
+    expect(toUiMessages([row])[0]?.metadata).toMatchObject({
+      createdAt: row.createdAt,
+      finishedAt: row.finishedAt,
+    });
   });
   it.each([
     ["reversed range", { endOrdinal: 2 }],

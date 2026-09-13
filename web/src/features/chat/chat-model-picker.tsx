@@ -1,7 +1,4 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useQuery } from "@tanstack/react-query";
-import { Bot } from "lucide-react";
-import { OpenAILogo, ClaudeLogo, GeminiLogo } from "@/components/assistant-ui/elements/logos";
 import {
   ModelSelectorRoot,
   ModelSelectorTrigger,
@@ -13,8 +10,7 @@ import {
   ModelSelectorEmpty,
 } from "@/components/assistant-ui/elements/model-selector";
 import { Button } from "@/components/ui/button";
-import { listAvailableChatModels } from "@/lib/hey-api/sdk.gen";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { useChatModels } from "./chat-models";
 
 export function ChatModelPicker({
   sessionId,
@@ -29,31 +25,13 @@ export function ChatModelPicker({
 }) {
   const ui = useAppTranslation();
 
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const catalog = useQuery({
-    queryKey: ["chat-models", actorId, authorizationVersion, sessionId],
-    queryFn: async ({ signal }) =>
-      (await listAvailableChatModels({ query: { sessionId }, signal, throwOnError: true })).data,
-    retry: false,
-  });
+  const { catalog, models } = useChatModels(sessionId);
   if (catalog.isError)
     return (
       <Button size="sm" prominence="internal" onClick={() => void catalog.refetch()}>
         {ui("Tải lại mô hình")}
       </Button>
     );
-  const models = (catalog.data ?? []).flatMap((model) =>
-    model.id
-      ? [
-          {
-            id: model.id,
-            name: model.displayName || model.modelName || ui("Model"),
-            keywords: [model.modelName ?? "", model.providerName ?? ""],
-            icon: <ModelLogo modelName={model.modelName ?? ""} />,
-          },
-        ]
-      : [],
-  );
   // Undefined remains backend inheritance, not a synthetic selectable model.
   const inheritedId = catalog.data?.find((model) => model.isDefault)?.id;
   const selectedId = value ?? inheritedId;
@@ -87,13 +65,4 @@ export function ChatModelPicker({
       </ModelSelectorContent>
     </ModelSelectorRoot>
   );
-}
-
-function ModelLogo({ modelName }: { modelName: string }) {
-  // Branding is display-only; configuration UUIDs still select and authorize the model.
-  const name = modelName.split("/").at(-1)?.toLowerCase() ?? "";
-  if (/^(gpt-|o\d)/.test(name)) return <OpenAILogo className="size-4" />;
-  if (name.startsWith("claude-")) return <ClaudeLogo className="size-4" />;
-  if (name.startsWith("gemini-")) return <GeminiLogo className="size-4" />;
-  return <Bot aria-hidden="true" className="size-4" />;
 }

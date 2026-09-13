@@ -67,6 +67,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   private reader?: AbortController;
   private runId?: string;
   private runParentId?: string;
+  private runCreatedAt?: string;
   private stopRequest?: Promise<void>;
   private sending = false;
   private stopWhenAccepted = false;
@@ -90,6 +91,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.webSearch = readWebPreference(preferenceOwner, session?.id);
     this.runId = runningMessage?.id;
     this.runParentId = runningMessage?.parentMessageId ?? undefined;
+    this.runCreatedAt = runningMessage?.createdAt;
   }
 
   disconnect() {
@@ -108,6 +110,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     const running = messages.find((message) => message.status === "RUNNING");
     this.runId = running?.id;
     this.runParentId = running?.parentMessageId ?? undefined;
+    this.runCreatedAt = running?.createdAt;
   }
 
   async sendMessages(options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0]) {
@@ -169,6 +172,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         throwOnError: true,
       });
       this.runId = data.assistantMessageId;
+      this.runCreatedAt = new Date().toISOString();
       this.onModelAccepted?.(data);
       this.runParentId = data.userMessageId;
       if (this.stopWhenAccepted) {
@@ -253,7 +257,13 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let searchProgress: SearchProgress = {};
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
-    yield { type: "start", messageId: runId, messageMetadata: { serverStatus: "RUNNING" } };
+    const createdAt = this.runCreatedAt;
+    let finishedAt: string | undefined;
+    yield {
+      type: "start",
+      messageId: runId,
+      messageMetadata: { serverStatus: "RUNNING", ...(createdAt && { createdAt }) },
+    };
     yield { type: "text-start", id: runId };
     try {
       for (let attempt = 0; attempt < 3 && !outcome && !fallback; attempt++) {
@@ -364,6 +374,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             const delta = message.content.slice(text.length);
             if (delta) yield { type: "text-delta", id: runId, delta };
             outcome = message.status;
+            finishedAt = message.finishedAt ?? undefined;
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
           } else await pause(2000, signal);
@@ -388,7 +399,14 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       }
       yield {
         type: "message-metadata",
-        messageMetadata: { serverStatus: outcome, sources, artifacts, searchProgress: {} },
+        messageMetadata: {
+          serverStatus: outcome,
+          // A terminal SSE outcome has no saved timestamp; history after reload is server-authored.
+          finishedAt: finishedAt ?? new Date().toISOString(),
+          sources,
+          artifacts,
+          searchProgress: {},
+        },
       };
       yield { type: "text-end", id: runId };
       this.runId = undefined;

@@ -35,6 +35,7 @@ import {
 import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
+import { ChatMessageTiming } from "./chat-message-timing";
 
 export function ChatThread({
   modelPicker,
@@ -213,7 +214,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
       state.message.status?.type === "incomplete" && state.message.status.reason === "cancelled",
   );
   return (
-    <MessagePrimitive.Root className="min-w-0 [overflow-wrap:anywhere]">
+    <MessagePrimitive.Root className="group/message min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
         <ChatSearchStatus />
         <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
@@ -247,6 +248,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
           </AuiIf>
           <ChatSources />
           {!readOnly && <ChatMessageActions role="assistant" />}
+          <ChatMessageTiming />
         </ActionBarPrimitive.Root>
       </ChatSourcesProvider>
     </MessagePrimitive.Root>
