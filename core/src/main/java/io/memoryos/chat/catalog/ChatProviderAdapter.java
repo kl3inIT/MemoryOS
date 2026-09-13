@@ -12,6 +12,9 @@ public interface ChatProviderAdapter {
     /** Protocol support for forcing a named tool on the first request, not native Web search. */
     default boolean supportsRequiredToolChoice() { return false; }
 
+    /** Whether this protocol can host provider-side Web search at all; per-model activation stays explicit. */
+    default boolean nativeWebSearch() { return false; }
+
     /** Explicit per-model declaration of provider-hosted Web search; never inferred from a model name. */
     default boolean supportsNativeWebSearch(ModelSettings settings) { return false; }
 

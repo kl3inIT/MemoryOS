@@ -9,6 +9,7 @@ External providers: Brave, Tavily, Exa, Serper, Google PSE and SearXNG. Content 
 ## Consumer contract
 
 Administrators configure tenant-owned connections and defaults using existing model-management authority. Members see availability, not secrets. Search connections are admin-controlled endpoints; arbitrary pages from a user/model use a separate SSRF-safe public reader. Provider credentials never accompany page requests. Limits remain server defaults, not a new UI settings matrix.
+Every provider connection accepts an optional custom endpoint that replaces the provider's default base URL (SearXNG requires one); the same HTTP(S)/no-credentials/no-query validation applies. This supports routing a provider's protocol through an internal gateway.
 
 Send/Edit/Regenerate carry webSearch off/auto/required. Missing means off. The choice is persisted in command identity so retries with changed intent conflict. Internal searchEnabled remains unchanged. Resolve configuration once per turn and never mutate pooled model clients. Required needs real enforcement, not a prompt-only promise. Unsupported modes fail before execution.
 
@@ -65,6 +66,7 @@ The Responses model receives the turn's `ChatEvidence` and `Consumer<ChatSearchE
 - Command identity stays `off|auto|required` plus `modelConfigurationId`; no new enum value or column. A later administrator edit of the model option does not make replay conflict. This is accepted.
 - `required` uses `tool_choice: {type: "web_search"}` on the first cycle. The guard's required-seen signal accepts a native `web_search_call`. `ChatTurnService` checks the adapter's declared support instead of `instanceof OpenAiChatModel`.
 - Native search calls are counted in bounded metrics and events. Cost remains unknown unless configured; missing values are not recorded as zero.
+- The Web settings page exposes native search as a per-model switch on providers whose adapter descriptor declares `nativeWebSearch`; the toggle writes `options.webSearch` through the existing model update API. Connection save/test failures render typed danger messages via the shared problem presentation.
 
 ### Verification
 

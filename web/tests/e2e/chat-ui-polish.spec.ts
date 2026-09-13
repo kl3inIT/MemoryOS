@@ -104,18 +104,21 @@ for (const width of [1440, 390]) {
     await expect(reader.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(3);
     await expect(reader).toContainText("Trình đọc MemoryOS");
     await page.screenshot({ path: `../output/playwright/web-settings-search-${width}.png` });
+    const dialog = page.getByRole("dialog");
     const exaSearch = search.getByRole("region", { name: "Exa", exact: true });
     await exaSearch.getByRole("button", { name: "Kết nối", exact: true }).click();
-    await exaSearch.getByLabel("Khóa API").fill("fixture-not-a-secret");
-    await exaSearch.getByRole("button", { name: "Lưu", exact: true }).click();
+    await dialog.getByLabel("Khóa API").fill("fixture-not-a-secret");
+    await dialog.getByRole("button", { name: "Lưu", exact: true }).click();
+    await expect(dialog).toBeHidden();
     const exaReader = reader.getByRole("region", { name: "Exa", exact: true });
     await exaReader.getByRole("button", { name: "Cấu hình", exact: true }).click();
-    await expect(exaReader.getByLabel("Khóa API")).toHaveValue("");
-    await expect(exaReader.getByLabel("Khóa API")).toHaveAttribute(
+    await expect(dialog.getByLabel("Khóa API")).toHaveValue("");
+    await expect(dialog.getByLabel("Khóa API")).toHaveAttribute(
       "placeholder",
       "Đã lưu khóa; để trống để giữ nguyên",
     );
-    await exaReader.getByRole("button", { name: "Lưu", exact: true }).click();
+    await dialog.getByRole("button", { name: "Lưu", exact: true }).click();
+    await expect(dialog).toBeHidden();
     expect(saves.map((save) => save.credentialAction)).toEqual(["REPLACE", "KEEP"]);
     await reader.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `../output/playwright/web-settings-reader-${width}.png` });

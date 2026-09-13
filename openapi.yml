@@ -9691,6 +9691,8 @@ components:
           - REQUIRED
           - OPTIONAL
           - NONE
+        nativeWebSearch:
+          type: boolean
     AvailableModel:
       type: object
       properties:

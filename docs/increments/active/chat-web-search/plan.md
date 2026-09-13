@@ -22,6 +22,7 @@
   - [x] Required mode via hosted `tool_choice`; native turns skip the external connection and `OpenAiChatModel` checks.
   - [x] Composer: a native-capable model enables Web without an external connection. The model-administration UI does not yet edit `webSearch` (MEM-77).
   - [x] SSE fixture tests (hosted search, function-call continuation, required, failure, final cycle, non-Web delegation); IDE inspection and focused gates.
+  - [x] Web settings: adapter descriptor exposes `nativeWebSearch`; the page lists models on native-capable providers with a per-model `webSearch` switch, and connection save/test failures render typed danger messages.
   - [ ] Owner-run paid acceptance with a real OpenAI key.
   - [ ] Gemini and Anthropic native adapters (open).
 - [x] Generate API contract/client; inspect changed Java and run focused contract/runtime checks.

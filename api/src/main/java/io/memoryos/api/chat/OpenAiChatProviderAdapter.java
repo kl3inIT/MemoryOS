@@ -38,6 +38,7 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     @Override public String type() { return "openai"; }
     @Override public boolean supportsRequiredToolChoice() { return true; }
     @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.REQUIRED; }
+    @Override public boolean nativeWebSearch() { return true; }
 
     @Override public void validate(String baseUrl, String modelName, ModelSettings settings) {
         ModelCatalogService.validateEndpoint(baseUrl);
