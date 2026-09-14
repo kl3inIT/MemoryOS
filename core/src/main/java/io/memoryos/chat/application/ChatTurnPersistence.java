@@ -271,10 +271,18 @@ public class ChatTurnPersistence {
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts) {
+        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, io.memoryos.chat.ChatActivity.EMPTY);
+    }
+
+    @Transactional
+    public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
+                          io.memoryos.chat.ChatActivity activity) {
         if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000 || sources.size() > 24)
             throw ChatException.invalid("Invalid terminal outcome.");
         if (artifacts.size() > 3) throw ChatException.invalid("Invalid artifact count.");
-        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts);
+        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity);
         var saved = chats.control(assistant);
         return new TerminalOutcome(saved.status(), saved.failureCode(), chats.message(session, assistant).map(message -> !message.artifacts().isEmpty()).orElse(false));
     }

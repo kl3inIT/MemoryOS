@@ -5,7 +5,7 @@ import com.embabel.agent.api.streaming.StreamingPromptRunnerBuilder;
 import com.embabel.agent.core.AgentProcessRepository;
 import com.embabel.agent.core.Budget;
 import com.embabel.agent.api.tool.Tool;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatActivityEvent;
 import io.memoryos.chat.tools.SearchTool;
 import io.memoryos.chat.tools.ChatSearchProperties;
 import io.memoryos.retrieval.DocumentSearchService;
@@ -88,7 +88,7 @@ public final class ChatModelExecutor {
     }
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
-            Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatSearchEvent> events,
+            Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatActivityEvent> events,
             Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
@@ -97,10 +97,10 @@ public final class ChatModelExecutor {
         var process = context.getProcessContext().getAgentProcess();
         int maxOutput = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
-                && metadata.getChatModel() instanceof NativeWebSearch;
+                && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
-        if (nativeWeb) delegate = ((NativeWebSearch) delegate).forTurn(new NativeWebSearch.Turn(setup.evidence(), events,
-                setup.webSearch() == io.memoryos.chat.WebSearchMode.required, checkActive));
+        if (delegate instanceof ChatModelTurns turns) delegate = turns.forTurn(new ChatModelTurns.Turn(setup.evidence(), events, nativeWeb,
+                nativeWeb && setup.webSearch() == io.memoryos.chat.WebSearchMode.required, checkActive));
         var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
                 selected.finalRequest());
@@ -114,7 +114,9 @@ public final class ChatModelExecutor {
         var fileWork = new io.memoryos.retrieval.SearchTasks.Scope(searchLimits.cleanupTimeout());
         var fileCancellation = cancellation.subscribe(ignored -> fileWork.cancel());
         Runnable fileActive = () -> { fileWork.checkActive(); guard.checkActive(); };
+        var activity = new io.memoryos.chat.ChatToolActivity(events);
         try {
+            setup.evidence().trackCalls(activity::current);
             setup.evidence().publishTo(event -> { fileActive.run(); events.accept(event); });
             guard.evidenceAvailable(setup.evidence()::hasEvidence);
             var nativeService = selected.withModel(guard);
@@ -134,7 +136,7 @@ public final class ChatModelExecutor {
             if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
-                        fileWork, setup.deadline(), events, guard::availableContextTokens, selected.tokens());
+                        fileWork, setup.deadline(), events::accept, guard::availableContextTokens, selected.tokens(), activity);
                 runner = runner.withTools(Tool.fromInstance(webTools));
                 guard.webSiteFilter(setup.webAccess().search() != null && setup.webAccess().search().provider().supportsSiteFilter());
                 if (setup.webSearch() == io.memoryos.chat.WebSearchMode.required) guard.requireWebSearch();
@@ -148,9 +150,10 @@ public final class ChatModelExecutor {
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence());
-                runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence(), activity);
+                runner = runner.withTools(Tool.fromInstance(searchTool));
             }
+            if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             Duration remaining = Duration.between(Instant.now(), setup.deadline());
             if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
             new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()

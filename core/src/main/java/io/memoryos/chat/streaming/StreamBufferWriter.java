@@ -1,7 +1,7 @@
 package io.memoryos.chat.streaming;
 
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatToolEvent;
 import tools.jackson.databind.ObjectMapper;
 import io.memoryos.chat.ChatMessage.Status;
 
@@ -38,10 +38,10 @@ public final class StreamBufferWriter {
     }
 
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatSearchEvent search, boolean hasArtifacts) {
+                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatSearchEvent search) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, search, false);
+                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, false);
         }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode) {
@@ -69,8 +69,21 @@ public final class StreamBufferWriter {
     }
 
     public synchronized void append(UUID id, String text) {
+        appendPending(id, "text-delta", text);
+    }
+
+    /** Reasoning shares the answer's chunking; a change between text and reasoning flushes the pending chunk first. */
+    public synchronized void reasoning(UUID id, String text) {
+        appendPending(id, "reasoning", text);
+    }
+
+    private void appendPending(UUID id, String type, String text) {
         var stream = require(id);
         if (stream.done) return;
+        if (!stream.pendingType.equals(type)) {
+            flush(stream);
+            stream.pendingType = type;
+        }
         for (int offset = 0; offset < text.length(); ) {
             int point = text.codePointAt(offset);
             int bytes = point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
@@ -98,11 +111,11 @@ public final class StreamBufferWriter {
         notifyAll();
     }
 
-    public synchronized void search(UUID id, ChatSearchEvent event) {
+    public synchronized void tool(UUID id, ChatToolEvent event) {
         var stream = require(id);
         if (stream.done) return;
         flush(stream);
-        publish(stream, new Event(id, ++stream.sequence, "search", null, null, null, event));
+        publish(stream, new Event(id, ++stream.sequence, "tool", null, null, null, event));
     }
 
     public synchronized void flush() {
@@ -158,12 +171,12 @@ public final class StreamBufferWriter {
         stream.pending.setLength(0);
         stream.pendingBytes = 0;
         stream.flushedAt = millis.getAsLong();
-        publish(stream, new Event(stream.id, ++stream.sequence, "text-delta", text, null, null));
+        publish(stream, new Event(stream.id, ++stream.sequence, stream.pendingType, text, null, null));
     }
 
     private void publish(Stream stream, Event event) {
         int bytes = 256 + (event.text() == null ? 0 : event.text().getBytes(StandardCharsets.UTF_8).length)
-                + (event.search() == null ? 0 : JSON.writeValueAsBytes(event.search()).length);
+                + (event.tool() == null ? 0 : JSON.writeValueAsBytes(event.tool()).length);
         stream.chunks.addLast(new Chunk(event, bytes, millis.getAsLong()));
         stream.bytes += bytes;
         for (var reader : new ArrayList<>(stream.readers)) {
@@ -202,6 +215,7 @@ public final class StreamBufferWriter {
         final ArrayDeque<Chunk> chunks = new ArrayDeque<>();
         final Set<Reader> readers = new HashSet<>();
         final StringBuilder pending = new StringBuilder();
+        String pendingType = "text-delta";
         int bytes;
         int pendingBytes;
         long sequence;

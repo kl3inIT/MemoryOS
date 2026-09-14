@@ -83,7 +83,7 @@ class OpenApiConfiguration {
                         configureNullableProperty(components, "ChatBranch", property, new StringSchema().format("uuid"));
                     for (String schema : List.of("Feedback", "FeedbackInput"))
                         configureNullableProperty(components, schema, "positive", new BooleanSchema());
-                    configureNullableProperty(components, "SearchEvent", "source",
+                    configureNullableProperty(components, "ToolEvent", "source",
                             new Schema<>().$ref("#/components/schemas/ChatSource"));
                     configureNullableProperty(components, "CurrentIdentity", "tenant",
                             new Schema<>().$ref("#/components/schemas/CurrentTenant"));

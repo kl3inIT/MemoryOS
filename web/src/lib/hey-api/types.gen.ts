@@ -1011,6 +1011,25 @@ export type SharedSession = {
     rootMessageId?: string;
 };
 
+export type ActivityStep = {
+    position?: number;
+    toolCallId?: string;
+    toolName?: string;
+    status?: 'RUNNING' | 'COMPLETED' | 'FAILED';
+    startedAt?: string;
+    durationMs?: number;
+    textOffset?: number;
+    queries?: Array<string>;
+    filters?: SearchFilters;
+    documents?: Array<ReadingDocument>;
+    citations?: Array<number>;
+};
+
+export type ChatActivity = {
+    steps?: Array<ActivityStep>;
+    reasoning?: Array<ReasoningSegment>;
+};
+
 export type ChatArtifact = {
     id?: string;
     title?: string;
@@ -1037,6 +1056,7 @@ export type ChatMessage = {
     sources: Array<ChatSource>;
     files: Array<ChatFileDescriptor>;
     artifacts: Array<ChatArtifact>;
+    activity: ChatActivity;
 };
 
 export type ChatSource = {
@@ -1062,9 +1082,34 @@ export type FileLocation = {
     ordinal?: number;
 };
 
+export type Interval = {
+    from?: string;
+    to?: string;
+};
+
 export type Provenance = {
     ordinal: number;
     provenanceJson: string;
+};
+
+export type ReadingDocument = {
+    documentId?: string;
+    generation?: string;
+    title?: string;
+    startOrdinal?: number;
+    endOrdinal?: number;
+};
+
+export type ReasoningSegment = {
+    position?: number;
+    textOffset?: number;
+    text?: string;
+};
+
+export type SearchFilters = {
+    sources?: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    created?: Interval;
+    updated?: Interval;
 };
 
 export type WebLocation = {
@@ -1092,38 +1137,27 @@ export type ResetEvent = {
     reason: 'BUFFER_MISSING' | 'BUFFER_GAP' | 'BUFFER_EXPIRED';
 };
 
-export type Interval = {
-    from?: string;
-    to?: string;
-};
-
 export type QueryPlan = {
     queries?: Array<string>;
     filters?: SearchFilters;
 };
 
-export type ReadingDocument = {
-    documentId?: string;
-    generation?: string;
-    title?: string;
-    startOrdinal?: number;
-    endOrdinal?: number;
-};
-
-export type SearchEvent = {
+export type ToolEvent = {
     assistantMessageId: string;
     sequence: number;
     toolCallId: string;
+    toolName: string;
     stage: 'STARTED' | 'SEARCHING' | 'SELECTING' | 'EXPANDING' | 'SOURCE' | 'COMPLETED' | 'FAILED';
     source: ChatSource | null;
     search: QueryPlan | null;
     documents: Array<ReadingDocument>;
+    durationMs: number | null;
 };
 
-export type SearchFilters = {
-    sources?: Array<'FILE' | 'GOOGLE_DRIVE'>;
-    created?: Interval;
-    updated?: Interval;
+export type ReasoningEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    text: string;
 };
 
 export type ChatBranch = {
@@ -5616,7 +5650,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | SearchEvent;
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

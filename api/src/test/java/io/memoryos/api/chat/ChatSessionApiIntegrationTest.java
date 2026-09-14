@@ -513,8 +513,8 @@ class ChatSessionApiIntegrationTest {
         verify(chunks, never()).read(any(), any(), any());
         try (var reader = streams.subscribe(UUID.fromString(id), 0)) {
             var events = reader.read().events();
-            assertTrue(events.stream().anyMatch(e -> e.search() != null && e.search().source() != null
-                    && e.search().toolCallId().equals("search-1") && e.search().source().citationId() == 1));
+            assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
+                    && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
             assertEquals("outcome", events.getLast().type());
         }
     }

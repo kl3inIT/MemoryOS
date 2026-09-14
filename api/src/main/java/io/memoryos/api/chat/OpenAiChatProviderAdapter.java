@@ -28,7 +28,7 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     // O200K's vocabulary is immutable and large; share it across model configurations and revisions.
     private static final JTokkitTokenCountEstimator TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
-    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort", "webSearch");
+    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort", "webSearch", "reasoningSummary");
     private final ObservationRegistry observations;
     private final MeterRegistry meters;
     public OpenAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
@@ -64,6 +64,9 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 || !(helperReasoning instanceof String)
                 || !Set.of("none", "minimal", "low").contains(helperReasoning)))
             throw ChatException.invalid("Unsupported helper reasoning effort for this model.");
+        Object summary = options.get("reasoningSummary");
+        if (summary != null && (!"auto".equals(summary) || !settings.capabilities().reasoning()))
+            throw ChatException.invalid("Reasoning summaries require the value auto and a reasoning model.");
         Object webSearch = options.get("webSearch");
         if (webSearch != null && (!"native".equals(webSearch) || !settings.capabilities().toolCalling()))
             throw ChatException.invalid("Native Web search requires the value native and a tool-capable model.");
@@ -86,8 +89,11 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 var model = OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(async)
                         .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                         .observationRegistry(observations).meterRegistry(meters).build();
-                ChatModel selected = supportsNativeWebSearch(settings)
-                        ? new OpenAiResponsesChatModel(model, async, settings.capabilities().reasoning(), meters) : model;
+                // Hosted Web search and displayable reasoning summaries are Responses API features.
+                boolean hostedSearch = supportsNativeWebSearch(settings);
+                boolean summaries = "auto".equals(settings.options().get("reasoningSummary"));
+                ChatModel selected = hostedSearch || summaries
+                        ? new OpenAiResponsesChatModel(model, async, settings.capabilities().reasoning(), hostedSearch, summaries, meters) : model;
                 return new Client(binding(modelName, settings, selected), () -> { try { async.close(); } finally { sync.close(); } });
             } catch (RuntimeException | Error failure) { async.close(); throw failure; }
         } catch (RuntimeException | Error failure) { sync.close(); throw failure; }

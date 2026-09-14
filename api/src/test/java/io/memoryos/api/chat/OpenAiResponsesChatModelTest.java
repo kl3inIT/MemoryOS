@@ -6,8 +6,10 @@ import static org.mockito.Mockito.*;
 import com.openai.client.okhttp.OpenAIOkHttpClientAsync;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.chat.ChatEvidence;
-import io.memoryos.chat.ChatSearchEvent;
-import io.memoryos.chat.execution.NativeWebSearch;
+import io.memoryos.chat.ChatActivityEvent;
+import io.memoryos.chat.ChatReasoningDelta;
+import io.memoryos.chat.ChatToolEvent;
+import io.memoryos.chat.execution.ChatModelTurns;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -74,7 +76,7 @@ class OpenAiResponsesChatModelTest {
                 event("response.output_item.done", Map.of("output_index", 1, "sequence_number", 5, "item", message("Version 42 was released."))),
                 completed(List.of(message("Version 42 was released.")))));
         var evidence = new ChatEvidence();
-        var events = new ArrayList<ChatSearchEvent>();
+        var events = new ArrayList<ChatActivityEvent>();
         evidence.publishTo(events::add);
         var model = turnModel(evidence, events, false, false);
 
@@ -93,10 +95,52 @@ class OpenAiResponsesChatModelTest {
         assertTrue(request.path("tool_choice").isMissingNode());
         assertEquals("https://example.com/news", evidence.snapshot().getFirst().web().url());
         assertEquals("Release", evidence.snapshot().getFirst().title());
-        assertEquals(List.of(ChatSearchEvent.Stage.STARTED, ChatSearchEvent.Stage.SEARCHING, ChatSearchEvent.Stage.COMPLETED, ChatSearchEvent.Stage.SOURCE),
-                events.stream().map(ChatSearchEvent::stage).toList());
-        assertEquals(List.of("release notes"), events.get(1).search().queries());
+        var tools = events.stream().map(ChatToolEvent.class::cast).toList();
+        assertEquals(List.of(ChatToolEvent.Stage.STARTED, ChatToolEvent.Stage.SEARCHING, ChatToolEvent.Stage.COMPLETED, ChatToolEvent.Stage.SOURCE),
+                tools.stream().map(ChatToolEvent::stage).toList());
+        assertEquals("web_search", tools.getFirst().toolName());
+        assertEquals(List.of("release notes"), tools.get(1).search().queries());
+        assertTrue(requests.getFirst().path("reasoning").path("summary").isMissingNode());
         assertEquals(1.0, meters.counter("memoryos.chat.native_web_search.calls", "provider", "openai", "status", "completed").count());
+    }
+
+    @Test
+    void reasoningSummariesStreamAsReasoningWithoutHostedSearch() {
+        bodies.add(sse(
+                event("response.reasoning_summary_part.added", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 0, "sequence_number", 1,
+                        "part", Map.of("type", "summary_text", "text", ""))),
+                event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 0,
+                        "delta", "Checking the policy.", "sequence_number", 2)),
+                event("response.reasoning_summary_part.added", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 1, "sequence_number", 3,
+                        "part", Map.of("type", "summary_text", "text", ""))),
+                event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 1,
+                        "delta", "Answering.", "sequence_number", 4)),
+                event("response.output_text.delta", Map.of("item_id", "msg_1", "output_index", 1, "content_index", 0, "delta", "Twelve days.", "sequence_number", 5, "logprobs", List.of())),
+                completed(List.of(message("Twelve days.")))));
+        var events = new ArrayList<ChatActivityEvent>();
+        var responses = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, meters);
+        assertFalse(responses.nativeWebSearch());
+        var model = responses.forTurn(new ChatModelTurns.Turn(new ChatEvidence(), events::add, false, false, () -> {}));
+
+        var output = model.stream(new Prompt(List.of(new UserMessage("Leave?")), options(true))).collectList().block();
+
+        assertEquals("Twelve days.", text(output));
+        assertEquals("Checking the policy.\n\nAnswering.", events.stream().map(event -> ((ChatReasoningDelta) event).text()).reduce("", String::concat));
+        var request = requests.getFirst();
+        assertEquals("auto", request.path("reasoning").path("summary").asString());
+        assertEquals(List.of("function"), types(request.path("tools")));
+    }
+
+    @Test
+    void turnWithoutWebOrSummariesUsesTheChatCompletionsDelegate() {
+        var completions = mock(ChatModel.class);
+        var prompt = new Prompt("Question", options(true));
+        when(completions.stream(prompt)).thenReturn(Flux.empty());
+        new OpenAiResponsesChatModel(completions, client, true, true, false, meters)
+                .forTurn(new ChatModelTurns.Turn(new ChatEvidence(), ignored -> {}, false, false, () -> {}))
+                .stream(prompt).collectList().block();
+        verify(completions).stream(prompt);
+        assertTrue(requests.isEmpty());
     }
 
     @Test
@@ -173,9 +217,9 @@ class OpenAiResponsesChatModelTest {
         assertTrue(requests.isEmpty());
     }
 
-    private ChatModel turnModel(ChatEvidence evidence, List<ChatSearchEvent> events, boolean required, boolean reasoning) {
+    private ChatModel turnModel(ChatEvidence evidence, List<ChatActivityEvent> events, boolean required, boolean reasoning) {
         return new OpenAiResponsesChatModel(mock(ChatModel.class), client, reasoning, meters)
-                .forTurn(new NativeWebSearch.Turn(evidence, events::add, required, () -> {}));
+                .forTurn(new ChatModelTurns.Turn(evidence, events::add, true, required, () -> {}));
     }
 
     private static OpenAiChatOptions options(boolean tools) {
