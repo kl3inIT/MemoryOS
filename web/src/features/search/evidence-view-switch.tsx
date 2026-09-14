@@ -22,12 +22,20 @@ const trigger =
 const panel = "flex min-h-0 flex-1 flex-col outline-none";
 
 /**
- * Passages stay the default evidence view. When the original is a PDF with recorded page provenance,
- * a segmented tab list switches to the cited pages with their regions highlighted.
+ * When the original is a PDF with recorded page provenance, a segmented tab list switches between passages and
+ * the cited pages with their regions highlighted. Callers choose which view opens first; passages by default.
  */
-export function EvidenceViewSwitch({ pdf, children }: { pdf?: PdfEvidence; children: ReactNode }) {
+export function EvidenceViewSwitch({
+  pdf,
+  defaultView = "passages",
+  children,
+}: {
+  pdf?: PdfEvidence;
+  defaultView?: "passages" | "pdf";
+  children: ReactNode;
+}) {
   const ui = useAppTranslation();
-  const [view, setView] = useState("passages");
+  const [view, setView] = useState<string>(defaultView);
   if (!pdf) return <>{children}</>;
   return (
     <Tabs.Root value={view} onValueChange={setView} className={panel}>

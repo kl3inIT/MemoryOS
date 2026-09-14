@@ -3,10 +3,13 @@ import { Check, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { DropdownMenu } from "radix-ui";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type SearchFilterOption = {
   value: string;
   label: string;
+  /** Result count shown after the label, when the option has one. */
+  count?: number;
 };
 
 type SearchFilterMenuProps = {
@@ -15,9 +18,17 @@ type SearchFilterMenuProps = {
   options: readonly SearchFilterOption[];
   icon: ReactNode;
   onChange: (value: string) => void;
+  className?: string;
 };
 
-export function SearchFilterMenu({ label, value, options, icon, onChange }: SearchFilterMenuProps) {
+export function SearchFilterMenu({
+  label,
+  value,
+  options,
+  icon,
+  onChange,
+  className,
+}: SearchFilterMenuProps) {
   const ui = useAppTranslation();
 
   const selected = options.find((option) => option.value === value) ?? options[0];
@@ -30,7 +41,7 @@ export function SearchFilterMenu({ label, value, options, icon, onChange }: Sear
           size="sm"
           prominence="tertiary"
           aria-label={ui("{{v1}}: {{v2}}", { v1: label, v2: ui(selected.label) })}
-          className="max-w-full gap-2 px-2.5 data-[state=open]:bg-surface-subtle"
+          className={cn("max-w-full gap-2 px-2.5 data-[state=open]:bg-surface-subtle", className)}
         >
           <span className="grid size-4 shrink-0 place-items-center text-content-muted" aria-hidden>
             {icon}
@@ -61,6 +72,11 @@ export function SearchFilterMenu({ label, value, options, icon, onChange }: Sear
                   <Check className="size-3.5" aria-hidden="true" />
                 </DropdownMenu.ItemIndicator>
                 {ui(option.label)}
+                {option.count === undefined ? null : (
+                  <span className="ml-auto pl-4 font-secondary-action text-content-muted tabular-nums">
+                    {option.count}
+                  </span>
+                )}
               </DropdownMenu.RadioItem>
             ))}
           </DropdownMenu.RadioGroup>
