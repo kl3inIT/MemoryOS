@@ -42,6 +42,14 @@ class CoreDependencyRulesTest {
                 .check(coreClasses);
     }
 
+    @Test
+    void nativeTokenizerImplementationRemainsInApiComposition() {
+        noClasses().that().resideInAPackage("io.memoryos..")
+                .should().dependOnClassesThat().resideInAnyPackage("ai.djl..")
+                .because("core retains only the Spring TokenCountEstimator boundary")
+                .check(coreClasses);
+    }
+
     private static ArchRule persistencePackageIsOwnedBy(String capability) {
         String ownerPackage = "io.memoryos." + capability + "..";
         String persistencePackage = "io.memoryos." + capability + ".persistence..";

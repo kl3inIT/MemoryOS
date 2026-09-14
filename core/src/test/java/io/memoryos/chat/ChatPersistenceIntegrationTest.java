@@ -23,6 +23,13 @@ import io.memoryos.iam.tenant.TenantId;
 import java.util.Map;
 import java.util.Set;
 import static org.mockito.Mockito.*;
+import io.memoryos.chat.execution.ChatModelBinding;
+import io.memoryos.chat.execution.ChatRequestPolicy;
+import io.memoryos.chat.execution.ChatTurnSetup;
+import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import com.knuddels.jtokkit.api.EncodingType;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
+import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.ActorLanguageService;
 import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
@@ -252,9 +259,24 @@ class ChatPersistenceIntegrationTest {
         assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
                 "Question ".repeat(500), Duration.ofMinutes(2), 100));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
+        jdbc.sql("UPDATE persona SET instructions = 'Answer' WHERE id = :id").param("id", session.personaId()).update();
+        var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+        var policy = ChatRequestPolicy.hosted(tokens, p -> p);
+        var binding = new ChatModelBinding(new SpringAiLlmService("fixture", "fixture",
+                org.mockito.Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false, false);
+        String contribution = "Current date: 2026-09-11\n";
+        String instructions = ChatTurnSetup.instructions("Answer", contribution);
+        int raw = tokens.estimate(instructions) + tokens.estimate("Question");
+        var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding, null, contribution);
+        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
+                "Question", Duration.ofMinutes(2), raw, selection));
+        assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET model = 'obsolete-model' WHERE id = :id").param("id", session.personaId()).update();
-        var reservation = turns.reserve(owner, session.id(), session.rootMessageId(), request, "Question", Duration.ofMinutes(2), 32000);
+        var reservation = turns.reserve(owner, session.id(), session.rootMessageId(), request, "Question", Duration.ofMinutes(2), raw + 64, selection);
         assertEquals("obsolete-model", turns.loadContext(owner, session.id(), reservation).model());
+        var setup = ChatTurnSetup.resolve(session.id(), reservation.assistantMessageId(),
+                turns.loadContext(owner, session.id(), reservation), raw + 64, binding, contribution);
+        assertEquals(List.of(instructions, "Question"), setup.messages().stream().map(com.embabel.chat.Message::getContent).toList());
     }
 
     @AfterEach

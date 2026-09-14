@@ -48,15 +48,18 @@ export function acceptCurrentIdentity(queryClient: QueryClient, identity: Curren
   ]);
   const acceptedFingerprint = acceptedSessionFingerprints.get(queryClient);
   if (acceptedFingerprint !== undefined && acceptedFingerprint !== nextFingerprint) {
+    // Publish authority before resetting observers; otherwise an old-session
+    // render can recreate private queries while the identity fetch is settling.
+    queryClient.setQueryData(currentIdentityQueryKey, identity);
     purgePrivateClientState(queryClient);
   }
   acceptedSessionFingerprints.set(queryClient, nextFingerprint);
 }
 
-function handleAuthorizationFailure(
+export function handleAuthorizationFailure(
   queryClient: QueryClient,
   error: unknown,
-  currentIdentityFailed: boolean,
+  currentIdentityFailed = false,
 ) {
   if (isUnauthenticated(error)) {
     acceptedSessionFingerprints.delete(queryClient);

@@ -44,6 +44,7 @@ export const vietnameseUi: Record<string, string> = {
   "Tự động dùng Web": "Use Web automatically",
   "Bắt buộc tìm trên Web": "Require Web search",
   "Tìm kiếm Web": "Web search",
+  "Mô hình": "Models",
   "Tìm kiếm và đọc trang Web": "Search and read the Web",
   "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
   "Chọn một công cụ tìm kiếm để bật tìm kiếm Web.": "Select a search engine to enable web search.",
@@ -1828,6 +1829,187 @@ Object.assign(englishUi, {
   "Remove {{capability}}": "Thu hồi quyền {{capability}}",
   Model: "Mô hình",
   Models: "Mô hình",
+});
+
+Object.assign(englishUi, {
+  // Models administration
+  "Refresh catalog": "Làm mới danh mục",
+  "Loading model catalog…": "Đang tải danh mục mô hình…",
+  "The complete catalog could not be loaded. Displayed records may be stale. Refresh before changing configurations or defaults.":
+    "Không tải được toàn bộ danh mục. Dữ liệu hiển thị có thể đã cũ. Hãy làm mới trước khi thay đổi cấu hình hoặc mặc định.",
+  "Available connections": "Kết nối khả dụng",
+  "Add Provider": "Thêm nhà cung cấp",
+  "MemoryOS supports both popular providers and self-hosted models.":
+    "MemoryOS hỗ trợ cả nhà cung cấp phổ biến lẫn mô hình tự triển khai.",
+  "Self-hosted & Custom": "Tự triển khai & Tùy chỉnh",
+  Connect: "Kết nối",
+  "Connect {{name}}": "Kết nối {{name}}",
+  "No provider adapters are installed.": "Chưa cài đặt adapter nhà cung cấp nào.",
+  Default: "Mặc định",
+  Enabled: "Đang bật",
+  Disabled: "Đã tắt",
+  "No credential": "Chưa có khóa",
+  Restricted: "Hạn chế",
+  "Provider {{name}}": "Nhà cung cấp {{name}}",
+  "Edit provider {{name}}": "Sửa nhà cung cấp {{name}}",
+  "Delete provider {{name}}": "Xóa nhà cung cấp {{name}}",
+  "Collapse {{name}}": "Thu gọn {{name}}",
+  "Expand {{name}}": "Mở rộng {{name}}",
+  revision: "bản",
+  "Credential configured (not verified)": "Đã cấu hình khóa (chưa xác minh)",
+  "No credential configured": "Chưa cấu hình khóa",
+  Visible: "Hiển thị",
+  Hidden: "Ẩn",
+  "{{context}} context / {{output}} output tokens":
+    "{{context}} token ngữ cảnh / {{output}} token đầu ra",
+  Pricing: "Giá",
+  Unknown: "Chưa rõ",
+  "${{input}} input / ${{output}} output per million tokens":
+    "${{input}} đầu vào / ${{output}} đầu ra mỗi triệu token",
+  "Edit model / Validate": "Sửa mô hình / Kiểm tra",
+  "Delete model {{name}}": "Xóa mô hình {{name}}",
+  "No configured models for this provider.": "Chưa có mô hình nào cho nhà cung cấp này.",
+  "Add model": "Thêm mô hình",
+  "Delete provider {{name}}?": "Xóa nhà cung cấp {{name}}?",
+  "Delete model {{name}}?": "Xóa mô hình {{name}}?",
+  "Provider {{id}} and all its configured models will be removed.":
+    "Nhà cung cấp {{id}} và toàn bộ mô hình của nó sẽ bị xóa.",
+  "Model {{id}} will be removed.": "Mô hình {{id}} sẽ bị xóa.",
+  "Affected Persona defaults are cleared and their selection revisions advance. Transcript history is retained. A Tenant default must be replaced first. On a conflict, cancel, refresh the catalog and review before trying again.":
+    "Các mặc định Persona liên quan sẽ bị xóa và revision lựa chọn tăng lên. Lịch sử hội thoại được giữ nguyên. Phải thay mặc định Tenant trước. Nếu xung đột, hãy hủy, làm mới danh mục và kiểm tra lại trước khi thử lại.",
+  "Delete configuration": "Xóa cấu hình",
+  "Deleting configuration": "Đang xóa cấu hình",
+  "Deletion failed. Refresh before retrying.": "Xóa thất bại. Làm mới trước khi thử lại.",
+  "Default model": "Mô hình mặc định",
+  "This model will be used by Chat by default in your conversations.":
+    "Mô hình này sẽ được Chat dùng mặc định trong các cuộc hội thoại.",
+  "Tenant model default": "Mô hình mặc định của Tenant",
+  "Persona model default": "Mô hình mặc định của Persona",
+  "Overrides the Tenant default for this Persona.": "Ghi đè mặc định của Tenant cho Persona này.",
+  "Inherit Tenant default": "Kế thừa mặc định Tenant",
+  "Choose an eligible model": "Chọn một mô hình đủ điều kiện",
+  "(saved; hidden or unavailable)": "(đã lưu; đang ẩn hoặc không khả dụng)",
+  "(draft no longer eligible)": "(bản nháp không còn đủ điều kiện)",
+  "No eligible models are available.": "Không có mô hình đủ điều kiện nào.",
+  "No eligible models are available; Inherit remains available.":
+    "Không có mô hình đủ điều kiện; vẫn có thể chọn Kế thừa.",
+  "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.":
+    "Lựa chọn đã lưu đã thay đổi hoặc xung đột. Làm mới revision của nó và kiểm tra lại trước khi thử lại; revision của mô hình/nhà cung cấp không phải revision lựa chọn.",
+  "Reconcile saved selection": "Đồng bộ lựa chọn đã lưu",
+  "Default saved. Existing transcript is unchanged.":
+    "Đã lưu mặc định. Hội thoại hiện có không đổi.",
+  "Save Tenant default": "Lưu mặc định Tenant",
+  "Save Persona default": "Lưu mặc định Persona",
+  "Loading Tenant default…": "Đang tải mặc định Tenant…",
+  "Tenant default could not be loaded.": "Không tải được mặc định Tenant.",
+  "Retry Tenant default": "Thử lại mặc định Tenant",
+  "Loading Persona selection…": "Đang tải lựa chọn Persona…",
+  "Persona selection could not be loaded.": "Không tải được lựa chọn Persona.",
+  "Retry Persona selection": "Thử lại lựa chọn Persona",
+  "Persona defaults": "Mặc định Persona",
+  "Persona default": "Mặc định Persona",
+  "Select a Persona by name and UUID. Assignment respects provider Persona restrictions, even for managers. It grants no access: other users can fall back to their authorized Tenant default. Inherit removes the Persona selection.":
+    "Chọn Persona theo tên và UUID. Việc gán vẫn tuân theo giới hạn Persona của nhà cung cấp, kể cả với quản lý. Không cấp quyền truy cập: người dùng khác vẫn dùng mặc định Tenant được phép. Kế thừa sẽ xóa lựa chọn Persona.",
+  "Loading Personas…": "Đang tải Personas…",
+  "Personas could not be loaded. A stale cursor may require returning to the first page.":
+    "Không tải được Personas. Con trỏ cũ có thể cần quay về trang đầu.",
+  "Reload Personas": "Tải lại Personas",
+  Persona: "Persona",
+  "Choose a Persona": "Chọn một Persona",
+  "(selected)": "(đã chọn)",
+  "No Personas on this page.": "Không có Persona nào ở trang này.",
+  "Previous Personas": "Personas trước",
+  "Page {{page}} · up to 25 Personas": "Trang {{page}} · tối đa 25 Personas",
+  "Next Personas": "Personas tiếp",
+  // Provider editor
+  "Edit provider: {{name}}": "Sửa nhà cung cấp: {{name}}",
+  "Add provider": "Thêm nhà cung cấp",
+  "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
+    "Nhà cung cấp mới chỉ dành cho quản lý. Liên kết quyền truy cập được giữ khi sửa; chọn mặc định không cấp quyền truy cập.",
+  "Provider name": "Tên nhà cung cấp",
+  Adapter: "Adapter",
+  "{{adapter}} (unavailable)": "{{adapter}} (không khả dụng)",
+  "Choose installed adapter": "Chọn adapter đã cài",
+  "Endpoint URL": "URL endpoint",
+  "Internal HTTP is supported on trusted networks. Use HTTPS across untrusted networks; URL credentials, queries and fragments are not accepted.":
+    "HTTP nội bộ được hỗ trợ trên mạng tin cậy. Dùng HTTPS trên mạng không tin cậy; không chấp nhận thông tin xác thực, query hay fragment trong URL.",
+  "Provider enabled": "Bật nhà cung cấp",
+  "Credential: {{status}}. Presence does not prove decryption or connectivity. Requirement: {{requirement}}.":
+    "Khóa: {{status}}. Có khóa không chứng minh được giải mã hay kết nối. Yêu cầu: {{requirement}}.",
+  Configured: "Đã cấu hình",
+  "Not configured": "Chưa cấu hình",
+  "Adapter unavailable": "Adapter không khả dụng",
+  "Credential action": "Hành động khóa",
+  "Keep existing key": "Giữ khóa hiện tại",
+  "Replace key": "Thay khóa",
+  "Remove key": "Xóa khóa",
+  "API key": "Khóa API",
+  "For a required key, explicitly disable the provider before removal. Choose a different Tenant default first if this provider serves it.":
+    "Với khóa bắt buộc, hãy tắt nhà cung cấp trước khi xóa. Chọn mặc định Tenant khác trước nếu nhà cung cấp này đang phục vụ nó.",
+  "An enabled provider requires a configured key. Replace the key or explicitly disable this provider.":
+    "Nhà cung cấp đang bật cần có khóa. Thay khóa hoặc tắt nhà cung cấp này.",
+  "Provider {{id}} · revision {{revision}} · {{visibility}}; {{groups}} Group and {{personas}} Persona associations retained.":
+    "Nhà cung cấp {{id}} · bản {{revision}} · {{visibility}}; giữ {{groups}} liên kết Nhóm và {{personas}} liên kết Persona.",
+  Public: "Công khai",
+  "The saved catalog changed or conflicted. Reconcile the complete revision and Access baseline, review your non-secret draft, then retry manually. The key has not been retained.":
+    "Danh mục đã lưu đã thay đổi hoặc xung đột. Đồng bộ toàn bộ revision và baseline quyền truy cập, kiểm tra lại bản nháp không chứa bí mật, rồi thử lại thủ công. Khóa không được giữ lại.",
+  "Reconcile saved provider": "Đồng bộ nhà cung cấp đã lưu",
+  "Provider saved. No connectivity claim has been made.":
+    "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
+  "Save provider": "Lưu nhà cung cấp",
+  // Model editor
+  "Saved connection reached the model. This does not certify model quality, capabilities or cancellation.":
+    "Kết nối đã lưu đến được mô hình. Điều này không chứng nhận chất lượng, khả năng hay việc hủy của mô hình.",
+  "The saved connection check completed, but the model was not reachable. Review the endpoint, model name and credentials; no provider payload is shown.":
+    "Kiểm tra kết nối đã lưu hoàn tất nhưng không đến được mô hình. Kiểm tra endpoint, tên mô hình và khóa; không hiển thị payload của nhà cung cấp.",
+  "Edit model: {{name}}": "Sửa mô hình: {{name}}",
+  "Settings describe this model explicitly; changing its name or profile never silently changes capabilities.":
+    "Cài đặt mô tả mô hình một cách tường minh; đổi tên hay profile không bao giờ âm thầm đổi khả năng.",
+  "API model name": "Tên mô hình API",
+  "Display name": "Tên hiển thị",
+  "Tokenizer profile": "Profile tokenizer",
+  "Choose an installed profile": "Chọn profile đã cài",
+  "{{profile}} (unavailable)": "{{profile}} (không khả dụng)",
+  "Context window (tokens)": "Cửa sổ ngữ cảnh (token)",
+  "Maximum output (tokens)": "Đầu ra tối đa (token)",
+  "Visible in selection lists": "Hiển thị trong danh sách chọn",
+  "Streaming (required)": "Streaming (bắt buộc)",
+  "Tool calling": "Gọi công cụ",
+  "Vision input": "Đầu vào hình ảnh",
+  Reasoning: "Suy luận",
+  "Request options": "Tùy chọn request",
+  "Use maxCompletionTokens option family": "Dùng nhóm tùy chọn maxCompletionTokens",
+  "This boolean chooses the output-token field family, not the output limit. Completion-token mode removes sampling overrides. Blank optional fields are omitted.":
+    "Tùy chọn này chọn nhóm trường token đầu ra, không phải giới hạn đầu ra. Chế độ completion-token bỏ các ghi đè sampling. Trường tùy chọn để trống sẽ bị bỏ qua.",
+  Temperature: "Temperature",
+  "Top P": "Top P",
+  "Frequency penalty": "Phạt tần suất",
+  "Presence penalty": "Phạt hiện diện",
+  "Reasoning effort": "Mức suy luận",
+  "Provider default (omitted)": "Mặc định nhà cung cấp (bỏ qua)",
+  "Pricing · USD per million tokens": "Giá · USD mỗi triệu token",
+  "Leave both blank for Unknown. Explicit zero means known free pricing, not Unknown.":
+    "Để trống cả hai nếu chưa rõ. Số 0 tường minh nghĩa là miễn phí, không phải chưa rõ.",
+  "Input price": "Giá đầu vào",
+  "Output price": "Giá đầu ra",
+  "The catalog changed or conflicted. Reconcile the saved revision, review your draft, and retry manually.":
+    "Danh mục đã thay đổi hoặc xung đột. Đồng bộ revision đã lưu, kiểm tra lại bản nháp và thử lại thủ công.",
+  "Reconcile saved model": "Đồng bộ mô hình đã lưu",
+  "Model saved.": "Đã lưu mô hình.",
+  "Model {{id}} · model revision {{modelRevision}} · provider revision {{providerRevision}}":
+    "Mô hình {{id}} · bản mô hình {{modelRevision}} · bản nhà cung cấp {{providerRevision}}",
+  "Validate is available only for clean saved settings and reconciles both saved revisions. Edits, closing and authority changes discard pending results.":
+    "Kiểm tra chỉ khả dụng với cài đặt đã lưu sạch và đồng bộ cả hai revision. Sửa, đóng hoặc đổi quyền sẽ hủy kết quả đang chờ.",
+  Close: "Đóng",
+  "Validate saved connection": "Kiểm tra kết nối đã lưu",
+  "Save model": "Lưu mô hình",
+  "Search models…": "Tìm mô hình…",
+  "Search models": "Tìm mô hình",
+  "No matching models.": "Không có mô hình nào khớp.",
+  "saved; hidden or unavailable": "đã lưu; đang ẩn hoặc không khả dụng",
+  "draft no longer eligible": "bản nháp không còn hợp lệ",
+  "{{model}} · {{note}}": "{{model}} · {{note}}",
+  "Close editor": "Đóng trình soạn",
 });
 
 const unchanged = [

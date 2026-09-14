@@ -97,7 +97,7 @@ for (const width of [1440, 390]) {
       configured = true;
       await route.fulfill({ json: {} });
     });
-    await page.goto("/settings/web");
+    await page.goto("/admin/web-search");
     if (width === 1440) {
       const administration = page.getByRole("navigation", { name: "Điều hướng quản trị" });
       await expect(administration.getByRole("link", { name: "Tìm kiếm Web" })).toBeVisible();

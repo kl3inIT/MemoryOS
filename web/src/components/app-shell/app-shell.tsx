@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Boxes,
   Globe,
   KeyRound,
   Menu,
@@ -25,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { ChatModeMenu, ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "providers";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -192,7 +193,16 @@ function SidebarContents({
             {canManageModels ? (
               <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
                 <SidebarTab
-                  to="/settings/web"
+                  to="/admin/models"
+                  icon={<Boxes className="size-4" />}
+                  selected={adminPage === "models"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Mô hình")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/web-search"
                   icon={<Globe className="size-4" />}
                   selected={adminPage === "web"}
                   collapsed={collapsed}

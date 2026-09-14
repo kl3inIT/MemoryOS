@@ -7,7 +7,10 @@ export const fixtureModels: AvailableModel[] = [
     modelName: "gpt-5-mini",
     displayName: "GPT-5 mini",
     isDefault: true,
-    capabilities: { streaming: true, toolCalling: true, reasoning: true },
+    capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: true },
+    contextWindow: 32000,
+    maxOutputTokens: 4096,
+    pricing: null,
   },
   {
     id: "10000000-0000-4000-8000-000000000002",
@@ -15,7 +18,11 @@ export const fixtureModels: AvailableModel[] = [
     providerName: "Office inference",
     modelName: "Qwen3.5-9B",
     displayName: "Qwen3.5 9B",
-    capabilities: { streaming: true, toolCalling: true },
+    isDefault: false,
+    capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: false },
+    contextWindow: 32000,
+    maxOutputTokens: 4096,
+    pricing: null,
   },
 ];
 export const fixtureSource: ChatSource = {

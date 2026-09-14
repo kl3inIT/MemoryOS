@@ -1,0 +1,37 @@
+MemoryOS Chat tokenizer dependencies
+
+Deep Java Library (DJL) 0.38.0
+https://github.com/deepjavalibrary/djl/tree/v0.38.0
+The DJL tokenizer/JNI source carries Copyright 2021 Amazon.com, Inc. or its
+Affiliates. Licensed under Apache License 2.0; see APACHE-2.0.txt.
+Maven artifacts: ai.djl:api:0.38.0 and ai.djl.huggingface:tokenizers:0.38.0.
+The unmodified tokenizer artifact bundles the CPU native libraries used here.
+Artifact SHA-256: 2ad145a5ae6bb12b9ddc3e394a68d876f36959732f0e6ed6ee0c118054cd7061
+Linux CPU JNI SHA-256: edf58c92155e0fe4fae5231e782a1f02deeb5881de7bbcd1195f6e25009da90a
+
+Hugging Face tokenizers
+https://github.com/huggingface/tokenizers
+DJL identifies its packaged native tokenizer version as 0.21.0-0.38.0.
+Licensed under Apache License 2.0; see APACHE-2.0.txt.
+
+SmolLM2-135M-Instruct tokenizer assets (not model weights)
+https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/tree/12fd25f77366fa6b3b4b768ec3050bf629380bac
+Model card license: Apache-2.0. The API includes the exact tokenizer.json,
+tokenizer_config.json and chat template from this pinned revision.
+The API does not include model weights or an inference engine.
+
+GCC runtime libraries
+https://gcc.gnu.org/
+Source: https://gcc.gnu.org/git/?p=gcc.git
+The packaged Windows libgcc/libstdc++ companions and the Linux libgcc/libstdc++
+runtime packages are governed by GPLv3 with the GCC Runtime Library Exception
+3.1. See GPL-3.0.txt and GCC-RUNTIME-EXCEPTION-3.1.txt. The API container installs
+Alpaquita libgcc and libstdc++ 15.2.0-r10; GCC upstream release source is available
+at https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/.
+
+mingw-w64 winpthreads (packaged Windows companion)
+https://github.com/mingw-w64/mingw-w64/tree/v12.0.0/mingw-w64-libraries/winpthreads
+See WINPTHREADS-COPYING.txt for the mingw-w64 and Lockless copyright notices,
+MIT permission and BSD redistribution conditions. The notice text is copied
+verbatim from this upstream source reference; it does not assert the compiler
+revision used by the unmodified DJL binary.

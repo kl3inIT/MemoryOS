@@ -4,6 +4,7 @@
  * mark is shown as published.
  */
 export const providerMarks = {
+  ANTHROPIC: { file: "anthropic.svg", monochrome: false },
   BRAVE: { file: "brave.svg", monochrome: false },
   EXA: { file: "exa.png", monochrome: false },
   FIRECRAWL: { file: "firecrawl.png", monochrome: false },
