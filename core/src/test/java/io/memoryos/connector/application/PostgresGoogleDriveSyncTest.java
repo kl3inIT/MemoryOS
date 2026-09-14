@@ -17,6 +17,7 @@ import io.memoryos.connector.*;
 import io.memoryos.connector.GoogleDriveSourceService.ScopeMode;
 import io.memoryos.connector.persistence.*;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.DocumentId;
 import io.memoryos.document.application.DefaultExtractionArtifactService;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
@@ -369,6 +370,27 @@ class PostgresGoogleDriveSyncTest {
         assertThat(snapshot.revision()).isZero();
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
         verify(connections, never()).authenticationFailed(any(), any(), anyLong());
+    }
+
+    @Test
+    void readByDocumentReturnsTheMappedFileSnapshotOnlyWithinItsTenant() {
+        listing(file("one", false, "1"));
+        when(session.permissions("one")).thenReturn(List.of(permission("shared", "reader")));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var acls = new JdbcGoogleDriveAclRepository(jdbc, event -> {});
+        var snapshot = acls.read(tenant, source, "one").orElseThrow();
+        DocumentId document = snapshot.documentIds().getFirst();
+
+        assertThat(acls.readByDocument(tenant, document)).singleElement().satisfies(found -> {
+            assertThat(found.sourceId()).isEqualTo(source);
+            assertThat(found.fileId()).isEqualTo("one");
+            assertThat(found.revision()).isEqualTo(snapshot.revision());
+            assertThat(found.permissions()).isEqualTo(snapshot.permissions());
+            assertThat(found.documentIds()).containsExactly(document);
+        });
+        assertThat(acls.readByDocument(new TenantId(UUID.randomUUID()), document)).isEmpty();
+        assertThat(acls.readByDocument(tenant, new DocumentId(UUID.randomUUID()))).isEmpty();
     }
 
     private List<GoogleDriveAclChanged> aclChanges() {
