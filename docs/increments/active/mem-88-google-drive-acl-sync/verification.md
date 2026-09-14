@@ -183,5 +183,14 @@ Not shown live:
 
 - `GoogleDriveAclChanged` delivery. No runtime listener exists yet; `PostgresGoogleDriveSyncTest` covers it.
 - Group, domain and `anyone` principals, and expiration.
-- Missing-scope and unreadable-sharing 403s, which are covered by controlled fixtures only.
-- A file shared to the connected account by another owner: every file in the chosen folders is owned by the connected account.
+- A missing-scope 403, which is covered by controlled fixtures only.
+
+The user then added a second root: a folder owned by another account and shared to the connected account as Editor, containing one Google Doc. The first run after the change SUCCEEDED for both items at revision 1. Each snapshot has two entries: the other account as owner and the connected account as writer. The folder's writer entry is direct, while both of the Doc's entries are inherited without `inheritedFrom`. An Editor can therefore read the sharing of a file it does not own.
+
+The owner then reduced the connected account to Viewer. The next run still SUCCEEDED, and the Doc's content item stayed INDEXED. `permissions.list` was refused for both items and recorded as `SOURCE_GOOGLE_ACCESS_DENIED`:
+
+- The retained snapshot kept revision 1 and its two entries, with its last success unchanged.
+- The status became FAILED, with a newer last attempt.
+- The inspector reported the retained observation as STALE.
+
+This is the live unreadable-sharing path. A Viewer cannot read the sharing of a file it does not own, and the retained grants are older evidence only.

@@ -44,5 +44,5 @@ See [design](design.md#acceptance-gap-closure--approved-2026-09-14).
 - [x] Document the consumer read API and change event with a payload example; answer the enforcement owner's questions on MEM-88.
 - [ ] Record MEM-93 confirmation of the handoff contract.
 - [x] Run the live owned-fixture sharing sequence with the user and record evidence.
-- [ ] Observe a file shared to the connected account by another owner; no such fixture exists yet.
+- [x] Observe a file shared to the connected account by another owner, as Editor and then as Viewer.
 - [x] Run the repository gate and web checks; update verification and connector test matrix.
