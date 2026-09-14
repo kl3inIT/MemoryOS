@@ -8,8 +8,12 @@ import io.memoryos.connector.SourceType;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-/** {@code totalResults} counts readable Documents among the bounded candidates, so it never exceeds what paging can reach. */
-public record SearchPage(List<Result> results, int page, boolean hasMore, int totalResults, int candidateLimit) {
+/**
+ * {@code totalResults} counts readable Documents among the bounded candidates, so it never exceeds what paging can reach.
+ * {@code sourceFacets} describes the same candidates before the connector filter.
+ */
+public record SearchPage(List<Result> results, int page, boolean hasMore, int totalResults, int candidateLimit,
+        SourceFacets sourceFacets) {
     @Override public @NonNull String toString() {
         return "SearchPage[resultCount=" + results.size() + ", page=" + page + ", hasMore=" + hasMore
                 + ", totalResults=" + totalResults + "]";
@@ -38,4 +42,11 @@ public record SearchPage(List<Result> results, int page, boolean hasMore, int to
             String content, List<ChunkProvenance> provenance) { }
     public record ChunkProvenance(int ordinal, String provenanceJson) { }
     public record Passage(int ordinal, String content, String provenanceJson) { }
+    /** {@code total} counts candidates before the connector filter; a Document mapped to two connectors counts in both types. */
+    public record SourceFacets(int total, List<SourceTypeFacet> types) {
+        public SourceFacets {
+            types = List.copyOf(types);
+        }
+    }
+    public record SourceTypeFacet(SourceType type, int count) { }
 }

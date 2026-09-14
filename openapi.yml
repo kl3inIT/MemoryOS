@@ -8690,6 +8690,13 @@ components:
         pageSize:
           type: integer
           format: int32
+        sourceTypes:
+          type: array
+          items:
+            type: string
+            enum:
+            - FILE
+            - GOOGLE_DRIVE
     ChunkProvenance:
       type: object
       properties:
@@ -8769,11 +8776,16 @@ components:
         candidateLimit:
           type: integer
           format: int32
+        sourceFacets:
+          $ref: "#/components/schemas/SourceFacets"
+          description: "Readable candidates before the connector filter, in total\
+            \ and per connector"
       required:
       - candidateLimit
       - hasMore
       - page
       - results
+      - sourceFacets
       - totalResults
     Section:
       type: object
@@ -8803,6 +8815,36 @@ components:
       - provenance
       - score
       - startOrdinal
+    SourceFacets:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int32
+          description: Candidates before the connector filter
+        types:
+          type: array
+          description: Connectors with at least one readable candidate; a Document
+            mapped to two connectors counts in both
+          items:
+            $ref: "#/components/schemas/SourceTypeFacet"
+      required:
+      - total
+      - types
+    SourceTypeFacet:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+        count:
+          type: integer
+          format: int32
+      required:
+      - count
+      - type
     CreateInvitationRequest:
       type: object
       additionalProperties: false

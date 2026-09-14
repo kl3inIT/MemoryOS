@@ -1712,6 +1712,8 @@ Object.assign(vietnameseUi, {
 });
 
 Object.assign(englishUi, {
+  "All sources": "Tất cả nguồn",
+  "{{name}}: {{count}} results": "{{name}}: {{count}} kết quả",
   "Related match {{number}}": "Kết quả liên quan {{number}}",
   "Activate {{name}}?": "Kích hoạt {{name}}?",
   "Deactivate {{name}}?": "Vô hiệu hóa {{name}}?",

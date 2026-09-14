@@ -106,7 +106,8 @@ export function DocumentPreviewDialog({
             </Dialog.Close>
           </header>
 
-          <EvidenceViewSwitch pdf={pdf}>
+          {/* Search opens PDF results on their pages: scanned originals are the reliable evidence. */}
+          <EvidenceViewSwitch pdf={pdf} defaultView="pdf">
             <DocumentPreviewContent selection={selection} />
           </EvidenceViewSwitch>
         </Dialog.Content>

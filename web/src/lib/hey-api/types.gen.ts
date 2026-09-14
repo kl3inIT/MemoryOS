@@ -487,6 +487,7 @@ export type SearchRequest = {
     updatedSince?: string;
     page?: number;
     pageSize?: number;
+    sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE'>;
 };
 
 export type ChunkProvenance = {
@@ -516,6 +517,10 @@ export type SearchPage = {
      */
     totalResults: number;
     candidateLimit: number;
+    /**
+     * Readable candidates before the connector filter, in total and per connector
+     */
+    sourceFacets: SourceFacets;
 };
 
 export type Section = {
@@ -525,6 +530,22 @@ export type Section = {
     score: number;
     content: string;
     provenance: Array<ChunkProvenance>;
+};
+
+export type SourceFacets = {
+    /**
+     * Candidates before the connector filter
+     */
+    total: number;
+    /**
+     * Connectors with at least one readable candidate; a Document mapped to two connectors counts in both
+     */
+    types: Array<SourceTypeFacet>;
+};
+
+export type SourceTypeFacet = {
+    type: 'FILE' | 'GOOGLE_DRIVE';
+    count: number;
 };
 
 export type CreateInvitationRequest = {
