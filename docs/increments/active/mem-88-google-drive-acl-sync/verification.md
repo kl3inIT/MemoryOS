@@ -147,4 +147,16 @@ Merged `origin/main` at `1b23118e`. Git conflicts in `JdbcSourceItemRepository`,
 - **Signature drift.** Main's new test used the two-argument `ConnectorIndexingPort.fail`; it now uses this branch's four-argument form.
 - **Migration numbering.** Main's `V53__jit_allowed_provider` collided with the branch's V53. The branch-only migrations are now V54 (ACL snapshots) and V55 (run error messages). A local database that applied the old branch V53/V54 fails Flyway validation and must be recreated; no deployed environment applied them.
 
-`PostgresGoogleDriveSyncTest` (45) and `RestGoogleDriveProviderTest` (22) passed without skips. `compileJava compileTestJava` passed for all modules. Web `check:api`, `check:i18n`, `lint`, `format:check` and `typecheck` passed. The full `clean check`, web unit/route checks and browser suites were not rerun in this pass.
+`PostgresGoogleDriveSyncTest` (45) and `RestGoogleDriveProviderTest` (22) passed without skips. On the merge commit `634d3388`, `gradlew.bat clean check --no-daemon --max-workers=1` succeeded in 17m59s:
+
+| Module | Total | Failed | Skipped |
+| --- | ---: | ---: | ---: |
+| core | 551 | 0 | 1 |
+| connector | 121 | 0 | 4 |
+| api | 147 | 0 | 4 |
+| worker | 27 | 0 | 0 |
+| Total | 846 | 0 | 9 |
+
+The skips are unchanged from the previous gate. The full web `pnpm check` then passed: contract generation, i18n, lint, format, typecheck, 223 unit tests in 41 files, and route/build. Playwright browser suites were not rerun after the merge.
+
+After the gate, the consumer read API gained its first test: `readByDocument` returns the mapped file's snapshot and nothing for a foreign Tenant or unknown Document. `PostgresGoogleDriveSyncTest` then passed 46 of 46 without skips.
