@@ -314,6 +314,8 @@ export const vietnameseUi: Record<string, string> = {
   "Ảnh đã tạo": "Generated image",
   "Tải ảnh": "Download image",
   "Đang tạo ảnh…": "Generating image…",
+  "Tạo ảnh": "Create image",
+  "Tắt tạo ảnh": "Turn off image generation",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
     "The answer was interrupted. Content received so far is preserved.",
   "Sao chép câu trả lời": "Copy answer",
