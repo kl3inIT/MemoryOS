@@ -111,7 +111,7 @@ public class JdbcGoogleDriveCredentialRepository {
         return jdbc.sql("""
                 SELECT p.credential_id FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id = p.tenant_id AND c.id = p.connector_id
-                WHERE p.tenant_id = :tenant AND p.id = :source AND p.access_type = 'PRIVATE'
+                WHERE p.tenant_id = :tenant AND p.id = :source
                   AND c.connector_type = 'GOOGLE_DRIVE' AND c.status = 'ACTIVE' AND p.status <> 'DELETING'
                 """).param("tenant", tenantId.value()).param("source", sourceId.value())
                 .query((r, _) -> new CredentialId(r.getObject("credential_id", UUID.class)))

@@ -354,6 +354,18 @@ class PostgresSourceLifecycleTest {
         assertTrue(service.getSource(manager, publicSource.id()).permissions().edit());
         service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PUBLIC);
         assertEquals(SourcePermissions.NONE, service.getSource(manager, publicSource.id()).permissions());
+        assertThrows(SourceException.class, () -> service.updateSourceAccess(owner, publicSource.id(), SourceAccess.SYNC));
+        assertEquals(SourceAccess.PUBLIC, service.getSource(owner, publicSource.id()).access());
+        jdbcClient.sql("""
+                UPDATE connectors SET connector_type='GOOGLE_DRIVE'
+                WHERE id=(SELECT connector_id FROM connector_credential_pairs WHERE id=:source)
+                """).param("source", shared.id().value()).update();
+        assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.SYNC));
+        for (var mode : List.of(SourceAccess.SYNC, SourceAccess.PUBLIC, SourceAccess.PRIVATE)) {
+            service.updateSourceAccess(owner, shared.id(), mode);
+            assertEquals(mode.name(), jdbcClient.sql("SELECT access_type FROM connector_credential_pairs WHERE id=:source")
+                    .param("source", shared.id().value()).query(String.class).single());
+        }
     }
 
     @Test

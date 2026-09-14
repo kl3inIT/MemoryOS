@@ -1267,6 +1267,14 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Scoped private\",\"groupIds\":[\"%s\"]}".formatted(managedGroupId)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.access").value("PRIVATE"));
+        mockMvc.perform(post("/api/sources/file")
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"File sync\",\"access\":\"SYNC\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+        mockMvc.perform(post("/api/sources/{sourceId}/access", managedSourceId)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"access\":\"SYNC\"}"))
+                .andExpect(status().isConflict());
 
         mockMvc.perform(get("/api/sources/group-options?search=Scoped")
                         .with(authentication(owner)))

@@ -7,6 +7,7 @@ import io.memoryos.connector.GoogleDriveSourceService.LinkedDocumentStatus;
 import io.memoryos.connector.GoogleDriveSourceService.LinkOrigin;
 import io.memoryos.connector.GoogleDriveSourceService.Root;
 import io.memoryos.connector.GoogleDriveSourceService.ScopeMode;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.GoogleDriveSourceService.SelectionCounts;
 import io.memoryos.connector.GoogleDriveSourceService.SelectionItem;
@@ -225,7 +226,8 @@ public class JdbcGoogleDriveSourceRepository {
                 .query(Integer.class).single() != 1) throw SourceException.notFound();
     }
 
-    public SourceId create(TenantId tenant, SourceId source, ActorId actor, String name, CredentialId credential, ScopeMode scopeMode, List<Root> roots) {
+    public SourceId create(TenantId tenant, SourceId source, ActorId actor, String name, CredentialId credential, ScopeMode scopeMode,
+            List<Root> roots, SourceAccess access) {
         UUID connector = UUID.randomUUID();
         jdbc.sql("""
                 INSERT INTO connectors (id, tenant_id, name, connector_type, status)
@@ -233,8 +235,8 @@ public class JdbcGoogleDriveSourceRepository {
                 """).param("id", connector).param("tenant", tenant.value()).param("name", name).update();
         jdbc.sql("""
                 INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status, created_by_actor_id)
-                VALUES (:id, :tenant, :connector, :credential, 'PRIVATE', 'NOT_STARTED', :actor)
-                """).param("id", source.value()).param("tenant", tenant.value())
+                VALUES (:id, :tenant, :connector, :credential, :access, 'NOT_STARTED', :actor)
+                """).param("id", source.value()).param("tenant", tenant.value()).param("access", access.name())
                 .param("connector", connector).param("credential", credential.value()).param("actor", actor.value()).update();
         initialize(tenant, source, scopeMode);
         insertRoots(tenant, source, roots);
