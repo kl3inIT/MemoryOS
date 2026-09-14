@@ -252,8 +252,9 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/sessions/" + id + "/branches").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isForbidden());
+        // Citation passages need only membership and document eligibility: an unknown document is unavailable, not denied.
         mockMvc.perform(get("/api/chat/documents/" + UUID.randomUUID()).param("generation", UUID.randomUUID().toString())
-                .with(authentication(actor))).andExpect(status().isForbidden());
+                .with(authentication(actor))).andExpect(status().isNotFound());
         // A denied subscriber receives a problem response, never an event stream.
         mockMvc.perform(get("/api/chat/sessions/" + id + "/messages/" + assistant + "/events").with(authentication(actor))
                 .accept(MediaType.TEXT_EVENT_STREAM)).andExpect(status().isForbidden());

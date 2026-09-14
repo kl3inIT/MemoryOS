@@ -6449,7 +6449,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "403":
-          description: "CHAT_READ, Tenant membership or CSRF requirement not met"
+          description: Tenant membership or CSRF requirement not met
           content:
             application/problem+json:
               schema:

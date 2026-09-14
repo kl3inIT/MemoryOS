@@ -2,7 +2,8 @@
 
 - [x] Enforce `CHAT_READ`/`CHAT_WRITE` in Chat services; owner settings stay membership-only; HTTP deny test removing the Basic edge.
 - [x] Update identity/Chat specs, verification matrices and Group capability copy that still call Chat tokens reserved.
-- [x] Chat-scoped citation passage read requiring `CHAT_READ` instead of `SEARCH_READ`; frontend, fixture and e2e.
+- [x] Chat-scoped citation passage read without `SEARCH_READ`; frontend, fixture and e2e.
+- [x] Align with the reference: citation passages need only membership (no `CHAT_READ`); document the ungated Chat Search tool.
 - [x] Measure real-database authorization stages against hybrid/expansion on the Search path; record results in `verification.md`.
 - [x] Owner decision: keep the ranked recheck; batch the per-read expansion rechecks into two `authorizedSections` calls per Search call.
 - [x] Index `access_public` and `access_control_list` (`group:<id>`) on every chunk; include them in `metadata_hash` (`v2:`).
