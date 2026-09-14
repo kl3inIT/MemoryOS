@@ -222,7 +222,8 @@ test("handles unavailable, retry, empty and a pending search", async ({ page }) 
   await expect(page.getByRole("heading", { name: "No matching documents" })).toBeVisible();
   await input.fill("slow");
   await search.click();
-  await expect(page.getByRole("status")).toContainText("Searching");
+  // Scope to the page: the sidebar has its own status ("No conversations yet.") on an empty history.
+  await expect(page.getByRole("main").getByRole("status")).toContainText("Searching");
   await expect(page.getByRole("button", { name: "Cancel" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Search is loading" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Old result", exact: true })).toBeVisible();
