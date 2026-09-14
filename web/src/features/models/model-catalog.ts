@@ -199,8 +199,14 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       next.toolCalling = known.capabilities.toolCalling;
       next.vision = known.capabilities.vision;
       next.reasoning = known.capabilities.reasoning;
-      if (next.reasoning) next.temperature = "";
-      else next.reasoningEffort = "";
+      // OpenAI rejects max_tokens on a reasoning model, so the option family follows the capability.
+      next.completionTokens = known.capabilities.reasoning;
+      if (next.reasoning) {
+        next.temperature = "";
+        next.topP = "";
+        next.frequencyPenalty = "";
+        next.presencePenalty = "";
+      } else next.reasoningEffort = "";
       next.inputPrice = String(known.pricing.inputPerMillion);
       next.outputPrice = String(known.pricing.outputPerMillion);
     } else if (matchesKnownModel(draft, previous)) {

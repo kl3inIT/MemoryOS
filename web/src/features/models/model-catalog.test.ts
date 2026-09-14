@@ -108,11 +108,17 @@ describe("model configuration transitions", () => {
       capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
       pricing: { inputPerMillion: 1.25, outputPerMillion: 10 },
     });
+    expect(modelBody(known).settings?.options).toEqual({ maxCompletionTokens: true });
     expect(known.displayName).toBe("gpt-5");
     const custom = changeModelDraft(modelDraft(), "modelName", "llama-3.1-8b", adapter);
     expect(custom.contextWindow).toBe(modelDraft().contextWindow);
     expect(custom.inputPrice).toBe("");
     expect(custom.displayName).toBe("");
+    const switched = changeModelDraft(known, "modelName", "llama-3.1-8b", adapter);
+    expect(switched.contextWindow).toBe("");
+    expect(switched.inputPrice).toBe("");
+    expect(switched.reasoning).toBe(false);
+    expect(switched.displayName).toBe("");
   });
 });
 
