@@ -9,5 +9,8 @@ public interface ObjectStorage {
 
     ObjectContent open(ObjectKey key);
 
+    /** Streams bytes {@code first..last} (inclusive); a {@code last} beyond the object end stops at the end. */
+    ObjectRangeContent openRange(ObjectKey key, long first, long last);
+
     void delete(ObjectKey key);
 }
