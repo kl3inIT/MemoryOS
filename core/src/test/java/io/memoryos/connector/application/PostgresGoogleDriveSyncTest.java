@@ -95,6 +95,7 @@ class PostgresGoogleDriveSyncTest {
     private final Map<String, List<GoogleDriveLinkReader.Link>> links = new HashMap<>();
     private ObjectStorage storage;
     private Runnable duringExtraction = () -> {};
+    private final List<Object> published = new ArrayList<>();
 
     @BeforeEach
     void initialize(TestInfo test) throws Exception {
@@ -296,6 +297,81 @@ class PostgresGoogleDriveSyncTest {
         var after = acls.read(tenant, source, "one").orElseThrow();
         assertThat(after.revision()).isEqualTo(before.revision());
         assertThat(after.permissions()).isEqualTo(before.permissions());
+    }
+
+    @Test
+    void roleChangesAndAddedPermissionsPublishWhileIdenticalObservationsOnlyAdvanceTheRevision() {
+        listing(file("one", false, "1"));
+        when(session.permissions("one")).thenReturn(List.of(permission("shared", "reader")));
+        finish(enqueue());
+        var acls = new JdbcGoogleDriveAclRepository(jdbc, event -> {});
+        var first = acls.read(tenant, source, "one").orElseThrow();
+
+        published.clear();
+        when(session.permissions("one")).thenReturn(List.of(permission("shared", "writer")));
+        finish(enqueue());
+
+        var promoted = acls.read(tenant, source, "one").orElseThrow();
+        assertThat(promoted.revision()).isEqualTo(first.revision() + 1);
+        assertThat(promoted.permissions()).extracting(GoogleDriveProvider.Permission::role).containsExactly("writer");
+        assertThat(aclChanges()).extracting(GoogleDriveAclChanged::revision).containsExactly(promoted.revision());
+
+        published.clear();
+        when(session.permissions("one")).thenReturn(List.of(permission("shared", "writer"), permission("added", "commenter")));
+        finish(enqueue());
+
+        var added = acls.read(tenant, source, "one").orElseThrow();
+        assertThat(added.permissions()).extracting(GoogleDriveProvider.Permission::id).containsExactly("shared", "added");
+        assertThat(aclChanges()).extracting(GoogleDriveAclChanged::revision).containsExactly(added.revision());
+
+        published.clear();
+        finish(enqueue());
+
+        assertThat(acls.read(tenant, source, "one").orElseThrow().revision()).isEqualTo(added.revision() + 1);
+        assertThat(aclChanges()).isEmpty();
+    }
+
+    @Test
+    void missingOAuthScopeStopsTheRunAndRequiresReconnectInsteadOfMarkingFilesUnavailable() {
+        listing(file("one", false, "1"));
+        finish(enqueue());
+        when(session.permissions("one")).thenThrow(new GoogleDriveProviderException(
+                GoogleDriveProviderException.Failure.SCOPE_INSUFFICIENT));
+
+        var operation = enqueue();
+        finish(operation);
+
+        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
+        assertThat(jdbc.sql("SELECT error_code FROM source_sync_attempts WHERE id=:id").param("id", operation.value())
+                .query(String.class).single()).isEqualTo("SOURCE_GOOGLE_SCOPE_INSUFFICIENT");
+        verify(connections).authenticationFailed(org.mockito.ArgumentMatchers.eq(tenant),
+                org.mockito.ArgumentMatchers.eq(source), anyLong());
+        var snapshot = new JdbcGoogleDriveAclRepository(jdbc, event -> {}).read(tenant, source, "one").orElseThrow();
+        assertThat(snapshot.errorCode()).isEqualTo("SOURCE_GOOGLE_SCOPE_INSUFFICIENT");
+        assertThat(scalar("SELECT COUNT(*) FROM google_drive_frontier WHERE error_code='SOURCE_GOOGLE_NOT_FOUND'")).isZero();
+    }
+
+    @Test
+    void unreadableSharingRecordsAccessDeniedWithoutBlockingContent() {
+        listing(file("one", false, "1"));
+        when(session.permissions("one")).thenThrow(new GoogleDriveProviderException(
+                GoogleDriveProviderException.Failure.ACCESS_DENIED));
+
+        var operation = enqueue();
+        finish(operation);
+
+        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.SUCCEEDED);
+        var snapshot = new JdbcGoogleDriveAclRepository(jdbc, event -> {}).read(tenant, source, "one").orElseThrow();
+        assertThat(snapshot.status()).isEqualTo(GoogleDriveAclSnapshot.Status.FAILED);
+        assertThat(snapshot.errorCode()).isEqualTo("SOURCE_GOOGLE_ACCESS_DENIED");
+        assertThat(snapshot.revision()).isZero();
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        verify(connections, never()).authenticationFailed(any(), any(), anyLong());
+    }
+
+    private List<GoogleDriveAclChanged> aclChanges() {
+        return published.stream().filter(GoogleDriveAclChanged.class::isInstance)
+                .map(GoogleDriveAclChanged.class::cast).toList();
     }
 
     private static GoogleDriveProvider.Permission permission(String id, String role) {
@@ -1042,7 +1118,7 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private DefaultConnectorSyncService service() {
-        return new DefaultConnectorSyncService(syncRows, sources, roots, new JdbcGoogleDriveAclRepository(jdbc, event -> {}),
+        return new DefaultConnectorSyncService(syncRows, sources, roots, new JdbcGoogleDriveAclRepository(jdbc, published::add),
                 items, attempts, mappings, connections, writes, manager);
     }
 
