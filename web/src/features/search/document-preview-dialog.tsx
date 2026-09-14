@@ -1,14 +1,26 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { X } from "lucide-react";
+import { DocumentSourceIcon } from "./document-source-icon";
+import type { DocumentSourceType } from "./document-source-presentation";
+import { DocumentMeta } from "./provider-link";
 import type { RefObject } from "react";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { DocumentPreviewContent } from "./document-preview-content";
+import { useApplicationSession } from "@/features/identity/application-session-context";
+import { readSearchDocumentOriginal } from "@/lib/hey-api/sdk.gen";
+import { EvidenceViewSwitch, type PdfEvidence } from "./evidence-view-switch";
+import { readSourceLocation } from "./source-provenance";
 
 export type DocumentSelection = {
   documentId: string;
   generation: string;
   title: string;
+  mediaType?: string | null;
+  sourceTypes?: readonly DocumentSourceType[];
+  providerUrl?: string | null;
+  /** Provenance of the opened match, used to show its PDF page and region. */
+  provenance?: readonly string[];
   matches: Array<{ from: number; matchingOrdinal: number; matchingEndOrdinal?: number }>;
   activeMatchIndex: number;
 };
@@ -27,6 +39,27 @@ export function DocumentPreviewDialog({
   onClose,
 }: DocumentPreviewDialogProps) {
   const ui = useAppTranslation();
+  const { actorId, authorizationVersion } = useApplicationSession();
+  const location = readSourceLocation(selection.provenance ?? []);
+  const { documentId, generation } = selection;
+  const pdf: PdfEvidence | undefined =
+    selection.mediaType === "application/pdf" && location.pages.length
+      ? {
+          queryKey: ["search", actorId, authorizationVersion, documentId, generation],
+          load: async (signal) =>
+            (
+              await readSearchDocumentOriginal({
+                path: { documentId },
+                query: { generation },
+                parseAs: "blob",
+                signal,
+                throwOnError: true,
+              })
+            ).data as Blob,
+          pages: location.pages,
+          boxes: location.boxes,
+        }
+      : undefined;
 
   return (
     <Dialog.Root
@@ -51,13 +84,28 @@ export function DocumentPreviewDialog({
           }}
         >
           <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border-subtle px-5 py-4 sm:px-6">
-            <div className="min-w-0">
-              <Dialog.Title className="line-clamp-2 break-words font-heading-h3 text-content-primary">
-                {selection.title}
-              </Dialog.Title>
-              <Dialog.Description className="mt-1 font-secondary-body text-content-muted">
-                {ui("Extracted document text with the selected match highlighted.")}
-              </Dialog.Description>
+            <div className="flex min-w-0 items-start gap-3">
+              <DocumentSourceIcon
+                mediaType={selection.mediaType}
+                sourceTypes={selection.sourceTypes}
+              />
+              <div className="min-w-0">
+                <Dialog.Title className="line-clamp-2 break-words font-heading-h3 text-content-primary">
+                  {selection.title}
+                </Dialog.Title>
+                <Dialog.Description className="mt-0.5 font-secondary-body text-content-muted">
+                  {selection.mediaType || selection.sourceTypes?.length ? (
+                    <DocumentMeta
+                      mediaType={selection.mediaType}
+                      sourceTypes={selection.sourceTypes}
+                      providerUrl={selection.providerUrl}
+                      title={selection.title}
+                    />
+                  ) : (
+                    ui("Extracted document text with the selected match highlighted.")
+                  )}
+                </Dialog.Description>
+              </div>
             </div>
             <Dialog.Close asChild>
               <Button prominence="secondary" size="sm" aria-label={ui("Close document preview")}>
@@ -66,7 +114,9 @@ export function DocumentPreviewDialog({
             </Dialog.Close>
           </header>
 
-          <DocumentPreviewContent selection={selection} />
+          <EvidenceViewSwitch pdf={pdf}>
+            <DocumentPreviewContent selection={selection} />
+          </EvidenceViewSwitch>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

@@ -2,12 +2,10 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bot, Folder, ChevronDown, ChevronRight, MessageSquare, Plus, Search } from "lucide-react";
-import { Popover } from "radix-ui";
+import { Bot, Folder, ChevronDown, ChevronRight, FileSearch, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { MenuItem } from "@/components/ui/menu-item";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
@@ -50,7 +48,17 @@ export function ChatNavigation({
       >
         {ui("Hội thoại mới")}
       </SidebarTab>
-      <ChatHistorySearch collapsed={collapsed} onNavigate={onNavigate} />
+      {/* Expanded sidebars show conversation search as an icon beside the collapse button. */}
+      {collapsed ? <ChatHistorySearch variant="tab" onNavigate={onNavigate} /> : null}
+      <SidebarTab
+        to="/search"
+        icon={<FileSearch className="size-4" />}
+        collapsed={collapsed}
+        selected={pathname === "/search"}
+        onClick={onNavigate}
+      >
+        {ui("Search documents")}
+      </SidebarTab>
       <SidebarTab
         to="/assistants"
         icon={<Bot className="size-4" />}
@@ -307,43 +315,5 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
         <ProjectConversationList projectId={project.id} compact onNavigate={onNavigate} />
       )}
     </div>
-  );
-}
-
-export function ChatModeMenu({ mode }: { mode: "Chat" | "Search" }) {
-  const ui = useAppTranslation();
-
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger asChild>
-        <Button prominence="internal" aria-label={ui("{{v1}}, switch mode", { v1: ui(mode) })}>
-          {ui(mode)}
-          <ChevronDown className="size-4" />
-        </Button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="start"
-          sideOffset={6}
-          className="z-50 w-44 rounded-xl border border-border-subtle bg-surface-base p-1.5 shadow-md"
-        >
-          <MenuItem
-            to="/"
-            icon={<MessageSquare className="size-4.5" />}
-            onClick={() => setOpen(false)}
-          >
-            {ui("Chat")}
-          </MenuItem>
-          <MenuItem
-            to="/search"
-            icon={<Search className="size-4.5" />}
-            onClick={() => setOpen(false)}
-          >
-            {ui("Search")}
-          </MenuItem>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
   );
 }

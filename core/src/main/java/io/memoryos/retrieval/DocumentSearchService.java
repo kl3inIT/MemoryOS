@@ -69,8 +69,13 @@ public class DocumentSearchService {
             }).toList();
             int start = Math.min(request.page() * request.pageSize(), all.size());
             int end = Math.min(start + request.pageSize(), all.size());
+            var page = all.subList(start, end);
+            // Presentation metadata for the returned page only, limited to Source mappings this actor may read.
+            var origins = page.isEmpty() ? Map.<UUID, List<DocumentSourceMetadata>>of()
+                    : sourceSearch.readableMetadata(sourceSearch.scope(actor), page.stream().map(SearchPage.Result::documentId).toList());
+            var results = page.stream().map(result -> result.withOrigins(origins.getOrDefault(result.documentId(), List.of()))).toList();
             outcome = "success";
-            return new SearchPage(all.subList(start, end), request.page(), end < all.size(), search.candidateLimit());
+            return new SearchPage(results, request.page(), end < all.size(), all.size(), search.candidateLimit());
         } finally {
             metrics.timer("memoryos.search.query.duration", "outcome", outcome)
                     .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);

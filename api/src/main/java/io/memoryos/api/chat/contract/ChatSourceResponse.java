@@ -3,6 +3,7 @@ package io.memoryos.api.chat.contract;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.memoryos.chat.ChatSource;
+import io.memoryos.connector.SourceType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.UUID;
@@ -16,12 +17,16 @@ public record ChatSourceResponse(@Schema(requiredMode = REQUIRED) int citationId
                                  @Schema(requiredMode = REQUIRED) int startOrdinal,
                                  @Schema(requiredMode = REQUIRED) int endOrdinal,
                                  @Schema(requiredMode = REQUIRED) List<Provenance> provenance,
-                                 @Nullable UUID fileId, ChatSource.@Nullable FileLocation fileLocation, ChatSource.@Nullable WebLocation web) {
+                                 @Nullable UUID fileId, ChatSource.@Nullable FileLocation fileLocation, ChatSource.@Nullable WebLocation web,
+                                 @Nullable String mediaType,
+                                 @Schema(requiredMode = REQUIRED) List<SourceType> sourceTypes,
+                                 @Nullable String providerUrl) {
     public record Provenance(@Schema(requiredMode = REQUIRED) int ordinal,
                              @Schema(requiredMode = REQUIRED) String provenanceJson) {}
     public static ChatSourceResponse from(ChatSource source) {
         return new ChatSourceResponse(source.citationId(), source.documentId(), source.generation(), source.title(),
                 source.startOrdinal(), source.endOrdinal(), source.provenance().stream()
-                .map(p -> new Provenance(p.ordinal(), p.provenanceJson())).toList(), source.fileId(), source.fileLocation(), source.web());
+                .map(p -> new Provenance(p.ordinal(), p.provenanceJson())).toList(), source.fileId(), source.fileLocation(), source.web(),
+                source.mediaType(), source.sourceTypes(), source.providerUrl());
     }
 }

@@ -59,6 +59,11 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  // The PDF evidence view is lazy-loaded; pre-bundle it so the dev server does not discover it
+  // mid-session and reload open pages.
+  optimizeDeps: {
+    include: ["react-pdf"],
+  },
   build: {
     assetsInlineLimit: 0,
     sourcemap: sentrySourceMapsEnabled ? "hidden" : false,

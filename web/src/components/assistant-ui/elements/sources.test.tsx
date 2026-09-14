@@ -69,3 +69,30 @@ it("localizes the generic label without a visible count", async () => {
   render(<Sources count={1} sources={[{}]} />);
   expect(screen.getByRole("button")).toHaveTextContent(/^Sources$/);
 });
+
+it("stacks one icon per document kind because chip-size icons carry no provider badge", () => {
+  const { container } = render(
+    <Sources
+      count={3}
+      sources={[
+        { mediaType: "application/pdf", sourceTypes: ["FILE"] },
+        { mediaType: "application/pdf", sourceTypes: ["GOOGLE_DRIVE"] },
+        { mediaType: "application/vnd.google-apps.spreadsheet", sourceTypes: ["GOOGLE_DRIVE"] },
+      ]}
+    />,
+  );
+  const kinds = [...container.querySelectorAll('[data-slot="document-source-icon"]')].map((icon) =>
+    icon.getAttribute("data-kind"),
+  );
+  expect(kinds).toEqual(["pdf", "spreadsheet"]);
+});
+
+it("uses a globe or no fallback where a letter would read as part of a citation number", () => {
+  const { container, rerender } = render(
+    <SourceIcon domain="react.dev" favicon={false} fallback="globe" />,
+  );
+  expect(container.querySelector('svg[data-slot="source-icon-fallback"]')).not.toBeNull();
+  expect(container).not.toHaveTextContent("R");
+  rerender(<SourceIcon domain="react.dev" favicon={false} fallback="none" />);
+  expect(container.querySelector('[data-slot="source-icon-fallback"]')).toBeNull();
+});

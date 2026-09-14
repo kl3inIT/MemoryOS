@@ -88,7 +88,7 @@ export function DocumentPreviewContent({
             </p>
           </div>
         ) : (
-          <div className={variant === "chat" ? "space-y-1" : "space-y-4"}>
+          <div className={variant === "chat" ? "space-y-0" : "space-y-4"}>
             {detail.data.passages.map((passage) => {
               const isMatch =
                 !!activeMatch &&
@@ -107,8 +107,8 @@ export function DocumentPreviewContent({
                   className={
                     isMatch
                       ? variant === "chat"
-                        ? "scroll-m-8 border-l-2 border-border-strong bg-surface-sunken/60 px-4 py-3"
-                        : "scroll-m-8 rounded-xl border border-border-default bg-status-info-surface p-4"
+                        ? "scroll-m-8 border-l-2 border-evidence-highlight-border bg-evidence-highlight-surface px-4 py-3"
+                        : "scroll-m-8 rounded-xl border border-evidence-highlight-border/60 bg-evidence-highlight-surface p-4"
                       : variant === "chat"
                         ? "px-4 py-3"
                         : "border-t border-border-subtle pt-4 first:border-0 first:pt-0"
@@ -131,28 +131,6 @@ export function DocumentPreviewContent({
         )}
       </div>
 
-      {selection.matches.length > 1 ? (
-        <nav
-          aria-label={ui("Các đoạn khớp")}
-          className="flex shrink-0 gap-2 overflow-x-auto border-t border-border-subtle px-5 py-3 sm:px-6"
-        >
-          {selection.matches.map((match, index) => (
-            <Button
-              key={match.matchingOrdinal}
-              size="sm"
-              prominence={index === activeMatchIndex ? "primary" : "secondary"}
-              aria-current={index === activeMatchIndex ? "true" : undefined}
-              onClick={() => {
-                setActiveMatchIndex(index);
-                setFrom(match.from);
-              }}
-            >
-              {ui("Đoạn")} {index + 1}
-            </Button>
-          ))}
-        </nav>
-      ) : null}
-
       {variant === "chat" && activeMatch && from !== activeMatch.from && (
         <div className="shrink-0 border-t border-border-subtle px-5 py-2">
           <Button size="sm" prominence="internal" onClick={() => setFrom(activeMatch.from)}>
@@ -161,22 +139,52 @@ export function DocumentPreviewContent({
         </div>
       )}
 
-      {!detail.isPending && !detail.isError && detail.data ? (
-        <footer className="flex shrink-0 flex-col gap-2 border-t border-border-subtle px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-between sm:px-6 sm:pb-4">
-          <Button
-            prominence="secondary"
-            disabled={from === 0}
-            onClick={() => setFrom(Math.max(0, from - 20))}
-          >
-            {ui("Phần trước")}
-          </Button>
-          <Button
-            prominence="secondary"
-            disabled={!detail.data.hasMore}
-            onClick={() => setFrom(from + 20)}
-          >
-            {ui("Phần tiếp")}
-          </Button>
+      {/* One footer row: match switcher (segmented, like the evidence tabs) and passage paging. */}
+      {selection.matches.length > 1 || (!detail.isPending && !detail.isError && detail.data) ? (
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-subtle px-5 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-6">
+          {selection.matches.length > 1 ? (
+            <nav
+              aria-label={ui("Các đoạn khớp")}
+              className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-surface-sunken p-0.5"
+            >
+              {selection.matches.map((match, index) => (
+                <button
+                  key={match.matchingOrdinal}
+                  type="button"
+                  aria-current={index === activeMatchIndex ? "true" : undefined}
+                  className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2.5 font-secondary-action text-content-muted outline-none transition-[color,background-color,box-shadow] duration-150 hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:bg-surface-base aria-[current]:text-content-primary aria-[current]:shadow-xs motion-reduce:transition-none"
+                  onClick={() => {
+                    setActiveMatchIndex(index);
+                    setFrom(match.from);
+                  }}
+                >
+                  {ui("Đoạn")} {index + 1}
+                </button>
+              ))}
+            </nav>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+          {!detail.isPending && !detail.isError && detail.data ? (
+            <div className="ml-auto flex items-center gap-1.5">
+              <Button
+                size="sm"
+                prominence="secondary"
+                disabled={from === 0}
+                onClick={() => setFrom(Math.max(0, from - 20))}
+              >
+                {ui("Phần trước")}
+              </Button>
+              <Button
+                size="sm"
+                prominence="secondary"
+                disabled={!detail.data.hasMore}
+                onClick={() => setFrom(from + 20)}
+              >
+                {ui("Phần tiếp")}
+              </Button>
+            </div>
+          ) : null}
         </footer>
       ) : null}
     </>
