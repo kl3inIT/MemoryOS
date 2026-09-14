@@ -22,6 +22,7 @@ secrets/
 __pycache__/
 graphify-out/
 /output/
+/.ui-review/
 tmp/
 codex-session-*.jsonl
 *.docx
