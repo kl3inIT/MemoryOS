@@ -49,7 +49,7 @@ gh run list --workflow deploy-staging.yml --limit 5
 gh run watch <deployment-run-id> --exit-status
 ```
 
-The workflow verifies same-repository main-push provenance, successful CI and publication jobs, ancestry, checksums and the selected attempt. Automatic promotion skips a source SHA superseded on main. Manual selection permits an older verified release, subject to schema compatibility checks. Neither path accepts a PR build or arbitrary image tag.
+The workflow verifies same-repository main-push provenance, successful CI and publication jobs, ancestry, checksums and the selected attempt. Automatic promotion skips a source SHA superseded on main by a change CI verifies; later commits that CI ignores (docs, root Markdown, `tools/visual-paradigm-mcp`) do not supersede it, because they publish no newer release. Manual selection permits an older verified release, subject to schema compatibility checks. Neither path accepts a PR build or arbitrary image tag.
 
 Before SSH or changing containers, the workflow validates the release bundle and staging SSH configuration. It does not run an application-login preflight or alter identity bindings and permissions.
 

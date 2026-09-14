@@ -26,12 +26,17 @@
 
 ## Measured (PR #149)
 
-| Job | Baseline | Attempt 1 (cold image cache) |
-| --- | --- | --- |
-| `check` | 684 s | 354 s |
-| `backend-images` | 132 s | 368 s |
-| `frontend-image` | 50 s | 119 s |
-| Run wall time | 11 m 31 s | 8 m 51 s |
+| Job | Baseline (run 34851440247) | e06bf23 attempt 1, cold image cache | e06bf23 attempt 2, same source, warm cache | cd9cf5e, 4 shards (run 34856580096) |
+| --- | --- | --- | --- | --- |
+| `check` | 684 s | 354 s | 306 s | 350 s |
+| `frontend-check` | (in shard 1: 46–49 s) | — | — | 53 s |
+| `frontend` shards | 517 s / 408 s | 514 s / 355 s | — | 278 / 301 / 227 / 234 s |
+| `frontend-report` | — | — | — | 28 s |
+| `backend-images` | 132 s | 368 s | 115 s | 175 s |
+| `frontend-image` | 50 s | 119 s | 32 s | 75 s (web sources changed) |
+| Run wall time | 11 m 31 s | 8 m 51 s | — | 6 m 37 s |
+
+Image caching is not yet a clear gain: fully cached rebuilds are faster than baseline, but runs where the image inputs changed (or the cache missed) were slower because of BuildKit export/load and cache upload. Decide on the next backend and web PRs whether to keep it.
 
 ## 4. Documentation
 

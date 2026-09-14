@@ -77,8 +77,12 @@ jobs:
             and all(.[]; .conclusion == "success")
           '
           git merge-base --is-ancestor "$sha" origin/main
-          if [[ "$EVENT_NAME" == workflow_run && "$sha" != "$(git rev-parse origin/main)" ]]; then
+          # A newer main commit supersedes this release only when it changes a path CI verifies. Commits that CI
+          # ignores (docs, root Markdown, tools/visual-paradigm-mcp) never publish a newer release.
+          if [[ "$EVENT_NAME" == workflow_run ]] \
+            && git diff --name-only "$sha" origin/main | grep -Ev '^(docs/|tools/visual-paradigm-mcp/)|^[^/]*\.md$' | grep -q .; then
             echo 'Stale automatic release skipped'
+            echo "Automatic release $sha skipped: main has newer CI-verified changes." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           printf 'sha=%s\nrun_id=%s\nattempt=%s\nready=true\n' "$sha" "$CI_RUN_ID" "$attempt" >> "$GITHUB_OUTPUT"
