@@ -336,6 +336,28 @@ describe("SearchPage", () => {
     expect(searchDocumentsMock).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps the Source rail and lists connectors without results when a filter leaves one", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [],
+      },
+    });
+    await renderNewSession();
+
+    await user.type(screen.getByRole("textbox", { name: "Search documents" }), "sổ tay");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    const rail = await screen.findByRole("complementary", { name: "Source" });
+    expect(within(rail).getByRole("button", { name: "Uploaded files: 1 results" })).toBeEnabled();
+    expect(within(rail).getByRole("button", { name: "Google Drive: 0 results" })).toBeDisabled();
+  });
+
   it("uses the loading screen for a repeated search immediately", async () => {
     const user = userEvent.setup();
     searchDocumentsMock.mockResolvedValueOnce({

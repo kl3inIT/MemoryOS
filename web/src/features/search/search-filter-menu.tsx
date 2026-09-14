@@ -10,6 +10,7 @@ export type SearchFilterOption = {
   label: string;
   /** Result count shown after the label, when the option has one. */
   count?: number;
+  disabled?: boolean;
 };
 
 type SearchFilterMenuProps = {
@@ -66,7 +67,8 @@ export function SearchFilterMenu({
               <DropdownMenu.RadioItem
                 key={option.value}
                 value={option.value}
-                className="relative flex min-h-9 cursor-pointer select-none items-center rounded-lg py-2 pr-3 pl-9 font-main-ui-body text-content-secondary outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-surface-subtle data-[highlighted]:text-content-primary data-[state=checked]:text-content-primary"
+                disabled={option.disabled}
+                className="relative flex min-h-9 cursor-pointer select-none items-center rounded-lg py-2 pr-3 pl-9 font-main-ui-body text-content-secondary outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-surface-subtle data-[highlighted]:text-content-primary data-[state=checked]:text-content-primary"
               >
                 <DropdownMenu.ItemIndicator className="absolute left-3 grid size-4 place-items-center text-content-primary">
                   <Check className="size-3.5" aria-hidden="true" />

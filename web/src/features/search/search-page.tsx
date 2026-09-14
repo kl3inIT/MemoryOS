@@ -358,8 +358,8 @@ function AuthorizedSearchPage() {
   const statusMessage = searchStatus(request, result, isSearchUpdating);
   const hasFilters = Boolean(mediaType || sourceType || timeRange !== "all");
   const sourceOptions = searchSourceOptions(result.data?.sourceFacets, sourceType);
-  // Two connectors make the filter useful; a selected connector stays visible so it can be cleared.
-  const showSourceFilter = sourceOptions.length > 2 || sourceType !== null;
+  // Shown for every search so filters never move the search box or the results column.
+  const showSourceFilter = request !== null;
   const fileTypeOptions = withResultFileTypes(result.data?.results ?? [], mediaType);
   const showLoadingScreen = isSearchUpdating;
   const currentPage = request?.page ?? 0;
@@ -781,7 +781,7 @@ function withResultFileTypes(
   return [...FILE_TYPE_OPTIONS, ...extra];
 }
 
-/** "All sources" and every connector with results (plus the selected one), in provider catalog order. */
+/** "All sources" and every catalog connector in catalog order; a connector without results cannot be chosen. */
 function searchSourceOptions(
   facets: SourceFacets | undefined,
   selected: DocumentSourceType | null,
@@ -794,18 +794,18 @@ function searchSourceOptions(
       count: facets?.total ?? 0,
       icon: <TextSearch className="size-4 text-content-muted" />,
     },
-    ...sourceProviders
-      .filter((provider) => (counts.get(provider.type) ?? 0) > 0 || provider.type === selected)
-      .map((provider) => {
-        const Icon = provider.icon;
-        return {
-          value: provider.type,
-          // Result cards name uploads the same way.
-          label: provider.type === "FILE" ? "Tệp tải lên" : provider.name,
-          count: counts.get(provider.type) ?? 0,
-          icon: <Icon className="size-4 text-content-muted" />,
-        };
-      }),
+    ...sourceProviders.map((provider) => {
+      const Icon = provider.icon;
+      const count = counts.get(provider.type) ?? 0;
+      return {
+        value: provider.type,
+        // Result cards name uploads the same way.
+        label: provider.type === "FILE" ? "Tệp tải lên" : provider.name,
+        count,
+        icon: <Icon className="size-4 text-content-muted" />,
+        disabled: count === 0 && provider.type !== selected,
+      };
+    }),
   ];
 }
 
