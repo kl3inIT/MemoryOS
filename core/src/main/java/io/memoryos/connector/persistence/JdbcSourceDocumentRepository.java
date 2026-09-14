@@ -192,7 +192,7 @@ public class JdbcSourceDocumentRepository {
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
                 JOIN connector_item_versions v ON v.tenant_id=i.tenant_id AND v.id=i.current_version_id
-                JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id
+                JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id AND o.state='ACTIVE'
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id=:document AND m.retrieval_eligible=TRUE
                     AND d.status='ELIGIBLE' AND d.media_type='application/pdf'

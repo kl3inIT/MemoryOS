@@ -49,6 +49,14 @@ class SourceOriginalPdfQueryTest {
             jdbc.sql("UPDATE connector_item_versions SET content_sha256=:sha WHERE tenant_id=:tenant AND id=:id")
                     .param("sha", SHA).param("tenant", tenant.value()).param("id", source).update();
 
+            // An object being deleted is not served; ACTIVE objects keep their past staging expiry.
+            jdbc.sql("UPDATE stored_objects SET state='DELETE_PENDING' WHERE tenant_id=:tenant AND id=:id")
+                    .param("tenant", tenant.value()).param("id", source).update();
+            assertTrue(repository.originalPdf(tenant, reader, document).isEmpty());
+            jdbc.sql("UPDATE stored_objects SET state='ACTIVE' WHERE tenant_id=:tenant AND id=:id")
+                    .param("tenant", tenant.value()).param("id", source).update();
+            assertTrue(repository.originalPdf(tenant, reader, document).isPresent());
+
             // Restricted Sources require a Group grant; non-PDF Documents have no original view.
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED' WHERE tenant_id=:tenant AND id=:id")
                     .param("tenant", tenant.value()).param("id", source).update();
