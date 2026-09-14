@@ -44,6 +44,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Chat model selector polish](docs/increments/active/chat-model-selector-polish/design.md) owns inherited-default marking and model identity display; plan items remain open.
 - [MEM-93 — Chat and Search authorization](docs/increments/active/mem-93-chat-search-authorization/design.md) owns Chat capability enforcement, the per-document index access list and its measurement gate.
 - [Chat ThreadList runtime](docs/increments/active/chat-thread-list-runtime/design.md) owns the assistant-ui remote thread list migration of the Chat sidebar and conversation lifecycle.
+- [MEM-87 — Citation and evidence UX](docs/increments/active/mem-87-citation-evidence-ux/design.md) owns source icons, citation previews, Google Drive links and the cited PDF page view in Chat and Search.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 

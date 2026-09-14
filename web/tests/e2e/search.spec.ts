@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 const documentId = "73835d74-d386-4b4e-b392-ad7f81e3b55a";
@@ -69,6 +70,7 @@ test("searches merged sections, filters, pages and opens each best match with es
       json: {
         page: request.page,
         hasMore: request.page === 0,
+        totalResults: 11,
         candidateLimit: 500,
         results: [
           {
@@ -76,6 +78,9 @@ test("searches merged sections, filters, pages and opens each best match with es
             generation,
             title: request.page === 0 ? "HR-2026 Quy định nghỉ phép" : "Quy định bổ sung",
             mediaType: "application/pdf",
+            sourceTypes: [],
+            authors: [],
+            providerUrl: null,
             updatedAt: "2026-09-08T00:00:00Z",
             score: 0.8,
             sections,
@@ -118,14 +123,17 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(page.getByText(sections[0].content, { exact: true })).toHaveCount(0);
   await expect(page.getByText("Title: HR-2026 Quy định nghỉ phép", { exact: true })).toHaveCount(0);
   await expect(resultCard.getByText("PDF", { exact: true })).toBeVisible();
-  await expect(page.getByRole("complementary", { name: "File types on this page" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "PDF: 1 result on this page" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(
+    page.getByRole("heading", { name: "11 results for “chính sách nghỉ phép”" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "File type: PDF" })).toBeVisible();
   await expect(page.getByText("application/pdf", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Best match", { exact: true })).toBeVisible();
-  await expect(page.getByText("Related match 2", { exact: true })).toBeVisible();
+  await expect(
+    resultCard.getByRole("button", { name: "Open best match in HR-2026 Quy định nghỉ phép" }),
+  ).toBeVisible();
+  await expect(
+    resultCard.getByRole("button", { name: "Open related match 2 in HR-2026 Quy định nghỉ phép" }),
+  ).toBeVisible();
   await expect(page.locator("mark").filter({ hasText: "nghỉ" }).first()).toBeVisible();
   await expect(page.locator("script").filter({ hasText: "alert('x')" })).toHaveCount(0);
   await expect(resultCard.getByText(/<script>alert\('x'\)<\/script>/)).toBeVisible();
@@ -159,8 +167,11 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(page.getByRole("button", { name: "File type: All file types" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Clear filters" })).toHaveCount(0);
   await expect(titleButton).toBeVisible();
+  const pages = page.getByRole("navigation", { name: "Search results pages" });
+  await expect(pages).toContainText("1 / 2");
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.getByRole("button", { name: "Quy định bổ sung", exact: true })).toBeVisible();
+  await expect(pages).toContainText("2 / 2");
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
 });
 
@@ -178,6 +189,7 @@ test("handles unavailable, retry, empty and a pending search", async ({ page }) 
         json: {
           page: 0,
           hasMore: false,
+          totalResults: request.query === "slow" ? 1 : 0,
           candidateLimit: 500,
           results:
             request.query === "slow"
@@ -187,6 +199,9 @@ test("handles unavailable, retry, empty and a pending search", async ({ page }) 
                     generation,
                     title: "Old result",
                     mediaType: "application/pdf",
+                    sourceTypes: [],
+                    authors: [],
+                    providerUrl: null,
                     updatedAt: "2026-09-08T00:00:00Z",
                     score: 0.8,
                     sections,
@@ -220,6 +235,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
       json: {
         page: 0,
         hasMore: false,
+        totalResults: 1,
         candidateLimit: 500,
         results: [
           {
@@ -227,6 +243,9 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
             generation,
             title: "HR-2026 Quy định nghỉ phép",
             mediaType: "application/pdf",
+            sourceTypes: [],
+            authors: [],
+            providerUrl: null,
             updatedAt: "2026-09-08T00:00:00Z",
             score: 0.8,
             sections,
@@ -272,4 +291,128 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
   await expect
     .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
     .toBe(true);
+});
+
+test("shows source type, provider and authors, links to Google Drive and outlines the matched PDF region", async ({
+  page,
+}) => {
+  const box = '[{"page_no":1,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]';
+  const located = [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box }] }];
+  const providerUrl = "https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp";
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        results: [
+          {
+            documentId,
+            generation,
+            title: "HR-2026 Quy định nghỉ phép",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: located,
+            sourceTypes: ["GOOGLE_DRIVE"],
+            authors: ["Alice", "Bình", "Chi"],
+            providerUrl,
+          },
+          {
+            documentId: "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a41",
+            generation: "7a2e3d4c-5b6f-4071-9b8c-0d1e2f3a4b52",
+            title: "Bảng theo dõi ngày phép",
+            mediaType: "application/vnd.google-apps.spreadsheet",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.7,
+            sections: [
+              {
+                ...sections[0],
+                content:
+                  "Bảng theo dõi ngày phép 2026: Alice còn 8 ngày nghỉ phép, Bình còn 5 ngày, Chi đã dùng hết.",
+                provenance: [{ ordinal: 2, provenanceJson: '[{"sheetName":"2026"}]' }],
+              },
+            ],
+            sourceTypes: ["GOOGLE_DRIVE"],
+            authors: [],
+            providerUrl: "https://drive.google.com/open?id=1SheetIdAbCdEfGh",
+          },
+          {
+            documentId: "8b3f4e5d-6c70-4182-8c9d-1e2f3a4b5c63",
+            generation: "9c405f6e-7d81-4293-9dae-2f3a4b5c6d74",
+            title: "Quy trình nghỉ phép.docx",
+            mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            updatedAt: "2026-09-07T00:00:00Z",
+            score: 0.6,
+            sections: [
+              {
+                ...sections[0],
+                content:
+                  "Quy trình nghỉ phép: gửi đơn trên cổng nội bộ, quản lý duyệt trong hai ngày làm việc.",
+                provenance: [{ ordinal: 2, provenanceJson: "[]" }],
+              },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "HR-2026 Quy định nghỉ phép",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  const originals: URL[] = [];
+  await page.route("**/api/search/documents/*/original?*", (route) => {
+    originals.push(new URL(route.request().url()));
+    return route.fulfill({
+      status: 200,
+      contentType: "application/octet-stream",
+      body: readFileSync(new URL("../fixtures/cited-handbook.pdf", import.meta.url)),
+    });
+  });
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  const titleButton = page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép", exact: true });
+  const card = page.locator("article").filter({ has: titleButton });
+  await expect(card.locator('[data-slot="document-source-icon"]')).toHaveAttribute(
+    "data-provider",
+    "google_drive",
+  );
+  await expect(card).toContainText("Google Drive");
+  await expect(card).toContainText("Alice, Bình +1");
+  // Every media type on the page is selectable, not only the fixed filter set.
+  await page.getByRole("button", { name: "File type: All file types" }).click();
+  await expect(page.getByRole("menuitemradio", { name: "Google Sheets" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.locator("article").filter({ hasText: "Quy trình nghỉ phép.docx" }).getByRole("link"),
+  ).toHaveCount(0);
+  await expect(
+    card.getByRole("link", { name: "Open HR-2026 Quy định nghỉ phép in Google Drive" }),
+  ).toHaveAttribute("href", providerUrl);
+  await titleButton.click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("link", { name: "Open HR-2026 Quy định nghỉ phép in Google Drive" }),
+  ).toHaveAttribute("href", providerUrl);
+  await dialog.getByRole("tab", { name: "PDF pages" }).click();
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).toBeVisible();
+  await expect(dialog.locator('[data-slot="pdf-citation-box"]')).toHaveCount(1);
+  expect(originals.map((url) => url.searchParams.get("generation"))).toEqual([generation]);
+  await dialog.getByRole("tab", { name: "Passages" }).click();
+  await expect(dialog.getByText(nextPassage.content)).toBeVisible();
 });

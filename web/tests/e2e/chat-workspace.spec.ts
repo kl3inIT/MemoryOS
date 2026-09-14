@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const title of ["Chat", "Search"]) {
-  test(`keeps the saved ${title} title separate from the mode switcher`, async ({ page }) => {
+  test(`shows the saved ${title} title as a plain header title`, async ({ page }) => {
     const session = await (
       await page.request.post("/api/chat/test-fixture", { data: { title } })
     ).json();
@@ -33,11 +33,14 @@ for (const title of ["Chat", "Search"]) {
     const header = page.getByRole("banner");
     await expect(header.getByRole("button", { name: `Thao tác hội thoại ${title}` })).toBeVisible();
     await expect(header.getByText(title, { exact: true })).toBeVisible();
-    await expect(header.getByRole("button", { name: /switch mode/ })).toHaveCount(0);
+    // Search has its own sidebar entry; no page offers a header Chat/Search mode menu.
+    await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/");
-    await expect(header.getByRole("button", { name: "Trò chuyện, chuyển chế độ" })).toBeVisible();
+    await expect(header).toContainText("Trò chuyện");
+    await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/search");
-    await expect(header.getByRole("button", { name: "Tìm kiếm, chuyển chế độ" })).toBeVisible();
+    await expect(header).toContainText("Tìm tài liệu");
+    await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
   });
 }
 

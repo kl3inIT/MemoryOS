@@ -20,7 +20,8 @@ import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useAdminAccess } from "@/features/identity/application-session-context";
 import { cn } from "@/lib/utils";
-import { ChatModeMenu, ChatNavigation } from "@/features/chat/chat-navigation";
+import { ChatHistorySearch } from "@/features/chat/chat-history-search";
+import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
 export type AdminPage = "sources" | "users" | "groups" | "web";
@@ -30,7 +31,6 @@ type AppShellProps = {
   adminPage?: AdminPage;
   sourceSetupStep?: 0 | 1;
   pageTitle: string;
-  chatMode?: "Chat" | "Search";
   headerActions?: ReactNode;
   children: ReactNode;
 };
@@ -145,6 +145,9 @@ function SidebarContents({
             >
               <Brand />
             </Link>
+            {appArea && sourceSetupStep === undefined ? (
+              <ChatHistorySearch variant="icon" onNavigate={onNavigate} />
+            ) : null}
             {mobile ? (
               <Dialog.Close asChild>
                 <IconButton prominence="internal" size="md" aria-label={ui("Close navigation")}>
@@ -290,7 +293,6 @@ export function AppShell({
   adminPage = "sources",
   sourceSetupStep,
   pageTitle,
-  chatMode,
   headerActions,
   children,
 }: AppShellProps) {
@@ -354,11 +356,7 @@ export function AppShell({
               title={pageTitle}
               className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary md:max-w-xl"
             >
-              {sourceSetupStep === undefined && area === "app" && chatMode ? (
-                <ChatModeMenu mode={chatMode} />
-              ) : (
-                pageTitle
-              )}
+              {pageTitle}
             </span>
             <div className="ml-auto flex shrink-0 items-center">{headerActions}</div>
           </header>

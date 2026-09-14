@@ -1,6 +1,18 @@
 import { z } from "zod";
 import type { Root, RootContent } from "mdast";
 
+// Presentation-only metadata recorded when the evidence was cited; older answers omit both.
+const mediaTypeSchema = z.string().min(1).max(160).nullish();
+const sourceTypesSchema = z
+  .array(z.enum(["FILE", "GOOGLE_DRIVE"]))
+  .max(2)
+  .optional();
+// Only the backend-built Drive open URL is accepted; anything else would be an arbitrary outbound link.
+const providerUrlSchema = z
+  .string()
+  .regex(/^https:\/\/drive\.google\.com\/open\?id=[A-Za-z0-9_-]{10,256}$/)
+  .nullish();
+
 const documentSourceSchema = z
   .object({
     citationId: z.number().int().min(1).max(24),
@@ -18,6 +30,9 @@ const documentSourceSchema = z
       )
       .min(1)
       .max(60),
+    mediaType: mediaTypeSchema,
+    sourceTypes: sourceTypesSchema,
+    providerUrl: providerUrlSchema,
   })
   .refine(
     (source) =>
@@ -52,6 +67,9 @@ export const sourceSchema = z.union([
       excerpt: z.string().max(4000),
       retrievedAt: z.string().datetime({ offset: true }),
     }),
+    mediaType: z.null().optional(),
+    sourceTypes: z.array(z.never()).max(0).optional(),
+    providerUrl: z.null().optional(),
   }),
   documentSourceSchema,
   z.object({
@@ -80,6 +98,9 @@ export const sourceSchema = z.union([
     startOrdinal: z.literal(0),
     endOrdinal: z.literal(0),
     provenance: z.array(z.never()).max(0),
+    mediaType: mediaTypeSchema,
+    sourceTypes: z.array(z.never()).max(0).optional(),
+    providerUrl: z.null().optional(),
   }),
 ]);
 export type ChatSource = z.infer<typeof sourceSchema>;

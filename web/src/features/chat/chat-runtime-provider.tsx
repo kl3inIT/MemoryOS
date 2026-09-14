@@ -133,7 +133,10 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
   }, [registry, controller]);
   useEffect(() => () => attachments.cancelPending(), [attachments]);
   const isMain = useAuiState((state) => state.threads.mainThreadId === state.threadListItem.id);
-  useEffect(() => controller.setVisible(isMain), [controller, isMain]);
+  // Sidebar links (Search documents, Assistants, Projects) leave chat routes without switching the
+  // main thread; the reader must close there too, while the server run continues.
+  const onChatRoute = useRouterState({ select: (state) => isChatRoute(state.location.pathname) });
+  useEffect(() => controller.setVisible(isMain && onChatRoute), [controller, isMain, onChatRoute]);
   const loading = useSyncExternalStore(
     runtime.thread.subscribe,
     () => runtime.thread.getState().isLoading,
