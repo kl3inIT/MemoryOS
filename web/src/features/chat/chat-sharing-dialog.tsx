@@ -41,6 +41,8 @@ export function SharingDialog({
   const link = new URL(`/shared/${sessionId}`, window.location.origin).toString();
   const selected = enabled ?? sharing.data?.enabled ?? false;
   const ready = !!sharing.data && !sharing.isFetching && !sharing.isError;
+  // The choice is local until save, so an authoritative refetch gates saving, not selecting.
+  const choosable = !!sharing.data && !sharing.isError;
   async function copy() {
     try {
       await navigator.clipboard.writeText(link);
@@ -144,7 +146,11 @@ export function SharingDialog({
                     : "border-border-subtle hover:bg-surface-sunken",
                 )}
               >
-                <RadioGroupItem value={String(value)} aria-label={ui(title)} disabled={!ready} />
+                <RadioGroupItem
+                  value={String(value)}
+                  aria-label={ui(title)}
+                  disabled={!choosable}
+                />
                 <Icon className="size-5 shrink-0" />
                 <span>
                   <span className="block font-medium">{ui(title)}</span>

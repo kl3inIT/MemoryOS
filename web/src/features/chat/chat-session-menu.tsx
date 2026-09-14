@@ -169,7 +169,7 @@ export function ChatSessionMenu({
           <RadioGroup
             aria-label={ui("Dự án đích")}
             className="max-h-64 space-y-1 overflow-y-auto"
-            value={target ?? "none"}
+            value={target === undefined ? "" : (target ?? "none")}
             onValueChange={(next) => setTarget(next === "none" ? null : next)}
           >
             {[{ id: null, name: ui("Ngoài dự án") }, ...(projects.data ?? [])].map((project) => (

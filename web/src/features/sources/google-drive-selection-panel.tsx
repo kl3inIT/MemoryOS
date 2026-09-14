@@ -175,13 +175,18 @@ export function GoogleDriveSelectionPanel({
     if (mode && mode !== draftFocus.current) {
       if (mode === "roots") input.current?.focus();
       else {
-        const checkbox = selectionControl.current?.querySelector<HTMLInputElement>("input");
-        if (checkbox && !checkbox.disabled) checkbox.focus();
+        // The registry checkbox is a button with role=checkbox, not an input.
+        const checkbox = selectionControl.current?.querySelector<HTMLElement>('[role="checkbox"]');
+        const usable =
+          checkbox && !checkbox.matches(':disabled, [aria-disabled="true"], [data-disabled]');
+        if (usable) checkbox.focus();
         else cancelButton.current?.focus();
       }
     }
     if (!mode && draftFocus.current) {
-      const select = selectionControl.current?.querySelector<HTMLButtonElement>("button");
+      const select = selectionControl.current?.querySelector<HTMLButtonElement>(
+        'button:not([role="checkbox"])',
+      );
       if (select?.isConnected) select.focus();
       else editButton.current?.focus();
       selectionControl.current = null;
