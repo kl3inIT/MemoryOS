@@ -140,6 +140,14 @@ Domain Story and Consumer
 - A necessary, maintained dependency is acceptable when it enables real reuse and its compatibility, license, bundle and maintenance costs are reasonable. Do not replace library logic merely to avoid adding a package. Pin the dependency and verify its actual consumer; avoid unrelated upgrades.
 - Reuse does not transfer application authority to the library. MemoryOS still owns backend authorization, persistence and business lifecycle. A component dependency does not by itself justify a new global store or duplication of state already owned by the runtime or query cache.
 
+## shadcn/ui registry
+
+- `web/components.json` registers shadcn/ui (`radix-nova` style, Lucide icons, `@/components/ui` alias). Every shared browser control comes from that registry; feature code never hand-rolls a control the registry ships.
+- A missing control is installed, never reimplemented: `pnpm exec shadcn add <component>` inside `web/`, then adapt the copied file to the existing design tokens, `ui()` translation contract, and the [frontend interaction contracts](#frontend-interaction-contracts). Commit the installed file with the change that needs it.
+- Do not write a raw `<input type="checkbox">`, `<input type="radio">`, `<table>`, `<details>`/`<summary>` toggle, tab strip, or tooltip in feature code. Use `Checkbox`, `RadioGroup`, `Switch`, `Table`, `Collapsible`/`Accordion`, `Tabs`, and `Tooltip` from `@/components/ui`.
+- `Button`, `IconButton`, `TextButton`, `StatusBadge`, `Empty`, and `Separator` remain the MemoryOS-owned wrappers over the registry primitives; keep their `tone`/`prominence`/`size` vocabulary rather than styling a registry component inline.
+- Keep an installed component recognizable: no renaming of exported parts, no removal of its accessibility wiring. Record any deliberate deviation in the active increment.
+
 ## Frontend interaction contracts
 
 - Product code chooses action `tone` (`default` or `danger`), `prominence` (`primary`, `secondary`, `tertiary`, or `internal`), and control `size` (`sm`, `md`, or `lg`). Shared UI components own rest, hover, active, focus-visible, disabled, and pending presentation in both themes.

@@ -24,6 +24,7 @@ import { sourceLocationLabels, webDisplayUrl } from "./chat-source-meta";
 import type { ChatSource, SearchProgress } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "./chat-panel-context";
 import type { ChatArtifact } from "./chat-artifacts";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const emptySources: ChatSource[] = [];
 const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[] }>({
@@ -321,38 +322,42 @@ export function ChatSearchStatus() {
     <div className="mb-3 space-y-2 text-sm">
       <ThinkingIndicator role="status" label={ui(label)} />
       {active?.search && (
-        <details className="text-muted-foreground">
-          <summary className="cursor-pointer">{ui("Chi tiết tìm kiếm")}</summary>
-          <ul className="mt-2 space-y-1 pl-4 list-disc">
-            {active.search.queries.map((query) => (
-              <li key={query} className="break-words">
-                {query}
-              </li>
-            ))}
-          </ul>
-          {!!filters?.sources.length && (
-            <p>
-              {ui("Nguồn:")}{" "}
-              {filters.sources
-                .map((source) => (source === "FILE" ? ui("Tệp tải lên") : "Google Drive"))
-                .join(", ")}
-            </p>
-          )}
-          {filters?.created && (
-            <p>
-              {ui("Ngày tạo:")}{" "}
-              {filters.created.from ? displayDate(filters.created.from) : ui("Không giới hạn")} –{" "}
-              {filters.created.to ? displayDate(filters.created.to) : ui("Không giới hạn")}
-            </p>
-          )}
-          {filters?.updated && (
-            <p>
-              {ui("Ngày cập nhật:")}{" "}
-              {filters.updated.from ? displayDate(filters.updated.from) : ui("Không giới hạn")} –{" "}
-              {filters.updated.to ? displayDate(filters.updated.to) : ui("Không giới hạn")}
-            </p>
-          )}
-        </details>
+        <Collapsible className="text-muted-foreground">
+          <CollapsibleTrigger className="cursor-pointer">
+            {ui("Chi tiết tìm kiếm")}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ul className="mt-2 space-y-1 pl-4 list-disc">
+              {active.search.queries.map((query) => (
+                <li key={query} className="break-words">
+                  {query}
+                </li>
+              ))}
+            </ul>
+            {!!filters?.sources.length && (
+              <p>
+                {ui("Nguồn:")}{" "}
+                {filters.sources
+                  .map((source) => (source === "FILE" ? ui("Tệp tải lên") : "Google Drive"))
+                  .join(", ")}
+              </p>
+            )}
+            {filters?.created && (
+              <p>
+                {ui("Ngày tạo:")}{" "}
+                {filters.created.from ? displayDate(filters.created.from) : ui("Không giới hạn")} –{" "}
+                {filters.created.to ? displayDate(filters.created.to) : ui("Không giới hạn")}
+              </p>
+            )}
+            {filters?.updated && (
+              <p>
+                {ui("Ngày cập nhật:")}{" "}
+                {filters.updated.from ? displayDate(filters.updated.from) : ui("Không giới hạn")} –{" "}
+                {filters.updated.to ? displayDate(filters.updated.to) : ui("Không giới hạn")}
+              </p>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       )}
       {!!active?.documents.length && (
         <div className="text-muted-foreground">

@@ -3,6 +3,11 @@ package io.memoryos.chat.execution;
 import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.streaming.StreamingPromptRunnerBuilder;
 import com.embabel.agent.core.AgentProcessRepository;
+import com.embabel.common.ai.model.LlmOptions;
+import com.embabel.common.ai.prompt.CurrentDate;
+import com.embabel.common.ai.prompt.PromptContributor;
+import java.util.List;
+import java.util.Set;
 import com.embabel.agent.core.Budget;
 import com.embabel.agent.api.tool.Tool;
 import io.memoryos.chat.ChatImageEvent;
@@ -72,8 +77,8 @@ public final class ChatModelExecutor {
             var metadata = selected.service();
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
                     new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, Math.min(4096, limits.tokenBudget())), 1,
-                    () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); }, selected.finalRequest());
-            guard.contextLimit(selected.tokens(), Math.min(3000, selected.contextWindow() - 128));
+                    () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
+                    selected.policy(), Math.min(3000, selected.contextWindow() - Math.min(128, selected.maxOutputTokens())), selected.finalRequest());
             guard.outputLimit(Math.min(128, selected.maxOutputTokens()));
             var runner = context.ai().withLlmService(new StreamingLlmService(selected.withModel(guard)));
             runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(Math.min(128, selected.maxOutputTokens())).withTimeout(Duration.ofSeconds(10)));
@@ -110,12 +115,11 @@ public final class ChatModelExecutor {
         var delegate = metadata.getChatModel();
         if (nativeWeb) delegate = ((NativeWebSearch) delegate).forTurn(new NativeWebSearch.Turn(setup.evidence(), events,
                 setup.webSearch() == io.memoryos.chat.WebSearchMode.required, checkActive));
-        var guard = new ChatModelGuard(delegate, process, metadata,
-                new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
-                selected.finalRequest());
         int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
-        guard.contextLimit(selected.tokens(), contextLimit);
+        var guard = new ChatModelGuard(delegate, process, metadata,
+                new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
+                selected.policy(), contextLimit, selected.finalRequest());
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
@@ -128,7 +132,9 @@ public final class ChatModelExecutor {
             guard.evidenceAvailable(setup.evidence()::hasEvidence);
             var nativeService = selected.withModel(guard);
             var service = new StreamingLlmService(nativeService);
-            var runner = context.ai().withLlmService(service);
+            // Date was frozen into the admitted system message. Override Embabel's automatic date by role.
+            var runner = context.promptRunner(new LlmOptions(), Set.of(), List.of(),
+                    List.of(PromptContributor.fixed("", new CurrentDate().getRole())), List.of(), false).withLlmService(service);
             runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withMaxTokens(maxOutput))
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             java.util.List<com.embabel.chat.Message> messages;
@@ -143,20 +149,20 @@ public final class ChatModelExecutor {
             if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
-                        fileWork, setup.deadline(), events, guard::availableContextTokens, selected.tokens());
+                        fileWork, setup.deadline(), events, guard::availableContextTokens, selected.policy().tokens());
                 runner = runner.withTools(Tool.fromInstance(webTools));
                 guard.webSiteFilter(setup.webAccess().search() != null && setup.webAccess().search().provider().supportsSiteFilter());
                 if (setup.webSearch() == io.memoryos.chat.WebSearchMode.required) guard.requireWebSearch();
             }
             if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
-                        setup.fileIds(), fileActive, guard::availableContextTokens, selected.tokens(), fileSearch, setup.evidence(), fileWork, setup.deadline())));
+                        setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork, setup.deadline())));
             }
             if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
-                searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.tokens(), searchLimits,
+                searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence());
                 runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);
             }

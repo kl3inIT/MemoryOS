@@ -7,10 +7,15 @@ import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository.Model;
 import io.memoryos.chat.persistence.ModelCatalogRepository.Provider;
 import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.Authority;
+import io.memoryos.iam.group.GroupIdentityPage;
+import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -29,18 +34,20 @@ public class ModelCatalogService {
     private final IamAuthorization authorization;
     private final ChatProviderAdapters adapters;
     private final ProviderCredentials credentials;
+    private final GroupScopeService groups;
     private final PersonaProperties persona;
     private final Deployment deployment;
 
     public ModelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            PersonaProperties persona, Deployment deployment) {
+            GroupScopeService groups, PersonaProperties persona, Deployment deployment) {
         this.catalog = catalog;
         this.chats = chats;
         this.tenants = tenants;
         this.authorization = authorization;
         this.adapters = adapters;
         this.credentials = credentials;
+        this.groups = groups;
         this.persona = persona;
         this.deployment = deployment;
     }
@@ -50,6 +57,10 @@ public class ModelCatalogService {
                                 Set<UUID> groupIds, Set<UUID> personaIds, ProviderCredentials.Change credential) {
         @Override public @NonNull String toString() { return "ProviderInput[redacted]"; }
     }
+    /** Resolved connection for one provider call; the secret never reaches toString(). */
+    public record ProviderConnection(String adapterType, String baseUrl, String credential) {
+        @Override public @NonNull String toString() { return "ProviderConnection[redacted]"; }
+    }
     public record ModelInput(String modelName, String displayName, boolean visible, ModelSettings settings) {}
     public record ProviderView(UUID id, String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
                                Set<UUID> groupIds, Set<UUID> personaIds, boolean credentialConfigured, long revision) {}
@@ -58,6 +69,9 @@ public class ModelCatalogService {
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
     public record Selection(Model model, Provider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
         public Selection(Model model, Provider provider, @Nullable String fallbackReason) { this(model, provider, fallbackReason, null); }
+    }
+    public record PersonaPage(List<ModelCatalogRepository.PersonaSummary> items, @Nullable String nextCursor) {
+        public PersonaPage { items = List.copyOf(items); }
     }
 
     @Transactional
@@ -176,23 +190,63 @@ public class ModelCatalogService {
         return catalog.defaultModel(tenant);
     }
 
+    /** Groups a model manager may associate with a provider; scoped managers see only their own. */
+    @Transactional
+    public GroupIdentityPage groupOptions(ActorId actor, @Nullable String search, int page, int size) {
+        var access = authorization.lockAndRequire(actor, IamCapability.MODELS_MANAGE, false);
+        return access.authority() == Authority.GLOBAL
+                ? groups.listGroupOptions(access.tenantId(), search, page, size)
+                : groups.listManagedGroupOptions(access.tenantId(), actor, search, page, size);
+    }
+
+    /** Reads one provider's endpoint and decrypted credential; the caller performs the provider call. */
+    @Transactional
+    public ProviderConnection providerConnection(ActorId actor, UUID providerId) {
+        UUID tenant = admin(actor, false);
+        var provider = catalog.provider(tenant, providerId).orElseThrow(ChatException::unavailable);
+        if (!provider.enabled()) throw ChatException.invalid("Enable the provider before listing its models.");
+        return new ProviderConnection(provider.adapterType(), provider.baseUrl(),
+                credentials.resolve(tenant, providerId, provider.credential()));
+    }
+
+    @Transactional
+    public PersonaPage personas(ActorId actor, @Nullable String cursor, int limit) {
+        UUID tenant = admin(actor, false);
+        if (limit < 1 || limit > 100) throw ChatException.invalid("Persona page limit must be between 1 and 100.");
+        UUID after = null;
+        if (cursor != null) {
+            try {
+                after = UUID.fromString(cursor);
+                if (!after.toString().equals(cursor)) throw new IllegalArgumentException();
+            } catch (IllegalArgumentException invalid) {
+                throw ChatException.invalid("Invalid Persona cursor.");
+            }
+            if (!catalog.personaExists(tenant, actor.value(), after)) throw ChatException.invalid("Invalid Persona cursor.");
+        }
+        chats.provisionPersona(new TenantId(tenant), persona.getName(), persona.getInstructions(), persona.getModel());
+        var page = catalog.personas(tenant, actor.value(), after, limit + 1);
+        boolean hasMore = page.size() > limit;
+        var items = hasMore ? page.subList(0, limit) : page;
+        return new PersonaPage(items, hasMore ? items.getLast().id().toString() : null);
+    }
+
     @Transactional
     public ModelCatalogRepository.PersonaModel personaModel(ActorId actor, UUID id) {
-        return catalog.personaModel(admin(actor, false), id);
+        return catalog.personaModel(admin(actor, false), actor.value(), id);
     }
 
     @Transactional
     public ModelCatalogRepository.PersonaModel setPersonaModel(ActorId actor, UUID id, @Nullable UUID modelId, long revision) {
         UUID tenant = admin(actor, true);
         initialize(tenant);
-        catalog.personaModel(tenant, id);
+        catalog.personaModel(tenant, actor.value(), id);
         if (modelId != null) {
             var model = catalog.model(tenant, modelId).orElseThrow(ChatException::unavailable);
             var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
             if (!available(provider, id, true, Set.of())) throw ChatException.invalid("Model is unavailable to this Persona.");
         }
-        catalog.setPersonaModel(tenant, id, modelId, revision);
-        return catalog.personaModel(tenant, id);
+        catalog.setPersonaModel(tenant, actor.value(), id, modelId, revision);
+        return catalog.personaModel(tenant, actor.value(), id);
     }
 
     @Transactional
@@ -237,7 +291,7 @@ public class ModelCatalogService {
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
-        UUID personaDefault = catalog.personaModel(tenant, personaId).modelConfigurationId();
+        UUID personaDefault = catalog.personaModel(tenant, actor.value(), personaId).modelConfigurationId();
         UUID inheritedId = personaDefault != null && accessible(tenant, personaDefault, personaId, manager, groups) != null
                 ? personaDefault : defaultId;
         return catalog.models(tenant).stream().filter(Model::visible)
@@ -342,7 +396,10 @@ public class ModelCatalogService {
     }
     private void validateModel(Provider provider, String name, ModelSettings settings) {
         if (settings == null || !settings.capabilities().streaming()) throw ChatException.invalid("Chat requires a streaming model.");
-        adapters.require(provider.adapterType()).validate(provider.baseUrl(), name, settings);
+        var adapter = adapters.require(provider.adapterType());
+        if (adapter.tokenizerProfiles().stream().noneMatch(profile -> profile.id().equals(settings.tokenizerProfile())))
+            throw ChatException.invalid("Unsupported tokenizer profile for this provider adapter.");
+        adapter.validate(provider.baseUrl(), name, settings);
     }
     private ProviderView view(Provider p) {
         return new ProviderView(p.id(), p.name(), p.adapterType(), p.baseUrl(), p.enabled(), p.isPublic(), p.groupIds(), p.personaIds(),

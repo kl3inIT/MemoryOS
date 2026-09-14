@@ -9,6 +9,7 @@ import {
   PanelLeftOpen,
   Plug,
   Settings2,
+  Sparkles,
   User,
   Users,
   X,
@@ -26,7 +27,7 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "providers";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -195,7 +196,16 @@ function SidebarContents({
             {canManageModels ? (
               <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
                 <SidebarTab
-                  to="/settings/web"
+                  to="/admin/models"
+                  icon={<Sparkles className="size-4" />}
+                  selected={adminPage === "models"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Mô hình")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/web-search"
                   icon={<Globe className="size-4" />}
                   selected={adminPage === "web"}
                   collapsed={collapsed}
