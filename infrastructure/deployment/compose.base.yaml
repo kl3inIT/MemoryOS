@@ -214,7 +214,7 @@ services:
       KC_LOG_LEVEL: ${MEMORYOS_KEYCLOAK_LOG_LEVEL:-INFO}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?Set MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?Set MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD}
-      JAVA_OPTS_KC_HEAP: -XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=65
+      JAVA_OPTS_KC_HEAP: -XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=50
     depends_on:
       postgres:
         condition: service_healthy
@@ -255,9 +255,9 @@ services:
       resources:
         limits:
           cpus: "0.75"
-          memory: 512m
+          memory: 1g
         reservations:
-          memory: 256m
+          memory: 512m
 
   api:
     <<: *service-defaults
