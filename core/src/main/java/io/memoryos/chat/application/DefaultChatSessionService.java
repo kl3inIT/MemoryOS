@@ -4,6 +4,7 @@ import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.ChatSessionMatch;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcChatSearchRepository;
@@ -56,12 +57,13 @@ public class DefaultChatSessionService implements ChatSessionService {
 
     @Override
     @Transactional(readOnly = true, timeout = 10)
-    public List<ChatSession> search(ActorId actor, String query, int offset, int limit) {
+    public List<ChatSessionMatch> search(ActorId actor, String query, int offset, int limit) {
         page(offset, limit);
         if (query == null || query.length() > 200 || query.indexOf('\0') >= 0 || limit > 50)
             throw ChatException.invalid("Search query must be at most 200 characters and limit at most 50.");
         var tenant = tenant(actor);
-        return query.isBlank() ? chats.list(tenant, actor, offset, limit + 1)
+        return query.isBlank()
+                ? chats.list(tenant, actor, offset, limit + 1).stream().map(session -> new ChatSessionMatch(session, null)).toList()
                 : search.search(tenant, actor, query.strip(), offset, limit + 1);
     }
 

@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 export const ChatPanelContext = createContext<{
   panelId?: string;
   messageId?: string;
+  citationId?: number;
   fileId?: string;
   artifactId?: string;
   open: (messageId: string, trigger: HTMLElement, citationId?: number) => void;

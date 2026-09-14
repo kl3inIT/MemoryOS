@@ -5229,6 +5229,36 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/documents/{documentId}/original:
+    get:
+      tags:
+      - Search
+      summary: Read the original PDF of a search result to show the matched page
+      operationId: readSearchDocumentOriginal
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Original PDF bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations/current:
     get:
       tags:
@@ -6791,6 +6821,56 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/documents/{documentId}/original:
+    get:
+      tags:
+      - Chat
+      summary: Read the original PDF of a cited document to show the cited page
+      operationId: readChatDocumentOriginal
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid passage window
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Document generation not readable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Original PDF bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:
@@ -8145,12 +8225,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Section"
+        sourceTypes:
+          type: array
+          items:
+            type: string
+            enum:
+            - FILE
+            - GOOGLE_DRIVE
+        authors:
+          type: array
+          items:
+            type: string
+        providerUrl:
+          type:
+          - string
+          - "null"
       required:
+      - authors
       - documentId
       - generation
       - mediaType
+      - providerUrl
       - score
       - sections
+      - sourceTypes
       - title
       - updatedAt
     SearchPage:
@@ -8165,6 +8263,10 @@ components:
           format: int32
         hasMore:
           type: boolean
+        totalResults:
+          type: integer
+          format: int32
+          description: Readable Documents among the bounded candidates
         candidateLimit:
           type: integer
           format: int32
@@ -8173,6 +8275,7 @@ components:
       - hasMore
       - page
       - results
+      - totalResults
     Section:
       type: object
       properties:
@@ -10072,10 +10175,22 @@ components:
           $ref: "#/components/schemas/FileLocation"
         web:
           $ref: "#/components/schemas/WebLocation"
+        mediaType:
+          type: string
+        sourceTypes:
+          type: array
+          items:
+            type: string
+            enum:
+            - FILE
+            - GOOGLE_DRIVE
+        providerUrl:
+          type: string
       required:
       - citationId
       - endOrdinal
       - provenance
+      - sourceTypes
       - startOrdinal
       - title
     FileLocation:
@@ -10279,13 +10394,27 @@ components:
           - type: string
             format: uuid
           - type: "null"
+    ChatSessionSearchItem:
+      type: object
+      properties:
+        session:
+          $ref: "#/components/schemas/ChatSession"
+        snippet:
+          type:
+          - string
+          - "null"
+          description: Fragment of the newest matching message; U+E000/U+E001 wrap
+            matched tokens. Null for recent sessions and title-only matches.
+      required:
+      - session
+      - snippet
     ChatSessionSearchPage:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/ChatSession"
+            $ref: "#/components/schemas/ChatSessionSearchItem"
         hasMore:
           type: boolean
       required:

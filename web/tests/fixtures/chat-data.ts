@@ -33,7 +33,18 @@ export const fixtureSource: ChatSource = {
   startOrdinal: 3,
   endOrdinal: 4,
   provenance: [
-    { ordinal: 3, provenanceJson: '{"page":2}' },
-    { ordinal: 4, provenanceJson: '{"page":3}' },
+    {
+      ordinal: 3,
+      provenanceJson:
+        '[{"page_no":1,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]',
+    },
+    {
+      ordinal: 4,
+      provenanceJson:
+        '[{"page_no":1,"bbox":{"l":72,"t":634,"r":349,"b":615,"coord_origin":"BOTTOMLEFT"}}]',
+    },
   ],
+  mediaType: "application/pdf",
+  sourceTypes: ["GOOGLE_DRIVE"],
+  providerUrl: "https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp",
 };

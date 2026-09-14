@@ -26,7 +26,24 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class SearchController {
     private final DocumentSearchService service;
-    SearchController(DocumentSearchService service) { this.service = service; }
+    private final io.memoryos.retrieval.DocumentOriginalService originals;
+    SearchController(DocumentSearchService service, io.memoryos.retrieval.DocumentOriginalService originals) {
+        this.service = service;
+        this.originals = originals;
+    }
+
+    @GetMapping(value = "/documents/{documentId}/original", produces = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @Operation(operationId = "readSearchDocumentOriginal", summary = "Read the original PDF of a search result to show the matched page")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Original PDF bytes",
+            content = @io.swagger.v3.oas.annotations.media.Content(mediaType = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                    schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string", format = "binary")))
+    void original(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID documentId, @RequestParam UUID generation,
+            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        try (var pdf = originals.searchPdf(identity.actorId(), documentId, generation)) {
+            DocumentOriginalResponses.write(pdf, response);
+        }
+    }
 
     @PostMapping
     @Operation(operationId = "searchDocuments", summary = "Search current documents with keyword and semantic retrieval")

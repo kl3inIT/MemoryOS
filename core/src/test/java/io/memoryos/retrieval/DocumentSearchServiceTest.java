@@ -84,7 +84,7 @@ class DocumentSearchServiceTest {
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation, hidden, generation));
         when(access.readableDocuments(any(), any())).thenReturn(Set.of(first, second));
         var page = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 0, 1));
-        assertEquals(1, page.results().size()); assertTrue(page.hasMore());
+        assertEquals(1, page.results().size()); assertTrue(page.hasMore()); assertEquals(2, page.totalResults());
         assertEquals(first, page.results().getFirst().documentId());
         var section = page.results().getFirst().sections().getFirst();
         assertEquals(1, page.results().getFirst().sections().size());
@@ -93,7 +93,7 @@ class DocumentSearchServiceTest {
         assertEquals(1, section.matchingOrdinal());
         assertEquals("Passage 1\nPassage 2", section.content());
         var next = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 1, 1));
-        assertEquals(second, next.results().getFirst().documentId()); assertFalse(next.hasMore());
+        assertEquals(second, next.results().getFirst().documentId()); assertFalse(next.hasMore()); assertEquals(2, next.totalResults());
         assertEquals(0, next.results().getFirst().sections().getFirst().startOrdinal());
         assertEquals(0, next.results().getFirst().sections().getFirst().endOrdinal());
     }
@@ -492,7 +492,7 @@ class DocumentSearchServiceTest {
         assertFalse(new SearchRequest(privateText, List.of(), null, 0, 10).toString().contains(privateText));
         var result = new SearchPage.Result(UUID.randomUUID(), generation, privateText, "text/plain", Instant.EPOCH, .9,
                 List.of(new SearchPage.Section(0, 0, 0, .9, privateText, List.of(new SearchPage.ChunkProvenance(0, "[]")))));
-        assertFalse(new SearchPage(List.of(result), 0, false, 500).toString().contains(privateText));
+        assertFalse(new SearchPage(List.of(result), 0, false, 1, 500).toString().contains(privateText));
         assertFalse(new SearchDocument(result.documentId(), generation, privateText,
                 List.of(new SearchPage.Passage(0, privateText, "[]")), 0, 1, false)
                 .toString().contains(privateText));

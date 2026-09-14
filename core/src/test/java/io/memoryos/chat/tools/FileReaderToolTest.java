@@ -23,13 +23,13 @@ class FileReaderToolTest {
         var evidence = new ChatEvidence();
         var id = UUID.randomUUID();
         var generation = UUID.randomUUID();
-        var first = evidence.file(id, "Table", new io.memoryos.chat.ChatSource.FileLocation(null, null, generation, 5));
-        var second = evidence.file(id, "Table", new io.memoryos.chat.ChatSource.FileLocation(null, null, generation, 8));
+        var first = evidence.file(id, "Table", "text/csv", new io.memoryos.chat.ChatSource.FileLocation(null, null, generation, 5));
+        var second = evidence.file(id, "Table", "text/csv", new io.memoryos.chat.ChatSource.FileLocation(null, null, generation, 8));
         assertNotNull(first); assertNotNull(second);
         assertNotEquals(first.citationId(), second.citationId());
         assertNotNull(second.fileLocation());
         assertEquals(8, second.fileLocation().ordinal());
-        assertSame(first, evidence.file(id, "Table", new io.memoryos.chat.ChatSource.FileLocation(null, null, generation, 5)));
+        assertSame(first, evidence.file(id, "Table", "text/csv", new io.memoryos.chat.ChatSource.FileLocation(null, null, generation, 5)));
         assertThrows(IllegalArgumentException.class, () -> new io.memoryos.chat.ChatSource.FileLocation(0, 1, generation, 1));
     }
     @Test
