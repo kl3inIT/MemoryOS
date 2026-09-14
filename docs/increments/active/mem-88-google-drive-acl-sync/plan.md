@@ -40,6 +40,8 @@ See [design](design.md#acceptance-gap-closure--approved-2026-09-14).
 
 - [x] Classify 403 `SCOPE_INSUFFICIENT` (all Drive calls) and `ACCESS_DENIED` (`permissions.list` only); handle scope like authentication in SOURCE_SYNC; add UI copy.
 - [x] Cover reader→writer, added permission and identical re-observation in the SOURCE_SYNC runtime test.
-- [x] Add the handoff snapshot example and state interpretation to the connector spec; record enforcement-owner reconciliation as pending.
+- [x] Add the handoff snapshot example and state interpretation to the connector spec.
+- [x] Document the consumer read API and change event with a payload example; answer the enforcement owner's questions on MEM-88.
+- [ ] Record MEM-93 confirmation of the handoff contract.
 - [ ] Run the live owned-fixture sharing sequence with the user and record evidence.
-- [ ] Run the repository gate and web checks; update verification and connector test matrix.
+- [x] Run the repository gate and web checks; update verification and connector test matrix.

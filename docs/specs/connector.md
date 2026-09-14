@@ -223,6 +223,21 @@ V54 stores one `google_drive_acl_snapshots` row per `(tenant_id, source_id, file
 
 CURRENT only means matching active lifecycle and traversal provenance. It does not mean recent enough, SUCCEEDED on the latest attempt, complete effective access or permission to read. Consumers must examine status, lastSuccess, expiration and their own freshness policy. Failed-only rows have no successful provenance; missing rows are Optional.empty. Credential revocation/reconnect, scope changes, removal/exclusion, source deletion and traversal changes invalidate or stale old evidence rather than silently blessing it. No wall-clock freshness threshold or revocation SLA is fabricated: runs can queue, fail or stop.
 
+#### Consumer read API and change event
+
+Enforcement consumes two public `connector` types instead of reading the table.
+
+`GoogleDriveAclReader.readByDocument(TenantId, DocumentId)` returns `List<GoogleDriveAclSnapshot>`, one per (Source, file) whose current SourceItem maps to the Document, ordered by Source and file ID. It makes no provider calls and performs no actor authorization. The mapping is keyed by `(tenant, Source, Document)`, so a Document has at most one Drive file per Source, and Google Sources assign their own Document identity: in practice the list holds zero or one snapshot. Consumers must not assume exactly one and must deny on an empty list.
+
+`GoogleDriveAclChanged(tenantId, sourceId, fileId, documentIds, revision, status, errorCode)` is a Spring application event published inside the snapshot-writing transaction when the stored permission payload or the latest-attempt status changes. `fileId` is the Google provider file ID, `documentIds` are the currently mapped Documents (empty before publication) and `revision` is the successful-observation revision after the write. The event is a hint to re-read through `readByDocument`; grants must not be derived from it alone.
+
+```json
+{"tenantId": "7c…", "sourceId": "3a…", "fileId": "1Fx…Q9", "documentIds": ["9d…"],
+ "revision": 4, "status": "SUCCEEDED", "errorCode": null}
+```
+
+`permissions` are exactly what `permissions.list` returns: direct entries and, where Google reports them, inherited entries with their `permissionDetails`. They are not a computed effective-access list. `expirationTime` is returned unchanged for the consumer to apply. `anyone` and link sharing keep the provider type, role and `allowFileDiscovery`; how they map to Tenant visibility is enforcement policy.
+
 #### Handoff example and state interpretation
 
 A successful, current observation. Identifiers are shortened; the record also carries `tenantId`, `sourceId`, `errorMessage` and `readAt`.
@@ -269,7 +284,7 @@ A successful, current observation. Identifiers are shortened; the record also ca
 | A newer traversal has not re-observed the file | Either | Unchanged | Retained | STALE | No | Deny until a CURRENT success |
 | Deselected or removed file, scope or credential change, inactive Tenant/Source/credential | Either | Unchanged | Retained | INVALID | No | Deny |
 
-Context changes do not publish `GoogleDriveAclChanged`; a consumer must evaluate `contextStatus` on read and react to Source, selection and credential lifecycle changes. Reconciliation of this contract with the enforcement owner is pending.
+Context changes do not publish `GoogleDriveAclChanged`; a consumer must evaluate `contextStatus` on read and react to Source, selection and credential lifecycle changes. This section answers the enforcement owner's MEM-88 handoff questions; freshness thresholds, `anyone`/link policy and combination with Source Groups remain MEM-93 decisions, and the contract is recorded as agreed only once MEM-93 confirms it.
 
 ACL refresh does not require OCR. If provider version is unchanged, no content acquisition occurs. A sharing-only change that advances the provider version while bytes and filename stay identical follows the re-synchronization rule above: the current version's provider version is refreshed in place and its extraction reused, so the ACL snapshot updates without a new version, index attempt or re-extraction, and later observations of that version avoid repeated downloads. A changed file requires normal acquisition/indexing. Byte-identical comparison does not claim semantic deduplication of native snapshot envelopes.
 
