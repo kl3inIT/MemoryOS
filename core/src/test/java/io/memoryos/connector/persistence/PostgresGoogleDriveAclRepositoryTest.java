@@ -7,8 +7,6 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorSyncPort.Work;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.GoogleDriveAclService;
-import io.memoryos.connector.SourceException;
 import io.memoryos.connector.GoogleDriveAclSnapshot;
 import io.memoryos.connector.GoogleDriveAclSnapshot.ContextStatus;
 import io.memoryos.connector.GoogleDriveAclSnapshot.Status;
@@ -326,95 +324,6 @@ class PostgresGoogleDriveAclRepositoryTest {
                 "request rejected for private@example.test", null))).isInstanceOf(IllegalArgumentException.class);
         assertThat(read(fixture).status()).isEqualTo(Status.SUCCEEDED);
         assertThat(read(fixture).errorCode()).isNull();
-    }
-
-    @Test
-    void inspectorDistinguishesAbsentFailedOnlyAndSuccessfulEmptyBeforeDocumentsExist() {
-        assertThat(acls.get(fixture.tenant(), fixture.source(), FILE).orElseThrow().snapshot()).isNull();
-        var absent = aclItem();
-        assertThat(absent.status()).isNull();
-        assertThat(absent.contextStatus()).isNull();
-        assertThat(absent.revision()).isNull();
-        assertThat(absent.permissionCount()).isNull();
-        assertThat(absent.lastAttemptAt()).isNull();
-
-        tx.executeWithoutResult(_ -> acls.recordFailure(fixture.work(), FILE, "SOURCE_GOOGLE_NOT_FOUND", null));
-        var failed = aclItem();
-        assertThat(failed.status()).isEqualTo(Status.FAILED);
-        assertThat(failed.contextStatus()).isEqualTo(ContextStatus.UNOBSERVED);
-        assertThat(failed.permissionCount()).isNull();
-        assertThat(failed.lastSuccessAt()).isNull();
-        assertThat(failed.lastAttemptAt()).isNotNull();
-        assertThat(acls.get(fixture.tenant(), fixture.source(), FILE).orElseThrow().snapshot().lastSuccess()).isNull();
-
-        success(fixture, List.of());
-        var empty = aclItem();
-        assertThat(empty.status()).isEqualTo(Status.SUCCEEDED);
-        assertThat(empty.contextStatus()).isEqualTo(ContextStatus.CURRENT);
-        assertThat(empty.permissionCount()).isZero();
-        assertThat(empty.lastSuccessAt()).isEqualTo(empty.lastAttemptAt());
-        var detail = acls.get(fixture.tenant(), fixture.source(), FILE).orElseThrow().snapshot();
-        assertThat(detail.permissions()).isEmpty();
-        assertThat(detail.sourceItemId()).isNull();
-        assertThat(detail.documentIds()).isEmpty();
-
-        tx.executeWithoutResult(_ -> acls.recordFailure(fixture.work(), FILE, "SOURCE_GOOGLE_UNAVAILABLE", null));
-        assertThat(aclItem().status()).isEqualTo(Status.FAILED);
-        assertThat(aclItem().permissionCount()).isZero();
-        assertThat(aclItem().lastSuccessAt()).isEqualTo(empty.lastSuccessAt());
-    }
-
-    @Test
-    void inspectorProjectsStaleAndInvalidContextWhileRetainingUnselectedSnapshots() {
-        success(fixture, List.of(permission("reader", "user", "reader")));
-        nextWork(fixture);
-        assertThat(aclItem().contextStatus()).isEqualTo(ContextStatus.STALE);
-        assertThat(acls.get(fixture.tenant(), fixture.source(), FILE).orElseThrow().snapshot().contextStatus())
-                .isEqualTo(ContextStatus.STALE);
-        jdbc.sql("DELETE FROM google_drive_membership WHERE tenant_id = :tenant AND source_id = :source")
-                .param("tenant", fixture.tenant().value()).param("source", fixture.source().value()).update();
-        assertThat(aclItem().contextStatus()).isEqualTo(ContextStatus.INVALID);
-        assertThat(aclItem().permissionCount()).isEqualTo(1);
-        assertThat(acls.get(fixture.tenant(), fixture.source(), FILE).orElseThrow().snapshot().permissions())
-                .extracting(Permission::id).containsExactly("reader");
-    }
-
-    @Test
-    void inspectorPagesKnownFoldersAndMembershipWithLiteralSearchAndScopedCursors() {
-        jdbc.sql("""
-                INSERT INTO google_drive_membership (tenant_id, source_id, file_id, root_id, generation)
-                SELECT :tenant, :source, 'member-' || lpad(n::text, 2, '0'), :root, 1 FROM generate_series(1, 26) n
-                """).param("tenant", fixture.tenant().value()).param("source", fixture.source().value()).param("root", ROOT).update();
-        var first = acls.list(fixture.tenant(), fixture.source(), new GoogleDriveAclService.Query(null, 25, null));
-        assertThat(first.totalItems()).isEqualTo(28);
-        assertThat(first.items()).extracting(GoogleDriveAclService.Item::fileId).contains(FILE, ROOT);
-        assertThat(first.items()).filteredOn(item -> item.fileId().equals(ROOT)).singleElement()
-                .satisfies(folder -> assertThat(folder.name()).isEqualTo("Folder"));
-        var next = acls.list(fixture.tenant(), fixture.source(), new GoogleDriveAclService.Query(first.nextCursor(), 25, null));
-        assertThat(next.items()).extracting(GoogleDriveAclService.Item::fileId).containsExactly("member-24", "member-25", "member-26");
-        assertThat(next.nextCursor()).isNull();
-        assertThat(next.totalItems()).isEqualTo(28);
-        assertThat(acls.list(fixture.tenant(), fixture.source(), new GoogleDriveAclService.Query(null, 25, "MEMBER-2")).totalItems())
-                .isEqualTo(7);
-        assertThatThrownBy(() -> acls.list(fixture.tenant(), fixture.source(),
-                new GoogleDriveAclService.Query(first.nextCursor(), 25, "changed"))).isInstanceOf(SourceException.class);
-        jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
-        var other = source(tenant());
-        assertThatThrownBy(() -> acls.list(other.tenant(), other.source(),
-                new GoogleDriveAclService.Query(first.nextCursor(), 25, null))).isInstanceOf(SourceException.class);
-        assertThat(acls.list(other.tenant(), fixture.source(), new GoogleDriveAclService.Query(null, 25, null)).totalItems()).isZero();
-        assertThat(acls.get(other.tenant(), fixture.source(), FILE)).isEmpty();
-        assertThat(acls.get(fixture.tenant(), fixture.source(), "unknown")).isEmpty();
-
-        jdbc.sql("UPDATE google_drive_roots SET name = '100%_! complete' WHERE tenant_id = :tenant AND source_id = :source")
-                .param("tenant", fixture.tenant().value()).param("source", fixture.source().value()).update();
-        assertThat(acls.list(fixture.tenant(), fixture.source(), new GoogleDriveAclService.Query(null, 25, "%_!")).items())
-                .extracting(GoogleDriveAclService.Item::fileId).containsExactly(ROOT);
-        assertThat(acls.list(fixture.tenant(), fixture.source(), new GoogleDriveAclService.Query(null, 25, "no match")).totalItems()).isZero();
-    }
-
-    private GoogleDriveAclService.Item aclItem() {
-        return acls.list(fixture.tenant(), fixture.source(), new GoogleDriveAclService.Query(null, 25, FILE)).items().getFirst();
     }
 
     private TenantId tenant() {

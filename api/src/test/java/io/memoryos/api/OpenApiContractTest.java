@@ -140,8 +140,6 @@ class OpenApiContractTest {
             "/api/credentials/google-drive/{credentialId}",
             "/api/credentials/google-drive/{credentialId}/revoke",
             "/api/sources/{sourceId}/google-drive",
-            "/api/sources/{sourceId}/google-drive/acl",
-            "/api/sources/{sourceId}/google-drive/acl/{fileId}",
             "/api/sources/{sourceId}/google-drive/selection",
             "/api/sources/{sourceId}/google-drive/selection-tree",
             "/api/sources/{sourceId}/google-drive/selection-draft",

@@ -96,31 +96,6 @@ class OpenApiConfiguration {
                     }
                     configureNullableProperty(components, "SourceRun", "trigger",
                             new StringSchema()._enum(Arrays.stream(SourceRunTrigger.values()).map(Enum::name).toList()));
-                    configureNullableProperty(components, "GoogleDriveAclFile", "snapshot",
-                            new Schema<>().$ref("#/components/schemas/GoogleDriveAclSnapshot"));
-                    configureNullableProperty(components, "GoogleDriveAclSnapshot", "lastSuccess",
-                            new Schema<>().$ref("#/components/schemas/GoogleDriveAclObservation"));
-                    configureNullableProperty(components, "GoogleDriveAclItem", "status",
-                            new StringSchema()._enum(List.of("SUCCEEDED", "FAILED")));
-                    configureNullableProperty(components, "GoogleDriveAclItem", "contextStatus",
-                            new StringSchema()._enum(List.of("CURRENT", "STALE", "INVALID", "UNOBSERVED")));
-                    configureNullableProperty(components, "GoogleDriveAclPage", "nextCursor", new StringSchema());
-                    configureNullableProperty(components, "GoogleDriveAclItem", "revision", new IntegerSchema().format("int64"));
-                    configureNullableProperty(components, "GoogleDriveAclItem", "permissionCount", new IntegerSchema().format("int32"));
-                    for (String property : List.of("lastSuccessAt", "lastAttemptAt"))
-                        configureNullableProperty(components, "GoogleDriveAclItem", property, new StringSchema().format("date-time"));
-                    configureNullableProperty(components, "GoogleDriveAclSnapshot", "sourceItemId", new StringSchema().format("uuid"));
-                    configureNullableProperty(components, "GoogleDriveAclSnapshot", "errorCode", new StringSchema());
-                    configureNullableProperty(components, "GoogleDriveAclSnapshot", "errorMessage", new StringSchema());
-                    configureNullableProperty(components, "GoogleDriveAclCurrentContext", "membershipGeneration", new IntegerSchema().format("int64"));
-                    for (String property : List.of("emailAddress", "domain", "view"))
-                        configureNullableProperty(components, "GoogleDrivePermission", property, new StringSchema());
-                    configureNullableProperty(components, "GoogleDrivePermission", "expirationTime", new StringSchema().format("date-time"));
-                    for (String property : List.of("allowFileDiscovery", "deleted", "pendingOwner", "inheritedPermissionsDisabled"))
-                        configureNullableProperty(components, "GoogleDrivePermission", property, new BooleanSchema());
-                    for (String property : List.of("permissionType", "role", "inheritedFrom"))
-                        configureNullableProperty(components, "GoogleDrivePermissionDetail", property, new StringSchema());
-                    configureNullableProperty(components, "GoogleDrivePermissionDetail", "inherited", new BooleanSchema());
                     configureNullableProperty(components, "UserListItem", "role",
                             new Schema<>().$ref("#/components/schemas/TenantMembershipRole"));
                     configureNullableProperty(components, "UserListItem", "accountType",

@@ -4,7 +4,6 @@ import io.memoryos.connector.ConnectorSyncPort.Work;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAclChanged;
 import io.memoryos.connector.GoogleDriveAclReader;
-import io.memoryos.connector.GoogleDriveAclService;
 import io.memoryos.connector.GoogleDriveAclSnapshot;
 import io.memoryos.connector.GoogleDriveAclSnapshot.ContextStatus;
 import io.memoryos.connector.GoogleDriveAclSnapshot.CurrentContext;
@@ -17,9 +16,6 @@ import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.document.DocumentId;
 import io.memoryos.iam.tenant.TenantId;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Base64;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -35,24 +31,6 @@ import tools.jackson.databind.ObjectMapper;
 @Repository
 public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final String FILES = """
-            WITH file_ids AS (
-                SELECT file_id FROM google_drive_membership WHERE tenant_id = :tenant AND source_id = :source
-                UNION SELECT file_id FROM google_drive_roots WHERE tenant_id = :tenant AND source_id = :source
-                UNION SELECT file_id FROM google_drive_link_approvals WHERE tenant_id = :tenant AND source_id = :source
-                UNION SELECT file_id FROM google_drive_acl_snapshots WHERE tenant_id = :tenant AND source_id = :source
-            ), files AS (
-                SELECT f.file_id, COALESCE(r.name, linked.name, v.filename, f.file_id) AS name
-                FROM file_ids f
-                JOIN connector_credential_pairs p ON p.tenant_id = :tenant AND p.id = :source
-                LEFT JOIN google_drive_roots r ON r.tenant_id = p.tenant_id AND r.source_id = p.id AND r.file_id = f.file_id
-                LEFT JOIN google_drive_linked_documents linked ON linked.tenant_id = p.tenant_id
-                    AND linked.source_id = p.id AND linked.file_id = f.file_id
-                LEFT JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.connector_id = p.connector_id
-                    AND i.provider_file_id = f.file_id
-                LEFT JOIN connector_item_versions v ON v.tenant_id = i.tenant_id AND v.id = i.current_version_id
-            )
-            """;
     private static final String CONTEXT_COLUMNS = """
             t.status = 'ACTIVE' AS tenant_active,
             p.status <> 'DELETING' AND c.status = 'ACTIVE' AND c.connector_type = 'GOOGLE_DRIVE' AS source_active,
@@ -77,10 +55,24 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
             LEFT JOIN google_drive_membership m ON m.tenant_id = p.tenant_id AND m.source_id = p.id AND m.file_id = f.file_id
             LEFT JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.connector_id = p.connector_id AND i.provider_file_id = f.file_id
             """;
-    private static final String CONTEXT_JOINS = """
-            JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = :source
+    /** Projects retained snapshots of the (source_id, file_id) rows of a {@code files} CTE within {@code :tenant}. */
+    private static final String SNAPSHOTS = """
+            SELECT f.file_id, a.tenant_id, a.source_id, a.observation_revision, a.permissions_json, a.status,
+                a.last_attempt_at, a.attempt_operation_id, a.attempt_credential_id, a.attempt_credential_revision,
+                a.attempt_scope_revision, a.attempt_generation, a.last_success_at, a.success_operation_id,
+                a.success_credential_id, a.success_credential_revision, a.success_scope_revision,
+                a.success_generation, a.error_code, a.error_message, i.id AS item_id, d.id AS document_id,
+                statement_timestamp() AS read_at,
+            """ + CONTEXT_COLUMNS + """
+            FROM files f
+            JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = f.source_id
             JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
-            """ + CONTEXT_TAIL;
+            """ + CONTEXT_TAIL + """
+            LEFT JOIN documents_by_connector_credential_pair mapping ON mapping.tenant_id = p.tenant_id
+                AND mapping.connector_credential_pair_id = p.id AND mapping.connector_item_id = i.id
+            LEFT JOIN documents d ON d.tenant_id = mapping.tenant_id AND d.id = mapping.document_id
+            WHERE a.file_id IS NOT NULL
+            """;
     private final JdbcClient jdbc;
     private final ApplicationEventPublisher events;
 
@@ -170,7 +162,10 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
 
     /** One database statement observes payload, lifecycle context and source-qualified Document mapping. */
     public Optional<GoogleDriveAclSnapshot> read(TenantId tenantId, SourceId sourceId, String fileId) {
-        return get(tenantId, sourceId, fileId).map(GoogleDriveAclService.File::snapshot);
+        return jdbc.sql("WITH files AS (SELECT CAST(:source AS uuid) AS source_id, CAST(:file AS text) AS file_id)\n"
+                        + SNAPSHOTS)
+                .param("tenant", tenantId.value()).param("source", sourceId.value()).param("file", fileId)
+                .query(this::snapshot).optional();
     }
 
     /** One statement resolves the Document's Drive mappings and returns their retained snapshots. */
@@ -185,100 +180,9 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
                     JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.id = mapping.connector_item_id
                     WHERE mapping.tenant_id = :tenant AND mapping.document_id = :document
                 )
-                SELECT f.file_id, NULL AS name, a.tenant_id, a.source_id, a.observation_revision, a.permissions_json, a.status,
-                    a.last_attempt_at, a.attempt_operation_id, a.attempt_credential_id, a.attempt_credential_revision,
-                    a.attempt_scope_revision, a.attempt_generation, a.last_success_at, a.success_operation_id,
-                    a.success_credential_id, a.success_credential_revision, a.success_scope_revision,
-                    a.success_generation, a.error_code, a.error_message, i.id AS item_id, d.id AS document_id,
-                    statement_timestamp() AS read_at,
-                """ + CONTEXT_COLUMNS + """
-                FROM files f
-                JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = f.source_id
-                JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
-                """ + CONTEXT_TAIL + """
-                LEFT JOIN documents_by_connector_credential_pair mapping ON mapping.tenant_id = p.tenant_id
-                    AND mapping.connector_credential_pair_id = p.id AND mapping.connector_item_id = i.id
-                LEFT JOIN documents d ON d.tenant_id = mapping.tenant_id AND d.id = mapping.document_id
-                WHERE a.file_id IS NOT NULL
-                ORDER BY a.source_id, a.file_id
-                """).param("tenant", tenantId.value()).param("document", documentId.value())
-                .query((row, n) -> snapshot(row, n)).list();
-    }
-
-    public Optional<GoogleDriveAclService.File> get(TenantId tenantId, SourceId sourceId, String fileId) {
-        return jdbc.sql(FILES + """
-                SELECT f.file_id, f.name, a.tenant_id, a.source_id, a.observation_revision, a.permissions_json, a.status,
-                    a.last_attempt_at, a.attempt_operation_id, a.attempt_credential_id, a.attempt_credential_revision,
-                    a.attempt_scope_revision, a.attempt_generation, a.last_success_at, a.success_operation_id,
-                    a.success_credential_id, a.success_credential_revision, a.success_scope_revision,
-                    a.success_generation, a.error_code, a.error_message, i.id AS item_id, d.id AS document_id,
-                    statement_timestamp() AS read_at,
-                """ + CONTEXT_COLUMNS + " FROM files f " + CONTEXT_JOINS + """
-                LEFT JOIN documents_by_connector_credential_pair mapping ON mapping.tenant_id = p.tenant_id
-                    AND mapping.connector_credential_pair_id = p.id AND mapping.connector_item_id = i.id
-                LEFT JOIN documents d ON d.tenant_id = mapping.tenant_id AND d.id = mapping.document_id
-                WHERE f.file_id = :file
-                """).param("tenant", tenantId.value()).param("source", sourceId.value()).param("file", fileId)
-                .query((row, n) -> new GoogleDriveAclService.File(row.getString("file_id"), row.getString("name"),
-                        row.getString("status") == null ? null : snapshot(row, n))).optional();
-    }
-
-    public GoogleDriveAclService.Page list(TenantId tenant, SourceId source, GoogleDriveAclService.Query query) {
-        String search = query.query() == null ? "" : query.query().strip();
-        String prefix = tenant.value() + "|" + source.value() + "|" + encode(search) + "|";
-        String after = "";
-        if (query.cursor() != null) {
-            try {
-                if (query.cursor().length() > 2048) throw new IllegalArgumentException();
-                String decoded = new String(Base64.getUrlDecoder().decode(query.cursor()), StandardCharsets.UTF_8);
-                if (!decoded.startsWith(prefix)) throw new IllegalArgumentException();
-                after = decoded.substring(prefix.length());
-                if (!after.matches("[A-Za-z0-9_-]{1,256}")) throw new IllegalArgumentException();
-            } catch (IllegalArgumentException exception) {
-                throw SourceException.invalid("Invalid ACL cursor.", "malformed or mismatched ACL cursor");
-            }
-        }
-        String pattern = "%" + search.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
-        var items = new ArrayList<GoogleDriveAclService.Item>();
-        long total = jdbc.sql(FILES + """
-                , filtered AS (
-                    SELECT * FROM files WHERE name ILIKE :search ESCAPE '!' OR file_id ILIKE :search ESCAPE '!'
-                ), page AS (
-                    SELECT * FROM filtered WHERE file_id COLLATE "C" > :after COLLATE "C"
-                    ORDER BY file_id COLLATE "C" LIMIT :limit
-                ), projected AS (
-                    SELECT f.file_id, f.name, a.status, a.observation_revision,
-                        jsonb_array_length(a.permissions_json) AS permission_count,
-                        a.last_attempt_at, a.last_success_at, a.success_operation_id, a.success_credential_id,
-                        a.success_credential_revision, a.success_scope_revision, a.success_generation,
-                """ + CONTEXT_COLUMNS + " FROM page f " + CONTEXT_JOINS + """
-                )
-                SELECT projected.*, totals.total_items
-                FROM (SELECT COUNT(*) AS total_items FROM filtered) totals
-                LEFT JOIN projected ON TRUE ORDER BY projected.file_id COLLATE "C"
-                """).param("tenant", tenant.value()).param("source", source.value()).param("search", pattern)
-                .param("after", after).param("limit", query.size() + 1).query(row -> {
-                    long count = 0;
-                    while (row.next()) {
-                        count = row.getLong("total_items");
-                        if (row.getString("file_id") == null) continue;
-                        String status = row.getString("status");
-                        Observation success = row.getTimestamp("last_success_at") == null ? null : observation(row, "success");
-                        items.add(new GoogleDriveAclService.Item(row.getString("file_id"), row.getString("name"),
-                                status == null ? null : Status.valueOf(status),
-                                status == null ? null : contextStatus(success, currentContext(row)),
-                                row.getObject("observation_revision", Long.class), row.getObject("permission_count", Integer.class),
-                                JdbcSourceRepository.instant(row, "last_success_at"), JdbcSourceRepository.instant(row, "last_attempt_at")));
-                    }
-                    return count;
-                });
-        boolean more = items.size() > query.size();
-        if (more) items.removeLast();
-        return new GoogleDriveAclService.Page(items, more ? encode(prefix + items.getLast().fileId()) : null, total);
-    }
-
-    private static String encode(String value) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
+                """ + SNAPSHOTS + "ORDER BY a.source_id, a.file_id")
+                .param("tenant", tenantId.value()).param("document", documentId.value())
+                .query(this::snapshot).list();
     }
 
     private GoogleDriveAclSnapshot snapshot(ResultSet row, int ignored) throws SQLException {
