@@ -1497,6 +1497,10 @@ Object.assign(englishUi, {
     "Yêu cầu vượt giới hạn thu thập Google Drive được hỗ trợ.",
   "Synchronization paused. Reconnect the Google account.":
     "Đã tạm dừng đồng bộ. Kết nối lại tài khoản Google.",
+  "Google did not grant the Drive access MemoryOS needs. Reconnect the Google account and allow every requested permission.":
+    "Google chưa cấp đủ quyền Drive mà MemoryOS cần. Kết nối lại tài khoản Google và cho phép mọi quyền được yêu cầu.",
+  "The connected Google account can open this file but is not allowed to read its sharing settings.":
+    "Tài khoản Google đã kết nối mở được tệp này nhưng không được phép xem cài đặt chia sẻ của tệp.",
   "The Google connection is unavailable. Check its status and reconnect if needed.":
     "Kết nối Google không khả dụng. Kiểm tra trạng thái và kết nối lại nếu cần.",
   "This Google Drive item is not supported for acquisition.":

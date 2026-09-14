@@ -44,6 +44,8 @@ const statusMessages: Record<string, string> = {
     "Supply valid Google Web application OAuth client JSON with this MemoryOS callback registered as an authorized redirect URI.",
   GOOGLE_DRIVE_AUTHENTICATION:
     "Google could not authorize this request. Reconnect the Google account.",
+  GOOGLE_DRIVE_SCOPE_INSUFFICIENT:
+    "Google did not grant the Drive access MemoryOS needs. Reconnect the Google account and allow every requested permission.",
   GOOGLE_DRIVE_NOT_FOUND: "This file is unavailable to the connected Google account.",
   GOOGLE_DRIVE_MALFORMED: "This file could not be read. Check its format and contents.",
   GOOGLE_DRIVE_INCONSISTENT: "This file changed while it was being read. Try again.",
@@ -54,6 +56,10 @@ const statusMessages: Record<string, string> = {
   GOOGLE_DRIVE_LIMIT_EXCEEDED:
     "This request exceeds the supported Google Drive acquisition limits.",
   SOURCE_GOOGLE_AUTHENTICATION: "Synchronization paused. Reconnect the Google account.",
+  SOURCE_GOOGLE_SCOPE_INSUFFICIENT:
+    "Google did not grant the Drive access MemoryOS needs. Reconnect the Google account and allow every requested permission.",
+  SOURCE_GOOGLE_ACCESS_DENIED:
+    "The connected Google account can open this file but is not allowed to read its sharing settings.",
   SOURCE_GOOGLE_CONNECTION_UNAVAILABLE:
     "The Google connection is unavailable. Check its status and reconnect if needed.",
   SOURCE_GOOGLE_NOT_FOUND: "This file is unavailable to the connected Google account.",
