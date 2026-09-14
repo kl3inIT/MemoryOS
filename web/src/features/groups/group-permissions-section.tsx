@@ -7,10 +7,11 @@ import {
   FileSearch,
   FolderCog,
   ShieldCheck,
+  UserCog,
+  Users,
 } from "lucide-react";
 import { Collapsible, Switch } from "radix-ui";
 import type { ComponentProps, ComponentType } from "react";
-import { OnyxUserManageIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import type { GroupCapability, GroupSummary } from "@/lib/hey-api/types.gen";
 
@@ -18,10 +19,10 @@ type CapabilityId = GroupCapability["id"];
 
 // Stable capability IDs select localized copy and presentation icons.
 const ICONS: Partial<Record<CapabilityId, ComponentType<ComponentProps<"svg">>>> = {
-  SYSTEM_ADMIN: OnyxUserManageIcon,
+  SYSTEM_ADMIN: UserCog,
   SYSTEM_BASIC: FileSearch,
-  USERS_MANAGE: OnyxUserManageIcon,
-  GROUPS_MANAGE: OnyxUsersIcon,
+  USERS_MANAGE: UserCog,
+  GROUPS_MANAGE: Users,
   SOURCES_MANAGE: FolderCog,
   MODELS_MANAGE: Cpu,
 };

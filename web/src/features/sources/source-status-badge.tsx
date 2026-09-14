@@ -1,5 +1,4 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import {
   Check,
   Clock3,
@@ -7,6 +6,7 @@ import {
   Lock,
   Trash2,
   TriangleAlert,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
@@ -57,7 +57,7 @@ export function SourceAccessBadge({ access }: { access: SourceSummary["access"] 
   const ui = useAppTranslation();
 
   const workspaceAccess = access === "PUBLIC";
-  const AccessIcon = workspaceAccess ? OnyxUsersIcon : Lock;
+  const AccessIcon = workspaceAccess ? Users : Lock;
 
   return (
     <StatusBadge
