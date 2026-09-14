@@ -7,7 +7,10 @@ import org.jspecify.annotations.Nullable;
 
 /** Identity includes the operation and target; retries never append another reply. */
 public record ChatCommand(Operation operation, UUID targetMessageId, UUID requestId,
-                          String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch) {
+                          String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch, ImageMode image) {
+    public ChatCommand(Operation operation, UUID targetMessageId, UUID requestId, String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch) {
+        this(operation, targetMessageId, requestId, text, modelConfigurationId, fileIds, webSearch, ImageMode.off);
+    }
     public ChatCommand(Operation operation, UUID targetMessageId, UUID requestId, String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds) {
         this(operation, targetMessageId, requestId, text, modelConfigurationId, fileIds, WebSearchMode.off);
     }
@@ -17,6 +20,7 @@ public record ChatCommand(Operation operation, UUID targetMessageId, UUID reques
     public enum Operation { SEND, EDIT, REGENERATE }
     public ChatCommand {
         webSearch = webSearch == null ? WebSearchMode.off : webSearch;
+        image = image == null ? ImageMode.off : image;
         if (fileIds != null && fileIds.stream().anyMatch(java.util.Objects::isNull))
             throw ChatException.invalid("Invalid file identity.");
         fileIds = fileIds == null ? List.of() : List.copyOf(fileIds);
