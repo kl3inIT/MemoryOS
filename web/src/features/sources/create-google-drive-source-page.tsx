@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -33,6 +34,7 @@ import type {
   CreateGoogleDriveSourceData,
   GetGoogleDriveConfigurationResponse,
   GoogleDriveCredentialResponse,
+  SourceSummary,
 } from "@/lib/hey-api/types.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
 import { GoogleDriveLinks } from "./google-drive-links";
@@ -70,6 +72,7 @@ function GoogleDriveSourceSetup() {
   const globalManage = authority === "global";
   const canManage = authority !== "none";
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
+  const [access, setAccess] = useState<SourceSummary["access"]>("SYNC");
   const credentials = useQuery({
     ...listGoogleDriveCredentialsOptions(),
     enabled: canManage,
@@ -115,6 +118,7 @@ function GoogleDriveSourceSetup() {
     scopeMode,
     links,
     groupIds: groupIds.size > 0 ? [...groupIds] : undefined,
+    access,
     requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
   };
   const selectionError = googleDriveSelectionError(proposal, policy.data);
@@ -558,6 +562,40 @@ function GoogleDriveSourceSetup() {
               className="mt-2"
             />
           </div>
+          <div className="space-y-2">
+            <label htmlFor="google-drive-source-access" className="font-secondary-action">
+              {ui("Visibility")}
+            </label>
+            <Select
+              id="google-drive-source-access"
+              value={access}
+              disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
+              onChange={(event) => {
+                if (tracking.terminal) tracking.forget();
+                setAccess(event.target.value as SourceSummary["access"]);
+                setError(null);
+              }}
+            >
+              <option value="SYNC">
+                {ui("Auto Sync · people who can open each file in Google Drive")}
+              </option>
+              <option value="PRIVATE">{ui("Private · selected group members")}</option>
+              {globalManage ? (
+                <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
+              ) : null}
+            </Select>
+            <p className="text-sm text-content-muted">
+              {access === "SYNC"
+                ? ui(
+                    "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.",
+                  )
+                : access === "PRIVATE"
+                  ? ui(
+                      "Members of the selected MemoryOS groups can search and read imported Drive documents.",
+                    )
+                  : ui("Everyone in this Tenant can search and read imported Drive documents.")}
+            </p>
+          </div>
           <SourceGroupPicker
             selected={groupIds}
             required={!globalManage}
@@ -570,11 +608,8 @@ function GoogleDriveSourceSetup() {
           />
           <p className="text-sm text-content-muted">
             {globalManage
-              ? ui("Private Source. Group associations are optional for global Source managers.")
-              : ui("Private Source. Select at least one group you manage.")}{" "}
-            {ui(
-              "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.",
-            )}
+              ? ui("Group associations are optional for global Source managers.")
+              : ui("Select at least one group you manage.")}
           </p>
           <GoogleDriveLinks
             scopeMode={scopeMode}

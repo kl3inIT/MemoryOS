@@ -34,7 +34,7 @@ export function CreateFileSourcePage() {
   const session = useApplicationSession();
   const authority = useCapabilityAuthority("SOURCES_MANAGE");
   const scoped = authority === "scoped";
-  const [access, setAccess] = useState<"PUBLIC" | "RESTRICTED">(scoped ? "RESTRICTED" : "PUBLIC");
+  const [access, setAccess] = useState<"PUBLIC" | "PRIVATE">(scoped ? "PRIVATE" : "PUBLIC");
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: "/admin/sources/new/file" });
   const notify = useActionNotifications();
@@ -65,7 +65,7 @@ export function CreateFileSourcePage() {
   if (previousAuthorityKey !== authorityKey) {
     setPreviousAuthorityKey(authorityKey);
     setGroupIds(new Set());
-    setAccess(scoped ? "RESTRICTED" : "PUBLIC");
+    setAccess(scoped ? "PRIVATE" : "PUBLIC");
     setGroupPickerOpen(scoped);
   }
 
@@ -129,7 +129,7 @@ export function CreateFileSourcePage() {
             body: {
               name: sourceName.trim(),
               groupIds: groupIds.size > 0 ? [...groupIds] : undefined,
-              access: scoped ? "RESTRICTED" : access,
+              access: scoped ? "PRIVATE" : access,
             },
             headers: sameOriginMutationHeaders,
             signal: controller.signal,
@@ -262,10 +262,10 @@ export function CreateFileSourcePage() {
                 id="file-source-access"
                 value={access}
                 disabled={busy || Boolean(sourceId)}
-                onChange={(event) => setAccess(event.target.value as "PUBLIC" | "RESTRICTED")}
+                onChange={(event) => setAccess(event.target.value as "PUBLIC" | "PRIVATE")}
               >
                 <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
-                <option value="RESTRICTED">{ui("Private · selected group members")}</option>
+                <option value="PRIVATE">{ui("Private · selected group members")}</option>
               </Select>
             )}
           </div>

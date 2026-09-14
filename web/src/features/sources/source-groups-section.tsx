@@ -98,7 +98,7 @@ export function SourceGroupsSection({
       </div>
       <p className="mt-3 font-main-ui-body text-content-muted">
         {ui(
-          "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.",
+          "Group members can search and read imported documents from Private Sources. For Auto Sync Sources, groups only decide who manages the Source; Google Drive file permissions decide who reads. Global Source management does not grant access to private documents without group membership.",
         )}
       </p>
 

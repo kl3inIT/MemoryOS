@@ -97,7 +97,7 @@ export function SourceGroupPicker({
           <h3 className="font-secondary-action text-content-primary">{ui("Access groups")}</h3>
           <p className="mt-1 font-secondary-body text-content-muted">
             {ui(
-              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
+              "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.",
             )}
           </p>
         </div>

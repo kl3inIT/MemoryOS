@@ -33,7 +33,7 @@ const source: SourceSummary = {
   id: "46337ebd-a134-41de-b322-196cd9be22c4",
   name: "Team knowledge",
   type: "GOOGLE_DRIVE",
-  access: "RESTRICTED",
+  access: "PRIVATE",
   status: "ACTIVE",
   pendingWork: false,
   documentCount: 0,

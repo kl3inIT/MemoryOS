@@ -35,7 +35,7 @@ const source: SourceSummary = {
   id: "source",
   name: "Team knowledge",
   type: "FILE",
-  access: "RESTRICTED",
+  access: "PRIVATE",
   status: "ACTIVE",
   documentCount: 0,
   pendingWork: false,

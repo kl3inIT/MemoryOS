@@ -4,6 +4,7 @@ import {
   Clock3,
   LoaderCircle,
   Lock,
+  RefreshCw,
   Trash2,
   TriangleAlert,
   Users,
@@ -53,24 +54,36 @@ export function SourceStatusBadge({ status }: { status?: string }) {
   );
 }
 
+const sourceAccessPresentation: Record<
+  SourceSummary["access"],
+  { label: string; title: string; icon: LucideIcon }
+> = {
+  PUBLIC: {
+    label: "Workspace members",
+    title: "Available to workspace members, not the public Internet.",
+    icon: Users,
+  },
+  PRIVATE: {
+    label: "Private",
+    title: "Only members of the associated groups can read this Source.",
+    icon: Lock,
+  },
+  SYNC: {
+    label: "Auto Sync",
+    title: "Readers need access to each file in Google Drive.",
+    icon: RefreshCw,
+  },
+};
+
 export function SourceAccessBadge({ access }: { access: SourceSummary["access"] }) {
   const ui = useAppTranslation();
-
-  const workspaceAccess = access === "PUBLIC";
-  const AccessIcon = workspaceAccess ? Users : Lock;
+  const presentation = sourceAccessPresentation[access];
+  const AccessIcon = presentation.icon;
 
   return (
-    <StatusBadge
-      tone="neutral"
-      className="gap-1.5"
-      title={
-        workspaceAccess
-          ? ui("Available to workspace members, not the public Internet.")
-          : ui("Restricted source access.")
-      }
-    >
+    <StatusBadge tone="neutral" className="gap-1.5" title={ui(presentation.title)}>
       <AccessIcon className="size-3 shrink-0" aria-hidden="true" />
-      {workspaceAccess ? ui("Workspace members") : ui("Restricted")}
+      {ui(presentation.label)}
     </StatusBadge>
   );
 }
