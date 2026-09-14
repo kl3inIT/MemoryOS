@@ -328,10 +328,18 @@ export function ChatModeMenu({ mode }: { mode: "Chat" | "Search" }) {
           sideOffset={6}
           className="z-50 w-44 rounded-xl border border-border-subtle bg-surface-base p-1.5 shadow-md"
         >
-          <MenuItem to="/" icon={<MessageSquare />} onClick={() => setOpen(false)}>
+          <MenuItem
+            to="/"
+            icon={<MessageSquare className="size-4.5" />}
+            onClick={() => setOpen(false)}
+          >
             {ui("Chat")}
           </MenuItem>
-          <MenuItem to="/search" icon={<Search />} onClick={() => setOpen(false)}>
+          <MenuItem
+            to="/search"
+            icon={<Search className="size-4.5" />}
+            onClick={() => setOpen(false)}
+          >
             {ui("Search")}
           </MenuItem>
         </Popover.Content>
