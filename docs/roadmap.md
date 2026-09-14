@@ -76,6 +76,7 @@ Chat Web search is implemented locally for the external-provider vertical slice,
 | MEM-58 frontend observability | Optional Sentry Cloud browser error monitoring and trace correlation; rollout configuration and Linear reconciliation remain active | [Design](increments/active/mem-58-frontend-observability/design.md) |
 | MEM-77 provider/model administration | Backend foundation is merged; catalog administration UI and local OpenAI-compatible provider integration remain active | [Design](increments/active/mem-77-provider-backend/design.md) |
 | [MEM-79 standalone OCR](https://linear.app/memory-os/issue/MEM-79) | Vietnamese/English OCR is deployed in the Jmix team namespace; server access, Worker integration and full indexing acceptance remain open | [Deployment runbook](../infrastructure/deployment/ocr/README.md) · [Design](increments/active/mem-79-rancher-ocr/design.md) · [Plan](increments/active/mem-79-rancher-ocr/plan.md) |
+| [MEM-100 agent activity timeline](https://linear.app/memory-os/issue/MEM-100) | Persisted tool steps and provider reasoning summaries streamed and replayed in Chat with assistant-ui grouped parts; planned, not implemented | [Design](increments/active/mem-100-agent-activity-timeline/design.md) · [Plan](increments/active/mem-100-agent-activity-timeline/plan.md) |
 | Staging deployment simplification | CD deploys and verifies runtime health while authenticated business acceptance remains an explicit owner step | [Design](increments/active/staging-deploy-simplification/design.md) |
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
@@ -102,7 +103,7 @@ MEM-36 and MEM-68 are Done. MEM-55, MEM-25 and MEM-69 are In Progress with Nhat 
 
 ## Other tracked work
 
-- [MEM-100](https://linear.app/memory-os/issue/MEM-100) (Todo) is the agent activity timeline: persisted step and reasoning parts rendered with assistant-ui grouped parts. [MEM-101](https://linear.app/memory-os/issue/MEM-101) (Backlog) is Deep research and is blocked by MEM-100. Neither has an increment record yet.
+- [MEM-100](https://linear.app/memory-os/issue/MEM-100) (Todo) is the agent activity timeline: persisted step and reasoning parts rendered with assistant-ui grouped parts. [MEM-101](https://linear.app/memory-os/issue/MEM-101) (Backlog) is Deep research and is blocked by MEM-100. MEM-100 is listed under Active; MEM-101 has no increment record yet.
 - [MEM-77](https://linear.app/memory-os/issue/MEM-77) is Todo: the [backend foundation](increments/active/mem-77-provider-backend/design.md) is merged through PR #88; the issue continues catalog administration UI and local OpenAI-compatible provider integration.
 - [MEM-83](https://linear.app/memory-os/issue/MEM-83) is In Review for the latest `vadan.app` presentation work; MEM-82 is Done.
 
