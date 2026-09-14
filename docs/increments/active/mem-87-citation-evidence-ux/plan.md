@@ -26,7 +26,7 @@
 - [x] Chat chip, preview, toolbar stack, panel list/header, Drive link.
 - [x] Search card meta line and preview dialog header.
 - [x] `EvidenceViewSwitch` + lazy `DocumentPdfView` (react-pdf 11.0.0 / pdfjs-dist 6.3.289).
-- [x] Verify pdf.js worker under the production CSP (`nginx.conf`) and Vite build.  Vite build emits the worker as a same-origin asset and `document-pdf-view` as a lazy chunk; a live nginx CSP check (image decoders may need `wasm-unsafe-eval`) remains open.
+- [x] Verify pdf.js worker under the production CSP (`nginx.conf`) and Vite build.  Vite build emits the worker as a same-origin asset and `document-pdf-view` as a lazy chunk; a live nginx CSP check (image decoders may need `wasm-unsafe-eval`) remains open. Staging (2026-09-14) showed the page reloading on every PDF tab: nginx served `pdf.worker.min-*.mjs` as `application/octet-stream` with `nosniff`, the module worker failed, pdf.js imported the worker on the main thread through Vite's preload wrapper, and `preload-error-reload` treated that failure as a stale chunk. Fixed with an `.mjs` JavaScript MIME location, a `frontend-image` MIME smoke check, and a reload exemption for pdf.js worker imports.
 - [x] Playwright: citation chip/preview/panel with PDF + Drive fixture; PDF page view with outlined box; Search card and dialog; mobile.  Passes with `--workers=1`; the parallel `chat.spec.ts` run hangs on "Đang tải trang" on pristine origin/main too.
 
 ## 4. Verification and docs
