@@ -52,7 +52,6 @@ import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
-import { GoogleDriveAclPanel } from "./google-drive-acl-panel";
 import { can } from "@/lib/resource-permissions";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
@@ -1124,7 +1123,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     >
                       {[
                         ["content", "Content"],
-                        ["permissions", "Google Drive permissions"],
                         ["history", "Sync history"],
                         ["settings", "Connection and settings"],
                       ].map(([value, label]) => (
@@ -1143,11 +1141,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             ) : null}
 
             {detail.type !== "GOOGLE_DRIVE" ? filesPanel : null}
-            {detail.type === "GOOGLE_DRIVE" ? (
-              <Tabs.Content value="permissions" className="mt-5 outline-none">
-                <GoogleDriveAclPanel key={selectedId} sourceId={selectedId} />
-              </Tabs.Content>
-            ) : null}
             {detail.type === "GOOGLE_DRIVE" ? (
               <Tabs.Content
                 value="history"
