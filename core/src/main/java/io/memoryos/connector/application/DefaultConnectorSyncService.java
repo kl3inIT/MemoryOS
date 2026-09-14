@@ -123,7 +123,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             return Result.SUPERSEDED;
         } catch (GoogleDriveProviderException exception) {
             String code = "SOURCE_GOOGLE_" + exception.failure().name();
-            if (exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION) {
+            if (exception.requiresReconnect()) {
                 connections.authenticationFailed(work.tenantId(), work.sourceId(), work.credentialRevision());
                 settle(work, () -> sync.terminal(work, "FAILED", code, exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             } else {
@@ -248,7 +248,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 acls.recordFailure(work, node.fileId(), "SOURCE_GOOGLE_" + exception.failure().name(), exception.getMessage());
                 return true;
             });
-            if (generalRootNode || exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION) throw exception;
+            if (generalRootNode || exception.requiresReconnect()) throw exception;
             if (exception.failure() == GoogleDriveProviderException.Failure.NOT_FOUND) {
                 absent(work, node, "SOURCE_GOOGLE_NOT_FOUND");
             } else {
@@ -285,7 +285,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 acls.recordFailure(work, file.id(), "SOURCE_GOOGLE_" + exception.failure().name(), exception.getMessage());
                 return true;
             });
-            if (exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION) throw exception;
+            if (exception.requiresReconnect()) throw exception;
         }
     }
 

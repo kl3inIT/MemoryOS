@@ -67,7 +67,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             HttpRequest request = HttpRequest.newBuilder(properties.tokenUri())
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(form)).build();
-            JsonNode response = json(exchange(request, new Budget(), 65_536, true));
+            JsonNode response = json(exchange(request, new Budget(), 65_536, true, NOT_FOUND));
             String bearer = required(response, "access_token");
             if (!"Bearer".equalsIgnoreCase(required(response, "token_type"))) throw failure(MALFORMED);
             String rotated = optional(response, "refresh_token");
@@ -123,7 +123,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             String next = null;
             do {
                 JsonNode response = get(properties.driveApiBaseUrl(), path
-                        + (next == null ? "" : "&pageToken=" + encode(next)), budget);
+                        + (next == null ? "" : "&pageToken=" + encode(next)), budget, ACCESS_DENIED);
                 JsonNode entries = response.path("permissions");
                 if (!entries.isArray()) throw failure(MALFORMED);
                 if (entries.size() > Math.min(properties.pageSize(), 100)) throw failure(LIMIT_EXCEEDED);
@@ -259,26 +259,33 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             return bytes;
         }
 
-        private JsonNode get(URI base, String path, Budget budget) {
-            byte[] bytes = request(base, path, budget, properties.maxSnapshotBytes());
+        private JsonNode get(URI base, String path, Budget budget) { return get(base, path, budget, NOT_FOUND); }
+
+        private JsonNode get(URI base, String path, Budget budget, GoogleDriveProviderException.Failure forbidden) {
+            byte[] bytes = request(base, path, budget, properties.maxSnapshotBytes(), forbidden);
             budget.nativeBytes += bytes.length;
             if (budget.nativeBytes > properties.maxSnapshotBytes()) throw failure(LIMIT_EXCEEDED);
             return json(bytes);
         }
 
         private byte[] request(URI base, String path, Budget budget, int limit) {
+            return request(base, path, budget, limit, NOT_FOUND);
+        }
+
+        private byte[] request(URI base, String path, Budget budget, int limit, GoogleDriveProviderException.Failure forbidden) {
             if (bearer == null) throw failure(AUTHENTICATION);
             URI uri = URI.create(base.toString().replaceAll("/+$", "") + path);
             HttpRequest request = HttpRequest.newBuilder(uri).header("Authorization", "Bearer " + bearer)
                     .header("Accept", "application/json").GET().build();
-            return exchange(request, budget, limit, false);
+            return exchange(request, budget, limit, false, forbidden);
         }
 
         @Override public byte @Nullable [] rotatedRefreshToken() { return rotated == null ? null : rotated.clone(); }
         @Override public void close() { bearer = null; if (rotated != null) Arrays.fill(rotated, (byte) 0); }
     }
 
-    private byte[] exchange(HttpRequest request, Budget budget, int limit, boolean oauth) {
+    private byte[] exchange(HttpRequest request, Budget budget, int limit, boolean oauth,
+            GoogleDriveProviderException.Failure forbidden) {
         budget.request();
         long timeout = Math.min(properties.requestTimeout().toNanos(), budget.remaining());
         CompletableFuture<HttpResponse<byte[]>> future = client.sendAsync(request, info ->
@@ -287,7 +294,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             HttpResponse<byte[]> response = future.get(timeout, TimeUnit.NANOSECONDS);
             budget.check();
             int status = response.statusCode();
-            if (status < 200 || status >= 300) throw httpFailure(status, response.body(), oauth);
+            if (status < 200 || status >= 300) throw httpFailure(status, response.body(), oauth, forbidden);
             return response.body();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -302,16 +309,23 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
         }
     }
 
-    private GoogleDriveProviderException httpFailure(int status, byte[] body, boolean oauth) {
+    /** {@code forbidden} is what a 403 without a scope or quota reason means for the calling request. */
+    private GoogleDriveProviderException httpFailure(int status, byte[] body, boolean oauth,
+            GoogleDriveProviderException.Failure forbidden) {
         String reason = "";
+        boolean missingScope = false;
         try {
             JsonNode error = mapper.readTree(body).path("error");
             reason = oauth ? error.asString("") : error.path("errors").path(0).path("reason").asString("");
+            for (JsonNode detail : error.path("details"))
+                missingScope |= "ACCESS_TOKEN_SCOPE_INSUFFICIENT".equals(detail.path("reason").asString(""));
         } catch (RuntimeException ignored) { /* Only status classification is available for invalid error bodies. */ }
         if (oauth && List.of("invalid_grant", "invalid_client", "unauthorized_client").contains(reason)) return failure(AUTHENTICATION);
         if (status == 401) return failure(AUTHENTICATION);
         if (status == 429 || List.of("rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded", "quotaExceeded").contains(reason)) return failure(QUOTA);
-        if (status == 403 || status == 404 || status == 410) return failure(NOT_FOUND);
+        if (status == 403 && (missingScope || "insufficientPermissions".equals(reason))) return failure(SCOPE_INSUFFICIENT);
+        if (status == 403) return failure(forbidden);
+        if (status == 404 || status == 410) return failure(NOT_FOUND);
         return failure(status >= 500 || status == 408 ? UNAVAILABLE : MALFORMED);
     }
 

@@ -132,7 +132,7 @@ class RestGoogleDriveProviderTest {
     @Test
     void laterPermissionPageFailuresNeverReturnTheFirstPageAsACompleteSnapshot() throws Exception {
         int[] statuses = {401, 403, 404, 429, 503};
-        Failure[] failures = {Failure.AUTHENTICATION, Failure.NOT_FOUND, Failure.NOT_FOUND, Failure.QUOTA, Failure.UNAVAILABLE};
+        Failure[] failures = {Failure.AUTHENTICATION, Failure.ACCESS_DENIED, Failure.NOT_FOUND, Failure.QUOTA, Failure.UNAVAILABLE};
         for (int index = 0; index < statuses.length; index++) {
             int status = statuses[index];
             try (var fixture = new Fixture(exchange -> decodedQuery(exchange).contains("pageToken=next")
@@ -143,6 +143,32 @@ class RestGoogleDriveProviderTest {
                 assertEquals(failures[index], error.failure());
                 assertFalse(error.toString().contains("reader@example.test"));
                 assertEquals(3, fixture.requests.size());
+            }
+        }
+    }
+
+    @Test
+    void forbiddenReasonsSeparateMissingScopeFromUnreadableSharingAndUnavailableFiles() throws Exception {
+        String scope = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"insufficientPermissions\"}]}}";
+        String scopeDetail = "{\"error\":{\"code\":403,\"status\":\"PERMISSION_DENIED\",\"details\":["
+                + "{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"ACCESS_TOKEN_SCOPE_INSUFFICIENT\"}]}}";
+        String sharing = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"insufficientFilePermissions\"}]}}";
+        String quota = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"userRateLimitExceeded\"}]}}";
+        record Case(String body, boolean permissions, Failure expected) {}
+        for (var example : List.of(
+                new Case(scope, true, Failure.SCOPE_INSUFFICIENT),
+                new Case(scopeDetail, true, Failure.SCOPE_INSUFFICIENT),
+                new Case(sharing, true, Failure.ACCESS_DENIED),
+                new Case(quota, true, Failure.QUOTA),
+                new Case(scope, false, Failure.SCOPE_INSUFFICIENT),
+                new Case(sharing, false, Failure.NOT_FOUND))) {
+            try (var fixture = new Fixture(exchange -> new Response(403, bytes(example.body())));
+                 var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                var error = assertThrows(GoogleDriveProviderException.class, () -> {
+                    if (example.permissions()) session.permissions("file1");
+                    else session.metadata("file1");
+                });
+                assertEquals(example.expected(), error.failure(), example.toString());
             }
         }
     }
