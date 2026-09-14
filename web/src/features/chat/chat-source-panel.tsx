@@ -1,4 +1,3 @@
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { Dialog } from "radix-ui";
 import { ArrowLeft, X } from "lucide-react";
@@ -11,39 +10,28 @@ import type { ChatArtifact } from "./chat-artifacts";
 import { ChatArtifactView } from "./chat-artifact-view";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { EvidenceViewSwitch, type PdfEvidence } from "@/features/search/evidence-view-switch";
-import { readChatDocumentOriginal } from "@/lib/hey-api/sdk.gen";
+import { client } from "@/lib/hey-api/client.gen";
 import { citedPdfLocation } from "./chat-source-meta";
 import { ChatSourceHeader, ChatSourceRow } from "./chat-source-list";
 
 /** PDF page view for an indexed document citation whose provenance records pages. */
-function citationPdf(
-  source: ChatSource,
-  session: { actorId?: string | null; authorizationVersion?: unknown },
-): PdfEvidence | undefined {
+function citationPdf(source: ChatSource): PdfEvidence | undefined {
   const location = citedPdfLocation(source);
   if (!location || !source.documentId || !source.generation) return undefined;
   const { documentId, generation } = source;
   return {
-    queryKey: ["chat", session.actorId, session.authorizationVersion, documentId, generation],
-    load: async (signal) =>
-      (
-        await readChatDocumentOriginal({
-          path: { documentId },
-          query: { generation },
-          parseAs: "blob",
-          signal,
-          throwOnError: true,
-        })
-      ).data as Blob,
+    url: client.buildUrl({
+      url: "/api/chat/documents/{documentId}/original",
+      path: { documentId },
+      query: { generation },
+    }),
     pages: location.pages,
     boxes: location.boxes,
   };
 }
 
-/** Reads session identity only where a PDF view can exist, so artifact and file panels need no session. */
 function CitationEvidence({ source, children }: { source: ChatSource; children: ReactNode }) {
-  const session = useApplicationSession();
-  return <EvidenceViewSwitch pdf={citationPdf(source, session)}>{children}</EvidenceViewSwitch>;
+  return <EvidenceViewSwitch pdf={citationPdf(source)}>{children}</EvidenceViewSwitch>;
 }
 
 const wideQuery = "(min-width: 1024px)";

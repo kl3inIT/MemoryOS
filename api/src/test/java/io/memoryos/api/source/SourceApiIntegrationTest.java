@@ -44,6 +44,7 @@ import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectRangeContent;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
@@ -1629,6 +1630,11 @@ class SourceApiIntegrationTest {
                 public void close() {
                 }
             };
+        }
+
+        @Override
+        public ObjectRangeContent openRange(ObjectKey key, long first, long last) {
+            throw new UnsupportedOperationException("ranged reads are exercised by S3ObjectStorageIntegrationTest");
         }
 
         @Override

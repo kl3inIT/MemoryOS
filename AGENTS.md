@@ -30,22 +30,15 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [Tasco scanned-PDF OCR](docs/increments/active/tasco-scanned-pdf-ocr/design.md) owns OCR, extraction and indexing of the supplied financial reports, verified through Orca Sources; Search and Chat changes are excluded.
-- [Docling timeout configuration](docs/increments/active/docling-timeout-configuration/design.md) owns the bounded external parser timeout configuration.
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
-- [MEM-74/MEM-22 — Localization and problem presentation](docs/increments/active/mem-74-22-i18n-errors/design.md) is local in-flight work; Linear remains Todo/Backlog until separately updated.
 - [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
-- [MEM-84 — Architecture documentation sync](docs/increments/active/architecture-documentation-sync/design.md) owns the current Linear and repository documentation audit.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
-- [Chat edit and navigation polish](docs/increments/active/chat-edit-navigation-polish/design.md) owns the compact editor, composer `+` menu, Sources toolbar and assistant-ui element follow-ups (regenerate with a model, timing, draft restore, quote, link chips, file status icons).
-- [Chat history search](docs/increments/active/chat-history-search/design.md) owns owner-authorized full-history conversation search.
-- [Chat model selector polish](docs/increments/active/chat-model-selector-polish/design.md) owns inherited-default marking and model identity display; plan items remain open.
-- [Chat ThreadList runtime](docs/increments/active/chat-thread-list-runtime/design.md) owns the assistant-ui remote thread list migration of the Chat sidebar and conversation lifecycle.
-- [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash, the looping brand loader and the signed-out redirect to Keycloak.
-- [MEM-87 — Citation and evidence UX](docs/increments/active/mem-87-citation-evidence-ux/design.md) owns source icons, citation previews, Google Drive links and the cited PDF page view in Chat and Search.
-- [MEM-95 — Keycloak identity provider administration](docs/increments/active/mem-95-idp-admin/design.md) owns the SYSTEM_ADMIN IdP management API and the runtime-managed JIT allowlist; the admin UI is a follow-up.
+- [CI speedup](docs/increments/active/ci-speedup/design.md) owns PR change-based job selection, parallel core tests with template-cloned PostgreSQL fixtures and BuildKit image caches.
+- [MEM-100 — Agent activity timeline](docs/increments/active/mem-100-agent-activity-timeline/design.md) owns persisted tool steps and reasoning in Chat, rendered with assistant-ui grouped parts; Deep research (MEM-101) is excluded.
+- [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash (full intro once per tab, short sheen form otherwise), the brand loader and the signed-out redirect to Keycloak.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 

@@ -25,7 +25,78 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.scope.outputs.backend }}
+      web: ${{ steps.scope.outputs.web }}
+      landing: ${{ steps.scope.outputs.landing }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Map changed files to verification areas
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          backend=true
+          web=true
+          landing=true
+          # Main pushes always verify and publish every area. A pull request selects areas from its merge
+          # commit, whose first parent is the base branch tip; unknown paths or an empty diff select all.
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            mapfile -t changed < <(git diff --name-only HEAD^1 HEAD)
+            if (( ${#changed[@]} > 0 )); then
+              backend=false
+              web=false
+              landing=false
+              for path in "${changed[@]}"; do
+                # Mirror paths-ignore: only root-level Markdown is documentation; nested .md can be source.
+                if [[ "$path" != */* && "$path" == *.md ]]; then
+                  continue
+                fi
+                case "$path" in
+                  docs/*|tools/visual-paradigm-mcp/*)
+                    ;;
+                  openapi.yml)
+                    backend=true
+                    web=true
+                    ;;
+                  infrastructure/deployment/compose.landing.yaml)
+                    backend=true
+                    landing=true
+                    ;;
+                  core/*|connector/*|api/*|worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
+                    backend=true
+                    ;;
+                  web/*)
+                    web=true
+                    ;;
+                  landing/*)
+                    landing=true
+                    ;;
+                  *)
+                    backend=true
+                    web=true
+                    landing=true
+                    ;;
+                esac
+              done
+            fi
+          fi
+          printf 'backend=%s\nweb=%s\nlanding=%s\n' "$backend" "$web" "$landing" >> "$GITHUB_OUTPUT"
+          printf 'Verification areas: backend=%s web=%s landing=%s\n' "$backend" "$web" "$landing" >> "$GITHUB_STEP_SUMMARY"
+
   check:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -37,7 +108,7 @@ jobs:
       - name: Validate workflows and shell scripts
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          shellcheck infrastructure/deployment/deploy-staging.sh landing/scripts/smoke-image.sh
+          shellcheck infrastructure/deployment/deploy-staging.sh
 
       - name: Set up Java 25
         uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
@@ -73,13 +144,53 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  frontend-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm 11.22.0
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.22.0
+
+      - name: Install frontend dependencies
+        run: pnpm --dir web install --frozen-lockfile
+
+      # Static, unit and build gate; it needs no browser, so it runs outside the Playwright container.
+      - name: Verify frontend
+        run: pnpm --dir web check
+
+      - name: Upload frontend unit reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: frontend-check-reports
+          path: web/reports/
+          if-no-files-found: warn
+          retention-days: 7
+
   frontend:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        # Playwright's CI guidance: one worker per runner, scale with shards. fullyParallel splits by test.
+        shard: [1, 2, 3, 4]
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
@@ -102,26 +213,64 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm --dir web install --frozen-lockfile
 
-      - name: Verify frontend
-        if: matrix.shard == 1
-        run: pnpm --dir web check
-
       - name: Exercise browser states
-        run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/2
+        run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-      - name: Upload frontend test reports
+      - name: Upload shard blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: frontend-tests-${{ matrix.shard }}
-          path: |
-            web/reports/
-            web/playwright-report/
-            web/test-results/
+          name: blob-report-${{ matrix.shard }}
+          path: web/blob-report/
+          if-no-files-found: warn
+          retention-days: 1
+
+  # Not a gate: merges the shard blob reports (with their traces, screenshots and videos) into one HTML report.
+  frontend-report:
+    needs: [changes, frontend]
+    if: ${{ !cancelled() && needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm 11.22.0
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.22.0
+
+      - name: Install frontend dependencies
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Download shard blob reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: blob-report-*
+          merge-multiple: true
+          path: web/all-blob-reports
+
+      - name: Merge browser reports
+        run: pnpm --dir web exec playwright merge-reports --reporter html ./all-blob-reports
+
+      - name: Upload merged browser report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: frontend-tests
+          path: web/playwright-report/
           if-no-files-found: warn
           retention-days: 7
 
   frontend-image:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -130,33 +279,70 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build production frontend image
+      - name: Resolve image and Sentry build configuration
+        id: config
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         run: |
-          sentry_args=()
+          sentry=false
           if [[ -n "$SENTRY_AUTH_TOKEN" && -n "$SENTRY_ORG" && -n "$SENTRY_PROJECT" ]]; then
-            sentry_args+=(
-              "--secret=id=sentry_auth_token,env=SENTRY_AUTH_TOKEN"
-              "--build-arg=SENTRY_ORG=$SENTRY_ORG"
-              "--build-arg=SENTRY_PROJECT=$SENTRY_PROJECT"
-              "--build-arg=SENTRY_RELEASE=$GITHUB_SHA"
-            )
+            sentry=true
           elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
             echo "Sentry source-map configuration is required for a main release." >&2
             exit 1
           fi
-          docker build --file web/Dockerfile --tag "memoryos-web:sha-$GITHUB_SHA" \
-            "${sentry_args[@]}" \
-            --build-arg "VCS_REF=$GITHUB_SHA" \
-            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
-          if docker run --rm --entrypoint /bin/sh "memoryos-web:sha-$GITHUB_SHA" \
+          printf 'sentry=%s\nbuild-date=%s\n' "$sentry" "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      # Layers are cached in the Actions cache; the source-map upload step still reruns for every commit
+      # because SENTRY_RELEASE is part of its cache key.
+      - name: Build production frontend image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: web/Dockerfile
+          tags: memoryos-web:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.config.outputs.build-date }}
+            SENTRY_ORG=${{ steps.config.outputs.sentry == 'true' && vars.SENTRY_ORG || '' }}
+            SENTRY_PROJECT=${{ steps.config.outputs.sentry == 'true' && vars.SENTRY_PROJECT || '' }}
+            SENTRY_RELEASE=${{ steps.config.outputs.sentry == 'true' && github.sha || '' }}
+          secrets: ${{ steps.config.outputs.sentry == 'true' && format('sentry_auth_token={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Verify and preserve the frontend image
+        run: |
+          image="memoryos-web:sha-$GITHUB_SHA"
+          if docker run --rm --entrypoint /bin/sh "$image" \
             -c 'find /usr/share/nginx/html -type f -name "*.map" -print -quit | grep -q .'; then
             echo "Public source maps must not be present in the frontend image." >&2
             exit 1
           fi
+          # Browsers refuse module scripts served as octet-stream under nosniff (the pdf.js worker is .mjs).
+          container=$(docker run --detach --rm --publish 127.0.0.1:18080:8080 "$image")
+          trap 'docker stop "$container" >/dev/null' EXIT
+          for _ in $(seq 30); do
+            curl --silent --fail --output /dev/null http://127.0.0.1:18080/ && break
+            sleep 1
+          done
+          modules=$(docker exec "$container" find /usr/share/nginx/html/assets -type f \( -name '*.mjs' -o -name '*.js' \))
+          test -n "$modules"
+          while IFS= read -r file; do
+            type=$(curl --silent --fail --output /dev/null --write-out '%{content_type}' "http://127.0.0.1:18080${file#/usr/share/nginx/html}")
+            if [[ "$type" != text/javascript* && "$type" != application/javascript* ]]; then
+              echo "JavaScript asset ${file##*/} is served as '$type'." >&2
+              exit 1
+            fi
+          done <<< "$modules"
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
             mkdir -p candidate
             docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"
@@ -173,6 +359,8 @@ jobs:
           retention-days: 7
 
   landing:
+    needs: changes
+    if: ${{ needs.changes.outputs.landing == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -180,6 +368,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Validate the landing smoke script
+        run: shellcheck landing/scripts/smoke-image.sh
 
       - name: Set up Node.js 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -231,6 +422,8 @@ jobs:
           retention-days: 7
 
   backend-images:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -239,21 +432,53 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve image metadata
+        id: meta
+        run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      # Both targets share the Gradle build stage; each keeps its own cache scope and reads the other's.
       - name: Build production API image
-        run: |
-          docker build --target api --tag "memoryos-api:sha-$GITHUB_SHA" \
-            --build-arg "VCS_REF=$GITHUB_SHA" \
-            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: api
+          tags: memoryos-api:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: |
+            type=gha,scope=backend-api
+            type=gha,scope=backend-worker
+          cache-to: type=gha,mode=max,scope=backend-api
 
       - name: Build production worker image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: worker
+          tags: memoryos-worker:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: |
+            type=gha,scope=backend-api
+            type=gha,scope=backend-worker
+          cache-to: type=gha,mode=max,scope=backend-worker
+
+      - name: Save backend images for publication
+        if: ${{ github.event_name == 'push' }}
         run: |
-          docker build --target worker --tag "memoryos-worker:sha-$GITHUB_SHA" \
-            --build-arg "VCS_REF=$GITHUB_SHA" \
-            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" .
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            mkdir -p candidate
-            docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"
-          fi
+          mkdir -p candidate
+          docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"
 
       - name: Preserve verified backend images
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -285,17 +510,27 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [check, frontend, frontend-image, backend-images, landing, secrets]
+    needs: [changes, check, frontend-check, frontend, frontend-image, backend-images, landing, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Require every gate to succeed, including jobs that did not run
+      - name: Require every selected job to succeed and every unselected job to be skipped
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
+          # An area job may be skipped only when change detection succeeded and did not select that area.
           jq --exit-status '
-            keys == ["backend-images", "check", "frontend", "frontend-image", "landing", "secrets"]
-            and all(.[]; .result == "success")
+            . as $jobs
+            | ($jobs.changes.outputs // {}) as $area
+            | def selected(name; jobs): if $area[name] == "true"
+                then all(jobs[]; $jobs[.].result == "success")
+                else all(jobs[]; $jobs[.].result == "skipped") end;
+            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "landing", "secrets"]
+            and $jobs.changes.result == "success"
+            and $jobs.secrets.result == "success"
+            and selected("backend"; ["check", "backend-images"])
+            and selected("web"; ["frontend-check", "frontend", "frontend-image"])
+            and selected("landing"; ["landing"])
           ' <<< "$RESULTS"
 
   publish:

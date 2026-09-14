@@ -52,6 +52,7 @@ import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectRangeContent;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
@@ -1242,6 +1243,11 @@ class PostgresSourceLifecycleTest {
                 public void close() {
                 }
             };
+        }
+
+        @Override
+        public ObjectRangeContent openRange(ObjectKey key, long first, long last) {
+            throw new UnsupportedOperationException("ranged reads are exercised by S3ObjectStorageIntegrationTest");
         }
 
         @Override
