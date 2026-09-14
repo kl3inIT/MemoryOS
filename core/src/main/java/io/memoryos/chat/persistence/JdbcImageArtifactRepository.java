@@ -3,7 +3,11 @@ package io.memoryos.chat.persistence;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -28,6 +32,21 @@ public class JdbcImageArtifactRepository {
                 """).param("id", id).param("tenant", tenant.value()).param("message", messageId)
                 .param("object", storedObjectId).param("key", key.value()).param("type", mediaType)
                 .param("revised", revisedPrompt).update();
+    }
+
+    public Map<UUID, List<Artifact>> byMessages(TenantId tenant, Collection<UUID> messageIds) {
+        if (messageIds.isEmpty()) return Map.of();
+        var result = new LinkedHashMap<UUID, List<Artifact>>();
+        jdbc.sql("""
+                SELECT message_id, id, media_type, revised_prompt FROM chat_image_artifact
+                WHERE tenant_id = :tenant AND message_id IN (:messages) ORDER BY created_at, id
+                """).param("tenant", tenant.value()).param("messages", messageIds)
+                .query((row, ignored) -> {
+                    result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new ArrayList<>())
+                            .add(new Artifact(row.getObject("id", UUID.class), row.getString("media_type"), row.getString("revised_prompt")));
+                    return true;
+                }).list();
+        return result;
     }
 
     public List<Artifact> byMessage(TenantId tenant, UUID messageId) {

@@ -1,8 +1,14 @@
 package io.memoryos.chat.image;
 
+import io.memoryos.chat.ChatException;
 import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectWriteService;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -13,11 +19,22 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ImageArtifactService {
     private final ObjectWriteService writes;
     private final JdbcImageArtifactRepository artifacts;
+    private final TenantAccessResolver tenants;
     private final TransactionTemplate tx;
 
     public ImageArtifactService(ObjectWriteService writes, JdbcImageArtifactRepository artifacts,
-                                PlatformTransactionManager transactionManager) {
-        this.writes = writes; this.artifacts = artifacts; this.tx = new TransactionTemplate(transactionManager);
+                                TenantAccessResolver tenants, PlatformTransactionManager transactionManager) {
+        this.writes = writes; this.artifacts = artifacts; this.tenants = tenants;
+        this.tx = new TransactionTemplate(transactionManager);
+    }
+
+    /**
+     * Images for an already-authorized page of messages, keyed by message id. The caller has resolved these
+     * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
+     */
+    public Map<UUID, List<JdbcImageArtifactRepository.Artifact>> forMessages(ActorId actor, Collection<UUID> messageIds) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return artifacts.byMessages(tenant, messageIds);
     }
 
     /** Persists a generated image against the assistant message; returns the artifact id. */
