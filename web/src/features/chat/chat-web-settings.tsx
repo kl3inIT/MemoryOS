@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Cpu, Globe, Route } from "lucide-react";
+import { CheckCircle2, Cpu, Globe } from "lucide-react";
 import { Dialog, Switch } from "radix-ui";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ const providerDetails = {
     endpoint: "https://customsearch.googleapis.com",
   },
   SEARXNG: { description: "searxng.org", endpoint: "" },
-  NINEROUTER: { description: "9router", endpoint: "" },
+  NINEROUTER: { description: "9router.com", endpoint: "" },
   FIRECRAWL: { description: "firecrawl.dev", endpoint: "https://api.firecrawl.dev" },
 };
 const searchProviders: Provider[] = [
@@ -330,11 +330,7 @@ function ConnectionCard({
       )}
     >
       <span className="flex size-7 shrink-0 items-center justify-center">
-        {hasProviderMark(provider) ? (
-          <ProviderLogo mark={provider} />
-        ) : (
-          <Route className="size-5" />
-        )}
+        <ProviderLogo mark={provider} />
       </span>
       <div className="mr-auto min-w-0">
         <h3 className="font-main-ui-action">{names[provider]}</h3>
