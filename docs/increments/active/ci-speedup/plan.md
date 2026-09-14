@@ -19,6 +19,20 @@
 - [x] `docker/build-push-action` with `type=gha` caches for API, worker and web; provenance/SBOM disabled to keep archives unchanged.
 - [ ] Measure image job times on a second run with a warm cache; confirm the main publication still verifies revision/source labels.
 
+## 3b. Browser test sharding
+
+- [x] `frontend-check` job for `pnpm check`; `frontend` 4 shards × 1 worker with blob reports; non-gating `frontend-report` merge; gate includes `frontend-check`.
+- [ ] Measure shard times against the 409 s / 363 s two-shard baseline.
+
+## Measured (PR #149)
+
+| Job | Baseline | Attempt 1 (cold image cache) |
+| --- | --- | --- |
+| `check` | 684 s | 354 s |
+| `backend-images` | 132 s | 368 s |
+| `frontend-image` | 50 s | 119 s |
+| Run wall time | 11 m 31 s | 8 m 51 s |
+
 ## 4. Documentation
 
 - [x] Runbook, delivery verification matrix and AGENTS active increments.
@@ -26,4 +40,4 @@
 
 ## Follow-ups (not in this increment)
 
-- Third Playwright shard (owner decision), `setup-gradle` `cache-encryption-key` for configuration-cache reuse, Develocity OSS/remote cache.
+- `setup-gradle` `cache-encryption-key` for configuration-cache reuse, Develocity OSS/remote cache.

@@ -144,6 +144,43 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  frontend-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm 11.22.0
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.22.0
+
+      - name: Install frontend dependencies
+        run: pnpm --dir web install --frozen-lockfile
+
+      # Static, unit and build gate; it needs no browser, so it runs outside the Playwright container.
+      - name: Verify frontend
+        run: pnpm --dir web check
+
+      - name: Upload frontend unit reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: frontend-check-reports
+          path: web/reports/
+          if-no-files-found: warn
+          retention-days: 7
+
   frontend:
     needs: changes
     if: ${{ needs.changes.outputs.web == 'true' }}
@@ -152,7 +189,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        # Playwright's CI guidance: one worker per runner, scale with shards. fullyParallel splits by test.
+        shard: [1, 2, 3, 4]
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
@@ -175,22 +213,58 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm --dir web install --frozen-lockfile
 
-      - name: Verify frontend
-        if: matrix.shard == 1
-        run: pnpm --dir web check
-
       - name: Exercise browser states
-        run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/2
+        run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-      - name: Upload frontend test reports
+      - name: Upload shard blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: frontend-tests-${{ matrix.shard }}
-          path: |
-            web/reports/
-            web/playwright-report/
-            web/test-results/
+          name: blob-report-${{ matrix.shard }}
+          path: web/blob-report/
+          if-no-files-found: warn
+          retention-days: 1
+
+  # Not a gate: merges the shard blob reports (with their traces, screenshots and videos) into one HTML report.
+  frontend-report:
+    needs: [changes, frontend]
+    if: ${{ !cancelled() && needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm 11.22.0
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.22.0
+
+      - name: Install frontend dependencies
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Download shard blob reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: blob-report-*
+          merge-multiple: true
+          path: web/all-blob-reports
+
+      - name: Merge browser reports
+        run: pnpm --dir web exec playwright merge-reports --reporter html ./all-blob-reports
+
+      - name: Upload merged browser report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: frontend-tests
+          path: web/playwright-report/
           if-no-files-found: warn
           retention-days: 7
 
@@ -419,7 +493,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, check, frontend, frontend-image, backend-images, landing, secrets]
+    needs: [changes, check, frontend-check, frontend, frontend-image, backend-images, landing, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -434,11 +508,11 @@ jobs:
             | def selected(name; jobs): if $area[name] == "true"
                 then all(jobs[]; $jobs[.].result == "success")
                 else all(jobs[]; $jobs[.].result == "skipped") end;
-            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-image", "landing", "secrets"]
+            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "landing", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
             and selected("backend"; ["check", "backend-images"])
-            and selected("web"; ["frontend", "frontend-image"])
+            and selected("web"; ["frontend-check", "frontend", "frontend-image"])
             and selected("landing"; ["landing"])
           ' <<< "$RESULTS"
 

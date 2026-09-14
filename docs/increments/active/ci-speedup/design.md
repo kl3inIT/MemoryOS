@@ -25,9 +25,11 @@ Every PR ran every job, so PR wall time was the `check` job even for web-only ch
 2. **Change-based selection (pull requests only).** A `changes` job diffs the PR merge commit against its first parent and maps paths to areas: backend (`check`, `backend-images`), web (`frontend`, `frontend-image`) and landing. `openapi.yml` selects backend and web; docs/markdown select nothing; unknown paths or an empty diff select every area. Main pushes always run and publish every area. `CI Gate` requires `changes` and `secrets` to succeed, every job of a selected area to succeed, and every job of an unselected area to be skipped. The landing smoke script's ShellCheck moves to the landing job; actionlint stays in `check`, which workflow changes always select.
 3. **Docker build cache.** Image jobs use `docker/setup-buildx-action` and `docker/build-push-action` with `type=gha` caches (`backend-api`, `backend-worker`, `web`), `load: true`, and provenance/SBOM disabled so the preserved archive and its labels match the previous `docker build` output. The backend Dockerfile resolves production classpaths in a layer (`resolveDependencies`, `GRADLE_USER_HOME` inside the build stage) before copying sources, replacing the runner-local cache mount.
 
+4. **Browser test sharding (owner-approved "follow best practice", 2026-09-14).** Playwright's [CI](https://playwright.dev/docs/ci) and [sharding](https://playwright.dev/docs/test-sharding) guidance: `workers: 1` per CI runner, scale horizontally with shards, `fullyParallel` for per-test splitting, blob reports merged afterwards; Playwright's own CI and Grafana shard the same way. The suite (~13 min of browser time) moves from 2 to 4 shards × 1 worker. The static/unit/build gate moves out of shard 1 into `frontend-check` on a plain runner (it needs no browser; the Playwright image check only reads the workflow text), so shards are balanced. Shards upload blob reports; the non-gating `frontend-report` job merges them into one HTML report.
+
 ## Not changed
 
-- Playwright stays at two shards × one worker (the fixture server shares in-memory sessions/projects; more workers per shard risks order-dependent failures). A third shard is a separate owner decision.
+- One worker per shard stays: the fixture server shares in-memory sessions/projects, and Playwright advises against parallel workers on CI.
 - `clean check` stays the backend gate; publication, release artifacts and staging deploy are unchanged.
 - No remote Gradle build cache or Develocity service.
 
