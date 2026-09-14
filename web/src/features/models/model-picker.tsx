@@ -72,12 +72,16 @@ export function ModelPicker({
           type="button"
           aria-label={ariaLabel}
           disabled={disabled}
-          className="flex h-[var(--control-height-md)] w-full min-w-0 items-center gap-2 rounded-lg border border-border-subtle bg-surface-raised px-3 text-left font-main-ui-body text-content-primary transition-colors hover:border-border-default disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-sunken disabled:text-content-disabled sm:max-w-xs"
+          className="flex h-10 w-full min-w-0 items-center gap-2.5 rounded-full border border-border-subtle bg-surface-sunken px-4 text-left font-main-ui-body text-content-primary shadow-sm transition-colors hover:border-border-default hover:bg-surface-base disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-xs"
         >
           {selected ? (
             <>
-              <ChatModelLogo modelName={selected.model.modelName} />
-              <span className="min-w-0 flex-1 truncate">{selected.model.displayName}</span>
+              <span className="grid size-5 shrink-0 place-items-center [&_svg]:size-4">
+                <ChatModelLogo modelName={selected.model.modelName} />
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {selected.model.displayName}
+              </span>
             </>
           ) : (
             <span className="min-w-0 flex-1 truncate text-content-muted">
@@ -85,7 +89,10 @@ export function ModelPicker({
             </span>
           )}
           <ChevronDown
-            className={cn("size-4 shrink-0 text-content-muted transition-transform", open && "rotate-180")}
+            className={cn(
+              "size-4 shrink-0 text-content-muted transition-transform",
+              open && "rotate-180",
+            )}
             aria-hidden="true"
           />
         </button>
