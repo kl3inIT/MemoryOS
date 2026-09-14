@@ -37,3 +37,38 @@ A first run without the calibration row gave the same order (400-candidate reche
 The post-query ranked recheck is small (≈ 14 ms for 400 candidates) and is not the latency driver; provider rewrites, selection, classification and embeddings dominate. The only material authorization share is the repeated per-section expansion recheck. Following the reference design would remove the per-result and expansion rechecks and rely on the index filter plus sync lag; the measured saving is at most a few percent of a Search call.
 
 Accepted: the ranked recheck stays and the per-read expansion rechecks become two batched `authorizedSections` calls per Search call (after selection, before evidence). Each batch is the same query shape measured above for 100 candidate documents (≈ 8 ms), so a call now spends ≈ 2 × 8 ms instead of up to ≈ 225 ms. `DocumentSearchServiceTest` (25), `SearchToolTest` (23) and `OpenSearchRetrievalIntegrationTest` passed after the change.
+
+## Merged main and staging (2026-09-13/14)
+
+- PR #109 merged as `44c43d6` after green CI. `gradlew.bat clean check` on merged main passed in 12m35s: core 500 (1 skipped), connector 108 (4 skipped), api 145 (4 skipped), worker 27; no failures.
+- Staging deployed `44c43d6`, then `f5895ca` (#111). Flyway V50–V52 succeeded at 17:15 UTC; the web bundle contains `/api/chat/documents/{documentId}`.
+
+### Defect found on staging: access refresh used scroll-dependent by-query APIs
+
+All 14 V52 `ACCESS` operations failed after three attempts. OpenSearch logged `no permissions for [indices:data/read/scroll]` for `memoryos-service`. `_update_by_query` continues beyond its first 1,000-document batch with scroll, and the staging Drive documents have 1,150–1,338 chunks; the managed role grants bulk but not scroll. Local integration tests run OpenSearch without the Security plugin, so they could not observe it. No result was lost: projection repair re-indexed the drifting documents, but it marked them pending, hiding three Drive documents until the full rewrites completed.
+
+A related logging defect hid the failure: the worker MDC carries `operation_id` while coordinator logs also added it as a key-value, so the staging logstash console appender rejected those events (`The name 'operation_id' has already been written`).
+
+### Staging Group access test (direct database/index verification)
+
+No staging login accounts were available, so the grant was applied with the same SQL as the application path: ordinary Group "MEM-93 test group" (`305260ae…`) containing member `0369ffb2`, granted to the RESTRICTED Drive Source "Việt Test Drive" (6 documents), plus the `ACCESS` enqueue statement.
+
+| Check | Result |
+|---|---|
+| PostgreSQL readable Drive documents: member in the Group / member outside / owner | 6 / 0 / 0 |
+| OpenSearch chunks of those documents after repair | 7,327 of 7,327 with `access_public=false`, `access_control_list=[group:305260ae…]`, none missing access fields |
+| Index filter count with reader tokens: the Group / another Group / none | 7,327 / 0 / 0 |
+| `ACCESS` operations for the grant | FAILED (scroll permission), repaired through full re-index |
+
+### After the fix (#112, `5a5e036`, deployed 2026-09-13 20:41 UTC)
+
+Access refresh and delete use chunk IDs with bulk requests; access-only drift is repaired without hiding; delivery logs no longer repeat MDC keys. The same Source was exercised in both directions with the application's SQL (grant change plus `ACCESS` enqueue):
+
+| Step | `ACCESS` operations | Hidden documents during refresh | Chunks matched: Group token / no token |
+|---|---|---|---|
+| Revoke the Group from "Việt Test Drive" | 6 SUCCESS on the first attempt (about 45 s) | 0 of 6 | 0 / 0 of 7,327 |
+| Grant it again | 6 SUCCESS on the first attempt (about 60 s) | 0 of 6 | 7,327 / 0 of 7,327 |
+
+Since the deploy the worker logged no `search.index.failed` and no duplicate-name appender error, and OpenSearch logged no permission denial. The test Group remains granted on staging for manual acceptance.
+
+Browser/API acceptance with real accounts remains open.

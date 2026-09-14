@@ -36,7 +36,14 @@ public class SearchProjectionMaintenance {
         var page = documents.scan(index.identity(), cursor, 32);
         for (var document : page) {
             if (!document.ready() || !index.contains(document)) {
+                // A complete generation whose only drift is metadata or access keeps serving while ACCESS repairs it;
+                // hiding it for a full rewrite would drop still-authorized results for the duration of the rewrite.
+                boolean accessOnly = document.ready() && index.containsGeneration(document);
                 transactions.executeWithoutResult(_ -> {
+                    if (accessOnly) {
+                        work.enqueueAccessRepair(document.tenantId(), document.documentId(), document.generation(), index.identity());
+                        return;
+                    }
                     if (document.ready()) documents.markSearchPending(document.tenantId(), document.documentId(), document.generation());
                     work.enqueue(new DocumentChanged(document.tenantId(), document.documentId(), document.generation(), false), index.identity(), true);
                 });

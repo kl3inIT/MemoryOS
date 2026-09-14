@@ -1,18 +1,26 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Globe } from "lucide-react";
+import { Dialog, Switch } from "radix-ui";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
+  listChatProviderAdapters,
+  listChatProviders,
   listChatWebConnections,
+  listConfiguredChatModels,
   saveChatWebConnection,
   selectChatWebProvider,
   testChatWebConnection,
+  updateChatModel,
 } from "@/lib/hey-api/sdk.gen";
-import type { WebConnectionResponse } from "@/lib/hey-api/types.gen";
+import type { Model, WebConnectionResponse } from "@/lib/hey-api/types.gen";
+import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import SvgBrave from "@/components/provider-logos/brave";
 import SvgTavily from "@/components/provider-logos/tavily";
@@ -21,6 +29,11 @@ import SvgSerper from "@/components/provider-logos/serper";
 import SvgSearxng from "@/components/provider-logos/searxng";
 import SvgFirecrawl from "@/components/provider-logos/firecrawl";
 import { cn } from "@/lib/utils";
+
+const webProblem = (error: unknown): ErrorMessage =>
+  presentProblem(error, "mutation", {
+    CHAT_PROVIDER_UNAVAILABLE: { key: "webProviderUnavailable" },
+  }).message;
 
 const providers = [
   "BRAVE",
@@ -42,16 +55,21 @@ const names = {
 };
 type Provider = (typeof providers)[number];
 const providerDetails = {
-  BRAVE: { logo: SvgBrave, description: "Brave Search API" },
-  TAVILY: { logo: SvgTavily, description: "Tavily AI" },
-  EXA: { logo: SvgExa, description: "Exa.ai" },
-  SERPER: { logo: SvgSerper, description: "Serper.dev" },
+  BRAVE: { logo: SvgBrave, description: "brave.com", endpoint: "https://api.search.brave.com" },
+  TAVILY: { logo: SvgTavily, description: "tavily.com", endpoint: "https://api.tavily.com" },
+  EXA: { logo: SvgExa, description: "exa.ai", endpoint: "https://api.exa.ai" },
+  SERPER: { logo: SvgSerper, description: "serper.dev", endpoint: "https://google.serper.dev" },
   GOOGLE_PSE: {
     logo: () => <img src="/provider-logos/google.svg" className="size-6" alt="" />,
-    description: "Google",
+    description: "programmablesearchengine.google.com",
+    endpoint: "https://customsearch.googleapis.com",
   },
-  SEARXNG: { logo: SvgSearxng, description: "SearXNG" },
-  FIRECRAWL: { logo: SvgFirecrawl, description: "Firecrawl" },
+  SEARXNG: { logo: SvgSearxng, description: "searxng.org", endpoint: "" },
+  FIRECRAWL: {
+    logo: SvgFirecrawl,
+    description: "firecrawl.dev",
+    endpoint: "https://api.firecrawl.dev",
+  },
 };
 const searchProviders: Provider[] = ["EXA", "SERPER", "BRAVE", "GOOGLE_PSE", "SEARXNG", "TAVILY"];
 const readerProviders: Provider[] = ["FIRECRAWL", "EXA", "TAVILY"];
@@ -62,7 +80,8 @@ export function ChatWebSettings() {
   const manager = session.capabilities.includes("MODELS_MANAGE");
   const cache = useQueryClient();
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<ErrorMessage>();
+  const problemMessage = useProblemMessage();
   const query = useQuery({
     queryKey: ["web-connections", session.actorId, session.authorizationVersion],
     enabled: manager,
@@ -71,11 +90,15 @@ export function ChatWebSettings() {
     retry: false,
   });
   async function changed() {
-    await Promise.all([query.refetch(), cache.invalidateQueries({ queryKey: ["chat-web"] })]);
+    await Promise.all([
+      query.refetch(),
+      cache.invalidateQueries({ queryKey: ["chat-web"] }),
+      cache.invalidateQueries({ queryKey: ["chat-provider-models"] }),
+    ]);
   }
   async function select(search: boolean, provider: Provider | null) {
     setPending(true);
-    setError(false);
+    setError(undefined);
     try {
       await selectChatWebProvider({
         body: { search, provider: provider ?? undefined },
@@ -83,8 +106,8 @@ export function ChatWebSettings() {
         throwOnError: true,
       });
       await changed();
-    } catch {
-      setError(true);
+    } catch (failed) {
+      setError(webProblem(failed));
     } finally {
       setPending(false);
     }
@@ -100,9 +123,7 @@ export function ChatWebSettings() {
       <PageHeader
         title={ui("Tìm kiếm Web")}
         icon={<Globe />}
-        description={ui(
-          "Kết nối công cụ tìm kiếm và đọc trang. Exa và Tavily dùng chung một kết nối cho cả hai chức năng.",
-        )}
+        description={ui("Cài đặt tìm kiếm bên ngoài trên internet.")}
       />
       {query.isError ? (
         <div role="alert">
@@ -125,9 +146,14 @@ export function ChatWebSettings() {
                 {ui("Tắt công cụ tìm kiếm")}
               </Button>
             </div>
+            <p className="text-sm text-content-muted">
+              {ui(
+                "API tìm kiếm bên ngoài trả về đường dẫn, trích đoạn và siêu dữ liệu cho kết quả Web.",
+              )}
+            </p>
             {!query.data?.some((c) => c.searchActive) && (
               <p className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary">
-                {ui("Chưa kết nối công cụ tìm kiếm.")}
+                {ui("Chọn một công cụ tìm kiếm để bật tìm kiếm Web.")}
               </p>
             )}
             <div className="space-y-3">
@@ -148,12 +174,10 @@ export function ChatWebSettings() {
             </div>
           </section>
           <section aria-label={ui("Trình đọc trang Web")} className="mt-8 space-y-3">
-            <div>
-              <h2 className="text-lg font-semibold">{ui("Trình đọc trang Web")}</h2>
-              <p className="mt-1 text-sm text-content-muted">
-                {ui("Đọc nội dung đầy đủ của trang từ kết quả tìm kiếm hoặc đường dẫn bạn gửi.")}
-              </p>
-            </div>
+            <h2 className="text-lg font-semibold">{ui("Trình đọc trang Web")}</h2>
+            <p className="text-sm text-content-muted">
+              {ui("Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.")}
+            </p>
             <div
               className={cn(
                 "flex items-center gap-3 rounded-xl border p-4",
@@ -170,10 +194,10 @@ export function ChatWebSettings() {
                 </p>
               </div>
               {!query.data?.some((c) => c.contentActive) ? (
-                <span className="flex items-center gap-1 text-xs">
-                  <CheckCircle2 className="size-4" />
+                <StatusBadge tone="success" className="gap-1 text-xs">
+                  <CheckCircle2 className="size-3.5" />
                   {ui("Đang dùng")}
-                </span>
+                </StatusBadge>
               ) : (
                 <Button
                   size="sm"
@@ -200,10 +224,13 @@ export function ChatWebSettings() {
               );
             })}
           </section>
+          <NativeSearchSection onChanged={changed} />
         </>
       )}
       {error && (
-        <p role="alert">{ui("Không cập nhật được kết nối Web. Hãy tải lại và thử lại.")}</p>
+        <p role="alert" className="mt-4 text-sm text-status-danger-content">
+          {problemMessage(error)}
+        </p>
       )}
     </SettingsLayout>
   );
@@ -225,21 +252,32 @@ function ConnectionCard({
   onSelect: (search: boolean, provider: Provider) => Promise<void>;
 }) {
   const ui = useAppTranslation();
-  const [expanded, setExpanded] = useState(false);
+  const problemMessage = useProblemMessage();
+  const [open, setOpen] = useState(false);
   const [key, setKey] = useState("");
   const [endpoint, setEndpoint] = useState(connection?.endpoint ?? "");
   const [engineId, setEngineId] = useState(connection?.engineId ?? "");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState(false);
+  const [saveError, setSaveError] = useState<ErrorMessage>();
+  const [testError, setTestError] = useState<ErrorMessage>();
   const [tested, setTested] = useState(false);
-  const canSearch = search;
-  const canRead = !search;
+  function changeOpen(next: boolean) {
+    if (pending) return;
+    if (!next) {
+      setSaveError(undefined);
+      setTestError(undefined);
+      setTested(false);
+      setKey("");
+    }
+    setOpen(next);
+  }
   const active = search ? connection?.searchActive : connection?.contentActive;
   const Logo = providerDetails[provider].logo;
   const configured = !!connection && (provider === "SEARXNG" || connection.credentialConfigured);
   async function save() {
     setPending(true);
-    setError(false);
+    setSaveError(undefined);
+    setTestError(undefined);
     setTested(false);
     try {
       await saveChatWebConnection({
@@ -256,16 +294,17 @@ function ConnectionCard({
       });
       setKey("");
       await onChanged();
-      setExpanded(false);
-    } catch {
-      setError(true);
+      setOpen(false);
+    } catch (failed) {
+      setSaveError(webProblem(failed));
     } finally {
       setPending(false);
     }
   }
   async function test(search: boolean) {
     setPending(true);
-    setError(false);
+    setSaveError(undefined);
+    setTestError(undefined);
     setTested(false);
     try {
       await testChatWebConnection({
@@ -275,8 +314,8 @@ function ConnectionCard({
         throwOnError: true,
       });
       setTested(true);
-    } catch {
-      setError(true);
+    } catch (failed) {
+      setTestError(webProblem(failed));
     } finally {
       setPending(false);
     }
@@ -285,145 +324,274 @@ function ConnectionCard({
     <section
       aria-label={names[provider]}
       className={cn(
-        "rounded-xl border p-4",
+        "flex flex-wrap items-center gap-3 rounded-xl border p-4",
         active ? "border-border-strong bg-surface-sunken" : "border-border-default",
       )}
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center">
-          <Logo className="size-6" />
-        </span>
-        <div className="mr-auto min-w-0">
-          <h3 className="font-main-ui-action">{names[provider]}</h3>
-          <p className="mt-1 text-sm text-content-muted">{providerDetails[provider].description}</p>
-        </div>
-        {active && (
-          <span className="flex items-center gap-1 text-xs">
-            <CheckCircle2 className="size-4" />
-            {ui("Đang dùng")}
-          </span>
-        )}
+      <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center">
+        <Logo className="size-6" />
+      </span>
+      <div className="mr-auto min-w-0">
+        <h3 className="font-main-ui-action">{names[provider]}</h3>
+        <p className="mt-1 text-sm text-content-muted">{providerDetails[provider].description}</p>
+      </div>
+      {active ? (
+        <StatusBadge tone="success" className="gap-1 text-xs">
+          <CheckCircle2 className="size-3.5" />
+          {ui("Đang dùng")}
+        </StatusBadge>
+      ) : configured ? (
+        <StatusBadge tone="success" className="gap-1 text-xs">
+          <CheckCircle2 className="size-3.5" />
+          {ui("Đã kết nối")}
+        </StatusBadge>
+      ) : null}
+      {configured && !active && (
         <Button
           size="sm"
           prominence="secondary"
           disabled={disabled || pending}
-          aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => void onSelect(search, provider)}
         >
-          {configured ? ui("Cấu hình") : ui("Kết nối")}
+          {ui("Đặt làm mặc định")}
         </Button>
-      </div>
-      {expanded && (
-        <form
-          className="mt-4 space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void save();
-          }}
-        >
-          {provider === "SEARXNG" && (
-            <label className="block space-y-1">
-              <span>{ui("Địa chỉ SearXNG")}</span>
-              <Input
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                required
-                maxLength={2048}
-              />
-            </label>
-          )}
-          {provider === "GOOGLE_PSE" && (
-            <label className="block space-y-1">
-              <span>{ui("Mã công cụ tìm kiếm")}</span>
-              <Input
-                value={engineId}
-                onChange={(e) => setEngineId(e.target.value)}
-                required
-                maxLength={200}
-              />
-            </label>
-          )}
-          <label className="block space-y-1">
-            <span>{ui("Khóa API")}</span>
-            <Input
-              type="password"
-              autoComplete="new-password"
-              value={key}
-              maxLength={8192}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder={
-                connection?.credentialConfigured ? ui("Đã lưu khóa; để trống để giữ nguyên") : ""
-              }
-            />
-          </label>
-          <Button type="submit" size="sm" disabled={disabled || pending}>
-            {ui("Lưu")}
-          </Button>
-        </form>
       )}
-      {configured && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {canSearch && (
-            <Button
-              size="sm"
-              prominence="internal"
-              disabled={disabled || pending || connection.searchActive}
-              onClick={() => void onSelect(true, provider)}
+      <Button
+        size="sm"
+        prominence={configured ? "internal" : "secondary"}
+        disabled={disabled || pending}
+        onClick={() => setOpen(true)}
+      >
+        {configured ? ui("Cấu hình") : ui("Kết nối")}
+      </Button>
+      <Dialog.Root open={open} onOpenChange={changeOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px]" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-default bg-surface-overlay p-6 shadow-md outline-none">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save();
+              }}
             >
-              {ui("Dùng để tìm kiếm")}
-            </Button>
-          )}
-          {canRead && (
-            <Button
-              size="sm"
-              prominence="internal"
-              disabled={disabled || pending || connection.contentActive}
-              onClick={() => void onSelect(false, provider)}
-            >
-              {ui("Dùng để đọc trang")}
-            </Button>
-          )}
-          {canSearch && (
-            <Button
-              size="sm"
-              prominence="internal"
-              disabled={disabled || pending}
-              onClick={() => void test(true)}
-            >
-              {ui("Kiểm tra tìm kiếm")}
-            </Button>
-          )}
-          {canRead && (
-            <Button
-              size="sm"
-              prominence="internal"
-              disabled={disabled || pending}
-              onClick={() => void test(false)}
-            >
-              {ui("Kiểm tra đọc trang")}
-            </Button>
-          )}
-        </div>
-      )}
-      {configured && (
-        <p className="mt-2 text-xs text-content-muted">
-          {ui("Kiểm tra kết nối có thể phát sinh phí từ nhà cung cấp.")}
+              <Dialog.Title className="text-xl font-semibold">{names[provider]}</Dialog.Title>
+              <Dialog.Description className="mt-2 text-sm text-content-secondary">
+                {providerDetails[provider].description}
+              </Dialog.Description>
+              <fieldset disabled={disabled || pending} className="mt-5 space-y-4">
+                <label className="block space-y-1">
+                  <span>
+                    {provider === "SEARXNG"
+                      ? ui("Địa chỉ SearXNG")
+                      : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
+                  </span>
+                  <Input
+                    value={endpoint}
+                    onChange={(e) => setEndpoint(e.target.value)}
+                    required={provider === "SEARXNG"}
+                    maxLength={2048}
+                    placeholder={providerDetails[provider].endpoint || "https://searx.example.com"}
+                  />
+                </label>
+                {provider === "GOOGLE_PSE" && (
+                  <label className="block space-y-1">
+                    <span>{ui("Mã công cụ tìm kiếm")}</span>
+                    <Input
+                      value={engineId}
+                      onChange={(e) => setEngineId(e.target.value)}
+                      required
+                      maxLength={200}
+                    />
+                  </label>
+                )}
+                <label className="block space-y-1">
+                  <span>{ui("Khóa API")}</span>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    value={key}
+                    maxLength={8192}
+                    onChange={(e) => setKey(e.target.value)}
+                    placeholder={
+                      connection?.credentialConfigured
+                        ? ui("Đã lưu khóa; để trống để giữ nguyên")
+                        : ""
+                    }
+                  />
+                </label>
+              </fieldset>
+              {tested && (
+                <p role="status" className="mt-4 flex items-center gap-1 text-sm">
+                  <CheckCircle2 className="size-4" />
+                  {ui("Kiểm tra kết nối thành công")}
+                </p>
+              )}
+              {(saveError || testError) && (
+                <p role="alert" className="mt-4 text-sm text-status-danger-content">
+                  {problemMessage(saveError ?? testError!)}
+                </p>
+              )}
+              <div className="mt-6 flex justify-end gap-2">
+                {configured && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    prominence="internal"
+                    disabled={disabled || pending}
+                    onClick={() => void test(search)}
+                  >
+                    {ui("Kiểm tra kết nối")}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  prominence="secondary"
+                  disabled={pending}
+                  onClick={() => changeOpen(false)}
+                >
+                  {ui("Đóng")}
+                </Button>
+                <Button type="submit" size="sm" pending={pending} disabled={disabled}>
+                  {ui("Lưu")}
+                </Button>
+              </div>
+            </form>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </section>
+  );
+}
+
+/** Provider-hosted search is a per-model option on adapters that support it; it reuses the model's own credential. */
+function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) {
+  const ui = useAppTranslation();
+  const problemMessage = useProblemMessage();
+  const session = useApplicationSession();
+  const [pending, setPending] = useState<string>();
+  const [error, setError] = useState<ErrorMessage>();
+  const adapters = useQuery({
+    queryKey: ["chat-provider-adapters", session.actorId, session.authorizationVersion],
+    queryFn: async ({ signal }) =>
+      (await listChatProviderAdapters({ signal, throwOnError: true })).data,
+    retry: false,
+  });
+  const providers = useQuery({
+    queryKey: ["chat-providers", session.actorId, session.authorizationVersion],
+    queryFn: async ({ signal }) => (await listChatProviders({ signal, throwOnError: true })).data,
+    retry: false,
+  });
+  const nativeProviders = (providers.data ?? []).filter((provider) =>
+    adapters.data?.some(
+      (adapter) => adapter.type === provider.adapterType && adapter.nativeWebSearch,
+    ),
+  );
+  const models = useQueries({
+    queries: nativeProviders.map((provider) => ({
+      queryKey: ["chat-provider-models", provider.id, provider.revision],
+      queryFn: async ({ signal }: { signal: AbortSignal }) =>
+        (
+          await listConfiguredChatModels({
+            path: { providerId: provider.id! },
+            signal,
+            throwOnError: true,
+          })
+        ).data,
+      retry: false,
+    })),
+  });
+  const rows = nativeProviders.flatMap((provider, index) =>
+    (models[index]?.data ?? []).map((model) => ({ provider, model })),
+  );
+  async function toggle(model: Model, enable: boolean) {
+    if (!model.id || model.revision === undefined || !model.settings) return;
+    setPending(model.id);
+    setError(undefined);
+    try {
+      const options = { ...(model.settings.options ?? {}) };
+      if (enable) options.webSearch = "native";
+      else delete options.webSearch;
+      await updateChatModel({
+        path: { modelId: model.id },
+        query: { revision: model.revision },
+        body: {
+          modelName: model.modelName,
+          displayName: model.displayName,
+          visible: model.visible,
+          settings: { ...model.settings, options },
+        },
+        headers: sameOriginMutationHeaders,
+        throwOnError: true,
+      });
+      await onChanged();
+    } catch (failed) {
+      setError(webProblem(failed));
+    } finally {
+      setPending(undefined);
+    }
+  }
+  if (adapters.isPending || providers.isPending) return null;
+  if (nativeProviders.length === 0) return null;
+  return (
+    <section aria-label={ui("Tìm kiếm của nhà cung cấp mô hình")} className="mt-8 space-y-3">
+      <h2 className="text-lg font-semibold">{ui("Tìm kiếm của nhà cung cấp mô hình")}</h2>
+      {rows.length === 0 ? (
+        <p className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary">
+          {ui("Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.")}
         </p>
-      )}
-      {pending && (
-        <p role="status" className="mt-2 text-sm">
-          {ui("Đang xử lý…")}
-        </p>
-      )}
-      {tested && (
-        <p role="status" className="mt-2 flex items-center gap-1 text-sm">
-          <CheckCircle2 className="size-4" />
-          {ui("Kiểm tra kết nối thành công")}
-        </p>
+      ) : (
+        <ul className="space-y-3">
+          {rows.map(({ provider, model }) => {
+            const enabled = model.settings?.options?.webSearch === "native";
+            const toolCalling = !!model.settings?.capabilities?.toolCalling;
+            return (
+              <li
+                key={model.id}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-4",
+                  enabled ? "border-border-strong bg-surface-sunken" : "border-border-default",
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-main-ui-action">{model.displayName || model.modelName}</h3>
+                  <p className="mt-1 text-sm text-content-muted">
+                    {toolCalling
+                      ? provider.name
+                      : ui(
+                          "{{provider}} · Mô hình này không hỗ trợ công cụ nên không dùng được tìm kiếm.",
+                          {
+                            provider: provider.name,
+                          },
+                        )}
+                  </p>
+                </div>
+                {enabled && (
+                  <StatusBadge tone="success" className="gap-1 text-xs">
+                    <CheckCircle2 className="size-3.5" />
+                    {ui("Đang dùng")}
+                  </StatusBadge>
+                )}
+                <Switch.Root
+                  type="button"
+                  checked={enabled}
+                  disabled={!toolCalling || pending !== undefined}
+                  aria-label={ui("Tìm kiếm Web của nhà cung cấp cho {{name}}", {
+                    name: model.displayName || model.modelName,
+                  })}
+                  onCheckedChange={(checked) => void toggle(model, checked)}
+                  className="inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-border-default bg-surface-sunken p-0.5 outline-none transition-colors data-[state=checked]:border-content-primary data-[state=checked]:bg-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Switch.Thumb className="pointer-events-none block size-3.5 rounded-full bg-content-primary shadow-xs transition-transform data-[state=checked]:translate-x-4 data-[state=checked]:bg-surface-base" />
+                </Switch.Root>
+              </li>
+            );
+          })}
+        </ul>
       )}
       {error && (
-        <p role="alert" className="mt-2 text-sm">
-          {ui("Không cập nhật hoặc kiểm tra được kết nối Web.")}
+        <p role="alert" className="text-sm text-status-danger-content">
+          {problemMessage(error)}
         </p>
       )}
     </section>

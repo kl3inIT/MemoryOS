@@ -1148,6 +1148,7 @@ export type ChatSessionSearchPage = {
 export type Descriptor = {
     type?: string;
     credentialRequirement?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
+    nativeWebSearch?: boolean;
 };
 
 export type AvailableModel = {

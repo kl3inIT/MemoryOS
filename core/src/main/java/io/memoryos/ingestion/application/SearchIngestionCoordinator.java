@@ -83,7 +83,7 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
                 if (finished && claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation());
             });
             LoggerFactory.getLogger(getClass()).atWarn().addKeyValue("event", "search.index.failed")
-                    .addKeyValue("operation_id", claim.id()).addKeyValue("error_type", failure.getClass().getName())
+                    .addKeyValue("error_type", failure.getClass().getName())
                     .log("Search indexing failed; durable retry retained");
             return Outcome.FAILED;
         } finally {

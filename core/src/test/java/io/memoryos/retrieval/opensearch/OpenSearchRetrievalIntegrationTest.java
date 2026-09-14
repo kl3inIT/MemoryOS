@@ -121,6 +121,7 @@ class OpenSearchRetrievalIntegrationTest {
             assertTrue(index.contains(restrictedState));
             accessOf.put(restricted.documentId(), new DocumentAccess(false, Set.of()));
             assertFalse(index.contains(restrictedState), "An access change must make the projection stale");
+            assertTrue(index.containsGeneration(restrictedState), "Stale access alone leaves the complete generation indexed");
             clearInvocations(model);
             index.updateAccess(tenant, restricted.documentId(), restricted.generation());
             verifyNoInteractions(model);
@@ -250,6 +251,27 @@ class OpenSearchRetrievalIntegrationTest {
             assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(paged.documentId().value())));
             assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(unrelated.documentId().value())));
             verify(model).call(any());
+
+            // More chunks than one query batch: access refresh and delete work by chunk ID and never issue
+            // *_by_query requests, whose continuation needs scroll permissions the service role lacks.
+            var largeChunks = java.util.stream.IntStream.range(0, 1100).mapToObj(i -> {
+                String text = "large vacation section " + i;
+                return new DocumentChunk(i, text, List.of(), i, 0, "[]", StructuredDocumentChunker.sha256(text), 10);
+            }).toList();
+            var large = new DocumentChunkSet(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(), "Large HR", "text/plain", Instant.now(), largeChunks);
+            index.index(large);
+            var largeState = new DocumentIndexState(tenant, large.documentId(), large.generation(), largeChunks.size(), true);
+            assertTrue(index.contains(largeState));
+            accessOf.put(large.documentId(), new DocumentAccess(false, Set.of(group)));
+            assertFalse(index.contains(largeState));
+            clearInvocations(model);
+            index.updateAccess(tenant, large.documentId(), large.generation());
+            verifyNoInteractions(model);
+            assertTrue(index.contains(largeState), "Every chunk beyond the first batch must receive the refreshed access fields");
+            index.delete(tenant, large.documentId());
+            assertEquals(0, gateway.json("POST", "/" + index.identity() + "/_count", Map.of(),
+                    Map.of("query", Map.of("term", Map.of("document_id", large.documentId().value().toString())))).path("count").asInt(-1));
+            verify(gateway, org.mockito.Mockito.never()).json(any(), org.mockito.ArgumentMatchers.contains("_by_query"), any(), any());
         }
     }
 

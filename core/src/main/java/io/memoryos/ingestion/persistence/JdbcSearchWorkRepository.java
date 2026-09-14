@@ -59,6 +59,24 @@ public class JdbcSearchWorkRepository {
                 """).param("tenant", tenant.value()).param("source", source.value()).param("identity", identity).update();
     }
 
+    /**
+     * Repairs only the access fields of a fully indexed generation. Like INDEX repair, an existing row is reset only
+     * after success or a failure older than 15 minutes, so a pending refresh is not restarted by every scan.
+     */
+    @Transactional
+    public void enqueueAccessRepair(TenantId tenant, DocumentId document, UUID generation, String identity) {
+        jdbc.sql("""
+                INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
+                VALUES (:id,:tenant,:document,:generation,'ACCESS',:identity)
+                ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
+                SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,
+                    next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
+                WHERE search_index_operations.status='SUCCESS' OR (search_index_operations.status='FAILED'
+                    AND search_index_operations.completed_at < CURRENT_TIMESTAMP - INTERVAL '15' MINUTE)
+                """).param("id", UUID.randomUUID()).param("tenant", tenant.value()).param("document", document.value())
+                .param("generation", generation).param("identity", identity).update();
+    }
+
     @Transactional
     public Optional<Claim> claim(OperationDelivery delivery, String identity) {
         UUID token = UUID.randomUUID();

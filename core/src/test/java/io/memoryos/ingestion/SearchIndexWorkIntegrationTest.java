@@ -232,6 +232,28 @@ class SearchIndexWorkIntegrationTest {
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
     }
 
+    @Test
+    void reconcileRepairsAccessDriftOfACompleteGenerationWithoutHidingIt() {
+        var document = publish(null);
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+        }
+        var maintenance = new io.memoryos.ingestion.application.SearchProjectionMaintenance(chunks, work, index,
+                new DataSourceTransactionManager(dataSource));
+        when(index.contains(any())).thenReturn(false);
+        when(index.containsGeneration(any())).thenReturn(true);
+        maintenance.reconcile();
+        assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Access-only drift must keep the document searchable");
+        assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
+        assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
+
+        when(index.containsGeneration(any())).thenReturn(false);
+        maintenance.reconcile();
+        assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Missing chunks still require a full rewrite");
+        assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
+    }
+
     private SourceId mapToFileSource(DocumentId document) {
         UUID source = UUID.randomUUID(), item = UUID.randomUUID();
         for (String sql : List.of(

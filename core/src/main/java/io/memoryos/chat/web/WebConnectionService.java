@@ -51,8 +51,8 @@ public class WebConnectionService {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId().value();
         if (input == null || input.endpoint() == null || input.engineId() == null || input.engineId().length() > 200)
             throw ChatException.invalid("Invalid Web connection.");
-        if (provider == WebProvider.SEARXNG) ModelCatalogService.validateEndpoint(input.endpoint());
-        else if (!input.endpoint().isEmpty()) throw ChatException.invalid("This Web provider uses its official endpoint.");
+        if (provider == WebProvider.SEARXNG && input.endpoint().isEmpty()) throw ChatException.invalid("A SearXNG endpoint is required.");
+        if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
         if (provider == WebProvider.GOOGLE_PSE && input.engineId().isBlank()) throw ChatException.invalid("Search engine identity is required.");
         if (provider != WebProvider.GOOGLE_PSE && !input.engineId().isEmpty()) throw ChatException.invalid("This provider does not use a search engine identity.");
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new WebConnectionEntity(tenant, provider));
