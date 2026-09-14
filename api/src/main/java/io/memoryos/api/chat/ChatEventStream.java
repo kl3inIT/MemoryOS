@@ -46,7 +46,7 @@ final class ChatEventStream {
                       @Schema(requiredMode = REQUIRED) long sequence,
                       @Schema(requiredMode = REQUIRED) String toolCallId,
                       @Schema(requiredMode = REQUIRED) ChatImageEvent.Stage stage,
-                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable UUID artifactId,
+                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable UUID id,
                       @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String mediaType,
                       @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
 
