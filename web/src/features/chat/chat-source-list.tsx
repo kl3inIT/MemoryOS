@@ -21,7 +21,7 @@ function SourceTile({ source }: { source: ChatSource }) {
 }
 
 /**
- * One cited source as a flat, fully clickable row, as Onyx's ChatDocumentDisplay: tile and title, type
+ * One cited source as a flat, fully clickable row: tile and title, type
  * or site, then a two-line excerpt. The number matches the inline citation chip.
  */
 export function ChatSourceRow({

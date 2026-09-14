@@ -1,7 +1,7 @@
 package io.memoryos.connector;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.Objects;
 
 import org.jspecify.annotations.Nullable;
 
@@ -15,9 +15,9 @@ public record SourceSummary(
         long documentCount,
         @Nullable Instant lastSucceededAt,
         @Nullable String errorCode,
-        List<SourceAction> actions
+        SourcePermissions permissions
 ) {
     public SourceSummary {
-        actions = List.copyOf(actions);
+        Objects.requireNonNull(permissions, "permissions must not be null");
     }
 }

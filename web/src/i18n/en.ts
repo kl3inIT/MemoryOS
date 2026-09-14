@@ -153,6 +153,9 @@ export const en = {
     lastAdmin: "The final active administrator cannot be removed or deactivated.",
     lastGroup:
       "A standard user must belong to at least one group. Add another group before removing their last membership.",
+    idpAliasConflict: "A provider with this alias already exists.",
+    idpDiscoveryFailed:
+      "Could not discover endpoints from this issuer. Check the URL and try again.",
     languageInvalid: "Choose Vietnamese or English.",
     unexpected: "Something went wrong. Please try again.",
     unauthenticated: "Your session has ended. Sign in again.",

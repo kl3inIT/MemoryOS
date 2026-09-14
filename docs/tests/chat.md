@@ -141,6 +141,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | Native standard/completion-token conversion, reasoning, rejected options and unknown pricing | `OpenAiChatProviderAdapterTest` |
 | Dedicated authority, redaction, stale writes, same-name model selection and idempotency | Catalog cases in `ChatSessionApiIntegrationTest` |
 | Persona precedence, fallback, Group revoke, Persona restrictions on manager, default protection | Catalog cases in `ChatSessionApiIntegrationTest` |
+| Persona `permissions` match the update/delete guards (owned: edit+delete; builtin: edit only with `MODELS_MANAGE`, never delete) and are serialized for an owned Persona | `PersonaPermissionsTest.keysMatchTheUpdateAndDeleteGuards`, `ChatSessionApiIntegrationTest` workspace round trip, `chat-workspace.spec.ts` |
 | Old turn retains options; next turn uses new settings | `changingModelOptionsWhileRunningAffectsOnlyTheNextTurn` |
 | Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
 | Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |
@@ -173,7 +174,7 @@ The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse`
 
 | Contract | Verification |
 | --- | --- |
-| Native named tool binding, argument bounds, invalid selection fallback, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
+| Native named tool binding, argument bounds, empty/invalid selection fallback, NOT_RELEVANT keeping the main section, per-cycle source scope latching, reference time bounds, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
 | Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; context classification sees real neighbors and can reject a misleading subject | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `classificationReadsNeighborsBeforeRejectingTheWrongSubject` |
 | FULL_DOCUMENT reads at most five neighbors per side; Stop during concurrent rewriting cancels sibling work and prevents retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewritePreventsKeywordInferenceAndRetrieval` |
 | Same native process records typed selection and streaming usage once; denied content never reaches either model prompt | `ChatSessionApiIntegrationTest.nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce` |

@@ -123,6 +123,85 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/identity-providers/{alias}:
+    put:
+      tags:
+      - Identity Providers
+      summary: Update an upstream OIDC identity provider
+      description: A null alias or issuerUrl keeps the stored value; a null clientSecret
+        keeps the stored secret.
+      operationId: updateIdentityProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: alias
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+          minLength: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIdentityProviderRequest"
+        required: true
+      responses:
+        "200":
+          description: The updated identity provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityProviderResponse"
+        "404":
+          description: The identity provider was not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+    delete:
+      tags:
+      - Identity Providers
+      summary: Delete an upstream identity provider and its JIT allowlist entry
+      operationId: deleteIdentityProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: alias
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+          minLength: 0
+      responses:
+        "204":
+          description: The identity provider was deleted
+        "404":
+          description: The identity provider was not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
   /api/chat/web/selection:
     put:
       tags:
@@ -2609,6 +2688,103 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "410":
           description: Invitation is no longer pending and available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/identity-providers:
+    get:
+      tags:
+      - Identity Providers
+      summary: List upstream OIDC identity providers on the configured realm
+      operationId: listIdentityProviders
+      responses:
+        "200":
+          description: Configured OIDC identity providers without secrets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IdentityProviderResponse"
+        "403":
+          description: The actor lacks system administration authority
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+    post:
+      tags:
+      - Identity Providers
+      summary: Create an upstream OIDC identity provider
+      operationId: createIdentityProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIdentityProviderRequest"
+        required: true
+      responses:
+        "201":
+          description: The created identity provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityProviderResponse"
+        "409":
+          description: An identity provider with this alias already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/identity-providers/discovery:
+    post:
+      tags:
+      - Identity Providers
+      summary: Resolve OIDC endpoints from an issuer discovery document
+      operationId: discoverIdentityProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoverIdentityProviderRequest"
+        required: true
+      responses:
+        "200":
+          description: Resolved provider endpoints
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveredProviderResponse"
+        "400":
+          description: The issuer did not return a valid discovery document
           content:
             application/problem+json:
               schema:
@@ -6821,6 +6997,71 @@ components:
           pattern: vi|en
       required:
       - uiLanguage
+    UpdateIdentityProviderRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        alias:
+          type: string
+          description: New alias; omit to keep the current alias. Renaming recreates
+            the provider and changes the broker redirect URI.
+          maxLength: 128
+          minLength: 0
+          pattern: "[a-z0-9][a-z0-9._-]*"
+        displayName:
+          type: string
+          maxLength: 200
+          minLength: 0
+        issuerUrl:
+          type: string
+          description: New issuer URL; omit to keep the current issuer. Changing it
+            re-discovers endpoints and relinks future sign-ins.
+          maxLength: 2048
+          minLength: 0
+        clientId:
+          type: string
+          maxLength: 255
+          minLength: 0
+        clientSecret:
+          type: string
+          description: Replacement client secret; omit to keep the stored secret.
+          maxLength: 1024
+          minLength: 0
+        enabled:
+          type: boolean
+        jitAllowed:
+          type: boolean
+      required:
+      - clientId
+      - displayName
+      - enabled
+      - jitAllowed
+    IdentityProviderResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        alias:
+          type: string
+        displayName:
+          type: string
+        issuer:
+          type: string
+        clientId:
+          type: string
+        enabled:
+          type: boolean
+        jitAllowed:
+          type: boolean
+        brokerRedirectUri:
+          type: string
+      required:
+      - alias
+      - brokerRedirectUri
+      - clientId
+      - displayName
+      - enabled
+      - issuer
+      - jitAllowed
     WebSelectionRequest:
       type: object
       properties:
@@ -7160,6 +7401,13 @@ components:
           items:
             type: string
             format: uuid
+    PersonaPermissions:
+      type: object
+      properties:
+        edit:
+          type: boolean
+        delete:
+          type: boolean
     PersonaView:
       type: object
       properties:
@@ -7168,8 +7416,8 @@ components:
           format: uuid
         builtin:
           type: boolean
-        editable:
-          type: boolean
+        permissions:
+          $ref: "#/components/schemas/PersonaPermissions"
         revision:
           type: integer
           format: int64
@@ -7479,6 +7727,26 @@ components:
           minLength: 0
       required:
       - name
+    SourcePermissions:
+      type: object
+      additionalProperties: false
+      properties:
+        edit:
+          type: boolean
+        delete:
+          type: boolean
+        publish:
+          type: boolean
+        manageConfiguration:
+          type: boolean
+        removeItems:
+          type: boolean
+      required:
+      - delete
+      - edit
+      - manageConfiguration
+      - publish
+      - removeItems
     SourceSummary:
       type: object
       additionalProperties: false
@@ -7508,32 +7776,17 @@ components:
           type:
           - string
           - "null"
-        actions:
-          type: array
-          items:
-            type: string
-            enum:
-            - upload
-            - reindex
-            - remove_items
-            - delete
-            - manage_groups
-            - rename
-            - manage_access
-            - manage_configuration
-            - synchronize
-            - manage_schedule
-            - pause_sync
-            - resume_sync
+        permissions:
+          $ref: "#/components/schemas/SourcePermissions"
       required:
       - access
-      - actions
       - documentCount
       - errorCode
       - id
       - lastSucceededAt
       - name
       - pendingWork
+      - permissions
       - status
       - type
     UpdateSourceGroupsRequest:
@@ -7857,6 +8110,71 @@ components:
       - delivery
       - invitation
       - invitationUrl
+    CreateIdentityProviderRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        alias:
+          type: string
+          maxLength: 128
+          minLength: 0
+          pattern: "[a-z0-9][a-z0-9._-]*"
+        displayName:
+          type: string
+          maxLength: 200
+          minLength: 0
+        issuerUrl:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        clientId:
+          type: string
+          maxLength: 255
+          minLength: 0
+        clientSecret:
+          type: string
+          maxLength: 1024
+          minLength: 0
+        jitAllowed:
+          type: boolean
+      required:
+      - alias
+      - clientId
+      - clientSecret
+      - displayName
+      - issuerUrl
+      - jitAllowed
+    DiscoverIdentityProviderRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        issuerUrl:
+          type: string
+          maxLength: 2048
+          minLength: 0
+      required:
+      - issuerUrl
+    DiscoveredProviderResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        issuer:
+          type: string
+        authorizationUrl:
+          type: string
+        tokenUrl:
+          type: string
+        logoutUrl:
+          type: string
+        userInfoUrl:
+          type: string
+        jwksUrl:
+          type: string
+      required:
+      - authorizationUrl
+      - issuer
+      - jwksUrl
+      - tokenUrl
     CreateGroupRequest:
       type: object
       additionalProperties: false
@@ -7867,6 +8185,26 @@ components:
           minLength: 0
       required:
       - name
+    GroupPermissions:
+      type: object
+      additionalProperties: false
+      properties:
+        manage:
+          type: boolean
+        manageMembers:
+          type: boolean
+        delete:
+          type: boolean
+        editPermissions:
+          type: boolean
+        manageSources:
+          type: boolean
+      required:
+      - delete
+      - editPermissions
+      - manage
+      - manageMembers
+      - manageSources
     GroupSummary:
       type: object
       additionalProperties: false
@@ -7907,17 +8245,15 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
-        actions:
-          type: array
-          items:
-            type: string
+        permissions:
+          $ref: "#/components/schemas/GroupPermissions"
       required:
-      - actions
       - capabilities
       - id
       - managerCount
       - memberCount
       - name
+      - permissions
       - systemKey
     GroupSystemKey:
       type: string

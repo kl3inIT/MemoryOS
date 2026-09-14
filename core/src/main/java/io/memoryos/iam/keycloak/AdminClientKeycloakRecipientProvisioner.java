@@ -1,15 +1,11 @@
 package io.memoryos.iam.keycloak;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
 import io.memoryos.iam.invitation.IdentityProvisioningException;
 import io.memoryos.iam.invitation.IdentityProvisioningFailureReason;
 import io.memoryos.iam.invitation.KeycloakRecipientProvisioner;
 import io.memoryos.iam.invitation.KeycloakRecipientProvisioning;
-import jakarta.annotation.PreDestroy;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.core.Response;
 
 import java.time.Clock;
@@ -20,22 +16,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.CreatedResponseUtil;
-import org.keycloak.admin.client.JacksonProvider;
 import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
-import org.keycloak.admin.client.spi.ResteasyClientClassicProvider;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 @Service
-final class AdminClientKeycloakRecipientProvisioner
-        implements KeycloakRecipientProvisioner, AutoCloseable {
+final class AdminClientKeycloakRecipientProvisioner implements KeycloakRecipientProvisioner {
 
     static final String MEMORYOS_PROVISIONED_ATTRIBUTE = "memoryos.provisioned";
     private static final String TRUE = "true";
@@ -50,8 +41,8 @@ final class AdminClientKeycloakRecipientProvisioner
     private final Clock clock;
 
     @Autowired
-    AdminClientKeycloakRecipientProvisioner(KeycloakAdminProperties properties) {
-        this(createClient(properties), properties, Clock.systemUTC());
+    AdminClientKeycloakRecipientProvisioner(Keycloak keycloak, KeycloakAdminProperties properties) {
+        this(keycloak, properties, Clock.systemUTC());
     }
 
     AdminClientKeycloakRecipientProvisioner(
@@ -176,30 +167,6 @@ final class AdminClientKeycloakRecipientProvisioner
         return attributes != null
                 && attributes.getOrDefault(MEMORYOS_PROVISIONED_ATTRIBUTE, List.of()).stream()
                 .anyMatch(TRUE::equalsIgnoreCase);
-    }
-
-    @Override
-    @PreDestroy
-    public void close() {
-        keycloak.close();
-    }
-
-    @SuppressWarnings("resource")
-    private static Keycloak createClient(KeycloakAdminProperties properties) {
-        Client restClient = ResteasyClientClassicProvider.createClientBuilder()
-                .connectTimeout(properties.connectTimeout().toMillis(), MILLISECONDS)
-                .connectionCheckoutTimeout(properties.connectionRequestTimeout().toMillis(), MILLISECONDS)
-                .readTimeout(properties.readTimeout().toMillis(), MILLISECONDS)
-                .build()
-                .register(JacksonProvider.class, 100);
-        return KeycloakBuilder.builder()
-                .serverUrl(properties.serverUrl())
-                .realm(properties.realm())
-                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-                .clientId(properties.clientId())
-                .clientSecret(properties.clientSecret())
-                .resteasyClient(restClient)
-                .build();
     }
 
     private static IdentityProvisioningException accountConflict(String diagnosticMessage) {

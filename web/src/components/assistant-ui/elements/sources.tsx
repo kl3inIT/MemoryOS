@@ -17,8 +17,8 @@ type SourceSummary = {
   sourceTypes?: readonly DocumentSourceType[];
 };
 
-// Onyx's grouped toolbar trigger, composed with assistant-ui source icons.
-// The application keeps ownership of its selected message and document panel.
+// Grouped toolbar trigger composed with assistant-ui source icons. The application
+// keeps ownership of its selected message and document panel.
 export function Sources({
   count,
   sources,

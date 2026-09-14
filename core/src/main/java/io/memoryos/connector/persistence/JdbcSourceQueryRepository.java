@@ -2,7 +2,7 @@ package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceItemPage;
-import io.memoryos.connector.SourceAction;
+import io.memoryos.connector.SourcePermissions;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
@@ -62,9 +62,7 @@ public class JdbcSourceQueryRepository {
                    COALESCE((SELECT s.error_code FROM google_drive_sources s
                        WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id), pair.error_code) AS error_code,
                    CASE WHEN :globalManage THEN FALSE ELSE %s END AS managed_scope,
-                   (%s AND %s) AS creator_groupless,
-                   COALESCE((SELECT s.sync_paused FROM google_drive_sources s
-                       WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id), FALSE) AS sync_paused
+                   (%s AND %s) AS creator_groupless
             FROM connector_credential_pairs pair
             JOIN connectors connector
               ON connector.tenant_id = pair.tenant_id
@@ -290,38 +288,9 @@ public class JdbcSourceQueryRepository {
                 resultSet.getLong("document_count"),
                 JdbcSourceRepository.instant(resultSet, "last_succeeded_at"),
                 resultSet.getString("error_code"),
-                actions(globalManage, globalDelete, resultSet.getBoolean("managed_scope"),
-                        resultSet.getBoolean("creator_groupless"),
-                        SourceType.valueOf(resultSet.getString("connector_type")), resultSet.getBoolean("sync_paused"))
+                SourcePermissions.of(globalManage, globalDelete, resultSet.getBoolean("managed_scope"),
+                        resultSet.getBoolean("creator_groupless"))
         );
-    }
-
-    private static List<SourceAction> actions(
-            boolean globalManage,
-            boolean globalDelete,
-            boolean managedScope,
-            boolean creatorGroupless,
-            SourceType type,
-            boolean syncPaused
-    ) {
-        var actions = new java.util.ArrayList<SourceAction>();
-        if (globalManage || managedScope) {
-            actions.add(SourceAction.RENAME);
-            actions.add(SourceAction.MANAGE_GROUPS);
-            actions.add(SourceAction.REINDEX);
-            if (type == SourceType.FILE) {
-                actions.add(SourceAction.UPLOAD);
-                if (globalManage) actions.add(SourceAction.MANAGE_ACCESS);
-            } else if (type == SourceType.GOOGLE_DRIVE) {
-                actions.add(SourceAction.SYNCHRONIZE);
-                actions.add(SourceAction.MANAGE_SCHEDULE);
-                actions.add(syncPaused ? SourceAction.RESUME_SYNC : SourceAction.PAUSE_SYNC);
-                if (globalManage) actions.add(SourceAction.MANAGE_CONFIGURATION);
-            }
-        }
-        if (globalDelete) actions.add(SourceAction.REMOVE_ITEMS);
-        if (globalDelete || creatorGroupless) actions.add(SourceAction.DELETE);
-        return List.copyOf(actions);
     }
 
     private static SourceItemView item(ResultSet resultSet, int ignored) throws SQLException {

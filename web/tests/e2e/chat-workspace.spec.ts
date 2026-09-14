@@ -82,7 +82,7 @@ test("does not mark an assistant unavailable while its settings are loading", as
               id: session.personaId,
               name: "Available assistant",
               builtin: true,
-              editable: false,
+              permissions: { edit: false, delete: false },
               revision: 0,
               description: "",
               instructions: "",
@@ -164,6 +164,9 @@ test("opens sessions created through the project endpoint and preserves list pag
 test("edits, regenerates, selects saved branches, rates, shares, revokes and deletes", async ({
   page,
 }) => {
+  // Edit, regenerate, branch, rate, share and delete in one session run close to the
+  // default budget; the scenario is intentionally long rather than slow to react.
+  test.slow();
   const session = await (
     await page.request.post("/api/chat/test-fixture", { data: { title: "Workspace versions" } })
   ).json();
@@ -280,7 +283,7 @@ test("creates and revises private assistants with source, starter and limit sett
         ...request.postDataJSON(),
         id,
         builtin: false,
-        editable: true,
+        permissions: { edit: true, delete: true },
         revision: saved ? 1 : 0,
       };
       return route.fulfill({ status: request.method() === "POST" ? 201 : 200, json: saved });

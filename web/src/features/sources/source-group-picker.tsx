@@ -1,8 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Search, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,7 +180,7 @@ export function SourceGroupPicker({
         </div>
       ) : rows.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-7 text-center">
-          <OnyxUsersIcon className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+          <Users className="mx-auto size-5 text-content-muted" aria-hidden="true" />
           <p className="mt-2 font-main-ui-body text-content-muted">
             {search ? ui("No groups match your search.") : ui("No groups are available.")}
           </p>
@@ -212,7 +211,7 @@ export function SourceGroupPicker({
                   }}
                 />
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-muted">
-                  <OnyxUsersIcon className="size-4" aria-hidden="true" />
+                  <Users className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
                   {group.name}

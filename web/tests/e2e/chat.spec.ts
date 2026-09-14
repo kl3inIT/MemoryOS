@@ -199,7 +199,7 @@ test("shows effective search queries, open time bounds and selected documents be
   await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toBeVisible();
   await expect(page.getByText(fixtureSource.title, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /1 source/i })).toHaveCount(0);
-  await page.screenshot({ path: "../.tmp/onyx-parity-search-progress.png", fullPage: true });
+  await page.screenshot({ path: "../.tmp/chat-search-progress.png", fullPage: true });
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
   await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toHaveCount(0);
 });

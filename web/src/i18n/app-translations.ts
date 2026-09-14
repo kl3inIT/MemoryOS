@@ -644,6 +644,62 @@ export const englishUi: Record<string, string> = {
   "Create an ordinary group to organize members and access.":
     "Tạo nhóm thường để tổ chức thành viên và quyền truy cập.",
   "Clear search": "Xóa tìm kiếm",
+  "Identity providers": "Nhà cung cấp định danh",
+  "Upstream OIDC providers for brokered sign-in and just-in-time admission.":
+    "Các nhà cung cấp OIDC upstream cho đăng nhập qua broker và gia nhập tự động.",
+  "Add provider": "Thêm nhà cung cấp",
+  "Add identity provider": "Thêm nhà cung cấp định danh",
+  "Connect an upstream OIDC provider for brokered sign-in.":
+    "Kết nối nhà cung cấp OIDC upstream để đăng nhập qua broker.",
+  "Update the brokered sign-in configuration. Alias and issuer are fixed.":
+    "Cập nhật cấu hình đăng nhập qua broker. Alias và issuer không đổi.",
+  "Edit {{v1}}": "Sửa {{v1}}",
+  Alias: "Alias",
+  "Lowercase letters, digits, dots, underscores or hyphens. Cannot be changed later.":
+    "Chữ thường, số, dấu chấm, gạch dưới hoặc gạch ngang. Không đổi được sau này.",
+  "Display name": "Tên hiển thị",
+  "Sign in with Tasco": "Đăng nhập bằng Tasco",
+  "Issuer URL": "Issuer URL",
+  "The issuer is fixed for the lifetime of this provider.":
+    "Issuer cố định trong suốt vòng đời của nhà cung cấp này.",
+  "Discover endpoints": "Khám phá endpoints",
+  "Discovering…": "Đang khám phá…",
+  "Discovered {{v1}}": "Đã khám phá {{v1}}",
+  "Client ID": "Client ID",
+  "Client secret": "Client secret",
+  "Leave blank to keep the stored secret": "Để trống để giữ secret hiện tại",
+  Disabled: "Đã tắt",
+  "Allow just-in-time admission": "Cho phép gia nhập tự động (JIT)",
+  "Members of this provider can join the Tenant automatically on first sign-in.":
+    "Thành viên của nhà cung cấp này tự động gia nhập Tenant khi đăng nhập lần đầu.",
+  "Copy redirect URI": "Sao chép redirect URI",
+  "Could not copy the redirect URI.": "Không sao chép được redirect URI.",
+  "Members can no longer sign in through this provider. Existing accounts and sessions are not deleted.":
+    "Thành viên không thể đăng nhập qua nhà cung cấp này nữa. Tài khoản và phiên hiện có không bị xóa.",
+  "Remove provider": "Xóa nhà cung cấp",
+  "Removing…": "Đang xóa…",
+  "{{v1}} was removed.": "Đã xóa {{v1}}.",
+  "Could not load identity providers.": "Không tải được danh sách nhà cung cấp định danh.",
+  JIT: "JIT",
+  "Sign-in providers": "Đăng nhập SSO",
+  Check: "Kiểm tra",
+  "Checking…": "Đang kiểm tra…",
+  "Valid issuer": "Issuer hợp lệ",
+  "Add SSO": "Thêm SSO",
+  "Redirect URI": "Redirect URI",
+  Copy: "Sao chép",
+  Copied: "Đã sao chép",
+  tasco: "tasco",
+  "memoryos-broker": "memoryos-broker",
+  "Allow sign-in through this provider": "Cho phép đăng nhập qua nhà cung cấp này",
+  "Turning this off hides the provider on the sign-in screen without deleting its configuration.":
+    "Tắt sẽ ẩn nhà cung cấp khỏi màn đăng nhập mà không xóa cấu hình.",
+  "The stored secret stays hidden. Type a new value to rotate it.":
+    "Secret đã lưu được ẩn. Nhập giá trị mới để thay đổi.",
+  Retry: "Thử lại",
+  "No identity providers yet.": "Chưa có nhà cung cấp định danh.",
+  "Add an upstream OIDC provider to let its members sign in through MemoryOS.":
+    "Thêm nhà cung cấp OIDC upstream để thành viên của họ đăng nhập qua MemoryOS.",
 };
 
 Object.assign(englishUi, {

@@ -9,7 +9,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.GroupAction;
+import io.memoryos.iam.group.GroupPermissions;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupService;
 import io.memoryos.iam.group.IamAuthorization;
@@ -133,9 +133,8 @@ class PostgresGroupMembershipReplacementTest {
     @Test
     void scopedMutationIsRestrictedToOwnedGroupsAndCannotLoseOwnScope() {
         assertEquals("Renamed", groups.rename(MEMBER, RETAINED, "Renamed").name());
-        assertEquals(Set.of(GroupAction.RENAME, GroupAction.MANAGE_MEMBERS,
-                        GroupAction.MANAGE_MANAGERS, GroupAction.MANAGE_SOURCES),
-                groups.get(MEMBER, RETAINED).actions());
+        assertEquals(new GroupPermissions(true, true, false, false, true),
+                groups.get(MEMBER, RETAINED).permissions());
         assertEquals("IAM_GROUP_NOT_FOUND",
                 assertThrows(IamException.class, () -> groups.rename(MEMBER, REMOVED, "Hidden")).code());
         assertEquals("IAM_GROUP_NOT_FOUND",

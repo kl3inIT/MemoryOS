@@ -627,3 +627,9 @@ Frontend check passed 60 tests and all gates; the three browser suites passed 33
 - [x] Run browser/frontend gates, exercise the live surface without saving and align canonical guidance.
 
 Frontend check passed 60 tests and all gates; browser suites passed 34 scenarios. Actual desktop/mobile VETC deselection and Cancel preserved the saved draft and never opened root editing. README and connector guidance now describe reversible saved approvals. See [saved-approval verification](../../../tests/connector.md#reversible-saved-linked-approval--2026-09-09).
+
+### Re-synchronization keeps searchable Documents — 2026-09-14
+
+- [x] Treat a newer provider version with identical adopted bytes and filename as unchanged, refreshing the provider version in place.
+- [x] Keep the current Document retrievable while a changed version is processed; failure leaves it available.
+- [ ] Serve the previous search generation until the new chunks are ready, removing the short publication gap (separate follow-up).

@@ -2,9 +2,8 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
-import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle, User } from "lucide-react";
 import { Fragment, useRef, useState, type RefObject } from "react";
-import { OnyxUserIcon } from "@/components/icons/identity-icons";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
@@ -178,7 +177,7 @@ export function UsersTable({
                     <td className="px-4 py-3">
                       {entry.accountType === "STANDARD" ? (
                         <span className="inline-flex items-center gap-1.5 font-main-ui-body text-content-secondary">
-                          <OnyxUserIcon className="size-4 text-content-muted" aria-hidden="true" />
+                          <User className="size-4 text-content-muted" aria-hidden="true" />
                           {ui("Standard")}
                         </span>
                       ) : (
