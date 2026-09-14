@@ -343,7 +343,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label>
-                {ui("Ngữ cảnh (token)")}
+                {ui("Context window (token)")}
                 <Input
                   type="number"
                   min={256}
@@ -353,7 +353,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
                 />
               </label>
               <label>
-                {ui("Câu trả lời (token)")}
+                {ui("Max output (token)")}
                 <Input
                   type="number"
                   min={1}

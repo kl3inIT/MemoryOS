@@ -391,62 +391,63 @@ export function ModelEditor({
             />
             {ui("Visible in selection lists")}
           </label>
-          <fieldset className="space-y-3">
-            <legend className="font-main-ui-action">{ui("Request options")}</legend>
-            <label className="flex items-center gap-2 font-main-ui-body">
-              <Checkbox
-                checked={draft.completionTokens}
-                onCheckedChange={(checked) => change("completionTokens", checked === true)}
+          <Collapsible className="group">
+            <CollapsibleTrigger className="flex min-h-11 cursor-pointer items-center gap-2 font-main-ui-action focus-visible:outline-2 focus-visible:outline-focus-ring">
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 transition-transform group-has-[[data-state=open]]:rotate-180"
               />
-              {ui("Use maxCompletionTokens option family")}
-            </label>
-            {!draft.completionTokens && !draft.reasoning && (
-              <label className="block max-w-xs space-y-1">
-                {ui("Temperature")}
-                <Input
-                  type="number"
-                  min={0}
-                  max={2}
-                  step="any"
-                  value={draft.temperature}
-                  onChange={(event) => change("temperature", event.target.value)}
-                />
-              </label>
-            )}
-            {draft.reasoning && (
-              <label className="block space-y-1">
-                {ui("Reasoning effort")}
-                <Select
-                  value={draft.reasoningEffort}
-                  onChange={(event) => change("reasoningEffort", event.target.value)}
-                >
-                  <option value="">{ui("Provider default (omitted)")}</option>
-                  {["minimal", "low", "medium", "high"].map((effort) => (
-                    <option key={effort} value={effort}>
-                      {effort}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            )}
-          </fieldset>
-          {declared ? (
-            <Collapsible className="group">
-              <CollapsibleTrigger className="flex min-h-11 cursor-pointer items-center gap-2 font-main-ui-action focus-visible:outline-2 focus-visible:outline-focus-ring">
-                <ChevronDown
-                  aria-hidden="true"
-                  className="size-4 transition-transform group-has-[[data-state=open]]:rotate-180"
-                />
-                {ui("Override declared specs")}
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-4 pt-4">
-                <Specs draft={draft} change={change} />
-                <Prices draft={draft} change={change} />
-              </CollapsibleContent>
-            </Collapsible>
-          ) : (
-            <Prices draft={draft} change={change} />
-          )}
+              {ui("Advanced options")}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 pt-4">
+              {declared && (
+                <>
+                  <Specs draft={draft} change={change} />
+                  <Prices draft={draft} change={change} />
+                </>
+              )}
+              <fieldset className="space-y-3">
+                <legend className="font-main-ui-action">{ui("Request options")}</legend>
+                <label className="flex items-center gap-2 font-main-ui-body">
+                  <Checkbox
+                    checked={draft.completionTokens}
+                    onCheckedChange={(checked) => change("completionTokens", checked === true)}
+                  />
+                  {ui("Use maxCompletionTokens option family")}
+                </label>
+                {!draft.completionTokens && !draft.reasoning && (
+                  <label className="block max-w-xs space-y-1">
+                    {ui("Temperature")}
+                    <Input
+                      type="number"
+                      min={0}
+                      max={2}
+                      step="any"
+                      value={draft.temperature}
+                      onChange={(event) => change("temperature", event.target.value)}
+                    />
+                  </label>
+                )}
+                {draft.reasoning && (
+                  <label className="block space-y-1">
+                    {ui("Reasoning effort")}
+                    <Select
+                      value={draft.reasoningEffort}
+                      onChange={(event) => change("reasoningEffort", event.target.value)}
+                    >
+                      <option value="">{ui("Provider default (omitted)")}</option>
+                      {["minimal", "low", "medium", "high"].map((effort) => (
+                        <option key={effort} value={effort}>
+                          {effort}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                )}
+              </fieldset>
+            </CollapsibleContent>
+          </Collapsible>
+          {!declared && <Prices draft={draft} change={change} />}
         </fieldset>
         {invalid && <p role="status">{ui(invalid)}</p>}
         {conflicted && (
