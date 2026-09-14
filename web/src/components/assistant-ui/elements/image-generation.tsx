@@ -93,7 +93,7 @@ export function ImageGeneration({
           <a
             href={src}
             download
-            aria-label={downloadLabel ?? "Download"}
+            aria-label={downloadLabel}
             className="flex size-6 shrink-0 items-center justify-center rounded-full text-foreground/45 outline-none transition-colors hover:bg-foreground/[0.06] hover:text-foreground/90 focus-visible:ring-1 focus-visible:ring-foreground/20 dark:hover:bg-foreground/[0.09]"
           >
             <DownloadIcon className="size-3" aria-hidden="true" />

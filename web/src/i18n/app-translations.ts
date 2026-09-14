@@ -311,6 +311,9 @@ export const vietnameseUi: Record<string, string> = {
   "Đang yêu cầu dừng": "Requesting stop",
   "Dừng trả lời": "Stop generating",
   "Đã dừng": "Stopped",
+  "Ảnh đã tạo": "Generated image",
+  "Tải ảnh": "Download image",
+  "Đang tạo ảnh…": "Generating image…",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
     "The answer was interrupted. Content received so far is preserved.",
   "Sao chép câu trả lời": "Copy answer",
