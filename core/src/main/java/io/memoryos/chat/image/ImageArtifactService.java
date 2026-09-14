@@ -5,6 +5,8 @@ import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
 import java.util.Collection;
 import java.util.List;
@@ -18,14 +20,32 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class ImageArtifactService {
     private final ObjectWriteService writes;
+    private final ObjectStorage storage;
     private final JdbcImageArtifactRepository artifacts;
     private final TenantAccessResolver tenants;
     private final TransactionTemplate tx;
 
-    public ImageArtifactService(ObjectWriteService writes, JdbcImageArtifactRepository artifacts,
+    public ImageArtifactService(ObjectWriteService writes, ObjectStorage storage, JdbcImageArtifactRepository artifacts,
                                 TenantAccessResolver tenants, PlatformTransactionManager transactionManager) {
-        this.writes = writes; this.artifacts = artifacts; this.tenants = tenants;
+        this.writes = writes; this.storage = storage; this.artifacts = artifacts; this.tenants = tenants;
         this.tx = new TransactionTemplate(transactionManager);
+    }
+
+    public record Served(ObjectContent content, String mediaType) {}
+
+    /** Opens the bytes of an owner-private generated image; the caller must close the returned content. */
+    public Served open(ActorId actor, UUID id) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var found = artifacts.owned(tenant, actor, id).orElseThrow(ChatException::unavailable);
+        var content = storage.open(found.key());
+        try {
+            if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()
+                    || artifacts.owned(tenant, actor, id).isEmpty()) throw ChatException.unavailable();
+            return new Served(content, found.mediaType());
+        } catch (RuntimeException failed) {
+            content.close();
+            throw failed;
+        }
     }
 
     /**
