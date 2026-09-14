@@ -469,11 +469,11 @@ class ChatSessionApiIntegrationTest {
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             assertFalse(text.contains("PRIVATE DENIED CONTENT"));
-            if (text.contains("Task: semantic query rewrite")) return response("{\"query\":\"leave\"}", "stop", 7);
-            if (text.contains("Task: keyword query rewrite")) return response("{\"queries\":[]}", "stop", 7);
-            if (text.contains("Task: identify document creation/update")) return response("{\"createdFrom\":null,\"createdTo\":null,\"updatedFrom\":null,\"updatedTo\":null}", "stop", 7);
+            if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
+            if (text.contains("provide a set of keyword only queries")) return response("{\"queries\":[]}", "stop", 7);
+            if (text.contains("You scope an internal search to a time filter")) return response("{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
             assertTrue(text.contains("Annual leave is twelve days."));
-            if (text.contains("Task: classify document context")) {
+            if (text.contains("# Main Section:")) {
                 assertTrue(text.contains("Employee handbook"));
                 return response("{\"classification\":\"INCLUDE_ADJACENT_SECTIONS\"}", "stop", 7);
             }
@@ -576,8 +576,8 @@ class ChatSessionApiIntegrationTest {
         var virtual = new java.util.concurrent.atomic.AtomicBoolean();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
-            return response(text.contains("Task: semantic query rewrite") ? "{\"query\":\"leave\"}"
-                    : text.contains("Task: keyword query rewrite") ? "{\"queries\":[]}" : "{\"createdFrom\":null,\"createdTo\":null,\"updatedFrom\":null,\"updatedTo\":null}", "stop", 7);
+            return response(text.contains("provide a standalone query") ? "{\"query\":\"leave\"}"
+                    : text.contains("provide a set of keyword only queries") ? "{\"queries\":[]}" : "{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
         });
         when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(ignored -> {
             virtual.set(Thread.currentThread().isVirtual());
@@ -1767,11 +1767,11 @@ class ChatSessionApiIntegrationTest {
                 var response = provider.call(request);
                 assertNotNull(response.getResult());
                 String output = response.getResult().getOutput().getText();
-                helperReceipts.add(Map.of("classification", request.getContents().contains("Section above:"),
+                helperReceipts.add(Map.of("classification", request.getContents().contains("# Section Above:"),
                         "hasNeighborFact", request.getContents().contains("17"), "output", output == null ? "" : output,
                         "ms", (System.nanoTime() - started) / 1_000_000));
-                if (request.getContents().contains("Section above:")) contextChoices.add(output);
-                if (request.getContents().contains("Task: semantic query rewrite")) {
+                if (request.getContents().contains("# Section Above:")) contextChoices.add(output);
+                if (request.getContents().contains("provide a standalone query")) {
                     var result = response.getResult();
                     assertNotNull(result);
                     assertNotNull(result.getOutput().getText());
