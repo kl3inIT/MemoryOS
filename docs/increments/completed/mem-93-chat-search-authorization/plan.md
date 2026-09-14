@@ -13,4 +13,4 @@
 - [x] CI inherited from main's IAM package split is fixed on main by #110 (IAM named interfaces, worker IAM persistence scan); this branch takes that fix.
 - [x] Repository-wide `clean check`: the CI gate passed on every MEM-93 merge (#109, #112, #113, #131) and on main through #146 (run 34850839912).
 - [x] Staging: Basic users do not see Drive Documents and receive 404 for Drive citations; Basic citation opening works; access refresh verified in #113.
-- Moved out of scope: Google Drive per-file tokens (`google_user:`/`google_group:`/`google_domain:`) wait for the MEM-88 identity contract and are tracked there, not by this increment.
+- Moved out of scope: Google Drive per-file tokens (`google_user:`/`google_group:`/`google_domain:`) wait for the MEM-88 identity contract and are tracked there, not by this increment. [MEM-105](../../active/mem-105-source-access-modes/design.md) now derives `google_user:` and `google_domain:` tokens; `google_group:` remains unimplemented.

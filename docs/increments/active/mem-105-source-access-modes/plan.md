@@ -43,7 +43,7 @@
 - Modify: `core/src/main/java/io/memoryos/connector/SourceAccess.java`
 - Test: `core/src/test/java/io/memoryos/connector/persistence/SourceAccessModesMigrationTest.java`
 
-- [ ] **Step 1: Write the failing migration test**
+- [x] **Step 1: Write the failing migration test**
 
 ```java
 package io.memoryos.connector.persistence;
@@ -101,9 +101,9 @@ class SourceAccessModesMigrationTest {
 }
 ```
 
-- [ ] **Step 2: Run it and confirm it fails.** Run `.\gradlew.bat :core:test --tests '*SourceAccessModesMigrationTest'`. Expected: FAIL, with RESTRICTED still stored.
+- [x] **Step 2: Run it and confirm it fails.** Run `.\gradlew.bat :core:test --tests '*SourceAccessModesMigrationTest'`. Expected: FAIL, with RESTRICTED still stored.
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 ```sql
 ALTER TABLE connector_credential_pairs DROP CONSTRAINT ck_pairs_access;
@@ -116,7 +116,7 @@ ALTER TABLE google_drive_selection_operations
     ADD CONSTRAINT ck_google_selection_access CHECK (access_type IN ('PUBLIC', 'PRIVATE', 'SYNC'));
 ```
 
-- [ ] **Step 4: Rename the enum**
+- [x] **Step 4: Rename the enum**
 
 ```java
 public enum SourceAccess {
@@ -131,7 +131,7 @@ public enum SourceAccess {
 
 Replace `SourceAccess.RESTRICTED` with `SourceAccess.PRIVATE` in main code. The Drive-specific hard-codes are handled in Task 2. Change the SQL literal `'RESTRICTED'` to `'PRIVATE'` in `JdbcSourceDocumentRepository.SEARCHABLE_SOURCE` for now; Task 3 replaces it.
 
-- [ ] **Step 5: Update tests that run on the latest schema.** Replace `'RESTRICTED'` and `SourceAccess.RESTRICTED` with `PRIVATE` in:
+- [x] **Step 5: Update tests that run on the latest schema.** Replace `'RESTRICTED'` and `SourceAccess.RESTRICTED` with `PRIVATE` in:
   - `PostgresSourceRunHistoryTest`
   - `PostgresSourceLifecycleTest`
   - `PostgresGoogleDriveSyncTest`
@@ -143,15 +143,15 @@ Replace `SourceAccess.RESTRICTED` with `SourceAccess.PRIVATE` in main code. The 
 
   Keep `RESTRICTED` where a test seeds a pre-V56 schema (`GroupMigrationSeedTest`, `GoogleDriveOAuthClientMigrationTest`, and the first test of `SourceSearchMetadataMigrationTest`). In `SourceSearchMetadataMigrationTest`, give `seed(...)` a `String driveAccess` parameter: the V34 test passes `"RESTRICTED"` and the others pass `"PRIVATE"`. In its first test, migrate to the latest version after asserting the V35 backfill and before using the repository, because the Task 3 SQL reads V54 tables.
 
-- [ ] **Step 6: Run.** `.\gradlew.bat :core:compileTestJava :core:test --tests '*SourceAccessModesMigrationTest' --tests '*SourceSearchMetadataMigrationTest' --tests '*PostgresSourceLifecycleTest' --tests '*GroupMigrationSeedTest' --tests '*GoogleDriveOAuthClientMigrationTest'`. Expected: PASS.
+- [x] **Step 6: Run.** `.\gradlew.bat :core:compileTestJava :core:test --tests '*SourceAccessModesMigrationTest' --tests '*SourceSearchMetadataMigrationTest' --tests '*PostgresSourceLifecycleTest' --tests '*GroupMigrationSeedTest' --tests '*GoogleDriveOAuthClientMigrationTest'`. Expected: PASS.
 
-- [ ] **Step 7: Commit** as `feat(connector): rename RESTRICTED Source access to PRIVATE and add SYNC (MEM-105)`.
+- [x] **Step 7: Commit** as `feat(connector): rename RESTRICTED Source access to PRIVATE and add SYNC (MEM-105)`.
 
 ### Task 2: Access per Source type, Drive creation and mode changes
 
 **Files:** `SourceAccessPolicy`, `DefaultSourceManagementService`, `GoogleDriveSourceService`, `DefaultGoogleDriveSourceService`, `JdbcGoogleDriveSelectionRepository`, `JdbcGoogleDriveSourceRepository`, `JdbcGoogleDriveCredentialRepository`, `JdbcSourceRepository`, `CreateGoogleDriveSourceRequest`, `CreateFileSourceRequest`, `GoogleDriveSourceController`. Tests: `GoogleDriveCredentialAuthorityTest`, `GoogleDriveSelectionOperationTest`, `SourceApiIntegrationTest`.
 
-- [ ] **Step 1: Write failing tests.**
+- [x] **Step 1: Write failing tests.**
   - In `GoogleDriveCredentialAuthorityTest`, add:
     - `createdDriveSourceDefaultsToAutoSyncAndKeepsTheRequestedMode`: create and process a SPECIFIC source with `null` access, then assert `access_type='SYNC'`; do the same with `PRIVATE` and assert `PRIVATE`.
     - `scopedManagerCannotCreatePublicDriveSource`: expect `SourceException` for `SourceAccess.PUBLIC` from a scoped manager.
@@ -159,8 +159,8 @@ Replace `SourceAccess.RESTRICTED` with `SourceAccess.PRIVATE` in main code. The 
     - `POST /api/sources/file` with `"access":"SYNC"` returns 400.
     - `PUT /api/sources/{drive}/access` with `SYNC`, `PUBLIC` and `PRIVATE` succeeds for a global manager.
     - `PUT` of `SYNC` on a FILE source returns 409.
-- [ ] **Step 2: Run them and confirm they fail** (compile failure on the new `create` argument, then assertion failures).
-- [ ] **Step 3: Make `SourceAccessPolicy` type-aware.**
+- [x] **Step 2: Run them and confirm they fail** (compile failure on the new `create` argument, then assertion failures).
+- [x] **Step 3: Make `SourceAccessPolicy` type-aware.**
 
 ```java
 public Creation creation(ActorId actorId, SourceType type, @Nullable SourceAccess requestedAccess, Collection<GroupId> groupIds) {
@@ -186,7 +186,7 @@ static SourceAccess access(SourceType type, boolean global, @Nullable SourceAcce
 ```
 
   `resolve` calls `access(type, global, requestedAccess)` and keeps the existing group validation. `DefaultSourceManagementService.createFileSource` passes `SourceType.FILE`.
-- [ ] **Step 4: Carry access through Drive creation.**
+- [x] **Step 4: Carry access through Drive creation.**
   - `GoogleDriveSourceService.create(..., List<GroupId> groupIds, @Nullable SourceAccess access)`.
   - `DefaultGoogleDriveSourceService.create`:
     - resolve `sourceAccess.creation(actor, SourceType.GOOGLE_DRIVE, access, groupIds)` and `lockCreation(...)` the same way;
@@ -198,7 +198,7 @@ static SourceAccess access(SourceType type, boolean global, @Nullable SourceAcce
   - `activate` passes the resolved access to `drive.create(..., roots, access)`.
   - `JdbcGoogleDriveSourceRepository.create(..., List<Root> roots, SourceAccess access)` binds `:access` instead of `'RESTRICTED'`.
   - `JdbcGoogleDriveCredentialRepository.credentialId` drops `AND p.access_type = 'RESTRICTED'`; the Drive connector-type predicate already identifies the Source.
-- [ ] **Step 5: Open `updateAccess` to Drive.**
+- [x] **Step 5: Open `updateAccess` to Drive.**
 
 ```java
 public void updateAccess(TenantId tenantId, SourceId sourceId, SourceAccess access) {
@@ -218,13 +218,13 @@ public void updateAccess(TenantId tenantId, SourceId sourceId, SourceAccess acce
 ```
 
   Change the `@Operation` summary of `updateSourceAccess` to "Update Source access". If the MEM-94 `publish` permission is computed only for FILE, extend it to Google Drive with the same exclusive global rule.
-- [ ] **Step 6: API.**
+- [x] **Step 6: API.**
   - `CreateGoogleDriveSourceRequest` adds `@Schema(requiredMode = NOT_REQUIRED, nullable = true, description = "PUBLIC, PRIVATE or SYNC; defaults to SYNC.") @Nullable SourceAccess access`.
   - The controller passes `body.access()`.
   - `CreateFileSourceRequest.access` gains the description "PUBLIC or PRIVATE; SYNC is rejected."
   - Update the remaining `create(` call sites in tests with a trailing `null`.
-- [ ] **Step 7: Run.** `.\gradlew.bat :core:test --tests '*GoogleDriveCredentialAuthorityTest' --tests '*GoogleDriveSelectionOperationTest' --tests '*PostgresSourceLifecycleTest' :api:test --tests '*SourceApiIntegrationTest'`. Expected: PASS.
-- [ ] **Step 8: Commit** as `feat(connector): choose Source access per type and at Drive creation (MEM-105)`.
+- [x] **Step 7: Run.** `.\gradlew.bat :core:test --tests '*GoogleDriveCredentialAuthorityTest' --tests '*GoogleDriveSelectionOperationTest' --tests '*PostgresSourceLifecycleTest' :api:test --tests '*SourceApiIntegrationTest'`. Expected: PASS.
+- [x] **Step 8: Commit** as `feat(connector): choose Source access per type and at Drive creation (MEM-105)`.
 
 ### Task 3: Auto Sync enforcement
 
@@ -233,7 +233,7 @@ public void updateAccess(TenantId tenantId, SourceId sourceId, SourceAccess acce
 - Test: `core/src/test/java/io/memoryos/connector/persistence/SourceSyncAccessTest.java`
 - Modify test: `SourceSearchMetadataMigrationTest`, where Drive PUBLIC is now readable.
 
-- [ ] **Step 1: Write the failing test.**
+- [x] **Step 1: Write the failing test.**
   - **Fixture.**
     - A tenant; members `owner` (verified email `owner@example.test`), `domainMate` (verified `mate@example.test`), `outsider` (verified `outsider@other.test`), `unverified` (email `owner@example.test` with `email_verified=false`), and `groupMember`.
     - Each member gets an `external_identity_bindings` row plus an `actor_profiles` row.
@@ -256,8 +256,8 @@ public void updateAccess(TenantId tenantId, SourceId sourceId, SourceAccess acce
     - `actorAccessTokens` returns `google_user:…` and `google_domain:…` only for verified profiles, and nothing for an inactive membership.
     - `searchableSources` includes the SYNC Source for every active member.
     - Parity: for every case, a reader is in `readableDocuments` exactly when `documentAccess.everyone()` holds or its tokens intersect `actorAccessTokens(reader)`.
-- [ ] **Step 2: Run it and confirm it fails.** `.\gradlew.bat :core:test --tests '*SourceSyncAccessTest'`. Expected: FAIL.
-- [ ] **Step 3: Implement the single rule.**
+- [x] **Step 2: Run it and confirm it fails.** `.\gradlew.bat :core:test --tests '*SourceSyncAccessTest'`. Expected: FAIL.
+- [x] **Step 3: Implement the single rule.**
 
 ```java
 private static final String SEARCHABLE_SOURCE = "c.connector_type IN ('FILE','GOOGLE_DRIVE')";
@@ -323,16 +323,16 @@ private static final String SOURCE_READ_SCOPE = READ_SCOPE.formatted("TRUE");
   - Java computes `everyone = PUBLIC row || token equals PUBLIC_GRANT`, and `tokens = group tokens of PRIVATE rows ∪ non-public SYNC tokens`.
   - `actorAccessTokens` adds `SELECT reader_token.token FROM (READER_TOKENS) reader_token WHERE EXISTS (active membership of :tenant/:actor)`.
   - Update the `DocumentAccess` Javadoc: PUBLIC, PRIVATE Group tokens, SYNC provider tokens.
-- [ ] **Step 4: Update `SourceSearchMetadataMigrationTest`.** The block starting "Drive never inherits FILE public access" now asserts that a PUBLIC Drive Source is readable by member and outsider, is present in scope, and returns its metadata. The following `UPDATE` uses `'PRIVATE'`.
-- [ ] **Step 5: Run.** `.\gradlew.bat :core:test --tests '*SourceSyncAccessTest' --tests '*SourceSearchMetadataMigrationTest' --tests '*SourceOriginalPdfQueryTest' --tests '*SearchAuthorizationCostMeasurementTest'`. Expected: PASS.
-- [ ] **Step 6: Commit** as `feat(connector): enforce Auto Sync Google Drive permissions in reads and index access (MEM-105)`.
+- [x] **Step 4: Update `SourceSearchMetadataMigrationTest`.** The block starting "Drive never inherits FILE public access" now asserts that a PUBLIC Drive Source is readable by member and outsider, is present in scope, and returns its metadata. The following `UPDATE` uses `'PRIVATE'`.
+- [x] **Step 5: Run.** `.\gradlew.bat :core:test --tests '*SourceSyncAccessTest' --tests '*SourceSearchMetadataMigrationTest' --tests '*SourceOriginalPdfQueryTest' --tests '*SearchAuthorizationCostMeasurementTest'`. Expected: PASS.
+- [x] **Step 6: Commit** as `feat(connector): enforce Auto Sync Google Drive permissions in reads and index access (MEM-105)`.
 
 ### Task 4: ACCESS refresh on ACL change
 
 **Files:** `JdbcSearchWorkRepository`, `SearchProjectionMaintenance`. Test: extend the existing ACCESS coverage in `SearchIndexWorkIntegrationTest`, or add `DocumentAccessRefreshTest` next to it if that class needs OpenSearch.
 
-- [ ] **Step 1: Write the failing test.** Publish `GoogleDriveAclChanged(tenant, syncSource, file, List.of(document), 2, SUCCEEDED, null)` to `SearchProjectionMaintenance.aclChanged` and assert that one `search_index_operations` row with action `ACCESS` and status `NOT_STARTED` exists for the document's searchable generation. Assert that the same event for a PRIVATE source enqueues nothing.
-- [ ] **Step 2: Implement.**
+- [x] **Step 1: Write the failing test.** Publish `GoogleDriveAclChanged(tenant, syncSource, file, List.of(document), 2, SUCCEEDED, null)` to `SearchProjectionMaintenance.aclChanged` and assert that one `search_index_operations` row with action `ACCESS` and status `NOT_STARTED` exists for the document's searchable generation. Assert that the same event for a PRIVATE source enqueues nothing.
+- [x] **Step 2: Implement.**
 
 ```java
 /** Queues an access refresh for the listed searchable documents of a SYNC Source, resetting a pending refresh. */
@@ -363,45 +363,45 @@ public void aclChanged(GoogleDriveAclChanged event) {
 }
 ```
 
-- [ ] **Step 3: Run** the test class and `PostgresGoogleDriveSyncTest`. Expected: PASS.
-- [ ] **Step 4: Commit** as `feat(ingestion): refresh index access when Auto Sync permissions change (MEM-105)`.
+- [x] **Step 3: Run** the test class and `PostgresGoogleDriveSyncTest`. Expected: PASS.
+- [x] **Step 4: Commit** as `feat(ingestion): refresh index access when Auto Sync permissions change (MEM-105)`.
 
 ### Task 5: Contract and web
 
 **Files:** `openapi.yml`, `web/src/lib/hey-api/*`, `create-file-source-page.tsx`, `create-google-drive-source-page.tsx`, `source-detail-page.tsx`, `sources-page.tsx`, `source-status-badge.tsx`, `web/src/i18n/app-translations.ts`, and the web tests with `RESTRICTED` fixtures.
 
-- [ ] **Step 1: Regenerate.** Run `$env:MEMORYOS_OPENAPI_WRITE='true'; .\gradlew.bat :api:test --tests '*OpenApiContractTest'`, then `pnpm generate:api` in `web`.
-- [ ] **Step 2: FILE creation.** Use state `"PUBLIC" | "PRIVATE"`, and send `scoped ? "PRIVATE" : access`. The option value becomes `PRIVATE`.
-- [ ] **Step 3: Drive creation.**
+- [x] **Step 1: Regenerate.** Run `$env:MEMORYOS_OPENAPI_WRITE='true'; .\gradlew.bat :api:test --tests '*OpenApiContractTest'`, then `pnpm generate:api` in `web`.
+- [x] **Step 2: FILE creation.** Use state `"PUBLIC" | "PRIVATE"`, and send `scoped ? "PRIVATE" : access`. The option value becomes `PRIVATE`.
+- [x] **Step 3: Drive creation.**
   - Add `const [access, setAccess] = useState<SourceAccess>("SYNC")`, where `SourceAccess = SourceSummary["access"]`, and include `access: effectiveAccess` in `proposal`. `effectiveAccess` is `access` unless a scoped manager holds `PUBLIC`, in which case it is `SYNC`.
   - Add a labelled `Select` before the Group picker with these options:
     - Auto Sync: "only people who can open the file in Google Drive";
     - Private: "selected group members";
     - Public: "everyone in this Tenant" (global managers only).
   - Replace the "Private Source … Google per-file permissions are not synchronized." paragraph with mode-specific help. For SYNC: "Readers need access to each file in Google Drive and a verified login email; groups decide who manages this Source." For PRIVATE and PUBLIC, reuse the FILE wording.
-- [ ] **Step 4: Source detail.**
+- [x] **Step 4: Source detail.**
   - `canManageAccess = can(source, "publish")` for FILE and Drive.
   - The state type is `SourceSummary["access"]`.
   - The options are `PUBLIC` and `PRIVATE`, plus `SYNC` for `GOOGLE_DRIVE`.
   - The help text describes all three modes.
-- [ ] **Step 5: Sources list and badge.**
+- [x] **Step 5: Sources list and badge.**
   - The filter offers `PUBLIC` "Workspace members", `PRIVATE` "Private" and `SYNC` "Auto Sync".
   - `SourceAccessBadge` maps PUBLIC to `Users` with "Workspace members", PRIVATE to `Lock` with "Private", and SYNC to `RefreshCw` with "Auto Sync" and the title "Readers need access to the file in Google Drive."
-- [ ] **Step 6: Translations and tests.**
+- [x] **Step 6: Translations and tests.**
   - Add the Vietnamese entries and remove keys that are no longer used (`Restricted`, `Restricted source access.`, and the old Drive paragraph).
   - Change `"RESTRICTED"` fixtures to `"PRIVATE"` in `google-drive-panel.test.tsx` and `source-groups-section.test.tsx`.
   - Update e2e selectors that name `Restricted`.
-- [ ] **Step 7: Run** `pnpm check` in `web`. Expected: PASS.
-- [ ] **Step 8: Commit** as `feat(web): choose Public, Private or Auto Sync Source access (MEM-105)`, with the contract regeneration in its own commit.
+- [x] **Step 7: Run** `pnpm check` in `web`. Expected: PASS.
+- [x] **Step 8: Commit** as `feat(web): choose Public, Private or Auto Sync Source access (MEM-105)`, with the contract regeneration in its own commit.
 
 ### Task 6: ADR and documentation
 
-- [ ] Write ADR 0011, "Verified login email matches provider Source permissions":
+- [x] Write ADR 0011, "Verified login email matches provider Source permissions":
   - **Context:** Auto Sync needs reader identity; `identity.md` excludes email from linking.
   - **Decision:** a verified login email, lower-cased, is compared with provider grants and never binds, admits or JIT-provisions.
   - **Consequences:** unverified readers see no Auto Sync documents; there are no email aliases.
-- [ ] `docs/specs/identity.md`: amend the email sentence to link ADR 0011.
-- [ ] `docs/specs/connector.md`:
+- [x] `docs/specs/identity.md`: amend the email sentence to link ADR 0011.
+- [x] `docs/specs/connector.md`:
   - line 7: FILE Public/Private;
   - line 10: Drive with three modes, default Auto Sync;
   - line 15: the browser access line;
@@ -409,10 +409,10 @@ public void aclChanged(GoogleDriveAclChanged event) {
   - line 193: the boundary paragraph becomes enforcement by Auto Sync;
   - the state table's "Enforcement reading" column follows the approved freshness rule;
   - add a "Source access modes" section with the interpretation table and the token rule.
-- [ ] `docs/tests/connector.md` and `docs/tests/identity.md`: add rows for the new tests.
-- [ ] `docs/specs/document.md`, `ARCHITECTURE.md` (Source access and the Search access paragraph), `README.md` if it names RESTRICTED, and `docs/roadmap.md`.
-- [ ] `docs/increments/completed/mem-93-chat-search-authorization/plan.md`: link the deferred Google-token line to MEM-105.
-- [ ] Commit as `docs(connector): record Source access modes and ADR 0011 (MEM-105)`.
+- [x] `docs/tests/connector.md` and `docs/tests/identity.md`: add rows for the new tests.
+- [x] `docs/specs/document.md`, `ARCHITECTURE.md` (Source access and the Search access paragraph), `README.md` if it names RESTRICTED, and `docs/roadmap.md`.
+- [x] `docs/increments/completed/mem-93-chat-search-authorization/plan.md`: link the deferred Google-token line to MEM-105.
+- [x] Commit as `docs(connector): record Source access modes and ADR 0011 (MEM-105)`.
 
 ### Task 7: Verification
 
