@@ -174,7 +174,7 @@ The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse`
 
 | Contract | Verification |
 | --- | --- |
-| Native named tool binding, argument bounds, invalid selection fallback, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
+| Native named tool binding, argument bounds, empty/invalid selection fallback, NOT_RELEVANT keeping the main section, per-cycle source scope latching, reference time bounds, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
 | Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; context classification sees real neighbors and can reject a misleading subject | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `classificationReadsNeighborsBeforeRejectingTheWrongSubject` |
 | FULL_DOCUMENT reads at most five neighbors per side; Stop during concurrent rewriting cancels sibling work and prevents retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewritePreventsKeywordInferenceAndRetrieval` |
 | Same native process records typed selection and streaming usage once; denied content never reaches either model prompt | `ChatSessionApiIntegrationTest.nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce` |
