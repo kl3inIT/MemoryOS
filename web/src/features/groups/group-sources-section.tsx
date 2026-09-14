@@ -17,6 +17,7 @@ import { listSourceGroups, updateSourceGroups } from "@/lib/hey-api/sdk.gen";
 import type { GroupSummary, SourceSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
 import { findSourceProvider } from "@/features/sources/source-provider-catalog";
+import { can } from "@/lib/resource-permissions";
 
 type GroupSourcesSectionProps = {
   group: GroupSummary;
@@ -29,7 +30,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
   const canOpenSources = useCapabilityAuthority("SOURCES_READ") !== "none";
   const globalManage = useCapabilityAuthority("SOURCES_MANAGE") === "global";
   const ordinaryGroup = group.systemKey === null;
-  const canManage = ordinaryGroup && group.actions.includes("manage_sources");
+  const canManage = ordinaryGroup && can(group, "manageSources");
   const associated = useQuery({
     ...listGroupSourcesOptions({ path: { groupId: group.id } }),
     enabled: ordinaryGroup && (canOpenSources || canManage),
@@ -92,7 +93,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
         changes.some(
           (change) =>
             !allSources.data?.some(
-              (source) => source.id === change.sourceId && source.actions.includes("manage_groups"),
+              (source) => source.id === change.sourceId && can(source, "edit"),
             ),
         )
       )
@@ -151,7 +152,7 @@ export function GroupSourcesSection({ group, onAuthorityChanged }: GroupSourcesS
   const normalizedSearch = search.trim().toLocaleLowerCase();
   const candidates = (allSources.data ?? []).filter(
     (source) =>
-      source.actions.includes("manage_groups") &&
+      can(source, "edit") &&
       (!normalizedSearch || source.name.toLocaleLowerCase().includes(normalizedSearch)),
   );
   const unselectedCandidates = candidates.filter((source) => !selectedIds.has(source.id));

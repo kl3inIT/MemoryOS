@@ -10,7 +10,7 @@ import {
 export const personaSchema = z.object({
   id: z.string().uuid(),
   builtin: z.boolean(),
-  editable: z.boolean(),
+  permissions: z.object({ edit: z.boolean(), delete: z.boolean() }),
   revision: z.number().int(),
   name: z.string(),
   description: z.string(),

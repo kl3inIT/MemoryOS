@@ -146,7 +146,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Transactional(readOnly = true)
     public List<SourceSummary> listSources(ActorId actorId) {
         ActorId requiredActorId = requireActorId(actorId);
-        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
         return queries.list(
                 permissions.tenantId(),
                 requiredActorId,
@@ -160,7 +160,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Transactional(readOnly = true)
     public SourceSummary getSource(ActorId actorId, SourceId sourceId) {
         ActorId requiredActorId = requireActorId(actorId);
-        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
         return queries.summary(
                 permissions.tenantId(),
                 requiredActorId,
@@ -175,7 +175,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Transactional(readOnly = true)
     public List<GroupIdentity> listSourceGroups(ActorId actorId, SourceId sourceId) {
         ActorId requiredActorId = requireActorId(actorId);
-        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         queries.summary(
                 permissions.tenantId(),
@@ -240,7 +240,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     public List<SourceSummary> listGroupSources(ActorId actorId, GroupId groupId) {
         ActorId requiredActorId = requireActorId(actorId);
         GroupId requiredGroupId = Objects.requireNonNull(groupId, "groupId must not be null");
-        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
         groupScopes.validateGroupIds(permissions.tenantId(), List.of(requiredGroupId));
         if (!permissions.globalRead()
                 && !groupScopes.isManagedBy(permissions.tenantId(), requiredActorId, requiredGroupId)) {
@@ -260,7 +260,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Transactional(readOnly = true)
     public SourceItemPage listItems(ActorId actorId, SourceId sourceId, @Nullable String cursor, int size) {
         ActorId requiredActorId = requireActorId(actorId);
-        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         queries.summary(permissions.tenantId(), requiredActorId, requiredSourceId,
                 permissions.globalRead(), permissions.globalManage(), permissions.globalDelete());
@@ -275,7 +275,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     public io.memoryos.connector.SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @Nullable String cursor, int limit) {
         ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
-        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
         queries.summary(
                 permissions.tenantId(),
                 requiredActorId,
@@ -529,7 +529,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     @Transactional(readOnly = true)
     public SourceOperationView getOperation(ActorId actorId, SourceOperationId operationId) {
         ActorId requiredActorId = requireActorId(actorId);
-        SourcePermissions permissions = readPermissions(requiredActorId);
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
         SourceOperationId requiredOperationId =
                 Objects.requireNonNull(operationId, "operationId must not be null");
         return operationQueries.findAuthorized(
@@ -563,12 +563,12 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return access;
     }
 
-    private SourcePermissions readPermissions(ActorId actorId) {
+    private SourceReadAuthority readPermissions(ActorId actorId) {
         ActorId requiredActorId = requireActorId(actorId);
         
         IamAccess access = authorization.require(requiredActorId, IamCapability.SOURCES_READ, true);
         Set<IamCapability> globalCapabilities = authorization.effectiveCapabilities(requiredActorId);
-        return new SourcePermissions(
+        return new SourceReadAuthority(
                 access.tenantId(),
                 globalCapabilities.contains(IamCapability.SOURCES_READ),
                 globalCapabilities.contains(IamCapability.SOURCES_MANAGE),
@@ -646,7 +646,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return normalized;
     }
 
-    private record SourcePermissions(
+    private record SourceReadAuthority(
             TenantId tenantId,
             boolean globalRead,
             boolean globalManage,

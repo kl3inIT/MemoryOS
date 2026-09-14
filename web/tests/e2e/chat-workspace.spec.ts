@@ -79,7 +79,7 @@ test("does not mark an assistant unavailable while its settings are loading", as
               id: session.personaId,
               name: "Available assistant",
               builtin: true,
-              editable: false,
+              permissions: { edit: false, delete: false },
               revision: 0,
               description: "",
               instructions: "",
@@ -280,7 +280,7 @@ test("creates and revises private assistants with source, starter and limit sett
         ...request.postDataJSON(),
         id,
         builtin: false,
-        editable: true,
+        permissions: { edit: true, delete: true },
         revision: saved ? 1 : 0,
       };
       return route.fulfill({ status: request.method() === "POST" ? 201 : 200, json: saved });

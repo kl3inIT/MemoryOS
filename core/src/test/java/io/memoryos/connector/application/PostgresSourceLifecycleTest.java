@@ -16,7 +16,7 @@ import org.junit.jupiter.api.AfterEach;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.SourceAccess;
-import io.memoryos.connector.SourceAction;
+import io.memoryos.connector.SourcePermissions;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemView;
@@ -332,7 +332,7 @@ class PostgresSourceLifecycleTest {
                 """).param("tenant", tenantId).param("group", b.value()).param("actor", manager.value()).update();
         var memberOnly = service.createFileSource(owner, "Member only", List.of(b), SourceAccess.RESTRICTED);
         for (var source : List.of(publicSource, shared, memberOnly)) {
-            assertThat(service.getSource(manager, source.id()).actions()).isEmpty();
+            assertEquals(SourcePermissions.NONE, service.getSource(manager, source.id()).permissions());
             assertThrows(SourceException.class, () -> service.renameSource(manager, source.id(), "Denied"));
             assertThrows(SourceException.class, () -> upload(manager, source.id(), "denied.txt", new byte[] {1}));
             assertThrows(SourceException.class, () -> service.replaceSourceGroups(manager, source.id(), List.of(a)));
@@ -351,9 +351,9 @@ class PostgresSourceLifecycleTest {
         service.updateSourceAccess(owner, publicSource.id(), SourceAccess.RESTRICTED);
         assertThat(jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single()).isGreaterThan(before);
-        assertThat(service.getSource(manager, publicSource.id()).actions()).contains(SourceAction.RENAME);
+        assertTrue(service.getSource(manager, publicSource.id()).permissions().edit());
         service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PUBLIC);
-        assertThat(service.getSource(manager, publicSource.id()).actions()).isEmpty();
+        assertEquals(SourcePermissions.NONE, service.getSource(manager, publicSource.id()).permissions());
     }
 
     @Test
@@ -384,7 +384,7 @@ class PostgresSourceLifecycleTest {
         var foreign = service.createFileSource(owner, "Foreign", List.of(managed), SourceAccess.RESTRICTED);
         jdbcClient.sql("DELETE FROM source_group_grants WHERE tenant_id=:tenant")
                 .param("tenant", tenantId).update();
-        assertThat(service.getSource(manager, own.id()).actions()).contains(SourceAction.DELETE).doesNotContain(SourceAction.REMOVE_ITEMS);
+        assertEquals(new SourcePermissions(true, true, false, false, false), service.getSource(manager, own.id()).permissions());
         assertThrows(SourceException.class, () -> service.getSource(manager, foreign.id()));
         assertThrows(SourceException.class, () -> service.deleteSource(manager, foreign.id()));
         service.updateSourceAccess(owner, own.id(), SourceAccess.PUBLIC);
@@ -453,9 +453,7 @@ class PostgresSourceLifecycleTest {
         var visible = service.listSources(manager);
         assertEquals(1, visible.size());
         assertEquals(managed.id(), visible.getFirst().id());
-        assertThat(visible.getFirst().actions()).contains(SourceAction.UPLOAD, SourceAction.REINDEX,
-                SourceAction.RENAME, SourceAction.MANAGE_GROUPS).doesNotContain(SourceAction.DELETE,
-                SourceAction.REMOVE_ITEMS, SourceAction.MANAGE_ACCESS);
+        assertEquals(new SourcePermissions(true, false, false, false, false), visible.getFirst().permissions());
         assertThrows(SourceException.class, () -> service.getSource(manager, hidden.id()));
         assertEquals(
                 managedUpload.operation(),
@@ -517,8 +515,7 @@ class PostgresSourceLifecycleTest {
         SourceId sourceId = service.createFileSource(owner, "Unassociated source", List.of(), null).id();
         var uploaded = upload(member, sourceId, "remove.txt", "remove me".getBytes(StandardCharsets.UTF_8));
         var source = service.getSource(member, sourceId);
-        assertTrue(source.actions().contains(SourceAction.REMOVE_ITEMS));
-        assertTrue(source.actions().contains(SourceAction.DELETE));
+        assertEquals(new SourcePermissions(true, true, true, true, true), source.permissions());
 
         var removal = service.removeItem(member, sourceId, uploaded.item().id());
         assertEquals(SourceOperationType.REMOVE_ITEM, removal.type());

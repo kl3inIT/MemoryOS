@@ -7080,6 +7080,13 @@ components:
           items:
             type: string
             format: uuid
+    PersonaPermissions:
+      type: object
+      properties:
+        edit:
+          type: boolean
+        delete:
+          type: boolean
     PersonaView:
       type: object
       properties:
@@ -7088,8 +7095,8 @@ components:
           format: uuid
         builtin:
           type: boolean
-        editable:
-          type: boolean
+        permissions:
+          $ref: "#/components/schemas/PersonaPermissions"
         revision:
           type: integer
           format: int64
@@ -7399,6 +7406,26 @@ components:
           minLength: 0
       required:
       - name
+    SourcePermissions:
+      type: object
+      additionalProperties: false
+      properties:
+        edit:
+          type: boolean
+        delete:
+          type: boolean
+        publish:
+          type: boolean
+        manageConfiguration:
+          type: boolean
+        removeItems:
+          type: boolean
+      required:
+      - delete
+      - edit
+      - manageConfiguration
+      - publish
+      - removeItems
     SourceSummary:
       type: object
       additionalProperties: false
@@ -7428,32 +7455,17 @@ components:
           type:
           - string
           - "null"
-        actions:
-          type: array
-          items:
-            type: string
-            enum:
-            - upload
-            - reindex
-            - remove_items
-            - delete
-            - manage_groups
-            - rename
-            - manage_access
-            - manage_configuration
-            - synchronize
-            - manage_schedule
-            - pause_sync
-            - resume_sync
+        permissions:
+          $ref: "#/components/schemas/SourcePermissions"
       required:
       - access
-      - actions
       - documentCount
       - errorCode
       - id
       - lastSucceededAt
       - name
       - pendingWork
+      - permissions
       - status
       - type
     UpdateSourceGroupsRequest:
@@ -7764,6 +7776,26 @@ components:
           minLength: 0
       required:
       - name
+    GroupPermissions:
+      type: object
+      additionalProperties: false
+      properties:
+        manage:
+          type: boolean
+        manageMembers:
+          type: boolean
+        delete:
+          type: boolean
+        editPermissions:
+          type: boolean
+        manageSources:
+          type: boolean
+      required:
+      - delete
+      - editPermissions
+      - manage
+      - manageMembers
+      - manageSources
     GroupSummary:
       type: object
       additionalProperties: false
@@ -7804,17 +7836,15 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
-        actions:
-          type: array
-          items:
-            type: string
+        permissions:
+          $ref: "#/components/schemas/GroupPermissions"
       required:
-      - actions
       - capabilities
       - id
       - managerCount
       - memberCount
       - name
+      - permissions
       - systemKey
     GroupSystemKey:
       type: string

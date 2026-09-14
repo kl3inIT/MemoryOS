@@ -46,7 +46,7 @@ public class ChatPersonaService {
             this(name, description, instructions, starterPrompts, sourceIds, searchEnabled, modelConfigurationId, contextTokenLimit, outputTokenLimit, null);
         }
     }
-    public record PersonaView(UUID id, boolean builtin, boolean editable, long revision, String name, String description,
+    public record PersonaView(UUID id, boolean builtin, PersonaPermissions permissions, long revision, String name, String description,
                        String instructions, List<String> starterPrompts, List<UUID> sourceIds, boolean searchEnabled,
                        @Nullable UUID modelConfigurationId, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, List<UUID> fileIds) {}
 
@@ -150,7 +150,7 @@ public class ChatPersonaService {
             throw ChatException.invalid("Assistant limits exceed the selected model limits.");
     }
     private static PersonaView view(PersonaEntity p, boolean manager) {
-        return new PersonaView(p.id(), p.builtin(), !p.builtin() || manager, p.revision(), p.name(), p.description(), p.instructions(),
+        return new PersonaView(p.id(), p.builtin(), PersonaPermissions.of(p.builtin(), manager), p.revision(), p.name(), p.description(), p.instructions(),
                 p.starterPrompts(), p.sourceIds(), p.searchEnabled(), p.modelConfigurationId(), p.contextTokenLimit(), p.outputTokenLimit(), p.fileIds());
     }
     static void text(@Nullable String text, int max, boolean required) {

@@ -16,15 +16,13 @@ async function sourcePage(
     documentCount: 2,
     lastSucceededAt: "2026-09-01T10:00:00Z",
     errorCode: null,
-    actions: [
-      ...(provider === "FILE"
-        ? ["upload"]
-        : ["manage_configuration", "synchronize", "manage_schedule", "pause_sync"]),
-      "reindex",
-      "remove_items",
-      "delete",
-      "manage_groups",
-    ],
+    permissions: {
+      edit: true,
+      delete: true,
+      publish: false,
+      manageConfiguration: provider !== "FILE",
+      removeItems: true,
+    },
   };
   const otherSource = {
     ...source,

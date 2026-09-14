@@ -12,6 +12,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { renameGroupMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
+import { can } from "@/lib/resource-permissions";
 
 type GroupCardProps = {
   group: GroupSummary;
@@ -26,7 +27,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
   const [error, setError] = useState<AppCopy | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
-  const canRename = group.systemKey === null && group.actions.includes("rename");
+  const canRename = group.systemKey === null && can(group, "manage");
   const [previousRenameState, setPreviousRenameState] = useState(() => ({
     groupId: group.id,
     name: group.name,
