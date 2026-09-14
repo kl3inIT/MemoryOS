@@ -30,23 +30,14 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [Tasco scanned-PDF OCR](docs/increments/active/tasco-scanned-pdf-ocr/design.md) owns OCR, extraction and indexing of the supplied financial reports, verified through Orca Sources; Search and Chat changes are excluded.
-- [Docling timeout configuration](docs/increments/active/docling-timeout-configuration/design.md) owns the bounded external parser timeout configuration.
-- [Search generation handover](docs/increments/active/search-generation-handover/design.md) keeps a Document searchable on its previous ready generation while a replacement is indexed.
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
-- [MEM-74/MEM-22 — Localization and problem presentation](docs/increments/active/mem-74-22-i18n-errors/design.md) is local in-flight work; Linear remains Todo/Backlog until separately updated.
 - [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
-- [MEM-84 — Architecture documentation sync](docs/increments/active/architecture-documentation-sync/design.md) owns the current Linear and repository documentation audit.
 - [MEM-90 — Google Drive service-account credentials](docs/increments/active/google-drive-service-account/design.md) owns the additive service-account credential type with domain-wide delegation for whole-domain enterprise indexing.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
-- [Chat edit and navigation polish](docs/increments/active/chat-edit-navigation-polish/design.md) owns the compact editor, composer `+` menu, Sources toolbar and assistant-ui element follow-ups (regenerate with a model, timing, draft restore, quote, link chips, file status icons).
-- [Chat history search](docs/increments/active/chat-history-search/design.md) owns owner-authorized full-history conversation search.
-- [Chat model selector polish](docs/increments/active/chat-model-selector-polish/design.md) owns inherited-default marking and model identity display; plan items remain open.
-- [MEM-93 — Chat and Search authorization](docs/increments/active/mem-93-chat-search-authorization/design.md) owns Chat capability enforcement, the per-document index access list and its measurement gate.
-- [Chat ThreadList runtime](docs/increments/active/chat-thread-list-runtime/design.md) owns the assistant-ui remote thread list migration of the Chat sidebar and conversation lifecycle.
-- [MEM-95 — Keycloak identity provider administration](docs/increments/active/mem-95-idp-admin/design.md) owns the SYSTEM_ADMIN IdP management API and the runtime-managed JIT allowlist; the admin UI is a follow-up.
+- [CI speedup](docs/increments/active/ci-speedup/design.md) owns PR change-based job selection, parallel core tests with template-cloned PostgreSQL fixtures and BuildKit image caches.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 

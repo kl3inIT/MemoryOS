@@ -13,6 +13,8 @@ dist-ssr
 *.local
 coverage
 playwright-report
+blob-report
+all-blob-reports
 test-results
 reports
 

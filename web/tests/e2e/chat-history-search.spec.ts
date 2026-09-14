@@ -42,27 +42,37 @@ for (const width of [1440, 390]) {
       const offset = Number(url.searchParams.get("offset"));
       if (query !== "zebratail") return route.fulfill({ json: { items: [], hasMore: false } });
       offsets.push(offset);
+      // The server marks matched tokens with U+E000/U+E001.
+      const snippet = `Báo cáo ${String.fromCharCode(0xe000)}zebratail${String.fromCharCode(0xe001)} đã lưu`;
       await route.fulfill({
         json:
           offset === 0
             ? {
-                items: Array.from({ length: 20 }, (_, i) =>
-                  i === 0
-                    ? oldSession
-                    : { ...oldSession, id: crypto.randomUUID(), title: `Kết quả máy chủ ${i}` },
-                ),
+                items: Array.from({ length: 20 }, (_, i) => ({
+                  session:
+                    i === 0
+                      ? oldSession
+                      : { ...oldSession, id: crypto.randomUUID(), title: `Kết quả máy chủ ${i}` },
+                  snippet: i === 0 ? snippet : null,
+                })),
                 hasMore: true,
               }
-            : { items: [lastSession], hasMore: false },
+            : { items: [{ session: lastSession, snippet: null }], hasMore: false },
       });
     });
     await page.goto("/");
     if (width === 390) await page.getByRole("button", { name: "Mở điều hướng" }).click();
     await expect(page.getByRole("link", { name: oldSession.title, exact: true })).toHaveCount(0);
+    // The trigger is the icon beside the sidebar collapse (or drawer close) button.
     await page.getByRole("button", { name: "Tìm hội thoại", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Tìm hội thoại", exact: true });
+    await expect(dialog.getByRole("option", { name: "Hội thoại mới" })).toBeVisible();
     await dialog.getByRole("combobox").fill("zebratail");
     await expect(dialog.getByRole("option", { name: oldSession.title })).toBeVisible();
+    await expect(dialog.getByRole("option", { name: "Hội thoại mới" })).toHaveCount(0);
+    await expect(dialog.getByRole("option", { name: oldSession.title }).locator("mark")).toHaveText(
+      "zebratail",
+    );
     // Server found body text; cmdk must not discard it because the title lacks the query.
     await expect(dialog.getByRole("option")).toHaveCount(20);
     await page.screenshot({ path: `../output/playwright/history-search-${width}.png` });
@@ -92,14 +102,18 @@ test("search debounce hides old matches, handles errors and restores focus", asy
     const query = new URL(route.request().url()).searchParams.get("query");
     if (query === "old") {
       await oldGate;
-      await route.fulfill({ json: { items: [oldSession], hasMore: false } }).catch(() => {});
+      await route
+        .fulfill({ json: { items: [{ session: oldSession, snippet: null }], hasMore: false } })
+        .catch(() => {});
       return;
     }
     if (query === "failure" && failure) {
       failure = false;
       return route.fulfill({ status: 503, json: {} });
     }
-    await route.fulfill({ json: { items: query ? [newSession] : [], hasMore: false } });
+    await route.fulfill({
+      json: { items: query ? [{ session: newSession, snippet: null }] : [], hasMore: false },
+    });
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Thu gọn thanh bên" }).click();

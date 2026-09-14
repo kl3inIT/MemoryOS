@@ -1,15 +1,28 @@
 """Guard deployment policy independently of staging accounts and infrastructure."""
 
 from pathlib import Path
+import re
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = (ROOT / ".github/workflows/deploy-staging.yml").read_text(encoding="utf-8")
+CI_WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "infrastructure/deployment/deploy-staging.sh").read_text(encoding="utf-8")
 
 
 class StagingDeploymentContractTest(unittest.TestCase):
+    def test_commits_ci_ignores_do_not_make_an_automatic_release_stale(self):
+        resolve = WORKFLOW.split("- name: Resolve a successful main release", 1)[1].split("- name: Download preserved release", 1)[0]
+        ignored = re.compile(re.search(r"grep -Ev '([^']+)'", resolve).group(1))
+        for path in ("docs/runbooks/ci-cd.md", "AGENTS.md", "tools/visual-paradigm-mcp/mcp-server/build.gradle.kts"):
+            self.assertTrue(ignored.search(path), path)
+        for path in ("landing/src/content/page.md", "core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
+            self.assertFalse(ignored.search(path), path)
+        # The filter mirrors CI's paths-ignore; a new ignored path must be added to both.
+        for entry in ("'docs/**'", "'*.md'", "'tools/visual-paradigm-mcp/**'"):
+            self.assertEqual(CI_WORKFLOW.count(entry), 2, entry)
+
     def test_delivery_does_not_require_business_test_tooling_or_accounts(self):
         for removed in ("STAGING_SMOKE", "MEMORYOS_SMOKE", "test:staging", "playwright", "setup-node", "corepack", "pnpm"):
             self.assertNotIn(removed, WORKFLOW)

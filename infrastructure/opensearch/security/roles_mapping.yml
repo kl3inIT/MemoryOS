@@ -7,9 +7,43 @@ memoryos_search:
 kibana_server:
   users:
     - memoryos-dashboards
-kibana_read_only:
-  backend_roles:
-    - memoryos-inspector
 memoryos_search_inspector:
   backend_roles:
     - memoryos-inspector
+# Built-in read-only roles give the owner a full read view of every Dashboards plugin without write access.
+readall_and_monitor:
+  backend_roles: [memoryos-inspector]
+alerting_read_access:
+  backend_roles: [memoryos-inspector]
+anomaly_read_access:
+  backend_roles: [memoryos-inspector]
+asynchronous_search_read_access:
+  backend_roles: [memoryos-inspector]
+flow_framework_read_access:
+  backend_roles: [memoryos-inspector]
+forecast_read_access:
+  backend_roles: [memoryos-inspector]
+ip2geo_datasource_read_access:
+  backend_roles: [memoryos-inspector]
+knn_read_access:
+  backend_roles: [memoryos-inspector]
+ltr_read_access:
+  backend_roles: [memoryos-inspector]
+ml_read_access:
+  backend_roles: [memoryos-inspector]
+notebooks_read_access:
+  backend_roles: [memoryos-inspector]
+notifications_read_access:
+  backend_roles: [memoryos-inspector]
+observability_read_access:
+  backend_roles: [memoryos-inspector]
+reports_instances_read_access:
+  backend_roles: [memoryos-inspector]
+reports_read_access:
+  backend_roles: [memoryos-inspector]
+search_relevance_read_access:
+  backend_roles: [memoryos-inspector]
+security_analytics_read_access:
+  backend_roles: [memoryos-inspector]
+snapshot_management_read_access:
+  backend_roles: [memoryos-inspector]

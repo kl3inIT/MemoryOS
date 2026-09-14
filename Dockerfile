@@ -10,16 +10,24 @@ RUN tar -xzf /tmp/infisical-cli.tar.gz -C /usr/local/bin infisical \
     && /usr/local/bin/infisical --version
 WORKDIR /workspace
 
+# Dependencies live in an image layer (not a cache mount) so CI's BuildKit cache can restore them.
+ENV GRADLE_USER_HOME=/workspace/.gradle-home
 COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
+COPY core/build.gradle.kts ./core/
+COPY connector/build.gradle.kts ./connector/
+COPY api/build.gradle.kts ./api/
+COPY worker/build.gradle.kts ./worker/
+RUN sed -i 's/\r$//' gradlew \
+    && chmod 0755 gradlew \
+    && ./gradlew --no-daemon --no-configuration-cache --stacktrace resolveDependencies
+
 COPY core ./core
 COPY connector ./connector
 COPY api ./api
 COPY worker ./worker
 
-RUN --mount=type=cache,target=/root/.gradle sed -i 's/\r$//' gradlew \
-    && chmod 0755 gradlew \
-    && ./gradlew --no-daemon --stacktrace :api:bootJar :worker:bootJar \
+RUN ./gradlew --no-daemon --stacktrace :api:bootJar :worker:bootJar \
     && api_jar="$(find api/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && worker_jar="$(find worker/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && test -n "${api_jar}" \

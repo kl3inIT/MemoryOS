@@ -1,8 +1,12 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.search.DocumentOriginalResponses;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
 import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.DocumentSearchService;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -32,8 +36,22 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class ChatDocumentController {
     private final DocumentSearchService documents;
+    private final DocumentOriginalService originals;
 
-    ChatDocumentController(DocumentSearchService documents) { this.documents = documents; }
+    ChatDocumentController(DocumentSearchService documents, DocumentOriginalService originals) {
+        this.documents = documents;
+        this.originals = originals;
+    }
+
+    @GetMapping(value = "/{documentId}/original", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @Operation(operationId = "readChatDocumentOriginal", summary = "Read the original PDF of a cited document to show the cited page")
+    @ApiResponse(responseCode = "200", description = "Original PDF bytes", content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string", format = "binary")))
+    void original(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID documentId, @RequestParam UUID generation, HttpServletResponse response) throws IOException {
+        try (var pdf = originals.citationPdf(identity.actorId(), documentId, generation)) {
+            DocumentOriginalResponses.write(pdf, response);
+        }
+    }
 
     @GetMapping("/{documentId}")
     @Operation(operationId = "readChatDocumentPassages", summary = "Read current document passages around a Chat citation")

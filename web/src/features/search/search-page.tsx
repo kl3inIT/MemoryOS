@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Clock3,
   FileStack,
+  History,
   LoaderCircle,
   Mic,
   Search,
@@ -23,11 +24,17 @@ import {
 } from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
+import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
+import { DocumentSourceIcon } from "./document-source-icon";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
-import { useGlobalCapability } from "@/features/identity/application-session-context";
+import {
+  useApplicationSession,
+  useGlobalCapability,
+} from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
@@ -36,16 +43,17 @@ import type { Result as SearchResult, SearchRequest, Section } from "@/lib/hey-a
 
 const FILE_TYPE_OPTIONS: readonly SearchFilterOption[] = [
   { value: "all", label: "All file types" },
+  // Same friendly names as the file-type facets and result metadata.
   { value: "application/pdf", label: "PDF" },
   {
     value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    label: "Word",
+    label: "Word document",
   },
   {
     value: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    label: "PowerPoint",
+    label: "PowerPoint presentation",
   },
-  { value: "text/plain", label: "Text" },
+  { value: "text/plain", label: "Text document" },
   { value: "text/markdown", label: "Markdown" },
 ];
 
@@ -57,6 +65,10 @@ const TIME_RANGE_OPTIONS: readonly SearchFilterOption[] = [
 ];
 
 type SearchTimeRange = "all" | "7d" | "30d" | "365d";
+
+const PAGE_SIZE = 10;
+/** `SearchRequest.page` accepts 0–49. */
+const MAX_PAGES = 50;
 
 type SpeechRecognitionAlternativeLike = {
   transcript: string;
@@ -115,6 +127,8 @@ export function SearchPage() {
 
 function AuthorizedSearchPage() {
   const ui = useAppTranslation();
+  const { actorId } = useApplicationSession();
+  const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(actorId));
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
@@ -239,19 +253,21 @@ function AuthorizedSearchPage() {
     }
   }
 
-  function submit() {
-    if (!query.trim()) return;
+  function submit(text = query) {
+    if (!text.trim()) return;
     if (!request) {
       previousSearchTopRef.current = searchFormRef.current?.getBoundingClientRect().top ?? null;
     }
+    setQuery(text);
     setSelected(null);
     setSubmitFeedback(true);
+    setRecentSearches(rememberRecentSearch(actorId, text));
     const nextRequest: SearchRequest = {
-      query: query.trim(),
+      query: text.trim(),
       mediaTypes: mediaType ? [mediaType] : [],
       updatedSince: updatedSinceForTimeRange(timeRange),
       page: 0,
-      pageSize: 10,
+      pageSize: PAGE_SIZE,
     };
     if (JSON.stringify(nextRequest) === JSON.stringify(request)) void result.refetch();
     else setRequest(nextRequest);
@@ -303,6 +319,11 @@ function AuthorizedSearchPage() {
       documentId: item.documentId,
       generation: item.generation,
       title: item.title || "Untitled document",
+      mediaType: item.mediaType,
+      sourceTypes: item.sourceTypes,
+      providerUrl: item.providerUrl,
+      provenance:
+        (section ?? item.sections[0])?.provenance.map((entry) => entry.provenanceJson) ?? [],
       matches: item.sections.map((candidate) => ({
         matchingOrdinal: candidate.matchingOrdinal,
         from: Math.max(0, candidate.matchingOrdinal - 1),
@@ -314,19 +335,22 @@ function AuthorizedSearchPage() {
   const isSearchUpdating = result.isFetching || submitFeedback;
   const statusMessage = searchStatus(request, result, isSearchUpdating);
   const hasFilters = Boolean(mediaType || timeRange !== "all");
-  const resultFacetCounts = countResultFileTypes(result.data?.results ?? []);
-  const typeFacets = FILE_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => ({
-    mediaType: option.value,
-    label: ui(friendlyMediaType(option.value)),
-    count: resultFacetCounts[option.value] ?? 0,
-  }));
+  const fileTypeOptions = withResultFileTypes(result.data?.results ?? [], mediaType);
   const showLoadingScreen = isSearchUpdating;
+  const currentPage = request?.page ?? 0;
+  const totalResults = result.data?.totalResults ?? 0;
+  // The total counts readable Documents among bounded candidates; at the bound there may be more.
+  const totalLabel =
+    result.data && totalResults >= result.data.candidateLimit
+      ? `${totalResults}+`
+      : String(totalResults);
+  const totalPages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(totalResults / PAGE_SIZE)));
 
   return (
-    <AppShell pageTitle={ui("Search")} chatMode="Search">
+    <AppShell pageTitle={ui("Search documents")}>
       <section
         className={cn(
-          "mx-auto w-full max-w-[80rem] px-5 py-5 sm:px-8 sm:py-7 lg:px-10",
+          "mx-auto w-full max-w-4xl px-5 py-5 sm:px-8 sm:py-7",
           !request && "flex min-h-full flex-col",
         )}
       >
@@ -346,88 +370,84 @@ function AuthorizedSearchPage() {
               submit();
             }}
             className={cn(
-              "rounded-2xl border border-border-default p-2 shadow-xs",
-              request
-                ? "bg-surface-raised"
-                : "bg-surface-overlay transition-[border-color,box-shadow] duration-200 focus-within:border-border-strong focus-within:shadow-md motion-reduce:transition-none",
+              "rounded-2xl border border-border-default bg-surface-raised transition-[border-color,box-shadow] duration-200 focus-within:border-border-strong motion-reduce:transition-none",
+              request ? "shadow-xs" : "shadow-sm focus-within:shadow-md",
             )}
           >
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="flex min-w-0 flex-1 items-center rounded-xl border border-transparent bg-surface-sunken pr-1 transition-[border-color,box-shadow] duration-150 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/30 hover:border-border-subtle motion-reduce:transition-none">
-                <Input
-                  ref={searchInputRef}
-                  size="lg"
-                  aria-label={ui("Search documents")}
-                  value={query}
-                  maxLength={1000}
-                  placeholder={ui("Search connected sources")}
-                  className="min-w-0 flex-1 border-transparent bg-transparent pr-2 pl-4 hover:border-transparent focus-visible:border-transparent focus-visible:ring-0"
-                  onChange={(event) => setQuery(event.target.value)}
+            <div className="flex min-w-0 items-center gap-0.5 py-1.5 pr-1.5 pl-1">
+              <Input
+                ref={searchInputRef}
+                size="lg"
+                aria-label={ui("Search documents")}
+                value={query}
+                maxLength={1000}
+                placeholder={ui("Search connected sources")}
+                className="min-w-0 flex-1 border-transparent bg-transparent pr-2 pl-3 shadow-none hover:border-transparent focus-visible:border-transparent focus-visible:shadow-none focus-visible:ring-0"
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              {query ? (
+                <button
+                  type="button"
+                  aria-label={ui("Clear search")}
+                  className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
+                  onClick={() => {
+                    setQuery("");
+                    searchInputRef.current?.focus();
+                  }}
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </button>
+              ) : null}
+              <IconButton
+                type="button"
+                size="lg"
+                prominence="internal"
+                tone={isListening ? "danger" : "default"}
+                aria-label={isListening ? ui("Stop voice search") : ui("Search by voice")}
+                aria-pressed={isListening}
+                aria-describedby="voice-search-status"
+                disabled={!voiceSearchSupported}
+                title={
+                  voiceSearchSupported
+                    ? isListening
+                      ? ui("Stop listening")
+                      : ui("Search by voice")
+                    : ui("Voice search is not supported in this browser")
+                }
+                onClick={toggleVoiceSearch}
+              >
+                <Mic
+                  className={cn(isListening && "animate-pulse motion-reduce:animate-none")}
+                  aria-hidden="true"
                 />
-                {query ? (
-                  <button
-                    type="button"
-                    aria-label={ui("Clear search")}
-                    className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
-                    onClick={() => {
-                      setQuery("");
-                      searchInputRef.current?.focus();
-                    }}
-                  >
-                    <X className="size-3.5" aria-hidden="true" />
-                  </button>
-                ) : null}
+              </IconButton>
+              {isSearchUpdating ? (
                 <IconButton
                   type="button"
                   size="lg"
-                  prominence="internal"
-                  tone={isListening ? "danger" : "default"}
-                  aria-label={isListening ? ui("Stop voice search") : ui("Search by voice")}
-                  aria-pressed={isListening}
-                  aria-describedby="voice-search-status"
-                  disabled={!voiceSearchSupported}
-                  title={
-                    voiceSearchSupported
-                      ? isListening
-                        ? ui("Stop listening")
-                        : ui("Search by voice")
-                      : ui("Voice search is not supported in this browser")
-                  }
-                  onClick={toggleVoiceSearch}
+                  aria-label={ui("Search is loading")}
+                  title={ui("Searching documents")}
+                  disabled
                 >
-                  <Mic
-                    className={cn(isListening && "animate-pulse motion-reduce:animate-none")}
+                  <LoaderCircle
+                    className="animate-spin motion-reduce:animate-none"
                     aria-hidden="true"
                   />
                 </IconButton>
-                {isSearchUpdating ? (
-                  <IconButton
-                    type="button"
-                    size="lg"
-                    aria-label={ui("Search is loading")}
-                    title={ui("Searching documents")}
-                    disabled
-                  >
-                    <LoaderCircle
-                      className="animate-spin motion-reduce:animate-none"
-                      aria-hidden="true"
-                    />
-                  </IconButton>
-                ) : (
-                  <IconButton
-                    type="submit"
-                    size="lg"
-                    aria-label={ui("Search")}
-                    disabled={!query.trim()}
-                  >
-                    <Search aria-hidden="true" />
-                  </IconButton>
-                )}
-              </div>
+              ) : (
+                <IconButton
+                  type="submit"
+                  size="lg"
+                  aria-label={ui("Search")}
+                  disabled={!query.trim()}
+                >
+                  <Search aria-hidden="true" />
+                </IconButton>
+              )}
             </div>
 
             {request ? (
-              <div className="mt-2 flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-1 pt-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
+              <div className="flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
                 <span className="inline-flex h-8 items-center gap-2 px-2 font-secondary-action text-content-muted">
                   <SlidersHorizontal className="size-3.5" aria-hidden="true" />
                   {ui("Filters")}
@@ -442,7 +462,7 @@ function AuthorizedSearchPage() {
                 <SearchFilterMenu
                   label={ui("File type")}
                   value={mediaType ?? "all"}
-                  options={FILE_TYPE_OPTIONS}
+                  options={fileTypeOptions}
                   icon={<FileStack className="size-3.5" />}
                   onChange={selectMediaType}
                 />
@@ -463,14 +483,79 @@ function AuthorizedSearchPage() {
               id="voice-search-status"
               aria-live="polite"
               className={cn(
-                "px-2 font-secondary-body",
+                "px-4 pb-2 font-secondary-body",
                 voiceStatus === "idle" && "sr-only",
-                isListening ? "mt-2 text-content-secondary" : "mt-2 text-status-danger-content",
+                isListening ? "text-content-secondary" : "text-status-danger-content",
               )}
             >
               {ui(voiceStatusMessage(voiceStatus, voiceSearchSupported))}
             </p>
           </form>
+
+          {!request ? (
+            <>
+              {/* Preselects the filter for the first search; a query is still required. */}
+              <div role="group" aria-label={ui("File type")} className="mt-4 flex flex-wrap gap-2">
+                {FILE_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={mediaType === option.value}
+                    className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-border-subtle bg-surface-base pr-3 pl-2 font-secondary-action text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:border-content-primary aria-pressed:bg-surface-sunken aria-pressed:text-content-primary motion-reduce:transition-none"
+                    onClick={() => {
+                      setMediaType(mediaType === option.value ? null : option.value);
+                      searchInputRef.current?.focus();
+                    }}
+                  >
+                    <DocumentSourceIcon mediaType={option.value} size="xs" />
+                    {ui(option.label)}
+                  </button>
+                ))}
+              </div>
+
+              {recentSearches.length ? (
+                <section aria-labelledby="recent-searches-heading" className="mt-8">
+                  <div className="flex items-center justify-between gap-3 pl-2">
+                    <h2
+                      id="recent-searches-heading"
+                      className="font-secondary-action text-content-muted"
+                    >
+                      {ui("Recent searches")}
+                    </h2>
+                    <Button
+                      type="button"
+                      size="sm"
+                      prominence="internal"
+                      onClick={() => {
+                        clearRecentSearches(actorId);
+                        setRecentSearches([]);
+                        searchInputRef.current?.focus();
+                      }}
+                    >
+                      {ui("Clear all")}
+                    </Button>
+                  </div>
+                  <ul className="mt-1">
+                    {recentSearches.map((item) => (
+                      <li key={item}>
+                        <button
+                          type="button"
+                          className="flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-lg px-2 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
+                          onClick={() => submit(item)}
+                        >
+                          <History
+                            className="size-4 shrink-0 text-content-muted"
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 truncate">{item}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </>
+          ) : null}
         </div>
 
         <p role="status" aria-live="polite" className="sr-only">
@@ -489,7 +574,7 @@ function AuthorizedSearchPage() {
           ) : result.isError ? (
             <Empty
               role="alert"
-              className="mx-auto min-h-64 max-w-2xl animate-in border-border-default bg-surface-raised duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
+              className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
             >
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -503,7 +588,7 @@ function AuthorizedSearchPage() {
               <Button onClick={() => void result.refetch()}>{ui("Try again")}</Button>
             </Empty>
           ) : !result.data?.results.length ? (
-            <Empty className="mx-auto min-h-64 max-w-2xl animate-in border-border-default bg-surface-raised duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
+            <Empty className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <SearchX aria-hidden="true" />
@@ -522,25 +607,23 @@ function AuthorizedSearchPage() {
               ) : null}
             </Empty>
           ) : (
-            <div className="grid min-w-0 animate-in gap-8 duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none lg:grid-cols-[minmax(0,1fr)_15rem]">
+            <div className="min-w-0 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
               <section aria-labelledby="search-results-heading" className="min-w-0">
-                <header className="flex flex-wrap items-end justify-between gap-3 border-b border-border-default pb-4">
-                  <div>
-                    <p className="font-secondary-action tracking-[0.1em] text-content-muted uppercase">
-                      {ui("Search results")}
-                    </p>
-                    <h2
-                      id="search-results-heading"
-                      className="mt-1 font-heading-h3 text-content-primary"
-                    >
-                      {result.data.results.length}{" "}
-                      {result.data.results.length === 1 ? ui("result") : ui("results")}
-                    </h2>
-                    <p className="mt-1 font-secondary-body text-content-muted">
-                      {ui("Page")} {(request.page ?? 0) + 1} {ui("for “")}
-                      {request.query}”
-                    </p>
-                  </div>
+                <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border-subtle pb-3">
+                  <h2
+                    id="search-results-heading"
+                    className="font-main-ui-action text-content-primary"
+                  >
+                    {totalLabel === "1"
+                      ? ui("{{count}} result for “{{query}}”", {
+                          count: totalLabel,
+                          query: request.query,
+                        })
+                      : ui("{{count}} results for “{{query}}”", {
+                          count: totalLabel,
+                          query: request.query,
+                        })}
+                  </h2>
                   {isSearchUpdating ? (
                     <span className="inline-flex items-center gap-1.5 font-secondary-action text-content-muted">
                       <LoaderCircle
@@ -562,84 +645,28 @@ function AuthorizedSearchPage() {
                     </li>
                   ))}
                 </ol>
-                <nav
-                  aria-label={ui("Search results pages")}
-                  className="mt-5 flex items-center justify-between gap-3"
-                >
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    disabled={!request.page}
-                    onClick={() => {
-                      setSelected(null);
-                      setRequest({ ...request, page: (request.page ?? 0) - 1 });
-                    }}
-                  >
-                    {ui("Previous")}
-                  </Button>
-                  <span className="font-secondary-body text-content-muted">
-                    {ui("Page")} {(request.page ?? 0) + 1}
-                  </span>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    disabled={!result.data.hasMore}
-                    onClick={() => {
-                      setSelected(null);
-                      setRequest({ ...request, page: (request.page ?? 0) + 1 });
-                    }}
-                  >
-                    {ui("Next")}
-                  </Button>
-                </nav>
+                <TablePagination
+                  label={ui("Search results pages")}
+                  className="px-0"
+                  page={currentPage}
+                  totalPages={totalPages}
+                  summary={ui("Showing {{first}}–{{last}} of {{total}}", {
+                    first: currentPage * PAGE_SIZE + 1,
+                    last: currentPage * PAGE_SIZE + result.data.results.length,
+                    total: totalLabel,
+                  })}
+                  previousDisabled={currentPage <= 0}
+                  nextDisabled={!result.data.hasMore || currentPage + 1 >= MAX_PAGES}
+                  onPrevious={() => {
+                    setSelected(null);
+                    setRequest({ ...request, page: currentPage - 1 });
+                  }}
+                  onNext={() => {
+                    setSelected(null);
+                    setRequest({ ...request, page: currentPage + 1 });
+                  }}
+                />
               </section>
-
-              <aside aria-labelledby="file-types-heading" className="hidden lg:block">
-                <div className="sticky top-6 rounded-xl border border-border-default bg-surface-raised p-4 shadow-xs">
-                  <p className="font-secondary-action tracking-[0.1em] text-content-muted uppercase">
-                    {ui("Refine results")}
-                  </p>
-                  <h2
-                    id="file-types-heading"
-                    className="mt-1 font-main-ui-action text-content-primary"
-                  >
-                    {ui("File types on this page")}
-                  </h2>
-                  <ul className="mt-3 space-y-1">
-                    {typeFacets?.map((facet) => {
-                      const selectedFacet = mediaType === facet.mediaType;
-                      return (
-                        <li key={facet.mediaType}>
-                          <button
-                            type="button"
-                            aria-label={ui("{{v1}}: {{v2}} {{v3}} on this page", {
-                              v1: facet.label,
-                              v2: facet.count,
-                              v3: ui(facet.count === 1 ? "result" : "results"),
-                            })}
-                            aria-pressed={selectedFacet}
-                            className="flex min-h-9 w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-2.5 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:bg-surface-sunken aria-pressed:text-content-primary motion-reduce:transition-none"
-                            onClick={() => {
-                              setMediaType(facet.mediaType);
-                              setSelected(null);
-                              setRequest({
-                                ...request,
-                                mediaTypes: [facet.mediaType],
-                                page: 0,
-                              });
-                            }}
-                          >
-                            <span className="min-w-0 truncate">{facet.label}</span>
-                            <span className="font-secondary-action text-content-muted">
-                              {facet.count}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              </aside>
             </div>
           )}
         </div>
@@ -686,12 +713,16 @@ function updatedSinceForTimeRange(timeRange: SearchTimeRange): string | undefine
   return since.toISOString();
 }
 
-function countResultFileTypes(results: readonly SearchResult[]): Record<string, number> {
-  return results.reduce<Record<string, number>>((counts, item) => {
-    if (!item.mediaType) return counts;
-    counts[item.mediaType] = (counts[item.mediaType] ?? 0) + 1;
-    return counts;
-  }, {});
+/** The fixed filters plus every media type on this page (and the selected one), so every result type is selectable. */
+function withResultFileTypes(
+  results: readonly SearchResult[],
+  selected: string | null | undefined,
+): SearchFilterOption[] {
+  const known = new Set(FILE_TYPE_OPTIONS.map((option) => option.value));
+  const extra = [...new Set([...results.map((item) => item.mediaType), selected])]
+    .filter((value): value is string => !!value && !known.has(value))
+    .map((value) => ({ value, label: friendlyMediaType(value) }));
+  return [...FILE_TYPE_OPTIONS, ...extra];
 }
 
 function searchStatus(

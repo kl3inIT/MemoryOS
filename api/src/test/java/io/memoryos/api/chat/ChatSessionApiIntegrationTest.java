@@ -300,13 +300,18 @@ class ChatSessionApiIntegrationTest {
                 .param("query", "doanh thu HUT 2026").param("limit", "1").param("offset", "1"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.hasMore").value(false)).andReturn();
-        var foundIds = Set.of(Json.mapper().readTree(first.getResponse().getContentAsString()).path("items").get(0).path("id").asText(),
-                Json.mapper().readTree(second.getResponse().getContentAsString()).path("items").get(0).path("id").asText());
+        var foundIds = Set.of(Json.mapper().readTree(first.getResponse().getContentAsString()).path("items").get(0).path("session").path("id").asText(),
+                Json.mapper().readTree(second.getResponse().getContentAsString()).path("items").get(0).path("session").path("id").asText());
         assertEquals(Set.copyOf(ownedIds.subList(0, 2)), foundIds);
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(other)).param("query", "doanh thu"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "tăng trưởng"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2))
+                // Message-only match: the snippet keeps the original case and marks each matched token.
+                .andExpect(jsonPath("$.items[0].snippet").value(org.hamcrest.Matchers.containsString("\uE000tăng\uE001 \uE000trưởng\uE001")));
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "Older"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].snippet").value(org.hamcrest.Matchers.nullValue()));
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "%_*'"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "x".repeat(201)))
@@ -324,7 +329,8 @@ class ChatSessionApiIntegrationTest {
                 .param("content", largeAnswer).param("session", UUID.fromString(ownedIds.get(1))).update();
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "zebratail tận cùng"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].id").value(ownedIds.get(1)));
+                .andExpect(jsonPath("$.items[0].session.id").value(ownedIds.get(1)))
+                .andExpect(jsonPath("$.items[0].snippet").value(org.hamcrest.Matchers.nullValue()));
         assertEquals(2, jdbc.sql("SELECT count(*) FROM pg_indexes WHERE indexname IN ('ix_chat_session_search', 'ix_chat_message_search')")
                 .query(Integer.class).single());
         jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE actor_id=:actor")

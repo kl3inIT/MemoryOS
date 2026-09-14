@@ -1,8 +1,12 @@
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ArrowUpRight, FileText, Quote } from "lucide-react";
-import type { MouseEvent } from "react";
+import { CornerDownRight } from "lucide-react";
+import type { MouseEvent, ReactNode } from "react";
 import type { Result as SearchResult, Section as SearchSection } from "@/lib/hey-api/types.gen";
+import { cn } from "@/lib/utils";
+import { DocumentSourceIcon } from "./document-source-icon";
+import { documentSourceLabels } from "./document-source-presentation";
+import { ProviderLink } from "./provider-link";
 import { createSearchSnippet, friendlyMediaType } from "./search-presentation";
 
 type SearchResultCardProps = {
@@ -15,93 +19,175 @@ type SearchResultCardProps = {
   ) => void;
 };
 
+const matchButton =
+  "-mx-2 w-[calc(100%+1rem)] cursor-pointer rounded-lg px-2 text-left transition-colors duration-150 hover:bg-surface-subtle focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none";
+
+/**
+ * One document result as enterprise search lists it (Confluence, Databricks, Glean): icon, title and a
+ * single metadata line, then the best match as the clickable context and related matches as compact
+ * lines. Every match still opens its own anchor.
+ */
 export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps) {
   const ui = useAppTranslation();
 
   const title = item.title || ui("Untitled document");
   const updatedAt = readableDate(item.updatedAt);
+  const labels = documentSourceLabels(item.mediaType, item.sourceTypes);
+  const [best, ...related] = item.sections;
 
   function open(section: SearchSection | undefined, event: MouseEvent<HTMLButtonElement>) {
     onOpen(item, section, event.currentTarget);
   }
 
+  function matchName(index: number) {
+    const label =
+      index === 0 ? ui("Best match") : ui("Related match {{number}}", { number: index + 1 });
+    return ui("Open {{v1}} in {{v2}}", { v1: label.toLowerCase(), v2: title });
+  }
+
+  const meta: Array<{ key: string; node: ReactNode }> = [
+    { key: "type", node: ui(labels.type ?? friendlyMediaType(item.mediaType)) },
+    ...labels.providers.map((provider) => ({
+      key: `provider:${provider}`,
+      node:
+        item.providerUrl && provider !== "Tệp tải lên" ? (
+          <ProviderLink href={item.providerUrl} title={title}>
+            {ui(provider)}
+          </ProviderLink>
+        ) : (
+          ui(provider)
+        ),
+    })),
+    ...(item.authors.length
+      ? [
+          {
+            key: "authors",
+            node: (
+              <span className="truncate" title={item.authors.join(", ")}>
+                {item.authors.slice(0, 2).join(", ")}
+                {item.authors.length > 2 ? ui(" +{{v1}}", { v1: item.authors.length - 2 }) : ""}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...(updatedAt
+      ? [
+          {
+            key: "updated",
+            node: (
+              <time dateTime={item.updatedAt}>
+                {ui("Updated")} {updatedAt}
+              </time>
+            ),
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <article className="group relative py-5 sm:px-2">
-      <header className="flex items-start gap-3.5">
-        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-surface-raised text-content-secondary shadow-xs">
-          <FileText className="size-4" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
+    <article className="flex items-start gap-3.5 py-5">
+      <DocumentSourceIcon mediaType={item.mediaType} sourceTypes={item.sourceTypes} size="lg" />
+      <div className="min-w-0 flex-1">
+        <h3 className="font-heading-h3 text-content-primary">
           <button
             type="button"
-            className="max-w-full cursor-pointer rounded-sm text-left font-heading-h3 text-content-primary underline-offset-4 transition-colors duration-150 hover:text-content-secondary hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
-            onClick={(event) => open(item.sections[0], event)}
+            className="max-w-full cursor-pointer rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+            onClick={(event) => open(best, event)}
           >
             <span className="line-clamp-2 break-words">{title}</span>
           </button>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-secondary-body text-content-muted">
-            <span className="rounded-md border border-border-subtle bg-surface-subtle px-1.5 py-0.5 font-secondary-action text-content-secondary">
-              {ui(friendlyMediaType(item.mediaType))}
-            </span>
-            {updatedAt ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <time dateTime={item.updatedAt}>
-                  {ui("Updated")} {updatedAt}
-                </time>
-              </>
-            ) : null}
-          </p>
-        </div>
-      </header>
-
-      <ol className="mt-4 ml-12 space-y-2.5">
-        {item.sections.map((section, index) => {
-          const snippet = createSearchSnippet(section.content, title, query, 240);
-          const matchLabel =
-            index === 0 ? ui("Best match") : ui("Related match {{number}}", { number: index + 1 });
-          return (
-            <li key={`${section.startOrdinal}:${section.endOrdinal}`}>
-              <div className="rounded-xl border border-transparent px-3 py-2.5 transition-[background-color,border-color] duration-150 hover:border-border-subtle hover:bg-surface-subtle focus-within:border-border-default focus-within:bg-surface-subtle motion-reduce:transition-none">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="inline-flex items-center gap-1.5 font-secondary-action text-content-muted">
-                    <Quote className="size-3" aria-hidden="true" />
-                    {matchLabel}
-                  </p>
-                  <button
-                    type="button"
-                    className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md px-2 font-secondary-action text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-raised hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
-                    aria-label={ui("Open {{v1}} in {{v2}}", {
-                      v1: matchLabel.toLowerCase(),
-                      v2: title,
-                    })}
-                    onClick={(event) => open(section, event)}
-                  >
-                    {ui("View context")}
-                    <ArrowUpRight className="size-3" aria-hidden="true" />
-                  </button>
-                </div>
-                <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap break-words font-main-ui-body text-content-secondary">
-                  {snippet.parts.length === 0 ? ui("No preview text available.") : null}
-                  {snippet.parts.map((part, partIndex) =>
-                    part.highlighted ? (
-                      <mark
-                        key={`${partIndex}:${part.text}`}
-                        className="rounded-sm bg-status-warning-surface px-0.5 text-status-warning-content"
-                      >
-                        {part.text}
-                      </mark>
-                    ) : (
-                      <span key={`${partIndex}:${part.text}`}>{part.text}</span>
-                    ),
-                  )}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+        </h3>
+        {/* Each separator sits in its item's leading padding, so the first item of a wrapped line hides it. */}
+        <p className="mt-0.5 overflow-hidden py-0.5 font-secondary-body text-content-muted">
+          <span className="-ml-4 flex flex-wrap items-center gap-y-0.5">
+            {meta.map((entry) => (
+              <span
+                key={entry.key}
+                className="relative inline-flex min-w-0 items-center pl-4 before:absolute before:left-1.5 before:content-['·']"
+              >
+                {entry.node}
+              </span>
+            ))}
+          </span>
+        </p>
+        {best ? (
+          <button
+            type="button"
+            aria-label={matchName(0)}
+            className={cn(matchButton, "mt-1.5 block py-1.5")}
+            onClick={(event) => open(best, event)}
+          >
+            <Snippet
+              content={best.content}
+              title={title}
+              query={query}
+              className="line-clamp-3 font-main-ui-body text-content-secondary"
+            />
+          </button>
+        ) : null}
+        {related.length ? (
+          <ul className="space-y-0.5">
+            {related.map((section, index) => (
+              <li key={`${section.startOrdinal}:${section.endOrdinal}`}>
+                <button
+                  type="button"
+                  aria-label={matchName(index + 1)}
+                  className={cn(matchButton, "flex items-start gap-1.5 py-1")}
+                  onClick={(event) => open(section, event)}
+                >
+                  <CornerDownRight
+                    className="mt-1 size-3.5 shrink-0 text-content-muted"
+                    aria-hidden="true"
+                  />
+                  <Snippet
+                    content={section.content}
+                    title={title}
+                    query={query}
+                    length={160}
+                    className="line-clamp-1 font-secondary-body text-content-muted"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </article>
+  );
+}
+
+function Snippet({
+  content,
+  title,
+  query,
+  length = 240,
+  className,
+}: {
+  content: string;
+  title: string;
+  query: string;
+  length?: number;
+  className?: string;
+}) {
+  const ui = useAppTranslation();
+  const snippet = createSearchSnippet(content, title, query, length);
+  return (
+    <span className={cn("block min-w-0 whitespace-pre-wrap break-words", className)}>
+      {snippet.parts.length === 0 ? ui("No preview text available.") : null}
+      {snippet.parts.map((part, partIndex) =>
+        part.highlighted ? (
+          <mark
+            key={`${partIndex}:${part.text}`}
+            className="rounded-[3px] bg-evidence-highlight-surface font-medium text-content-primary [box-decoration-break:clone]"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={`${partIndex}:${part.text}`}>{part.text}</span>
+        ),
+      )}
+    </span>
   );
 }
 

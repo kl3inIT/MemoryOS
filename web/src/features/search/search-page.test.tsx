@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -123,8 +123,13 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
-    // Document Search is reached through the Chat/Search mode menu, not a duplicate sidebar link.
-    expect(screen.queryByRole("link", { name: "Search" })).not.toBeInTheDocument();
+    // Document Search is its own sidebar entry; the header has no Chat/Search mode menu.
+    expect(screen.getByRole("link", { name: "Search documents" })).toHaveAttribute(
+      "href",
+      "/search",
+    );
+    expect(screen.queryByRole("button", { name: /switch mode/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search conversations" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Search your workspace" })).toBeInTheDocument();
@@ -192,6 +197,7 @@ describe("SearchPage", () => {
       data: {
         page: 0,
         hasMore: false,
+        totalResults: 1,
         candidateLimit: 500,
         results: [
           {
@@ -199,6 +205,9 @@ describe("SearchPage", () => {
             generation: "6b780b3a-de22-4307-ace9-6c2f44e22fc1",
             title: "HR-2026 Quy định nghỉ phép",
             mediaType: "application/pdf",
+            sourceTypes: [],
+            authors: [],
+            providerUrl: null,
             updatedAt: "2026-09-08T00:00:00Z",
             score: 0.8,
             sections: [
@@ -220,12 +229,10 @@ describe("SearchPage", () => {
     await user.type(screen.getByRole("textbox", { name: "Search documents" }), "nghỉ phép");
     await user.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(await screen.findByRole("heading", { name: "1 result" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^1 result for “/ })).toBeInTheDocument();
     expect(
-      screen.getByRole("complementary", { name: "File types on this page" }),
-    ).toBeInTheDocument();
-    const pdfFacet = screen.getByRole("button", { name: "PDF: 1 result on this page" });
-    expect(pdfFacet).toHaveAttribute("aria-pressed", "false");
+      screen.queryByRole("complementary", { name: "File types on this page" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "File type: All file types" }));
     await user.click(screen.getByRole("menuitemradio", { name: "PDF" }));
@@ -234,17 +241,8 @@ describe("SearchPage", () => {
     expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
       body: { query: "nghỉ phép", mediaTypes: ["application/pdf"], page: 0 },
     });
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "PDF: 1 result on this page" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      ),
-    );
-    expect(
-      screen.getByRole("button", { name: "Word document: 0 results on this page" }),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Word document: 0 results on this page" }));
+    await user.click(await screen.findByRole("button", { name: "File type: PDF" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Word document" }));
     await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(3));
     expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
       body: {
@@ -282,6 +280,7 @@ describe("SearchPage", () => {
       data: {
         page: 0,
         hasMore: false,
+        totalResults: 1,
         candidateLimit: 500,
         results: [
           {
@@ -289,6 +288,9 @@ describe("SearchPage", () => {
             generation: "6b780b3a-de22-4307-ace9-6c2f44e22fc1",
             title: "Existing policy document",
             mediaType: "application/pdf",
+            sourceTypes: [],
+            authors: [],
+            providerUrl: null,
             updatedAt: "2026-09-08T00:00:00Z",
             score: 0.8,
             sections: [],
@@ -323,11 +325,82 @@ describe("SearchPage", () => {
       data: {
         page: 0,
         hasMore: false,
+        totalResults: 0,
         candidateLimit: 500,
         results: [],
       },
     });
     await waitFor(() => expect(screen.getByRole("button", { name: "Search" })).toBeEnabled());
+  });
+
+  it("preselects a landing file type and reruns this actor's recent search with the real total", async () => {
+    const user = userEvent.setup();
+    const key = `memoryos:search:recent:${OWNER_SESSION.actorId}`;
+    window.localStorage.setItem(key, JSON.stringify(["hợp đồng", "nghỉ phép"]));
+    window.localStorage.setItem("memoryos:search:recent:someone-else", JSON.stringify(["private"]));
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        page: 0,
+        hasMore: true,
+        totalResults: 23,
+        candidateLimit: 500,
+        results: [
+          {
+            documentId: "73835d74-d386-4b4e-b392-ad7f81e3b55a",
+            generation: "6b780b3a-de22-4307-ace9-6c2f44e22fc1",
+            title: "HR-2026 Quy định nghỉ phép",
+            mediaType: "application/pdf",
+            sourceTypes: [],
+            authors: [],
+            providerUrl: null,
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [],
+          },
+        ],
+      },
+    });
+    await renderNewSession();
+
+    const recent = screen.getByRole("region", { name: "Recent searches" });
+    expect(within(recent).queryByText("private")).not.toBeInTheDocument();
+    const pdf = within(screen.getByRole("group", { name: "File type" })).getByRole("button", {
+      name: /PDF/,
+    });
+    await user.click(pdf);
+    expect(pdf).toHaveAttribute("aria-pressed", "true");
+    // A chip only preselects the filter; searching still needs a query.
+    expect(searchDocumentsMock).not.toHaveBeenCalled();
+
+    await user.click(within(recent).getByRole("button", { name: "nghỉ phép" }));
+
+    await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(1));
+    expect(searchDocumentsMock.mock.calls[0]?.[0]).toMatchObject({
+      body: { query: "nghỉ phép", mediaTypes: ["application/pdf"], page: 0, pageSize: 10 },
+    });
+    expect(await screen.findByRole("heading", { name: /^23 results for “/ })).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–1 of 23")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Search documents" })).toHaveValue("nghỉ phép");
+    expect(JSON.parse(window.localStorage.getItem(key) ?? "[]")).toEqual(["nghỉ phép", "hợp đồng"]);
+  });
+
+  it("clears recent searches and tolerates unreadable storage", async () => {
+    const user = userEvent.setup();
+    const key = `memoryos:search:recent:${OWNER_SESSION.actorId}`;
+    window.localStorage.setItem(key, JSON.stringify(["hợp đồng"]));
+    await renderNewSession();
+
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
+
+    expect(screen.queryByRole("region", { name: "Recent searches" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(key)).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Search documents" })).toHaveFocus();
+
+    window.localStorage.setItem(key, "{not json");
+    await renderNewSession();
+    expect(screen.queryByRole("region", { name: "Recent searches" })).not.toBeInTheDocument();
   });
 
   it("removes owner administration affordances for a member", async () => {

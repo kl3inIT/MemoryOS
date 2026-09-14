@@ -53,6 +53,11 @@ public class SourceSearchService {
         return Map.copyOf(metadata);
     }
 
+    /** Original PDF object for presentation; callers still check Document eligibility and generation. */
+    public java.util.Optional<io.memoryos.objectstorage.StoredObjectReference> originalPdf(TenantId tenant, ActorId actor, UUID document) {
+        return documents.originalPdf(tenant, actor, document);
+    }
+
     public List<DocumentSourceMetadata> indexMetadata(TenantId tenant, DocumentId document, UUID generation) {
         return documents.sourceMetadata(tenant, List.of(document.value()), null, generation)
                 .getOrDefault(document.value(), List.of());

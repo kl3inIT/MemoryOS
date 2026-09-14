@@ -457,12 +457,19 @@ export type Result = {
     updatedAt: string;
     score: number;
     sections: Array<Section>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    authors: Array<string>;
+    providerUrl: string | null;
 };
 
 export type SearchPage = {
     results: Array<Result>;
     page: number;
     hasMore: boolean;
+    /**
+     * Readable Documents among the bounded candidates
+     */
+    totalResults: number;
     candidateLimit: number;
 };
 
@@ -1133,6 +1140,9 @@ export type ChatSource = {
     fileId?: string;
     fileLocation?: FileLocation;
     web?: WebLocation;
+    mediaType?: string;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    providerUrl?: string;
 };
 
 export type FileLocation = {
@@ -1212,8 +1222,16 @@ export type ChatBranch = {
     latestChildMessageId?: string | null;
 };
 
+export type ChatSessionSearchItem = {
+    session: ChatSession;
+    /**
+     * Fragment of the newest matching message; U+E000/U+E001 wrap matched tokens. Null for recent sessions and title-only matches.
+     */
+    snippet: string | null;
+};
+
 export type ChatSessionSearchPage = {
-    items: Array<ChatSession>;
+    items: Array<ChatSessionSearchItem>;
     hasMore: boolean;
 };
 
@@ -5258,6 +5276,26 @@ export type GetSearchDocumentResponses = {
 
 export type GetSearchDocumentResponse = GetSearchDocumentResponses[keyof GetSearchDocumentResponses];
 
+export type ReadSearchDocumentOriginalData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/search/documents/{documentId}/original';
+};
+
+export type ReadSearchDocumentOriginalResponses = {
+    /**
+     * Original PDF bytes
+     */
+    200: Blob | File;
+};
+
+export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
+
 export type GetCurrentInvitationData = {
     body?: never;
     path?: never;
@@ -6403,6 +6441,47 @@ export type ReadChatDocumentPassagesResponses = {
 };
 
 export type ReadChatDocumentPassagesResponse = ReadChatDocumentPassagesResponses[keyof ReadChatDocumentPassagesResponses];
+
+export type ReadChatDocumentOriginalData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/chat/documents/{documentId}/original';
+};
+
+export type ReadChatDocumentOriginalErrors = {
+    /**
+     * Invalid passage window
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Document generation not readable
+     */
+    404: ApiProblem;
+};
+
+export type ReadChatDocumentOriginalError = ReadChatDocumentOriginalErrors[keyof ReadChatDocumentOriginalErrors];
+
+export type ReadChatDocumentOriginalResponses = {
+    /**
+     * Original PDF bytes
+     */
+    200: Blob | File;
+};
+
+export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];
 
 export type DeleteGoogleDriveCredentialData = {
     body?: never;

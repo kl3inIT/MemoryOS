@@ -143,7 +143,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                 int fileTokens = binding.tokens().estimate(content) + 48;
                 if (tokens + fileTokens > historyLimit) { requireTools(binding); continue; }
                 tokens += fileTokens;
-                var citation = evidence.file(file.id(), file.filename());
+                var citation = evidence.file(file.id(), file.filename(), file.mediaType());
                 selected.add(new UserMessage((citation == null ? "" : "[" + citation.citationId() + "] ") + content));
             }
         }
@@ -173,7 +173,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
             if (!include && context.workspaceFiles().stream().anyMatch(file -> !image(file))) requireTools(binding);
             if (include) for (var file : context.workspaceFiles()) {
                 if (image(file)) continue;
-                var citation = evidence.file(file.id(), file.filename());
+                var citation = evidence.file(file.id(), file.filename(), file.mediaType());
                 if (citation != null) full.append("\nCitation [").append(citation.citationId()).append("] identifies file ").append(file.id());
             }
             selected.addFirst(new UserMessage(include ? full.toString() : workspaceMetadata + imageMarkers + "\nUse read_file to inspect text content."));
