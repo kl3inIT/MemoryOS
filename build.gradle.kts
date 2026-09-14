@@ -14,6 +14,16 @@ subprojects {
     group = rootProject.group
     version = rootProject.version
 
+    // Docker dependency layer: downloads the production build classpaths before sources are copied, so an
+    // unchanged dependency set is reused from the image build cache.
+    tasks.register("resolveDependencies") {
+        notCompatibleWithConfigurationCache("Resolves project configurations at execution time")
+        doLast {
+            val names = setOf("compileClasspath", "runtimeClasspath", "productionRuntimeClasspath", "annotationProcessor")
+            project.configurations.filter { it.name in names && it.isCanBeResolved }.forEach { it.resolve() }
+        }
+    }
+
     pluginManager.withPlugin("java") {
         extensions.configure<JavaPluginExtension> {
             toolchain {

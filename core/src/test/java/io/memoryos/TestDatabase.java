@@ -35,27 +35,47 @@ public final class TestDatabase {
             "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382"
     ).asCompatibleSubstituteFor("postgres");
 
+    private static final String TEMPLATE_DATABASE = "memoryos_template";
+    private static final String CLONE_PREFIX = "memoryos_clone_";
+
     private static PostgreSQLContainer postgres;
+    private static boolean templateMigrated;
+    private static int clones;
 
     private TestDatabase() {
     }
 
     /**
-     * Resets the shared PostgreSQL container's public schema and applies production Flyway migrations.
-     * The caller owns the returned pool and must close it after the fixture, including failed setup.
+     * Returns a new database cloned from a template that the production Flyway migrations built once per test
+     * JVM, so fixtures do not replay every migration. The caller owns the returned pool and must close it after
+     * the fixture, including failed setup; clones whose pools are closed are dropped on later calls.
      */
     public static HikariDataSource freshPostgres() throws SQLException {
-        return freshPostgres("latest");
+        PostgreSQLContainer container = postgres();
+        String database;
+        synchronized (TestDatabase.class) {
+            if (!templateMigrated) {
+                createDatabase(container, TEMPLATE_DATABASE, null);
+                try (var template = pool(container, TEMPLATE_DATABASE)) {
+                    Flyway.configure().dataSource(template).locations("classpath:db/migration").load().migrate();
+                }
+                templateMigrated = true;
+            }
+            database = CLONE_PREFIX + ++clones;
+            dropUnusedClones(container);
+            createDatabase(container, database, TEMPLATE_DATABASE);
+        }
+        return pool(container, database);
     }
 
+    /**
+     * Resets the shared PostgreSQL container's public schema and applies production Flyway migrations up to
+     * {@code targetVersion}, for tests that exercise a migration step itself.
+     */
     public static HikariDataSource freshPostgres(String targetVersion) throws SQLException {
+        if ("latest".equals(targetVersion)) return freshPostgres();
         PostgreSQLContainer container = postgres();
-        var dataSource = new HikariDataSource();
-        dataSource.setJdbcUrl(container.getJdbcUrl());
-        dataSource.setUsername(container.getUsername());
-        dataSource.setPassword(container.getPassword());
-        dataSource.setMaximumPoolSize(4);
-        dataSource.setMinimumIdle(1);
+        var dataSource = pool(container, container.getDatabaseName());
         try {
             try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
                 statement.execute("DROP SCHEMA public CASCADE");
@@ -67,6 +87,48 @@ public final class TestDatabase {
         } catch (SQLException | RuntimeException | Error failure) {
             dataSource.close();
             throw failure;
+        }
+    }
+
+    private static HikariDataSource pool(PostgreSQLContainer container, String database) {
+        var dataSource = new HikariDataSource();
+        dataSource.setJdbcUrl("jdbc:postgresql://" + container.getHost() + ":"
+                + container.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT) + "/" + database);
+        dataSource.setUsername(container.getUsername());
+        dataSource.setPassword(container.getPassword());
+        dataSource.setMaximumPoolSize(4);
+        dataSource.setMinimumIdle(1);
+        return dataSource;
+    }
+
+    private static void createDatabase(PostgreSQLContainer container, String database, @org.jspecify.annotations.Nullable String template)
+            throws SQLException {
+        try (var admin = java.sql.DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+             var statement = admin.createStatement()) {
+            // Identifiers are fixed prefixes and counters; PostgreSQL cannot bind database names.
+            statement.execute("CREATE DATABASE " + database + (template == null ? "" : " TEMPLATE " + template));
+        }
+    }
+
+    /** Frees disk from earlier fixtures; a clone still used by an open pool is kept. */
+    private static void dropUnusedClones(PostgreSQLContainer container) throws SQLException {
+        try (var admin = java.sql.DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+             var statement = admin.createStatement()) {
+            var unused = new java.util.ArrayList<String>();
+            try (var rows = statement.executeQuery("""
+                    SELECT datname FROM pg_database
+                    WHERE datname LIKE 'memoryos\\_clone\\_%'
+                      AND datname NOT IN (SELECT datname FROM pg_stat_activity WHERE datname IS NOT NULL)
+                    """)) {
+                while (rows.next()) unused.add(rows.getString(1));
+            }
+            for (String database : unused) {
+                try {
+                    statement.execute("DROP DATABASE IF EXISTS " + database);
+                } catch (SQLException inUse) {
+                    // A pool connected between the query and the drop; keep that clone.
+                }
+            }
         }
     }
 
