@@ -26,6 +26,8 @@ export function ChatImages() {
           prompt={image.revisedPrompt ?? undefined}
           label={image.revisedPrompt ?? ui("Ảnh đã tạo")}
           downloadLabel={ui("Tải ảnh")}
+          viewLabel={ui("Xem ảnh phóng to")}
+          closeLabel={ui("Đóng")}
         />
       ))}
       {generating && <ImageGeneration generating label={ui("Đang tạo ảnh…")} />}

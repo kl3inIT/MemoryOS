@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { ImageGeneration } from "./image-generation";
 
@@ -34,4 +34,34 @@ it("shows the failure label and no image when generation failed", () => {
   );
   expect(screen.getByRole("status")).toHaveTextContent("Không tạo được ảnh");
   expect(container.querySelector("img")).toBeNull();
+});
+
+it("reveals the resolved image once it finishes loading", () => {
+  render(
+    <ImageGeneration generating={false} src="/api/chat/image-artifacts/abc/content" label="a red fox" />,
+  );
+  const image = screen.getByRole("img");
+  fireEvent.load(image);
+  expect(image).toHaveAttribute("data-revealed", "true");
+});
+
+it("opens a fullscreen viewer with the enlarged image when the image is clicked", async () => {
+  render(
+    <ImageGeneration
+      generating={false}
+      src="/api/chat/image-artifacts/abc/content"
+      prompt="a red fox"
+      label="a red fox"
+      viewLabel="Xem ảnh phóng to"
+      closeLabel="Đóng"
+      downloadLabel="Tải ảnh"
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Xem ảnh phóng to" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("img")).toHaveAttribute(
+    "src",
+    "/api/chat/image-artifacts/abc/content",
+  );
+  expect(within(dialog).getByRole("button", { name: "Đóng" })).toBeInTheDocument();
 });

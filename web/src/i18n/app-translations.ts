@@ -313,6 +313,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đã dừng": "Stopped",
   "Ảnh đã tạo": "Generated image",
   "Tải ảnh": "Download image",
+  "Xem ảnh phóng to": "View image full size",
   "Đang tạo ảnh…": "Generating image…",
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",

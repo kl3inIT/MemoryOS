@@ -1,10 +1,13 @@
 "use client";
 
 // Inspired by assistant-ui elements-image-generation (MIT): a dot-grid holds the
-// frame over a blurred gradient while generating, settling into the resolved image.
-// Prop-driven (labels passed in) so the element stays i18n-free and unit-testable.
-import type { ComponentProps } from "react";
-import { DownloadIcon } from "lucide-react";
+// frame over a blurred gradient while generating, then the resolved image "develops"
+// top-to-bottom (clip + unblur) the way ChatGPT/Copilot reveal a fresh render.
+// Clicking the image opens a fullscreen viewer. Prop-driven (labels passed in) so the
+// element stays i18n-free and unit-testable.
+import { type ComponentProps, useEffect, useRef, useState } from "react";
+import { DownloadIcon, XIcon } from "lucide-react";
+import { Dialog } from "radix-ui";
 import { cn } from "@/lib/utils";
 import { ShimmerLabel } from "./surfaces";
 
@@ -15,6 +18,8 @@ export function ImageGeneration({
   alt,
   label,
   downloadLabel,
+  viewLabel,
+  closeLabel,
   failed = false,
   className,
   ...props
@@ -25,9 +30,21 @@ export function ImageGeneration({
   alt?: string;
   label: string;
   downloadLabel?: string;
+  viewLabel?: string;
+  closeLabel?: string;
   failed?: boolean;
 }) {
   const showImage = !!src && !generating && !failed;
+  const description = alt ?? prompt ?? label;
+  const [revealed, setRevealed] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
+
+  // Cached images (e.g. reopening a saved conversation) can finish loading before the
+  // load handler attaches, so settle the reveal immediately when the element is complete.
+  useEffect(() => {
+    if (imageRef.current?.complete) setRevealed(true);
+  }, [src]);
+
   return (
     <div
       data-slot="image-generation"
@@ -36,7 +53,9 @@ export function ImageGeneration({
     >
       <div
         data-slot="image-generation-frame"
-        className="relative aspect-square w-full overflow-hidden rounded-xl border border-border/60"
+        // `isolate` keeps the inner z-10 image inside its own stacking context so it
+        // never paints over the sticky composer while the conversation scrolls.
+        className="relative isolate aspect-square w-full overflow-hidden rounded-xl border border-border/60"
       >
         {/* Fixed decorative gradient, present in both states; only its blur/opacity changes. */}
         <div
@@ -47,11 +66,66 @@ export function ImageGeneration({
           )}
         />
         {showImage ? (
-          <img
-            src={src}
-            alt={alt ?? prompt ?? label}
-            className="relative z-10 h-full w-full object-contain"
-          />
+          <Dialog.Root>
+            <Dialog.Trigger asChild>
+              <button
+                type="button"
+                aria-label={viewLabel ?? description}
+                className="group relative z-10 block size-full cursor-zoom-in outline-none"
+              >
+                <img
+                  ref={imageRef}
+                  src={src}
+                  alt={description}
+                  onLoad={() => setRevealed(true)}
+                  data-revealed={revealed}
+                  className={cn(
+                    "size-full object-contain transition-[clip-path,filter,transform,opacity] duration-[1100ms] ease-out motion-reduce:!transition-none",
+                    revealed
+                      ? "scale-100 opacity-100 blur-0 [clip-path:inset(0%_0_0_0)]"
+                      : "scale-[1.03] opacity-0 blur-md [clip-path:inset(0_0_100%_0)]",
+                  )}
+                />
+                {/* Hover affordance for the "click to view" interaction. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/10 group-focus-visible:bg-black/10"
+                />
+              </button>
+            </Dialog.Trigger>
+            <Dialog.Portal>
+              <Dialog.Overlay className="fixed inset-0 z-50 bg-surface-scrim/90 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
+              <Dialog.Content
+                aria-label={viewLabel ?? description}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:animate-none sm:p-8"
+              >
+                <Dialog.Title className="sr-only">{viewLabel ?? description}</Dialog.Title>
+                <img
+                  src={src}
+                  alt={description}
+                  className="max-h-[90dvh] max-w-full rounded-lg object-contain shadow-2xl"
+                />
+                <div className="fixed top-3 right-3 flex items-center gap-2 sm:top-4 sm:right-4">
+                  {src && (
+                    <a
+                      href={src}
+                      download
+                      aria-label={downloadLabel}
+                      className="flex size-9 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/50"
+                    >
+                      <DownloadIcon className="size-4" aria-hidden="true" />
+                    </a>
+                  )}
+                  <Dialog.Close
+                    aria-label={closeLabel}
+                    className="flex size-9 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/50"
+                  >
+                    <XIcon className="size-4" aria-hidden="true" />
+                  </Dialog.Close>
+                </div>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         ) : (
           <div
             data-slot="image-generation-grid"
