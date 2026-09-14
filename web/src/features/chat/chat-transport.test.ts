@@ -39,6 +39,7 @@ const row: ChatMessage = {
   artifacts: [],
   files: [],
   sources: [],
+  images: [],
   id: runId,
   sessionId: session.id,
   parentMessageId: userId,
@@ -263,6 +264,8 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
         messageMetadata: {
           sources: [fixtureSource],
           artifacts: [],
+          images: [],
+          imageGenerating: false,
           searchProgress: {},
           serverStatus: "CANCELED",
         },

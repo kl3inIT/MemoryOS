@@ -313,6 +313,27 @@ export type Default = {
     revision?: number;
 };
 
+export type ImageSelectionRequest = {
+    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+};
+
+export type ImageConnectionRequest = {
+    endpoint: string;
+    model: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    revision?: number;
+};
+
+export type ImageConnectionResponse = {
+    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    endpoint: string;
+    model: string;
+    credentialConfigured?: boolean;
+    active?: boolean;
+    revision?: number;
+};
+
 export type ReplaceUserGroupsRequest = {
     groupIds: Array<string>;
 };
@@ -599,6 +620,7 @@ export type Send = {
     modelConfigurationId?: string;
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto' | 'required';
+    image?: 'off' | 'auto' | 'required';
 };
 
 export type Accepted = {
@@ -612,6 +634,7 @@ export type Regenerate = {
     clientRequestId: string;
     modelConfigurationId?: string;
     webSearch?: 'off' | 'auto' | 'required';
+    image?: 'off' | 'auto' | 'required';
 };
 
 export type Edit = {
@@ -620,6 +643,7 @@ export type Edit = {
     modelConfigurationId?: string;
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto' | 'required';
+    image?: 'off' | 'auto' | 'required';
 };
 
 export type Cancellation = {
@@ -1037,6 +1061,7 @@ export type ChatMessage = {
     sources: Array<ChatSource>;
     files: Array<ChatFileDescriptor>;
     artifacts: Array<ChatArtifact>;
+    images: Array<ImageRef>;
 };
 
 export type ChatSource = {
@@ -1060,6 +1085,12 @@ export type FileLocation = {
     count?: number;
     generation?: string;
     ordinal?: number;
+};
+
+export type ImageRef = {
+    id: string;
+    mediaType: string;
+    revisedPrompt: string | null;
 };
 
 export type Provenance = {
@@ -1126,6 +1157,16 @@ export type SearchFilters = {
     updated?: Interval;
 };
 
+export type ImageEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    stage: 'GENERATING' | 'COMPLETED' | 'FAILED';
+    id: string | null;
+    mediaType: string | null;
+    revisedPrompt: string | null;
+};
+
 export type ChatBranch = {
     id?: string;
     parentMessageId?: string | null;
@@ -1168,6 +1209,12 @@ export type SourceOption = {
     id?: string;
     name?: string;
     type?: 'FILE' | 'GOOGLE_DRIVE';
+};
+
+export type ImageAvailabilityResponse = {
+    available: boolean;
+    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    model?: string;
 };
 
 export type ChatFileTextResponse = {
@@ -2663,6 +2710,110 @@ export type SetChatModelDefaultResponses = {
 };
 
 export type SetChatModelDefaultResponse = SetChatModelDefaultResponses[keyof SetChatModelDefaultResponses];
+
+export type SelectChatImageProviderData = {
+    body: ImageSelectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/images/selection';
+};
+
+export type SelectChatImageProviderErrors = {
+    /**
+     * Invalid image configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Image connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Image connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Image provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SelectChatImageProviderError = SelectChatImageProviderErrors[keyof SelectChatImageProviderErrors];
+
+export type SelectChatImageProviderResponses = {
+    /**
+     * Image selection saved
+     */
+    204: void;
+};
+
+export type SelectChatImageProviderResponse = SelectChatImageProviderResponses[keyof SelectChatImageProviderResponses];
+
+export type SaveChatImageConnectionData = {
+    body: ImageConnectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    };
+    query?: never;
+    url: '/api/chat/images/connections/{provider}';
+};
+
+export type SaveChatImageConnectionErrors = {
+    /**
+     * Invalid image configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Image connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Image connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Image provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveChatImageConnectionError = SaveChatImageConnectionErrors[keyof SaveChatImageConnectionErrors];
+
+export type SaveChatImageConnectionResponses = {
+    /**
+     * Saved image connection
+     */
+    200: ImageConnectionResponse;
+};
+
+export type SaveChatImageConnectionResponse = SaveChatImageConnectionResponses[keyof SaveChatImageConnectionResponses];
 
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
@@ -4631,6 +4782,59 @@ export type ValidateChatModelResponses = {
 
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
+export type TestChatImageConnectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    };
+    query?: never;
+    url: '/api/chat/images/connections/{provider}/test';
+};
+
+export type TestChatImageConnectionErrors = {
+    /**
+     * Invalid image configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Image connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Image connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Image provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestChatImageConnectionError = TestChatImageConnectionErrors[keyof TestChatImageConnectionErrors];
+
+export type TestChatImageConnectionResponses = {
+    /**
+     * Provider request succeeded
+     */
+    204: void;
+};
+
+export type TestChatImageConnectionResponse = TestChatImageConnectionResponses[keyof TestChatImageConnectionResponses];
+
 export type RetryChatFileData = {
     body?: never;
     headers: {
@@ -5633,7 +5837,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | SearchEvent;
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent | SearchEvent | ImageEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
@@ -5945,6 +6149,139 @@ export type ListAvailableChatModelsResponses = {
 };
 
 export type ListAvailableChatModelsResponse = ListAvailableChatModelsResponses[keyof ListAvailableChatModelsResponses];
+
+export type GetChatImageAvailabilityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/images';
+};
+
+export type GetChatImageAvailabilityErrors = {
+    /**
+     * Invalid image configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Image connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Image connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Image provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatImageAvailabilityError = GetChatImageAvailabilityErrors[keyof GetChatImageAvailabilityErrors];
+
+export type GetChatImageAvailabilityResponses = {
+    /**
+     * Configured image availability
+     */
+    200: ImageAvailabilityResponse;
+};
+
+export type GetChatImageAvailabilityResponse = GetChatImageAvailabilityResponses[keyof GetChatImageAvailabilityResponses];
+
+export type ListChatImageConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/images/connections';
+};
+
+export type ListChatImageConnectionsErrors = {
+    /**
+     * Invalid image configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Image connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Image connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Image provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatImageConnectionsError = ListChatImageConnectionsErrors[keyof ListChatImageConnectionsErrors];
+
+export type ListChatImageConnectionsResponses = {
+    /**
+     * Image connections
+     */
+    200: Array<ImageConnectionResponse>;
+};
+
+export type ListChatImageConnectionsResponse = ListChatImageConnectionsResponses[keyof ListChatImageConnectionsResponses];
+
+export type GetChatImageArtifactData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/image-artifacts/{artifactId}/content';
+};
+
+export type GetChatImageArtifactErrors = {
+    /**
+     * Invalid image request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Image not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatImageArtifactError = GetChatImageArtifactErrors[keyof GetChatImageArtifactErrors];
+
+export type GetChatImageArtifactResponses = {
+    /**
+     * Generated image bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatImageArtifactResponse = GetChatImageArtifactResponses[keyof GetChatImageArtifactResponses];
 
 export type ListChatFilesData = {
     body?: never;

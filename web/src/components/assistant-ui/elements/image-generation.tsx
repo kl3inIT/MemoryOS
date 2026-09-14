@@ -37,12 +37,17 @@ export function ImageGeneration({
   const showImage = !!src && !generating && !failed;
   const description = alt ?? prompt ?? label;
   const [revealed, setRevealed] = useState(false);
+  const [dimensions, setDimensions] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
   // Cached images (e.g. reopening a saved conversation) can finish loading before the
   // load handler attaches, so settle the reveal immediately when the element is complete.
   useEffect(() => {
-    if (imageRef.current?.complete) setRevealed(true);
+    const image = imageRef.current;
+    if (image?.complete && image.naturalWidth) {
+      setRevealed(true);
+      setDimensions(`${image.naturalWidth} × ${image.naturalHeight}`);
+    }
   }, [src]);
 
   return (
@@ -77,7 +82,12 @@ export function ImageGeneration({
                   ref={imageRef}
                   src={src}
                   alt={description}
-                  onLoad={() => setRevealed(true)}
+                  onLoad={(event) => {
+                    setRevealed(true);
+                    setDimensions(
+                      `${event.currentTarget.naturalWidth} × ${event.currentTarget.naturalHeight}`,
+                    );
+                  }}
                   data-revealed={revealed}
                   className={cn(
                     "size-full object-contain transition-[clip-path,filter,transform,opacity] duration-[1100ms] ease-out motion-reduce:!transition-none",
@@ -150,6 +160,15 @@ export function ImageGeneration({
             </div>
           </div>
         )}
+        {/* Size badge in the corner, echoing the assistant-ui reference; real dimensions from the loaded image. */}
+        {showImage && dimensions && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-2 right-2 z-20 rounded-md bg-black/45 px-1.5 py-0.5 font-mono text-[10px] leading-none text-white/85 backdrop-blur-sm"
+          >
+            {dimensions}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <p
@@ -159,8 +178,10 @@ export function ImageGeneration({
         >
           {generating ? (
             <ShimmerLabel className="relative inline-block leading-none">{label}</ShimmerLabel>
+          ) : failed ? (
+            label
           ) : (
-            (failed ? label : prompt || label)
+            prompt || label
           )}
         </p>
         {showImage && (

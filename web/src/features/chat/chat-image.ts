@@ -16,7 +16,10 @@ export const generatedImageSchema = z.object({
 export type GeneratedImage = z.infer<typeof generatedImageSchema>;
 
 export function parseGeneratedImages(value: unknown): GeneratedImage[] {
-  return z.array(generatedImageSchema).catch([]).parse(value ?? []);
+  return z
+    .array(generatedImageSchema)
+    .catch([])
+    .parse(value ?? []);
 }
 
 /** Authorized serving URL for a generated image; the backend enforces ownership. */
