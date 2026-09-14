@@ -14,7 +14,13 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       pendingWork: true,
       lastSucceededAt: null,
       errorCode: null,
-      actions: ["upload", "reindex", "remove_items", "delete", "manage_groups"],
+      permissions: {
+        edit: true,
+        delete: true,
+        publish: false,
+        manageConfiguration: false,
+        removeItems: true,
+      },
     };
     let creates = 0;
     let puts = 0;
@@ -314,7 +320,13 @@ test("scoped File creation requires managed groups and never publishes files", a
     documentCount: 0,
     lastSucceededAt: null,
     errorCode: null,
-    actions: ["upload", "rename", "manage_groups"],
+    permissions: {
+      edit: true,
+      delete: false,
+      publish: false,
+      manageConfiguration: false,
+      removeItems: false,
+    },
   };
   let created = false;
   await page.route("**/api/identity/me", (route) =>

@@ -27,6 +27,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupMember, GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
+import { can } from "@/lib/resource-permissions";
 
 type GroupMembersSectionProps = {
   group: GroupSummary;
@@ -60,7 +61,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
       path: { groupId: group.id },
       query: { search: candidateSearch || undefined, page: candidatePage, size: 10 },
     }),
-    enabled: adding && group.actions.includes("manage_members"),
+    enabled: adding && can(group, "manageMembers"),
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -68,8 +69,8 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
   const removeMember = useMutation(removeGroupMemberMutation());
   const assignManager = useMutation(assignGroupManagerMutation());
   const removeManager = useMutation(removeGroupManagerMutation());
-  const canManageMembers = group.actions.includes("manage_members");
-  const canManageManagers = group.actions.includes("manage_managers");
+  const canManageMembers = can(group, "manageMembers");
+  const canManageManagers = can(group, "manage");
   const [previousAuthority, setPreviousAuthority] = useState(() => ({
     canManageMembers,
     canManageManagers,

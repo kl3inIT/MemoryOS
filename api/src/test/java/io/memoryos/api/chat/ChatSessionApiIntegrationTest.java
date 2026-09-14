@@ -696,6 +696,8 @@ class ChatSessionApiIntegrationTest {
                      "contextTokenLimit":8000,"outputTokenLimit":1000}
                     """, 201);
             String projectId = project.path("id").asText(), personaId = persona.path("id").asText();
+            assertTrue(persona.path("permissions").path("edit").asBoolean());
+            assertTrue(persona.path("permissions").path("delete").asBoolean());
             workspaceRequest(http, readerToken, "GET", "/api/chat/projects/" + projectId, null, 404);
             workspaceRequest(http, readerToken, "GET", "/api/chat/personas/" + personaId, null, 404);
             var session = workspaceRequest(http, ownerToken, "POST", "/api/chat/sessions",

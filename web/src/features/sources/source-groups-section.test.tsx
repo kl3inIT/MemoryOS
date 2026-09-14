@@ -23,7 +23,13 @@ const group: GroupSummary = {
   memberCount: 1,
   managerCount: 1,
   capabilities: [],
-  actions: ["manage_sources"],
+  permissions: {
+    manage: false,
+    manageMembers: false,
+    delete: false,
+    editPermissions: false,
+    manageSources: true,
+  },
 };
 const source: SourceSummary = {
   id: "source",
@@ -35,7 +41,13 @@ const source: SourceSummary = {
   pendingWork: false,
   lastSucceededAt: null,
   errorCode: null,
-  actions: ["manage_groups"],
+  permissions: {
+    edit: true,
+    delete: false,
+    publish: false,
+    manageConfiguration: false,
+    removeItems: false,
+  },
 };
 const globalSession: ApplicationSession = {
   actorId: "actor",

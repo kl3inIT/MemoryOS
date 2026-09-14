@@ -1,10 +1,9 @@
 package io.memoryos.api.source.contract;
 
-import io.memoryos.connector.SourceAction;
+import io.memoryos.connector.SourcePermissions;
 import io.memoryos.connector.SourceSummary;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -30,15 +29,22 @@ public record SourceSummaryResponse(
         @Nullable Instant lastSucceededAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String errorCode,
-        @io.swagger.v3.oas.annotations.media.ArraySchema(
-                arraySchema = @Schema(requiredMode = Schema.RequiredMode.REQUIRED),
-                schema = @Schema(allowableValues = {"upload", "reindex", "remove_items", "delete", "manage_groups",
-                        "rename", "manage_access", "manage_configuration", "synchronize", "manage_schedule",
-                        "pause_sync", "resume_sync"}))
-        List<String> actions
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+        Permissions permissions
 ) {
-    public SourceSummaryResponse {
-        actions = List.copyOf(actions);
+    /** Affordance hints projected from the Source write guards; mutations keep their own checks. */
+    @Schema(name = "SourcePermissions", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
+    public record Permissions(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean edit,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean delete,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean publish,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean manageConfiguration,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean removeItems
+    ) {
+        static Permissions from(SourcePermissions permissions) {
+            return new Permissions(permissions.edit(), permissions.delete(), permissions.publish(),
+                    permissions.manageConfiguration(), permissions.removeItems());
+        }
     }
 
     public static SourceSummaryResponse from(SourceSummary source) {
@@ -52,9 +58,7 @@ public record SourceSummaryResponse(
                 source.documentCount(),
                 source.lastSucceededAt(),
                 source.errorCode(),
-                source.actions().stream()
-                        .map(SourceAction::token)
-                        .toList()
+                Permissions.from(source.permissions())
         );
     }
 }

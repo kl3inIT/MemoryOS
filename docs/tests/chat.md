@@ -141,6 +141,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | Native standard/completion-token conversion, reasoning, rejected options and unknown pricing | `OpenAiChatProviderAdapterTest` |
 | Dedicated authority, redaction, stale writes, same-name model selection and idempotency | Catalog cases in `ChatSessionApiIntegrationTest` |
 | Persona precedence, fallback, Group revoke, Persona restrictions on manager, default protection | Catalog cases in `ChatSessionApiIntegrationTest` |
+| Persona `permissions` match the update/delete guards (owned: edit+delete; builtin: edit only with `MODELS_MANAGE`, never delete) and are serialized for an owned Persona | `PersonaPermissionsTest.keysMatchTheUpdateAndDeleteGuards`, `ChatSessionApiIntegrationTest` workspace round trip, `chat-workspace.spec.ts` |
 | Old turn retains options; next turn uses new settings | `changingModelOptionsWhileRunningAffectsOnlyTheNextTurn` |
 | Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
 | Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |

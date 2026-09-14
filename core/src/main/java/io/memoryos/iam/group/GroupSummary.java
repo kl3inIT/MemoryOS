@@ -12,7 +12,7 @@ public record GroupSummary(
         long memberCount,
         long managerCount,
         Set<IamCapability> capabilities,
-        Set<GroupAction> actions
+        GroupPermissions permissions
 ) {
     public GroupSummary {
         Objects.requireNonNull(id, "id must not be null");
@@ -21,6 +21,6 @@ public record GroupSummary(
             throw new IllegalArgumentException("group member counts are invalid");
         }
         capabilities = Set.copyOf(capabilities);
-        actions = Set.copyOf(actions);
+        Objects.requireNonNull(permissions, "permissions must not be null");
     }
 }

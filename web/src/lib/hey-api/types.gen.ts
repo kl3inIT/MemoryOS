@@ -211,10 +211,15 @@ export type PersonaInput = {
     fileIds?: Array<string>;
 };
 
+export type PersonaPermissions = {
+    edit?: boolean;
+    delete?: boolean;
+};
+
 export type PersonaView = {
     id?: string;
     builtin?: boolean;
-    editable?: boolean;
+    permissions?: PersonaPermissions;
     revision?: number;
     name?: string;
     description?: string;
@@ -338,6 +343,14 @@ export type RenameSourceRequest = {
     name: string;
 };
 
+export type SourcePermissions = {
+    edit: boolean;
+    delete: boolean;
+    publish: boolean;
+    manageConfiguration: boolean;
+    removeItems: boolean;
+};
+
 export type SourceSummary = {
     id: string;
     name: string;
@@ -348,7 +361,7 @@ export type SourceSummary = {
     documentCount: number;
     lastSucceededAt: string | null;
     errorCode: string | null;
-    actions: Array<'upload' | 'reindex' | 'remove_items' | 'delete' | 'manage_groups' | 'rename' | 'manage_access' | 'manage_configuration' | 'synchronize' | 'manage_schedule' | 'pause_sync' | 'resume_sync'>;
+    permissions: SourcePermissions;
 };
 
 export type UpdateSourceGroupsRequest = {
@@ -464,6 +477,14 @@ export type CreateGroupRequest = {
     name: string;
 };
 
+export type GroupPermissions = {
+    manage: boolean;
+    manageMembers: boolean;
+    delete: boolean;
+    editPermissions: boolean;
+    manageSources: boolean;
+};
+
 export type GroupSummary = {
     id: string;
     name: string;
@@ -471,7 +492,7 @@ export type GroupSummary = {
     memberCount: number;
     managerCount: number;
     capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
-    actions: Array<string>;
+    permissions: GroupPermissions;
 };
 
 export type GroupSystemKey = 'ADMIN' | 'BASIC';

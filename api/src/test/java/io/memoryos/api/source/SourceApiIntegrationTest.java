@@ -1182,8 +1182,8 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(hiddenSourceId)).doesNotExist());
         mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.actions").value(org.hamcrest.Matchers.hasItems("upload", "reindex", "rename", "manage_groups")))
-                .andExpect(jsonPath("$.actions").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("delete"))));
+                .andExpect(jsonPath("$.permissions.edit").value(true))
+                .andExpect(jsonPath("$.permissions.delete").value(false));
         mockMvc.perform(get("/api/sources/{sourceId}", hiddenSourceId).with(authentication(manager)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));

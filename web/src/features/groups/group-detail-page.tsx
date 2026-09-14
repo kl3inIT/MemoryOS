@@ -23,6 +23,7 @@ import { GroupPermissionsSection } from "./group-permissions-section";
 import { GroupSourcesSection } from "./group-sources-section";
 import "./groups-list.css";
 import "./group-detail.css";
+import { can } from "@/lib/resource-permissions";
 
 export function GroupDetailPage() {
   const ui = useAppTranslation();
@@ -41,7 +42,7 @@ export function GroupDetailPage() {
       !!group.data &&
       (group.data.systemKey === "ADMIN" ||
         group.data.systemKey === "BASIC" ||
-        group.data.actions.includes("manage_grants")),
+        can(group.data, "editPermissions")),
     retry: false,
   });
 
@@ -143,9 +144,9 @@ function GroupDetail({
   );
   const [error, setError] = useState<AppCopy | null>(null);
   const systemGroup = group.systemKey === "ADMIN" || group.systemKey === "BASIC";
-  const canRename = !systemGroup && group.actions.includes("rename");
-  const canManageGrants = !systemGroup && group.actions.includes("manage_grants");
-  const canDelete = !systemGroup && group.actions.includes("delete");
+  const canRename = !systemGroup && can(group, "manage");
+  const canManageGrants = !systemGroup && can(group, "editPermissions");
+  const canDelete = !systemGroup && can(group, "delete");
   const nameDirty = canRename && name.trim() !== baselineName;
   const baselineCapabilityKey = [...baselineCapabilities].sort().join("\u0000");
   const selectedCapabilityKey = [...selectedCapabilities].sort().join("\u0000");
