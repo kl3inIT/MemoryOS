@@ -14,7 +14,7 @@ Publishing a Document cleared `searchable_generation`, and claiming its INDEX wo
 
 ## Excluded
 
-No migration, no API or UI change, no model-space migration. Source item `searchStatus` still reports the current content generation (INDEXING/FAILED) while the previous generation is served. PostgreSQL chunk rows remain current-generation only because reads come from OpenSearch.
+No migration, no API or UI change, no model-space migration. Source item `searchStatus` still reports the current content generation (INDEXING/FAILED) while the previous generation is served. PostgreSQL chunk rows remain current-generation only; no request path reads them, since passages and expansion come from OpenSearch. While a rewrite is pending, reconciliation verifies only the content generation, so a physical index loss during that window leaves the served generation without hits until the replacement becomes ready.
 
 ## Verification boundary
 
