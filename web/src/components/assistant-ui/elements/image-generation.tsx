@@ -37,17 +37,12 @@ export function ImageGeneration({
   const showImage = !!src && !generating && !failed;
   const description = alt ?? prompt ?? label;
   const [revealed, setRevealed] = useState(false);
-  const [dimensions, setDimensions] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
   // Cached images (e.g. reopening a saved conversation) can finish loading before the
   // load handler attaches, so settle the reveal immediately when the element is complete.
   useEffect(() => {
-    const image = imageRef.current;
-    if (image?.complete && image.naturalWidth) {
-      setRevealed(true);
-      setDimensions(`${image.naturalWidth} × ${image.naturalHeight}`);
-    }
+    if (imageRef.current?.complete) setRevealed(true);
   }, [src]);
 
   return (
@@ -58,9 +53,10 @@ export function ImageGeneration({
     >
       <div
         data-slot="image-generation-frame"
-        // `isolate` keeps the inner z-10 image inside its own stacking context so it
-        // never paints over the sticky composer while the conversation scrolls.
-        className="relative isolate aspect-square w-full overflow-hidden rounded-xl border border-border/60"
+        // The frame grows in from a smaller scale (ChatGPT-style) as generation starts;
+        // `isolate` keeps the inner z-10 image in its own stacking context so it never
+        // paints over the sticky composer while the conversation scrolls.
+        className="relative isolate aspect-square w-full animate-in overflow-hidden rounded-xl border border-border/60 fade-in zoom-in-50 duration-500 ease-out motion-reduce:animate-none"
       >
         {/* Fixed decorative gradient, present in both states; only its blur/opacity changes. */}
         <div
@@ -82,12 +78,7 @@ export function ImageGeneration({
                   ref={imageRef}
                   src={src}
                   alt={description}
-                  onLoad={(event) => {
-                    setRevealed(true);
-                    setDimensions(
-                      `${event.currentTarget.naturalWidth} × ${event.currentTarget.naturalHeight}`,
-                    );
-                  }}
+                  onLoad={() => setRevealed(true)}
                   data-revealed={revealed}
                   className={cn(
                     "size-full object-contain transition-[clip-path,filter,transform,opacity] duration-[1100ms] ease-out motion-reduce:!transition-none",
@@ -159,15 +150,6 @@ export function ImageGeneration({
               ))}
             </div>
           </div>
-        )}
-        {/* Size badge in the corner, echoing the assistant-ui reference; real dimensions from the loaded image. */}
-        {showImage && dimensions && (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute top-2 right-2 z-20 rounded-md bg-black/45 px-1.5 py-0.5 font-mono text-[10px] leading-none text-white/85 backdrop-blur-sm"
-          >
-            {dimensions}
-          </span>
         )}
       </div>
       <div className="flex items-center gap-2">
