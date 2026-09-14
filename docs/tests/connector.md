@@ -325,3 +325,12 @@ The unconditional settings shortcut in `sources-page.tsx` is now gated by nonemp
 - Six Chrome/Vite scenarios with isolated HTTP fixtures passed: global clear, scoped clear denial, readonly ordinary-only chips, global FILE creation, reverse Group-detail global removal and scoped final-association denial. Legacy system rows supplied deliberately in fixtures never appeared as options/chips/counts or mutation IDs. Manager association UI was visually inspected. TypeScript and changed-file lint/format checks passed.
 - Tooling corrections: the package-private migration fixture required a compiled same-classloader launcher rather than Java source-file mode; standalone javac emitted missing API-status annotation warnings but execution succeeded. Picker selected-metadata caching uses guarded render-time state instead of a synchronous effect setter. Temporary scripts, classpaths, launch classes and screenshots were removed.
 - The then-local ordinary-association V42 had not been applied to the user's database by that work; its current filename is `V48__ordinary_source_group_associations.sql`. No database migration is performed by this merge. Before any coordinated API/worker restart, deliberately reconcile divergent history/schema; never retain an old writer that defaults Source groups to Admin. Admin/Basic memberships and capabilities, Source visibility, document-content ACL, runtime credentials and unrelated data were not changed by that association correction.
+
+## Drive re-synchronization keeps searchable Documents — 2026-09-14
+
+A scheduled staging run re-acquired six Drive reports whose SHA-256 was unchanged because their provider version had advanced; re-acquisition hid every current Document during OCR and worker restarts extended the outage.
+
+| Scenario | Evidence |
+| --- | --- |
+| A newer provider version with identical bytes and filename stays unchanged: one version (provider version refreshed), one index attempt, no adopted write, unchanged Document; the next run does not download | `PostgresGoogleDriveSyncTest.versionOnlyChangeWithIdenticalContentStaysUnchangedAndKeepsTheIndexedDocument` |
+| Changed content keeps the previous Document retrievable while the new version processes and after it fails | `PostgresGoogleDriveSyncTest.contentChangeKeepsThePreviousDocumentRetrievableWhenTheNewVersionFails` |
