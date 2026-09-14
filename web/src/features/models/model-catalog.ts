@@ -99,7 +99,11 @@ export function personaCandidate(
 }
 
 export function modelLabel(model: ManagedModel, provider: ManagedProvider) {
-  return `${model.displayName} (${model.modelName}) — ${provider.name} · ${provider.id}`;
+  const name =
+    model.displayName === model.modelName
+      ? model.displayName
+      : `${model.displayName} (${model.modelName})`;
+  return `${name} — ${provider.name}`;
 }
 
 export type ModelDraft = {

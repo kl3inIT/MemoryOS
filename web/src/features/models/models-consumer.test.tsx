@@ -523,21 +523,19 @@ describe("Persona saved selection", () => {
     );
     const selector = await screen.findByLabelText("Persona", { exact: true });
     fireEvent.change(selector, { target: { value: personaId } });
-    const defaultSelector = await screen.findByLabelText("Persona model default");
-    expect(defaultSelector).toHaveValue(model.id);
-    expect(
-      within(defaultSelector).getByRole("option", {
-        name: /Saved model.*saved; hidden or unavailable/,
-      }),
-    ).toBeDisabled();
-    fireEvent.change(defaultSelector, { target: { value: "" } });
+    const defaultPicker = await screen.findByRole("button", { name: "Persona model default" });
+    fireEvent.click(defaultPicker);
+    const savedOption = await screen.findByRole("button", { name: /Saved model/ });
+    expect(savedOption).toBeDisabled();
+    expect(savedOption.textContent).toMatch(/saved; hidden or unavailable/);
+    fireEvent.click(screen.getByRole("button", { name: "Inherit Tenant default" }));
     fireEvent.click(screen.getByRole("button", { name: "Save Persona default" }));
     await waitFor(() => expect(writes).toHaveLength(1));
     const url = new URL(writes[0]!.url);
     expect(url.searchParams.get("revision")).toBe("47");
     expect(url.searchParams.has("modelConfigurationId")).toBe(false);
     expect(writes[0]!.headers.get("X-MemoryOS-CSRF")).toBe("1");
-    await waitFor(() => expect(defaultSelector).toHaveValue(""));
+    await waitFor(() => expect(defaultPicker.textContent).toContain("Inherit Tenant default"));
     client.clear();
   });
 });

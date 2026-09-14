@@ -17,7 +17,6 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  modelLabel,
   personaCandidate,
   refreshModelCatalog,
   tenantCandidate,
@@ -26,6 +25,7 @@ import {
   type ManagedProvider,
 } from "./model-catalog";
 import { useModelAction } from "./use-model-action";
+import { ModelPicker } from "./model-picker";
 
 type Catalog = {
   providers: ManagedProvider[];
@@ -64,10 +64,6 @@ function SelectionEditor({
   const savedModel = models.find((model) => model.id === baseline.modelConfigurationId);
   const savedProvider =
     savedModel && providers.find((provider) => provider.id === savedModel.providerId);
-  const savedLabel =
-    savedModel && savedProvider
-      ? modelLabel(savedModel, savedProvider)
-      : baseline.modelConfigurationId;
   const savedHidden =
     baseline.modelConfigurationId &&
     !candidates.some((model) => model.id === baseline.modelConfigurationId);
@@ -143,44 +139,53 @@ function SelectionEditor({
               : ui("This model will be used by Chat by default in your conversations.")}
           </p>
         </div>
-        <Select
-          aria-label={personaId ? ui("Persona model default") : ui("Tenant model default")}
-          className="sm:max-w-xs"
+        <ModelPicker
+          ariaLabel={personaId ? ui("Persona model default") : ui("Tenant model default")}
           value={chosen}
           disabled={action.pending}
-          onChange={(event) => {
-            setChosen(event.target.value);
+          placeholder={ui("Choose an eligible model")}
+          inheritLabel={personaId ? ui("Inherit Tenant default") : undefined}
+          onChange={(modelId) => {
+            setChosen(modelId);
             setSaved(false);
           }}
-        >
-          {personaId ? (
-            <option value="">{ui("Inherit Tenant default")}</option>
-          ) : (
-            <option value="" disabled>
-              {ui("Choose an eligible model")}
-            </option>
-          )}
-          {savedHidden && (
-            <option value={baseline.modelConfigurationId ?? ""} disabled>
-              {savedLabel} {ui("(saved; hidden or unavailable)")}
-            </option>
-          )}
-          {chosen &&
+          options={[
+            ...(savedHidden && savedModel && savedProvider
+              ? [
+                  {
+                    model: savedModel,
+                    provider: savedProvider,
+                    disabled: true,
+                    note: ui("saved; hidden or unavailable"),
+                  },
+                ]
+              : []),
+            ...(chosen &&
             chosen !== baseline.modelConfigurationId &&
-            !candidates.some((model) => model.id === chosen) && (
-              <option value={chosen} disabled>
-                {chosen} {ui("(draft no longer eligible)")}
-              </option>
-            )}
-          {candidates.map((model) => {
-            const provider = providers.find((entry) => entry.id === model.providerId);
-            return provider ? (
-              <option key={model.id} value={model.id}>
-                {modelLabel(model, provider)}
-              </option>
-            ) : null;
-          })}
-        </Select>
+            !candidates.some((model) => model.id === chosen)
+              ? (() => {
+                  const draftModel = models.find((model) => model.id === chosen);
+                  const draftProvider =
+                    draftModel &&
+                    providers.find((provider) => provider.id === draftModel.providerId);
+                  return draftModel && draftProvider
+                    ? [
+                        {
+                          model: draftModel,
+                          provider: draftProvider,
+                          disabled: true,
+                          note: ui("draft no longer eligible"),
+                        },
+                      ]
+                    : [];
+                })()
+              : []),
+            ...candidates.flatMap((model) => {
+              const provider = providers.find((entry) => entry.id === model.providerId);
+              return provider ? [{ model, provider }] : [];
+            }),
+          ]}
+        />
       </div>
       {!candidates.length && (
         <p role="status">
