@@ -72,24 +72,40 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         return "native".equals(settings.options().get("webSearch")) && settings.capabilities().toolCalling();
     }
 
+    private static final int MAX_MODEL_LIST_BYTES = 1_048_576;
+
     @Override
     public List<String> reportedModels(Connection connection, Duration timeout) {
         ModelCatalogService.validateEndpoint(connection.baseUrl());
         if (connection.credential().isBlank()) throw ChatException.providerUnavailable();
-        var client = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl())
-                .apiKey(connection.credential()).maxRetries(0).timeout(timeout).build();
-        try {
+        // A configured endpoint must not redirect this credential elsewhere, and its body is bounded.
+        try (var client = java.net.http.HttpClient.newBuilder()
+                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                .connectTimeout(timeout).build()) {
+            var request = java.net.http.HttpRequest.newBuilder(
+                            java.net.URI.create(connection.baseUrl().replaceAll("/+$", "") + "/models"))
+                    .timeout(timeout).header("Accept", "application/json")
+                    .header("Authorization", "Bearer " + connection.credential()).GET().build();
+            var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() >= 300) throw ChatException.providerUnavailable();
+            byte[] body;
+            try (var stream = response.body()) { body = stream.readNBytes(MAX_MODEL_LIST_BYTES + 1); }
+            if (body.length == 0 || body.length > MAX_MODEL_LIST_BYTES) throw ChatException.providerUnavailable();
             var names = new java.util.ArrayList<String>();
-            for (var model : client.models().list().autoPager()) {
-                names.add(model.id());
+            for (var item : new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("data")) {
+                String id = item.path("id").asText("");
+                if (!id.isBlank()) names.add(id);
                 if (names.size() >= 500) break;
             }
             return names;
-        } catch (RuntimeException failure) {
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw ChatException.providerUnavailable();
+        } catch (ChatException expected) {
+            throw expected;
+        } catch (java.io.IOException | RuntimeException failure) {
             // The provider payload may carry account detail; report unavailability instead.
             throw ChatException.providerUnavailable();
-        } finally {
-            client.close();
         }
     }
 

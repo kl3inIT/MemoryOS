@@ -37,6 +37,7 @@ export const vietnameseUi: Record<string, string> = {
   "Trình đọc MemoryOS": "MemoryOS Web Crawler",
   "Tích hợp sẵn, không cần khóa API.": "Built in. No API key required.",
   "Đang dùng": "Active",
+  "Không hỗ trợ công cụ": "No tool calling",
   "Tìm trong hội thoại": "Find in conversation",
   "Tìm trong hội thoại này…": "Find in this conversation…",
   "Tìm nội dung trong nhánh hội thoại đang mở.":
@@ -97,8 +98,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.":
     "No models on search-capable providers yet.",
   "Địa chỉ tùy chỉnh (để trống dùng mặc định)": "Custom address (leave blank for default)",
-  "{{provider}} · Mô hình này không hỗ trợ công cụ nên không dùng được tìm kiếm.":
-    "{{provider}} · This model does not support tools, so search is unavailable.",
   "Tìm kiếm Web của nhà cung cấp cho {{name}}": "Provider Web search for {{name}}",
   "Hội thoại được chia sẻ": "Shared conversation",
   "Đóng điều hướng": "Close navigation",

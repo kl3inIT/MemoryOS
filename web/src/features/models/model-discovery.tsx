@@ -112,13 +112,13 @@ export function ModelDiscovery({
           </Empty>
         )}
         {reported.data && reported.data.models.length > 0 && (
-          <Table className="min-w-lg">
+          <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{ui("Model")}</TableHead>
                 <TableHead className="text-right">{ui("Context")}</TableHead>
-                <TableHead className="text-right">{ui("In / 1M")}</TableHead>
-                <TableHead className="text-right">{ui("Out / 1M")}</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">{ui("In / 1M")}</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">{ui("Out / 1M")}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -151,10 +151,10 @@ export function ModelDiscovery({
                     <TableCell className="text-right tabular-nums">
                       {known ? compactTokens(known.contextWindow) : "—"}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="hidden text-right tabular-nums sm:table-cell">
                       {known ? millionTokenPrice(known.pricing.inputPerMillion) : "—"}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="hidden text-right tabular-nums sm:table-cell">
                       {known ? millionTokenPrice(known.pricing.outputPerMillion) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
