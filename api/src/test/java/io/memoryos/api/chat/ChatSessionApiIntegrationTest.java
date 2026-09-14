@@ -852,7 +852,7 @@ class ChatSessionApiIntegrationTest {
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), Instant.now().plusSeconds(10), binding);
             var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
             var answer = new StringBuilder();
-            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {});
+            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {});
             assertEquals("Answer", answer.toString());
             assertEquals(12L, accounting.get().input());
             assertEquals(12L, accounting.get().output());
