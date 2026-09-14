@@ -13,12 +13,14 @@ import { newChatSession, type ChatUiMessage } from "./chat-api";
 import { fileIdFromReference } from "./chat-files";
 import { readWebPreference, writeWebPreference, type WebSearchMode } from "./chat-web-preference";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
+import { sourcesSchema, type ChatSource } from "./chat-evidence";
 import {
-  searchEventSchema,
-  sourcesSchema,
-  type ChatSource,
-  type SearchProgress,
-} from "./chat-evidence";
+  ActivityChunks,
+  activitySchema,
+  reasoningEventSchema,
+  toolEventSchema,
+  type ChatActivity,
+} from "./chat-activity";
 
 const eventSchema = z.object({
   assistantMessageId: z.string().uuid(),
@@ -257,7 +259,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let sources: ChatSource[] = [];
     let artifacts: ChatArtifact[] = [];
     let hasArtifacts = false;
-    let searchProgress: SearchProgress = {};
+    const activity = new ActivityChunks(runId);
+    let committedActivity: ChatActivity | undefined;
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
@@ -266,7 +269,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       messageId: runId,
       messageMetadata: { serverStatus: "RUNNING", ...(createdAt && { createdAt }) },
     };
-    yield { type: "text-start", id: runId };
     try {
       for (let attempt = 0; attempt < 3 && !outcome && !fallback; attempt++) {
         signal.throwIfAborted();
@@ -313,38 +315,27 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               if (text.length + delta.length > 1_000_000)
                 throw new Error("Reply exceeds the supported limit");
               text += delta;
-              yield { type: "text-delta", id: runId, delta };
+              yield* activity.text(delta);
             } else if (envelope.event === "outcome") {
               const terminal = outcomeSchema.parse(data);
               outcome = terminal.status;
               hasArtifacts = terminal.hasArtifacts;
               break;
-            } else if (envelope.event === "search") {
-              const search = searchEventSchema.parse(data);
-              const previous = searchProgress[search.toolCallId];
-              searchProgress = Object.fromEntries(
-                Object.entries({
-                  ...searchProgress,
-                  [search.toolCallId]: {
-                    stage: search.stage,
-                    search: search.search ?? previous?.search ?? null,
-                    documents: search.documents.length
-                      ? search.documents
-                      : (previous?.documents ?? []),
-                  },
-                }).slice(-16),
-              );
-              if (search.stage === "SOURCE") {
-                if (!search.source) throw new Error("Missing reply source");
+            } else if (envelope.event === "tool") {
+              const tool = toolEventSchema.parse(data);
+              if (tool.stage === "SOURCE") {
+                if (!tool.source) throw new Error("Missing reply source");
                 sources = sourcesSchema.parse([
-                  ...sources.filter((source) => source.citationId !== search.source!.citationId),
-                  search.source,
+                  ...sources.filter((source) => source.citationId !== tool.source!.citationId),
+                  tool.source,
                 ]);
+                yield { type: "message-metadata", messageMetadata: { sources } };
               }
-              yield { type: "message-metadata", messageMetadata: { sources, searchProgress } };
-            } else {
-              throw new Error("Unexpected reply event type");
+              yield* activity.tool(tool);
+            } else if (envelope.event === "reasoning") {
+              yield* activity.reasoning(reasoningEventSchema.parse(data).text);
             }
+            // Other event types from a newer server are skipped; the committed history stays authoritative.
           }
           if (failure instanceof ApiError && [401, 403, 404].includes(failure.status ?? 0))
             throw failure;
@@ -374,10 +365,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             if (!message.content.startsWith(text))
               throw new Error("Reply changed; reload the saved conversation");
             const delta = message.content.slice(text.length);
-            if (delta) yield { type: "text-delta", id: runId, delta };
+            if (delta) yield* activity.text(delta);
             outcome = message.status;
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
+            committedActivity = activitySchema.parse(message.activity);
           } else await pause(2000, signal);
         }
         if (!outcome)
@@ -400,9 +392,9 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       }
       yield {
         type: "message-metadata",
-        messageMetadata: { serverStatus: outcome, sources, artifacts, searchProgress: {} },
+        messageMetadata: { serverStatus: outcome, sources, artifacts },
       };
-      yield { type: "text-end", id: runId };
+      yield* activity.finish(committedActivity);
       this.runId = undefined;
       this.callbacks.state("ready");
       if (outcome === "CANCELED") {

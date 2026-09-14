@@ -188,10 +188,9 @@ test("shows effective search queries, open time bounds and selected documents be
     .getByRole("textbox", { name: "Câu hỏi", exact: true })
     .fill("Find the latest annual leave policy");
   await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Đang đọc ngữ cảnh tài liệu…" }),
-  ).toBeVisible();
-  await page.getByText("Chi tiết tìm kiếm", { exact: true }).click();
+  // The activity timeline stays open while the assistant works and names the current step.
+  await expect(page.getByRole("button", { name: /Đang đọc ngữ cảnh tài liệu…/ })).toBeVisible();
+  await expect(page.getByText("Checking the latest HR policy before answering.")).toBeVisible();
   await expect(page.getByText("annual leave policy", { exact: true })).toBeVisible();
   await expect(page.getByText("HR-2026", { exact: true })).toBeVisible();
   await expect(page.getByText("Nguồn: Tệp tải lên", { exact: true })).toBeVisible();
@@ -202,6 +201,7 @@ test("shows effective search queries, open time bounds and selected documents be
   await page.screenshot({ path: "../.tmp/chat-search-progress.png", fullPage: true });
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
   await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Tìm kiếm: 1/ })).toBeVisible();
 });
 
 test("keeps the new conversation mounted through server ID promotion and resets only when switching", async ({
@@ -254,8 +254,11 @@ for (const mode of ["waiting", "grounded-waiting"]) {
     await page.goto(`/chat/${session.id}`);
     await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Wait for evidence");
     await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-    const label = mode === "waiting" ? "Đang suy nghĩ…" : "Đang tìm trong tài liệu…";
-    await expect(page.getByRole("status").filter({ hasText: label })).toHaveCount(1);
+    const indicator =
+      mode === "waiting"
+        ? page.getByRole("status").filter({ hasText: "Đang suy nghĩ…" })
+        : page.getByRole("button", { name: /Đang tìm trong tài liệu…/ });
+    await expect(indicator).toHaveCount(1);
     await expect(page.locator(".aui-md")).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Sao chép câu trả lời", exact: true }),
@@ -264,7 +267,7 @@ for (const mode of ["waiting", "grounded-waiting"]) {
     await page.getByRole("button", { name: "Dừng trả lời" }).click();
     await expect(page.getByRole("button", { name: "Đang yêu cầu dừng" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
-    await expect(page.getByRole("status").filter({ hasText: label })).toHaveCount(0);
+    await expect(indicator).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Sao chép câu trả lời", exact: true }),
     ).toHaveCount(0);
@@ -448,6 +451,8 @@ for (const mode of [
     await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
     await page.reload();
     await expect(citation).toBeVisible();
+    // The committed activity timeline is restored collapsed from history.
+    await expect(page.getByRole("button", { name: /Tìm kiếm: 1/ })).toBeVisible();
     expect(
       (await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json()).sends,
     ).toBe(1);

@@ -102,3 +102,4 @@ Deep research (MEM-101), parallel tool execution, human approval, re-running or 
 - Reasoning summaries may be unavailable for the configured organization or model; the feature degrades to tools only.
 - Interleaving by `textOffset` depends on text between tool calls; most turns produce activity before text.
 - The rename touches native Web search, SearchTool, WebTools, ChatEvidence, the controller contract and several integration tests at once.
+- Updating a tool input after it first parses as complete JSON makes the assistant-ui `ToolInvocationTracker` log development-only warnings (EDGE_CASES A.2/A.4). They are guarded by `NODE_ENV !== "production"`, stream calls are not re-fired, and the rendered part still reflects the latest input; server-executed tools register no client `streamCall`.

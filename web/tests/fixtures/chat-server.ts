@@ -359,6 +359,7 @@ export async function handleChatFixture(
         artifacts: [],
         sources: [],
         files: [],
+        activity: { steps: [], reasoning: [] },
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -373,6 +374,7 @@ export async function handleChatFixture(
         artifacts: [],
         sources: [],
         files: [],
+        activity: { steps: [], reasoning: [] },
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",
@@ -410,10 +412,19 @@ export async function handleChatFixture(
       202,
     );
     const grounded = state.mode.startsWith("grounded");
-    if (grounded) emit(run, "search", { toolCallId: "search-1", stage: "STARTED", source: null });
-    if (state.mode === "grounded-progress") {
-      emit(run, "search", {
+    if (state.mode === "grounded-progress")
+      emit(run, "reasoning", { text: "Checking the latest HR policy before answering." });
+    if (grounded)
+      emit(run, "tool", {
         toolCallId: "search-1",
+        toolName: "searchKnowledge",
+        stage: "STARTED",
+        source: null,
+      });
+    if (state.mode === "grounded-progress") {
+      emit(run, "tool", {
+        toolCallId: "search-1",
+        toolName: "searchKnowledge",
         stage: "SEARCHING",
         source: null,
         documents: [],
@@ -426,8 +437,9 @@ export async function handleChatFixture(
           },
         },
       });
-      emit(run, "search", {
+      emit(run, "tool", {
         toolCallId: "search-1",
+        toolName: "searchKnowledge",
         stage: "EXPANDING",
         source: null,
         search: null,
@@ -493,8 +505,26 @@ export async function handleChatFixture(
           ];
         if (grounded) {
           state.messages.at(-1)!.sources = [fixtureSource];
-          emit(run, "search", { toolCallId: "search-1", stage: "SOURCE", source: fixtureSource });
-          emit(run, "search", { toolCallId: "search-1", stage: "COMPLETED", source: null });
+          state.messages.at(-1)!.activity = {
+            steps: [
+              {
+                position: 0,
+                toolCallId: "search-1",
+                toolName: "searchKnowledge",
+                status: "COMPLETED",
+                startedAt: new Date().toISOString(),
+                durationMs: 1200,
+                textOffset: 0,
+                queries: ["annual leave policy"],
+                documents: [],
+                citations: [1],
+              },
+            ],
+            reasoning: [],
+          };
+          const tool = { toolCallId: "search-1", toolName: "searchKnowledge" };
+          emit(run, "tool", { ...tool, stage: "SOURCE", source: fixtureSource });
+          emit(run, "tool", { ...tool, stage: "COMPLETED", source: null, durationMs: 1200 });
         }
         state.messages.at(-1)!.content = content;
         if (state.mode === "grounded-split") {
