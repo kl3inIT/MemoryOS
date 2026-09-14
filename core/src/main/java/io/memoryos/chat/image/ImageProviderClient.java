@@ -33,6 +33,7 @@ public final class ImageProviderClient {
         String base = connection.endpoint().replaceAll("/+$", "");
         return switch (connection.provider()) {
             case OPENAI_IMAGE -> openAi(base.isEmpty() ? "https://api.openai.com/v1" : base, key, connection.model(), prompt, size);
+            case CLOUDFLARE_WORKERS_AI -> cloudflare(base, key, connection.model(), prompt);
         };
     }
     private Result openAi(String base, String key, String model, String prompt, @Nullable String size) throws IOException {
@@ -49,6 +50,21 @@ public final class ImageProviderClient {
         catch (IllegalArgumentException invalid) { throw new IOException("Invalid image encoding"); }
         String revised = first.path("revised_prompt").asString("");
         return new Result(bytes, "image/png", revised.isBlank() ? null : revised);
+    }
+    private Result cloudflare(String base, String key, String model, String prompt) throws IOException {
+        if (base.isEmpty()) throw new IOException("Cloudflare Workers AI requires an account endpoint");
+        String m = model.isBlank() ? "@cf/black-forest-labs/flux-1-schnell" : model;
+        var body = new LinkedHashMap<String, Object>();
+        body.put("prompt", prompt);
+        body.put("steps", 4);
+        // Cloudflare wraps run output in {"result": {...}}; text-to-image returns base64 JPEG.
+        var root = json(base + "/ai/run/" + m, Map.of("Authorization", "Bearer " + key), body);
+        String b64 = root.path("result").path("image").asString("");
+        if (b64.isEmpty()) throw new IOException("Image provider returned no image");
+        byte[] bytes;
+        try { bytes = Base64.getDecoder().decode(b64); }
+        catch (IllegalArgumentException invalid) { throw new IOException("Invalid image encoding"); }
+        return new Result(bytes, "image/jpeg", null);
     }
     private JsonNode json(String url, Map<String, String> headers, Map<String, Object> body) throws IOException {
         var response = http.post(URI.create(url), headers, JSON.writeValueAsString(body));

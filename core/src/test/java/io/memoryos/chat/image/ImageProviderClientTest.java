@@ -29,7 +29,10 @@ class ImageProviderClientTest {
     private final ImageProviderClient client = new ImageProviderClient(http, connections, meters);
 
     private ImageConnectionService.Connection connection(String endpoint, String model) {
-        var c = new ImageConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), ImageProvider.OPENAI_IMAGE, endpoint, model, "encrypted", 1);
+        return connection(ImageProvider.OPENAI_IMAGE, endpoint, model);
+    }
+    private ImageConnectionService.Connection connection(ImageProvider provider, String endpoint, String model) {
+        var c = new ImageConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), provider, endpoint, model, "encrypted", 1);
         when(connections.key(c)).thenReturn("test-secret");
         return c;
     }
@@ -74,5 +77,35 @@ class ImageProviderClientTest {
 
     @Test void invalidPromptRejectedBeforeRequest() {
         assertThrows(IllegalArgumentException.class, () -> client.generate(connection("", "gpt-image-1"), "  ", null));
+    }
+
+    private static final String CF_BASE = "https://api.cloudflare.com/client/v4/accounts/acct123";
+
+    @Test void cloudflareDecodesResultImageAndBuildsRunUrl() throws Exception {
+        byte[] jpeg = {9, 8, 7, 6};
+        String b64 = Base64.getEncoder().encodeToString(jpeg);
+        when(http.post(any(), eq(Map.of("Authorization", "Bearer test-secret")), anyString()))
+                .thenReturn(ok("{\"result\":{\"image\":\"" + b64 + "\"},\"success\":true}"));
+        var result = client.generate(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, CF_BASE, "@cf/black-forest-labs/flux-1-schnell"), "a red bicycle", null);
+        assertArrayEquals(jpeg, result.bytes());
+        assertEquals("image/jpeg", result.mediaType());
+        assertNull(result.revisedPrompt());
+        verify(http).post(argThat(uri -> uri.toString().equals(CF_BASE + "/ai/run/@cf/black-forest-labs/flux-1-schnell")),
+                eq(Map.of("Authorization", "Bearer test-secret")), anyString());
+    }
+
+    @Test void cloudflareDefaultsModelWhenBlank() throws Exception {
+        when(http.post(any(), anyMap(), anyString())).thenReturn(ok("{\"result\":{\"image\":\"AQID\"}}"));
+        client.generate(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, CF_BASE + "/", ""), "a cat", null);
+        verify(http).post(argThat(uri -> uri.toString().equals(CF_BASE + "/ai/run/@cf/black-forest-labs/flux-1-schnell")), anyMap(), anyString());
+    }
+
+    @Test void cloudflareRequiresAccountEndpoint() {
+        assertThrows(IOException.class, () -> client.generate(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, "", "@cf/black-forest-labs/flux-1-schnell"), "a cat", null));
+    }
+
+    @Test void cloudflareMissingImageFails() throws Exception {
+        when(http.post(any(), anyMap(), anyString())).thenReturn(ok("{\"result\":{},\"success\":true}"));
+        assertThrows(IOException.class, () -> client.generate(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, CF_BASE, "@cf/black-forest-labs/flux-1-schnell"), "a cat", null));
     }
 }
