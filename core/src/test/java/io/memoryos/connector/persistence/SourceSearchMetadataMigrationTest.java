@@ -182,11 +182,11 @@ class SourceSearchMetadataMigrationTest {
             assertTrue(access.canRead(member, new DocumentId(driveDoc)));
 
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE id=:id").param("id", drive).update();
-            assertFalse(access.canRead(member, new DocumentId(driveDoc)), "Drive never inherits FILE public access");
-            assertFalse(access.canRead(outsider, new DocumentId(driveDoc)));
-            assertFalse(search.scope(member).sources().containsKey(drive));
-            assertTrue(search.readableMetadata(driveScope, ids).isEmpty());
-            assertTrue(search.indexMetadata(tenant, new DocumentId(driveDoc), generation).isEmpty());
+            assertTrue(access.canRead(outsider, new DocumentId(driveDoc)), "A public Drive source admits every member");
+            assertTrue(search.scope(outsider).sources().containsKey(drive));
+            assertEquals(java.util.Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
+            assertEquals(List.of(drive), search.indexMetadata(tenant, new DocumentId(driveDoc), generation)
+                    .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE',status='INDEXING' WHERE id=:id")
                     .param("id", drive).update();
             assertTrue(access.canRead(member, new DocumentId(driveDoc)), "Other items indexing must not hide eligible documents");
