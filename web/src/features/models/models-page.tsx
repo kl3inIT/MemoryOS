@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -128,11 +129,18 @@ function Capabilities({
   ].filter((entry) => entry.on);
   if (declared.length === 0) return null;
   return (
-    <span className="flex items-center gap-1">
-      {declared.map(({ key, label, icon: Icon }) => (
-        <Icon key={key} aria-label={ui(label)} className="size-3.5 text-content-muted" />
-      ))}
-    </span>
+    <TooltipProvider>
+      <span className="flex items-center gap-1">
+        {declared.map(({ key, label, icon: Icon }) => (
+          <Tooltip key={key}>
+            <TooltipTrigger className="flex items-center">
+              <Icon aria-label={ui(label)} className="size-3.5 text-content-muted" />
+            </TooltipTrigger>
+            <TooltipContent>{ui(label)}</TooltipContent>
+          </Tooltip>
+        ))}
+      </span>
+    </TooltipProvider>
   );
 }
 
@@ -184,7 +192,7 @@ function ConnectionCard({
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-2">
               <span className="break-words font-main-ui-action">{provider.name}</span>
-              {isDefault && <Badge variant="default">{ui("Default")}</Badge>}
+              {isDefault && <Badge variant="secondary">{ui("Default")}</Badge>}
               <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
               {!provider.isPublic && <Badge variant="outline">{ui("Restricted")}</Badge>}
             </span>
@@ -259,7 +267,7 @@ function ConnectionCard({
                           {model.displayName}
                         </span>
                         {model.id === defaultModelId && (
-                          <Badge variant="default">{ui("Default")}</Badge>
+                          <Badge variant="secondary">{ui("Default")}</Badge>
                         )}
                         {!model.visible && <StatusBadge tone="neutral">{ui("Hidden")}</StatusBadge>}
                       </span>
