@@ -2,9 +2,8 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Info, LoaderCircle, Trash2, WifiOff } from "lucide-react";
+import { Info, LoaderCircle, Trash2, Users, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -253,7 +252,7 @@ function GroupDetail({
     <>
       <header className="group-detail-header border-b border-border-subtle pb-6">
         <div>
-          <OnyxUsersIcon className="size-8 text-content-secondary" aria-hidden="true" />
+          <Users className="size-8 text-content-secondary" aria-hidden="true" />
           <h1 className="mt-2 text-2xl font-semibold leading-8 text-content-primary">
             {ui("Edit Group")}
           </h1>
