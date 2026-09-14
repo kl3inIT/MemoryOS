@@ -41,11 +41,6 @@ services:
       options:
         max-size: 10m
         max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: "2.00"
-          memory: 2g
 
   search-security-bootstrap:
     image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
@@ -123,11 +118,6 @@ services:
       options:
         max-size: 10m
         max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: "1.00"
-          memory: 768m
 
 volumes:
   memoryos_search:

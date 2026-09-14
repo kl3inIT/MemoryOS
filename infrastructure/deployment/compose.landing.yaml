@@ -35,9 +35,6 @@ services:
         max-file: "3"
     deploy:
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 64m
         reservations:
           memory: 16m
 

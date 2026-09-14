@@ -126,9 +126,6 @@ services:
     stop_grace_period: 15s
     deploy:
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 128m
         reservations:
           memory: 32m
 
@@ -181,9 +178,6 @@ services:
     stop_grace_period: 15s
     deploy:
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 96m
         reservations:
           memory: 32m
 
@@ -235,9 +229,6 @@ services:
     stop_grace_period: 30s
     deploy:
       resources:
-        limits:
-          cpus: "0.50"
-          memory: 384m
         reservations:
           memory: 128m
 
@@ -321,9 +312,6 @@ services:
     stop_grace_period: 15s
     deploy:
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 128m
         reservations:
           memory: 32m
 
@@ -375,9 +363,6 @@ services:
     stop_grace_period: 15s
     deploy:
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 96m
         reservations:
           memory: 32m
 
@@ -435,9 +420,6 @@ services:
     stop_grace_period: 30s
     deploy:
       resources:
-        limits:
-          cpus: "0.50"
-          memory: 512m
         reservations:
           memory: 128m
 
@@ -490,9 +472,6 @@ services:
     stop_grace_period: 15s
     deploy:
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 96m
         reservations:
           memory: 32m
 
