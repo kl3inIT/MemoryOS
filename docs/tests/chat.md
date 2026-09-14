@@ -199,8 +199,8 @@ Opt-in `MEMORYOS_CHAT_GROUNDING_LIVE_TEST=true` runs `ChatSessionApiIntegrationT
 | Source presentation metadata is optional for history, forbidden on Web sources, Drive URL shape validated | `ChatSource` compact constructor; `chat-evidence.ts` schema |
 | File-type/provider icon mapping, provider labels, decorative icon | `document-source-icon.test.tsx` |
 | Provenance pages, boxes, sheet names, malformed input, PDF box mapping and rotated pages | `source-provenance.test.ts` |
-| Citation original PDF authority before/after storage open, magic bytes, size, closing rejected streams | `DocumentOriginalServiceTest` |
+| Citation original PDF authority before/after storage open (also per byte range), magic bytes, size, closing rejected streams | `DocumentOriginalServiceTest` |
 | Only an actor-readable active mapping's current PDF version that produced the Document is served; provider file id is read | `SourceOriginalPdfQueryTest` |
 | Sources saved before presentation metadata read with null media type, empty source types and no provider URL | `ChatSourceLegacyJsonTest` |
 | Sources stack one icon per document kind; Web icons fall back to a globe in stacks and to nothing on citation chips | `sources.test.tsx` |
-| Chip, preview meta, provider name as the Drive link, PDF tabs (`aria-selected`) and highlighted regions in the real browser; fixture boxes are the glyph extents pdf.js reports for `cited-handbook.pdf`, not invented rectangles | `chat.spec.ts` grounded citation case |
+| Chip, preview meta, provider name as the Drive link, PDF tabs (`aria-selected`) and highlighted regions in the real browser; fixture boxes are the glyph extents pdf.js reports for page 1 of the generated `ranged-pdf.ts` document (same text as the former `cited-handbook.pdf`), not invented rectangles; the 12-page, 6 MiB original is read by range (one whole-file response, ranges under half the file), the last page renders after scrolling, the counter follows the page and "Back to cited passage" returns to page 1 | `chat.spec.ts` grounded citation case; `pdf-page-window.test.ts` |

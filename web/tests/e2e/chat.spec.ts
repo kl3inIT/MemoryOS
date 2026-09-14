@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
 import { fixtureModels, fixtureSource } from "../fixtures/chat-data";
 
 const identity = {
@@ -371,14 +371,14 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(
     panel.getByRole("link", { name: "Mở Employee handbook trong Google Drive" }),
   ).toHaveAttribute("href", fixtureSource.providerUrl!);
-  const originalReads: URL[] = [];
+  const originalPdf = rangedHandbookPdf();
+  const originalReads: { url: URL; range?: string }[] = [];
   await page.route(`**/api/chat/documents/${fixtureSource.documentId}/original?*`, (route) => {
-    originalReads.push(new URL(route.request().url()));
-    return route.fulfill({
-      status: 200,
-      contentType: "application/octet-stream",
-      body: readFileSync(new URL("../fixtures/cited-handbook.pdf", import.meta.url)),
+    originalReads.push({
+      url: new URL(route.request().url()),
+      range: route.request().headers()["range"],
     });
+    return fulfillPdfRange(route, originalPdf);
   });
   await panel.getByRole("tab", { name: "Trang PDF" }).click();
   await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
@@ -387,9 +387,26 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   );
   await expect(panel.locator('[data-slot="pdf-page"][data-page="1"]')).toBeVisible();
   await expect(panel.locator('[data-slot="pdf-citation-box"]')).toHaveCount(2);
-  expect(originalReads.map((url) => url.searchParams.get("generation"))).toEqual([
-    fixtureSource.generation,
-  ]);
+  expect(new Set(originalReads.map(({ url }) => url.searchParams.get("generation")))).toEqual(
+    new Set([fixtureSource.generation]),
+  );
+  // One whole-file response supplies the headers; the cited page then needs only a few ranges of the original.
+  expect(originalReads.filter(({ range }) => !range)).toHaveLength(1);
+  expect(originalReads.some(({ range }) => range)).toBe(true);
+  expect(
+    rangedBytes(
+      originalReads.map(({ range }) => range),
+      originalPdf.length,
+    ),
+  ).toBeLessThan(originalPdf.length / 2);
+  await expect(panel.getByText("Trang 1 / 12")).toBeVisible();
+  const lastPage = panel.locator('[data-slot="pdf-page"][data-page="12"]');
+  await lastPage.scrollIntoViewIfNeeded();
+  await expect(lastPage).toHaveAttribute("data-rendered", "true");
+  await expect(lastPage.locator("canvas")).toBeVisible();
+  await expect(panel.getByText("Trang 12 / 12")).toBeVisible();
+  await panel.getByRole("button", { name: "Về đoạn trích dẫn" }).click();
+  await expect(panel.getByText("Trang 1 / 12")).toBeVisible();
   await panel.getByRole("tab", { name: "Đoạn trích" }).click();
   await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
   await panel.getByRole("button", { name: "Phần trước" }).click();

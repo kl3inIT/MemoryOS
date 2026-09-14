@@ -38,6 +38,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
 - [CI speedup](docs/increments/active/ci-speedup/design.md) owns PR change-based job selection, parallel core tests with template-cloned PostgreSQL fixtures and BuildKit image caches.
 - [MEM-100 — Agent activity timeline](docs/increments/active/mem-100-agent-activity-timeline/design.md) owns persisted tool steps and reasoning in Chat, rendered with assistant-ui grouped parts; Deep research (MEM-101) is excluded.
+- [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash (full intro once per tab, short sheen form otherwise), the brand loader and the signed-out redirect to Keycloak.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 

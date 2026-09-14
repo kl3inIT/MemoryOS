@@ -5248,6 +5248,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: Range
+        in: header
+        description: "One byte range, for example bytes=0-1048575"
+        required: false
+        schema:
+          type: string
       responses:
         "200":
           description: Original PDF bytes
@@ -5256,6 +5262,15 @@ paths:
               schema:
                 type: string
                 format: binary
+        "206":
+          description: Requested byte range of the original PDF
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "416":
+          description: Requested byte range starts beyond the original PDF
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6697,7 +6712,29 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: Range
+        in: header
+        description: "One byte range, for example bytes=0-1048575"
+        required: false
+        schema:
+          type: string
       responses:
+        "200":
+          description: Original PDF bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Requested byte range of the original PDF
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "416":
+          description: Requested byte range starts beyond the original PDF
         "400":
           description: Invalid passage window
           content:
@@ -6718,13 +6755,6 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "401":
           description: Authentication required
-        "200":
-          description: Original PDF bytes
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
       security:
       - bearerAuth: []
       - browserSession: []
