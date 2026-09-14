@@ -356,7 +356,10 @@ export function AppShell({
               className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary md:max-w-xl"
             >
               {sourceSetupStep === undefined && area === "app" && chatMode ? (
-                <ChatModeMenu mode={chatMode} />
+                <span className="flex min-w-0 items-center gap-2">
+                  <ChatModeMenu mode={chatMode} />
+                  {pageTitle !== ui(chatMode) && <span className="truncate">{pageTitle}</span>}
+                </span>
               ) : (
                 pageTitle
               )}

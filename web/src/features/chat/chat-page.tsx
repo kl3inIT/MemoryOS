@@ -196,7 +196,7 @@ function ChatConversation({
   return (
     <AppShell
       pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
-      chatMode={!headerSession && !project ? "Chat" : undefined}
+      chatMode={project ? undefined : "Chat"}
       headerActions={
         <div className="flex items-center gap-1">
           <ChatConversationSearch key={headerSession?.id ?? "new"} />
