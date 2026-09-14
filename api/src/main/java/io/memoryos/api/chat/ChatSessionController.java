@@ -81,7 +81,7 @@ class ChatSessionController {
             @RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "20") int limit) {
         var results = sessions.search(identity.actorId(), query, offset, limit);
-        return new ChatSessionSearchResponse(results.stream().limit(limit).map(ChatSessionResponse::from).toList(), results.size() > limit);
+        return new ChatSessionSearchResponse(results.stream().limit(limit).map(ChatSessionSearchResponse.Item::from).toList(), results.size() > limit);
     }
 
     @GetMapping("/{sessionId}/messages")

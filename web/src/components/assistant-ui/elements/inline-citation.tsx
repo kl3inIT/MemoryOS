@@ -9,6 +9,7 @@ export function InlineCitation({
   preview,
   open,
   onOpenChange,
+  icon,
   className,
   children,
   onClick,
@@ -17,6 +18,8 @@ export function InlineCitation({
   preview: ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Decorative source glyph shown before the label. */
+  icon?: ReactNode;
 }) {
   const previewId = useId();
   return (
@@ -32,13 +35,14 @@ export function InlineCitation({
             onClick?.(event);
           }}
           className={cn(
-            "ms-0.5 inline-flex max-w-40 items-center rounded px-1.5 align-baseline text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+            "ms-0.5 inline-flex max-w-52 items-center gap-1 rounded-md border border-border-subtle px-1.5 py-px align-baseline text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring",
             open
-              ? "bg-content-primary text-surface-base"
-              : "bg-surface-sunken text-content-secondary hover:bg-content-primary hover:text-surface-base",
+              ? "border-border-strong bg-surface-sunken text-content-primary"
+              : "bg-surface-subtle text-content-secondary hover:border-border-default hover:bg-surface-sunken hover:text-content-primary",
             className,
           )}
         >
+          {icon}
           <span className="truncate">{children}</span>
         </button>
       </HoverCard.Trigger>

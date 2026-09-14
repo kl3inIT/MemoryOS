@@ -20,8 +20,12 @@ const FRIENDLY_MEDIA_TYPES: Record<string, string> = {
     "PowerPoint presentation",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel spreadsheet",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
+  "application/vnd.google-apps.document": "Google Docs",
+  "application/vnd.google-apps.presentation": "Google Slides",
+  "application/vnd.google-apps.spreadsheet": "Google Sheets",
   "text/csv": "CSV",
   "text/markdown": "Markdown",
+  "text/x-markdown": "Markdown",
   "text/plain": "Text document",
 };
 

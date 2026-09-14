@@ -1,5 +1,6 @@
 package io.memoryos.api.search.contract;
 
+import io.memoryos.connector.SourceType;
 import io.memoryos.retrieval.SearchPage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
@@ -11,10 +12,11 @@ public record SearchPageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Result> results,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int page,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean hasMore,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Readable Documents among the bounded candidates") int totalResults,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int candidateLimit) {
     public static SearchPageResponse from(SearchPage page) {
         return new SearchPageResponse(page.results().stream().map(Result::from).toList(),
-                page.page(), page.hasMore(), page.candidateLimit());
+                page.page(), page.hasMore(), page.totalResults(), page.candidateLimit());
     }
 
     public record Result(
@@ -24,10 +26,14 @@ public record SearchPageResponse(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double score,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Section> sections) {
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Section> sections,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SourceType> sourceTypes,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> authors,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @org.jspecify.annotations.Nullable String providerUrl) {
         private static Result from(SearchPage.Result result) {
             return new Result(result.documentId(), result.generation(), result.title(), result.mediaType(),
-                    result.updatedAt(), result.score(), result.sections().stream().map(Section::from).toList());
+                    result.updatedAt(), result.score(), result.sections().stream().map(Section::from).toList(),
+                    result.sourceTypes(), result.authors(), result.providerUrl());
         }
     }
 

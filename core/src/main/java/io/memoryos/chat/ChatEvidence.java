@@ -22,12 +22,14 @@ public final class ChatEvidence {
         sources.values().forEach(source -> events.accept(new ChatSearchEvent("file-context", ChatSearchEvent.Stage.SOURCE, source)));
     }
 
-    public synchronized @Nullable ChatSource file(UUID id, String title) {
-        return register("file:" + id, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id), "file-reader");
+    public synchronized @Nullable ChatSource file(UUID id, String title, @Nullable String mediaType) {
+        return register("file:" + id, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id, null, null,
+                mediaType, List.of(), null), "file-reader");
     }
 
-    public synchronized @Nullable ChatSource file(UUID id, String title, ChatSource.FileLocation location) {
-        return register("file:" + id + ":" + location, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id, location), "file-reader");
+    public synchronized @Nullable ChatSource file(UUID id, String title, @Nullable String mediaType, ChatSource.FileLocation location) {
+        return register("file:" + id + ":" + location, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id, location, null,
+                mediaType, List.of(), null), "file-reader");
     }
 
     public synchronized @Nullable ChatSource register(String key, IntFunction<ChatSource> factory, String toolCallId) {
@@ -36,6 +38,8 @@ public final class ChatEvidence {
         if (sources.size() >= 24) return null;
         var source = factory.apply(nextId());
         int size = 512 + source.title().length() * 6
+                + (source.mediaType() == null ? 0 : source.mediaType().length() * 6) + source.sourceTypes().size() * 24
+                + (source.providerUrl() == null ? 0 : source.providerUrl().length() * 6)
                 + (source.web() == null ? 0 : (source.web().url().length() + source.web().excerpt().length()) * 6)
                 + source.provenance().stream().mapToInt(p -> 64 + p.provenanceJson().length() * 6).sum();
         if (bytes + size > 131072) return null;

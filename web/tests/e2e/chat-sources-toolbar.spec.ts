@@ -74,7 +74,7 @@ for (const width of [1440, 390]) {
     const panel =
       width === 390 ? page.getByRole("dialog") : page.getByRole("complementary", { name: "Nguồn" });
     await expect(panel).toBeVisible();
-    await expect(panel.locator('[data-slot="document-reference"]')).toHaveCount(3);
+    await expect(panel.locator('[data-slot="source-row"]')).toHaveCount(3);
     await page.screenshot({ path: `../output/playwright/source-reference-list-${width}.png` });
     await panel.getByRole("button", { name: "Đọc nguồn 2: Web 2" }).click();
     await expect(panel).toContainText("Nội dung nguồn Web đã lưu.");

@@ -25,7 +25,7 @@ final class ChatFileInputs {
                 checkActive.run();
                 byte[] bytes = content.image(setup.actor(), setup.tenant(), file.id());
                 checkActive.run();
-                var source = setup.evidence().file(file.id(), file.filename());
+                var source = setup.evidence().file(file.id(), file.filename(), file.mediaType());
                 if (source != null) parts.add(new TextPart("Image citation [" + source.citationId() + "] identifies file " + file.id()));
                 parts.add(new ImagePart(file.mediaType(), bytes));
             }

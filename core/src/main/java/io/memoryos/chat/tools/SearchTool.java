@@ -593,7 +593,9 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         checkActive.run();
         var source = evidence.register(key, id -> new ChatSource(id, hit.documentId(), hit.generation(), hit.title(),
                 included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()
-                .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList()), toolCallId);
+                .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList(), null, null, null,
+                hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
+                io.memoryos.connector.DocumentSourceMetadata.providerUrl(hit.origins())), toolCallId);
         if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included));
     }
 
