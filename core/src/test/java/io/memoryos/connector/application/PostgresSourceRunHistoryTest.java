@@ -102,10 +102,10 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
                 .param("tenant", tenant.value()).param("actor", owner.value()).update();
         sources = new JdbcSourceRepository(jdbc, event -> { });
-        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.RESTRICTED)));
+        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.PRIVATE)));
         source = pair.sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
-        jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED' WHERE id=:id").param("id", source.value()).update();
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id").param("id", source.value()).update();
         jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
         jdbc.sql("INSERT INTO google_drive_roots(tenant_id,source_id,file_id,name,mime_type) VALUES (:tenant,:source,'folder','Folder','application/vnd.google-apps.folder')")
@@ -275,13 +275,13 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("INSERT INTO actors(id) VALUES (:id) ON CONFLICT DO NOTHING").param("id", foreignOwner.value()).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
                 .param("tenant", foreignTenant.value()).param("actor", foreignOwner.value()).update();
-        var otherSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.RESTRICTED)));
-        var foreignSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(foreignTenant, foreignOwner, "Foreign", io.memoryos.connector.SourceAccess.RESTRICTED)));
+        var otherSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PRIVATE)));
+        var foreignSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(foreignTenant, foreignOwner, "Foreign", io.memoryos.connector.SourceAccess.PRIVATE)));
         for (var pair : List.of(otherSource, foreignSource)) {
             var errorTenant = pair.sourceId().equals(otherSource.sourceId()) ? tenant : foreignTenant;
             jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id")
                     .param("id", pair.connectorId()).update();
-            jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED' WHERE id=:id")
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id")
                     .param("id", pair.sourceId().value()).update();
             jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
                     .param("tenant", errorTenant.value()).param("source", pair.sourceId().value()).update();

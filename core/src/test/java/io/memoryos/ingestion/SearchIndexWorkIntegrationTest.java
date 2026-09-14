@@ -298,7 +298,7 @@ class SearchIndexWorkIntegrationTest {
         for (String sql : List.of(
                 "INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:source,:tenant,'Files','NO_AUTH','ACTIVE')",
                 "INSERT INTO connectors(id,tenant_id,name,connector_type,status) VALUES(:source,:tenant,'Files','FILE','ACTIVE')",
-                "INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status) VALUES(:source,:tenant,:source,:source,'RESTRICTED','ACTIVE')",
+                "INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status) VALUES(:source,:tenant,:source,:source,'PRIVATE','ACTIVE')",
                 "INSERT INTO connector_items(id,tenant_id,connector_id,content_sha256,status) VALUES(:item,:tenant,:source,REPEAT('b',64),'INDEXED')",
                 """
                 INSERT INTO documents_by_connector_credential_pair(tenant_id,connector_id,connector_credential_pair_id,document_id,connector_item_id,retrieval_eligible)

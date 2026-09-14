@@ -29,7 +29,7 @@ public class JdbcSourceDocumentRepository {
     private static final ObjectMapper METADATA_MAPPER = new ObjectMapper();
     private static final String SEARCHABLE_SOURCE = """
             (c.connector_type='FILE'
-             OR (c.connector_type='GOOGLE_DRIVE' AND p.access_type='RESTRICTED'))
+             OR (c.connector_type='GOOGLE_DRIVE' AND p.access_type='PRIVATE'))
             """;
     private static final String READ_SCOPE = """
             EXISTS (

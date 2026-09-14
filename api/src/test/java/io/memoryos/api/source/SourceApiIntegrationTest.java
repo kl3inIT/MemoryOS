@@ -1160,9 +1160,9 @@ class SourceApiIntegrationTest {
         ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
         String managedSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
                 "Manager source", List.of(new io.memoryos.iam.group.GroupId(managedGroupId)),
-                io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+                io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
         String hiddenSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
-                "Hidden manager source", List.of(), io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+                "Hidden manager source", List.of(), io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
         ApiUpload managedUpload = uploadAndFinalize(
                 manager,
                 managedSourceId,
@@ -1266,7 +1266,7 @@ class SourceApiIntegrationTest {
                         .with(authentication(manager)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Scoped private\",\"groupIds\":[\"%s\"]}".formatted(managedGroupId)))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.access").value("RESTRICTED"));
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.access").value("PRIVATE"));
 
         mockMvc.perform(get("/api/sources/group-options?search=Scoped")
                         .with(authentication(owner)))

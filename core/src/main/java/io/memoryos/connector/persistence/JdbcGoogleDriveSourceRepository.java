@@ -233,7 +233,7 @@ public class JdbcGoogleDriveSourceRepository {
                 """).param("id", connector).param("tenant", tenant.value()).param("name", name).update();
         jdbc.sql("""
                 INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status, created_by_actor_id)
-                VALUES (:id, :tenant, :connector, :credential, 'RESTRICTED', 'NOT_STARTED', :actor)
+                VALUES (:id, :tenant, :connector, :credential, 'PRIVATE', 'NOT_STARTED', :actor)
                 """).param("id", source.value()).param("tenant", tenant.value())
                 .param("connector", connector).param("credential", credential.value()).param("actor", actor.value()).update();
         initialize(tenant, source, scopeMode);

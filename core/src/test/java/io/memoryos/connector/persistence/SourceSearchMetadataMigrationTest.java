@@ -33,13 +33,15 @@ class SourceSearchMetadataMigrationTest {
                     INSERT INTO documents(id,tenant_id,status,title,content_generation,metadata_json)
                     VALUES(:id,:tenant,'ELIGIBLE','Original',:generation,'{"dc:creator":"Alice"}')
                     """).param("id", document).param("tenant", tenant.value()).param("generation", generation).update();
-            seed(jdbc, tenant, file, file, document, false, true);
-            seed(jdbc, tenant, drive, drive, document, true, true);
-            seed(jdbc, tenant, inactive, file, document, false, false);
+            seed(jdbc, tenant, file, file, document, false, true, "RESTRICTED");
+            seed(jdbc, tenant, drive, drive, document, true, true, "RESTRICTED");
+            seed(jdbc, tenant, inactive, file, document, false, false, "RESTRICTED");
             var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("35").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
             assertEquals(0, flyway.migrate().migrationsExecuted);
             flyway.validate();
+            // The read rules use later tables; V56 renames the Drive RESTRICTED access to PRIVATE.
+            Flyway.configure().dataSource(database).locations("classpath:db/migration").load().migrate();
 
             var repository = new JdbcSourceDocumentRepository(jdbc);
             var tenants = mock(TenantAccessResolver.class);
@@ -137,7 +139,7 @@ class SourceSearchMetadataMigrationTest {
             seed(jdbc, tenant, drive, drive, driveDoc, true, true);
             seed(jdbc, tenant, mixedDrive, drive, mixed, true, true);
             seed(jdbc, tenant, orphan, publicFile, orphanDoc, false, true);
-            jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED',created_by_actor_id=:actor WHERE id IN (:ids)")
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE',created_by_actor_id=:actor WHERE id IN (:ids)")
                     .param("actor", manager.value()).param("ids", List.of(mixedPrivate, privateFile, drive, mixedDrive, orphan)).update();
             for (var source : List.of(mixedPrivate, privateFile, drive, mixedDrive)) {
                 jdbc.sql("INSERT INTO source_group_grants(tenant_id,connector_credential_pair_id,group_id) VALUES(:tenant,:source,:group)")
@@ -185,7 +187,7 @@ class SourceSearchMetadataMigrationTest {
             assertFalse(search.scope(member).sources().containsKey(drive));
             assertTrue(search.readableMetadata(driveScope, ids).isEmpty());
             assertTrue(search.indexMetadata(tenant, new DocumentId(driveDoc), generation).isEmpty());
-            jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED',status='INDEXING' WHERE id=:id")
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE',status='INDEXING' WHERE id=:id")
                     .param("id", drive).update();
             assertTrue(access.canRead(member, new DocumentId(driveDoc)), "Other items indexing must not hide eligible documents");
             assertTrue(search.scope(member).sources().containsKey(drive));
@@ -229,13 +231,19 @@ class SourceSearchMetadataMigrationTest {
     }
 
     private static void seed(JdbcClient jdbc, TenantId tenant, UUID source, UUID credential, UUID document, boolean drive, boolean active) {
+        seed(jdbc, tenant, source, credential, document, drive, active, "PRIVATE");
+    }
+
+    /** {@code driveAccess} is the stored non-public value of the schema under test (RESTRICTED before V56). */
+    private static void seed(JdbcClient jdbc, TenantId tenant, UUID source, UUID credential, UUID document, boolean drive, boolean active,
+            String driveAccess) {
         if (source.equals(credential)) jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Test',:kind,'ACTIVE')")
                 .param("id", credential).param("tenant", tenant.value()).param("kind", drive ? "GOOGLE_OAUTH" : "NO_AUTH").update();
         jdbc.sql("INSERT INTO connectors(id,tenant_id,name,connector_type,status) VALUES(:id,:tenant,'Test',:type,'ACTIVE')")
                 .param("id", source).param("tenant", tenant.value()).param("type", drive ? "GOOGLE_DRIVE" : "FILE").update();
         jdbc.sql("INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status) VALUES(:id,:tenant,:id,:credential,:access,:status)")
                 .param("id", source).param("tenant", tenant.value()).param("credential", credential)
-                .param("access", drive ? "RESTRICTED" : "PUBLIC").param("status", active ? "ACTIVE" : "NOT_STARTED").update();
+                .param("access", drive ? driveAccess : "PUBLIC").param("status", active ? "ACTIVE" : "NOT_STARTED").update();
         for (String sql : List.of(
                 "INSERT INTO stored_objects(id,tenant_id,object_key,filename,declared_media_type,size_bytes,content_sha256,state,expires_at) VALUES(:id,:tenant,CAST(:id AS TEXT),'test.txt','text/plain',1,REPEAT('a',64),'ACTIVE',CURRENT_TIMESTAMP)",
                 "INSERT INTO connector_items(id,tenant_id,connector_id,content_sha256,status,created_at,updated_at) VALUES(:id,:tenant,:id,REPEAT('a',64),'INDEXED','2000-01-01T00:00:00Z','2026-09-10T00:00:00Z')",

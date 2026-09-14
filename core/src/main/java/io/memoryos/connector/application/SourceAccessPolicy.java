@@ -72,7 +72,7 @@ public class SourceAccessPolicy {
         }
         if (distinct.size() > 100) throw SourceException.invalid("Select no more than 100 groups.", "source group limit exceeded");
         boolean global = authority.authority() == Authority.GLOBAL;
-        SourceAccess access = requestedAccess == null ? (global ? SourceAccess.PUBLIC : SourceAccess.RESTRICTED) : requestedAccess;
+        SourceAccess access = requestedAccess == null ? (global ? SourceAccess.PUBLIC : SourceAccess.PRIVATE) : requestedAccess;
         if (!global && access == SourceAccess.PUBLIC) {
             throw SourceException.invalid("Managed sources must be restricted.", "scoped source publication denied");
         }

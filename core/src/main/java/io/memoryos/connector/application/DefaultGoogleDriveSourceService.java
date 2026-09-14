@@ -91,11 +91,11 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             throw SourceException.invalid("Source name must contain 1 to 120 characters.", "invalid source name");
         Objects.requireNonNull(credentialId, "credentialId must not be null");
         Objects.requireNonNull(requestId, "requestId must not be null");
-        var tenant = sourceAccess.creation(actor, SourceAccess.RESTRICTED, groupIds).authority().tenantId();
+        var tenant = sourceAccess.creation(actor, SourceAccess.PRIVATE, groupIds).authority().tenantId();
         var ids = rootIds(scopeMode, links);
         policy.requireSize(name, links, List.of());
         return Objects.requireNonNull(transactions.execute(_ -> {
-            var creation = sourceAccess.lockCreation(actor, SourceAccess.RESTRICTED, groupIds);
+            var creation = sourceAccess.lockCreation(actor, SourceAccess.PRIVATE, groupIds);
             if (!tenant.equals(creation.authority().tenantId())) throw SourceException.notFound();
             var groups = creation.groupIds().stream().sorted(java.util.Comparator.comparing(group -> group.value().toString())).toList();
             String hash = requestHash("CREATE", name, credentialId.toString(), scopeMode.name(), links,
@@ -473,7 +473,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var tenant = work.tenantId();
         // Creation can attach groups: take exclusive IAM authority before any tenant/source locks.
         var authority = intent.name() != null
-                ? sourceAccess.lockCreation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds()).authority()
+                ? sourceAccess.lockCreation(intent.actorId(), SourceAccess.PRIVATE, intent.groupIds()).authority()
                 : authorization.lockAndRequire(intent.actorId(), IamCapability.SOURCES_MANAGE, false);
         if (intent.credentialId() == null || !tenant.equals(authority.tenantId()) || !sources.lockActiveTenant(tenant))
             throw SourceException.staleConfiguration();
@@ -498,7 +498,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var source = work.sourceId();
         if (intent.name() != null) {
             drive.create(tenant, source, intent.actorId(), intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())), intent.scopeMode(), roots);
-            var groups = sourceAccess.creation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds()).groupIds();
+            var groups = sourceAccess.creation(intent.actorId(), SourceAccess.PRIVATE, intent.groupIds()).groupIds();
             sourceGroups.replace(tenant, source, groups);
             sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {
