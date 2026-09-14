@@ -10,8 +10,8 @@ const DocumentPdfView = lazy(() =>
 );
 
 export type PdfEvidence = {
-  queryKey: readonly unknown[];
-  load: (signal: AbortSignal) => Promise<Blob>;
+  /** Same-origin URL of the authorized original; pdf.js reads it by HTTP range. */
+  url: string;
   pages: readonly number[];
   boxes: readonly ProvenanceBox[];
 };

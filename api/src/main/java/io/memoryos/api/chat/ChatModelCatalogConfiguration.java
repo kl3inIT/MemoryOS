@@ -11,6 +11,7 @@ import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
+import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -51,14 +52,14 @@ class ChatModelCatalogConfiguration {
         var settings = new ModelSettings(limits.contextTokenLimit() + limits.maxOutputTokens(), limits.maxOutputTokens(),
                 new ModelSettings.Capabilities(true, toolCalling == null ? gpt5 : toolCalling,
                         vision == null ? gpt5 : vision, reasoning == null ? gpt5 : reasoning),
-                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens), pricing);
+                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens), pricing, "openai-o200k-v1");
         return new ModelCatalogService.Deployment(baseUrl, persona.getModel(), settings);
     }
     @Bean
     ModelCatalogService modelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            PersonaProperties persona, ModelCatalogService.Deployment deployment) {
-        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, persona, deployment);
+            GroupScopeService groups, PersonaProperties persona, ModelCatalogService.Deployment deployment) {
+        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, persona, deployment);
     }
     @Bean
     ChatModelResolver chatModelResolver(ModelCatalogService catalog, ChatProviderAdapters adapters, ProviderCredentials credentials,

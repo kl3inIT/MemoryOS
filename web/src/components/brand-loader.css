@@ -1,0 +1,89 @@
+/*
+ * BrandLoader, the short form of the boot splash (splash.css): ribbons slide in from alternating sides
+ * to draw the wordmark once, then a light sheen crosses it on a loop until the loader unmounts.
+ */
+
+.brand-loader {
+  --brand-loader-sheen: #ffffff;
+}
+
+.dark .brand-loader {
+  --brand-loader-sheen: #6f9cf2;
+}
+
+.brand-loader__strip {
+  fill: currentColor;
+  animation: brand-loader-strip-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.brand-loader__strip--down {
+  --brand-loader-from: -190px;
+}
+
+.brand-loader__strip--up {
+  --brand-loader-from: 190px;
+}
+
+/* Swap the strips for one solid wordmark once they land, so strip seams never stay visible. */
+.brand-loader__strips {
+  animation: brand-loader-hide 1ms linear 860ms forwards;
+}
+
+.brand-loader__still {
+  fill: currentColor;
+  opacity: 0;
+  animation: brand-loader-show 1ms linear 860ms forwards;
+}
+
+.brand-loader__sheen {
+  animation: brand-loader-sheen 1400ms cubic-bezier(0.45, 0, 0.55, 1) 800ms infinite both;
+}
+
+.brand-loader__sheen-stop {
+  stop-color: var(--brand-loader-sheen);
+}
+
+@keyframes brand-loader-strip-in {
+  from {
+    transform: translateY(var(--brand-loader-from));
+    fill-opacity: 0.35;
+  }
+  to {
+    transform: translateY(0);
+    fill-opacity: 1;
+  }
+}
+
+@keyframes brand-loader-show {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes brand-loader-hide {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes brand-loader-sheen {
+  from {
+    transform: translateX(0);
+  }
+  50%,
+  to {
+    transform: translateX(1500px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader__strips,
+  .brand-loader__sheen {
+    display: none;
+  }
+
+  .brand-loader__still {
+    opacity: 1;
+    animation: none;
+  }
+}
