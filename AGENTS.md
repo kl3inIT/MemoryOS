@@ -31,7 +31,6 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 - [Tasco scanned-PDF OCR](docs/increments/active/tasco-scanned-pdf-ocr/design.md) owns OCR, extraction and indexing of the supplied financial reports, verified through Orca Sources; Search and Chat changes are excluded.
 - [Docling timeout configuration](docs/increments/active/docling-timeout-configuration/design.md) owns the bounded external parser timeout configuration.
-- [Search generation handover](docs/increments/active/search-generation-handover/design.md) keeps a Document searchable on its previous ready generation while a replacement is indexed.
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.

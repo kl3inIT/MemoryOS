@@ -49,6 +49,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | [MEM-59](https://linear.app/memory-os/issue/MEM-59) | Browser-only Tasco JIT admission with explicit provider allowlist and exact Actor binding; Done in Linear | [Design](increments/completed/mem-59-tasco-jit/design.md) · [Verification](increments/completed/mem-59-tasco-jit/verification.md) |
 | [MEM-82](https://linear.app/memory-os/issue/MEM-82) | Separate public `vadan.app` landing deployable and release path; Done in Linear | [Design](increments/completed/mem-82-landing-page/design.md) · [Verification](increments/completed/mem-82-landing-page/verification.md) · PRs #95/#103 |
 | [MEM-94](https://linear.app/memory-os/issue/MEM-94) | Backend-computed per-resource `permissions` maps for Sources, Groups and Personas from the write-guard decisions; the web hides controls through a fail-closed `can()` | [Design](increments/completed/mem-94-resource-actions/design.md) · [Plan](increments/completed/mem-94-resource-actions/plan.md) · PR #135 |
+| Search generation handover | A reindexed Document stays searchable on its previous ready generation until the replacement is ready, then the replaced chunks are purged | [Design](increments/completed/search-generation-handover/design.md) · [Plan](increments/completed/search-generation-handover/plan.md) · PR #146 |
 
 ## Active
 
