@@ -62,9 +62,6 @@ services:
         max-file: "5"
     deploy:
       resources:
-        limits:
-          cpus: "1.00"
-          memory: 768m
         reservations:
           memory: 256m
 
@@ -149,9 +146,6 @@ services:
     stop_grace_period: 60s
     deploy:
       resources:
-        limits:
-          cpus: "1.00"
-          memory: 768m
         reservations:
           memory: 256m
 
@@ -253,9 +247,6 @@ services:
     cpu_shares: 256
     deploy:
       resources:
-        limits:
-          cpus: "0.75"
-          memory: 1g
         reservations:
           memory: 512m
 
@@ -311,9 +302,6 @@ services:
     cpu_shares: 512
     deploy:
       resources:
-        limits:
-          cpus: "1.00"
-          memory: 1536m
         reservations:
           memory: 384m
 
@@ -370,9 +358,6 @@ services:
     cpu_shares: 512
     deploy:
       resources:
-        limits:
-          cpus: "1.00"
-          memory: 1024m
         reservations:
           memory: 512m
 
@@ -411,9 +396,6 @@ services:
     cpu_shares: 128
     deploy:
       resources:
-        limits:
-          cpus: "0.50"
-          memory: 128m
         reservations:
           memory: 32m
 
@@ -445,11 +427,6 @@ services:
       retries: 20
       start_period: 180s
     stop_grace_period: 330s
-    deploy:
-      resources:
-        limits:
-          cpus: "4.00"
-          memory: 8g
 
 networks:
   memoryos-internal:
