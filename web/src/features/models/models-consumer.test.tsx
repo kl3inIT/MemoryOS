@@ -23,6 +23,7 @@ const adapter: InstalledAdapter = {
   credentialRequirement: "REQUIRED",
   tokenizerProfiles: [{ id: "openai-o200k-v1", displayName: "OpenAI" }],
   nativeWebSearch: true,
+  knownModels: [],
 };
 const provider: ManagedProvider = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -80,6 +81,8 @@ describe("provider secret lifetime and coherent Access", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (request: Request) => {
+        // The Access picker also reads Group options; only mutations are counted here.
+        if (request.method === "GET") return Response.json({ items: [], totalPages: 1 });
         requests.push(request);
         return pending.promise;
       }),
@@ -120,7 +123,14 @@ describe("provider secret lifetime and coherent Access", () => {
       pending.resolve(Response.json({ ...provider, revision: 4 }));
     });
     expect(requests).toHaveLength(1);
-    expect(client.getQueryCache().getAll()).toHaveLength(0);
+    expect(
+      JSON.stringify(
+        client
+          .getQueryCache()
+          .getAll()
+          .map((query) => query.state),
+      ),
+    ).not.toContain("synthetic-secret-not-for-storage");
     expect(screen.queryByText(/Provider saved/)).not.toBeInTheDocument();
     client.clear();
   });
@@ -191,6 +201,8 @@ describe("provider secret lifetime and coherent Access", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (request: Request) => {
+        // The Access picker also reads Group options; only mutations are counted here.
+        if (request.method === "GET") return Response.json({ items: [], totalPages: 1 });
         writes.push(request);
         return Response.json({
           ...provider,

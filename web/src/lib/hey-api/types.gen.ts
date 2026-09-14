@@ -1156,6 +1156,15 @@ export type Descriptor = {
     credentialRequirement: 'REQUIRED' | 'OPTIONAL' | 'NONE';
     tokenizerProfiles: Array<TokenizerProfile>;
     nativeWebSearch: boolean;
+    knownModels: Array<KnownModel>;
+};
+
+export type KnownModel = {
+    modelName: string;
+    contextWindow: number;
+    maxOutputTokens: number;
+    capabilities: Capabilities;
+    pricing: Pricing;
 };
 
 export type TokenizerProfile = {
@@ -1190,6 +1199,20 @@ export type ChatPersona = {
 export type ChatPersonaPage = {
     items: Array<ChatPersona>;
     nextCursor: string | null;
+};
+
+export type ChatGroupOption = {
+    id: string;
+    name: string;
+    systemKey: string | null;
+};
+
+export type ChatGroupPage = {
+    items: Array<ChatGroupOption>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
 };
 
 export type ChatFileTextResponse = {
@@ -5981,6 +6004,55 @@ export type ListChatModelPersonasResponses = {
 };
 
 export type ListChatModelPersonasResponse = ListChatModelPersonasResponses[keyof ListChatModelPersonasResponses];
+
+export type ListChatGroupOptionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/chat/group-options';
+};
+
+export type ListChatGroupOptionsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatGroupOptionsError = ListChatGroupOptionsErrors[keyof ListChatGroupOptionsErrors];
+
+export type ListChatGroupOptionsResponses = {
+    /**
+     * Successful result
+     */
+    200: ChatGroupPage;
+};
+
+export type ListChatGroupOptionsResponse = ListChatGroupOptionsResponses[keyof ListChatGroupOptionsResponses];
 
 export type ListChatFilesData = {
     body?: never;

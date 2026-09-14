@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { appText, type AppCopy } from "@/i18n/app-text";
 import { ApiError } from "@/lib/api";
 import type {
   CreateChatModelData,
@@ -129,13 +130,13 @@ export type ModelDraft = {
 const optionText = (value: unknown) =>
   typeof value === "number" || typeof value === "string" ? String(value) : "";
 
-export function modelDraft(model?: ManagedModel): ModelDraft {
+export function modelDraft(model?: ManagedModel, adapter?: InstalledAdapter): ModelDraft {
   const settings = model?.settings;
   return {
     modelName: model?.modelName ?? "",
     displayName: model?.displayName ?? "",
     visible: model?.visible ?? true,
-    tokenizerProfile: settings?.tokenizerProfile ?? "",
+    tokenizerProfile: settings?.tokenizerProfile ?? adapter?.tokenizerProfiles[0]?.id ?? "",
     contextWindow: settings ? String(settings.contextWindow) : "1024",
     maxOutputTokens: settings ? String(settings.maxOutputTokens) : "128",
     toolCalling: settings?.capabilities.toolCalling ?? false,
@@ -152,10 +153,18 @@ export function modelDraft(model?: ManagedModel): ModelDraft {
   };
 }
 
+export type KnownModel = InstalledAdapter["knownModels"][number];
+
+export function findKnownModel(adapter: InstalledAdapter | undefined, modelName: string) {
+  const name = modelName.trim();
+  return name ? adapter?.knownModels.find((known) => known.modelName === name) : undefined;
+}
+
 export function changeModelDraft<K extends keyof ModelDraft>(
   draft: ModelDraft,
   key: K,
   value: ModelDraft[K],
+  adapter?: InstalledAdapter,
 ): ModelDraft {
   const next = { ...draft, [key]: value };
   if (key === "completionTokens" && value) {
@@ -164,29 +173,40 @@ export function changeModelDraft<K extends keyof ModelDraft>(
     next.frequencyPenalty = "";
     next.presencePenalty = "";
   }
-  if (key === "reasoning" && !value) next.reasoningEffort = "";
+  // A reasoning model rejects a sampling temperature, so enabling reasoning drops it.
+  if (key === "reasoning") next[value ? "temperature" : "reasoningEffort"] = "";
+  if (key === "modelName") {
+    const known = findKnownModel(adapter, next.modelName);
+    if (known) {
+      next.displayName = draft.displayName.trim() ? draft.displayName : known.modelName;
+      next.contextWindow = String(known.contextWindow);
+      next.maxOutputTokens = String(known.maxOutputTokens);
+      next.toolCalling = known.capabilities.toolCalling;
+      next.vision = known.capabilities.vision;
+      next.reasoning = known.capabilities.reasoning;
+      if (next.reasoning) next.temperature = "";
+      else next.reasoningEffort = "";
+      next.inputPrice = String(known.pricing.inputPerMillion);
+      next.outputPrice = String(known.pricing.outputPerMillion);
+    }
+  }
   return next;
 }
 
 export function modelDraftError(
   draft: ModelDraft,
   adapter: InstalledAdapter | undefined,
-): string | null {
+): AppCopy | null {
   if (!draft.modelName.trim() || !draft.displayName.trim())
     return "Enter an API model name and display name.";
   if (!adapter?.tokenizerProfiles.some((profile) => profile.id === draft.tokenizerProfile))
-    return "Choose an installed tokenizer profile supported by this adapter.";
+    return "This adapter has no installed token estimator. Refresh the catalog.";
   const context = Number(draft.contextWindow),
     output = Number(draft.maxOutputTokens);
   if (!/^\d+$/.test(draft.contextWindow) || context < 256 || context > 10_000_000)
     return "Context window must be a whole number from 256 to 10000000.";
   if (!/^\d+$/.test(draft.maxOutputTokens) || output < 1 || output >= context)
     return "Maximum output must be at least 1 and strictly below the context window.";
-  if (
-    draft.tokenizerProfile === "smollm2-135m-12fd25f-v1" &&
-    (draft.toolCalling || draft.vision || draft.reasoning)
-  )
-    return "The SmolLM2 profile is text-only. Turn off tools, vision and reasoning explicitly, or choose the correct capable profile.";
   if ((draft.inputPrice.trim() === "") !== (draft.outputPrice.trim() === ""))
     return "Enter both prices or leave both blank for Unknown pricing.";
   for (const value of [draft.inputPrice, draft.outputPrice]) {
@@ -194,18 +214,22 @@ export function modelDraftError(
       return "Prices must be finite, nonnegative USD per million tokens.";
   }
   if (!draft.completionTokens) {
-    for (const [key, min, max] of [
-      ["temperature", 0, 2],
-      ["topP", 0, 1],
-      ["frequencyPenalty", -2, 2],
-      ["presencePenalty", -2, 2],
+    for (const [key, label, min, max] of [
+      ["temperature", "Temperature", 0, 2],
+      ["topP", "Top P", 0, 1],
+      ["frequencyPenalty", "Frequency penalty", -2, 2],
+      ["presencePenalty", "Presence penalty", -2, 2],
     ] as const) {
       const value = draft[key];
       if (
         value.trim() &&
         (!Number.isFinite(Number(value)) || Number(value) < min || Number(value) > max)
       )
-        return `${key} must be between ${min} and ${max}, or blank.`;
+        return appText("{{option}} must be between {{min}} and {{max}}, or blank.", {
+          option: appText(label),
+          min,
+          max,
+        });
     }
   }
   if (

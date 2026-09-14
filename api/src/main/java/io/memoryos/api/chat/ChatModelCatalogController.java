@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import io.memoryos.chat.catalog.ChatProviderAdapters;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
+import io.memoryos.api.chat.contract.ChatGroupPageResponse;
 import io.memoryos.api.chat.contract.ChatModelDefaultResponse;
 import io.memoryos.api.chat.contract.ChatModelRequest;
 import io.memoryos.api.chat.contract.ChatModelResponse;
@@ -12,6 +13,7 @@ import io.memoryos.api.chat.contract.ChatPersonaPageResponse;
 import io.memoryos.api.chat.contract.ChatProviderAdapterResponse;
 import io.memoryos.api.chat.contract.ChatProviderRequest;
 import io.memoryos.api.chat.contract.ChatProviderResponse;
+import io.memoryos.iam.group.GroupQuery;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,7 +22,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -72,6 +77,15 @@ class ChatModelCatalogController {
     List<ChatProviderAdapterResponse> adapters(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         catalog.requireModelsManage(identity.actorId());
         return adapters.available().stream().map(ChatProviderAdapterResponse::from).toList();
+    }
+    @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
+    @GetMapping("/group-options")
+    @Operation(operationId = "listChatGroupOptions", summary = "List Groups available for provider access; requires model management")
+    ChatGroupPageResponse groupOptions(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @RequestParam(required = false) @Nullable @Size(max = GroupQuery.MAX_SEARCH_LENGTH) String search,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "25") @Min(1) @Max(GroupQuery.MAX_SIZE) int size) {
+        return ChatGroupPageResponse.from(catalog.groupOptions(identity.actorId(), search, page, size));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/providers")

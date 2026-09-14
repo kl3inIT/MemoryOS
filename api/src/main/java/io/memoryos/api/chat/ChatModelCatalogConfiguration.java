@@ -11,6 +11,7 @@ import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
+import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -24,7 +25,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 class ChatModelCatalogConfiguration {
-    @Bean(destroyMethod = "close")
+    @Bean
     OpenAiChatProviderAdapter openAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
         return new OpenAiChatProviderAdapter(observations, meters);
     }
@@ -57,8 +58,8 @@ class ChatModelCatalogConfiguration {
     @Bean
     ModelCatalogService modelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            PersonaProperties persona, ModelCatalogService.Deployment deployment) {
-        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, persona, deployment);
+            GroupScopeService groups, PersonaProperties persona, ModelCatalogService.Deployment deployment) {
+        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, persona, deployment);
     }
     @Bean
     ChatModelResolver chatModelResolver(ModelCatalogService catalog, ChatProviderAdapters adapters, ProviderCredentials credentials,

@@ -265,7 +265,10 @@ class ChatPersistenceIntegrationTest {
         var binding = new ChatModelBinding(new SpringAiLlmService("fixture", "fixture",
                 org.mockito.Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false, false);
         String contribution = "Current date: 2026-09-11\n";
-        String instructions = ChatTurnSetup.instructions("Answer", contribution);
+        // Reservation validates and stores the resolved prompt, including the account-language block.
+        String instructions = ChatTurnSetup.instructions(
+                io.memoryos.chat.prompts.ChatPrompts.resolve("Answer", false, java.time.Instant.now(), "vi"),
+                contribution);
         int raw = tokens.estimate(instructions) + tokens.estimate("Question");
         var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding, null, contribution);
         assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,

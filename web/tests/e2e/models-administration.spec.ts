@@ -16,10 +16,7 @@ const adapters: ListChatProviderAdaptersResponse = [
   {
     type: "openai",
     credentialRequirement: "REQUIRED",
-    tokenizerProfiles: [
-      { id: "openai-o200k-v1", displayName: "OpenAI O200K" },
-      { id: "smollm2-135m-12fd25f-v1", displayName: "SmolLM2 135M" },
-    ],
+    tokenizerProfiles: [{ id: "openai-o200k-v1", displayName: "OpenAI O200K" }],
   },
 ];
 

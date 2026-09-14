@@ -11,7 +11,7 @@ export function CatalogDialog({
   children,
 }: {
   title: string;
-  description: ReactNode;
+  description?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -45,9 +45,13 @@ export function CatalogDialog({
               </IconButton>
             </Dialog.Close>
           </div>
-          <Dialog.Description className="mt-2 font-main-ui-body text-content-muted">
-            {description}
-          </Dialog.Description>
+          {description === undefined ? (
+            <Dialog.Description className="sr-only">{title}</Dialog.Description>
+          ) : (
+            <Dialog.Description className="mt-2 font-main-ui-body text-content-muted">
+              {description}
+            </Dialog.Description>
+          )}
           <div className="mt-6">{children}</div>
         </Dialog.Content>
       </Dialog.Portal>

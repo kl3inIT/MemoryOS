@@ -11,6 +11,12 @@ public interface ChatProviderAdapter {
     CredentialRequirement credentialRequirement();
     List<TokenizerProfile> tokenizerProfiles();
 
+    /**
+     * Published metadata for model names this protocol is known to serve, used to prefill the
+     * administration form. Runtime behaviour always comes from the stored settings, never from here.
+     */
+    default List<KnownModel> knownModels() { return List.of(); }
+
     /** Protocol support for forcing a named tool on the first request, not native Web search. */
     default boolean supportsRequiredToolChoice() { return false; }
 
@@ -32,6 +38,16 @@ public interface ChatProviderAdapter {
         public TokenizerProfile {
             if (id == null || id.isBlank() || displayName == null || displayName.isBlank())
                 throw new IllegalArgumentException("Invalid tokenizer profile metadata");
+        }
+    }
+
+    record KnownModel(String modelName, int contextWindow, int maxOutputTokens,
+                      ModelSettings.Capabilities capabilities, ModelSettings.Pricing pricing) {
+        public KnownModel {
+            if (modelName == null || modelName.isBlank() || modelName.length() > 200 || capabilities == null
+                    || pricing == null || contextWindow < 256 || contextWindow > 10000000
+                    || maxOutputTokens < 1 || maxOutputTokens >= contextWindow)
+                throw new IllegalArgumentException("Invalid known model metadata");
         }
     }
 

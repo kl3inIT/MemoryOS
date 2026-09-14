@@ -23,8 +23,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /** OpenAI Chat Completions adapter. Hosted web/image tools are separate integrations. */
-public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, AutoCloseable {
-    private final ChatTokenizerProfiles tokenizers = new ChatTokenizerProfiles();
+public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort", "webSearch");
     private final ObservationRegistry observations;
     private final MeterRegistry meters;
@@ -36,8 +35,8 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, Aut
     @Override public boolean supportsRequiredToolChoice() { return true; }
     @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.REQUIRED; }
     @Override public List<TokenizerProfile> tokenizerProfiles() { return ChatTokenizerProfiles.METADATA; }
+    @Override public List<KnownModel> knownModels() { return ChatKnownModels.models(); }
     @Override public boolean nativeWebSearch() { return true; }
-    @Override public void close() { tokenizers.close(); }
 
     @Override public void validate(String baseUrl, String modelName, ModelSettings settings) {
         ModelCatalogService.validateEndpoint(baseUrl);
@@ -77,28 +76,25 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, Aut
     public Client create(Connection connection, String modelName, ModelSettings settings, Duration timeout) {
         validate(connection.baseUrl(), modelName, settings);
         if (connection.credential().isBlank()) throw ChatException.providerUnavailable();
-        var tokenizer = tokenizers.acquire(settings.tokenizerProfile());
+        var sync = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl()).apiKey(connection.credential())
+                .maxRetries(0).timeout(timeout).build();
         try {
-            var sync = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl()).apiKey(connection.credential())
-                    .maxRetries(0).timeout(timeout).build();
+            var async = asyncClient(connection.baseUrl(), connection.credential(), timeout);
             try {
-                var async = asyncClient(connection.baseUrl(), connection.credential(), timeout);
-                try {
-                    boolean nativeSearch = supportsNativeWebSearch(settings);
-                    var model = nativeSearch
-                            ? async.decorateNative(view -> new OpenAiResponsesChatModel(
-                                    OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
-                                            .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
-                                            .observationRegistry(observations).meterRegistry(meters).build(),
-                                    view, settings.capabilities().reasoning(), meters))
-                            : async.decorate(view -> OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
-                                    .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
-                                    .observationRegistry(observations).meterRegistry(meters).build());
-                    return new Client(binding(modelName, settings, model, tokenizer.tokens()),
-                            () -> { try { async.close(); } finally { try { sync.close(); } finally { tokenizer.close(); } } });
-                } catch (RuntimeException | Error failure) { async.close(); throw failure; }
-            } catch (RuntimeException | Error failure) { sync.close(); throw failure; }
-        } catch (RuntimeException | Error failure) { tokenizer.close(); throw failure; }
+                boolean nativeSearch = supportsNativeWebSearch(settings);
+                var model = nativeSearch
+                        ? async.decorateNative(view -> new OpenAiResponsesChatModel(
+                                OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
+                                        .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
+                                        .observationRegistry(observations).meterRegistry(meters).build(),
+                                view, settings.capabilities().reasoning(), meters))
+                        : async.decorate(view -> OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
+                                .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
+                                .observationRegistry(observations).meterRegistry(meters).build());
+                return new Client(binding(modelName, settings, model, ChatTokenizerProfiles.hostedTokens()),
+                        () -> { try { async.close(); } finally { sync.close(); } });
+            } catch (RuntimeException | Error failure) { async.close(); throw failure; }
+        } catch (RuntimeException | Error failure) { sync.close(); throw failure; }
     }
 
     static ChatModelBinding binding(String name, ModelSettings settings, ChatModel model, TokenCountEstimator tokens) {

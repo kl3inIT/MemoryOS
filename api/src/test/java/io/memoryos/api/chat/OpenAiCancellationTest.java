@@ -25,9 +25,9 @@ class OpenAiCancellationTest {
     @Test
     void cancelBeforeHeadersClosesOnlyThatNativeSubscription() throws Exception {
         var meters = new SimpleMeterRegistry();
+        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
         try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
              var executor = Executors.newVirtualThreadPerTaskExecutor();
-             var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
              var client = client(adapter, server)) {
             var first = peer(server, executor, false);
             var publisher = client.binding().service().getChatModel().stream(prompt());
@@ -51,9 +51,9 @@ class OpenAiCancellationTest {
     @Test
     void cancelAfterContentClosesTheNativeStream() throws Exception {
         var meters = new SimpleMeterRegistry();
+        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
         try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
              var executor = Executors.newVirtualThreadPerTaskExecutor();
-             var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
              var client = client(adapter, server)) {
             var peer = peer(server, executor, true);
             var content = new CompletableFuture<String>();

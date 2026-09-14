@@ -6238,6 +6238,80 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/group-options:
+    get:
+      tags:
+      - Chat models
+      summary: List Groups available for provider access; requires model management
+      operationId: listChatGroupOptions
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatGroupPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files:
     get:
       tags:
@@ -10234,11 +10308,37 @@ components:
             $ref: "#/components/schemas/TokenizerProfile"
         nativeWebSearch:
           type: boolean
+        knownModels:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnownModel"
       required:
       - credentialRequirement
+      - knownModels
       - nativeWebSearch
       - tokenizerProfiles
       - type
+    KnownModel:
+      type: object
+      properties:
+        modelName:
+          type: string
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type: integer
+          format: int32
+        capabilities:
+          $ref: "#/components/schemas/Capabilities"
+        pricing:
+          $ref: "#/components/schemas/Pricing"
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - modelName
+      - pricing
     TokenizerProfile:
       type: object
       properties:
@@ -10327,6 +10427,54 @@ components:
       required:
       - items
       - nextCursor
+    ChatGroupOption:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        systemKey:
+          type:
+          - string
+          - "null"
+      required:
+      - id
+      - name
+      - systemKey
+    ChatGroupPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatGroupOption"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
     ChatFileTextResponse:
       type: object
       properties:

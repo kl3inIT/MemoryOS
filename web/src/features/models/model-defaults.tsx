@@ -206,7 +206,7 @@ function SelectionEditor({
           </Button>
         </div>
       )}
-      {action.error && <p role="alert">{action.error}</p>}
+      {action.error && <p role="alert">{ui(action.error)}</p>}
       {saved && <p role="status">{ui("Default saved. Existing transcript is unchanged.")}</p>}
       {chosen !== (baseline.modelConfigurationId ?? "") && (
         <Button

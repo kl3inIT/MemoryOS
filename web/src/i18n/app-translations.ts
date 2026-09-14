@@ -1133,14 +1133,14 @@ Object.assign(englishUi, {
   "Files per page": "Số tệp mỗi trang",
   "Selected groups can scope Source management; document-content access remains separate.":
     "Các nhóm đã chọn giới hạn phạm vi quản lý nguồn; quyền truy cập nội dung tài liệu vẫn tách biệt.",
-  "Selected Source groups": "Nhóm của nguồn đã chọn",
-  "Search groups available to this Source": "Tìm nhóm khả dụng cho nguồn này",
+  "Selected groups": "Nhóm đã chọn",
+  "Search available groups": "Tìm nhóm khả dụng",
   "Available groups could not be loaded. Your selection is unchanged.":
     "Không tải được nhóm khả dụng. Lựa chọn của bạn không thay đổi.",
   "No groups match your search.": "Không có nhóm phù hợp với tìm kiếm.",
   "No groups are available.": "Chưa có nhóm khả dụng.",
   "Select at least one group.": "Chọn ít nhất một nhóm.",
-  "Source group option pages": "Trang lựa chọn nhóm của nguồn",
+  "Group option pages": "Trang lựa chọn nhóm",
   "Group associations": "Liên kết nhóm",
   "These groups define who can manage this Source within their authorized surface.":
     "Các nhóm này xác định ai có thể quản lý nguồn trong phạm vi được cấp quyền.",
@@ -1963,8 +1963,6 @@ Object.assign(englishUi, {
   "The saved connection check completed, but the model was not reachable. Review the endpoint, model name and credentials; no provider payload is shown.":
     "Kiểm tra kết nối đã lưu hoàn tất nhưng không đến được mô hình. Kiểm tra endpoint, tên mô hình và khóa; không hiển thị payload của nhà cung cấp.",
   "Edit model: {{name}}": "Sửa mô hình: {{name}}",
-  "Settings describe this model explicitly; changing its name or profile never silently changes capabilities.":
-    "Cài đặt mô tả mô hình một cách tường minh; đổi tên hay profile không bao giờ âm thầm đổi khả năng.",
   "API model name": "Tên mô hình API",
   "Display name": "Tên hiển thị",
   "Tokenizer profile": "Profile tokenizer",
@@ -1979,8 +1977,6 @@ Object.assign(englishUi, {
   Reasoning: "Suy luận",
   "Request options": "Tùy chọn request",
   "Use maxCompletionTokens option family": "Dùng nhóm tùy chọn maxCompletionTokens",
-  "This boolean chooses the output-token field family, not the output limit. Completion-token mode removes sampling overrides. Blank optional fields are omitted.":
-    "Tùy chọn này chọn nhóm trường token đầu ra, không phải giới hạn đầu ra. Chế độ completion-token bỏ các ghi đè sampling. Trường tùy chọn để trống sẽ bị bỏ qua.",
   Temperature: "Temperature",
   "Top P": "Top P",
   "Frequency penalty": "Phạt tần suất",
@@ -1988,8 +1984,6 @@ Object.assign(englishUi, {
   "Reasoning effort": "Mức suy luận",
   "Provider default (omitted)": "Mặc định nhà cung cấp (bỏ qua)",
   "Pricing · USD per million tokens": "Giá · USD mỗi triệu token",
-  "Leave both blank for Unknown. Explicit zero means known free pricing, not Unknown.":
-    "Để trống cả hai nếu chưa rõ. Số 0 tường minh nghĩa là miễn phí, không phải chưa rõ.",
   "Input price": "Giá đầu vào",
   "Output price": "Giá đầu ra",
   "The catalog changed or conflicted. Reconcile the saved revision, review your draft, and retry manually.":
@@ -1998,8 +1992,6 @@ Object.assign(englishUi, {
   "Model saved.": "Đã lưu mô hình.",
   "Model {{id}} · model revision {{modelRevision}} · provider revision {{providerRevision}}":
     "Mô hình {{id}} · bản mô hình {{modelRevision}} · bản nhà cung cấp {{providerRevision}}",
-  "Validate is available only for clean saved settings and reconciles both saved revisions. Edits, closing and authority changes discard pending results.":
-    "Kiểm tra chỉ khả dụng với cài đặt đã lưu sạch và đồng bộ cả hai revision. Sửa, đóng hoặc đổi quyền sẽ hủy kết quả đang chờ.",
   Close: "Đóng",
   "Validate saved connection": "Kiểm tra kết nối đã lưu",
   "Save model": "Lưu mô hình",
@@ -2010,6 +2002,53 @@ Object.assign(englishUi, {
   "draft no longer eligible": "bản nháp không còn hợp lệ",
   "{{model}} · {{note}}": "{{model}} · {{note}}",
   "Close editor": "Đóng trình soạn",
+  "Who can use this provider": "Ai được dùng nhà cung cấp này",
+  "Every Tenant member": "Mọi thành viên Tenant",
+  "Selected Groups only": "Chỉ các Nhóm được chọn",
+  "Members of the selected Groups can use this provider in Chat.":
+    "Thành viên của các Nhóm đã chọn có thể dùng nhà cung cấp này trong Chat.",
+  "Provider {{id}} · revision {{revision}}": "Nhà cung cấp {{id}} · bản {{revision}}",
+  // Models administration problems
+  "The request could not be completed. Check your connection and refresh before trying again.":
+    "Không thực hiện được yêu cầu. Kiểm tra kết nối và làm mới trước khi thử lại.",
+  "The configuration is not accepted. Check the endpoint, profile, capabilities, limits, options and Persona restrictions. Choose another Tenant default before hiding or deleting its model, disabling its provider or removing its required key.":
+    "Cấu hình không được chấp nhận. Kiểm tra endpoint, profile, khả năng, giới hạn, tùy chọn và ràng buộc Persona. Hãy chọn mặc định Tenant khác trước khi ẩn hoặc xóa mô hình đó, tắt nhà cung cấp hoặc xóa khóa bắt buộc của nó.",
+  "Your session has ended. Sign in again.": "Phiên đã kết thúc. Hãy đăng nhập lại.",
+  "Your access has changed. Refreshing your session.":
+    "Quyền truy cập đã thay đổi. Đang làm mới phiên.",
+  "This configuration is no longer available. Refresh the catalog.":
+    "Cấu hình này không còn khả dụng. Hãy làm mới danh mục.",
+  "The catalog changed or this operation conflicts with an existing configuration. Reconcile the saved state before trying again.":
+    "Danh mục đã thay đổi hoặc thao tác này xung đột với một cấu hình hiện có. Hãy đồng bộ trạng thái đã lưu trước khi thử lại.",
+  "Validation capacity is busy. Try again later; no retry was made.":
+    "Hệ thống kiểm tra đang quá tải. Hãy thử lại sau; không có lần thử lại tự động nào.",
+  "The provider could not be acquired or validation is unavailable. Check service and credential configuration; this does not identify a specific credential failure.":
+    "Không lấy được nhà cung cấp hoặc chức năng kiểm tra không khả dụng. Kiểm tra cấu hình dịch vụ và khóa; thông báo này không chỉ ra lỗi cụ thể của khóa.",
+  "The request failed. Refresh the saved state before trying again.":
+    "Yêu cầu thất bại. Hãy làm mới trạng thái đã lưu trước khi thử lại.",
+  "Enter an API model name and display name.": "Hãy nhập tên mô hình API và tên hiển thị.",
+  "This adapter has no installed token estimator. Refresh the catalog.":
+    "Adapter này chưa có bộ đếm token nào được cài. Hãy làm mới danh mục.",
+  "Context window must be a whole number from 256 to 10000000.":
+    "Cửa sổ ngữ cảnh phải là số nguyên từ 256 đến 10000000.",
+  "Maximum output must be at least 1 and strictly below the context window.":
+    "Đầu ra tối đa phải từ 1 trở lên và nhỏ hơn hẳn cửa sổ ngữ cảnh.",
+  "Enter both prices or leave both blank for Unknown pricing.":
+    "Hãy nhập cả hai giá, hoặc để trống cả hai nếu chưa rõ giá.",
+  "Prices must be finite, nonnegative USD per million tokens.":
+    "Giá phải là số hữu hạn, không âm, tính theo USD mỗi triệu token.",
+  "{{option}} must be between {{min}} and {{max}}, or blank.":
+    "{{option}} phải nằm trong khoảng {{min}} đến {{max}}, hoặc để trống.",
+  "Choose a supported reasoning effort.": "Hãy chọn một mức suy luận được hỗ trợ.",
+  "An action is already in progress or this page is inactive.":
+    "Đang có một thao tác khác chạy, hoặc trang này không còn hoạt động.",
+  "Refresh the catalog before deleting.": "Hãy làm mới danh mục trước khi xóa.",
+  "Cancel this dialog, reload the catalog, and review the current configuration before deleting again.":
+    "Hãy đóng hộp thoại này, tải lại danh mục và xem lại cấu hình hiện tại trước khi xóa lần nữa.",
+  "Selection unavailable": "Lựa chọn không khả dụng",
+  "Provider unavailable": "Nhà cung cấp không khả dụng",
+  "Model unavailable": "Mô hình không khả dụng",
+  "The operation was discarded.": "Thao tác đã bị hủy.",
 });
 
 const unchanged = [

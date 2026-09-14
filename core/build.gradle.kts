@@ -12,8 +12,9 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.withType<Test>().configureEach {
     // The full PostgreSQL/migration corpus and real OpenSearch startup exceed ten minutes on a cold host.
     timeout = Duration.ofMinutes(15)
-    // Modulith/ArchUnit metadata and the full persistence corpus exceed Gradle's 512 MiB test default.
-    maxHeapSize = "1g"
+    // Modulith/ArchUnit metadata, the full persistence corpus and the 100 MiB binary-admission
+    // fixtures share one JVM; 1 GiB now exhausts the heap once the catalog suites are included.
+    maxHeapSize = "2g"
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
     inputs.property("memoryosSearchAuthzMeasure", providers.environmentVariable("MEMORYOS_SEARCH_AUTHZ_MEASURE").orElse("false"))
 }

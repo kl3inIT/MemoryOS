@@ -432,7 +432,7 @@ function ModelsAdministration() {
           )}
         </p>
       )}
-      {action.error && !deletion && <p role="alert">{action.error}</p>}
+      {action.error && !deletion && <p role="alert">{ui(action.error)}</p>}
 
       {/* Available connections — Onyx existing-provider cards */}
       {hasProviders && (

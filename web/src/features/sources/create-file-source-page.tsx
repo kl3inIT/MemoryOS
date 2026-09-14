@@ -20,13 +20,14 @@ import {
   createFileSourceMutation,
   finalizeSourceUploadMutation,
   initiateSourceUploadMutation,
+  listSourceGroupOptionsOptions,
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { sourceMutationError } from "./source-errors";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { SourceSetupSteps } from "./source-setup-steps";
-import { SourceGroupPicker } from "./source-group-picker";
+import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 
 export function CreateFileSourcePage() {
   const ui = useAppTranslation();
@@ -297,7 +298,11 @@ export function CreateFileSourcePage() {
             </summary>
             {groupPickerOpen ? (
               <div className="border-t border-border-subtle p-4 sm:p-5">
-                <SourceGroupPicker
+                <GroupAccessPicker
+                  load={(query) => listSourceGroupOptionsOptions({ query })}
+                  description={appText(
+              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
+            )}
                   selected={groupIds}
                   required={scoped}
                   disabled={busy || Boolean(sourceId)}

@@ -16,11 +16,17 @@ import {
 const adapter: InstalledAdapter = {
   type: "openai",
   credentialRequirement: "REQUIRED",
-  tokenizerProfiles: [
-    { id: "openai-o200k-v1", displayName: "OpenAI" },
-    { id: "smollm2-135m-12fd25f-v1", displayName: "SmolLM2" },
-  ],
+  tokenizerProfiles: [{ id: "openai-o200k-v1", displayName: "OpenAI" }],
   nativeWebSearch: true,
+  knownModels: [
+    {
+      modelName: "gpt-5",
+      contextWindow: 272_000,
+      maxOutputTokens: 128_000,
+      capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
+      pricing: { inputPerMillion: 1.25, outputPerMillion: 10 },
+    },
+  ],
 };
 const provider: ManagedProvider = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -71,20 +77,12 @@ describe("model configuration transitions", () => {
     expect(modelBody(draft).settings?.options).toEqual({ maxCompletionTokens: false });
   });
 
-  it("requires explicit capability changes for the text-only profile and retains capable hosted configuration", () => {
-    const hosted = modelDraft(model);
-    const local = changeModelDraft(hosted, "tokenizerProfile", "smollm2-135m-12fd25f-v1");
-    expect(modelDraftError(local, adapter)).not.toBeNull();
-    expect(modelBody(local).settings?.capabilities).toEqual(model.settings.capabilities);
-    expect(modelDraftError(hosted, adapter)).toBeNull();
-    const compatible = {
-      ...local,
-      toolCalling: false,
-      vision: false,
-      reasoning: false,
-      reasoningEffort: "",
-    };
-    expect(modelDraftError(compatible, adapter)).toBeNull();
+  it("adopts the installed token estimator and rejects a configuration whose estimator is gone", () => {
+    expect(modelDraft(undefined, adapter).tokenizerProfile).toBe("openai-o200k-v1");
+    expect(modelDraftError(modelDraft(model, adapter), adapter)).toBeNull();
+    const retired = { ...modelDraft(model, adapter), tokenizerProfile: "retired-profile" };
+    expect(modelDraftError(retired, adapter)).not.toBeNull();
+    expect(modelBody(retired).settings?.tokenizerProfile).toBe("retired-profile");
   });
 
   it("keeps unknown pricing distinct from an explicit zero pair and rejects partial prices and output at context", () => {
@@ -101,6 +99,21 @@ describe("model configuration transitions", () => {
     expect(
       modelDraftError({ ...draft, contextWindow: "256", maxOutputTokens: "255" }, adapter),
     ).toBeNull();
+  });
+
+  it("prefills installed metadata for a known model name and leaves an unknown name untouched", () => {
+    const known = changeModelDraft(modelDraft(), "modelName", "gpt-5", adapter);
+    expect(modelBody(known).settings).toMatchObject({
+      contextWindow: 272_000,
+      maxOutputTokens: 128_000,
+      capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
+      pricing: { inputPerMillion: 1.25, outputPerMillion: 10 },
+    });
+    expect(known.displayName).toBe("gpt-5");
+    const custom = changeModelDraft(modelDraft(), "modelName", "llama-3.1-8b", adapter);
+    expect(custom.contextWindow).toBe(modelDraft().contextWindow);
+    expect(custom.inputPrice).toBe("");
+    expect(custom.displayName).toBe("");
   });
 });
 

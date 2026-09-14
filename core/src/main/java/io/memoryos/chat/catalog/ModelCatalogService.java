@@ -7,6 +7,9 @@ import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository.Model;
 import io.memoryos.chat.persistence.ModelCatalogRepository.Provider;
 import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.Authority;
+import io.memoryos.iam.group.GroupIdentityPage;
+import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.tenant.TenantAccessResolver;
@@ -30,18 +33,20 @@ public class ModelCatalogService {
     private final IamAuthorization authorization;
     private final ChatProviderAdapters adapters;
     private final ProviderCredentials credentials;
+    private final GroupScopeService groups;
     private final PersonaProperties persona;
     private final Deployment deployment;
 
     public ModelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            PersonaProperties persona, Deployment deployment) {
+            GroupScopeService groups, PersonaProperties persona, Deployment deployment) {
         this.catalog = catalog;
         this.chats = chats;
         this.tenants = tenants;
         this.authorization = authorization;
         this.adapters = adapters;
         this.credentials = credentials;
+        this.groups = groups;
         this.persona = persona;
         this.deployment = deployment;
     }
@@ -178,6 +183,15 @@ public class ModelCatalogService {
             throw ChatException.invalid("Chat default must be visible and available to the Tenant without Group or Persona restrictions.");
         catalog.setDefault(tenant, id, revision);
         return catalog.defaultModel(tenant);
+    }
+
+    /** Groups a model manager may associate with a provider; scoped managers see only their own. */
+    @Transactional
+    public GroupIdentityPage groupOptions(ActorId actor, @Nullable String search, int page, int size) {
+        var access = authorization.lockAndRequire(actor, IamCapability.MODELS_MANAGE, false);
+        return access.authority() == Authority.GLOBAL
+                ? groups.listGroupOptions(access.tenantId(), search, page, size)
+                : groups.listManagedGroupOptions(access.tenantId(), actor, search, page, size);
     }
 
     @Transactional

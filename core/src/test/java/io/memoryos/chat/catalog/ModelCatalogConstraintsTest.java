@@ -13,6 +13,7 @@ import io.memoryos.chat.persistence.JpaModelConfigurationRepository;
 import io.memoryos.chat.persistence.JpaChatModelDefaultRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.Authority;
+import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAccess;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
@@ -46,7 +47,7 @@ class ModelCatalogConstraintsTest {
             new ModelSettings.Capabilities(true, true, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
 
     @BeforeEach void setup() throws Exception {
-        dataSource = TestDatabase.freshPostgres("40"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource);
+        dataSource = TestDatabase.freshPostgres("53"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource);
         tx = new TransactionTemplate(jpa.transactionManager());
         catalog = new ModelCatalogRepository(jdbc, jpa.repository(JpaLlmProviderRepository.class),
                 jpa.repository(JpaModelConfigurationRepository.class), jpa.repository(JpaChatModelDefaultRepository.class));
@@ -123,7 +124,8 @@ class ModelCatalogConstraintsTest {
         when(authorization.lockAndRequire(actor, IamCapability.MODELS_MANAGE, false))
                 .thenReturn(new IamAccess(new TenantId(tenant), Authority.GLOBAL));
         var service = new ModelCatalogService(catalog, new JdbcChatRepository(jdbc), mock(TenantAccessResolver.class),
-                authorization, new ChatProviderAdapters(List.of()), new ProviderCredentials("", ""), new PersonaProperties(),
+                authorization, new ChatProviderAdapters(List.of()), new ProviderCredentials("", ""),
+                mock(GroupScopeService.class), new PersonaProperties(),
                 new ModelCatalogService.Deployment("http://internal/v1", "hosted", settings));
         var foreignFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, foreign.toString(), 25)));
         var missingFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, UUID.randomUUID().toString(), 25)));
@@ -149,7 +151,7 @@ class ModelCatalogConstraintsTest {
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,'Models')")
                 .param("tenant", tenant).param("id", group).update();
         var localSettings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
-                Map.of(), null, "smollm2-135m-12fd25f-v1");
+                Map.of(), null, "custom-tokenizer-v1");
         tx(() -> {
             var original = catalog.provider(tenant, provider).orElseThrow();
             catalog.updateProvider(new ModelCatalogRepository.Provider(provider, tenant, original.name(), original.adapterType(),
@@ -180,9 +182,9 @@ class ModelCatalogConstraintsTest {
                 "persona", "chat_session")) {
             preserved.put(table, jdbc.sql("SELECT * FROM " + table).query().listOfRows());
         }
-        // V42 adds the artifacts column between the V40 baseline and the V53 backfill.
+        // The baseline stops at V53, the last migration before the tokenizer-profile backfill.
         var preservedMessages = jdbc.sql("SELECT id,content,status FROM chat_message").query().listOfRows();
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("53").load().migrate();
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("54").load().migrate();
         var restored = read(() -> catalog.model(tenant, legacy).orElseThrow());
         assertEquals(new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false),
                 Map.of("temperature", 0.2), null, "openai-o200k-v1"), restored.settings());

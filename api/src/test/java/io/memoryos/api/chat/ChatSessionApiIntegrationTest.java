@@ -1164,10 +1164,10 @@ class ChatSessionApiIntegrationTest {
                 assertFalse(profile.path("displayName").asText().isBlank());
             }
         }
-        assertEquals(java.util.Set.of("openai-o200k-v1", "smollm2-135m-12fd25f-v1"), profiles);
+        assertEquals(java.util.Set.of("openai-o200k-v1"), profiles);
         var provider = createProvider("http://profiles.internal/v1", true);
         String path = "/api/chat/providers/" + provider.path("id").asText() + "/models";
-        for (String profile : List.of("", "unknown-profile", "smollm2-135m-12fd25f-v1")) {
+        for (String profile : List.of("", "unknown-profile")) {
             var body = modelBody("invalid-profile", 0.2);
             ((ObjectNode) body.path("settings")).put("tokenizerProfile", profile);
             mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
@@ -1182,12 +1182,12 @@ class ChatSessionApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content(missing.toString())).andExpect(status().isBadRequest());
         var local = modelBody("local-profile", 0.2);
         var settings = (ObjectNode) local.path("settings");
-        settings.put("tokenizerProfile", "smollm2-135m-12fd25f-v1").put("contextWindow", 1024).put("maxOutputTokens", 128);
+        settings.put("tokenizerProfile", "openai-o200k-v1").put("contextWindow", 1024).put("maxOutputTokens", 128);
         settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false);
         var saved = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(local.toString())).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
-        assertEquals("smollm2-135m-12fd25f-v1", saved.path("settings").path("tokenizerProfile").asText());
+        assertEquals("openai-o200k-v1", saved.path("settings").path("tokenizerProfile").asText());
         assertTrue(saved.path("settings").has("pricing") && saved.path("settings").path("pricing").isNull());
         var reloaded = Json.mapper().readTree(mockMvc.perform(get(path).with(authentication(actor))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString());

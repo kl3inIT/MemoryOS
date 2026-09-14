@@ -32,7 +32,8 @@ class OpenAiChatProviderAdapterTest {
         });
         server.start();
         var meters = new SimpleMeterRegistry();
-        try (var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters)) {
+        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        try {
             var connection = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
             for (String lowest : java.util.List.of("default", "none", "minimal", "low")) {
                 Map<String, Object> options = lowest.equals("default")
@@ -57,7 +58,8 @@ class OpenAiChatProviderAdapterTest {
         var generic = settings(Map.of("temperature", 0.3, "maxCompletionTokens", false), false);
         var reasoning = settings(Map.of("maxCompletionTokens", true, "reasoningEffort", "low"), true);
         var meters = new SimpleMeterRegistry();
-        try (var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters)) {
+        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        try {
             adapter.validate("http://model.internal/v1", "custom-deployment-name", generic);
             adapter.validate("https://api.example/v1", "reasoning-deployment-name", reasoning);
         } finally { meters.close(); }
@@ -85,7 +87,8 @@ class OpenAiChatProviderAdapterTest {
     @Test
     void rejectsUnknownOrMalformedOptionsBeforeAnyProviderRequest() {
         var meters = new SimpleMeterRegistry();
-        try (var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters)) {
+        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        try {
             for (var options : java.util.List.<Map<String, Object>>of(Map.of("apiKey", "must-not-be-an-option"),
                     Map.of("temperature", "hot"), Map.of("temperature", 3), Map.of("topP", Double.NaN),
                     Map.of("maxCompletionTokens", "true"), Map.of("reasoningEffort", "unlimited"),

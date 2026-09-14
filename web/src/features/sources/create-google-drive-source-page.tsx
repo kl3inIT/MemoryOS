@@ -26,6 +26,7 @@ import {
   getGoogleDriveSelectionPolicyOptions,
   listGoogleDriveCredentialsOptions,
   listSourcesQueryKey,
+  listSourceGroupOptionsOptions,
   revokeGoogleDriveCredentialMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
@@ -45,7 +46,7 @@ import { sourceMutationError } from "./source-errors";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
 import { sourceStatusMessage } from "./source-errors";
-import { SourceGroupPicker } from "./source-group-picker";
+import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 
 export function CreateGoogleDriveSourcePage() {
   const session = useApplicationSession();
@@ -558,7 +559,11 @@ function GoogleDriveSourceSetup() {
               className="mt-2"
             />
           </div>
-          <SourceGroupPicker
+          <GroupAccessPicker
+            load={(query) => listSourceGroupOptionsOptions({ query })}
+            description={appText(
+              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
+            )}
             selected={groupIds}
             required={!globalManage}
             disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}

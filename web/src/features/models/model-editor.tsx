@@ -44,13 +44,13 @@ export function ModelEditor({
   const ui = useAppTranslation();
   const action = useModelAction();
   const [baseline, setBaseline] = useState(initial);
-  const [draft, setDraft] = useState(() => modelDraft(initial));
+  const [draft, setDraft] = useState(() => modelDraft(initial, adapter));
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationObservation | null>(null);
   const [saved, setSaved] = useState(false);
   const validationGeneration = useRef(0);
   const latest = baseline && models.find((model) => model.id === baseline.id);
-  const dirty = !baseline || JSON.stringify(draft) !== JSON.stringify(modelDraft(baseline));
+  const dirty = !baseline || JSON.stringify(draft) !== JSON.stringify(modelDraft(baseline, adapter));
   const conflicted =
     action.conflict || Boolean(baseline && (!latest || latest.revision !== baseline.revision));
   const invalid = modelDraftError(draft, adapter);
@@ -72,7 +72,7 @@ export function ModelEditor({
     }
     setValidation(null);
     setSaved(false);
-    setDraft((current) => changeModelDraft(current, key, value));
+    setDraft((current) => changeModelDraft(current, key, value, adapter));
   }
 
   async function save() {
@@ -100,7 +100,7 @@ export function ModelEditor({
             });
         signal.throwIfAborted();
         setBaseline(result.data);
-        setDraft(modelDraft(result.data));
+        setDraft(modelDraft(result.data, adapter));
         await refreshModelCatalog(client);
         signal.throwIfAborted();
         setSaved(true);
@@ -204,10 +204,7 @@ export function ModelEditor({
       }
       description={
         <span>
-          {provider.name} · <span className="break-all">{provider.id}</span>.{" "}
-          {ui(
-            "Settings describe this model explicitly; changing its name or profile never silently changes capabilities.",
-          )}
+          {provider.name} · <span className="break-all">{provider.id}</span>
         </span>
       }
       onClose={() => {
@@ -228,6 +225,7 @@ export function ModelEditor({
               {ui("API model name")}
               <Input
                 required
+                list="known-chat-models"
                 maxLength={200}
                 value={draft.modelName}
                 onChange={(event) => change("modelName", event.target.value)}
@@ -243,28 +241,11 @@ export function ModelEditor({
               />
             </label>
           </div>
-          <label className="block space-y-1">
-            {ui("Tokenizer profile")}
-            <Select
-              value={draft.tokenizerProfile}
-              onChange={(event) => change("tokenizerProfile", event.target.value)}
-            >
-              <option value="">{ui("Choose an installed profile")}</option>
-              {draft.tokenizerProfile &&
-                !adapter?.tokenizerProfiles.some(
-                  (profile) => profile.id === draft.tokenizerProfile,
-                ) && (
-                  <option value={draft.tokenizerProfile}>
-                    {ui(appText("{{profile}} (unavailable)", { profile: draft.tokenizerProfile }))}
-                  </option>
-                )}
-              {adapter?.tokenizerProfiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.displayName} · {profile.id}
-                </option>
-              ))}
-            </Select>
-          </label>
+          <datalist id="known-chat-models">
+            {adapter?.knownModels.map((known) => (
+              <option key={known.modelName} value={known.modelName} />
+            ))}
+          </datalist>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1">
               {ui("Context window (tokens)")}
@@ -338,34 +319,18 @@ export function ModelEditor({
               />
               {ui("Use maxCompletionTokens option family")}
             </label>
-            <p className="font-secondary-body text-content-muted">
-              {ui(
-                "This boolean chooses the output-token field family, not the output limit. Completion-token mode removes sampling overrides. Blank optional fields are omitted.",
-              )}
-            </p>
-            {!draft.completionTokens && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(
-                  [
-                    ["temperature", "Temperature", 0, 2],
-                    ["topP", "Top P", 0, 1],
-                    ["frequencyPenalty", "Frequency penalty", -2, 2],
-                    ["presencePenalty", "Presence penalty", -2, 2],
-                  ] as const
-                ).map(([key, label, min, max]) => (
-                  <label key={key} className="block space-y-1">
-                    {ui(label)}
-                    <Input
-                      type="number"
-                      min={min}
-                      max={max}
-                      step="any"
-                      value={draft[key]}
-                      onChange={(event) => change(key, event.target.value)}
-                    />
-                  </label>
-                ))}
-              </div>
+            {!draft.completionTokens && !draft.reasoning && (
+              <label className="block max-w-xs space-y-1">
+                {ui("Temperature")}
+                <Input
+                  type="number"
+                  min={0}
+                  max={2}
+                  step="any"
+                  value={draft.temperature}
+                  onChange={(event) => change("temperature", event.target.value)}
+                />
+              </label>
             )}
             {draft.reasoning && (
               <label className="block space-y-1">
@@ -388,11 +353,6 @@ export function ModelEditor({
             <legend className="font-main-ui-action">
               {ui("Pricing · USD per million tokens")}
             </legend>
-            <p className="font-secondary-body text-content-muted">
-              {ui(
-                "Leave both blank for Unknown. Explicit zero means known free pricing, not Unknown.",
-              )}
-            </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1">
                 {ui("Input price")}
@@ -417,7 +377,7 @@ export function ModelEditor({
             </div>
           </fieldset>
         </fieldset>
-        {invalid && <p role="status">{invalid}</p>}
+        {invalid && <p role="status">{ui(invalid)}</p>}
         {conflicted && (
           <div role="alert" className="space-y-2">
             <p>
@@ -434,7 +394,7 @@ export function ModelEditor({
             </Button>
           </div>
         )}
-        {action.error && <p role="alert">{action.error}</p>}
+        {action.error && <p role="alert">{ui(action.error)}</p>}
         {saved && <p role="status">{ui("Model saved.")}</p>}
         {baseline && (
           <p className="break-all font-secondary-body text-content-muted">
@@ -451,11 +411,6 @@ export function ModelEditor({
           </p>
         )}
         {displayedValidation && <p role="status">{displayedValidation}</p>}
-        <p className="font-secondary-body text-content-muted">
-          {ui(
-            "Validate is available only for clean saved settings and reconciles both saved revisions. Edits, closing and authority changes discard pending results.",
-          )}
-        </p>
         <div className="flex flex-wrap justify-end gap-2">
           <Button
             prominence="secondary"

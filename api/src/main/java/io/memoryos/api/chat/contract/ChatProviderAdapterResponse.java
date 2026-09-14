@@ -9,10 +9,14 @@ import java.util.List;
 public record ChatProviderAdapterResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String type,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatProviderAdapter.CredentialRequirement credentialRequirement,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatTokenizerProfileResponse> tokenizerProfiles
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatTokenizerProfileResponse> tokenizerProfiles,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean nativeWebSearch,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatKnownModelResponse> knownModels
 ) {
     public static ChatProviderAdapterResponse from(ChatProviderAdapters.Descriptor value) {
         return new ChatProviderAdapterResponse(value.type(), value.credentialRequirement(),
-                value.tokenizerProfiles().stream().map(ChatTokenizerProfileResponse::from).toList());
+                value.tokenizerProfiles().stream().map(ChatTokenizerProfileResponse::from).toList(),
+                value.nativeWebSearch(),
+                value.knownModels().stream().map(ChatKnownModelResponse::from).toList());
     }
 }
