@@ -5,27 +5,40 @@ import java.util.Objects;
 import java.util.function.UnaryOperator;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
-import java.util.List;
+import org.springframework.ai.tokenizer.TokenCountEstimator;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
+import com.knuddels.jtokkit.api.EncodingType;
 
-/** A configured native model and immutable request policy. No run state or client cache. */
+/** A configured native model and its provider-specific final-request policy. No run state or client cache. */
 public record ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                               ChatRequestPolicy policy, int contextWindow, int maxOutputTokens, boolean toolCalling, boolean vision) {
+                               TokenCountEstimator tokens, int contextWindow, int maxOutputTokens, boolean toolCalling, boolean vision) {
+    public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
+                            TokenCountEstimator tokens, int contextWindow, int maxOutputTokens, boolean toolCalling) {
+        this(service, finalRequest, tokens, contextWindow, maxOutputTokens, toolCalling, false);
+    }
     public ChatModelBinding forOptions(io.memoryos.chat.ChatTurnOptions options) {
-        return new ChatModelBinding(service, finalRequest, policy, contextWindow,
+        return new ChatModelBinding(service, finalRequest, tokens, contextWindow,
                 options.outputTokenLimit() == null ? maxOutputTokens : Math.min(maxOutputTokens, options.outputTokenLimit()),
                 toolCalling, vision);
+    }
+    private static final TokenCountEstimator DEFAULT_TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+    public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest) {
+        this(service, finalRequest, DEFAULT_TOKENS, 32000, 4096, true);
+    }
+    public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
+                            TokenCountEstimator tokens, int contextWindow, int maxOutputTokens) {
+        this(service, finalRequest, tokens, contextWindow, maxOutputTokens, true);
     }
     public ChatModelBinding {
         Objects.requireNonNull(service);
         Objects.requireNonNull(finalRequest);
-        Objects.requireNonNull(policy);
+        Objects.requireNonNull(tokens);
         if (maxOutputTokens < 1 || contextWindow <= maxOutputTokens) throw new IllegalArgumentException("Invalid model limits");
     }
 
-    /** Contributions were frozen into the admitted system message before reserving this turn. */
     public SpringAiLlmService withModel(ChatModel model) {
         return new SpringAiLlmService(service.getName(), service.getProvider(), model, service.getOptionsConverter(),
-                service.getKnowledgeCutoffDate(), List.of(), service.getPricingModel(),
+                service.getKnowledgeCutoffDate(), service.getPromptContributors(), service.getPricingModel(),
                 service.supportsThinking(), service.getToolResponseContentAdapter(),
                 service.getNativeStructuredOutputConfigurer(), service.getNativeSupport());
     }

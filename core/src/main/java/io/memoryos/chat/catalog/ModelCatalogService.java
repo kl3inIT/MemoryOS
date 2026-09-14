@@ -10,7 +10,6 @@ import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
@@ -59,9 +58,6 @@ public class ModelCatalogService {
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
     public record Selection(Model model, Provider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
         public Selection(Model model, Provider provider, @Nullable String fallbackReason) { this(model, provider, fallbackReason, null); }
-    }
-    public record PersonaPage(List<ModelCatalogRepository.PersonaSummary> items, @Nullable String nextCursor) {
-        public PersonaPage { items = List.copyOf(items); }
     }
 
     @Transactional
@@ -181,43 +177,22 @@ public class ModelCatalogService {
     }
 
     @Transactional
-    public PersonaPage personas(ActorId actor, @Nullable String cursor, int limit) {
-        UUID tenant = admin(actor, false);
-        if (limit < 1 || limit > 100) throw ChatException.invalid("Persona page limit must be between 1 and 100.");
-        UUID after = null;
-        if (cursor != null) {
-            try {
-                after = UUID.fromString(cursor);
-                if (!after.toString().equals(cursor)) throw new IllegalArgumentException();
-            } catch (IllegalArgumentException invalid) {
-                throw ChatException.invalid("Invalid Persona cursor.");
-            }
-            if (!catalog.personaExists(tenant, actor.value(), after)) throw ChatException.invalid("Invalid Persona cursor.");
-        }
-        chats.provisionPersona(new TenantId(tenant), persona.getName(), persona.getInstructions(), persona.getModel());
-        var page = catalog.personas(tenant, actor.value(), after, limit + 1);
-        boolean hasMore = page.size() > limit;
-        var items = hasMore ? page.subList(0, limit) : page;
-        return new PersonaPage(items, hasMore ? items.getLast().id().toString() : null);
-    }
-
-    @Transactional
     public ModelCatalogRepository.PersonaModel personaModel(ActorId actor, UUID id) {
-        return catalog.personaModel(admin(actor, false), actor.value(), id);
+        return catalog.personaModel(admin(actor, false), id);
     }
 
     @Transactional
     public ModelCatalogRepository.PersonaModel setPersonaModel(ActorId actor, UUID id, @Nullable UUID modelId, long revision) {
         UUID tenant = admin(actor, true);
         initialize(tenant);
-        catalog.personaModel(tenant, actor.value(), id);
+        catalog.personaModel(tenant, id);
         if (modelId != null) {
             var model = catalog.model(tenant, modelId).orElseThrow(ChatException::unavailable);
             var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
             if (!available(provider, id, true, Set.of())) throw ChatException.invalid("Model is unavailable to this Persona.");
         }
-        catalog.setPersonaModel(tenant, actor.value(), id, modelId, revision);
-        return catalog.personaModel(tenant, actor.value(), id);
+        catalog.setPersonaModel(tenant, id, modelId, revision);
+        return catalog.personaModel(tenant, id);
     }
 
     @Transactional
@@ -262,7 +237,7 @@ public class ModelCatalogService {
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
-        UUID personaDefault = catalog.personaModel(tenant, actor.value(), personaId).modelConfigurationId();
+        UUID personaDefault = catalog.personaModel(tenant, personaId).modelConfigurationId();
         UUID inheritedId = personaDefault != null && accessible(tenant, personaDefault, personaId, manager, groups) != null
                 ? personaDefault : defaultId;
         return catalog.models(tenant).stream().filter(Model::visible)
@@ -367,10 +342,7 @@ public class ModelCatalogService {
     }
     private void validateModel(Provider provider, String name, ModelSettings settings) {
         if (settings == null || !settings.capabilities().streaming()) throw ChatException.invalid("Chat requires a streaming model.");
-        var adapter = adapters.require(provider.adapterType());
-        if (adapter.tokenizerProfiles().stream().noneMatch(profile -> profile.id().equals(settings.tokenizerProfile())))
-            throw ChatException.invalid("Unsupported tokenizer profile for this provider adapter.");
-        adapter.validate(provider.baseUrl(), name, settings);
+        adapters.require(provider.adapterType()).validate(provider.baseUrl(), name, settings);
     }
     private ProviderView view(Provider p) {
         return new ProviderView(p.id(), p.name(), p.adapterType(), p.baseUrl(), p.enabled(), p.isPublic(), p.groupIds(), p.personaIds(),
