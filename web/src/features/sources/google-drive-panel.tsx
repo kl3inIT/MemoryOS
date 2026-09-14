@@ -53,6 +53,7 @@ import {
 } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
 import { SourceSummaryCard } from "./source-summary-card";
+import { can } from "@/lib/resource-permissions";
 
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {
   minutes: string;
@@ -92,10 +93,10 @@ export function GoogleDrivePanel({
   const session = useApplicationSession();
   const authority = useCapabilityAuthority("SOURCES_MANAGE");
   const canListCredentials = authority !== "none";
-  const canConfigure = authority === "global" && source.actions.includes("manage_configuration");
-  const canSchedule = source.actions.includes("manage_schedule");
-  const canSynchronize = source.actions.includes("synchronize");
-  const capabilities = `${session.capabilities.join(",")}:${session.scopedCapabilities.join(",")}:${source.actions.join(",")}`;
+  const canConfigure = can(source, "manageConfiguration");
+  const canSchedule = can(source, "edit");
+  const canSynchronize = can(source, "edit");
+  const capabilities = `${session.capabilities.join(",")}:${session.scopedCapabilities.join(",")}:${JSON.stringify(source.permissions)}`;
   const clientInput = useRef<GoogleDriveOAuthClientInputHandle>(null);
   const [clientReady, setClientReady] = useState(false);
   const [replaceClient, setReplaceClient] = useState(false);
@@ -156,9 +157,7 @@ export function GoogleDrivePanel({
   const [observingSynchronization, setObservingSynchronization] = useState(false);
   const busy = activeAction !== null || leaving;
   const configuration = configurationQuery.data;
-  const canPause = source.actions.includes(
-    configuration?.syncPaused ? "resume_sync" : "pause_sync",
-  );
+  const canPause = can(source, "edit");
   const stale = sourceStale || configurationQuery.isError;
   const controlsDisabled = disabled || busy || stale;
   const connected =

@@ -16,6 +16,7 @@ import io.memoryos.iam.invitation.VerifiedEmailInvitationAcceptance;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.identity.TrustedIdentityAdmission;
+import io.memoryos.iam.identityprovider.JitAdmissionPolicy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -44,7 +45,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     private final InvitationService invitationService;
     private final ActorProfileRecorder profileRecorder;
     private final TrustedIdentityAdmission trustedIdentityAdmission;
-    private final JitAdmissionProperties jitProperties;
+    private final JitAdmissionPolicy jitAdmissionPolicy;
     private final TenantId tenantId;
     private final String trustedIssuer;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
@@ -56,7 +57,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             InvitationService invitationService,
             ActorProfileRecorder profileRecorder,
             TrustedIdentityAdmission trustedIdentityAdmission,
-            JitAdmissionProperties jitProperties,
+            JitAdmissionPolicy jitAdmissionPolicy,
             TenantId tenantId,
             String trustedIssuer
     ) {
@@ -71,7 +72,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         );
         this.profileRecorder = Objects.requireNonNull(profileRecorder, "profileRecorder must not be null");
         this.trustedIdentityAdmission = Objects.requireNonNull(trustedIdentityAdmission);
-        this.jitProperties = Objects.requireNonNull(jitProperties);
+        this.jitAdmissionPolicy = Objects.requireNonNull(jitAdmissionPolicy);
         this.tenantId = Objects.requireNonNull(tenantId);
         this.trustedIssuer = Objects.requireNonNull(trustedIssuer);
     }
@@ -100,7 +101,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         var actorId = identityResolver.resolve(externalIdentity).orElse(null);
         if (actorId == null || !tenantAccessResolver.hasActiveTenant(actorId)) {
             if (trustedIssuer.equals(externalIdentity.issuer())
-                    && jitProperties.allows(idToken.getClaims().get("memoryos_identity_provider"))) {
+                    && jitAdmissionPolicy.allows(idToken.getClaims().get("memoryos_identity_provider"))) {
                 try {
                     actorId = trustedIdentityAdmission.admit(tenantId, externalIdentity);
                 } catch (IamException exception) {

@@ -23,7 +23,6 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
@@ -54,6 +53,7 @@ import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
 import { GoogleDriveAclPanel } from "./google-drive-acl-panel";
+import { can } from "@/lib/resource-permissions";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
@@ -606,12 +606,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   }
 
   const detail = sourceQuery.data;
-  const sourceActions = detail?.actions ?? [];
-  const canUpload = sourceActions.includes("upload");
-  const canReindex = sourceActions.includes("reindex");
-  const canRemoveItems = sourceActions.includes("remove_items");
-  const canDelete = sourceActions.includes("delete");
-  const canManageGroups = sourceActions.includes("manage_groups");
+  const canUpload = detail?.type === "FILE" && can(detail, "edit");
+  const canReindex = can(detail, "edit");
+  const canRemoveItems = can(detail, "removeItems");
+  const canDelete = can(detail, "delete");
+  const canManageGroups = can(detail, "edit");
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const managementBusy =
     uploadBusy ||
@@ -960,7 +959,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               }
             />
             <SourceMetadataEditor
-              key={`${detail.id}:${detail.actions.join(",")}`}
+              key={`${detail.id}:${JSON.stringify(detail.permissions)}`}
               source={detail}
               disabled={busy || sourceQuery.isError || detail.status === "DELETING"}
               onSaved={refreshAuthorityViews}
@@ -1185,7 +1184,6 @@ function SourceMetadataEditor({
   onSaved: () => Promise<void>;
 }) {
   const ui = useAppTranslation();
-  const globalManage = useGlobalCapability("SOURCES_MANAGE");
   const rename = useMutation(renameSourceMutation());
   const updateAccess = useMutation(updateSourceAccessMutation());
   const [editing, setEditing] = useState<"name" | "access" | null>(null);
@@ -1194,9 +1192,8 @@ function SourceMetadataEditor({
     source.access === "PUBLIC" ? "PUBLIC" : "RESTRICTED",
   );
   const [error, setError] = useState<AppCopy | null>(null);
-  const canRename = source.actions.includes("rename");
-  const canManageAccess =
-    globalManage && source.type === "FILE" && source.actions.includes("manage_access");
+  const canRename = can(source, "edit");
+  const canManageAccess = source.type === "FILE" && can(source, "publish");
   const pending = rename.isPending || updateAccess.isPending;
   if (editing === "access" && !canManageAccess) {
     setEditing(null);

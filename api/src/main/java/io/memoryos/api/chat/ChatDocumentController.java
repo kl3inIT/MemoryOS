@@ -20,12 +20,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Opens organization document passages cited in a conversation with Chat authority rather than Search authority. */
+/** Opens organization document passages cited in a conversation; needs Tenant membership and document eligibility, not Search authority. */
 @RestController
 @RequestMapping(value = "/api/chat/documents", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Chat")
 @ApiResponse(responseCode = "400", description = "Invalid passage window", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "403", description = "CHAT_READ, Tenant membership or CSRF requirement not met", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "404", description = "Document generation not readable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")

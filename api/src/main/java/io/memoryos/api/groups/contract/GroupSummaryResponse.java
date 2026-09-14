@@ -1,6 +1,6 @@
 package io.memoryos.api.groups.contract;
 
-import io.memoryos.iam.group.GroupAction;
+import io.memoryos.iam.group.GroupPermissions;
 import io.memoryos.iam.group.GroupSummary;
 import io.memoryos.iam.group.GroupSystemKey;
 import io.memoryos.iam.group.IamCapability;
@@ -28,11 +28,25 @@ public record GroupSummaryResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         List<IamCapability> capabilities,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-        List<String> actions
+        Permissions permissions
 ) {
     public GroupSummaryResponse {
         capabilities = List.copyOf(capabilities);
-        actions = List.copyOf(actions);
+    }
+
+    /** Affordance hints projected from the Group write guards; mutations keep their own checks. */
+    @Schema(name = "GroupPermissions", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
+    public record Permissions(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean manage,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean manageMembers,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean delete,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean editPermissions,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean manageSources
+    ) {
+        static Permissions from(GroupPermissions permissions) {
+            return new Permissions(permissions.manage(), permissions.manageMembers(), permissions.delete(),
+                    permissions.editPermissions(), permissions.manageSources());
+        }
     }
 
     public static GroupSummaryResponse from(GroupSummary group) {
@@ -45,10 +59,7 @@ public record GroupSummaryResponse(
                 group.capabilities().stream()
                         .sorted(Comparator.comparingInt(IamCapability::ordinal))
                         .toList(),
-                group.actions().stream()
-                        .sorted(Comparator.comparingInt(GroupAction::ordinal))
-                        .map(GroupAction::token)
-                        .toList()
+                Permissions.from(group.permissions())
         );
     }
 }

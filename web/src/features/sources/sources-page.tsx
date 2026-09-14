@@ -392,7 +392,7 @@ function SourceRow({ source }: { source: SourceSummary }) {
       </td>
       <td className="px-4 text-sm tabular-nums text-content-secondary">{source.documentCount}</td>
       <td className="px-4 text-center">
-        {source.actions.length > 0 ? (
+        {Object.values(source.permissions).some(Boolean) ? (
           <IconButton
             asChild
             size="sm"

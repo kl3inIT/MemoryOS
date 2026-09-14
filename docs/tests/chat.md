@@ -77,7 +77,7 @@ Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/M
 | Shared access polling does not reload transcript pages; revoked access hides the view; malformed sources fail inside the query boundary | `chat-workspace.spec.ts` access-polling and malformed-source browser cases |
 | Reopening sharing cannot submit its cached revision while the authoritative read is pending | `chat-workspace.spec.ts` delayed-refetch browser case |
 | Real session HTTP create/list/reload/history, owner denial and membership revoke | `ChatSessionApiIntegrationTest` with full API context/PostgreSQL and existing security filters |
-| Without the Basic edge, list/history/branches/shared reads, reply event subscription, citation passages (`/api/chat/documents/{documentId}`), create and send return `403 IAM_ACCESS_DENIED`, while rename, sharing toggle and delete of an owned conversation still succeed | `ChatSessionApiIntegrationTest.chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership`: full API context, real IAM authority SQL and PostgreSQL |
+| Without the Basic edge, list/history/branches/shared reads, reply event subscription, create and send return `403 IAM_ACCESS_DENIED`, while rename, sharing toggle and delete of an owned conversation still succeed and citation passages (`/api/chat/documents/{documentId}`) are not capability-denied (an unknown document is `404`) | `ChatSessionApiIntegrationTest.chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership`: full API context, real IAM authority SQL and PostgreSQL |
 | Missing authentication/CSRF and input bounds on session/send operations | `ChatSessionApiIntegrationTest` |
 | Native runner send, usage persistence, same-request retry without another inference, partial EOF and local Stop | `ChatSessionApiIntegrationTest`; model transport mocked, native framework/IAM/PostgreSQL execute |
 | Cross-owner Stop denied, cancel committed before completion wins, expired rows cannot be resurrected | `ChatPersistenceIntegrationTest` |
@@ -141,6 +141,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | Native standard/completion-token conversion, reasoning, rejected options and unknown pricing | `OpenAiChatProviderAdapterTest` |
 | Dedicated authority, redaction, stale writes, same-name model selection and idempotency | Catalog cases in `ChatSessionApiIntegrationTest` |
 | Persona precedence, fallback, Group revoke, Persona restrictions on manager, default protection | Catalog cases in `ChatSessionApiIntegrationTest` |
+| Persona `permissions` match the update/delete guards (owned: edit+delete; builtin: edit only with `MODELS_MANAGE`, never delete) and are serialized for an owned Persona | `PersonaPermissionsTest.keysMatchTheUpdateAndDeleteGuards`, `ChatSessionApiIntegrationTest` workspace round trip, `chat-workspace.spec.ts` |
 | Old turn retains options; next turn uses new settings | `changingModelOptionsWhileRunningAffectsOnlyTheNextTurn` |
 | Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
 | Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |
@@ -173,7 +174,7 @@ The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse`
 
 | Contract | Verification |
 | --- | --- |
-| Native named tool binding, argument bounds, invalid selection fallback, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
+| Native named tool binding, argument bounds, empty/invalid selection fallback, NOT_RELEVANT keeping the main section, per-cycle source scope latching, reference time bounds, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
 | Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; context classification sees real neighbors and can reject a misleading subject | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `classificationReadsNeighborsBeforeRejectingTheWrongSubject` |
 | FULL_DOCUMENT reads at most five neighbors per side; Stop during concurrent rewriting cancels sibling work and prevents retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewritePreventsKeywordInferenceAndRetrieval` |
 | Same native process records typed selection and streaming usage once; denied content never reaches either model prompt | `ChatSessionApiIntegrationTest.nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce` |

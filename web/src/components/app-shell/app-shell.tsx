@@ -1,11 +1,22 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Menu, PanelLeftClose, PanelLeftOpen, Plug, Settings2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Globe,
+  KeyRound,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plug,
+  Settings2,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/components/app-shell/account-menu";
 import { Brand } from "@/components/brand";
-import { OnyxUserIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
@@ -14,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { ChatModeMenu, ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "providers";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -94,8 +105,15 @@ function SidebarContents({
   const ui = useAppTranslation();
 
   const appArea = area === "app";
-  const { canManageUsers, canReadGroups, canReadSources, canAccessAdmin, adminEntryPath } =
-    useAdminAccess();
+  const {
+    canManageUsers,
+    canReadGroups,
+    canReadSources,
+    canManageModels,
+    canManageProviders,
+    canAccessAdmin,
+    adminEntryPath,
+  } = useAdminAccess();
 
   return (
     <div className="flex h-full min-h-0 flex-col pb-2">
@@ -171,30 +189,17 @@ function SidebarContents({
           <ChatNavigation collapsed={collapsed} onNavigate={onNavigate} />
         ) : (
           <div className="space-y-5">
-            {canManageUsers || canReadGroups ? (
-              <SidebarSection title={ui("Tenant")} collapsed={collapsed}>
-                {canManageUsers ? (
-                  <SidebarTab
-                    to="/admin/users"
-                    icon={<OnyxUserIcon className="size-4" />}
-                    selected={adminPage === "users"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Users")}
-                  </SidebarTab>
-                ) : null}
-                {canReadGroups ? (
-                  <SidebarTab
-                    to="/admin/groups"
-                    icon={<OnyxUsersIcon className="size-4" />}
-                    selected={adminPage === "groups"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Groups")}
-                  </SidebarTab>
-                ) : null}
+            {canManageModels ? (
+              <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/settings/web"
+                  icon={<Globe className="size-4" />}
+                  selected={adminPage === "web"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Tìm kiếm Web")}
+                </SidebarTab>
               </SidebarSection>
             ) : null}
             {canReadSources ? (
@@ -208,6 +213,43 @@ function SidebarContents({
                 >
                   {ui("Sources")}
                 </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageUsers || canReadGroups || canManageProviders ? (
+              <SidebarSection title={ui("Tenant")} collapsed={collapsed}>
+                {canManageUsers ? (
+                  <SidebarTab
+                    to="/admin/users"
+                    icon={<User className="size-4" />}
+                    selected={adminPage === "users"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Users")}
+                  </SidebarTab>
+                ) : null}
+                {canReadGroups ? (
+                  <SidebarTab
+                    to="/admin/groups"
+                    icon={<Users className="size-4" />}
+                    selected={adminPage === "groups"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Groups")}
+                  </SidebarTab>
+                ) : null}
+                {canManageProviders ? (
+                  <SidebarTab
+                    to="/admin/identity-providers"
+                    icon={<KeyRound className="size-4" />}
+                    selected={adminPage === "providers"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Sign-in providers")}
+                  </SidebarTab>
+                ) : null}
               </SidebarSection>
             ) : null}
           </div>
@@ -327,7 +369,10 @@ export function AppShell({
               className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary md:max-w-xl"
             >
               {sourceSetupStep === undefined && area === "app" && chatMode ? (
-                <ChatModeMenu mode={chatMode} />
+                <span className="flex min-w-0 items-center gap-2">
+                  <ChatModeMenu mode={chatMode} />
+                  {pageTitle !== ui(chatMode) && <span className="truncate">{pageTitle}</span>}
+                </span>
               ) : (
                 pageTitle
               )}

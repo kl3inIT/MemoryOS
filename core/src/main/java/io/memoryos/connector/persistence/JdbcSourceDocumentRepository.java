@@ -79,7 +79,7 @@ public class JdbcSourceDocumentRepository {
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND p.status='ACTIVE' AND c.status='ACTIVE' AND %s AND d.status='ELIGIBLE'
+                    AND p.status IN ('ACTIVE','INDEXING') AND c.status='ACTIVE' AND %s AND d.status='ELIGIBLE'
                     AND %s
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("documents", documents).query(UUID.class).list());
@@ -90,7 +90,7 @@ public class JdbcSourceDocumentRepository {
         jdbcClient.sql("""
                 SELECT p.id,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
-                WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
+                WHERE p.tenant_id=:tenant AND p.status IN ('ACTIVE','INDEXING')
                     AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY p.id
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value()).query((rs, _) -> {
@@ -136,7 +136,7 @@ public class JdbcSourceDocumentRepository {
         return jdbcClient.sql("""
                 SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
-                WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
+                WHERE p.tenant_id=:tenant AND p.status IN ('ACTIVE','INDEXING')
                     AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY c.name,p.id LIMIT :limit OFFSET :offset
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
@@ -160,9 +160,9 @@ public class JdbcSourceDocumentRepository {
                 JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation)
+                    AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation OR d.searchable_generation=:generation)
                     AND c.status='ACTIVE' AND %s AND p.status<>'DELETING'
-                    AND (:indexing OR (p.status='ACTIVE' AND %s))
+                    AND (:indexing OR (p.status IN ('ACTIVE','INDEXING') AND %s))
                 ORDER BY m.document_id,p.id,i.id
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("documents", ids).param("indexing", actor == null)
                 .param("actor", actor == null ? null : actor.value(), Types.OTHER)

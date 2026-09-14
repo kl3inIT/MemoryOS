@@ -167,7 +167,7 @@ function ChatConversation({
 
   if (state.unavailable)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")} chatMode={project ? undefined : "Chat"}>
         <p role="alert" className="p-6">
           {ui("Hội thoại không còn khả dụng.")}
         </p>
@@ -175,7 +175,7 @@ function ChatConversation({
     );
   if (state.historyFailed && !session)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")} chatMode={project ? undefined : "Chat"}>
         <div role="alert" className="space-y-3 p-6">
           <p>{ui("Không tải được hội thoại.")}</p>
           <Button prominence="secondary" onClick={() => void controller.check()}>
@@ -186,7 +186,7 @@ function ChatConversation({
     );
   if (loadingHistory && controller.remoteId)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")} chatMode={project ? undefined : "Chat"}>
         <p role="status" className="p-6 text-content-secondary">
           {ui("Đang tải hội thoại…")}
         </p>
@@ -196,7 +196,7 @@ function ChatConversation({
   return (
     <AppShell
       pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
-      chatMode={!headerSession && !project ? "Chat" : undefined}
+      chatMode={project || headerSession?.projectId ? undefined : "Chat"}
       headerActions={
         <div className="flex items-center gap-1">
           <ChatConversationSearch key={headerSession?.id ?? "new"} />

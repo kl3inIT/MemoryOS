@@ -66,7 +66,7 @@ class ActorSessionLoginSuccessHandlerTest {
                 invitations,
                 (_, _, _, _, _) -> { throw new AssertionError("Rejected identity must not record a profile"); },
                 (_, _) -> new ActorId(UUID.randomUUID()),
-                new JitAdmissionProperties(aliases),
+                claim -> claim instanceof String alias && aliases.contains(alias),
                 new TenantId(UUID.randomUUID()),
                 ISSUER
         );

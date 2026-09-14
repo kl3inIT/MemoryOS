@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -258,13 +259,12 @@ class DocumentSearchServiceTest {
     }
 
     @Test
-    void chatCitationReaderRequiresChatReadInsteadOfSearchReadAndKeepsDocumentEligibility() {
+    void chatCitationReaderNeedsOnlyMembershipAndDocumentEligibility() {
         var tenant = new TenantId(UUID.randomUUID());
         var id = UUID.randomUUID();
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
-        when(authorization.require(actor, IamCapability.SEARCH_READ, false))
-                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "No Search grant"));
-        when(authorization.require(actor, IamCapability.CHAT_READ, false)).thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        when(authorization.require(eq(actor), any(IamCapability.class), eq(false)))
+                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "No capability"));
         when(index.identity()).thenReturn("space");
         when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
@@ -274,9 +274,8 @@ class DocumentSearchServiceTest {
         assertThrows(IamException.class, () -> service.document(actor, id, generation, 0));
         when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
         assertThrows(SearchDocumentUnavailableException.class, () -> service.citation(actor, id, generation, 0));
-        when(authorization.require(actor, IamCapability.CHAT_READ, false))
-                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "No Chat grant"));
-        assertThrows(IamException.class, () -> service.citation(actor, id, generation, 0));
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.empty());
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citation(actor, id, generation, 0));
     }
 
     @Test

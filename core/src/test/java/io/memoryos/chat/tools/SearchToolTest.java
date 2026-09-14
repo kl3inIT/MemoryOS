@@ -110,6 +110,19 @@ class SearchToolTest {
     }
 
     @Test
+    void emptySelectionFallsBackToRankedEvidenceInsteadOfReportingNoDocuments() {
+        // A query that only names a document matches its title, so the selector may see no relevant passage.
+        candidates();
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of()));
+        try (var tool = tool(8000)) {
+            var response = tool.searchKnowledge(List.of("Policy.pdf"), null);
+            assertTrue(response.contains("[1] Policy\nSection 2\nSection 3"));
+            assertEquals(1, events.stream().filter(e -> e.source() != null).count());
+            verify(runner).createObject(anyString(), eq(SearchTool.ContextSelection.class));
+        }
+    }
+
+    @Test
     void noEvidenceSkipsSelectionAndUnavailableSearchIsDistinctFromNoMatches() {
         var result = mock(SearchResults.class);
         when(result.hits()).thenReturn(List.of());
@@ -180,7 +193,7 @@ class SearchToolTest {
     }
 
     @Test
-    void classificationReadsNeighborsBeforeRejectingTheWrongSubject() {
+    void classificationReadsNeighborsAndKeepsTheMainSectionWhenNotRelevant() {
         candidates();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
         when(search.window(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "This contract is for PROJECT Y, not PROJECT X.", "[]"),
@@ -191,8 +204,10 @@ class SearchToolTest {
             return new SearchTool.ContextSelection(SearchTool.Expansion.NOT_RELEVANT);
         });
         try (var tool = tool(8000)) {
-            assertTrue(tool.searchKnowledge(List.of("PROJECT X fee"), null).startsWith("No relevant evidence"));
-            assertTrue(events.stream().noneMatch(e -> e.source() != null));
+            // As in the reference, a NOT_RELEVANT classification keeps the selected main section instead of dropping it.
+            String response = tool.searchKnowledge(List.of("PROJECT X fee"), null);
+            assertTrue(response.contains("[1] Policy\nSection 2\nSection 3"));
+            assertFalse(response.contains("PROJECT Y"));
         }
     }
 
@@ -458,8 +473,8 @@ class SearchToolTest {
         when(result.sections()).thenReturn(List.of(longSection));
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenAnswer(call -> {
             String prompt = call.getArgument(0);
-            assertTrue(prompt.contains("Section 9\nSection 10\nSection 11"));
-            assertFalse(prompt.contains("Section 12")); assertFalse(prompt.contains("Section 8\n"));
+            assertTrue(prompt.contains("Section 9\\nSection 10\\nSection 11"));
+            assertFalse(prompt.contains("Section 12")); assertFalse(prompt.contains("Section 8\\n"));
             return new SearchTool.Selection(List.of(1));
         });
         try (var tool = tool(8000)) { assertTrue(tool.searchKnowledge(List.of("policy"), null).contains("Section 19")); }
@@ -471,9 +486,9 @@ class SearchToolTest {
         when(search.scope(any())).thenReturn(new SourceSearchScope(scope.tenant(), scope.actor(), Map.of(UUID.randomUUID(), SourceType.FILE,
                 UUID.randomUUID(), SourceType.GOOGLE_DRIVE)));
         when(runner.createObject(anyString(), eq(SearchTool.SourceChoice.class))).thenReturn(
-                new SearchTool.SourceChoice(List.of(SourceType.FILE), true), new SearchTool.SourceChoice(List.of(SourceType.GOOGLE_DRIVE), true),
-                new SearchTool.SourceChoice(List.of(SourceType.FILE), true));
-        when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(new SearchTool.TimeChoice(null, null, null, null));
+                new SearchTool.SourceChoice(List.of(SourceType.FILE)), new SearchTool.SourceChoice(List.of(SourceType.GOOGLE_DRIVE)),
+                new SearchTool.SourceChoice(List.of(SourceType.FILE)));
+        when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(new SearchTool.TimeChoice(null, null, null));
         try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
             for (int i = 0; i < 3; i++) tool.searchKnowledge(List.of("new query"), null);
             var plans = events.stream().map(ChatSearchEvent::search).filter(java.util.Objects::nonNull).toList();
@@ -491,7 +506,7 @@ class SearchToolTest {
         var explicit = new io.memoryos.retrieval.SearchFilters(java.util.Set.of(SourceType.FILE), null,
                 new io.memoryos.retrieval.SearchFilters.Interval(Instant.parse("2026-09-01T00:00:00Z"), null));
         when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(
-                new SearchTool.TimeChoice(null, null, null, "2026-08-01T00:00:00Z"));
+                new SearchTool.TimeChoice("updated", null, "2026-08-01"));
         try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
             tool.searchKnowledge(List.of("policy"), explicit);
             assertEquals(explicit, events.stream().map(ChatSearchEvent::search).filter(java.util.Objects::nonNull).findFirst().orElseThrow().filters());
@@ -520,6 +535,36 @@ class SearchToolTest {
             String evidence = tool.searchKnowledge(List.of("policy"), null);
             assertTrue(evidence.indexOf("Section 2") < evidence.indexOf("Section 8"));
             assertEquals(List.of(1, 2), events.stream().filter(e -> e.source() != null).map(e -> e.source().citationId()).toList());
+        }
+    }
+
+    @Test
+    void timeDecisionResolvesRelativeOffsetsDropsFutureBoundsAndDefaultsToUpdated() {
+        var now = java.time.ZonedDateTime.parse("2026-09-14T10:00:00Z");
+        assertEquals(new io.memoryos.retrieval.SearchFilters(java.util.Set.of(), null,
+                        new io.memoryos.retrieval.SearchFilters.Interval(Instant.parse("2026-08-31T10:00:00Z"), null)),
+                SearchTool.timeFilter(new SearchTool.TimeChoice(null, "-P2W", "None"), now));
+        assertEquals(new io.memoryos.retrieval.SearchFilters(java.util.Set.of(), new io.memoryos.retrieval.SearchFilters.Interval(
+                        Instant.parse("2022-01-01T00:00:00Z"), Instant.parse("2022-12-31T23:59:59.999999999Z")), null),
+                SearchTool.timeFilter(new SearchTool.TimeChoice("created", "2022-01-01", "2022-12-31"), now));
+        assertEquals(io.memoryos.retrieval.SearchFilters.NONE,
+                SearchTool.timeFilter(new SearchTool.TimeChoice("updated", "2026-10-01", "2026-09-20"), now));
+        assertEquals(io.memoryos.retrieval.SearchFilters.NONE,
+                SearchTool.timeFilter(new SearchTool.TimeChoice("updated", "2026-9", "later"), now));
+    }
+
+    @Test
+    void sourceScopeDecisionLatchesOffOnceNoSourceIsNamed() {
+        candidates();
+        when(search.scope(any())).thenReturn(new SourceSearchScope(scope.tenant(), scope.actor(), Map.of(UUID.randomUUID(), SourceType.FILE,
+                UUID.randomUUID(), SourceType.GOOGLE_DRIVE)));
+        when(runner.createObject(anyString(), eq(SearchTool.SourceChoice.class))).thenReturn(new SearchTool.SourceChoice(List.of()));
+        when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(new SearchTool.TimeChoice(null, null, null));
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
+        try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
+            assertFalse(tool.searchKnowledge(List.of("policy"), null).contains("This internal search covered only"));
+            tool.searchKnowledge(List.of("policy again"), null);
+            verify(runner).createObject(anyString(), eq(SearchTool.SourceChoice.class));
         }
     }
 }

@@ -1,8 +1,8 @@
+import { Users } from "lucide-react";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
@@ -91,7 +91,7 @@ export function SourceGroupsSection({
       className="mt-8 border-t border-border-subtle pt-6"
     >
       <div className="flex items-center gap-3">
-        <SourceSectionIcon icon={OnyxUsersIcon} />
+        <SourceSectionIcon icon={Users} />
         <h2 id="source-groups-heading" className="font-heading-h3 text-content-primary">
           {ui("Group associations")}
         </h2>
@@ -174,7 +174,7 @@ export function SourceGroupsSection({
               variant="secondary"
               className="gap-1.5 border border-border-subtle bg-surface-subtle text-content-secondary"
             >
-              <OnyxUsersIcon className="size-3" aria-hidden="true" />
+              <Users className="size-3" aria-hidden="true" />
               {group.name}
             </Badge>
           ))}

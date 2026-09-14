@@ -10,6 +10,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.iam.invitation.IdentityProvisioningException;
 import io.memoryos.iam.invitation.IdentityProvisioningFailureReason;
+import io.memoryos.iam.invitation.KeycloakRecipientProvisioner;
 import io.memoryos.iam.invitation.KeycloakRecipientProvisioning;
 
 import java.io.IOException;
@@ -26,6 +27,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import org.keycloak.admin.client.Keycloak;
 
 class AdminClientKeycloakRecipientProvisionerTest {
 
@@ -184,8 +187,8 @@ class AdminClientKeycloakRecipientProvisionerTest {
         assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(2)) < 0);
     }
 
-    private AdminClientKeycloakRecipientProvisioner provisioner(Duration readTimeout) {
-        return new AdminClientKeycloakRecipientProvisioner(new KeycloakAdminProperties(
+    private CloseableProvisioner provisioner(Duration readTimeout) {
+        var properties = new KeycloakAdminProperties(
                 serverUrl(),
                 "memoryos",
                 "memoryos-user-provisioner",
@@ -195,7 +198,28 @@ class AdminClientKeycloakRecipientProvisionerTest {
                 Duration.ofSeconds(1),
                 Duration.ofSeconds(1),
                 readTimeout
-        ));
+        );
+        var keycloak = new KeycloakAdminConfiguration().keycloakAdminClient(properties);
+        return new CloseableProvisioner(
+                keycloak,
+                new AdminClientKeycloakRecipientProvisioner(keycloak, properties)
+        );
+    }
+
+    private record CloseableProvisioner(
+            Keycloak keycloak,
+            AdminClientKeycloakRecipientProvisioner provisioner
+    ) implements KeycloakRecipientProvisioner, AutoCloseable {
+
+        @Override
+        public KeycloakRecipientProvisioning provision(String normalizedEmail, Instant actionExpiresAt) {
+            return provisioner.provision(normalizedEmail, actionExpiresAt);
+        }
+
+        @Override
+        public void close() {
+            keycloak.close();
+        }
     }
 
     private void handle(HttpExchange exchange) throws IOException {

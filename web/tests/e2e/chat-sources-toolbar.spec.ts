@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { fixtureSource } from "../fixtures/chat-data";
 
 for (const width of [1440, 390]) {
-  test(`Onyx-style grouped sources keep the message panel at ${width}px`, async ({ page }) => {
+  test(`grouped sources keep the message panel at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.route("**/api/identity/me", (route) =>

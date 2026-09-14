@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,6 +88,7 @@ class PostgresGoogleDriveSyncTest {
     private final Map<String, GoogleDriveProvider.FileMetadata> files = new HashMap<>();
     private final Map<String, GoogleDriveProvider.FilePage> pages = new HashMap<>();
     private final Map<ObjectKey, byte[]> bytes = new HashMap<>();
+    private final Map<String, byte[]> contents = new HashMap<>();
     private final Map<ObjectKey, ObjectMetadata> metadata = new HashMap<>();
     private final Set<String> unsupported = new HashSet<>();
     private final List<String> calls = new ArrayList<>();
@@ -205,7 +207,7 @@ class PostgresGoogleDriveSyncTest {
             GoogleDriveProvider.FileMetadata file = i.getArgument(0);
             if (unsupported.contains(file.id())) throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.UNSUPPORTED);
             return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain",
-                    (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8),
+                    contents.getOrDefault(file.id(), (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8)),
                     new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(), "https://drive.google.com/file/d/" + file.id() + "/view"));
         });
     }
@@ -253,7 +255,7 @@ class PostgresGoogleDriveSyncTest {
     }
 
     @Test
-    void metadataVersionBumpWithIdenticalBinaryBytesReusesExtractionAndRetainsProvenance() {
+    void metadataVersionBumpWithIdenticalBinaryBytesRefreshesTheAclAndReusesExtraction() {
         byte[] content = "unchanged binary content".getBytes(StandardCharsets.UTF_8);
         doAnswer(i -> {
             GoogleDriveProvider.FileMetadata file = i.getArgument(0);
@@ -272,14 +274,14 @@ class PostgresGoogleDriveSyncTest {
 
         assertThat(dispatch.claim(OperationWorkload.INGESTION, 1)).isEmpty();
         assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions")).isEqualTo(1);
-        assertThat(scalar("SELECT COUNT(*) FROM object_writes")).isEqualTo(1);
+        assertThat(scalar("SELECT COUNT(*) FROM object_writes WHERE status='ADOPTED'")).isEqualTo(1);
         var after = new JdbcGoogleDriveAclRepository(jdbc, event -> {}).read(tenant, source, "one").orElseThrow();
         assertThat(after.documentIds()).isEqualTo(before.documentIds());
         assertThat(after.permissions()).extracting(GoogleDriveProvider.Permission::id).containsExactly("reader");
         org.mockito.Mockito.clearInvocations(session);
         finish(enqueue());
         verify(session, never()).acquire(any());
-        assertThat(jdbc.sql("SELECT provider_version FROM connector_item_versions").query(String.class).single()).isEqualTo("1");
+        assertThat(jdbc.sql("SELECT provider_version FROM connector_item_versions").query(String.class).single()).isEqualTo("2");
     }
 
     @Test
@@ -802,6 +804,55 @@ class PostgresGoogleDriveSyncTest {
         });
         assertThat(scalar("SELECT COUNT(*) FROM source_sync_attempts")).isEqualTo(1);
         assertThat(calls).isEmpty();
+    }
+
+    @Test
+    void versionOnlyChangeWithIdenticalContentStaysUnchangedAndKeepsTheIndexedDocument() {
+        // Sharing or metadata edits advance the Drive version without changing the file bytes.
+        contents.put("document", "Quarterly report".getBytes(StandardCharsets.UTF_8));
+        listing(file("document", false, "1"));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var documentsBefore = jdbc.sql("SELECT row_to_json(d)::text FROM documents d").query(String.class).list();
+
+        listing(file("document", false, "2"));
+        var operation = enqueue();
+        finish(operation);
+
+        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.SUCCEEDED);
+        assertThat(jdbc.sql("SELECT provider_version FROM connector_item_versions").query(String.class).list()).containsExactly("2");
+        assertThat(scalar("SELECT COUNT(*) FROM index_attempts")).isEqualTo(1);
+        assertThat(scalar("SELECT unchanged FROM source_sync_attempts WHERE id='" + operation.value() + "'")).isEqualTo(1);
+        assertThat(scalar("SELECT acquired FROM source_sync_attempts WHERE id='" + operation.value() + "'")).isZero();
+        assertThat(scalar("SELECT COUNT(*) FROM object_writes WHERE status='ADOPTED'")).isEqualTo(1);
+        assertThat(scalar("SELECT COUNT(*) FROM documents_by_connector_credential_pair WHERE retrieval_eligible")).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT row_to_json(d)::text FROM documents d").query(String.class).list()).isEqualTo(documentsBefore);
+
+        // The refreshed provider version lets the next run skip the download entirely.
+        finish(enqueue());
+        verify(session, times(2)).acquire(any());
+    }
+
+    @Test
+    void contentChangeKeepsThePreviousDocumentRetrievableWhenTheNewVersionFails() {
+        listing(file("document", false, "1"));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var generation = jdbc.sql("SELECT content_generation::text FROM documents").query(String.class).single();
+
+        listing(file("document", false, "2"));
+        finish(enqueue());
+        assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions")).isEqualTo(2);
+        assertThat(scalar("SELECT COUNT(*) FROM documents_by_connector_credential_pair WHERE retrieval_eligible")).isEqualTo(1);
+
+        var delivery = dispatch.claim(OperationWorkload.INGESTION, 1).getFirst().delivery();
+        var indexing = TestDatabase.transactionalProxy(attempts, ConnectorIndexingPort.class, manager);
+        var work = indexing.claim(tenant, delivery.operationId(), delivery.deliveryId()).orElseThrow();
+        assertThat(indexing.fail(work, "SOURCE_EXTRACTION_FAILED", null, null)).isTrue();
+
+        assertThat(scalar("SELECT COUNT(*) FROM documents_by_connector_credential_pair WHERE retrieval_eligible")).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT content_generation::text FROM documents WHERE status='ELIGIBLE'").query(String.class).single())
+                .isEqualTo(generation);
     }
 
     @Test

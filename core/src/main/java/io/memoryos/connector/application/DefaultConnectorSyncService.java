@@ -304,23 +304,21 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         var content = session.acquire(file);
         if (!file.id().equals(content.descriptor().providerFileId()) || !file.version().equals(content.descriptor().providerVersion()))
             throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.INCONSISTENT);
-        if (content.descriptor().format() == SourceInputFormat.BINARY) {
-            String checksum = checksum(content.bytes());
-            boolean reused = fenced(work, () -> {
-                var existing = items.unchangedBinary(work, file.id(), content.filename(), content.mediaType(), checksum);
-                if (existing.isEmpty()) return false;
-                sync.observe(work, file.id(), root, file.version(), existing.get().providerVersion());
-                sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(),
-                        existing.get().itemVersion()).isPresent());
-                sync.checkpoint(work, node, null);
-                return true;
-            });
-            if (reused) return;
-        }
         var staged = writes.stage(work.tenantId(), new ObjectWriteService.Specification(content.filename(),
                 content.mediaType(), content.descriptor().format() != SourceInputFormat.BINARY), content.bytes());
         boolean adopted = false;
         try {
+            boolean sameContent = fenced(work, () -> {
+                if (sync.excluded(work, file.id())) throw new StaleSyncException();
+                var version = items.sameContent(work, file.id(), staged.object().metadata().checksum().value(),
+                        staged.object().filename(), content.descriptor().providerVersion());
+                if (version.isEmpty()) return false;
+                sync.observe(work, file.id(), root, file.version());
+                sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(), version.get()).isPresent());
+                sync.checkpoint(work, node, null);
+                return true;
+            });
+            if (sameContent) return;
             adopted = fenced(work, () -> {
                 if (sync.excluded(work, file.id())) throw new StaleSyncException();
                 var pair = sources.lock(work.tenantId(), work.sourceId());
@@ -328,7 +326,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 writes.adopt(work.tenantId(), staged);
                 var version = items.acceptRemote(work, pair, staged.object(), content.descriptor());
                 indexing.cancelForItem(work.tenantId(), work.sourceId(), version.itemId());
-                documents.invalidateItem(work.tenantId(), work.sourceId(), version.itemId());
+                // The current Document stays retrievable until the new version publishes over the same mapping.
                 indexing.create(work.tenantId(), pair, version, work.operationId());
                 sync.acquired(work, file.id());
                 sync.checkpoint(work, node, null);
@@ -336,14 +334,6 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             });
         } finally {
             if (!adopted) writes.discard(work.tenantId(), staged);
-        }
-    }
-
-    private static String checksum(byte[] bytes) {
-        try {
-            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (java.security.NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
     }
 

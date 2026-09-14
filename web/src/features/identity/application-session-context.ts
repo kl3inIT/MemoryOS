@@ -30,11 +30,24 @@ export function useAdminAccess() {
   const canManageUsers = useGlobalCapability("USERS_MANAGE");
   const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
   const canReadSources = useCapabilityAuthority("SOURCES_READ") !== "none";
+  const canManageModels = useGlobalCapability("MODELS_MANAGE");
+  const canManageProviders = useGlobalCapability("SYSTEM_ADMIN");
   return {
     canManageUsers,
     canReadGroups,
     canReadSources,
-    canAccessAdmin: canManageUsers || canReadGroups || canReadSources,
-    adminEntryPath: canReadSources ? "/admin" : canReadGroups ? "/admin/groups" : "/admin/users",
+    canManageModels,
+    canManageProviders,
+    canAccessAdmin:
+      canManageUsers || canReadGroups || canReadSources || canManageModels || canManageProviders,
+    adminEntryPath: canReadSources
+      ? "/admin"
+      : canReadGroups
+        ? "/admin/groups"
+        : canManageUsers
+          ? "/admin/users"
+          : canManageProviders
+            ? "/admin/identity-providers"
+            : "/settings/web",
   } as const;
 }

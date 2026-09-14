@@ -16,7 +16,6 @@ services:
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro
     read_only: true
-    mem_limit: 384m
     networks:
       telemetry:
         aliases: [memoryos-otel-collector]
@@ -28,7 +27,6 @@ services:
     volumes:
       - ./loki.yaml:/etc/loki/config.yaml:ro
       - loki:/loki
-    mem_limit: 768m
     networks: [backend]
   tempo:
     <<: *defaults
@@ -41,7 +39,6 @@ services:
     volumes:
       - ./tempo.yaml:/etc/tempo/config.yaml:ro
       - tempo:/var/tempo
-    mem_limit: 1g
     networks: [backend]
   prometheus:
     <<: *defaults
@@ -57,7 +54,6 @@ services:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
       - ./alerts.yaml:/etc/prometheus/alerts.yaml:ro
       - prometheus:/prometheus
-    mem_limit: 768m
     networks: [backend]
   grafana:
     <<: *defaults
@@ -94,7 +90,6 @@ services:
       - grafana:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-    mem_limit: 512m
     healthcheck:
       test: [CMD, wget, -q, -O, /dev/null, http://localhost:3000/api/health]
       interval: 30s

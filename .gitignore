@@ -1,6 +1,7 @@
 .gradle/
 **/build/
 .tmp/
+/tmp/
 .idea/
 .run/*
 *.iml
@@ -21,3 +22,6 @@ secrets/
 __pycache__/
 graphify-out/
 /output/
+tmp/
+codex-session-*.jsonl
+*.docx

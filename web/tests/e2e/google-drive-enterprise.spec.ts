@@ -39,17 +39,13 @@ const source: SourceSummary = {
   documentCount: 0,
   lastSucceededAt: null,
   errorCode: null,
-  actions: [
-    "reindex",
-    "remove_items",
-    "delete",
-    "manage_groups",
-    "rename",
-    "manage_configuration",
-    "synchronize",
-    "manage_schedule",
-    "pause_sync",
-  ],
+  permissions: {
+    edit: true,
+    delete: true,
+    publish: false,
+    manageConfiguration: true,
+    removeItems: true,
+  },
 };
 const secondSourceId = "7c6d85d0-ddd4-445c-9fd0-280f2b3e5b19";
 const fileLink = "https://docs.google.com/document/d/document-a/edit";
@@ -419,10 +415,6 @@ async function enterprisePage(page: Page, existing = false) {
         syncPaused: body.paused,
         scheduleRevision: entry.configuration.scheduleRevision + 1,
       };
-      entry.source.actions = entry.source.actions.filter(
-        (action) => action !== "pause_sync" && action !== "resume_sync",
-      );
-      entry.source.actions.push(body.paused ? "resume_sync" : "pause_sync");
       await route.fulfill({ json: entry.configuration });
     } else if (path.endsWith("/schedule")) {
       expect(request.headers()["if-match"]).toBe(`"${entry.configuration.scheduleRevision}"`);
@@ -476,13 +468,13 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
   await page.getByText("File and folder links", { exact: true }).click();
   await page.getByRole("button", { name: "Edit selection", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "File or folder links" })).toBeVisible();
-  entry.source.actions = [
-    "rename",
-    "manage_groups",
-    "synchronize",
-    "manage_schedule",
-    "pause_sync",
-  ];
+  entry.source.permissions = {
+    edit: true,
+    delete: false,
+    publish: false,
+    manageConfiguration: false,
+    removeItems: false,
+  };
   await page.getByRole("button", { name: "Refresh status" }).click();
   await expect(page.getByRole("textbox", { name: "File or folder links" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Discover linked docs" })).toHaveCount(0);
@@ -490,7 +482,13 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
   await expect(page.getByRole("button", { name: "Resume automatic sync" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
   await page.getByRole("button", { name: "Edit interval" }).click();
-  entry.source.actions = [];
+  entry.source.permissions = {
+    edit: false,
+    delete: false,
+    publish: false,
+    manageConfiguration: false,
+    removeItems: false,
+  };
   await page.getByRole("button", { name: "Refresh status" }).click();
   await expect(page.getByRole("spinbutton", { name: "Interval in minutes" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Resume automatic sync" })).toHaveCount(0);

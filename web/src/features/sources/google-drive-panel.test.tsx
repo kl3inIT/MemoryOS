@@ -38,17 +38,13 @@ const source: SourceSummary = {
   documentCount: 0,
   lastSucceededAt: null,
   errorCode: null,
-  actions: [
-    "reindex",
-    "remove_items",
-    "delete",
-    "manage_groups",
-    "rename",
-    "manage_configuration",
-    "synchronize",
-    "manage_schedule",
-    "pause_sync",
-  ],
+  permissions: {
+    edit: true,
+    delete: true,
+    publish: false,
+    manageConfiguration: true,
+    removeItems: true,
+  },
 };
 const firstLink = "https://drive.google.com/file/d/file-a/view";
 const secondLink = "https://drive.google.com/file/d/file-b/view";
@@ -351,8 +347,8 @@ function setup(
     changeSession(session: ApplicationSession) {
       view.rerender(tree(session));
     },
-    changeActions(actions: SourceSummary["actions"]) {
-      currentSource = { ...source, actions };
+    changePermissions(permissions: SourceSummary["permissions"]) {
+      currentSource = { ...source, permissions };
       view.rerender(tree(owner));
     },
     setSourceStale(stale: boolean) {
@@ -410,11 +406,17 @@ describe("Google Drive enterprise selection", () => {
     expect(synchronize).toBeEnabled();
   });
 
-  it("withdraws open configuration drafts when actions change while retaining scoped operations", async () => {
+  it("withdraws open configuration drafts when permissions change while retaining scoped operations", async () => {
     const user = userEvent.setup();
     const server = setup();
     await edit(user);
-    server.changeActions(["synchronize", "manage_schedule", "pause_sync"]);
+    server.changePermissions({
+      edit: true,
+      delete: false,
+      publish: false,
+      manageConfiguration: false,
+      removeItems: false,
+    });
     server.changeSession({
       ...owner,
       authorizationVersion: 2,
@@ -425,7 +427,13 @@ describe("Google Drive enterprise selection", () => {
     expect(screen.queryByRole("textbox", { name: "File or folder links" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Edit interval" }));
-    server.changeActions([]);
+    server.changePermissions({
+      edit: false,
+      delete: false,
+      publish: false,
+      manageConfiguration: false,
+      removeItems: false,
+    });
     expect(
       screen.queryByRole("spinbutton", { name: "Interval in minutes" }),
     ).not.toBeInTheDocument();

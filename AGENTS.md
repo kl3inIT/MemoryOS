@@ -31,6 +31,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 - [Tasco scanned-PDF OCR](docs/increments/active/tasco-scanned-pdf-ocr/design.md) owns OCR, extraction and indexing of the supplied financial reports, verified through Orca Sources; Search and Chat changes are excluded.
 - [Docling timeout configuration](docs/increments/active/docling-timeout-configuration/design.md) owns the bounded external parser timeout configuration.
+- [Search generation handover](docs/increments/active/search-generation-handover/design.md) keeps a Document searchable on its previous ready generation while a replacement is indexed.
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
@@ -45,6 +46,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Chat model selector polish](docs/increments/active/chat-model-selector-polish/design.md) owns inherited-default marking and model identity display; plan items remain open.
 - [MEM-93 — Chat and Search authorization](docs/increments/active/mem-93-chat-search-authorization/design.md) owns Chat capability enforcement, the per-document index access list and its measurement gate.
 - [Chat ThreadList runtime](docs/increments/active/chat-thread-list-runtime/design.md) owns the assistant-ui remote thread list migration of the Chat sidebar and conversation lifecycle.
+- [MEM-95 — Keycloak identity provider administration](docs/increments/active/mem-95-idp-admin/design.md) owns the SYSTEM_ADMIN IdP management API and the runtime-managed JIT allowlist; the admin UI is a follow-up.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 

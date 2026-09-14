@@ -252,8 +252,9 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/sessions/" + id + "/branches").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isForbidden());
+        // Citation passages need only membership and document eligibility: an unknown document is unavailable, not denied.
         mockMvc.perform(get("/api/chat/documents/" + UUID.randomUUID()).param("generation", UUID.randomUUID().toString())
-                .with(authentication(actor))).andExpect(status().isForbidden());
+                .with(authentication(actor))).andExpect(status().isNotFound());
         // A denied subscriber receives a problem response, never an event stream.
         mockMvc.perform(get("/api/chat/sessions/" + id + "/messages/" + assistant + "/events").with(authentication(actor))
                 .accept(MediaType.TEXT_EVENT_STREAM)).andExpect(status().isForbidden());
@@ -468,11 +469,11 @@ class ChatSessionApiIntegrationTest {
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             assertFalse(text.contains("PRIVATE DENIED CONTENT"));
-            if (text.contains("Task: semantic query rewrite")) return response("{\"query\":\"leave\"}", "stop", 7);
-            if (text.contains("Task: keyword query rewrite")) return response("{\"queries\":[]}", "stop", 7);
-            if (text.contains("Task: identify document creation/update")) return response("{\"createdFrom\":null,\"createdTo\":null,\"updatedFrom\":null,\"updatedTo\":null}", "stop", 7);
+            if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
+            if (text.contains("provide a set of keyword only queries")) return response("{\"queries\":[]}", "stop", 7);
+            if (text.contains("You scope an internal search to a time filter")) return response("{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
             assertTrue(text.contains("Annual leave is twelve days."));
-            if (text.contains("Task: classify document context")) {
+            if (text.contains("# Main Section:")) {
                 assertTrue(text.contains("Employee handbook"));
                 return response("{\"classification\":\"INCLUDE_ADJACENT_SECTIONS\"}", "stop", 7);
             }
@@ -575,8 +576,8 @@ class ChatSessionApiIntegrationTest {
         var virtual = new java.util.concurrent.atomic.AtomicBoolean();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
-            return response(text.contains("Task: semantic query rewrite") ? "{\"query\":\"leave\"}"
-                    : text.contains("Task: keyword query rewrite") ? "{\"queries\":[]}" : "{\"createdFrom\":null,\"createdTo\":null,\"updatedFrom\":null,\"updatedTo\":null}", "stop", 7);
+            return response(text.contains("provide a standalone query") ? "{\"query\":\"leave\"}"
+                    : text.contains("provide a set of keyword only queries") ? "{\"queries\":[]}" : "{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
         });
         when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(ignored -> {
             virtual.set(Thread.currentThread().isVirtual());
@@ -695,6 +696,8 @@ class ChatSessionApiIntegrationTest {
                      "contextTokenLimit":8000,"outputTokenLimit":1000}
                     """, 201);
             String projectId = project.path("id").asText(), personaId = persona.path("id").asText();
+            assertTrue(persona.path("permissions").path("edit").asBoolean());
+            assertTrue(persona.path("permissions").path("delete").asBoolean());
             workspaceRequest(http, readerToken, "GET", "/api/chat/projects/" + projectId, null, 404);
             workspaceRequest(http, readerToken, "GET", "/api/chat/personas/" + personaId, null, 404);
             var session = workspaceRequest(http, ownerToken, "POST", "/api/chat/sessions",
@@ -1766,11 +1769,11 @@ class ChatSessionApiIntegrationTest {
                 var response = provider.call(request);
                 assertNotNull(response.getResult());
                 String output = response.getResult().getOutput().getText();
-                helperReceipts.add(Map.of("classification", request.getContents().contains("Section above:"),
+                helperReceipts.add(Map.of("classification", request.getContents().contains("# Section Above:"),
                         "hasNeighborFact", request.getContents().contains("17"), "output", output == null ? "" : output,
                         "ms", (System.nanoTime() - started) / 1_000_000));
-                if (request.getContents().contains("Section above:")) contextChoices.add(output);
-                if (request.getContents().contains("Task: semantic query rewrite")) {
+                if (request.getContents().contains("# Section Above:")) contextChoices.add(output);
+                if (request.getContents().contains("provide a standalone query")) {
                     var result = response.getResult();
                     assertNotNull(result);
                     assertNotNull(result.getOutput().getText());

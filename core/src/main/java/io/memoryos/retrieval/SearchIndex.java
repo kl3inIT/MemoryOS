@@ -15,5 +15,7 @@ public interface SearchIndex {
     boolean contains(DocumentIndexState document);
     /** All chunks of the generation are indexed, even if their metadata or access fields are stale. */
     boolean containsGeneration(DocumentIndexState document);
+    /** Removes the document's chunks outside its served and current content generations. */
+    void purgeObsolete(TenantId tenantId, DocumentId documentId);
     void purgeStale();
 }

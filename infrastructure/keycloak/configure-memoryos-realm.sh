@@ -524,17 +524,23 @@ fi
     --uid "$SERVICE_ACCOUNT_ID" \
     --cclientid realm-management \
     --rolename manage-users >/dev/null
+"$KCADM" add-roles \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --uid "$SERVICE_ACCOUNT_ID" \
+    --cclientid realm-management \
+    --rolename manage-identity-providers >/dev/null
 PROVISIONER_ROLES=$("$KCADM" get \
     "users/$SERVICE_ACCOUNT_ID/role-mappings/clients/$REALM_MANAGEMENT_UUID" \
     --config "$CONFIG_FILE" \
     -r "$TARGET_REALM" \
     --fields name |
     jq -cS '[.[].name] | sort')
-if [ "$PROVISIONER_ROLES" != '["manage-users"]' ]; then
-    echo "memoryos-user-provisioner must have only realm-management manage-users" >&2
+if [ "$PROVISIONER_ROLES" != '["manage-identity-providers","manage-users"]' ]; then
+    echo "memoryos-user-provisioner must have only realm-management manage-users and manage-identity-providers" >&2
     exit 1
 fi
-echo "client=memoryos-user-provisioner secret=updated roles=manage-users"
+echo "client=memoryos-user-provisioner secret=updated roles=manage-users,manage-identity-providers"
 
 upsert_client memoryos-mailpit "$MAILPIT_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |

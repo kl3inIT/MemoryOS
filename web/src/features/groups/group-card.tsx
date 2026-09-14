@@ -3,9 +3,8 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Pencil } from "lucide-react";
+import { ChevronRight, Pencil, UserCog, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { OnyxUserManageIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +12,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { renameGroupMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
+import { can } from "@/lib/resource-permissions";
 
 type GroupCardProps = {
   group: GroupSummary;
@@ -27,7 +27,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
   const [error, setError] = useState<AppCopy | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
-  const canRename = group.systemKey === null && group.actions.includes("rename");
+  const canRename = group.systemKey === null && can(group, "manage");
   const [previousRenameState, setPreviousRenameState] = useState(() => ({
     groupId: group.id,
     name: group.name,
@@ -88,9 +88,9 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
       <div className="flex items-start gap-3">
         <span className="mt-0.5 size-5 shrink-0 text-content-secondary">
           {group.systemKey === "ADMIN" ? (
-            <OnyxUserManageIcon className="size-5" aria-hidden="true" />
+            <UserCog className="size-5" aria-hidden="true" />
           ) : (
-            <OnyxUsersIcon className="size-5" aria-hidden="true" />
+            <Users className="size-5" aria-hidden="true" />
           )}
         </span>
         <div className="min-w-0 flex-1">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Globe } from "lucide-react";
+import { CheckCircle2, Cpu, Globe } from "lucide-react";
 import { Dialog, Switch } from "radix-ui";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
@@ -22,12 +22,8 @@ import type { Model, WebConnectionResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import SvgBrave from "@/components/provider-logos/brave";
-import SvgTavily from "@/components/provider-logos/tavily";
-import SvgExa from "@/components/provider-logos/exa";
-import SvgSerper from "@/components/provider-logos/serper";
-import SvgSearxng from "@/components/provider-logos/searxng";
-import SvgFirecrawl from "@/components/provider-logos/firecrawl";
+import { ProviderLogo } from "@/components/provider-logos/provider-logo";
+import { hasProviderMark } from "@/components/provider-logos/provider-marks";
 import { cn } from "@/lib/utils";
 
 const webProblem = (error: unknown): ErrorMessage =>
@@ -55,21 +51,16 @@ const names = {
 };
 type Provider = (typeof providers)[number];
 const providerDetails = {
-  BRAVE: { logo: SvgBrave, description: "brave.com", endpoint: "https://api.search.brave.com" },
-  TAVILY: { logo: SvgTavily, description: "tavily.com", endpoint: "https://api.tavily.com" },
-  EXA: { logo: SvgExa, description: "exa.ai", endpoint: "https://api.exa.ai" },
-  SERPER: { logo: SvgSerper, description: "serper.dev", endpoint: "https://google.serper.dev" },
+  BRAVE: { description: "brave.com", endpoint: "https://api.search.brave.com" },
+  TAVILY: { description: "tavily.com", endpoint: "https://api.tavily.com" },
+  EXA: { description: "exa.ai", endpoint: "https://api.exa.ai" },
+  SERPER: { description: "serper.dev", endpoint: "https://google.serper.dev" },
   GOOGLE_PSE: {
-    logo: () => <img src="/provider-logos/google.svg" className="size-6" alt="" />,
     description: "programmablesearchengine.google.com",
     endpoint: "https://customsearch.googleapis.com",
   },
-  SEARXNG: { logo: SvgSearxng, description: "searxng.org", endpoint: "" },
-  FIRECRAWL: {
-    logo: SvgFirecrawl,
-    description: "firecrawl.dev",
-    endpoint: "https://api.firecrawl.dev",
-  },
+  SEARXNG: { description: "searxng.org", endpoint: "" },
+  FIRECRAWL: { description: "firecrawl.dev", endpoint: "https://api.firecrawl.dev" },
 };
 const searchProviders: Provider[] = ["EXA", "SERPER", "BRAVE", "GOOGLE_PSE", "SEARXNG", "TAVILY"];
 const readerProviders: Provider[] = ["FIRECRAWL", "EXA", "TAVILY"];
@@ -272,7 +263,6 @@ function ConnectionCard({
     setOpen(next);
   }
   const active = search ? connection?.searchActive : connection?.contentActive;
-  const Logo = providerDetails[provider].logo;
   const configured = !!connection && (provider === "SEARXNG" || connection.credentialConfigured);
   async function save() {
     setPending(true);
@@ -328,8 +318,8 @@ function ConnectionCard({
         active ? "border-border-strong bg-surface-sunken" : "border-border-default",
       )}
     >
-      <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center">
-        <Logo className="size-6" />
+      <span className="flex size-7 shrink-0 items-center justify-center">
+        <ProviderLogo mark={provider} />
       </span>
       <div className="mr-auto min-w-0">
         <h3 className="font-main-ui-action">{names[provider]}</h3>
@@ -545,6 +535,8 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
           {rows.map(({ provider, model }) => {
             const enabled = model.settings?.options?.webSearch === "native";
             const toolCalling = !!model.settings?.capabilities?.toolCalling;
+            const adapter = (provider.adapterType ?? "").toUpperCase();
+            const mark = hasProviderMark(adapter) ? adapter : undefined;
             return (
               <li
                 key={model.id}
@@ -553,6 +545,9 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
                   enabled ? "border-border-strong bg-surface-sunken" : "border-border-default",
                 )}
               >
+                <span className="flex size-7 shrink-0 items-center justify-center">
+                  {mark ? <ProviderLogo mark={mark} /> : <Cpu className="size-5" />}
+                </span>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-main-ui-action">{model.displayName || model.modelName}</h3>
                   <p className="mt-1 text-sm text-content-muted">

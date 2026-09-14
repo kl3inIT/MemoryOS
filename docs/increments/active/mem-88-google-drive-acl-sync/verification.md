@@ -138,3 +138,13 @@ Focused suites passed without skips: `RestGoogleDriveProviderTest` (22) and `Pos
 | Total | 829 | 0 | 9 |
 
 Web: `check:i18n`, oxlint and oxfmt passed for the changed `source-errors.ts` and `app-translations.ts`; the full `pnpm check` was not run in this pass. The 403 reasons are verified against controlled HTTP fixtures shaped after Google's documented error bodies, not against a live missing-scope grant. Reconciliation of the handoff example with the enforcement owner remains pending.
+
+## Main integration — 2026-09-14
+
+Merged `origin/main` at `1b23118e`. Git conflicts in `JdbcSourceItemRepository`, the connector spec and `source-detail-page.tsx` imports were resolved by hand; the hey-api client was regenerated from the merged `openapi.yml`.
+
+- **Same-content re-synchronization.** Main's `b9b800af` and this branch both handled a provider version that advances while bytes stay identical, with contradictory contracts. At the user's direction main's rule is kept: the current version's provider version is refreshed in place. The branch's pre-staging `unchangedBinary` path was removed, and its ACL test now expects provider version `2` and one adopted object write, because main's path stages and then discards the duplicate write. `content_provider_version` now always equals the refreshed version for new observations; the column and the `unchanged()` fallback remain and can be removed in a follow-up.
+- **Signature drift.** Main's new test used the two-argument `ConnectorIndexingPort.fail`; it now uses this branch's four-argument form.
+- **Migration numbering.** Main's `V53__jit_allowed_provider` collided with the branch's V53. The branch-only migrations are now V54 (ACL snapshots) and V55 (run error messages). A local database that applied the old branch V53/V54 fails Flyway validation and must be recreated; no deployed environment applied them.
+
+`PostgresGoogleDriveSyncTest` (45) and `RestGoogleDriveProviderTest` (22) passed without skips. `compileJava compileTestJava` passed for all modules. Web `check:api`, `check:i18n`, `lint`, `format:check` and `typecheck` passed. The full `clean check`, web unit/route checks and browser suites were not rerun in this pass.

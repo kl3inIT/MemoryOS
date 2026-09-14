@@ -16,6 +16,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -66,6 +67,11 @@ public class DocumentChunkService implements DocumentChunkPort {
     @Override
     public Map<UUID, UUID> currentGenerations(TenantId tenant, List<UUID> documents, String readyIdentity) {
         return repository.currentGenerations(tenant, documents, readyIdentity);
+    }
+
+    @Override
+    public Map<UUID, Set<UUID>> retainedGenerations(TenantId tenant, List<UUID> documents) {
+        return repository.retainedGenerations(tenant, documents);
     }
 
     @Override

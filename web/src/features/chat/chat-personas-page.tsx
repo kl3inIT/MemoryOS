@@ -21,6 +21,7 @@ import { chatField, chatActionError } from "./chat-action-utils";
 import { loadPersonas, loadPersonaSources, type Persona } from "./chat-workspace-api";
 import { chatSessionsKey, newChatSession } from "./chat-api";
 import { ChatFilePicker } from "./chat-file-picker";
+import { can } from "@/lib/resource-permissions";
 
 export function ChatPersonasPage() {
   const ui = useAppTranslation();
@@ -85,9 +86,9 @@ export function ChatPersonasPage() {
                   {ui("Bắt đầu hội thoại")}
                 </Button>
                 <Button size="sm" prominence="secondary" onClick={() => setEditor(persona)}>
-                  {persona.editable ? ui("Chỉnh sửa") : ui("Xem cấu hình")}
+                  {can(persona, "edit") ? ui("Chỉnh sửa") : ui("Xem cấu hình")}
                 </Button>
-                {!persona.builtin && (
+                {can(persona, "delete") && (
                   <ConfirmDialog
                     pendingLabel={ui("Đang lưu…")}
                     title={ui("Xóa trợ lý?")}
@@ -161,7 +162,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
           ).data
         : (await listAvailableChatModels({ signal, throwOnError: true })).data,
   });
-  const editable = persona?.editable ?? true;
+  const editable = persona ? can(persona, "edit") : true;
   const starterPrompts = starters
     .split("\n")
     .map((s) => s.trim())
