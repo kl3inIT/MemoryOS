@@ -323,13 +323,12 @@ The new authorized Google Source acquired all four Tasco 2025 originals in 20.13
 | Role change and added permission publish; identical re-observation advances the revision only | `PostgresGoogleDriveSyncTest.roleChangesAndAddedPermissionsPublishWhileIdenticalObservationsOnlyAdvanceTheRevision` |
 | Consumer `readByDocument` returns the mapped file's snapshot and nothing for a foreign Tenant or unknown Document | `PostgresGoogleDriveSyncTest.readByDocumentReturnsTheMappedFileSnapshotOnlyWithinItsTenant` |
 | Generation-zero active runs continue across additive migration | `PostgresSourceRunHistoryTest.predeploymentActiveRunResumesWithoutInventingHistoricalCounters` |
-| Inspector distinguishes missing, failed-only and successful-empty evidence before Document publication | `PostgresGoogleDriveAclRepositoryTest.inspectorDistinguishesAbsentFailedOnlyAndSuccessfulEmptyBeforeDocumentsExist` |
-| Inspector retains stale/invalid evidence and pages known folders/files with literal search and scope-bound cursors | `PostgresGoogleDriveAclRepositoryTest.inspectorProjectsStaleAndInvalidContextWhileRetainingUnselectedSnapshots`, `inspectorPagesKnownFoldersAndMembershipWithLiteralSearchAndScopedCursors` |
-| Actor/managed-Group authorization, immediate revocation, safe serialization and no provider calls from reads | `SourceApiIntegrationTest.aclInspectorRequiresSourceReadAuthorityAndImmediatelyRevokesManagedGroupScope`, `aclInspectorSerializesAbsentFailedAndSuccessfulEmptyEvidenceWithoutProviderAccess` |
 
 Focused owning suites passed. A separate Java runtime smoke exercised the real HTTP OAuth/Drive adapter, encrypted credential, Flyway V1–V51, PostgreSQL repositories and fenced SOURCE_SYNC with a memory-only object-storage fixture. It observed ACL revisions 1 → 2 → 2, permission counts 2 → 1 → 1 and statuses SUCCEEDED → SUCCEEDED → FAILED when a later page failed. Only the initial content and changed metadata version downloaded bytes; one content version and one indexing attempt remained. This is controlled-provider evidence, not a live Google sharing mutation or real OCR invocation. See [MEM-88 verification](../increments/active/mem-88-google-drive-acl-sync/verification.md) for the final gate and limitations.
 
 ### Approved Source inspector and history interface
+
+The ACL inspector tab and its HTTP endpoints were removed on 2026-09-14 ([MEM-88](../increments/active/mem-88-google-drive-acl-sync/design.md#acl-inspector-removal--approved-2026-09-14)); the evidence below is historical for the inspector and still applies to run history.
 
 The final backend `clean check` passed: 713 scenarios, 705 passed and 8 explicitly skipped. `pnpm check` passed all generated-contract, i18n, lint, formatting, type, 176 unit-test and route/build checks. The existing Source action-feedback, Google Drive setup and FILE setup Playwright suites passed all 21 scenarios.
 

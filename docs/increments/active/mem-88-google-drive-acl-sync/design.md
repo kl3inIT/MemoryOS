@@ -2,7 +2,7 @@
 
 ## Approved boundary
 
-Collect provider permissions, hand off current synchronization evidence and expose the approved Source-authorized read-only inspector. Do not link reader identities, expand Google Group membership, calculate effective access, change Search/Chat/citations or widen PUBLIC/RESTRICTED policy. OAuth acquisition and Source-management authority are not reader authority.
+Collect provider permissions and hand off current synchronization evidence. As in Onyx, collected permissions are consumed server-side only: no UI or HTTP endpoint displays them (see [inspector removal](#acl-inspector-removal--approved-2026-09-14)). Do not link reader identities, expand Google Group membership, calculate effective access, change Search/Chat/citations or widen PUBLIC/RESTRICTED policy. OAuth acquisition and Source-management authority are not reader authority.
 
 ## Provider evidence
 
@@ -67,7 +67,7 @@ At `backend/onyx/server/documents/cc_pair.py:470-561`, Pause sets the connector 
 
 ## Acceptance gap closure — approved 2026-09-14
 
-An audit of the Linear acceptance list against this increment found four gaps. The user approved closing them before the Source access-type work (PUBLIC/PRIVATE rename, inspector removal) and before a separate Auto Sync issue.
+An audit of the Linear acceptance list against this increment found four gaps. The user approved closing them before the Source access-type work (Public/Private/Auto Sync) and a separate Auto Sync issue. The inspector removal was later done in this increment; see [below](#acl-inspector-removal--approved-2026-09-14).
 
 - **Distinct 403 classification.** `httpFailure` discards the Google `errors[0].reason` for 403 and reports `NOT_FOUND`, so a missing OAuth scope is indistinguishable from an unavailable file. Add `SCOPE_INSUFFICIENT` for reason `insufficientPermissions` or an `ACCESS_TOKEN_SCOPE_INSUFFICIENT` ErrorInfo detail on any Drive call; every Drive flow that stops or invalidates the credential for `AUTHENTICATION` does the same for it (`requiresReconnect()`), and SOURCE_SYNC ends the run with its own code. Add `ACCESS_DENIED` for any other non-quota 403 returned by `permissions.list` only; it is recorded on that file's ACL snapshot while content acquisition continues. Content, selection-tree and linked-discovery 403 handling stays `NOT_FOUND` because those paths depend on it. Quota reasons keep precedence.
 - **Role-change evidence.** The SOURCE_SYNC runtime test covers same-ID reader→writer and an added permission: revision increments, the stored role changes and `GoogleDriveAclChanged` is published. An identical re-observation increments the successful-observation revision without publishing an event.
@@ -75,3 +75,12 @@ An audit of the Linear acceptance list against this increment found four gaps. T
 - **Live Google fixture.** Using a user-owned test folder, observe owner-only, added Viewer, Viewer→Editor, removed share, and a file shared *to* the connected account as Viewer (whether `permissions.list` is readable). The user performs every sharing change; evidence is read through the inspector and database without recording email addresses.
 
 The requested Pause investigation is not a Pause implementation. MemoryOS currently has no paused Source state; its scheduler and publication guards exclude deletion but not pause. A future implementation must address queued dispatch, active claims, checkpoint retention and actual resource release, not just disable the automatic schedule. A Docling request already submitted to another service is a separate resource owner: stopping a MemoryOS worker alone does not prove remote OCR stopped. ACL observation currently shares Source traversal, so a pause policy must also state its effect on permission freshness without inventing a revocation SLA.
+
+## ACL inspector removal — approved 2026-09-14
+
+After the live evidence was recorded, the user decided that MemoryOS uses synchronized Google permissions the way Onyx's Auto Sync does: server-side only, to decide what a reader may find, and never displayed. The read-only inspector is therefore removed in this increment rather than merged and deleted later. Keeping its endpoints without a consumer would contradict [ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md).
+
+- Removed: the Source detail "Google Drive permissions" tab, `google-drive-acl-panel.tsx` and its translations; `GET /api/sources/{sourceId}/google-drive/acl` and `.../acl/{fileId}` with their controller, contract DTOs, OpenAPI schemas and generated client; `GoogleDriveAclService`/`DefaultGoogleDriveAclService`; and the repository's paged file listing.
+- Kept: collection during SOURCE_SYNC, V54/V55 persistence, `GoogleDriveAclChanged`, the consumer read `GoogleDriveAclReader.readByDocument`, and the internal per-file `JdbcGoogleDriveAclRepository.read` used by synchronization tests. Both reads now share one snapshot projection.
+- Live evidence recorded earlier through the inspector stays valid; it reflects the same database rows.
+- Enforcement through Public/Private/Auto Sync Source access is a separate follow-up branch and Linear issue.

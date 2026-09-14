@@ -194,3 +194,12 @@ The owner then reduced the connected account to Viewer. The next run still SUCCE
 - The inspector reported the retained observation as STALE.
 
 This is the live unreadable-sharing path. A Viewer cannot read the sharing of a file it does not own, and the retained grants are older evidence only.
+
+## ACL inspector removal — 2026-09-14
+
+The inspector tab, panel, its 68 panel-only translations, both ACL endpoints and their contract, OpenAPI schemas and generated client were removed, together with `GoogleDriveAclService` and the repository listing ([design](design.md#acl-inspector-removal--approved-2026-09-14)). `read` and `readByDocument` now share one snapshot projection. Removed tests covered only the inspector: its three repository cases duplicated existing `read` coverage of absent, failed-only, successful-empty, stale and invalid snapshots, and the two HTTP cases tested endpoints that no longer exist.
+
+- `openapi.yml` was regenerated with `MEMORYOS_OPENAPI_WRITE=true` and the hey-api client with `pnpm generate:api`; neither contains `GoogleDriveAcl`/`GoogleDrivePermission` any more.
+- `PostgresGoogleDriveSyncTest` 46/46, `PostgresGoogleDriveAclRepositoryTest` 19/19, `SourceApiIntegrationTest` 25/25 and `OpenApiContractTest` passed; worker test sources compile.
+- `pnpm check` passed: contract stability, i18n audit (0 findings), lint, format, typecheck, 236 unit tests, route/build.
+- The full `clean check` gate was not rerun locally for this change; CI runs it on the pull request.

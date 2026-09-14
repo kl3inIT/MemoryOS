@@ -1,5 +1,7 @@
 # Source detail UX redesign — MemoryOS-owned surfaces
 
+> **Superseded in part, 2026-09-14.** Section 1 (ACL inspector) and the ACL half of section 4 no longer apply: the inspector, its Permissions tab and its HTTP endpoints were removed at the user's direction, and collected Google permissions are consumed server-side only. See [MEM-88](../mem-88-google-drive-acl-sync/design.md#acl-inspector-removal--approved-2026-09-14).
+
 ## Problem
 
 The Source detail page mixes Onyx-inherited management UI with MemoryOS-owned surfaces that were designed ad hoc: the Google Drive ACL inspector, the sync run history with per-file errors, and the Drive selection tree. These custom surfaces are functional but do not follow proven UX patterns:

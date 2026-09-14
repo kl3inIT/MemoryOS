@@ -94,7 +94,7 @@ Extend `WorkLeases.safeErrorCode` to a `safeErrorMessage`/`safeErrorDetail` pair
 ### UI
 
 - `source-run-history.tsx` error table gains an expandable row: summary line shows `fileName` + `errorMessage` (or `code` translation when `errorMessage` is null); expanded section shows `errorDetail` in a `<pre>` block plus existing `operationId`/`runId`/`currentItemStatus` fields.
-- `google-drive-acl-panel.tsx` failure rows show `errorMessage` when present.
+- The Google Drive ACL panel originally listed here was removed (MEM-88, 2026-09-14); ACL snapshot `errorMessage` stays a server-side field.
 - No new dependencies; reuse existing `<details>`/modal patterns.
 
 ## Non-goals

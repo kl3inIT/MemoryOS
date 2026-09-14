@@ -46,3 +46,11 @@ See [design](design.md#acceptance-gap-closure--approved-2026-09-14).
 - [x] Run the live owned-fixture sharing sequence with the user and record evidence.
 - [x] Observe a file shared to the connected account by another owner, as Editor and then as Viewer.
 - [x] Run the repository gate and web checks; update verification and connector test matrix.
+
+## ACL inspector removal
+
+See [design](design.md#acl-inspector-removal--approved-2026-09-14).
+
+- [x] Remove the Permissions tab, panel, translations, ACL HTTP endpoints, contract/OpenAPI/client and the inspector-only service and repository listing; keep collection, `readByDocument`, the change event and per-file `read`.
+- [x] Update the connector spec, architecture, README, roadmap, test matrix and dependent increments.
+- [x] Run the affected backend suites and web checks; record the result in [verification](verification.md#acl-inspector-removal--2026-09-14).

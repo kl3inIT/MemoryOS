@@ -8,6 +8,6 @@
 - [ ] Update `SourceRunError` record, `JdbcSourceRunHistoryRepository` projection, `SourceRunErrorResponse`, `openapi.yml`.
 - [ ] Regenerate `web/src/lib/hey-api` types.
 - [ ] Update `source-run-history.tsx` error rows to render `errorMessage` and expandable `errorDetail`.
-- [ ] Update `google-drive-acl-panel.tsx` failure display.
+- ~~Update `google-drive-acl-panel.tsx` failure display.~~ Dropped: the ACL panel was removed (MEM-88, 2026-09-14).
 - [ ] Update tests: `PostgresSourceRunHistoryTest`, `DefaultIngestionCoordinatorTest`, `SourceApiIntegrationTest`, `source-history-presentation.test.tsx`.
 - [ ] Run `clean check`; verify real local instance shows actual error messages.

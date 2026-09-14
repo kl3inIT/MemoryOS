@@ -1,7 +1,7 @@
 # Plan - Source detail UX redesign
 
 - [x] Shared list+detail layout component (two-pane, stacks on narrow) + expandable-row component
-- [x] ACL inspector: observation-status column, side panel detail, compact permission rows
+- [x] ACL inspector: observation-status column, side panel detail, compact permission rows (later removed with the inspector, MEM-88 2026-09-14)
 - [x] Run history: status legend, expandable per-file error rows in run details
 - [x] Drive selection: summary bar (N folders/files/linked + Edit), explicit View/Edit modes, single async status banner, links editing out of `<details>`
 - [x] Update affected tests; run web checks

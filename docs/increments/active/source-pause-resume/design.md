@@ -13,7 +13,7 @@ MemoryOS should adopt the same product semantics with its own primitives: databa
 ## Product contract
 
 - Pause is per Source and requires the same management authority as mutating Source configuration.
-- Paused Sources stay readable in Source pages, file lists, ACL inspector and history.
+- Paused Sources stay readable in Source pages, file lists and history.
 - Pause never deletes indexed Documents, ACL snapshots or retained run history.
 - Scheduled runs and manual reindex requests for that Source are blocked while paused.
 - Active SOURCE_SYNC work stops at a safe boundary and records a canceled/paused terminal state rather than failure.
