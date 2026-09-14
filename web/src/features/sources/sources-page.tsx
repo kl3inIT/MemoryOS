@@ -17,6 +17,14 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableRow,
+} from "@/components/ui/table";
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
@@ -223,8 +231,8 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         role="region"
         aria-label={ui("Connected sources table")}
       >
-        <table className="w-full min-w-[64rem] table-fixed border-collapse">
-          <caption className="sr-only">{ui("Connected sources")}</caption>
+        <Table className="w-full min-w-[64rem] table-fixed border-collapse">
+          <TableCaption className="sr-only">{ui("Connected sources")}</TableCaption>
           <colgroup>
             <col />
             <col className="w-40" />
@@ -242,15 +250,18 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
             />
           ))}
           {groups.length === 0 ? (
-            <tbody>
-              <tr className="border border-border-subtle">
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-content-muted">
+            <TableBody>
+              <TableRow className="border border-border-subtle">
+                <TableCell
+                  colSpan={6}
+                  className="px-4 py-12 text-center text-sm text-content-muted"
+                >
                   {ui("No sources match your search and filters.")}
-                </td>
-              </tr>
-            </tbody>
+                </TableCell>
+              </TableRow>
+            </TableBody>
           ) : null}
-        </table>
+        </Table>
       </div>
     </>
   );
@@ -279,12 +290,15 @@ function SourceGroupBody({
   const workspaceAccessCount = group.sources.filter((source) => source.access === "PUBLIC").length;
 
   return (
-    <tbody>
-      <tr aria-hidden="true">
-        <td colSpan={6} className="h-4 p-0" />
-      </tr>
-      <tr className="h-[72px] bg-surface-raised">
-        <th scope="rowgroup" className="border-y border-l border-border-subtle px-4 text-left">
+    <TableBody>
+      <TableRow aria-hidden="true">
+        <TableCell colSpan={6} className="h-4 p-0" />
+      </TableRow>
+      <TableRow className="h-[72px] bg-surface-raised">
+        <TableHead
+          scope="rowgroup"
+          className="border-y border-l border-border-subtle px-4 text-left"
+        >
           <button
             type="button"
             aria-expanded={!collapsed}
@@ -306,7 +320,7 @@ function SourceGroupBody({
               {ui(provider?.name ?? group.type)}
             </span>
           </button>
-        </th>
+        </TableHead>
         <SummaryMetric label={ui("Total sources")} value={group.sources.length} />
         <SummaryMetric
           label={ui("Active sources")}
@@ -317,11 +331,11 @@ function SourceGroupBody({
           value={`${workspaceAccessCount}/${group.sources.length}`}
         />
         <SummaryMetric label={ui("Total docs indexed")} value={documentCount} />
-        <td className="border-y border-r border-border-subtle" />
-      </tr>
+        <TableCell className="border-y border-r border-border-subtle" />
+      </TableRow>
       {!collapsed ? (
         <>
-          <tr className="h-[42px] border-x border-b border-border-subtle text-left">
+          <TableRow className="h-[42px] border-x border-b border-border-subtle text-left">
             <SourceColumnHeader>{ui("Name")}</SourceColumnHeader>
             <SourceColumnHeader>{ui("Last indexed")}</SourceColumnHeader>
             <SourceColumnHeader>{ui("Status")}</SourceColumnHeader>
@@ -330,43 +344,46 @@ function SourceGroupBody({
             <SourceColumnHeader>
               <span className="sr-only">{ui("Manage")}</span>
             </SourceColumnHeader>
-          </tr>
+          </TableRow>
           {group.sources.map((source) => (
             <SourceRow key={source.id} source={source} />
           ))}
         </>
       ) : null}
-    </tbody>
+    </TableBody>
   );
 }
 
 function SummaryMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <td className="border-y border-border-subtle px-4">
+    <TableCell className="border-y border-border-subtle px-4">
       <span className="block text-sm whitespace-nowrap text-content-muted">{label}</span>
       <span className="mt-1 block text-xl font-semibold tabular-nums text-content-primary">
         {value}
       </span>
-    </td>
+    </TableCell>
   );
 }
 
 function SourceColumnHeader({ children }: { children: ReactNode }) {
   return (
-    <th scope="col" className="px-4 text-sm font-medium whitespace-nowrap text-content-muted">
+    <TableHead
+      scope="col"
+      className="px-4 text-sm font-medium whitespace-nowrap text-content-muted"
+    >
       {children}
-    </th>
+    </TableHead>
   );
 }
 function SourceRow({ source }: { source: SourceSummary }) {
   const ui = useAppTranslation();
 
   return (
-    <tr
+    <TableRow
       id={`source-${source.id}`}
       className="h-[60px] border-x border-b border-border-subtle hover:bg-surface-subtle/50"
     >
-      <td className="px-4">
+      <TableCell className="px-4">
         <Link
           to="/admin/sources/$sourceId"
           params={{ sourceId: source.id }}
@@ -374,18 +391,20 @@ function SourceRow({ source }: { source: SourceSummary }) {
         >
           {source.name}
         </Link>
-      </td>
-      <td className="px-4 font-secondary-body text-content-muted">
+      </TableCell>
+      <TableCell className="px-4 font-secondary-body text-content-muted">
         <LastIndexed value={source.lastSucceededAt} />
-      </td>
-      <td className="px-4">
+      </TableCell>
+      <TableCell className="px-4">
         <SourceStatusBadge status={source.status} />
-      </td>
-      <td className="px-4">
+      </TableCell>
+      <TableCell className="px-4">
         <SourceAccessBadge access={source.access} />
-      </td>
-      <td className="px-4 text-sm tabular-nums text-content-secondary">{source.documentCount}</td>
-      <td className="px-4 text-center">
+      </TableCell>
+      <TableCell className="px-4 text-sm tabular-nums text-content-secondary">
+        {source.documentCount}
+      </TableCell>
+      <TableCell className="px-4 text-center">
         {Object.values(source.permissions).some(Boolean) ? (
           <IconButton
             asChild
@@ -398,8 +417,8 @@ function SourceRow({ source }: { source: SourceSummary }) {
             </Link>
           </IconButton>
         ) : null}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 

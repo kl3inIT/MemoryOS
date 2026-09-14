@@ -298,11 +298,6 @@ export function ModelDefaults(catalog: Catalog) {
         <h3 id="persona-default-title" className="font-main-ui-action">
           {ui("Persona default")}
         </h3>
-        <p className="font-secondary-body text-content-muted">
-          {ui(
-            "Select a Persona by name and UUID. Assignment respects provider Persona restrictions, even for managers. It grants no access: other users can fall back to their authorized Tenant default. Inherit removes the Persona selection.",
-          )}
-        </p>
         {personas.isPending ? (
           <p role="status">{ui("Loading Personas…")}</p>
         ) : personas.isError ? (
@@ -337,12 +332,12 @@ export function ModelDefaults(catalog: Catalog) {
                 <option value="">{ui("Choose a Persona")}</option>
                 {persona && !personas.data.items.some((entry) => entry.id === persona.id) && (
                   <option value={persona.id}>
-                    {persona.name} · {persona.id} {ui("(selected)")}
+                    {persona.name} {ui("(selected)")}
                   </option>
                 )}
                 {personas.data.items.map((entry) => (
                   <option key={entry.id} value={entry.id}>
-                    {entry.name} · {entry.id}
+                    {entry.name}
                   </option>
                 ))}
               </Select>

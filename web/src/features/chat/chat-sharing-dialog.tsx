@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { getChatSharing, setChatSharing } from "@/lib/hey-api/sdk.gen";
 import { ChatDialog } from "./chat-dialog";
@@ -111,7 +112,15 @@ export function SharingDialog({
       )}
       {sharing.data && !sharing.isError && (
         <>
-          <div role="radiogroup" aria-label={ui("Quyền chia sẻ")} className="space-y-2">
+          <RadioGroup
+            aria-label={ui("Quyền chia sẻ")}
+            className="space-y-2"
+            value={String(selected)}
+            onValueChange={(next) => {
+              setEnabled(next === "true");
+              setCopyState("idle");
+            }}
+          >
             {[
               {
                 value: false,
@@ -135,18 +144,7 @@ export function SharingDialog({
                     : "border-border-subtle hover:bg-surface-sunken",
                 )}
               >
-                <input
-                  type="radio"
-                  name="sharing-access"
-                  className="size-4 shrink-0 accent-content-primary"
-                  aria-label={ui(title)}
-                  checked={selected === value}
-                  disabled={!ready}
-                  onChange={() => {
-                    setEnabled(value);
-                    setCopyState("idle");
-                  }}
-                />
+                <RadioGroupItem value={String(value)} aria-label={ui(title)} disabled={!ready} />
                 <Icon className="size-5 shrink-0" />
                 <span>
                   <span className="block font-medium">{ui(title)}</span>
@@ -154,7 +152,7 @@ export function SharingDialog({
                 </span>
               </label>
             ))}
-          </div>
+          </RadioGroup>
           {sharing.data.enabled && selected && (
             <label className="block space-y-2">
               <span className="text-sm">{ui("Liên kết chỉ đọc")}</span>

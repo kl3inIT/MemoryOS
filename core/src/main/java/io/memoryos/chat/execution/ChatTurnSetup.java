@@ -164,7 +164,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                     requireTools(binding);
                     continue;
                 }
-                var citation = evidence.file(file.id(), file.filename());
+                var citation = evidence.file(file.id(), file.filename(), file.mediaType());
                 String cited = (citation == null ? "" : "[" + citation.citationId() + "] ") + content;
                 nativeMessages.set(insertion, new org.springframework.ai.chat.messages.UserMessage(cited));
                 selected.add(new UserMessage(cited));
@@ -201,7 +201,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
             if (include) {
                 for (var file : context.workspaceFiles()) {
                     if (image(file)) continue;
-                    var citation = evidence.file(file.id(), file.filename());
+                    var citation = evidence.file(file.id(), file.filename(), file.mediaType());
                     if (citation != null) full.append("\nCitation [").append(citation.citationId()).append("] identifies file ").append(file.id());
                 }
                 workspaceText = full.toString();

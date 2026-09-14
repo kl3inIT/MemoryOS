@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { PanelsTopLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 import { useChatFilePanel } from "./chat-panel-context";
 import { artifactSpec, type ChatArtifact } from "./chat-artifacts";
@@ -28,16 +29,16 @@ const components = {
   ),
   Table: ({ children }: { children?: ReactNode }) => (
     <div className="max-w-full overflow-x-auto rounded-lg border border-border-subtle">
-      <table className="w-full border-collapse text-sm">
-        <tbody>{children}</tbody>
-      </table>
+      <Table className="w-full border-collapse text-sm">
+        <TableBody>{children}</TableBody>
+      </Table>
     </div>
   ),
   Row: ({ children }: { children?: ReactNode }) => (
-    <tr className="border-b border-border-subtle last:border-0">{children}</tr>
+    <TableRow className="border-b border-border-subtle last:border-0">{children}</TableRow>
   ),
   Cell: ({ text }: { text?: string }) => (
-    <td className="min-w-24 break-words px-3 py-2 align-top">{text}</td>
+    <TableCell className="min-w-24 break-words px-3 py-2 align-top">{text}</TableCell>
   ),
 };
 

@@ -2,20 +2,34 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRightLeft,
   Boxes,
+  Brain,
   ChevronDown,
+  Eye,
   Plug,
   Plus,
   Server,
   Settings2,
   Trash2,
+  Wrench,
 } from "lucide-react";
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Empty, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -23,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
+import { hasProviderMark, type ProviderMark } from "@/components/provider-logos/provider-marks";
 import {
   getChatModelDefaultOptions,
   listChatProviderAdaptersOptions,
@@ -82,14 +97,45 @@ export function ModelsPage() {
   );
 }
 
-function adapterLabel(adapter: InstalledAdapter) {
-  return adapter.type === "openai" ? "OpenAI-compatible" : adapter.type;
+/** Brand marks are display only; the adapter type still selects the protocol. */
+function providerMark(provider: ManagedProvider): ProviderMark | null {
+  const adapter = provider.adapterType.toUpperCase();
+  if (hasProviderMark(adapter)) return adapter;
+  return /anthropic|claude/.test(provider.baseUrl) ? "ANTHROPIC" : null;
 }
 function providerStatus(provider: ManagedProvider) {
-  if (!provider.enabled) return { label: "Disabled", variant: "outline" as const };
-  if (!provider.credentialConfigured)
-    return { label: "No credential", variant: "outline" as const };
-  return { label: "Enabled", variant: "secondary" as const };
+  if (!provider.enabled) return { label: "Disabled", tone: "neutral" as const };
+  if (!provider.credentialConfigured) return { label: "No credential", tone: "warning" as const };
+  return { label: "Enabled", tone: "success" as const };
+}
+const compactTokens = (value: number) =>
+  value >= 1_000_000
+    ? `${Math.round(value / 100_000) / 10}M`
+    : value >= 1000
+      ? `${Math.round(value / 1000)}K`
+      : String(value);
+const millionTokenPrice = (value: number | undefined) => (value === undefined ? null : `$${value}`);
+
+/** Declared capabilities, so a row reads without opening the editor. */
+function Capabilities({
+  capabilities,
+}: {
+  capabilities: ManagedModel["settings"]["capabilities"];
+}) {
+  const ui = useAppTranslation();
+  const declared = [
+    { key: "toolCalling", label: "Tool calling", icon: Wrench, on: capabilities.toolCalling },
+    { key: "vision", label: "Vision input", icon: Eye, on: capabilities.vision },
+    { key: "reasoning", label: "Reasoning", icon: Brain, on: capabilities.reasoning },
+  ].filter((entry) => entry.on);
+  if (declared.length === 0) return null;
+  return (
+    <span className="flex items-center gap-1">
+      {declared.map(({ key, label, icon: Icon }) => (
+        <Icon key={key} aria-label={ui(label)} className="size-3.5 text-content-muted" />
+      ))}
+    </span>
+  );
 }
 
 function ConnectionCard({
@@ -97,6 +143,7 @@ function ConnectionCard({
   models,
   adapters,
   isDefault,
+  defaultModelId,
   unavailable,
   onEdit,
   onAddModel,
@@ -108,6 +155,7 @@ function ConnectionCard({
   models: ManagedModel[];
   adapters: InstalledAdapter[];
   isDefault: boolean;
+  defaultModelId: string | null;
   unavailable: boolean;
   onEdit: () => void;
   onAddModel: () => void;
@@ -119,6 +167,7 @@ function ConnectionCard({
   const [open, setOpen] = useState(false);
   const status = providerStatus(provider);
   const adapter = adapters.find((entry) => entry.type === provider.adapterType);
+  const mark = providerMark(provider);
   return (
     <Card size="sm" className="overflow-visible">
       <div className="flex w-full items-center gap-3 rounded-2xl px-4 py-3">
@@ -130,22 +179,24 @@ function ConnectionCard({
           className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors hover:bg-surface-base"
         >
           <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-base text-content-secondary">
-            <Boxes className="size-4" aria-hidden="true" />
+            {mark ? <ProviderLogo mark={mark} /> : <Server className="size-4" aria-hidden="true" />}
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-2">
               <span className="break-words font-main-ui-action">{provider.name}</span>
               {isDefault && <Badge variant="default">{ui("Default")}</Badge>}
-              <Badge variant={status.variant}>{ui(status.label)}</Badge>
+              <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
               {!provider.isPublic && <Badge variant="outline">{ui("Restricted")}</Badge>}
             </span>
             <span className="block break-all font-secondary-body text-content-muted">
-              {adapterLabel(adapter ?? ({ type: provider.adapterType } as InstalledAdapter))} ·{" "}
               {provider.baseUrl}
             </span>
           </span>
         </button>
         <span className="flex shrink-0 items-center gap-1">
+          <span className="mr-1 hidden font-secondary-body tabular-nums text-content-muted sm:inline">
+            {ui(appText("{{count}} models", { count: models.length }))}
+          </span>
           <IconButton
             prominence="tertiary"
             size="sm"
@@ -182,72 +233,93 @@ function ConnectionCard({
       </div>
       {open && (
         <CardContent className="space-y-3 border-t border-border-subtle pt-4">
-          <p className="break-all font-secondary-body text-content-muted">
-            {provider.id} · {ui("revision")} {provider.revision} ·{" "}
-            {provider.credentialConfigured
-              ? ui("Credential configured (not verified)")
-              : ui("No credential configured")}
-          </p>
-          <ul className="space-y-3">
-            {models.map((model) => (
-              <li
-                key={model.id}
-                className="flex flex-col justify-between gap-3 rounded-xl border border-border-subtle p-3 sm:flex-row sm:items-center"
-              >
-                <div className="min-w-0 space-y-1">
-                  <h3 className="break-words font-main-ui-action">{model.displayName}</h3>
-                  <p className="break-all font-secondary-body text-content-muted">
-                    {model.modelName} · {model.id} · {ui("revision")} {model.revision}
-                  </p>
-                  <p className="break-words font-secondary-body text-content-muted">
-                    {model.visible ? ui("Visible") : ui("Hidden")} ·{" "}
-                    {model.settings.tokenizerProfile} ·{" "}
-                    {ui(
-                      appText("{{context}} context / {{output}} output tokens", {
-                        context: model.settings.contextWindow,
-                        output: model.settings.maxOutputTokens,
-                      }),
-                    )}
-                  </p>
-                  <p className="font-secondary-body text-content-muted">
-                    {ui("Pricing")}:{" "}
-                    {model.settings.pricing === null
-                      ? ui("Unknown")
-                      : ui(
-                          appText("${{input}} input / ${{output}} output per million tokens", {
-                            input: model.settings.pricing.inputPerMillion,
-                            output: model.settings.pricing.outputPerMillion,
-                          }),
+          {models.length > 0 ? (
+            <Table className="min-w-lg">
+              <TableCaption className="sr-only">
+                {ui(appText("Models on {{name}}", { name: provider.name }))}
+              </TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{ui("Model")}</TableHead>
+                  <TableHead className="text-right">{ui("Context")}</TableHead>
+                  <TableHead className="text-right">{ui("Max output")}</TableHead>
+                  <TableHead className="text-right">{ui("In / 1M")}</TableHead>
+                  <TableHead className="text-right">{ui("Out / 1M")}</TableHead>
+                  <TableHead className="w-24 text-right">
+                    <span className="sr-only">{ui("Actions")}</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {models.map((model) => (
+                  <TableRow key={model.id}>
+                    <TableCell>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-main-ui-action text-content-primary">
+                          {model.displayName}
+                        </span>
+                        {model.id === defaultModelId && (
+                          <Badge variant="default">{ui("Default")}</Badge>
                         )}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button
-                    prominence="secondary"
-                    size="sm"
-                    disabled={unavailable}
-                    onClick={() => onEditModel(model)}
-                  >
-                    {ui("Edit model / Validate")}
-                  </Button>
-                  <IconButton
-                    tone="danger"
-                    prominence="tertiary"
-                    size="sm"
-                    aria-label={ui(appText("Delete model {{name}}", { name: model.displayName }))}
-                    disabled={unavailable}
-                    onClick={() => onDeleteModel(model)}
-                  >
-                    <Trash2 />
-                  </IconButton>
-                </div>
-              </li>
-            ))}
-          </ul>
-          {!models.length && (
-            <p className="font-secondary-body text-content-muted">
-              {ui("No configured models for this provider.")}
-            </p>
+                        {!model.visible && <StatusBadge tone="neutral">{ui("Hidden")}</StatusBadge>}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2 font-secondary-body text-content-muted">
+                        <span className="break-all">{model.modelName}</span>
+                        <Capabilities capabilities={model.settings.capabilities} />
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums whitespace-nowrap">
+                      {compactTokens(model.settings.contextWindow)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums whitespace-nowrap">
+                      {compactTokens(model.settings.maxOutputTokens)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums whitespace-nowrap">
+                      {millionTokenPrice(model.settings.pricing?.inputPerMillion) ?? ui("Unknown")}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums whitespace-nowrap">
+                      {millionTokenPrice(model.settings.pricing?.outputPerMillion) ?? ui("Unknown")}
+                    </TableCell>
+                    <TableCell>
+                      <span className="flex items-center justify-end gap-1">
+                        <IconButton
+                          prominence="tertiary"
+                          size="sm"
+                          aria-label={ui(
+                            appText("Edit model {{name}}", { name: model.displayName }),
+                          )}
+                          disabled={unavailable}
+                          onClick={() => onEditModel(model)}
+                        >
+                          <Settings2 />
+                        </IconButton>
+                        <IconButton
+                          tone="danger"
+                          prominence="tertiary"
+                          size="sm"
+                          aria-label={ui(
+                            appText("Delete model {{name}}", { name: model.displayName }),
+                          )}
+                          disabled={unavailable}
+                          onClick={() => onDeleteModel(model)}
+                        >
+                          <Trash2 />
+                        </IconButton>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <Empty className="gap-3 py-6">
+              <EmptyMedia variant="icon">
+                <Boxes />
+              </EmptyMedia>
+              <EmptyTitle className="font-main-ui-action">
+                {ui("No configured models for this provider.")}
+              </EmptyTitle>
+            </Empty>
           )}
           <Button
             prominence="secondary"
@@ -450,6 +522,7 @@ function ModelsAdministration() {
                 isDefault={models.some(
                   (model) => model.providerId === provider.id && model.id === defaultModelId,
                 )}
+                defaultModelId={defaultModelId}
                 unavailable={unavailable}
                 onEdit={() => setEditor({ kind: "provider", initial: provider })}
                 onAddModel={() => setEditor({ kind: "model", providerId: provider.id })}
@@ -601,18 +674,13 @@ function ModelsAdministration() {
               : ui(appText("Delete model {{name}}?", { name: deletion.model.displayName }))
           }
           description={
-            <span>
-              {deletion.kind === "provider"
-                ? ui(
-                    appText("Provider {{id}} and all its configured models will be removed.", {
-                      id: deletion.provider.id,
-                    }),
-                  )
-                : ui(appText("Model {{id}} will be removed.", { id: deletion.model.id }))}{" "}
-              {ui(
-                "Affected Persona defaults are cleared and their selection revisions advance. Transcript history is retained. A Tenant default must be replaced first. On a conflict, cancel, refresh the catalog and review before trying again.",
-              )}
-            </span>
+            deletion.kind === "provider"
+              ? ui(
+                  "Every configured model on this provider is removed. Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.",
+                )
+              : ui(
+                  "Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.",
+                )
           }
           confirmLabel={ui("Delete configuration")}
           pendingLabel={ui("Deleting configuration")}

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { appText } from "@/i18n/app-text";
@@ -50,7 +51,8 @@ export function ModelEditor({
   const [saved, setSaved] = useState(false);
   const validationGeneration = useRef(0);
   const latest = baseline && models.find((model) => model.id === baseline.id);
-  const dirty = !baseline || JSON.stringify(draft) !== JSON.stringify(modelDraft(baseline, adapter));
+  const dirty =
+    !baseline || JSON.stringify(draft) !== JSON.stringify(modelDraft(baseline, adapter));
   const conflicted =
     action.conflict || Boolean(baseline && (!latest || latest.revision !== baseline.revision));
   const invalid = modelDraftError(draft, adapter);
@@ -202,11 +204,7 @@ export function ModelEditor({
           ? ui(appText("Edit model: {{name}}", { name: baseline.displayName }))
           : ui("Add model")
       }
-      description={
-        <span>
-          {provider.name} · <span className="break-all">{provider.id}</span>
-        </span>
-      }
+      description={provider.name}
       onClose={() => {
         action.cancel();
         onClose();
@@ -272,50 +270,33 @@ export function ModelEditor({
             </label>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.visible}
-                onChange={(event) => change("visible", event.target.checked)}
-              />
-              {ui("Visible in selection lists")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked disabled />
+            {(
+              [
+                ["visible", "Visible in selection lists"],
+                ["toolCalling", "Tool calling"],
+                ["vision", "Vision input"],
+                ["reasoning", "Reasoning"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 font-main-ui-body">
+                <Checkbox
+                  checked={draft[key]}
+                  onCheckedChange={(checked) => change(key, checked === true)}
+                />
+                {ui(label)}
+              </label>
+            ))}
+            <label className="flex items-center gap-2 font-main-ui-body text-content-muted">
+              <Checkbox checked disabled aria-label={ui("Streaming (required)")} />
               {ui("Streaming (required)")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.toolCalling}
-                onChange={(event) => change("toolCalling", event.target.checked)}
-              />
-              {ui("Tool calling")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.vision}
-                onChange={(event) => change("vision", event.target.checked)}
-              />
-              {ui("Vision input")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.reasoning}
-                onChange={(event) => change("reasoning", event.target.checked)}
-              />
-              {ui("Reasoning")}
             </label>
           </div>
           <fieldset className="space-y-3">
             <legend className="font-main-ui-action">{ui("Request options")}</legend>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
+            <label className="flex items-center gap-2 font-main-ui-body">
+              <Checkbox
                 checked={draft.completionTokens}
-                onChange={(event) => change("completionTokens", event.target.checked)}
+                onCheckedChange={(checked) => change("completionTokens", checked === true)}
               />
               {ui("Use maxCompletionTokens option family")}
             </label>
@@ -396,20 +377,6 @@ export function ModelEditor({
         )}
         {action.error && <p role="alert">{ui(action.error)}</p>}
         {saved && <p role="status">{ui("Model saved.")}</p>}
-        {baseline && (
-          <p className="break-all font-secondary-body text-content-muted">
-            {ui(
-              appText(
-                "Model {{id}} · model revision {{modelRevision}} · provider revision {{providerRevision}}",
-                {
-                  id: baseline.id,
-                  modelRevision: baseline.revision,
-                  providerRevision: provider.revision,
-                },
-              ),
-            )}
-          </p>
-        )}
         {displayedValidation && <p role="status">{displayedValidation}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <Button

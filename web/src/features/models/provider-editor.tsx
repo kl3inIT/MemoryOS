@@ -2,7 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -252,43 +254,34 @@ export function ProviderEditor({
               }}
             />
           </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <label className="flex items-center justify-between gap-3 font-main-ui-body">
+            {ui("Provider enabled")}
+            <Switch
               checked={enabled}
-              onChange={(event) => {
-                setEnabled(event.target.checked);
+              onCheckedChange={(checked) => {
+                setEnabled(checked);
                 setSaved(false);
               }}
             />
-            {ui("Provider enabled")}
           </label>
           <fieldset className="space-y-3">
             <legend className="font-main-ui-action">{ui("Who can use this provider")}</legend>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="provider-access"
-                checked={isPublic}
-                onChange={() => {
-                  setIsPublic(true);
-                  setSaved(false);
-                }}
-              />
-              {ui("Every Tenant member")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="provider-access"
-                checked={!isPublic}
-                onChange={() => {
-                  setIsPublic(false);
-                  setSaved(false);
-                }}
-              />
-              {ui("Selected Groups only")}
-            </label>
+            <RadioGroup
+              value={isPublic ? "public" : "groups"}
+              onValueChange={(value) => {
+                setIsPublic(value === "public");
+                setSaved(false);
+              }}
+            >
+              <label className="flex items-center gap-2 font-main-ui-body">
+                <RadioGroupItem value="public" />
+                {ui("Every Tenant member")}
+              </label>
+              <label className="flex items-center gap-2 font-main-ui-body">
+                <RadioGroupItem value="groups" />
+                {ui("Selected Groups only")}
+              </label>
+            </RadioGroup>
             {!isPublic && (
               <GroupAccessPicker
                 selected={groupIds}
@@ -343,16 +336,6 @@ export function ProviderEditor({
             </p>
           )}
         </fieldset>
-        {baseline && (
-          <p className="break-all font-secondary-body text-content-muted">
-            {ui(
-              appText("Provider {{id}} · revision {{revision}}", {
-                id: baseline.id,
-                revision: baseline.revision,
-              }),
-            )}
-          </p>
-        )}
         {conflicted && (
           <div role="alert" className="space-y-2">
             <p>

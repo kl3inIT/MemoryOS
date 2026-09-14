@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
@@ -211,12 +212,10 @@ export function GroupAccessPicker<TPage extends GroupOptionPage, TError, TKey ex
                 key={group.id}
                 className={`flex items-center gap-3 px-4 py-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30 ${limitReached ? "cursor-not-allowed text-content-disabled" : "cursor-pointer hover:bg-surface-subtle"}`}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
                   disabled={limitReached}
-                  className="size-4 shrink-0 accent-content-primary outline-none"
-                  onChange={() => {
+                  onCheckedChange={() => {
                     const next = new Set(ordinarySelected);
                     if (checked) next.delete(group.id);
                     else next.add(group.id);

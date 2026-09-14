@@ -17,6 +17,16 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
@@ -290,11 +300,9 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                     key={candidate.actorId}
                     className="flex min-w-0 cursor-pointer items-center gap-2 px-3 py-2 transition-colors hover:bg-surface-subtle has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={checked}
-                      className="size-4 shrink-0 accent-content-primary outline-none"
-                      onChange={() => {
+                      onCheckedChange={() => {
                         setSelectedCandidates((current) => {
                           const next = new Set(current);
                           if (checked) next.delete(candidate.actorId);
@@ -343,38 +351,38 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
             />
           ) : (
             <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-sunken">
-              <table className="w-full table-fixed" aria-busy={members.isFetching}>
-                <caption className="sr-only">
+              <Table className="w-full table-fixed" aria-busy={members.isFetching}>
+                <TableCaption className="sr-only">
                   {ui("Members of")} {group.name}
-                </caption>
+                </TableCaption>
                 <colgroup>
                   <col />
                   <col className="w-28 sm:w-40" />
                   <col className={canManageManagers ? "w-16 sm:w-20" : "w-10 sm:w-12"} />
                 </colgroup>
-                <thead className="text-left">
-                  <tr>
-                    <th
+                <TableHeader className="text-left">
+                  <TableRow>
+                    <TableHead
                       scope="col"
                       className="h-8 px-3 font-secondary-action text-content-secondary"
                     >
                       {ui("Name")}
-                    </th>
-                    <th
+                    </TableHead>
+                    <TableHead
                       scope="col"
                       className="h-8 px-2 font-secondary-action text-content-secondary"
                     >
                       {ui("Account Type")}
-                    </th>
-                    <th
+                    </TableHead>
+                    <TableHead
                       scope="col"
                       className="h-8 px-2 font-secondary-action text-content-secondary"
                     >
                       <span className="sr-only">{ui("Actions")}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {rows.map((member) => {
                     const name = member.email?.trim() || ui("member without email");
                     const managerPending =
@@ -384,17 +392,17 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                         removeManager.variables?.path.actorId === member.actorId);
                     const ownManager = member.isManager && member.actorId === currentActorId;
                     return (
-                      <tr
+                      <TableRow
                         key={member.actorId}
                         className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-subtle"
                       >
-                        <td className="h-11 px-3 py-2">
+                        <TableCell className="h-11 px-3 py-2">
                           <MemberIdentity member={member} />
-                        </td>
-                        <td className="px-2 py-2">
+                        </TableCell>
+                        <TableCell className="px-2 py-2">
                           <MemberAccount member={member} />
-                        </td>
-                        <td className="px-1 py-2 sm:px-2">
+                        </TableCell>
+                        <TableCell className="px-1 py-2 sm:px-2">
                           <div className="flex flex-wrap items-center justify-end gap-0.5">
                             {canManageManagers ? (
                               <ConfirmDialog
@@ -464,12 +472,12 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                               />
                             ) : null}
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
 

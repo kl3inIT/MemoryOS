@@ -1885,6 +1885,17 @@ Object.assign(englishUi, {
   "Delete model {{name}}": "Xóa mô hình {{name}}",
   "No configured models for this provider.": "Chưa có mô hình nào cho nhà cung cấp này.",
   "Add model": "Thêm mô hình",
+  "{{count}} models": "{{count}} mô hình",
+  "Models on {{name}}": "Mô hình của {{name}}",
+  Context: "Ngữ cảnh",
+  "Max output": "Đầu ra tối đa",
+  "In / 1M": "Vào / 1M",
+  "Out / 1M": "Ra / 1M",
+  "Every configured model on this provider is removed. Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.":
+    "Mọi mô hình đã cấu hình trên nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan được bỏ trống, lịch sử Chat vẫn giữ. Hãy thay mặc định Tenant trước.",
+  "Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.":
+    "Mặc định Persona liên quan được bỏ trống, lịch sử Chat vẫn giữ. Hãy thay mặc định Tenant trước.",
+  "Edit model {{name}}": "Sửa mô hình {{name}}",
   "Delete provider {{name}}?": "Xóa nhà cung cấp {{name}}?",
   "Delete model {{name}}?": "Xóa mô hình {{name}}?",
   "Provider {{id}} and all its configured models will be removed.":

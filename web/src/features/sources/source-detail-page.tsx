@@ -22,6 +22,14 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
@@ -951,7 +959,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   role="region"
                   aria-label={ui("Source files table")}
                 >
-                  <table className="w-full min-w-[64rem] table-fixed text-left text-sm">
+                  <Table className="w-full min-w-[64rem] table-fixed text-left text-sm">
                     <colgroup>
                       <col />
                       <col className="w-24" />
@@ -959,29 +967,29 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       <col className="w-48" />
                       <col className="w-52" />
                     </colgroup>
-                    <thead className="border-b border-border-subtle bg-surface-sunken text-content-muted">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 font-medium">
+                    <TableHeader className="border-b border-border-subtle bg-surface-sunken text-content-muted">
+                      <TableRow>
+                        <TableHead scope="col" className="px-4 py-3 font-medium">
                           {ui("File")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 font-medium">
+                        </TableHead>
+                        <TableHead scope="col" className="px-4 py-3 font-medium">
                           {ui("Size")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 font-medium">
+                        </TableHead>
+                        <TableHead scope="col" className="px-4 py-3 font-medium">
                           {ui("Status")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 font-medium">
+                        </TableHead>
+                        <TableHead scope="col" className="px-4 py-3 font-medium">
                           {ui("Last indexed")}
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-right font-medium">
+                        </TableHead>
+                        <TableHead scope="col" className="px-4 py-3 text-right font-medium">
                           {ui("Actions")}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle">
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border-subtle">
                       {itemsQuery.data.items.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-4 [overflow-wrap:anywhere]">
+                        <TableRow key={item.id}>
+                          <TableCell className="px-4 py-4 [overflow-wrap:anywhere]">
                             <span className="flex min-w-0 items-start gap-2 font-medium text-content-primary">
                               <FileText
                                 className="mt-0.5 size-4 shrink-0 text-content-muted"
@@ -999,17 +1007,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                                 {ui(sourceStatusMessage(item.errorCode))}
                               </p>
                             ) : null}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-content-muted">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap px-4 py-4 text-content-muted">
                             {item.sizeBytes == null ? ui("Unknown") : formatBytes(item.sizeBytes)}
-                          </td>
-                          <td className="px-4 py-4 text-content-secondary">
+                          </TableCell>
+                          <TableCell className="px-4 py-4 text-content-secondary">
                             <ItemStatus item={item} />
-                          </td>
-                          <td className="px-4 py-4 text-content-secondary">
+                          </TableCell>
+                          <TableCell className="px-4 py-4 text-content-secondary">
                             <HistoryTime value={item.lastIndexedAt} />
-                          </td>
-                          <td className="px-4 py-4">
+                          </TableCell>
+                          <TableCell className="px-4 py-4">
                             <div className="flex justify-end gap-1">
                               {canReindex ? (
                                 <Button
@@ -1061,11 +1069,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                                 />
                               ) : null}
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               ) : null}
               <TablePagination
