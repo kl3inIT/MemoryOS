@@ -431,6 +431,23 @@ test("shows source type, provider and authors, links to Google Drive and outline
       originalPdf.length,
     ),
   ).toBeLessThan(originalPdf.length / 2);
+  // A failing range read falls back to one whole read instead of an error.
+  await dialog.getByRole("tab", { name: "Passages" }).click();
+  await page.unroute("**/api/search/documents/*/original?*");
+  const fallbackReads: (string | undefined)[] = [];
+  await page.route("**/api/search/documents/*/original?*", (route) => {
+    const range = route.request().headers()["range"];
+    fallbackReads.push(range);
+    return range ? route.fulfill({ status: 500 }) : fulfillPdfRange(route, originalPdf);
+  });
+  await dialog.getByRole("tab", { name: "PDF pages" }).click();
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="7"]')).toHaveAttribute(
+    "data-rendered",
+    "true",
+  );
+  await expect(dialog.getByText("Page 7 / 12")).toBeVisible();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  expect(fallbackReads.filter((range) => !range)).toHaveLength(2);
   await dialog.getByRole("tab", { name: "Passages" }).click();
   await expect(dialog.getByText(nextPassage.content)).toBeVisible();
 });
