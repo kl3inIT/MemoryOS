@@ -124,6 +124,7 @@ export const vi = {
     sessionFailedDescription:
       "Dữ liệu của bạn không thay đổi. Hãy kiểm tra dịch vụ MemoryOS và thử lại.",
     opening: "Đang mở MemoryOS",
+    redirecting: "Đang chuyển đến trang đăng nhập",
     backgroundFailed:
       "Không thể làm mới phiên đăng nhập. Không gian làm việc hiện tại vẫn được giữ nguyên.",
   },

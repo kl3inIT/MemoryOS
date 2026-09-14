@@ -10,8 +10,9 @@ import {
   AccessNotProvisionedScreen,
   SessionErrorScreen,
   SessionLoadingScreen,
-  SignInScreen,
+  SignInRedirect,
 } from "@/features/identity/session-states";
+import { clearSignInRedirect } from "@/features/identity/sign-in-redirect";
 import { isUnauthenticated } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getCurrentIdentity } from "@/lib/hey-api/sdk.gen";
@@ -34,7 +35,9 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
   });
 
   useLayoutEffect(() => {
-    if (sessionQuery.data) void i18n.changeLanguage(uiLanguage(sessionQuery.data.uiLanguage));
+    if (!sessionQuery.data) return;
+    clearSignInRedirect();
+    void i18n.changeLanguage(uiLanguage(sessionQuery.data.uiLanguage));
   }, [sessionQuery.data]);
 
   if (sessionQuery.isPending) {
@@ -46,7 +49,7 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
     (!sessionQuery.data || !presentProblem(sessionQuery.error, "backgroundRead").preserveData)
   ) {
     if (isUnauthenticated(sessionQuery.error)) {
-      return <SignInScreen />;
+      return <SignInRedirect />;
     }
 
     return <SessionErrorScreen onRetry={() => void sessionQuery.refetch()} />;
