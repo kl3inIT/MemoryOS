@@ -1,5 +1,6 @@
 package io.memoryos.api.source.contract;
 
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourcePermissions;
 import io.memoryos.connector.SourceSummary;
 
@@ -18,7 +19,7 @@ public record SourceSummaryResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         String type,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-        String access,
+        SourceAccess access,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         String status,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
@@ -52,7 +53,7 @@ public record SourceSummaryResponse(
                 source.id().value(),
                 source.name(),
                 source.type().name(),
-                source.access().name(),
+                source.access(),
                 source.status().name(),
                 source.pendingWork(),
                 source.documentCount(),

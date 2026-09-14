@@ -384,7 +384,7 @@ export type SourceSummary = {
     id: string;
     name: string;
     type: string;
-    access: string;
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
     status: string;
     pendingWork: boolean;
     documentCount: number;

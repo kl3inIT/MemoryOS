@@ -7760,6 +7760,10 @@ components:
           type: string
         access:
           type: string
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
         status:
           type: string
         pendingWork:
