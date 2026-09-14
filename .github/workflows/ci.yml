@@ -321,11 +321,28 @@ jobs:
 
       - name: Verify and preserve the frontend image
         run: |
-          if docker run --rm --entrypoint /bin/sh "memoryos-web:sha-$GITHUB_SHA" \
+          image="memoryos-web:sha-$GITHUB_SHA"
+          if docker run --rm --entrypoint /bin/sh "$image" \
             -c 'find /usr/share/nginx/html -type f -name "*.map" -print -quit | grep -q .'; then
             echo "Public source maps must not be present in the frontend image." >&2
             exit 1
           fi
+          # Browsers refuse module scripts served as octet-stream under nosniff (the pdf.js worker is .mjs).
+          container=$(docker run --detach --rm --publish 127.0.0.1:18080:8080 "$image")
+          trap 'docker stop "$container" >/dev/null' EXIT
+          for _ in $(seq 30); do
+            curl --silent --fail --output /dev/null http://127.0.0.1:18080/ && break
+            sleep 1
+          done
+          modules=$(docker exec "$container" find /usr/share/nginx/html/assets -type f \( -name '*.mjs' -o -name '*.js' \))
+          test -n "$modules"
+          while IFS= read -r file; do
+            type=$(curl --silent --fail --output /dev/null --write-out '%{content_type}' "http://127.0.0.1:18080${file#/usr/share/nginx/html}")
+            if [[ "$type" != text/javascript* && "$type" != application/javascript* ]]; then
+              echo "JavaScript asset ${file##*/} is served as '$type'." >&2
+              exit 1
+            fi
+          done <<< "$modules"
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
             mkdir -p candidate
             docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"

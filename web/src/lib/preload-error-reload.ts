@@ -32,6 +32,15 @@ export function markPreloadErrorReloaded(storage: Storage = window.sessionStorag
   }
 }
 
+/**
+ * pdf.js falls back to importing its worker module on the main thread when the worker cannot start; Vite wraps
+ * that import like an application chunk. A worker failure is not a stale deployment, and reloading would discard
+ * the open reader and download the original PDF again, so the viewer reports the failure itself.
+ */
+function isPdfWorkerImport(payload: unknown) {
+  return payload instanceof Error && /pdf\.worker[^/]*\.m?js/.test(payload.message);
+}
+
 export function setupPreloadErrorReloadHandler({
   storage = window.sessionStorage,
   reload = () => window.location.reload(),
@@ -39,6 +48,11 @@ export function setupPreloadErrorReloadHandler({
 }: PreloadErrorReloadOptions = {}) {
   const handler = (event: Event) => {
     const preloadError = event as PreloadErrorEvent;
+
+    if (isPdfWorkerImport(preloadError.payload)) {
+      logger.error("PDF worker could not be loaded", preloadError.payload);
+      return;
+    }
 
     if (hasRecentlyReloadedAfterPreloadError(storage)) {
       logger.error("Stale application chunk detected after a recent reload", preloadError.payload);
