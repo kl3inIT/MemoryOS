@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -679,8 +680,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
 
       <div className="min-w-0">
         {sourceQuery.isPending && !detail ? (
-          <div className="px-6 py-16">
-            <LoadingLabel label={ui("Loading source")} />
+          <div className="flex justify-center px-6 py-16">
+            <BrandLoader label={ui("Loading source")} />
           </div>
         ) : !detail ? (
           <div className="px-6 py-16">

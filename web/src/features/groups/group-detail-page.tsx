@@ -2,7 +2,8 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Info, LoaderCircle, Trash2, Users, WifiOff } from "lucide-react";
+import { Info, Trash2, Users, WifiOff } from "lucide-react";
+import { BrandLoader } from "@/components/brand-loader";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -66,13 +67,9 @@ export function GroupDetailPage() {
         {group.isPending ? (
           <div
             role="status"
-            className="mt-6 rounded-xl border border-border-subtle px-6 py-20 text-center font-main-ui-body text-content-muted"
+            className="mt-6 flex justify-center rounded-xl border border-border-subtle px-6 py-20"
           >
-            <LoaderCircle
-              className="mx-auto mb-3 size-5 animate-spin motion-reduce:animate-none"
-              aria-hidden="true"
-            />
-            {ui("Loading group")}
+            <BrandLoader label={ui("Loading group")} />
           </div>
         ) : group.isError || !group.data ? (
           <div className="mt-6 rounded-xl border border-border-subtle px-6 py-16 text-center">
