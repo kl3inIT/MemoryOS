@@ -1,0 +1,69 @@
+{
+  "input": "D:\\FPT_Curriculum\\Semester_9\\MemoryOS\\output\\documents\\ban-thu-v2-tinh-agentic-ai-qua-hai-bai-toan-tasco.docx",
+  "fonts_by_char_count": {
+    "Arial": 607
+  },
+  "direct_run_formatting_runs": 94,
+  "direct_paragraph_formatting_paragraphs": 75,
+  "heading_like_paragraphs_not_heading_style": [],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "30 th\u00e1ng 8 n\u0103m 2026",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "text": "T\u00cdNH AGENTIC AI C\u1ee6A MEMORY OS\nQUA HAI B\u00c0I TO\u00c1N C\u1ee6A TASCO",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "text": "B\u1ea3n th\u1eed nghi\u1ec7m ph\u1ea7n n\u1ed9i dung tr\u1ecdng t\u00e2m",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "text": "1. HAI B\u00c0I TO\u00c1N C\u1ee6A TASCO",
+        "style": "Heading 1"
+      },
+      {
+        "para_index": 5,
+        "text": "1.1. B\u00e0i to\u00e1n 1 - AI Workspace",
+        "style": "Heading 2"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 1,
+        "run_text": "30 th\u00e1ng 8 n\u0103m 2026",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "T\u00cdNH AGENTIC AI C",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "\u1ee6",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "A MEMORY OS",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "\nQUA HAI B\u00c0I TO\u00c1N C",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "input": "D:\\FPT_Curriculum\\Semester_9\\MemoryOS\\tmp\\pdfs\\agentic-harness-casan\\source-copy.docx",
+  "fonts_by_char_count": {
+    "Arial": 1075
+  },
+  "direct_run_formatting_runs": 83,
+  "direct_paragraph_formatting_paragraphs": 168,
+  "heading_like_paragraphs_not_heading_style": [],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "T\u00cdNH AGENTIC AI C\u1ee6A MEMORY OS\nQUA HAI B\u00c0I TO\u00c1N C\u1ee6A TASCO",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "text": "1. B\u1ed0I C\u1ea2NH V\u00c0 HAI B\u00c0I TO\u00c1N C\u1ee6A TASCO",
+        "style": "Heading 1"
+      },
+      {
+        "para_index": 4,
+        "text": "1.1. B\u00e0i to\u00e1n 1 - AI Workspace",
+        "style": "Heading 2"
+      },
+      {
+        "para_index": 5,
+        "text": "Tasco c\u1ea7n m\u1ed9t AI Workspace d\u00f9ng chung \u0111\u1ec3 h\u1ed7 tr\u1ee3 ng\u01b0\u1eddi d\u00f9ng l\u00e0m vi\u1ec7c v\u1edbi th\u00f4ng tin, quy \u0111\u1ecbnh v\u00e0 d\u1eef li\u1ec7u n\u1ed9i b\u1ed9, t\u1eadp trung",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 1,
+        "run_text": "T\u00cdNH AGENTIC AI C\u1ee6A MEMORY OS",
+        "style": "Normal"
+      },
+      {
+        "para_index": 1,
+        "run_text": "\nQUA HAI B\u00c0I TO\u00c1N C\u1ee6A TASCO",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "run_text": "1. B\u1ed0I C\u1ea2NH V\u00c0 HAI B\u00c0I TO\u00c1N C\u1ee6A TASCO",
+        "style": "Heading 1"
+      },
+      {
+        "para_index": 4,
+        "run_text": "1.1. B\u00e0i to\u00e1n 1 - AI Workspace",
+        "style": "Heading 2"
+      },
+      {
+        "para_index": 11,
+        "run_text": "1.2. B\u00e0i to\u00e1n 2 - C\u00e1c Domain Agent",
+        "style": "Heading 2"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

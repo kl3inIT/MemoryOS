@@ -153,6 +153,8 @@ export const vi = {
     lastAdmin: "Không thể xóa hoặc vô hiệu hóa quản trị viên đang hoạt động cuối cùng.",
     lastGroup:
       "Người dùng tiêu chuẩn phải thuộc ít nhất một nhóm. Hãy thêm họ vào nhóm khác trước khi xóa tư cách thành viên cuối cùng.",
+    idpAliasConflict: "Đã có nhà cung cấp với alias này.",
+    idpDiscoveryFailed: "Không khám phá được endpoints từ issuer này. Kiểm tra URL rồi thử lại.",
     languageInvalid: "Chọn Tiếng Việt hoặc English.",
     unexpected: "Đã có lỗi xảy ra. Vui lòng thử lại.",
     unauthenticated: "Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.",

@@ -14,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const canManageUsers = useGlobalCapability("USERS_MANAGE");
     const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
     const canReadSources = useCapabilityAuthority("SOURCES_READ") !== "none";
+    const canManageProviders = useGlobalCapability("SYSTEM_ADMIN");
     const matchRoute = useMatchRoute();
     const sourceSetupStep = matchRoute({
       to: "/admin/sources/new/google-drive",
@@ -26,9 +27,22 @@ export const Route = createFileRoute("/_authenticated/admin")({
         : undefined;
     const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
-    const page = usersSelected ? "users" : groupsSelected ? "groups" : "sources";
+    const providersSelected = Boolean(matchRoute({ to: "/admin/identity-providers" }));
+    const page = usersSelected
+      ? "users"
+      : groupsSelected
+        ? "groups"
+        : providersSelected
+          ? "providers"
+          : "sources";
     const allowed =
-      page === "users" ? canManageUsers : page === "groups" ? canReadGroups : canReadSources;
+      page === "users"
+        ? canManageUsers
+        : page === "groups"
+          ? canReadGroups
+          : page === "providers"
+            ? canManageProviders
+            : canReadSources;
 
     if (!allowed) {
       return <AccessDeniedScreen />;
@@ -38,7 +52,15 @@ export const Route = createFileRoute("/_authenticated/admin")({
       <AppShell
         area="admin"
         adminPage={page}
-        pageTitle={ui(page === "users" ? "Users" : page === "groups" ? "Groups" : "Sources")}
+        pageTitle={ui(
+          page === "users"
+            ? "Users"
+            : page === "groups"
+              ? "Groups"
+              : page === "providers"
+                ? "Sign-in providers"
+                : "Sources",
+        )}
         sourceSetupStep={sourceSetupStep}
       >
         <SourceUploadRecoveryProvider>

@@ -6,10 +6,12 @@ import io.memoryos.iam.invitation.InvitationService;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.identity.TrustedIdentityAdmission;
+import io.memoryos.iam.identityprovider.JitAdmissionPolicy;
 
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,7 +38,7 @@ class SessionSecurityConfiguration {
             ActorProfileRecorder profileRecorder,
             BrowserLoginProperties browserLoginProperties,
             TrustedIdentityAdmission trustedIdentityAdmission,
-            JitAdmissionProperties jitProperties,
+            JitAdmissionPolicy jitAdmissionPolicy,
             @Value("${memoryos.initial-tenant.id}") UUID tenantId,
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String trustedIssuer
     ) {
@@ -72,7 +74,7 @@ class SessionSecurityConfiguration {
                                 invitationService,
                                 profileRecorder,
                                 trustedIdentityAdmission,
-                                jitProperties,
+                                jitAdmissionPolicy,
                                 new TenantId(tenantId),
                                 trustedIssuer
                         ))
@@ -84,5 +86,13 @@ class SessionSecurityConfiguration {
                         .deleteCookies("SESSION")
                         .logoutSuccessHandler(new SessionLogoutSuccessHandler(clientRegistration)));
         return http.build();
+    }
+
+    @Bean
+    ApplicationRunner jitAllowlistSeeding(
+            JitAdmissionProperties jitProperties,
+            JitAllowlistSeeder seeder
+    ) {
+        return _ -> seeder.seed(jitProperties.allowedProviderAliases());
     }
 }

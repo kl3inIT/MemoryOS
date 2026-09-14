@@ -79,6 +79,35 @@ export type LanguagePreference = {
     uiLanguage: 'vi' | 'en';
 };
 
+export type UpdateIdentityProviderRequest = {
+    /**
+     * New alias; omit to keep the current alias. Renaming recreates the provider and changes the broker redirect URI.
+     */
+    alias?: string;
+    displayName: string;
+    /**
+     * New issuer URL; omit to keep the current issuer. Changing it re-discovers endpoints and relinks future sign-ins.
+     */
+    issuerUrl?: string;
+    clientId: string;
+    /**
+     * Replacement client secret; omit to keep the stored secret.
+     */
+    clientSecret?: string;
+    enabled: boolean;
+    jitAllowed: boolean;
+};
+
+export type IdentityProviderResponse = {
+    alias: string;
+    displayName: string;
+    issuer: string;
+    clientId: string;
+    enabled: boolean;
+    jitAllowed: boolean;
+    brokerRedirectUri: string;
+};
+
 export type WebSelectionRequest = {
     search?: boolean;
     provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
@@ -471,6 +500,28 @@ export type IssuedInvitation = {
      * Observable delivery result for this issue or rotation operation.
      */
     delivery: 'ACTIVATION_EMAIL_SENT' | 'EXISTING_ACCOUNT' | 'RECOVERY_LINK_ONLY';
+};
+
+export type CreateIdentityProviderRequest = {
+    alias: string;
+    displayName: string;
+    issuerUrl: string;
+    clientId: string;
+    clientSecret: string;
+    jitAllowed: boolean;
+};
+
+export type DiscoverIdentityProviderRequest = {
+    issuerUrl: string;
+};
+
+export type DiscoveredProviderResponse = {
+    issuer: string;
+    authorizationUrl: string;
+    tokenUrl: string;
+    logoutUrl?: string;
+    userInfoUrl?: string;
+    jwksUrl: string;
 };
 
 export type CreateGroupRequest = {
@@ -1226,6 +1277,72 @@ export type SetCurrentIdentityLanguageResponses = {
 };
 
 export type SetCurrentIdentityLanguageResponse = SetCurrentIdentityLanguageResponses[keyof SetCurrentIdentityLanguageResponses];
+
+export type DeleteIdentityProviderData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        alias: string;
+    };
+    query?: never;
+    url: '/api/identity-providers/{alias}';
+};
+
+export type DeleteIdentityProviderErrors = {
+    /**
+     * The identity provider was not found
+     */
+    404: ApiProblem;
+};
+
+export type DeleteIdentityProviderError = DeleteIdentityProviderErrors[keyof DeleteIdentityProviderErrors];
+
+export type DeleteIdentityProviderResponses = {
+    /**
+     * The identity provider was deleted
+     */
+    204: void;
+};
+
+export type DeleteIdentityProviderResponse = DeleteIdentityProviderResponses[keyof DeleteIdentityProviderResponses];
+
+export type UpdateIdentityProviderData = {
+    body: UpdateIdentityProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        alias: string;
+    };
+    query?: never;
+    url: '/api/identity-providers/{alias}';
+};
+
+export type UpdateIdentityProviderErrors = {
+    /**
+     * The identity provider was not found
+     */
+    404: ApiProblem;
+};
+
+export type UpdateIdentityProviderError = UpdateIdentityProviderErrors[keyof UpdateIdentityProviderErrors];
+
+export type UpdateIdentityProviderResponses = {
+    /**
+     * The updated identity provider
+     */
+    200: IdentityProviderResponse;
+};
+
+export type UpdateIdentityProviderResponse = UpdateIdentityProviderResponses[keyof UpdateIdentityProviderResponses];
 
 export type SelectChatWebProviderData = {
     body: WebSelectionRequest;
@@ -3177,6 +3294,93 @@ export type RevokeInvitationResponses = {
 };
 
 export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
+
+export type ListIdentityProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/identity-providers';
+};
+
+export type ListIdentityProvidersErrors = {
+    /**
+     * The actor lacks system administration authority
+     */
+    403: ApiProblem;
+};
+
+export type ListIdentityProvidersError = ListIdentityProvidersErrors[keyof ListIdentityProvidersErrors];
+
+export type ListIdentityProvidersResponses = {
+    /**
+     * Configured OIDC identity providers without secrets
+     */
+    200: Array<IdentityProviderResponse>;
+};
+
+export type ListIdentityProvidersResponse = ListIdentityProvidersResponses[keyof ListIdentityProvidersResponses];
+
+export type CreateIdentityProviderData = {
+    body: CreateIdentityProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/identity-providers';
+};
+
+export type CreateIdentityProviderErrors = {
+    /**
+     * An identity provider with this alias already exists
+     */
+    409: ApiProblem;
+};
+
+export type CreateIdentityProviderError = CreateIdentityProviderErrors[keyof CreateIdentityProviderErrors];
+
+export type CreateIdentityProviderResponses = {
+    /**
+     * The created identity provider
+     */
+    201: IdentityProviderResponse;
+};
+
+export type CreateIdentityProviderResponse = CreateIdentityProviderResponses[keyof CreateIdentityProviderResponses];
+
+export type DiscoverIdentityProviderData = {
+    body: DiscoverIdentityProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/identity-providers/discovery';
+};
+
+export type DiscoverIdentityProviderErrors = {
+    /**
+     * The issuer did not return a valid discovery document
+     */
+    400: ApiProblem;
+};
+
+export type DiscoverIdentityProviderError = DiscoverIdentityProviderErrors[keyof DiscoverIdentityProviderErrors];
+
+export type DiscoverIdentityProviderResponses = {
+    /**
+     * Resolved provider endpoints
+     */
+    200: DiscoveredProviderResponse;
+};
+
+export type DiscoverIdentityProviderResponse = DiscoverIdentityProviderResponses[keyof DiscoverIdentityProviderResponses];
 
 export type ListGroupsData = {
     body?: never;
