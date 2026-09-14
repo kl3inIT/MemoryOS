@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Globe,
+  KeyRound,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { ChatModeMenu, ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "providers";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -109,6 +110,7 @@ function SidebarContents({
     canReadGroups,
     canReadSources,
     canManageModels,
+    canManageProviders,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -213,7 +215,7 @@ function SidebarContents({
                 </SidebarTab>
               </SidebarSection>
             ) : null}
-            {canManageUsers || canReadGroups ? (
+            {canManageUsers || canReadGroups || canManageProviders ? (
               <SidebarSection title={ui("Tenant")} collapsed={collapsed}>
                 {canManageUsers ? (
                   <SidebarTab
@@ -235,6 +237,17 @@ function SidebarContents({
                     onClick={onNavigate}
                   >
                     {ui("Groups")}
+                  </SidebarTab>
+                ) : null}
+                {canManageProviders ? (
+                  <SidebarTab
+                    to="/admin/identity-providers"
+                    icon={<KeyRound className="size-4" />}
+                    selected={adminPage === "providers"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Sign-in providers")}
                   </SidebarTab>
                 ) : null}
               </SidebarSection>
