@@ -14,7 +14,11 @@ export type PdfEvidence = {
   url: string;
   pages: readonly number[];
   boxes: readonly ProvenanceBox[];
+  /** The cited passage is a table row, so its page view opens first. */
+  table: boolean;
 };
+
+export type EvidenceView = "passages" | "pdf";
 
 const trigger =
   "inline-flex h-7 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 font-secondary-action text-content-muted outline-none transition-[color,background-color,box-shadow] duration-150 hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 data-[state=active]:bg-surface-base data-[state=active]:text-content-primary data-[state=active]:shadow-xs motion-reduce:transition-none [&_svg]:size-3.5 [&_svg]:shrink-0";
@@ -22,15 +26,35 @@ const trigger =
 const panel = "flex min-h-0 flex-1 flex-col outline-none";
 
 /**
- * Passages stay the default evidence view. When the original is a PDF with recorded page provenance,
- * a segmented tab list switches to the cited pages with their regions highlighted.
+ * When the original is a PDF with recorded page provenance, a segmented tab list switches between the passages
+ * and the cited pages with their regions highlighted. Passages open first, except for table rows: the passage
+ * text flattens the table's columns, which the page keeps (owner decision 2026-09-15). A parent that shows the
+ * same evidence in two places controls `view` so both stay on the same tab.
  */
-export function EvidenceViewSwitch({ pdf, children }: { pdf?: PdfEvidence; children: ReactNode }) {
+export function EvidenceViewSwitch({
+  pdf,
+  view,
+  onViewChange,
+  children,
+}: {
+  pdf?: PdfEvidence;
+  view?: EvidenceView;
+  onViewChange?: (view: EvidenceView) => void;
+  children: ReactNode;
+}) {
   const ui = useAppTranslation();
-  const [view, setView] = useState("passages");
+  const [ownView, setOwnView] = useState<EvidenceView>(pdf?.table ? "pdf" : "passages");
   if (!pdf) return <>{children}</>;
   return (
-    <Tabs.Root value={view} onValueChange={setView} className={panel}>
+    <Tabs.Root
+      value={view ?? ownView}
+      onValueChange={(value) => {
+        const next: EvidenceView = value === "pdf" ? "pdf" : "passages";
+        setOwnView(next);
+        onViewChange?.(next);
+      }}
+      className={panel}
+    >
       <div className="shrink-0 border-b border-border-subtle px-4 py-2 sm:px-5">
         <Tabs.List
           aria-label={ui("Cách xem bằng chứng")}
@@ -57,7 +81,7 @@ export function EvidenceViewSwitch({ pdf, children }: { pdf?: PdfEvidence; child
             </p>
           }
         >
-          <DocumentPdfView {...pdf} />
+          <DocumentPdfView url={pdf.url} pages={pdf.pages} boxes={pdf.boxes} />
         </Suspense>
       </Tabs.Content>
     </Tabs.Root>

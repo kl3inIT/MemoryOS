@@ -297,7 +297,9 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
 test("shows source type, provider and authors, links to Google Drive and outlines the matched PDF region", async ({
   page,
 }) => {
-  const box = '[{"page_no":7,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]';
+  // A table row: the preview opens on its PDF page.
+  const box =
+    '{"source":[{"page_no":7,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}],"tableRow":2}';
   const located = [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box }] }];
   const providerUrl = "https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp";
   await page.route("**/api/search", (route) =>
@@ -410,7 +412,10 @@ test("shows source type, provider and authors, links to Google Drive and outline
   await expect(
     dialog.getByRole("link", { name: "Open HR-2026 Quy định nghỉ phép in Google Drive" }),
   ).toHaveAttribute("href", providerUrl);
-  await dialog.getByRole("tab", { name: "PDF pages" }).click();
+  await expect(dialog.getByRole("tab", { name: "PDF pages" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   // The whole 12-page original opens at the cited page 7; distant pages stay unrendered placeholders.
   const citedPage = dialog.locator('[data-slot="pdf-page"][data-page="7"]');
   await expect(citedPage).toHaveAttribute("data-rendered", "true");
