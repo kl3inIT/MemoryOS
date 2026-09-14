@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated/settings/web")({
   component: function WebSettingsRoute() {
     const ui = useAppTranslation();
     return (
-      <AppShell pageTitle={ui("Tìm kiếm Web")}>
+      <AppShell area="admin" adminPage="web" pageTitle={ui("Tìm kiếm Web")}>
         <ChatWebSettings />
       </AppShell>
     );

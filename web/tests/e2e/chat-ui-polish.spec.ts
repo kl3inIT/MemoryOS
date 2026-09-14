@@ -98,6 +98,10 @@ for (const width of [1440, 390]) {
       await route.fulfill({ json: {} });
     });
     await page.goto("/settings/web");
+    if (width === 1440) {
+      const administration = page.getByRole("navigation", { name: "Điều hướng quản trị" });
+      await expect(administration.getByRole("link", { name: "Tìm kiếm Web" })).toBeVisible();
+    }
     const search = page.getByRole("region", { name: "Công cụ tìm kiếm", exact: true });
     const reader = page.getByRole("region", { name: "Trình đọc trang Web", exact: true });
     await expect(search.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(6);
