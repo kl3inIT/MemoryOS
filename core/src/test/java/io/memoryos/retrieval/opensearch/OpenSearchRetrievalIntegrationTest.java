@@ -206,14 +206,27 @@ class OpenSearchRetrievalIntegrationTest {
             var replacementState = new DocumentIndexState(tenant, replacement.documentId(), replacement.generation(), 1, true);
             index.index(replacement);
             verifyNoInteractions(model);
-            when(documents.currentGenerations(any(), any(), any())).thenAnswer(invocation -> {
+            // While the replacement is pending the served generation is retained by both cleanup paths.
+            var retained = new java.util.concurrent.atomic.AtomicReference<>(Set.of(leave.generation(), replacement.generation()));
+            when(documents.retainedGenerations(any(), any())).thenAnswer(invocation -> {
                 TenantId requested = invocation.getArgument(0);
-                return requested.equals(tenant) ? Map.of(leave.documentId().value(), replacement.generation(), unrelated.documentId().value(), unrelated.generation())
-                        : Map.of(foreign.documentId().value(), foreign.generation());
+                return requested.equals(tenant) ? Map.of(leave.documentId().value(), retained.get(), unrelated.documentId().value(), Set.of(unrelated.generation()))
+                        : Map.of(foreign.documentId().value(), Set.of(foreign.generation()));
             });
             index.purgeStale();
+            index.purgeObsolete(tenant, leave.documentId());
+            assertTrue(index.contains(leaveState));
+            assertTrue(index.contains(replacementState));
+            retained.set(Set.of(replacement.generation()));
+            index.purgeObsolete(tenant, leave.documentId());
             assertFalse(index.contains(leaveState));
             assertTrue(index.contains(replacementState));
+            assertTrue(index.contains(unrelatedState));
+            retained.set(Set.of(leave.generation()));
+            index.purgeStale();
+            assertFalse(index.contains(replacementState), "The sweep removes a generation that is neither served nor current");
+            index.index(replacement);
+            retained.set(Set.of(replacement.generation()));
             index.delete(tenant, leave.documentId());
             assertFalse(index.contains(replacementState));
             // A missing physical index is rebuilt using the same real write path.

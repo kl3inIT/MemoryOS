@@ -76,6 +76,7 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
                 return true;
             }));
             result = completed ? "success" : "obsolete";
+            if (completed && claim.index()) purgePreviousGeneration(claim);
             return completed ? Outcome.COMPLETED : Outcome.SKIPPED;
         } catch (RuntimeException failure) {
             transactions.executeWithoutResult(_ -> {
@@ -89,6 +90,17 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
         } finally {
             lease.cancel(false);
             metrics.timer("memoryos.search.index.duration", "outcome", result).record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+        }
+    }
+
+    // The replaced generation stopped being served when readiness committed; a failed cleanup is left to the sweep.
+    private void purgePreviousGeneration(JdbcSearchWorkRepository.Claim claim) {
+        try {
+            index.purgeObsolete(claim.tenantId(), claim.documentId());
+        } catch (RuntimeException failure) {
+            LoggerFactory.getLogger(getClass()).atWarn().addKeyValue("event", "search.index.purge_failed")
+                    .addKeyValue("error_type", failure.getClass().getName())
+                    .log("Previous search generation cleanup failed; stale sweep retained");
         }
     }
 }

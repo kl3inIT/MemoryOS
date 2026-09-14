@@ -48,9 +48,9 @@ public class JdbcSearchWorkRepository {
     public void enqueueSourceAccess(TenantId tenant, SourceId source, String identity) {
         jdbc.sql("""
                 INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
-                SELECT gen_random_uuid(),d.tenant_id,d.id,d.content_generation,'ACCESS',:identity FROM documents d
+                SELECT gen_random_uuid(),d.tenant_id,d.id,d.searchable_generation,'ACCESS',:identity FROM documents d
                 WHERE d.tenant_id=:tenant AND d.status='ELIGIBLE'
-                    AND d.searchable_generation=d.content_generation AND d.search_index_identity=:identity
+                    AND d.searchable_generation IS NOT NULL AND d.search_index_identity=:identity
                     AND EXISTS (SELECT 1 FROM documents_by_connector_credential_pair m
                         WHERE m.tenant_id=d.tenant_id AND m.document_id=d.id AND m.connector_credential_pair_id=:source)
                 ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
