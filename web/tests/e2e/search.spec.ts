@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
 
 const documentId = "73835d74-d386-4b4e-b392-ad7f81e3b55a";
 const generation = "6b780b3a-de22-4307-ace9-6c2f44e22fc1";
@@ -297,7 +297,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
 test("shows source type, provider and authors, links to Google Drive and outlines the matched PDF region", async ({
   page,
 }) => {
-  const box = '[{"page_no":1,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]';
+  const box = '[{"page_no":7,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]';
   const located = [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box }] }];
   const providerUrl = "https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp";
   await page.route("**/api/search", (route) =>
@@ -375,14 +375,14 @@ test("shows source type, provider and authors, links to Google Drive and outline
       },
     }),
   );
-  const originals: URL[] = [];
+  const originalPdf = rangedHandbookPdf();
+  const originals: { url: URL; range?: string }[] = [];
   await page.route("**/api/search/documents/*/original?*", (route) => {
-    originals.push(new URL(route.request().url()));
-    return route.fulfill({
-      status: 200,
-      contentType: "application/octet-stream",
-      body: readFileSync(new URL("../fixtures/cited-handbook.pdf", import.meta.url)),
+    originals.push({
+      url: new URL(route.request().url()),
+      range: route.request().headers()["range"],
     });
+    return fulfillPdfRange(route, originalPdf);
   });
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
@@ -411,9 +411,26 @@ test("shows source type, provider and authors, links to Google Drive and outline
     dialog.getByRole("link", { name: "Open HR-2026 Quy định nghỉ phép in Google Drive" }),
   ).toHaveAttribute("href", providerUrl);
   await dialog.getByRole("tab", { name: "PDF pages" }).click();
-  await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).toBeVisible();
+  // The whole 12-page original opens at the cited page 7; distant pages stay unrendered placeholders.
+  const citedPage = dialog.locator('[data-slot="pdf-page"][data-page="7"]');
+  await expect(citedPage).toHaveAttribute("data-rendered", "true");
+  await expect(dialog.locator('[data-slot="pdf-citation-box"]')).toBeInViewport();
+  await expect(dialog.getByText("Page 7 / 12")).toBeVisible();
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).not.toHaveAttribute(
+    "data-rendered",
+  );
+  await expect(dialog.locator('[data-slot="pdf-page"]')).toHaveCount(12);
   await expect(dialog.locator('[data-slot="pdf-citation-box"]')).toHaveCount(1);
-  expect(originals.map((url) => url.searchParams.get("generation"))).toEqual([generation]);
+  expect(new Set(originals.map(({ url }) => url.searchParams.get("generation")))).toEqual(
+    new Set([generation]),
+  );
+  expect(originals.filter(({ range }) => !range)).toHaveLength(1);
+  expect(
+    rangedBytes(
+      originals.map(({ range }) => range),
+      originalPdf.length,
+    ),
+  ).toBeLessThan(originalPdf.length / 2);
   await dialog.getByRole("tab", { name: "Passages" }).click();
   await expect(dialog.getByText(nextPassage.content)).toBeVisible();
 });
