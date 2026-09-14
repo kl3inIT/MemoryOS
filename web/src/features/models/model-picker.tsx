@@ -72,7 +72,7 @@ export function ModelPicker({
           type="button"
           aria-label={ariaLabel}
           disabled={disabled}
-          className="flex h-10 w-full min-w-0 items-center gap-2.5 rounded-full border border-border-subtle bg-surface-sunken px-4 text-left font-main-ui-body text-content-primary shadow-sm transition-colors hover:border-border-default hover:bg-surface-base disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-xs"
+          className="flex h-10 w-fit min-w-0 max-w-full items-center gap-2.5 rounded-full border border-border-subtle bg-surface-sunken px-4 text-left font-main-ui-body text-content-primary shadow-sm transition-colors hover:border-border-default hover:bg-surface-base disabled:cursor-not-allowed disabled:opacity-60"
         >
           {selected ? (
             <>
