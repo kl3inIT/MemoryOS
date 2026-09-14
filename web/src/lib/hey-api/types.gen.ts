@@ -5214,6 +5214,12 @@ export type GetSearchDocumentResponse = GetSearchDocumentResponses[keyof GetSear
 
 export type ReadSearchDocumentOriginalData = {
     body?: never;
+    headers?: {
+        /**
+         * One byte range, for example bytes=0-1048575
+         */
+        Range?: string;
+    };
     path: {
         documentId: string;
     };
@@ -5223,11 +5229,22 @@ export type ReadSearchDocumentOriginalData = {
     url: '/api/search/documents/{documentId}/original';
 };
 
+export type ReadSearchDocumentOriginalErrors = {
+    /**
+     * Requested byte range starts beyond the original PDF
+     */
+    416: unknown;
+};
+
 export type ReadSearchDocumentOriginalResponses = {
     /**
      * Original PDF bytes
      */
     200: Blob | File;
+    /**
+     * Requested byte range of the original PDF
+     */
+    206: Blob | File;
 };
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
@@ -6527,6 +6544,12 @@ export type ReadChatDocumentPassagesResponse = ReadChatDocumentPassagesResponses
 
 export type ReadChatDocumentOriginalData = {
     body?: never;
+    headers?: {
+        /**
+         * One byte range, for example bytes=0-1048575
+         */
+        Range?: string;
+    };
     path: {
         documentId: string;
     };
@@ -6553,6 +6576,10 @@ export type ReadChatDocumentOriginalErrors = {
      * Document generation not readable
      */
     404: ApiProblem;
+    /**
+     * Requested byte range starts beyond the original PDF
+     */
+    416: unknown;
 };
 
 export type ReadChatDocumentOriginalError = ReadChatDocumentOriginalErrors[keyof ReadChatDocumentOriginalErrors];
@@ -6562,6 +6589,10 @@ export type ReadChatDocumentOriginalResponses = {
      * Original PDF bytes
      */
     200: Blob | File;
+    /**
+     * Requested byte range of the original PDF
+     */
+    206: Blob | File;
 };
 
 export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];

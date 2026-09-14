@@ -1,6 +1,6 @@
 # Connector verification matrix
 
-This matrix combines historical upstream and local evidence. Focused checks for the merge with main `3e4e318` are recorded in [Basic Access merge verification](../increments/active/basic-access-capabilities/verification.md#main-refresh-to-3e4e318), not a full-suite or live-provider acceptance claim. Current schema has 48 migrations: published main V1–V42 stay unchanged, while historical local Basic/scoped-source V37–V42 map to V43–V48. Existing databases with old feature V37–V42 must not run the merged layout until deliberate data-preserving history/schema reconciliation; no automatic reset or Flyway repair is authorized.
+This matrix combines historical upstream and local evidence. Focused checks for the merge with main `3e4e318` are recorded in [Basic Access merge verification](../increments/completed/basic-access-capabilities/verification.md#main-refresh-to-3e4e318), not a full-suite or live-provider acceptance claim. Current schema has 48 migrations: published main V1–V42 stay unchanged, while historical local Basic/scoped-source V37–V42 map to V43–V48. Existing databases with old feature V37–V42 must not run the merged layout until deliberate data-preserving history/schema reconciliation; no automatic reset or Flyway repair is authorized.
 
 ## Publication main refresh — 2026-09-09
 

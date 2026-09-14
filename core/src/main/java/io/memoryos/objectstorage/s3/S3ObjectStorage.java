@@ -4,6 +4,7 @@ import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.ObjectRangeContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
@@ -20,6 +21,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -38,9 +40,12 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
+    private static final Pattern CONTENT_RANGE = Pattern.compile("bytes (\\d+)-(\\d+)/(\\d+)");
+
     private final String bucket;
     private final S3Client client;
     private final S3Presigner presigner;
@@ -183,6 +188,51 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
         }
     }
 
+    @Override
+    public ObjectRangeContent openRange(ObjectKey key, long first, long last) {
+        Objects.requireNonNull(key, "key must not be null");
+        if (first < 0 || last < first) {
+            throw new IllegalArgumentException("byte range must be non-negative and ordered");
+        }
+        ResponseInputStream<GetObjectResponse> response;
+        try {
+            response = client.getObject(GetObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(key.value())
+                    .range("bytes=" + first + "-" + last)
+                    .build());
+        } catch (NoSuchKeyException exception) {
+            throw new ObjectStorageException(ObjectStorageFailureCode.NOT_FOUND, false, exception);
+        } catch (S3Exception | SdkClientException exception) {
+            throw translate(exception);
+        }
+        var range = contentRange(response.response().contentRange());
+        if (range == null || range[0] != first) {
+            response.abort();
+            throw new ObjectStorageException(ObjectStorageFailureCode.PRECONDITION_FAILED, false, null);
+        }
+        return new S3ObjectRangeContent(response, range[0], range[1], range[2]);
+    }
+
+    /** Parses {@code bytes first-last/total}; a missing or inconsistent header means the provider ignored the range. */
+    static long @Nullable [] contentRange(@Nullable String header) {
+        if (header == null) {
+            return null;
+        }
+        var matcher = CONTENT_RANGE.matcher(header.strip());
+        if (!matcher.matches()) {
+            return null;
+        }
+        try {
+            long first = Long.parseLong(matcher.group(1));
+            long last = Long.parseLong(matcher.group(2));
+            long total = Long.parseLong(matcher.group(3));
+            return first <= last && last < total ? new long[] {first, last, total} : null;
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
     void verifyReadable(ObjectKey key) {
         Objects.requireNonNull(key, "key must not be null");
         try (var response = client.getObject(GetObjectRequest.builder()
@@ -242,6 +292,27 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
     public void close() {
         presigner.close();
         client.close();
+    }
+
+    private record S3ObjectRangeContent(
+            ResponseInputStream<GetObjectResponse> response,
+            long first,
+            long last,
+            long totalBytes
+    ) implements ObjectRangeContent {
+        @Override
+        public InputStream inputStream() {
+            return response;
+        }
+
+        @Override
+        public void close() {
+            try {
+                response.close();
+            } catch (IOException exception) {
+                throw new UncheckedIOException("Could not close object range", exception);
+            }
+        }
     }
 
     private record S3ObjectContent(
