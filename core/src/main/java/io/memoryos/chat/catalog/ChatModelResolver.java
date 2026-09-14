@@ -30,6 +30,26 @@ public final class ChatModelResolver {
     }
     public Resolved forValidation(ActorId actor, UUID model) { return acquire(catalog.validationSelection(actor, model)); }
 
+    /**
+     * Model names the provider endpoint reports, so an administrator selects real models instead of
+     * typing them. The stored credential is read in its own transaction; the provider call follows it.
+     */
+    public java.util.List<String> reportedModels(ActorId actor, UUID providerId) {
+        var connection = catalog.providerConnection(actor, providerId);
+        var adapter = adapters.require(connection.adapterType());
+        try {
+            return adapter.reportedModels(
+                            new ChatProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
+                            limits.deadline())
+                    .stream().filter(name -> !name.isBlank() && name.length() <= 200)
+                    .distinct().sorted().limit(500).toList();
+        } catch (ChatException expected) { throw expected; }
+        catch (RuntimeException failure) {
+            LOG.warn("Provider {} model listing failed ({})", providerId, failure.getClass().getSimpleName());
+            throw ChatException.providerUnavailable();
+        }
+    }
+
     private Resolved acquire(ModelCatalogService.Selection selection) {
         var model = selection.model();
         var provider = selection.provider();

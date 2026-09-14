@@ -1,39 +1,57 @@
-import { useAppTranslation } from "@/i18n/use-app-translation";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  type QueryKey,
+  type UseQueryOptions,
+} from "@tanstack/react-query";
 import { Search, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { listSourceGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { SourceGroup } from "@/lib/hey-api/types.gen";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 
-type SourceGroupPickerProps = {
+/** Group option shape shared by every capability that associates Groups with a resource. */
+export type GroupOption = { id: string; name: string; systemKey?: string | null };
+export type GroupOptionPage = { items: GroupOption[]; totalPages: number };
+
+type GroupAccessPickerProps<TPage extends GroupOptionPage, TError, TKey extends QueryKey> = {
   selected: ReadonlySet<string>;
-  knownGroups?: readonly SourceGroup[];
+  /** Paged options for the caller's capability, so authorization stays with the owning endpoint. */
+  load: (query: {
+    search: string;
+    page: number;
+    size: number;
+  }) => UseQueryOptions<TPage, TError, TPage, TKey>;
+  description: AppCopy;
+  knownGroups?: readonly GroupOption[];
   required?: boolean;
   disabled?: boolean;
   className?: string;
   onChange: (groupIds: Set<string>) => void;
 };
 
-const noKnownGroups: readonly SourceGroup[] = [];
+const noKnownGroups: readonly GroupOption[] = [];
 
-export function SourceGroupPicker({
+export function GroupAccessPicker<TPage extends GroupOptionPage, TError, TKey extends QueryKey>({
   selected,
+  load,
+  description,
   knownGroups = noKnownGroups,
   required = false,
   disabled = false,
   className,
   onChange,
-}: SourceGroupPickerProps) {
+}: GroupAccessPickerProps<TPage, TError, TKey>) {
   const ui = useAppTranslation();
 
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const options = useQuery({
-    ...listSourceGroupOptionsOptions({ query: { search, page, size: 25 } }),
+    ...load({ search, page, size: 25 }),
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -44,7 +62,7 @@ export function SourceGroupPicker({
     if (page > lastPage) setPage(lastPage);
   }
 
-  const [rememberedGroups, setRememberedGroups] = useState<Map<string, SourceGroup>>(
+  const [rememberedGroups, setRememberedGroups] = useState<Map<string, GroupOption>>(
     () => new Map(),
   );
   const knownById = useMemo(() => {
@@ -58,18 +76,18 @@ export function SourceGroupPicker({
       new Set(
         [...selected].filter((id) => {
           const group = knownById.get(id);
-          return !group || group.systemKey === null;
+          return !group || !group.systemKey;
         }),
       ),
     [knownById, selected],
   );
   const selectedGroups = [...ordinarySelected]
     .map((groupId) => knownById.get(groupId))
-    .filter((group): group is SourceGroup => Boolean(group));
-  const rows = (options.data?.items ?? []).filter((group) => group.systemKey === null);
+    .filter((group): group is GroupOption => Boolean(group));
+  const rows = (options.data?.items ?? []).filter((group) => !group.systemKey);
 
   // Keep selected metadata across pages without dropping IDs from unloaded pages.
-  const rememberedSelection = new Map<string, SourceGroup>();
+  const rememberedSelection = new Map<string, GroupOption>();
   for (const id of ordinarySelected) {
     const group = knownById.get(id);
     if (group) rememberedSelection.set(id, group);
@@ -95,11 +113,7 @@ export function SourceGroupPicker({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-secondary-action text-content-primary">{ui("Access groups")}</h3>
-          <p className="mt-1 font-secondary-body text-content-muted">
-            {ui(
-              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
-            )}
-          </p>
+          <p className="mt-1 font-secondary-body text-content-muted">{ui(description)}</p>
         </div>
         <span className="font-secondary-body tabular-nums text-content-muted">
           {ordinarySelected.size} {ui("selected")}
@@ -107,7 +121,7 @@ export function SourceGroupPicker({
       </div>
 
       {selectedGroups.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-1" aria-label={ui("Selected Source groups")}>
+        <div className="mt-3 flex flex-wrap gap-1" aria-label={ui("Selected groups")}>
           {selectedGroups.map((group) => (
             <Badge
               key={group.id}
@@ -127,7 +141,7 @@ export function SourceGroupPicker({
 
       <div role="search" className="mt-3 flex gap-2">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">{ui("Search groups available to this Source")}</span>
+          <span className="sr-only">{ui("Search available groups")}</span>
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
             aria-hidden="true"
@@ -187,7 +201,7 @@ export function SourceGroupPicker({
         </div>
       ) : (
         <div
-          data-slot="source-group-options"
+          data-slot="group-options"
           className="mt-3 max-h-72 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised"
         >
           {rows.map((group) => {
@@ -198,12 +212,10 @@ export function SourceGroupPicker({
                 key={group.id}
                 className={`flex items-center gap-3 px-4 py-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30 ${limitReached ? "cursor-not-allowed text-content-disabled" : "cursor-pointer hover:bg-surface-subtle"}`}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
                   disabled={limitReached}
-                  className="size-4 shrink-0 accent-content-primary outline-none"
-                  onChange={() => {
+                  onCheckedChange={() => {
                     const next = new Set(ordinarySelected);
                     if (checked) next.delete(group.id);
                     else next.add(group.id);
@@ -230,7 +242,7 @@ export function SourceGroupPicker({
 
       {options.data && options.data.totalPages > 1 ? (
         <nav
-          aria-label={ui("Source group option pages")}
+          aria-label={ui("Group option pages")}
           className="mt-3 flex items-center justify-end gap-2"
         >
           <Button

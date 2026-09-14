@@ -80,6 +80,21 @@ class WebProviderClientTest {
         client.search(connection(WebProvider.EXA), "example");
         verify(http).provider(eq("POST"), argThat(uri -> uri.toString().startsWith("http://search.internal/search")), anyMap(), anyString());
     }
+    @Test void nineRouterNamesItsEngineAndNormalizesAnEndpointThatAlreadyEndsInSearch() throws Exception {
+        var gateway = new WebConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(),
+                WebProvider.NINEROUTER, "https://gateway.example.com/v1/search", "tavily", "encrypted", 1);
+        when(connections.key(gateway)).thenReturn("test-secret");
+        when(http.provider(eq("POST"), any(), eq(Map.of("Authorization", "Bearer test-secret")), anyString()))
+                .thenReturn(response("{\"results\":[{\"url\":\"https://example.com/a\",\"title\":\"A\",\"snippet\":\"Gateway text\",\"content\":null},"
+                        + "{\"url\":\"https://example.com/b\",\"title\":\"B\",\"snippet\":\"\",\"content\":\"Full page\"}]}"));
+        var results = client.search(gateway, "example");
+        assertEquals(2, results.size());
+        assertEquals("Gateway text", results.getFirst().text());
+        assertEquals("Full page", results.getLast().text());
+        verify(http).provider(eq("POST"),
+                argThat(uri -> uri.toString().equals("https://gateway.example.com/v1/search")), anyMap(),
+                argThat(body -> body.contains("\"model\":\"tavily\"") && body.contains("\"max_results\":20")));
+    }
     @Test void exaAndFirecrawlReturnExtractedTextAndRejectFailedExtraction() throws Exception {
         when(http.provider(anyString(), any(), anyMap(), any())).thenReturn(response("{\"results\":[{\"text\":\"Exa page\"}]}"));
         assertEquals("Exa page", client.read(connection(WebProvider.EXA), "https://example.com", () -> {}).text());

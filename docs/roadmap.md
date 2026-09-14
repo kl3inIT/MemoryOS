@@ -90,7 +90,6 @@ MEM-36 and MEM-68 are Done. MEM-55, MEM-25 and MEM-69 are In Progress with Nhat 
 | [MEM-68](https://linear.app/memory-os/issue/MEM-68) | Done: bounded provider/broker revocation across bearer tokens and browser sessions |
 | [MEM-69](https://linear.app/memory-os/issue/MEM-69) | Absolute browser-session lifetime and reauthentication policy beyond idle timeout |
 | [MEM-25](https://linear.app/memory-os/issue/MEM-25) | Audit evidence and viewer after a named consumer/retention/access contract |
-| [MEM-65](https://linear.app/memory-os/issue/MEM-65) | Keycloak authentication theme; enabling new broker/session behavior remains separate |
 
 ## Google Drive delivery in progress
 
@@ -104,6 +103,7 @@ MEM-36 and MEM-68 are Done. MEM-55, MEM-25 and MEM-69 are In Progress with Nhat 
 
 ## Other tracked work
 
+- [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
 - [MEM-100](https://linear.app/memory-os/issue/MEM-100) (Todo) is the agent activity timeline: persisted step and reasoning parts rendered with assistant-ui grouped parts. [MEM-101](https://linear.app/memory-os/issue/MEM-101) (Backlog) is Deep research and is blocked by MEM-100. MEM-100 is listed under Active; MEM-101 has no increment record yet.
 - [MEM-77](https://linear.app/memory-os/issue/MEM-77) is Todo: the [backend foundation](increments/active/mem-77-provider-backend/design.md) is merged through PR #88; the issue continues catalog administration UI and local OpenAI-compatible provider integration.
 - [MEM-83](https://linear.app/memory-os/issue/MEM-83) is In Review for the latest `vadan.app` presentation work; MEM-82 is Done.

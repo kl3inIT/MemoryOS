@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
@@ -260,11 +262,7 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
           </span>
         </label>
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={searchEnabled}
-            onChange={(e) => setSearch(e.target.checked)}
-          />
+          <Checkbox checked={searchEnabled} onCheckedChange={(e) => setSearch(e === true)} />
           {ui("Tìm kiếm tài liệu")}
         </label>
         <fieldset className="space-y-2">
@@ -284,12 +282,11 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
           <div className="max-h-40 space-y-2 overflow-y-auto">
             {sources.data?.map((source) => (
               <label key={source.id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={sourceIds.includes(source.id)}
-                  onChange={(e) =>
+                  onCheckedChange={(e) =>
                     setSources(
-                      e.target.checked
+                      e === true
                         ? [...sourceIds, source.id]
                         : sourceIds.filter((id) => id !== source.id),
                     )
@@ -304,10 +301,9 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
               .filter((id) => !sources.data.some((s) => s.id === id))
               .map((id) => (
                 <label key={id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked
-                    onChange={() => setSources(sourceIds.filter((source) => source !== id))}
+                    onCheckedChange={() => setSources(sourceIds.filter((source) => source !== id))}
                   />
                   {ui("Nguồn không còn khả dụng (đang giữ lựa chọn)")}
                 </label>
@@ -337,34 +333,38 @@ function PersonaEditor({ persona, onClose }: { persona?: Persona; onClose: () =>
             </Button>
           </p>
         )}
-        <details>
-          <summary className="cursor-pointer">{ui("Giới hạn nâng cao")}</summary>
-          <p className="my-2 text-xs text-content-muted">
-            {ui("Để trống để dùng giới hạn của model.")}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label>
-              {ui("Ngữ cảnh (token)")}
-              <Input
-                type="number"
-                min={256}
-                max={2000000}
-                value={context}
-                onChange={(e) => setContext(e.target.value)}
-              />
-            </label>
-            <label>
-              {ui("Câu trả lời (token)")}
-              <Input
-                type="number"
-                min={1}
-                max={200000}
-                value={output}
-                onChange={(e) => setOutput(e.target.value)}
-              />
-            </label>
-          </div>
-        </details>
+        <Collapsible>
+          <CollapsibleTrigger className="cursor-pointer">
+            {ui("Giới hạn nâng cao")}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <p className="my-2 text-xs text-content-muted">
+              {ui("Để trống để dùng giới hạn của model.")}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label>
+                {ui("Context window (token)")}
+                <Input
+                  type="number"
+                  min={256}
+                  max={2000000}
+                  value={context}
+                  onChange={(e) => setContext(e.target.value)}
+                />
+              </label>
+              <label>
+                {ui("Max output (token)")}
+                <Input
+                  type="number"
+                  min={1}
+                  max={200000}
+                  value={output}
+                  onChange={(e) => setOutput(e.target.value)}
+                />
+              </label>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </fieldset>
     </ChatDialog>
   );

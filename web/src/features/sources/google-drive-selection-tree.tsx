@@ -3,6 +3,8 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getGoogleDriveSelectionTreeQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getGoogleDriveSelectionTree } from "@/lib/hey-api/sdk.gen";
 import type {
@@ -276,13 +278,11 @@ export function GoogleDriveSelectionRow({
             <div className="min-w-0">
               {approved ? (
                 <label className="flex min-h-11 items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label={ui("Sync {{v1}}", { v1: item.name })}
                     checked={included}
                     disabled={disabled || (!included && item.status !== "AVAILABLE")}
-                    className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
-                    onChange={(event) => onApprove(item.id, event.target.checked)}
+                    onCheckedChange={(event) => onApprove(item.id, event === true)}
                   />
                   {ui("Select for sync")}
                 </label>
@@ -335,26 +335,28 @@ function SelectionProvenance({
     return { parents: [...grouped], referenceCount };
   }, [origins]);
   return (
-    <details aria-label={ui("References for {{v1}}", { v1: name })} className="min-w-0">
-      <summary className="min-h-11 cursor-pointer py-3 text-xs text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
+    <Collapsible aria-label={ui("References for {{v1}}", { v1: name })} className="min-w-0">
+      <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 text-xs text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
         {referenceCount} {referenceCount === 1 ? ui("reference") : ui("references")} ·{" "}
         {parents.length} {parents.length === 1 ? ui("source document") : ui("source documents")}
-      </summary>
-      <ul className="space-y-2 border-l border-border-subtle pl-3 pb-2 text-xs text-content-muted">
-        {parents.map(([parentId, parent]) => (
-          <li key={parentId} className="min-w-0 space-y-1">
-            <p className="break-words font-medium text-content-primary">{parent.name}</p>
-            <ul aria-label={ui("Reference locations")} className="flex flex-wrap gap-x-3 gap-y-1">
-              {[...parent.locations].map((location) => (
-                <li key={location} className="break-all">
-                  {location || ui("Location not recorded")}
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="space-y-2 border-l border-border-subtle pl-3 pb-2 text-xs text-content-muted">
+          {parents.map(([parentId, parent]) => (
+            <li key={parentId} className="min-w-0 space-y-1">
+              <p className="break-words font-medium text-content-primary">{parent.name}</p>
+              <ul aria-label={ui("Reference locations")} className="flex flex-wrap gap-x-3 gap-y-1">
+                {[...parent.locations].map((location) => (
+                  <li key={location} className="break-all">
+                    {location || ui("Location not recorded")}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 import { statusLabel } from "@/i18n/status-copy";

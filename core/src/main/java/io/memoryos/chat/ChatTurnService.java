@@ -107,6 +107,10 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId());
             var binding = resolved.binding();
+            String contribution = java.util.stream.Stream.concat(
+                    java.util.stream.Stream.of(new com.embabel.common.ai.prompt.CurrentDate().contribution()),
+                    binding.service().getPromptContributors().stream().map(com.embabel.common.ai.prompt.PromptContributor::contribution))
+                    .filter(value -> !value.isBlank()).collect(java.util.stream.Collectors.joining("\n----\n"));
             var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
@@ -121,10 +125,12 @@ public final class ChatTurnService implements AutoCloseable {
             }
             int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.deadline(), contextLimit,
-                    new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(), resolved.fallbackReason(), binding, resolved.contextRevision()));
+                    new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
+                            resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));
             if (!reserved.created()) return accepted(reserved);
             var context = persistence.loadContext(actor, session, reserved);
-            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding).withWeb(command.webSearch(), webAccess);
+            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
+                    .withWeb(command.webSearch(), webAccess);
             var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);

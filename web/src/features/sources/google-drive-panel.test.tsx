@@ -377,8 +377,8 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
 }
 
 async function edit(user: UserEvent) {
-  const disclosure = await screen.findByText("File and folder links", { selector: "summary" });
-  if (!disclosure.parentElement?.hasAttribute("open")) await user.click(disclosure);
+  const disclosure = await screen.findByRole("button", { name: "File and folder links" });
+  if (disclosure.getAttribute("aria-expanded") !== "true") await user.click(disclosure);
   await user.click(await screen.findByRole("button", { name: "Edit selection" }));
   return screen.findByRole("textbox", { name: "File or folder links" });
 }

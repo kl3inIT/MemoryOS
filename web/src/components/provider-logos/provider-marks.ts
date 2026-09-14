@@ -4,10 +4,12 @@
  * mark is shown as published.
  */
 export const providerMarks = {
+  ANTHROPIC: { file: "anthropic.svg", monochrome: false },
   BRAVE: { file: "brave.svg", monochrome: false },
   EXA: { file: "exa.png", monochrome: false },
   FIRECRAWL: { file: "firecrawl.png", monochrome: false },
   GOOGLE_PSE: { file: "google.svg", monochrome: false },
+  NINEROUTER: { file: "nine-router.svg", monochrome: false },
   SEARXNG: { file: "searxng.svg", monochrome: false },
   SERPER: { file: "serper.png", monochrome: false },
   TAVILY: { file: "tavily.svg", monochrome: false },
