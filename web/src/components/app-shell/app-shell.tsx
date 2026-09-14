@@ -396,7 +396,7 @@ export function AppShell({
         <main
           id="main-content"
           tabIndex={-1}
-          className="min-h-0 min-w-0 flex-1 overflow-auto outline-none"
+          className="min-h-0 min-w-0 flex-1 overflow-auto outline-none [scrollbar-gutter:stable_both-edges]"
         >
           {children}
         </main>
