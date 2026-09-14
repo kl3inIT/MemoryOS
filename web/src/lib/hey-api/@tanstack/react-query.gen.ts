@@ -813,7 +813,7 @@ export const deleteSourceMutation = (options?: Partial<Options<DeleteSourceData>
 };
 
 /**
- * Update FILE source access
+ * Update Source access; SYNC requires a Google Drive source
  */
 export const updateSourceAccessMutation = (options?: Partial<Options<UpdateSourceAccessData>>): UseMutationOptions<UpdateSourceAccessResponse, DefaultError, Options<UpdateSourceAccessData>> => {
     const mutationOptions: UseMutationOptions<UpdateSourceAccessResponse, DefaultError, Options<UpdateSourceAccessData>> = {
