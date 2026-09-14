@@ -148,12 +148,21 @@ public final class TestDatabase {
     }
 
     public static JpaHarness jpa(DataSource dataSource) {
+        return jpa(dataSource, true);
+    }
+
+    /**
+     * @param validateSchema pass {@code false} for tests that intentionally build the harness on an
+     *     older migration target: at that point newer capabilities' tables (e.g. chat_image_connection)
+     *     do not exist yet, and Hibernate schema validation would reject entities the test never touches.
+     */
+    public static JpaHarness jpa(DataSource dataSource, boolean validateSchema) {
         var factoryBean = new LocalContainerEntityManagerFactoryBean();
         factoryBean.setDataSource(dataSource);
         factoryBean.setPackagesToScan("io.memoryos.iam", "io.memoryos.chat.persistence");
         factoryBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factoryBean.setJpaPropertyMap(java.util.Map.of(
-                "hibernate.hbm2ddl.auto", "validate",
+                "hibernate.hbm2ddl.auto", validateSchema ? "validate" : "none",
                 "hibernate.jdbc.time_zone", "UTC",
                 "hibernate.cache.use_second_level_cache", "false",
                 "hibernate.cache.use_query_cache", "false"

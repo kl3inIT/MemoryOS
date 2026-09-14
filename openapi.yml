@@ -1834,6 +1834,136 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/images/selection:
+    put:
+      tags:
+      - Chat Image
+      summary: Select the image provider; null disables image generation
+      operationId: selectChatImageProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageSelectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Image selection saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images/connections/{provider}:
+    put:
+      tags:
+      - Chat Image
+      summary: Configure one image connection without automatically enabling it
+      operationId: saveChatImageConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved image connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users/{actorId}/groups:
     post:
       tags:
@@ -4410,6 +4540,67 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/images/connections/{provider}/test:
+    post:
+      tags:
+      - Chat Image
+      summary: Explicitly generate a test image; provider charges may apply
+      operationId: testChatImageConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Provider request succeeded
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files/{fileId}/retry:
     post:
       tags:
@@ -5761,8 +5952,8 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, search, outcome, reset. Content event id is\
-        \ assistantMessageId:sequence. Only outcome confirms a committed terminal\
+      description: "Events: text-delta, search, image, outcome, reset. Content event\
+        \ id is assistantMessageId:sequence. Only outcome confirms a committed terminal\
         \ state. Heartbeats are comments. A reset has no event id."
       operationId: streamChatMessage
       parameters:
@@ -5825,6 +6016,7 @@ paths:
                 - $ref: "#/components/schemas/OutcomeEvent"
                 - $ref: "#/components/schemas/ResetEvent"
                 - $ref: "#/components/schemas/SearchEvent"
+                - $ref: "#/components/schemas/ImageEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6339,6 +6531,162 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatPersonaPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images:
+    get:
+      tags:
+      - Chat Image
+      summary: Read configured image-generation availability without credentials
+      operationId: getChatImageAvailability
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Configured image availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageAvailabilityResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images/connections:
+    get:
+      tags:
+      - Chat Image
+      summary: List image connections for model managers
+      operationId: listChatImageConnections
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Image connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/image-artifacts/{artifactId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Read an owner-private generated image
+      operationId: getChatImageArtifact
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid image request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Generated image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7910,6 +8258,66 @@ components:
       required:
       - modelConfigurationId
       - revision
+    ImageSelectionRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+    ImageConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - endpoint
+      - model
+    ImageConnectionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+        endpoint:
+          type: string
+        model:
+          type: string
+        credentialConfigured:
+          type: boolean
+        active:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - endpoint
+      - model
+      - provider
     ReplaceUserGroupsRequest:
       type: object
       additionalProperties: false
@@ -8766,6 +9174,12 @@ components:
           - "off"
           - auto
           - required
+        image:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
       required:
       - clientRequestId
       - parentMessageId
@@ -8802,6 +9216,12 @@ components:
           - "off"
           - auto
           - required
+        image:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
       required:
       - clientRequestId
     Edit:
@@ -8825,6 +9245,12 @@ components:
           maxItems: 20
           minItems: 0
         webSearch:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
+        image:
           type: string
           enum:
           - "off"
@@ -10224,6 +10650,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChatArtifact"
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageRef"
       required:
       - artifacts
       - content
@@ -10231,6 +10661,7 @@ components:
       - files
       - finishedAt
       - id
+      - images
       - latestChildMessageId
       - parentMessageId
       - role
@@ -10301,6 +10732,22 @@ components:
         ordinal:
           type: integer
           format: int32
+    ImageRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaType:
+          type: string
+        revisedPrompt:
+          type:
+          - string
+          - "null"
+      required:
+      - id
+      - mediaType
+      - revisedPrompt
     Provenance:
       type: object
       properties:
@@ -10471,6 +10918,44 @@ components:
           $ref: "#/components/schemas/Interval"
         updated:
           $ref: "#/components/schemas/Interval"
+    ImageEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        stage:
+          type: string
+          enum:
+          - GENERATING
+          - COMPLETED
+          - FAILED
+        id:
+          type:
+          - string
+          - "null"
+          format: uuid
+        mediaType:
+          type:
+          - string
+          - "null"
+        revisedPrompt:
+          type:
+          - string
+          - "null"
+      required:
+      - assistantMessageId
+      - id
+      - mediaType
+      - revisedPrompt
+      - sequence
+      - stage
+      - toolCallId
     ChatBranch:
       type: object
       properties:
@@ -10659,6 +11144,20 @@ components:
       required:
       - items
       - nextCursor
+    ImageAvailabilityResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+        model:
+          type: string
+      required:
+      - available
     ChatGroupOption:
       type: object
       additionalProperties: false

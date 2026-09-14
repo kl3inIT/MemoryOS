@@ -47,7 +47,7 @@ class ModelCatalogConstraintsTest {
             new ModelSettings.Capabilities(true, true, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
 
     @BeforeEach void setup() throws Exception {
-        dataSource = TestDatabase.freshPostgres("53"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource);
+        dataSource = TestDatabase.freshPostgres("53"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource, false);
         tx = new TransactionTemplate(jpa.transactionManager());
         catalog = new ModelCatalogRepository(jdbc, jpa.repository(JpaLlmProviderRepository.class),
                 jpa.repository(JpaModelConfigurationRepository.class), jpa.repository(JpaChatModelDefaultRepository.class));

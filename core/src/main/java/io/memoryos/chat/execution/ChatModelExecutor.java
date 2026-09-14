@@ -10,7 +10,12 @@ import java.util.List;
 import java.util.Set;
 import com.embabel.agent.core.Budget;
 import com.embabel.agent.api.tool.Tool;
+import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ImageMode;
+import io.memoryos.chat.image.ImageArtifactService;
+import io.memoryos.chat.image.ImageProviderClient;
+import io.memoryos.chat.tools.GenerateImageTool;
 import io.memoryos.chat.tools.SearchTool;
 import io.memoryos.chat.tools.ChatSearchProperties;
 import io.memoryos.retrieval.DocumentSearchService;
@@ -39,11 +44,13 @@ public final class ChatModelExecutor {
     private final io.memoryos.chat.ChatFileSearchService fileSearch;
     private final io.memoryos.chat.ChatFileContentService fileContent;
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
+    private final @Nullable ImageProviderClient image;
+    private final ImageArtifactService imageArtifacts;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
-            io.memoryos.chat.web.@Nullable WebProviderClient web) {
+            io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
         this.contexts = contexts;
         this.processes = processes;
         this.limits = limits;
@@ -55,6 +62,8 @@ public final class ChatModelExecutor {
         this.fileSearch = fileSearch;
         this.fileContent = fileContent;
         this.web = web;
+        this.image = image;
+        this.imageArtifacts = imageArtifacts;
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
@@ -94,7 +103,7 @@ public final class ChatModelExecutor {
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
             Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatSearchEvent> events,
-            Consumer<CompletableFuture<Void>> onDrained) {
+            Consumer<ChatImageEvent> imageEvents, Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
         if (!metadata.getName().equals(setup.model())) throw new IllegalArgumentException("CHAT_MODEL_UNAVAILABLE");
@@ -156,6 +165,11 @@ public final class ChatModelExecutor {
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence());
                 runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);
+            }
+            if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
+                if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
+                runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, setup.imageAccess().generate(), imageArtifacts,
+                        setup.tenant(), setup.assistantMessageId(), fileActive, setup.deadline(), imageEvents, 4)));
             }
             Duration remaining = Duration.between(Instant.now(), setup.deadline());
             if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
