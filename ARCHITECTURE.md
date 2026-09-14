@@ -67,6 +67,7 @@ flowchart TB
     ING --> DOC
     ING --> RET
     RET --> IAM
+    RET --> OBJ
     RET --> CON
     RET --> DOC
     CHAT --> IAM
@@ -103,7 +104,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 | `connector` | Sources, credentials, provider selection, items, synchronization and Source–Group associations | [Connector](docs/specs/connector.md) |
 | `document` | Current Document metadata, canonical extraction artifact and current chunk identity | [Document](docs/specs/document.md) |
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
-| `retrieval` | Embedding/OpenSearch adapters, authorized Search and document passages | [Search](docs/specs/search.md) |
+| `retrieval` | Embedding/OpenSearch adapters, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
 | `chat` | Personas, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
 
 ## Durable ingestion and Search projection

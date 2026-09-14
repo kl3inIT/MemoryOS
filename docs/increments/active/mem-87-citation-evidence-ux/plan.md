@@ -56,5 +56,6 @@
 - [x] Conversation search icon beside the collapse button (collapsed rail keeps an icon row); ChatGPT-style palette with New chat, day groups and time.
 - [x] Backend `ChatSessionMatch.snippet` via `ts_headline` (options checked on the staging PostgreSQL with a pure `SELECT`); `ChatSessionApiIntegrationTest` asserts the delimited fragment and null cases.
 - [x] Leaving a chat route through a sidebar link (Search documents, and already Assistants/Projects) kept the running conversation's reader open because visibility followed only the main thread; it now also requires a chat route. The `chat.spec.ts` mobile drawer case navigates straight to Search documents and asserts readers drop to 0.
+- [x] CI `ModulithArchitectureTest`: `DocumentOriginalService` opens stored objects, so the `retrieval` module now allows `objectstorage` (already allowed for `chat`, `connector` and `document`; `objectstorage` depends only on `iam`, so no cycle). `ARCHITECTURE.md` shows the edge.
 - [ ] `ChatSessionApiIntegrationTest` run (needs Docker PostgreSQL; not run locally for RAM).
 - [ ] Desktop screenshots in `D:\MemoryOS\output\search-web\`.
