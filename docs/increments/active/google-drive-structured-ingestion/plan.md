@@ -632,4 +632,4 @@ Frontend check passed 60 tests and all gates; browser suites passed 34 scenarios
 
 - [x] Treat a newer provider version with identical adopted bytes and filename as unchanged, refreshing the provider version in place.
 - [x] Keep the current Document retrievable while a changed version is processed; failure leaves it available.
-- [x] Serve the previous search generation until the new chunks are ready, removing the short publication gap ([search generation handover](../search-generation-handover/design.md)).
+- [x] Serve the previous search generation until the new chunks are ready, removing the short publication gap ([search generation handover](../../completed/search-generation-handover/design.md)).
