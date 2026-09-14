@@ -1,23 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import {
-  getChatModelDefaultOptions,
-  getPersonaModelOptions,
-  listChatModelPersonasOptions,
-} from "@/lib/hey-api/@tanstack/react-query.gen";
-import { setChatModelDefault, setPersonaModel } from "@/lib/hey-api/sdk.gen";
-import type {
-  GetChatModelDefaultResponse,
-  GetPersonaModelResponse,
-  ListChatModelPersonasResponse,
-} from "@/lib/hey-api/types.gen";
+import { getChatModelDefaultOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { setChatModelDefault } from "@/lib/hey-api/sdk.gen";
+import type { GetChatModelDefaultResponse } from "@/lib/hey-api/types.gen";
 import { sameOriginMutationHeaders } from "@/lib/api";
-import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  personaCandidate,
   refreshModelCatalog,
   tenantCandidate,
   type InstalledAdapter,
@@ -32,19 +21,17 @@ type Catalog = {
   models: ManagedModel[];
   adapters: InstalledAdapter[];
 };
-type Selection = GetChatModelDefaultResponse | GetPersonaModelResponse;
+type Selection = GetChatModelDefaultResponse;
 
 function SelectionEditor({
   selection,
   reload,
-  personaId,
   providers,
   models,
   adapters,
 }: Catalog & {
   selection: Selection;
   reload: () => Promise<Selection>;
-  personaId?: string;
 }) {
   const ui = useAppTranslation();
   const client = useQueryClient();
@@ -54,12 +41,7 @@ function SelectionEditor({
   const [saved, setSaved] = useState(false);
   const candidates = models.filter((model) => {
     const provider = providers.find((entry) => entry.id === model.providerId);
-    return (
-      provider &&
-      (personaId
-        ? personaCandidate(model, provider, adapters, personaId)
-        : tenantCandidate(model, provider, adapters))
-    );
+    return provider && tenantCandidate(model, provider, adapters);
   });
   const savedModel = models.find((model) => model.id === baseline.modelConfigurationId);
   const savedProvider =
@@ -67,8 +49,7 @@ function SelectionEditor({
   const savedHidden =
     baseline.modelConfigurationId &&
     !candidates.some((model) => model.id === baseline.modelConfigurationId);
-  const candidateChosen =
-    candidates.some((model) => model.id === chosen) || (Boolean(personaId) && chosen === "");
+  const candidateChosen = candidates.some((model) => model.id === chosen);
   const conflicted = action.conflict || selection.revision !== baseline.revision;
 
   async function save() {
@@ -82,23 +63,12 @@ function SelectionEditor({
     setSaved(false);
     try {
       await action.run(async (signal) => {
-        const result = personaId
-          ? await setPersonaModel({
-              path: { personaId },
-              query: {
-                revision: baseline.revision,
-                ...(chosen ? { modelConfigurationId: chosen } : {}),
-              },
-              headers: sameOriginMutationHeaders,
-              signal,
-              throwOnError: true,
-            })
-          : await setChatModelDefault({
-              query: { revision: baseline.revision, modelConfigurationId: chosen },
-              headers: sameOriginMutationHeaders,
-              signal,
-              throwOnError: true,
-            });
+        const result = await setChatModelDefault({
+          query: { revision: baseline.revision, modelConfigurationId: chosen },
+          headers: sameOriginMutationHeaders,
+          signal,
+          throwOnError: true,
+        });
         signal.throwIfAborted();
         setBaseline(result.data);
         setChosen(result.data.modelConfigurationId ?? "");
@@ -130,21 +100,16 @@ function SelectionEditor({
     <div className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h3 className="font-main-ui-action">
-            {personaId ? ui("Persona model default") : ui("Default model")}
-          </h3>
+          <h3 className="font-main-ui-action">{ui("Default model")}</h3>
           <p className="font-secondary-body text-content-muted">
-            {personaId
-              ? ui("Overrides the Tenant default for this Persona.")
-              : ui("This model will be used by Chat by default in your conversations.")}
+            {ui("This model will be used by Chat by default in your conversations.")}
           </p>
         </div>
         <ModelPicker
-          ariaLabel={personaId ? ui("Persona model default") : ui("Tenant model default")}
+          ariaLabel={ui("Tenant model default")}
           value={chosen}
           disabled={action.pending}
           placeholder={ui("Choose an eligible model")}
-          inheritLabel={personaId ? ui("Inherit Tenant default") : undefined}
           onChange={(modelId) => {
             setChosen(modelId);
             setSaved(false);
@@ -187,13 +152,7 @@ function SelectionEditor({
           ]}
         />
       </div>
-      {!candidates.length && (
-        <p role="status">
-          {personaId
-            ? ui("No eligible models are available; Inherit remains available.")
-            : ui("No eligible models are available.")}
-        </p>
-      )}
+      {!candidates.length && <p role="status">{ui("No eligible models are available.")}</p>}
       {conflicted && (
         <div role="alert" className="space-y-2">
           <p>
@@ -214,41 +173,14 @@ function SelectionEditor({
           disabled={conflicted || !candidateChosen}
           onClick={() => void save()}
         >
-          {personaId ? ui("Save Persona default") : ui("Save Tenant default")}
+          {ui("Save Tenant default")}
         </Button>
       )}
     </div>
   );
 }
 
-function PersonaSelection({ personaId, ...catalog }: Catalog & { personaId: string }) {
-  const ui = useAppTranslation();
-  const selection = useQuery({ ...getPersonaModelOptions({ path: { personaId } }), retry: false });
-  if (selection.isPending) return <p role="status">{ui("Loading Persona selection…")}</p>;
-  if (selection.isError)
-    return (
-      <div role="alert">
-        <p>{ui("Persona selection could not be loaded.")}</p>
-        <Button prominence="secondary" onClick={() => void selection.refetch()}>
-          {ui("Retry Persona selection")}
-        </Button>
-      </div>
-    );
-  return (
-    <SelectionEditor
-      {...catalog}
-      personaId={personaId}
-      selection={selection.data}
-      reload={async () => {
-        const result = await selection.refetch({ throwOnError: true });
-        if (!result.data) throw new Error("Selection unavailable");
-        return result.data;
-      }}
-    />
-  );
-}
-
-/** Onyx-style top card: the Tenant Chat default selector without the Persona section. */
+/** The Tenant Chat default; a per-Persona override belongs with the Persona, not the catalog. */
 export function TenantDefault(catalog: Catalog) {
   const ui = useAppTranslation();
   const tenant = useQuery({ ...getChatModelDefaultOptions(), retry: false });
@@ -272,112 +204,5 @@ export function TenantDefault(catalog: Catalog) {
         return result.data;
       }}
     />
-  );
-}
-
-export function ModelDefaults(catalog: Catalog) {
-  const ui = useAppTranslation();
-  const [cursors, setCursors] = useState<string[]>([]);
-  const cursor = cursors.at(-1);
-  const personas = useQuery({
-    ...listChatModelPersonasOptions({ query: { limit: 25, ...(cursor ? { cursor } : {}) } }),
-    retry: false,
-  });
-  const [persona, setPersona] = useState<ListChatModelPersonasResponse["items"][number] | null>(
-    null,
-  );
-  return (
-    <section aria-labelledby="model-defaults-title" className="space-y-6">
-      <h2 id="model-defaults-title" className="font-heading-h3">
-        {ui("Persona defaults")}
-      </h2>
-      <section
-        aria-labelledby="persona-default-title"
-        className="space-y-4 rounded-xl border border-border-subtle p-4"
-      >
-        <h3 id="persona-default-title" className="font-main-ui-action">
-          {ui("Persona default")}
-        </h3>
-        {personas.isPending ? (
-          <p role="status">{ui("Loading Personas…")}</p>
-        ) : personas.isError ? (
-          <div role="alert">
-            <p>
-              {ui(
-                "Personas could not be loaded. A stale cursor may require returning to the first page.",
-              )}
-            </p>
-            <Button
-              prominence="secondary"
-              onClick={() => {
-                setCursors([]);
-                void personas.refetch();
-              }}
-            >
-              {ui("Reload Personas")}
-            </Button>
-          </div>
-        ) : (
-          <>
-            <label className="block space-y-1">
-              {ui("Persona")}
-              <Select
-                value={persona?.id ?? ""}
-                onChange={(event) =>
-                  setPersona(
-                    personas.data.items.find((entry) => entry.id === event.target.value) ?? null,
-                  )
-                }
-              >
-                <option value="">{ui("Choose a Persona")}</option>
-                {persona && !personas.data.items.some((entry) => entry.id === persona.id) && (
-                  <option value={persona.id}>
-                    {persona.name} {ui("(selected)")}
-                  </option>
-                )}
-                {personas.data.items.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            {!personas.data.items.length && <p role="status">{ui("No Personas on this page.")}</p>}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                prominence="secondary"
-                size="sm"
-                disabled={!cursors.length || personas.isFetching}
-                onClick={() => setCursors((current) => current.slice(0, -1))}
-              >
-                {ui("Previous Personas")}
-              </Button>
-              <span className="font-secondary-body text-content-muted">
-                {ui(appText("Page {{page}} · up to 25 Personas", { page: cursors.length + 1 }))}
-              </span>
-              <Button
-                prominence="secondary"
-                size="sm"
-                disabled={personas.data.nextCursor === null || personas.isFetching}
-                onClick={() => {
-                  const next = personas.data.nextCursor;
-                  if (next) setCursors((current) => [...current, next]);
-                }}
-              >
-                {ui("Next Personas")}
-              </Button>
-            </div>
-          </>
-        )}
-        {persona && (
-          <div className="space-y-3">
-            <p className="break-all font-main-ui-action">
-              {persona.name} · {persona.id}
-            </p>
-            <PersonaSelection key={persona.id} {...catalog} personaId={persona.id} />
-          </div>
-        )}
-      </section>
-    </section>
   );
 }

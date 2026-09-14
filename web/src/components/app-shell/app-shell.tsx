@@ -2,7 +2,6 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
-  Boxes,
   Globe,
   KeyRound,
   Menu,
@@ -10,6 +9,7 @@ import {
   PanelLeftOpen,
   Plug,
   Settings2,
+  Sparkles,
   User,
   Users,
   X,
@@ -197,7 +197,7 @@ function SidebarContents({
               <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
                 <SidebarTab
                   to="/admin/models"
-                  icon={<Boxes className="size-4" />}
+                  icon={<Sparkles className="size-4" />}
                   selected={adminPage === "models"}
                   collapsed={collapsed}
                   onClick={onNavigate}

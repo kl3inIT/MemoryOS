@@ -5,6 +5,7 @@ import {
   Brain,
   ChevronDown,
   Eye,
+  ListPlus,
   Plug,
   Plus,
   Server,
@@ -45,10 +46,13 @@ import {
   listConfiguredChatModelsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { deleteChatModel, deleteChatProvider } from "@/lib/hey-api/sdk.gen";
-import { ModelDefaults, TenantDefault } from "./model-defaults";
+import { TenantDefault } from "./model-defaults";
 import { ModelEditor } from "./model-editor";
+import { ModelDiscovery } from "./model-discovery";
 import { ProviderEditor } from "./provider-editor";
 import {
+  compactTokens,
+  millionTokenPrice,
   refreshModelCatalog,
   type InstalledAdapter,
   type ManagedModel,
@@ -64,7 +68,8 @@ type Editor =
       baseUrl?: string;
       name?: string;
     }
-  | { kind: "model"; providerId: string; initial?: ManagedModel };
+  | { kind: "model"; providerId: string; initial?: ManagedModel; modelName?: string }
+  | { kind: "discovery"; providerId: string };
 type Deletion =
   | { kind: "provider"; provider: ManagedProvider }
   | { kind: "model"; model: ManagedModel };
@@ -108,13 +113,6 @@ function providerStatus(provider: ManagedProvider) {
   if (!provider.credentialConfigured) return { label: "No credential", tone: "warning" as const };
   return { label: "Enabled", tone: "success" as const };
 }
-const compactTokens = (value: number) =>
-  value >= 1_000_000
-    ? `${Math.round(value / 100_000) / 10}M`
-    : value >= 1000
-      ? `${Math.round(value / 1000)}K`
-      : String(value);
-const millionTokenPrice = (value: number | undefined) => (value === undefined ? null : `$${value}`);
 
 /** Declared capabilities, so a row reads without opening the editor. */
 function Capabilities({
@@ -147,6 +145,7 @@ function ConnectionCard({
   unavailable,
   onEdit,
   onAddModel,
+  onDiscover,
   onEditModel,
   onDelete,
   onDeleteModel,
@@ -159,6 +158,7 @@ function ConnectionCard({
   unavailable: boolean;
   onEdit: () => void;
   onAddModel: () => void;
+  onDiscover: () => void;
   onEditModel: (model: ManagedModel) => void;
   onDelete: () => void;
   onDeleteModel: (model: ManagedModel) => void;
@@ -321,14 +321,26 @@ function ConnectionCard({
               </EmptyTitle>
             </Empty>
           )}
-          <Button
-            prominence="secondary"
-            size="sm"
-            disabled={unavailable || !adapter}
-            onClick={onAddModel}
-          >
-            <Plus aria-hidden="true" /> {ui("Add model")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              prominence="secondary"
+              size="sm"
+              disabled={
+                unavailable || !adapter || !provider.enabled || !provider.credentialConfigured
+              }
+              onClick={onDiscover}
+            >
+              <ListPlus aria-hidden="true" /> {ui("Fetch models from the provider")}
+            </Button>
+            <Button
+              prominence="secondary"
+              size="sm"
+              disabled={unavailable || !adapter}
+              onClick={onAddModel}
+            >
+              <Plus aria-hidden="true" /> {ui("Add model")}
+            </Button>
+          </div>
         </CardContent>
       )}
     </Card>
@@ -365,7 +377,7 @@ function NewConnectionCard({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-main-ui-action">{preset.name}</span>
-        <span className="block font-secondary-body text-content-muted">{preset.subtitle}</span>
+        <span className="block font-secondary-body text-content-muted">{ui(preset.subtitle)}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1 font-secondary-body text-content-muted">
         {ui("Connect")} <ArrowRightLeft className="size-4" aria-hidden="true" />
@@ -396,7 +408,7 @@ function ModelsAdministration() {
     providers.isError || adapters.isError || configured.some((query) => query.isError);
   const unavailable = catalogPending || catalogError || action.pending;
   const modelProvider =
-    editor?.kind === "model"
+    editor?.kind === "model" || editor?.kind === "discovery"
       ? providers.data?.find((provider) => provider.id === editor.providerId)
       : undefined;
   const tenantDefault = useQuery({ ...getChatModelDefaultOptions(), retry: false });
@@ -526,6 +538,7 @@ function ModelsAdministration() {
                 unavailable={unavailable}
                 onEdit={() => setEditor({ kind: "provider", initial: provider })}
                 onAddModel={() => setEditor({ kind: "model", providerId: provider.id })}
+                onDiscover={() => setEditor({ kind: "discovery", providerId: provider.id })}
                 onEditModel={(model) =>
                   setEditor({ kind: "model", providerId: provider.id, initial: model })
                 }
@@ -558,7 +571,7 @@ function ModelsAdministration() {
             <NewConnectionCard
               preset={{
                 name: "GPT",
-                subtitle: "OpenAI",
+                subtitle: "GPT models from OpenAI.",
                 baseUrl: "https://api.openai.com/v1",
                 logo: <ProviderLogo mark="OPENAI" />,
               }}
@@ -575,7 +588,7 @@ function ModelsAdministration() {
             <NewConnectionCard
               preset={{
                 name: "Claude",
-                subtitle: "Anthropic",
+                subtitle: "Claude models from Anthropic.",
                 baseUrl: "https://api.anthropic.com/v1",
                 logo: <ProviderLogo mark="ANTHROPIC" />,
               }}
@@ -598,7 +611,7 @@ function ModelsAdministration() {
               <NewConnectionCard
                 preset={{
                   name: "Ollama",
-                  subtitle: "Ollama",
+                  subtitle: "Open-weight models running on your own machine or server.",
                   baseUrl: "http://localhost:11434/v1",
                   logo: <Server />,
                 }}
@@ -615,7 +628,7 @@ function ModelsAdministration() {
               <NewConnectionCard
                 preset={{
                   name: "OpenAI-Compatible",
-                  subtitle: "OpenAI-Compatible",
+                  subtitle: "Any endpoint that speaks the OpenAI API, such as vLLM or a gateway.",
                   baseUrl: "",
                   logo: <Plug />,
                 }}
@@ -636,9 +649,6 @@ function ModelsAdministration() {
         <p role="status">{ui("No provider adapters are installed.")}</p>
       )}
 
-      {!catalogPending && !catalogError && providers.data && adapters.data && (
-        <ModelDefaults providers={providers.data} adapters={adapters.data} models={models} />
-      )}
       {editor?.kind === "provider" && adapters.data && (
         <ProviderEditor
           initial={editor.initial}
@@ -652,10 +662,23 @@ function ModelsAdministration() {
       )}
       {editor?.kind === "model" && modelProvider && (
         <ModelEditor
+          key={editor.modelName ?? editor.initial?.id ?? "new"}
           initial={editor.initial}
+          modelName={editor.modelName}
           models={models}
           provider={modelProvider}
           adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
+          onClose={() => setEditor(null)}
+        />
+      )}
+      {editor?.kind === "discovery" && modelProvider && (
+        <ModelDiscovery
+          provider={modelProvider}
+          adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
+          models={models.filter((model) => model.providerId === modelProvider.id)}
+          onManual={(modelName) =>
+            setEditor({ kind: "model", providerId: modelProvider.id, modelName })
+          }
           onClose={() => setEditor(null)}
         />
       )}

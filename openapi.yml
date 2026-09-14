@@ -5978,6 +5978,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/providers/{providerId}/reported-models:
+    get:
+      tags:
+      - Chat models
+      summary: List the model names the provider endpoint reports; requires model
+        management
+      operationId: listReportedProviderModels
+      parameters:
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatReportedModels"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/provider-adapters:
     get:
       tags:
@@ -10420,6 +10477,16 @@ components:
       required:
       - hasMore
       - items
+    ChatReportedModels:
+      type: object
+      additionalProperties: false
+      properties:
+        models:
+          type: array
+          items:
+            type: string
+      required:
+      - models
     Descriptor:
       type: object
       properties:

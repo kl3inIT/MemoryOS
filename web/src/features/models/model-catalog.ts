@@ -86,19 +86,6 @@ export function tenantCandidate(
   );
 }
 
-export function personaCandidate(
-  model: ManagedModel,
-  provider: ManagedProvider,
-  adapters: InstalledAdapter[],
-  personaId: string,
-) {
-  return (
-    model.visible &&
-    providerUsable(provider, adapters) &&
-    (provider.personaIds.length === 0 || provider.personaIds.includes(personaId))
-  );
-}
-
 export function modelLabel(model: ManagedModel, provider: ManagedProvider) {
   const name =
     model.displayName === model.modelName
@@ -160,6 +147,30 @@ export function findKnownModel(adapter: InstalledAdapter | undefined, modelName:
   return name ? adapter?.knownModels.find((known) => known.modelName === name) : undefined;
 }
 
+/** Declared specs are facts about the model, so both the list and the editor render them alike. */
+export const compactTokens = (value: number) =>
+  value >= 1_000_000
+    ? `${Math.round(value / 100_000) / 10}M`
+    : value >= 1000
+      ? `${Math.round(value / 1000)}K`
+      : String(value);
+export const millionTokenPrice = (value: number | undefined) =>
+  value === undefined ? null : `$${value}`;
+
+/** True when the draft still carries exactly what the installed catalog declares for this name. */
+export function matchesKnownModel(draft: ModelDraft, known: KnownModel | undefined) {
+  return (
+    known !== undefined &&
+    draft.contextWindow === String(known.contextWindow) &&
+    draft.maxOutputTokens === String(known.maxOutputTokens) &&
+    draft.toolCalling === known.capabilities.toolCalling &&
+    draft.vision === known.capabilities.vision &&
+    draft.reasoning === known.capabilities.reasoning &&
+    draft.inputPrice === String(known.pricing.inputPerMillion) &&
+    draft.outputPrice === String(known.pricing.outputPerMillion)
+  );
+}
+
 export function changeModelDraft<K extends keyof ModelDraft>(
   draft: ModelDraft,
   key: K,
@@ -176,9 +187,13 @@ export function changeModelDraft<K extends keyof ModelDraft>(
   // A reasoning model rejects a sampling temperature, so enabling reasoning drops it.
   if (key === "reasoning") next[value ? "temperature" : "reasoningEffort"] = "";
   if (key === "modelName") {
+    const previous = findKnownModel(adapter, draft.modelName);
     const known = findKnownModel(adapter, next.modelName);
     if (known) {
-      next.displayName = draft.displayName.trim() ? draft.displayName : known.modelName;
+      next.displayName =
+        draft.displayName.trim() && draft.displayName !== previous?.modelName
+          ? draft.displayName
+          : known.modelName;
       next.contextWindow = String(known.contextWindow);
       next.maxOutputTokens = String(known.maxOutputTokens);
       next.toolCalling = known.capabilities.toolCalling;
@@ -188,6 +203,17 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       else next.reasoningEffort = "";
       next.inputPrice = String(known.pricing.inputPerMillion);
       next.outputPrice = String(known.pricing.outputPerMillion);
+    } else if (matchesKnownModel(draft, previous)) {
+      // Limits, capabilities and prices describe the model named before, never the one typed now.
+      next.displayName = draft.displayName === previous?.modelName ? "" : draft.displayName;
+      next.contextWindow = "";
+      next.maxOutputTokens = "";
+      next.toolCalling = false;
+      next.vision = false;
+      next.reasoning = false;
+      next.reasoningEffort = "";
+      next.inputPrice = "";
+      next.outputPrice = "";
     }
   }
   return next;

@@ -15,6 +15,7 @@ import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -55,6 +56,10 @@ public class ModelCatalogService {
     public record ProviderInput(String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
                                 Set<UUID> groupIds, Set<UUID> personaIds, ProviderCredentials.Change credential) {
         @Override public @NonNull String toString() { return "ProviderInput[redacted]"; }
+    }
+    /** Resolved connection for one provider call; the secret never reaches toString(). */
+    public record ProviderConnection(String adapterType, String baseUrl, String credential) {
+        @Override public @NonNull String toString() { return "ProviderConnection[redacted]"; }
     }
     public record ModelInput(String modelName, String displayName, boolean visible, ModelSettings settings) {}
     public record ProviderView(UUID id, String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
@@ -192,6 +197,16 @@ public class ModelCatalogService {
         return access.authority() == Authority.GLOBAL
                 ? groups.listGroupOptions(access.tenantId(), search, page, size)
                 : groups.listManagedGroupOptions(access.tenantId(), actor, search, page, size);
+    }
+
+    /** Reads one provider's endpoint and decrypted credential; the caller performs the provider call. */
+    @Transactional
+    public ProviderConnection providerConnection(ActorId actor, UUID providerId) {
+        UUID tenant = admin(actor, false);
+        var provider = catalog.provider(tenant, providerId).orElseThrow(ChatException::unavailable);
+        if (!provider.enabled()) throw ChatException.invalid("Enable the provider before listing its models.");
+        return new ProviderConnection(provider.adapterType(), provider.baseUrl(),
+                credentials.resolve(tenant, providerId, provider.credential()));
     }
 
     @Transactional

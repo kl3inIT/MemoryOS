@@ -1,7 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { ChevronDown } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { appText } from "@/i18n/app-text";
@@ -14,6 +16,10 @@ import {
 import { createChatModel, updateChatModel, validateChatModel } from "@/lib/hey-api/sdk.gen";
 import { CatalogDialog } from "./catalog-dialog";
 import {
+  compactTokens,
+  findKnownModel,
+  matchesKnownModel,
+  millionTokenPrice,
   changeModelDraft,
   modelBody,
   modelDraft,
@@ -26,16 +32,105 @@ import {
 } from "./model-catalog";
 import { useModelAction } from "./use-model-action";
 
+type Change = <K extends keyof ModelDraft>(key: K, value: ModelDraft[K]) => void;
+
+/** Limits and capabilities the runtime enforces; typed only for a model the catalog does not declare. */
+function Specs({ draft, change }: { draft: ModelDraft; change: Change }) {
+  const ui = useAppTranslation();
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block space-y-1">
+          {ui("Context window (tokens)")}
+          <Input
+            type="number"
+            required
+            min={256}
+            max={10_000_000}
+            step={1}
+            value={draft.contextWindow}
+            onChange={(event) => change("contextWindow", event.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          {ui("Maximum output (tokens)")}
+          <Input
+            type="number"
+            required
+            min={1}
+            step={1}
+            value={draft.maxOutputTokens}
+            onChange={(event) => change("maxOutputTokens", event.target.value)}
+          />
+        </label>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {(
+          [
+            ["toolCalling", "Tool calling"],
+            ["vision", "Vision input"],
+            ["reasoning", "Reasoning"],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="flex items-center gap-2 font-main-ui-body">
+            <Checkbox
+              checked={draft[key]}
+              onCheckedChange={(checked) => change(key, checked === true)}
+            />
+            {ui(label)}
+          </label>
+        ))}
+        <label className="flex items-center gap-2 font-main-ui-body text-content-muted">
+          <Checkbox checked disabled aria-label={ui("Streaming (required)")} />
+          {ui("Streaming (required)")}
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function Prices({ draft, change }: { draft: ModelDraft; change: Change }) {
+  const ui = useAppTranslation();
+  return (
+    <fieldset className="space-y-3">
+      <legend className="font-main-ui-action">{ui("Pricing · USD per million tokens")}</legend>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1">
+          {ui("Input price")}
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            value={draft.inputPrice}
+            onChange={(event) => change("inputPrice", event.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          {ui("Output price")}
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            value={draft.outputPrice}
+            onChange={(event) => change("outputPrice", event.target.value)}
+          />
+        </label>
+      </div>
+    </fieldset>
+  );
+}
 type ValidationObservation = { providerRevision: number; modelRevision: number; message: string };
 
 export function ModelEditor({
   initial,
+  modelName,
   models,
   provider,
   adapter,
   onClose,
 }: {
   initial?: ManagedModel;
+  modelName?: string;
   models: ManagedModel[];
   provider: ManagedProvider;
   adapter?: InstalledAdapter;
@@ -45,7 +140,11 @@ export function ModelEditor({
   const ui = useAppTranslation();
   const action = useModelAction();
   const [baseline, setBaseline] = useState(initial);
-  const [draft, setDraft] = useState(() => modelDraft(initial, adapter));
+  const [draft, setDraft] = useState(() =>
+    modelName
+      ? changeModelDraft(modelDraft(initial, adapter), "modelName", modelName, adapter)
+      : modelDraft(initial, adapter),
+  );
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationObservation | null>(null);
   const [saved, setSaved] = useState(false);
@@ -56,6 +155,8 @@ export function ModelEditor({
   const conflicted =
     action.conflict || Boolean(baseline && (!latest || latest.revision !== baseline.revision));
   const invalid = modelDraftError(draft, adapter);
+  // Limits, capabilities and prices belong to the model; typing them is only for an undeclared one.
+  const declared = matchesKnownModel(draft, findKnownModel(adapter, draft.modelName));
   const displayedValidation =
     validation &&
     !dirty &&
@@ -244,53 +345,52 @@ export function ModelEditor({
               <option key={known.modelName} value={known.modelName} />
             ))}
           </datalist>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block space-y-1">
-              {ui("Context window (tokens)")}
-              <Input
-                type="number"
-                required
-                min={256}
-                max={10_000_000}
-                step={1}
-                value={draft.contextWindow}
-                onChange={(event) => change("contextWindow", event.target.value)}
-              />
-            </label>
-            <label className="block space-y-1">
-              {ui("Maximum output (tokens)")}
-              <Input
-                type="number"
-                required
-                min={1}
-                step={1}
-                value={draft.maxOutputTokens}
-                onChange={(event) => change("maxOutputTokens", event.target.value)}
-              />
-            </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(
-              [
-                ["visible", "Visible in selection lists"],
-                ["toolCalling", "Tool calling"],
-                ["vision", "Vision input"],
-                ["reasoning", "Reasoning"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 font-main-ui-body">
-                <Checkbox
-                  checked={draft[key]}
-                  onCheckedChange={(checked) => change(key, checked === true)}
-                />
-                {ui(label)}
-              </label>
-            ))}
-            <label className="flex items-center gap-2 font-main-ui-body text-content-muted">
-              <Checkbox checked disabled aria-label={ui("Streaming (required)")} />
-              {ui("Streaming (required)")}
-            </label>
-          </div>
+          {declared ? (
+            <dl className="grid gap-x-6 gap-y-2 font-main-ui-body sm:grid-cols-2">
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Context window (tokens)")}</dt>
+                <dd className="tabular-nums">{compactTokens(Number(draft.contextWindow))}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Maximum output (tokens)")}</dt>
+                <dd className="tabular-nums">{compactTokens(Number(draft.maxOutputTokens))}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Input price")}</dt>
+                <dd className="tabular-nums">
+                  {millionTokenPrice(Number(draft.inputPrice)) ?? ui("Unknown")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Output price")}</dt>
+                <dd className="tabular-nums">
+                  {millionTokenPrice(Number(draft.outputPrice)) ?? ui("Unknown")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 sm:col-span-2">
+                <dt className="text-content-muted">{ui("Capabilities")}</dt>
+                <dd>
+                  {[
+                    draft.toolCalling ? ui("Tool calling") : null,
+                    draft.vision ? ui("Vision input") : null,
+                    draft.reasoning ? ui("Reasoning") : null,
+                    ui("Streaming (required)"),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <Specs draft={draft} change={change} />
+          )}
+          <label className="flex items-center gap-2 font-main-ui-body">
+            <Checkbox
+              checked={draft.visible}
+              onCheckedChange={(checked) => change("visible", checked === true)}
+            />
+            {ui("Visible in selection lists")}
+          </label>
           <fieldset className="space-y-3">
             <legend className="font-main-ui-action">{ui("Request options")}</legend>
             <label className="flex items-center gap-2 font-main-ui-body">
@@ -330,33 +430,23 @@ export function ModelEditor({
               </label>
             )}
           </fieldset>
-          <fieldset className="space-y-3">
-            <legend className="font-main-ui-action">
-              {ui("Pricing · USD per million tokens")}
-            </legend>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-1">
-                {ui("Input price")}
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={draft.inputPrice}
-                  onChange={(event) => change("inputPrice", event.target.value)}
+          {declared ? (
+            <Collapsible className="group">
+              <CollapsibleTrigger className="flex min-h-11 cursor-pointer items-center gap-2 font-main-ui-action focus-visible:outline-2 focus-visible:outline-focus-ring">
+                <ChevronDown
+                  aria-hidden="true"
+                  className="size-4 transition-transform group-has-[[data-state=open]]:rotate-180"
                 />
-              </label>
-              <label className="block space-y-1">
-                {ui("Output price")}
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={draft.outputPrice}
-                  onChange={(event) => change("outputPrice", event.target.value)}
-                />
-              </label>
-            </div>
-          </fieldset>
+                {ui("Override declared specs")}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-4">
+                <Specs draft={draft} change={change} />
+                <Prices draft={draft} change={change} />
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <Prices draft={draft} change={change} />
+          )}
         </fieldset>
         {invalid && <p role="status">{ui(invalid)}</p>}
         {conflicted && (

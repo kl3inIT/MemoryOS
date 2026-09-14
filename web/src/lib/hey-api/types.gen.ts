@@ -1169,6 +1169,10 @@ export type ChatSessionSearchPage = {
     hasMore: boolean;
 };
 
+export type ChatReportedModels = {
+    models: Array<string>;
+};
+
 export type Descriptor = {
     type: string;
     credentialRequirement: 'REQUIRED' | 'OPTIONAL' | 'NONE';
@@ -5812,6 +5816,53 @@ export type SearchChatSessionsResponses = {
 };
 
 export type SearchChatSessionsResponse = SearchChatSessionsResponses[keyof SearchChatSessionsResponses];
+
+export type ListReportedProviderModelsData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/chat/providers/{providerId}/reported-models';
+};
+
+export type ListReportedProviderModelsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListReportedProviderModelsError = ListReportedProviderModelsErrors[keyof ListReportedProviderModelsErrors];
+
+export type ListReportedProviderModelsResponses = {
+    /**
+     * Successful result
+     */
+    200: ChatReportedModels;
+};
+
+export type ListReportedProviderModelsResponse = ListReportedProviderModelsResponses[keyof ListReportedProviderModelsResponses];
 
 export type ListChatProviderAdaptersData = {
     body?: never;

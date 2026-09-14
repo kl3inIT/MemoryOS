@@ -1445,6 +1445,39 @@ class ChatSessionApiIntegrationTest {
         } finally { server.stop(0); }
     }
 
+    @Test
+    void reportedModelsListsWhatTheProviderEndpointServes() throws Exception {
+        grantModelManagement();
+        var authorization = new AtomicReference<String>();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] bytes = """
+                    {"object":"list","data":[
+                      {"id":"gpt-4.1-mini","object":"model","created":1,"owned_by":"openai"},
+                      {"id":"gpt-5","object":"model","created":1,"owned_by":"openai"},
+                      {"id":"gpt-4.1-mini","object":"model","created":1,"owned_by":"openai"}]}
+                    """.getBytes(UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        server.start();
+        try {
+            doCallRealMethod().when(providerAdapter).reportedModels(any(), any());
+            String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+            var provider = createProvider(endpoint, true).path("id").asText();
+            var reported = Json.mapper().readTree(mockMvc.perform(
+                            get("/api/chat/providers/" + provider + "/reported-models").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(List.of("gpt-4.1-mini", "gpt-5"),
+                    reported.path("models").valueStream().map(JsonNode::asText).toList());
+            assertEquals("Bearer fixture-byok", authorization.get());
+            mockMvc.perform(get("/api/chat/providers/" + provider + "/reported-models")
+                    .with(authentication(other))).andExpect(status().isForbidden());
+        } finally { server.stop(0); }
+    }
+
     private String readyImage(byte[] bytes) throws Exception {
         var checksum = new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));

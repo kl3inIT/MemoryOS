@@ -1857,6 +1857,12 @@ Object.assign(englishUi, {
   "MemoryOS supports both popular providers and self-hosted models.":
     "MemoryOS hỗ trợ cả nhà cung cấp phổ biến lẫn mô hình tự triển khai.",
   "Self-hosted & Custom": "Tự triển khai & Tùy chỉnh",
+  "GPT models from OpenAI.": "Mô hình GPT của OpenAI.",
+  "Claude models from Anthropic.": "Mô hình Claude của Anthropic.",
+  "Open-weight models running on your own machine or server.":
+    "Mô hình mã nguồn mở chạy trên máy hoặc máy chủ của bạn.",
+  "Any endpoint that speaks the OpenAI API, such as vLLM or a gateway.":
+    "Mọi endpoint nói giao thức OpenAI API, ví dụ vLLM hoặc gateway nội bộ.",
   Connect: "Kết nối",
   "Connect {{name}}": "Kết nối {{name}}",
   "No provider adapters are installed.": "Chưa cài đặt adapter nhà cung cấp nào.",
@@ -1910,44 +1916,21 @@ Object.assign(englishUi, {
   "This model will be used by Chat by default in your conversations.":
     "Mô hình này sẽ được Chat dùng mặc định trong các cuộc hội thoại.",
   "Tenant model default": "Mô hình mặc định của Tenant",
-  "Persona model default": "Mô hình mặc định của Persona",
-  "Overrides the Tenant default for this Persona.": "Ghi đè mặc định của Tenant cho Persona này.",
-  "Inherit Tenant default": "Kế thừa mặc định Tenant",
   "Choose an eligible model": "Chọn một mô hình đủ điều kiện",
   "(saved; hidden or unavailable)": "(đã lưu; đang ẩn hoặc không khả dụng)",
   "(draft no longer eligible)": "(bản nháp không còn đủ điều kiện)",
   "No eligible models are available.": "Không có mô hình đủ điều kiện nào.",
-  "No eligible models are available; Inherit remains available.":
-    "Không có mô hình đủ điều kiện; vẫn có thể chọn Kế thừa.",
   "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.":
     "Lựa chọn đã lưu đã thay đổi hoặc xung đột. Làm mới revision của nó và kiểm tra lại trước khi thử lại; revision của mô hình/nhà cung cấp không phải revision lựa chọn.",
   "Reconcile saved selection": "Đồng bộ lựa chọn đã lưu",
   "Default saved. Existing transcript is unchanged.":
     "Đã lưu mặc định. Hội thoại hiện có không đổi.",
   "Save Tenant default": "Lưu mặc định Tenant",
-  "Save Persona default": "Lưu mặc định Persona",
   "Loading Tenant default…": "Đang tải mặc định Tenant…",
   "Tenant default could not be loaded.": "Không tải được mặc định Tenant.",
   "Retry Tenant default": "Thử lại mặc định Tenant",
-  "Loading Persona selection…": "Đang tải lựa chọn Persona…",
-  "Persona selection could not be loaded.": "Không tải được lựa chọn Persona.",
-  "Retry Persona selection": "Thử lại lựa chọn Persona",
-  "Persona defaults": "Mặc định Persona",
-  "Persona default": "Mặc định Persona",
   "Select a Persona by name and UUID. Assignment respects provider Persona restrictions, even for managers. It grants no access: other users can fall back to their authorized Tenant default. Inherit removes the Persona selection.":
     "Chọn Persona theo tên và UUID. Việc gán vẫn tuân theo giới hạn Persona của nhà cung cấp, kể cả với quản lý. Không cấp quyền truy cập: người dùng khác vẫn dùng mặc định Tenant được phép. Kế thừa sẽ xóa lựa chọn Persona.",
-  "Loading Personas…": "Đang tải Personas…",
-  "Personas could not be loaded. A stale cursor may require returning to the first page.":
-    "Không tải được Personas. Con trỏ cũ có thể cần quay về trang đầu.",
-  "Reload Personas": "Tải lại Personas",
-  Persona: "Persona",
-  "Choose a Persona": "Chọn một Persona",
-  "(selected)": "(đã chọn)",
-  "No Personas on this page.": "Không có Persona nào ở trang này.",
-  "Previous Personas": "Personas trước",
-  "Page {{page}} · up to 25 Personas": "Trang {{page}} · tối đa 25 Personas",
-  "Next Personas": "Personas tiếp",
-  // Provider editor
   "Edit provider: {{name}}": "Sửa nhà cung cấp: {{name}}",
   "Add provider": "Thêm nhà cung cấp",
   "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
@@ -2012,6 +1995,14 @@ Object.assign(englishUi, {
   "Pricing · USD per million tokens": "Giá · USD mỗi triệu token",
   "Input price": "Giá đầu vào",
   "Output price": "Giá đầu ra",
+  Capabilities: "Khả năng",
+  "Override declared specs": "Ghi đè thông số khai báo",
+  "Fetch models from the provider": "Lấy mô hình từ nhà cung cấp",
+  "Models reported by the provider": "Mô hình nhà cung cấp báo về",
+  "The provider did not answer.": "Nhà cung cấp không phản hồi.",
+  "This endpoint reported no models.": "Endpoint này không báo về mô hình nào.",
+  "Add manually": "Thêm thủ công",
+  "Add {{count}} models": "Thêm {{count}} mô hình",
   "The catalog changed or conflicted. Reconcile the saved revision, review your draft, and retry manually.":
     "Danh mục đã thay đổi hoặc xung đột. Đồng bộ revision đã lưu, kiểm tra lại bản nháp và thử lại thủ công.",
   "Reconcile saved model": "Đồng bộ mô hình đã lưu",

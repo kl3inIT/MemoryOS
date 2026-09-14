@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.chat.catalog.ChatProviderAdapters;
+import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.api.chat.contract.ChatGroupPageResponse;
@@ -13,6 +14,7 @@ import io.memoryos.api.chat.contract.ChatPersonaPageResponse;
 import io.memoryos.api.chat.contract.ChatProviderAdapterResponse;
 import io.memoryos.api.chat.contract.ChatProviderRequest;
 import io.memoryos.api.chat.contract.ChatProviderResponse;
+import io.memoryos.api.chat.contract.ChatReportedModelsResponse;
 import io.memoryos.iam.group.GroupQuery;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,10 +60,13 @@ class ChatModelCatalogController {
     private final ModelCatalogService catalog;
     private final ChatProviderAdapters adapters;
     private final ChatModelValidation validation;
-    ChatModelCatalogController(ModelCatalogService catalog, ChatProviderAdapters adapters, ChatModelValidation validation) {
+    private final ChatModelResolver models;
+    ChatModelCatalogController(ModelCatalogService catalog, ChatProviderAdapters adapters,
+                               ChatModelValidation validation, ChatModelResolver models) {
         this.catalog = catalog;
         this.adapters = adapters;
         this.validation = validation;
+        this.models = models;
     }
 
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
@@ -113,6 +118,16 @@ class ChatModelCatalogController {
                         @PathVariable UUID providerId, @RequestParam @Positive long revision) {
         catalog.deleteProvider(identity.actorId(), providerId, revision);
     }
+
+    @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
+    @GetMapping("/providers/{providerId}/reported-models")
+    @Operation(operationId = "listReportedProviderModels",
+            summary = "List the model names the provider endpoint reports; requires model management")
+    ChatReportedModelsResponse reportedModels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID providerId) {
+        return new ChatReportedModelsResponse(models.reportedModels(identity.actorId(), providerId));
+    }
+
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/providers/{providerId}/models")
     @Operation(operationId = "listConfiguredChatModels", summary = "List all configured models on a provider; requires model management")

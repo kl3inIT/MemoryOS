@@ -26,6 +26,14 @@ public interface ChatProviderAdapter {
     /** Explicit per-model declaration of provider-hosted Web search; never inferred from a model name. */
     default boolean supportsNativeWebSearch(ModelSettings settings) { return false; }
 
+    /**
+     * Model names the connected endpoint reports. Contacting the provider is the point, so callers
+     * treat a failure as provider unavailability and never echo the provider's payload.
+     */
+    default List<String> reportedModels(Connection connection, Duration timeout) {
+        throw io.memoryos.chat.ChatException.invalid("This adapter cannot list provider models.");
+    }
+
     /** Local validation only. Must not contact the model or echo credentials in errors. */
     void validate(String baseUrl, String modelName, ModelSettings settings);
 

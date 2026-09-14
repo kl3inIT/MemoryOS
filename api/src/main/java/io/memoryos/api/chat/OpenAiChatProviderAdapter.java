@@ -73,6 +73,27 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     }
 
     @Override
+    public List<String> reportedModels(Connection connection, Duration timeout) {
+        ModelCatalogService.validateEndpoint(connection.baseUrl());
+        if (connection.credential().isBlank()) throw ChatException.providerUnavailable();
+        var client = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl())
+                .apiKey(connection.credential()).maxRetries(0).timeout(timeout).build();
+        try {
+            var names = new java.util.ArrayList<String>();
+            for (var model : client.models().list().autoPager()) {
+                names.add(model.id());
+                if (names.size() >= 500) break;
+            }
+            return names;
+        } catch (RuntimeException failure) {
+            // The provider payload may carry account detail; report unavailability instead.
+            throw ChatException.providerUnavailable();
+        } finally {
+            client.close();
+        }
+    }
+
+    @Override
     public Client create(Connection connection, String modelName, ModelSettings settings, Duration timeout) {
         validate(connection.baseUrl(), modelName, settings);
         if (connection.credential().isBlank()) throw ChatException.providerUnavailable();

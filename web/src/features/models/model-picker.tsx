@@ -21,7 +21,6 @@ export function ModelPicker({
   options,
   disabled,
   placeholder,
-  inheritLabel,
   ariaLabel,
   onChange,
 }: {
@@ -29,8 +28,6 @@ export function ModelPicker({
   options: ModelPickerOption[];
   disabled?: boolean;
   placeholder: string;
-  /** Persona pickers offer an explicit Inherit choice. */
-  inheritLabel?: string;
   ariaLabel: string;
   onChange: (modelId: string) => void;
 }) {
@@ -88,9 +85,7 @@ export function ModelPicker({
               </span>
             </>
           ) : (
-            <span className="min-w-0 flex-1 truncate text-content-muted">
-              {value === "" && inheritLabel ? inheritLabel : placeholder}
-            </span>
+            <span className="min-w-0 flex-1 truncate text-content-muted">{placeholder}</span>
           )}
           <ChevronDown
             className={cn(
@@ -116,20 +111,6 @@ export function ModelPicker({
             className="pl-8"
           />
         </div>
-        {inheritLabel && (
-          <button
-            type="button"
-            onClick={() => {
-              onChange("");
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-main-ui-body hover:bg-surface-base"
-          >
-            <span className="size-4" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate">{inheritLabel}</span>
-            {value === "" && <Check className="size-4 text-content-primary" aria-hidden="true" />}
-          </button>
-        )}
         <div className="max-h-72 overflow-y-auto">
           {groups.map((group) => {
             const isCollapsed = collapsed[group.provider.id] ?? false;

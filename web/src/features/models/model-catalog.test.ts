@@ -5,7 +5,6 @@ import {
   modelBody,
   modelDraft,
   modelDraftError,
-  personaCandidate,
   refreshModelCatalog,
   tenantCandidate,
   type InstalledAdapter,
@@ -125,15 +124,6 @@ describe("default eligibility and deletion dependencies", () => {
       false,
     );
     expect(tenantCandidate(model, provider, [])).toBe(false);
-  });
-
-  it("does not bypass Persona allowlists for a manager and does not offer hidden models", () => {
-    const restricted = { ...provider, isPublic: false, personaIds: ["allowed"] };
-    expect(personaCandidate(model, restricted, [adapter], "allowed")).toBe(true);
-    expect(personaCandidate(model, restricted, [adapter], "other")).toBe(false);
-    expect(personaCandidate({ ...model, visible: false }, restricted, [adapter], "allowed")).toBe(
-      false,
-    );
   });
 
   it("retires saved defaults and workspace catalogs after mutation without invalidating transcript", async () => {
