@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -127,18 +128,25 @@ public class JdbcDocumentChunkRepository {
                 .param("identity", identity).update() == 1;
     }
 
+    /**
+     * Records the state of the current content generation. Readiness is withdrawn only when that generation is the one
+     * being served (projection repair); a pending or failed replacement leaves the previous ready generation searchable.
+     */
     public void searchState(TenantId tenant, DocumentId document, UUID generation, String error) {
         jdbc.sql("""
-                UPDATE documents SET searchable_generation=NULL,search_index_identity=NULL,search_error_code=:error
+                UPDATE documents SET search_error_code=:error,
+                    searchable_generation=CASE WHEN searchable_generation=:generation THEN NULL ELSE searchable_generation END,
+                    search_index_identity=CASE WHEN searchable_generation=:generation THEN NULL ELSE search_index_identity END
                 WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("error", error, Types.VARCHAR).update();
     }
 
+    /** Whether the generation is the one currently served under the index identity. */
     public boolean isCurrent(TenantId tenant, DocumentId document, UUID generation, String identity) {
         return jdbc.sql("""
                 SELECT COUNT(*) FROM documents WHERE tenant_id=:tenant AND id=:document AND status='ELIGIBLE'
-                    AND content_generation=:generation AND searchable_generation=:generation AND search_index_identity=:identity
+                    AND searchable_generation=:generation AND search_index_identity=:identity
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("identity", identity).query(Integer.class).single() == 1;
     }
@@ -161,11 +169,27 @@ public class JdbcDocumentChunkRepository {
         if (documents.isEmpty()) return Map.of();
         if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var rows = jdbc.sql("""
-                SELECT id,content_generation FROM documents WHERE tenant_id=:tenant AND id IN (:documents)
+                SELECT id,CASE WHEN :identity='' THEN content_generation ELSE searchable_generation END AS generation
+                FROM documents WHERE tenant_id=:tenant AND id IN (:documents)
                     AND status='ELIGIBLE' AND (:identity='' OR
-                        (searchable_generation=content_generation AND search_index_identity=:identity))
+                        (searchable_generation IS NOT NULL AND search_index_identity=:identity))
                 """).param("tenant", tenant.value()).param("documents", documents).param("identity", readyIdentity)
-                .query((rs, _) -> Map.entry(rs.getObject("id", UUID.class), rs.getObject("content_generation", UUID.class))).list();
+                .query((rs, _) -> Map.entry(rs.getObject("id", UUID.class), rs.getObject("generation", UUID.class))).list();
+        return rows.stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    public Map<UUID, Set<UUID>> retainedGenerations(TenantId tenant, List<UUID> documents) {
+        if (documents.isEmpty()) return Map.of();
+        if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
+        var rows = jdbc.sql("""
+                SELECT id,content_generation,searchable_generation FROM documents
+                WHERE tenant_id=:tenant AND id IN (:documents) AND status='ELIGIBLE'
+                """).param("tenant", tenant.value()).param("documents", documents)
+                .query((rs, _) -> {
+                    var served = rs.getObject("searchable_generation", UUID.class);
+                    var current = rs.getObject("content_generation", UUID.class);
+                    return Map.entry(rs.getObject("id", UUID.class), served == null || served.equals(current) ? Set.of(current) : Set.of(current, served));
+                }).list();
         return rows.stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 

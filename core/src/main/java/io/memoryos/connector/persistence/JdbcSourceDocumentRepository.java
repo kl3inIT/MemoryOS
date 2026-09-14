@@ -160,7 +160,7 @@ public class JdbcSourceDocumentRepository {
                 JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation)
+                    AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation OR d.searchable_generation=:generation)
                     AND c.status='ACTIVE' AND %s AND p.status<>'DELETING'
                     AND (:indexing OR (p.status IN ('ACTIVE','INDEXING') AND %s))
                 ORDER BY m.document_id,p.id,i.id
